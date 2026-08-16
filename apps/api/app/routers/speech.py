@@ -22,6 +22,18 @@ router = APIRouter(prefix="/speech", tags=["speech"])
 
 # Matches SpeechTranscriptionIn.audio_base64 max_length plus JSON wrapper overhead.
 MAX_SPEECH_JSON_BYTES = 7_500_000
+_TTS_FOLLOWUP_TTL_SECONDS = 120
+
+
+def _tts_followup_key(user_id: object) -> str:
+    return f"speech_tts_followup:{user_id}"
+
+
+def _normalize_tts_part(raw: str | None) -> str:
+    part = (raw or "full").strip().lower()
+    if part in {"full", "lead", "rest"}:
+        return part
+    return "full"
 
 
 def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
@@ -86,17 +98,32 @@ async def synthesize_speech(
             )
 
     daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
-    if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.speech_tts_limit_exceeded_message(user),
-        )
+    part = _normalize_tts_part(body.part)
+    reserved_quota = False
+    if part == "rest":
+        followup = await redis.get(_tts_followup_key(user.id))
+        if not followup:
+            if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=quota_service.speech_tts_limit_exceeded_message(user),
+                )
+            reserved_quota = True
+    else:
+        if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=quota_service.speech_tts_limit_exceeded_message(user),
+            )
+        reserved_quota = True
 
     try:
+        alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
             settings,
             body.text,
             language=body.language,
+            model_alias=alias,
         )
         if not result:
             raise HTTPException(
@@ -104,17 +131,26 @@ async def synthesize_speech(
                 detail="Could not synthesize speech",
             )
         audio_bytes, content_type = result
+        if part == "lead":
+            await redis.set(
+                _tts_followup_key(user.id),
+                "1",
+                ex=_TTS_FOLLOWUP_TTL_SECONDS,
+            )
+        elif part == "rest":
+            await redis.delete(_tts_followup_key(user.id))
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,
-            model="tts-model",
+            model=alias,
         )
     except HTTPException as exc:
-        if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
+        if reserved_quota and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
             await quota_service.refund_speech_tts(redis, user.id)
         raise
     except Exception:
-        await quota_service.refund_speech_tts(redis, user.id)
+        if reserved_quota:
+            await quota_service.refund_speech_tts(redis, user.id)
         raise
 
 

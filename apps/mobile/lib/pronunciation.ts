@@ -5,6 +5,8 @@ import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-syst
 import { requestRaw } from "@/lib/api/client";
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import { markdownToPlainText } from "@/lib/markdownPlain";
+import { splitTtsLead } from "@/lib/ttsChunks";
+import { getTtsModel } from "@/lib/ttsPreference";
 import { loadExpoAudio } from "@/lib/voiceAudio";
 
 type SpeechModule = typeof import("expo-speech");
@@ -12,6 +14,7 @@ type SpeechModule = typeof import("expo-speech");
 /** undefined = not loaded yet; null = unavailable or failed to load. */
 let speechModule: SpeechModule | null | undefined;
 let cloudPlayerCleanup: (() => void) | null = null;
+let ttsAbort: AbortController | null = null;
 
 /** Sync require keeps expo-speech in the main bundle (async import() breaks Metro module IDs). */
 function loadSpeech(): SpeechModule | null {
@@ -35,20 +38,26 @@ export type SpeakResult = { ok: true } | { ok: false; reason: "unavailable" | "e
 async function fetchCloudTts(
   token: string,
   text: string,
-  language?: string,
+  language: string | undefined,
+  model: string | undefined,
+  part: "full" | "lead" | "rest",
+  signal?: AbortSignal,
 ): Promise<{ audio_base64: string; content_type: string } | null> {
-  const plain = markdownToPlainText(text).slice(0, 4000);
+  const plain = text.slice(0, 4000).trim();
   if (!plain) return null;
-  // Route through lib/api's requestRaw so this fetch shares the REST path's
-  // 401→refresh→retry behaviour (fetchWithTimeout did not auto-refresh) and
-  // the lib/api boundary stays the single network egress point.
   const response = await requestRaw(
     "/speech/tts",
     token,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: plain, language: language ?? null }),
+      body: JSON.stringify({
+        text: plain,
+        language: language ?? null,
+        model: model ?? null,
+        part,
+      }),
+      signal,
     },
   );
   if (!response.ok) return null;
@@ -182,12 +191,40 @@ export async function speakPlainText(
   const token = options?.token ?? null;
   if (token && canUseVoiceInput()) {
     try {
-      const cloud = await fetchCloudTts(token, text, language);
-      if (cloud) {
-        const played = await playCloudBase64(cloud.audio_base64, cloud.content_type);
-        if (played.ok) return played;
+      ttsAbort?.abort();
+      const ac = new AbortController();
+      ttsAbort = ac;
+      const ttsModel = await getTtsModel();
+      const plain = markdownToPlainText(text).slice(0, 4000);
+      const { lead, rest } = splitTtsLead(plain);
+      const leadPart = rest ? "lead" : "full";
+      const leadCloud = await fetchCloudTts(
+        token,
+        lead,
+        language,
+        ttsModel,
+        leadPart,
+        ac.signal,
+      );
+      if (leadCloud) {
+        const restFetch = rest
+          ? fetchCloudTts(token, rest, language, ttsModel, "rest", ac.signal)
+          : Promise.resolve(null);
+        const [leadPlayed, restCloud] = await Promise.all([
+          playCloudBase64(leadCloud.audio_base64, leadCloud.content_type),
+          restFetch,
+        ]);
+        if (!leadPlayed.ok) return leadPlayed;
+        if (!rest) return leadPlayed;
+        if (restCloud) {
+          return playCloudBase64(restCloud.audio_base64, restCloud.content_type);
+        }
+        return speakDevicePlainText(rest, language);
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return { ok: true };
+      }
       /* fall through */
     }
   }
@@ -209,6 +246,8 @@ export async function speakWord(
 }
 
 export function stopSpeaking(): void {
+  ttsAbort?.abort();
+  ttsAbort = null;
   if (cloudPlaybackFinish) {
     cloudPlaybackFinish();
     cloudPlaybackFinish = null;

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import io
 import logging
+import wave
 from pathlib import Path
 
 from app.core.config import Settings
@@ -15,6 +17,9 @@ _OPENROUTER_TRANSCRIBE_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
 _OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 _TRANSCRIBE_TIMEOUT = 60.0
 _TTS_TIMEOUT = 60.0
+_DEFAULT_PCM_RATE = 24000
+_DEFAULT_PCM_CHANNELS = 1
+_PCM_SAMPLE_WIDTH = 2
 
 _OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".m4a": "m4a",
@@ -31,6 +36,43 @@ _OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
 def openrouter_audio_format(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
     return _OPENROUTER_FORMAT_BY_SUFFIX.get(suffix, suffix.lstrip(".") or "m4a")
+
+
+def tts_response_format(model: str) -> str:
+    slug = model.lower()
+    if slug.startswith("google/") or "gemini" in slug:
+        return "pcm"
+    return "mp3"
+
+
+def pcm_to_wav(
+    pcm: bytes,
+    *,
+    sample_rate: int = _DEFAULT_PCM_RATE,
+    channels: int = _DEFAULT_PCM_CHANNELS,
+) -> bytes:
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wav:
+        wav.setnchannels(max(channels, 1))
+        wav.setsampwidth(_PCM_SAMPLE_WIDTH)
+        wav.setframerate(sample_rate if sample_rate > 0 else _DEFAULT_PCM_RATE)
+        wav.writeframes(pcm)
+    return buf.getvalue()
+
+
+def _parse_pcm_params(content_type: str) -> tuple[int, int]:
+    rate, channels = _DEFAULT_PCM_RATE, _DEFAULT_PCM_CHANNELS
+    for part in content_type.lower().split(";"):
+        token = part.strip()
+        if token.startswith("rate="):
+            digits = token[5:].strip()
+            if digits.isdigit():
+                rate = int(digits)
+        elif token.startswith("channels="):
+            digits = token[9:].strip()
+            if digits.isdigit():
+                channels = int(digits)
+    return rate, channels
 
 
 async def transcribe_via_openrouter(
@@ -88,6 +130,14 @@ async def transcribe_via_openrouter(
         return None
 
 
+def _openai_tts_instructions(language: str | None) -> str:
+    base = "Speak clearly and naturally, as a helpful assistant reading a message aloud."
+    locale = (language or "").strip()
+    if not locale:
+        return base
+    return f"{base} Use a natural voice appropriate for locale {locale}."
+
+
 async def synthesize_via_openrouter(
     settings: Settings,
     text: str,
@@ -96,14 +146,22 @@ async def synthesize_via_openrouter(
     voice: str,
     language: str | None = None,
 ) -> tuple[bytes, str] | None:
+    # OpenRouter /audio/speech is OpenAI-compatible: model, input, voice,
+    # response_format. A `language` field 400s and the app falls back to
+    # on-device speech — pass locale only as OpenAI voice instructions.
+    response_format = tts_response_format(model)
     payload: dict[str, object] = {
         "model": model,
         "input": text,
         "voice": voice,
-        "response_format": "mp3",
+        "response_format": response_format,
     }
-    if language:
-        payload["language"] = language
+    if model.startswith("openai/"):
+        payload["provider"] = {
+            "options": {
+                "openai": {"instructions": _openai_tts_instructions(language)},
+            }
+        }
     try:
         client = get_pooled_client(_TTS_TIMEOUT)
         response = await client.post(
@@ -126,7 +184,18 @@ async def synthesize_via_openrouter(
         if not audio:
             logger.warning("OpenRouter TTS returned empty audio model=%s", model)
             return None
-        return audio, "audio/mpeg"
+        header_type = (response.headers.get("content-type") or "").lower()
+        content_type = header_type.split(";")[0].strip()
+        looks_pcm = "pcm" in header_type or (
+            response_format == "pcm"
+            and "mpeg" not in header_type
+            and "mp3" not in header_type
+            and "wav" not in header_type
+        )
+        if looks_pcm:
+            rate, channels = _parse_pcm_params(header_type)
+            return pcm_to_wav(audio, sample_rate=rate, channels=channels), "audio/wav"
+        return audio, content_type or "audio/mpeg"
     except Exception:
         logger.exception("Speech TTS failed model=%s chars=%s", model, len(text))
         return None

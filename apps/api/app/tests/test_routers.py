@@ -2087,7 +2087,7 @@ def test_speech_tts_ok():
     assert r.status_code == 200
     body = r.json()
     assert body["content_type"] == "audio/mpeg"
-    assert body["model"] == "tts-model"
+    assert body["model"] == "speech-tts-model"
     assert base64.b64decode(body["audio_base64"]) == b"fake-mp3"
 
 

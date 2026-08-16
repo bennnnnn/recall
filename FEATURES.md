@@ -72,9 +72,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
-- ✅ **Read aloud (TTS)** — speaker on assistant messages and vocab words prefers cloud
-  `POST /speech/tts` when a **dev build** + token are available; falls back to on-device
-  `expo-speech`. Unavailable in Expo Go (same native gate as voice input).
+- ✅ **Read aloud (TTS)** — speaker uses OpenRouter **Gemini 3.1 Flash TTS** by default
+  (`POST /speech/tts`); **Kokoro 82M** is the cheap alternative (`speech-tts-fast-model`).
+  Dev build required; falls back to on-device `expo-speech` if the cloud call fails.
 - 🔜 Reactions, read receipts; duplex full-voice mode (out of scope).
 
 ## 4. Formatting & rendering
