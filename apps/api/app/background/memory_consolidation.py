@@ -13,8 +13,6 @@ from app.services import memory_llm
 from app.services.memory import (
     accept_memory_section_rewrite,
     acquire_memory_write_lock,
-    embedding_text_hash,
-    invalidate_memory_block,
     join_memory_facts,
     normalize_memory_text,
     release_memory_write_lock,
@@ -23,6 +21,7 @@ from app.services.memory import (
     split_memory_facts,
     stamp_memory_as_of,
 )
+from app.services.memory.apply import apply_memory_section_rows
 
 logger = logging.getLogger(__name__)
 
@@ -100,72 +99,6 @@ async def _merge_one_section(
     return None
 
 
-async def _apply_consolidation_result(
-    settings: Settings,
-    *,
-    user_id: UUID,
-    rows: list[tuple[str, str, float, UUID | None]],
-) -> None:
-    from app.gateways import embedding_gateway
-
-    # Phase 1 — persist the upsert and collect what needs (re)embedding,
-    # then release the DB connection before the slow embedding HTTP calls.
-    #
-    # See migration 0057: compare against the persisted embedding_text_hash
-    # rather than "was this type touched by this consolidation call" so a
-    # prior embed failure is detected and retried on every later pass, not
-    # just the one where the text changed.
-    embed_needed: list[tuple[UUID, str]] = []
-    async with SessionLocal() as session:
-        await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
-        updated = await memories_repo.list_for_user(session, user_id)
-        for memory in updated:
-            needs_embed = (
-                memory.embedding is None
-                or memory.embedding_json is None
-                or memory.embedding_text_hash != embedding_text_hash(memory.text)
-            )
-            if needs_embed:
-                embed_needed.append((memory.id, memory.text))
-        await session.commit()
-
-    if not embed_needed:
-        await invalidate_memory_block(user_id)
-        return
-
-    # Phase 2 — embed with no DB connection held (slow provider HTTP).
-    vectors = await asyncio.gather(
-        *(embedding_gateway.embed_text(settings, text) for _, text in embed_needed)
-    )
-    to_write: list[tuple[UUID, list[float], str, str]] = []
-    for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
-        if vec:
-            to_write.append(
-                (
-                    memory_id,
-                    vec,
-                    embedding_gateway.serialize_embedding(vec),
-                    embedding_text_hash(text),
-                )
-            )
-
-    # Phase 3 — write vectors in a fresh short-lived session.
-    if to_write:
-        async with SessionLocal() as session:
-            from app.models.orm import Memory
-
-            for memory_id, vec, vec_json, text_hash in to_write:
-                row = await session.get(Memory, memory_id)
-                if row is None:
-                    continue
-                row.embedding = vec
-                row.embedding_json = vec_json
-                row.embedding_text_hash = text_hash
-            await session.commit()
-
-    await invalidate_memory_block(user_id)
-
-
 async def consolidate_user_memory_sections(
     settings: Settings,
     *,
@@ -219,10 +152,12 @@ async def consolidate_user_memory_sections(
             if not rows:
                 return False
 
-            await _apply_consolidation_result(
+            await apply_memory_section_rows(
                 settings,
                 user_id=user_id,
                 rows=rows,
+                session_factory=SessionLocal,
+                memories=memories_repo,
             )
             return True
         finally:

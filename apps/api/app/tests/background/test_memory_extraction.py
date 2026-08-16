@@ -403,7 +403,6 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         ),
         patch("app.repositories.memories.upsert_sections", upsert),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.background.memory_consolidation.invalidate_memory_block", AsyncMock()),
         patch("app.services.home.invalidate_home_cache", AsyncMock()),
     ):
         await asyncio.gather(

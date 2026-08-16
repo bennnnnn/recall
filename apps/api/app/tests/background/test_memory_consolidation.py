@@ -165,9 +165,13 @@ async def test_consolidate_merges_messy_sections():
             AsyncMock(),
         ) as upsert,
         patch(
-            "app.background.memory_consolidation.invalidate_memory_block",
+            "app.services.memory.invalidate_memory_block",
             AsyncMock(),
-        ),
+        ) as invalidate_memory,
+        patch(
+            "app.services.home.invalidate_home_cache",
+            AsyncMock(),
+        ) as invalidate_home,
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
@@ -184,6 +188,8 @@ async def test_consolidate_merges_messy_sections():
     written = upsert.call_args.kwargs["items"][0][1]
     assert written.startswith("As of ")
     assert written.endswith(expected_body)
+    invalidate_memory.assert_awaited_once_with(user_id)
+    invalidate_home.assert_awaited_once_with(user_id)
 
 
 @pytest.mark.asyncio
@@ -263,7 +269,11 @@ async def test_consolidate_applies_only_sections_that_need_merge():
             AsyncMock(),
         ) as upsert,
         patch(
-            "app.background.memory_consolidation.invalidate_memory_block",
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.home.invalidate_home_cache",
             AsyncMock(),
         ),
         patch(
@@ -364,7 +374,11 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
             AsyncMock(),
         ),
         patch(
-            "app.background.memory_consolidation.invalidate_memory_block",
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.home.invalidate_home_cache",
             AsyncMock(),
         ),
         patch(
@@ -431,7 +445,11 @@ async def test_consolidate_stores_embedding_when_vector_present():
             AsyncMock(),
         ),
         patch(
-            "app.background.memory_consolidation.invalidate_memory_block",
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.home.invalidate_home_cache",
             AsyncMock(),
         ),
         patch(
@@ -536,7 +554,11 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
             AsyncMock(),
         ),
         patch(
-            "app.background.memory_consolidation.invalidate_memory_block",
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.home.invalidate_home_cache",
             AsyncMock(),
         ),
         patch(
@@ -639,7 +661,11 @@ async def test_consolidate_deterministic_dedupe_skips_llm():
             AsyncMock(),
         ) as upsert,
         patch(
-            "app.background.memory_consolidation.invalidate_memory_block",
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.home.invalidate_home_cache",
             AsyncMock(),
         ),
         patch(
