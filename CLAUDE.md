@@ -43,7 +43,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry/graph SVG, chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
-**Flag-gated, off by default:** the MCP tool layer. `gateways/mcp/` (sympy, calendar, image-gen, web-search adapters) plus `services/tool_loop.py` and `services/chat_tools.py` are implemented and tested, but `mcp_tools_enabled` and `mcp_tool_loop_enabled` both default to `false`. Treat this path as optional until intentionally enabled — see `docs/math.md` and `FEATURES.md` §16.
+**Owned tool loop, on by default:** `gateways/mcp/` (sympy, calendar, image-gen, web-search) plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
 **Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; duplex full-voice; arbitrary user MCP servers. A **web client sharing this same API** is planned later. Attachment RAG is shipped.
 
@@ -126,7 +126,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 |---------|------|----------------|---------------|
 | HTTP/WS endpoint | `routers/` + `main.py` `include_router` | Thin router → service | Drop router registration + tests |
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
-| MCP / model tools | `gateways/mcp/` + `setup_mcp_adapters` | `register(Adapter)` implementing `ToolAdapter` | Unregister; keep `mcp_tool_loop_enabled` default **off** |
+| MCP / model tools | `gateways/mcp/` + `setup_mcp_adapters` | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
 | Background job | `background/handlers.py` + `core/jobs.py` `register` | Add handler in `handlers.py`; enqueue from `post_turn.py` or a scheduler — never on the stream path | Unregister + stop enqueue |
 | Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
 | Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
@@ -136,7 +136,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tools_enabled` / `mcp_tool_loop_enabled` (off), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -146,7 +146,7 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 2. Check + reserve daily quota (Redis)
 3. Image-generation intent interception (Pro; may return without an LLM turn)
 4. `turn_prep/`: memory + recent window, attachments/RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve
-5. Optional MCP tool loop if `mcp_tool_loop_enabled`
+5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream math fence correction (`math_fence.py`)
 8. Persist assistant + usage in a finalize task
@@ -274,7 +274,7 @@ Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In �
 
 **Shipped beyond the original MVP week:** Learning projects + quizzes, todos/reminders, Gmail/calendar, attachments + RAG, image gen, STT/TTS, web search, math/geometry/graph, rich fences, Pro/RevenueCat, push, Fly `api`/`worker` split, flag-gated MCP tool loop. Full catalog: FEATURES.md.
 
-**Later:** web client, full chat-history semantic RAG, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose. The MCP tool layer is built but flag-gated off (see Service Overview).
+**Later:** web client, full chat-history semantic RAG, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose. The owned tool loop is on by default (see Service Overview).
 
 ## Milestones (MVP week — complete)
 

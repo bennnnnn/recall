@@ -2,7 +2,7 @@
 
 Server-side SymPy verifies and samples; the mobile app only renders. Do not add on-device solving.
 
-## Default product path (`MCP_TOOL_LOOP_ENABLED=false`)
+## Default product path (heuristic SymPy, always)
 
 1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph` / ` ```answer `).
 2. **LLM stream** — model explains using those values and emits fences.
@@ -13,9 +13,9 @@ Camera math is a specialization of step 1: fixed prompt → vision extract → s
 
 **KaTeX cold start (deliberate):** `lib/katexRender.ts` statically imports KaTeX plus its CSS. That bundle loads on the first markdown message that can reach `MathView` / `AnswerBlock`, whether or not the reply contains display math. MathJax stays behind a dynamic `import()` for `multline`/`eqnarray` only. Do not lazy-load KaTeX to “fix” chat start — the sync path is the documented trade-off (`mathHtml.ts`).
 
-## Tool-loop path (`MCP_TOOL_LOOP_ENABLED=true`)
+## Tool-loop path (`MCP_TOOL_LOOP_ENABLED=true`, default)
 
-Heuristic pre-solve and web-search injection are skipped. The model may call the `sympy` MCP tool. Tool results that include a `canonical_fence` in `ToolResult.data` are collected into `VerifiedMathBlock` so step 3 still rewrites fences. Treat this path as optional until you intentionally turn the loop on in production.
+Heuristic pre-solve and web-search injection **still run**. The model may also call the `sympy` / `web_search` / `calendar` / `generate_image` tools for follow-ups. Tool results that include a `canonical_fence` in `ToolResult.data` are collected into `VerifiedMathBlock` so step 3 still rewrites fences.
 
 ## Formula emit rule (prompts must agree)
 

@@ -64,9 +64,13 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
 
 
 def test_mcp_registry_setup():
+    from app.gateways.mcp.registry import clear
+
+    clear()
     setup_mcp_adapters(Settings())
     assert get("web_search") is not None
     assert get("calendar") is not None
+    clear()
 
 
 def test_mcp_registry_sympy_absent_when_math_tools_disabled():

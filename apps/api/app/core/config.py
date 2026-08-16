@@ -58,8 +58,10 @@ class Settings(BaseSettings):
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
     # Model-initiated LiteLLM tools= loop (bounded rounds before stream).
-    # When on, skips heuristic pre-stream MCP + web-search injection for that turn.
-    mcp_tool_loop_enabled: bool = False
+    # On by default for owned adapters (web_search / sympy / calendar / image_gen).
+    # Heuristic SymPy + web-search inject still run so homework and first-turn
+    # search do not depend on the model choosing a tool.
+    mcp_tool_loop_enabled: bool = True
     mcp_tool_loop_max_rounds: int = 3
     mcp_tool_loop_timeout_seconds: float = 30.0
 
