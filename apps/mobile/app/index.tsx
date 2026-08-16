@@ -4,7 +4,7 @@ import {
   View,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -76,6 +76,11 @@ function ChatScreen() {
   const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
+  useFocusEffect(
+    useCallback(() => {
+      void refreshHome({ silent: true });
+    }, [refreshHome]),
+  );
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
     useChatErrorHandlers(isPro);
   const activeChatId = draft.activeChatId;
