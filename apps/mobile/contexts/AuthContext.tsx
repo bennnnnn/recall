@@ -22,7 +22,7 @@ import {
 } from "@/lib/api";
 import { signInWithAppleCredentials } from "@/lib/apple-auth";
 import { signInWithGoogleIdToken, signOutGoogle } from "@/lib/google-auth";
-import i18n from "@/lib/i18n";
+import { ensureLocale } from "@/lib/i18n";
 import {
   clearToken,
   getOnboarded,
@@ -268,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sync i18n language with user preference (including optimistic locale patches).
   useEffect(() => {
     if (user?.locale) {
-      void i18n.changeLanguage(user.locale);
+      void ensureLocale(user.locale);
     }
   }, [user?.locale]);
 

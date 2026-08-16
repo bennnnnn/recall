@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts, SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
-import { StyleSheet } from "react-native";
+import { InteractionManager, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
@@ -28,8 +28,6 @@ import {
 } from "@/lib/stackTransitions";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
-
-initMobileSentry();
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -92,19 +90,20 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
+  useFonts({
     SpaceMono: SpaceMono_400Regular,
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [fontsLoaded, fontError]);
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
 
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      initMobileSentry();
+    });
+    return () => task.cancel();
+  }, []);
 
   return (
     <GestureHandlerRootView style={styles.root}>

@@ -2,8 +2,8 @@
  * Single source of truth for supported UI languages.
  *
  * To add a language: drop a `<code>.json` next to this file (mirror `en.json`'s
- * keys), import it in `index.ts`'s `resources`, and add one entry here. Missing
- * keys fall back to English automatically, so partial translations are safe.
+ * keys), add a loader in `index.ts` `LOCALE_LOADERS`, and add one entry here.
+ * Missing keys fall back to English automatically.
  */
 export type LanguageMeta = {
   code: string;
