@@ -159,10 +159,10 @@ async def _augment_web_and_tools(
     against the same base messages, then inject blocks in the historical order
     web → MCP calendar → math so prompt shape stays stable.
     """
-    # Model-initiated tool loop owns web_search + sympy when enabled — skip
-    # heuristic pre-fetch so we don't double-search / double-solve.
-    if settings.mcp_tool_loop_enabled:
-        return prompt_messages, [], None
+    # Tool loop can still call web_search / sympy mid-turn. Heuristic
+    # pre-fetch stays so homework and first-turn search do not wait on a
+    # tool call. Legacy mcp_tools_enabled calendar hints are skipped when
+    # the loop is on (see chat_tools.augment_prompt_with_mcp_tools).
 
     # Compute the math-intent signal ONCE: it gates the "calculating" status
     # below AND build_math_augmentation's own needs_symbolic_math check, so

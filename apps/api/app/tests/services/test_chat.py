@@ -1227,7 +1227,7 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
         collected = []
         async for tok in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=user_id,
             chat_id=chat_id,
             content="question",
@@ -1287,7 +1287,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
@@ -1359,7 +1359,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
@@ -1424,7 +1424,9 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100, memory_extract_every_n_turns=3),
+            Settings(
+                max_output_tokens=100, memory_extract_every_n_turns=3, mcp_tool_loop_enabled=False
+            ),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="turn two chit chat",
@@ -1491,7 +1493,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
     ):
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="add eggs to groceries",
@@ -1550,7 +1552,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="add eggs to groceries",
@@ -1625,7 +1627,7 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
@@ -2046,7 +2048,7 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
     ):
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
@@ -2105,7 +2107,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="best restaurants near me",
@@ -2169,7 +2171,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="best restaurants near me",
@@ -2269,7 +2271,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
         collected: list[str] = []
         async for tok in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
@@ -2336,7 +2338,7 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
         result: dict[str, object] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="question",
@@ -2499,7 +2501,7 @@ async def test_stream_edit_response_yields_tokens():
             tok
             async for tok in chat_module.stream_edit_response(
                 AsyncMock(),
-                Settings(max_output_tokens=100),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=user_id,
                 chat_id=chat_id,
                 message_id=message_id,
@@ -2572,7 +2574,7 @@ async def test_stream_edit_response_refunds_quota_when_delete_throws():
         with pytest.raises(RuntimeError, match="delete failed"):
             async for _ in chat_module.stream_edit_response(
                 AsyncMock(),
-                Settings(max_output_tokens=100),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=user_id,
                 chat_id=chat_id,
                 message_id=message_id,
@@ -2647,7 +2649,7 @@ async def test_stream_edit_response_keeps_storage_when_stream_fails():
         with pytest.raises(RuntimeError, match="model unavailable"):
             async for _ in chat_module.stream_edit_response(
                 AsyncMock(),
-                Settings(max_output_tokens=100),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=user_id,
                 chat_id=chat_id,
                 message_id=message_id,
@@ -2724,7 +2726,7 @@ async def _run_stream_edit_response(
     ):
         async for _ in chat_module.stream_edit_response(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=user_id,
             chat_id=chat_id,
             message_id=message_id,
@@ -2884,7 +2886,7 @@ async def test_regenerate_restores_assistant_when_stream_empty():
         with pytest.raises(ModelUnavailableError, match="isn't responding"):
             async for _ in chat_module.stream_regenerate_response(
                 AsyncMock(),
-                Settings(max_output_tokens=100),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
             ):
@@ -3018,7 +3020,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
         with pytest.raises(ModelUnavailableError):
             async for _ in chat_module.stream_regenerate_response(
                 AsyncMock(),
-                Settings(max_output_tokens=100),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
             ):
@@ -3134,7 +3136,7 @@ async def test_regenerate_passes_client_geo_to_web_search():
         with pytest.raises(ModelUnavailableError):
             async for _ in chat_module.stream_regenerate_response(
                 AsyncMock(),
-                Settings(max_output_tokens=100),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
                 client_location="San Francisco, CA",
@@ -3190,7 +3192,7 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
         tokens: list[str] = []
         async for tok in stream_and_finalize(
             AsyncMock(),
-            Settings(max_output_tokens=100),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             ctx,
             should_cancel=None,
             result=result,

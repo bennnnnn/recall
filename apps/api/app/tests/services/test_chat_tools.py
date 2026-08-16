@@ -19,7 +19,7 @@ async def test_mcp_tools_disabled_returns_unchanged():
 
 @pytest.mark.asyncio
 async def test_mcp_tools_calendar_create_hint():
-    settings = Settings(mcp_tools_enabled=True)
+    settings = Settings(mcp_tools_enabled=True, mcp_tool_loop_enabled=False)
     user_text = "Schedule a team sync tomorrow at 3pm"
     messages = [{"role": "user", "content": user_text}]
     result = await chat_tools.augment_prompt_with_mcp_tools(
@@ -157,6 +157,42 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
     user_text = "differentiate x^2"
     messages = [{"role": "system", "content": "base"}, {"role": "user", "content": user_text}]
 
+    fake_block = MagicMock()
+    fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
+
+    with patch(
+        "app.services.math_tools._build_verified_block_async",
+        AsyncMock(return_value=fake_block),
+    ):
+        updated, _hits, verified_math = await _augment_web_and_tools(
+            messages,
+            user_text,
+            settings,
+        )
+
+    matches = [m for m in updated if fake_block.text in m.get("content", "")]
+    assert len(matches) == 1
+    assert verified_math is fake_block
+
+
+def test_owned_tool_loop_defaults_on():
+    assert Settings().mcp_tool_loop_enabled is True
+    assert Settings().mcp_tools_enabled is False
+
+
+@pytest.mark.asyncio
+async def test_augment_web_and_tools_keeps_math_when_tool_loop_on():
+    """Enabling the loop must not skip heuristic SymPy — homework cannot
+    wait on the model choosing the sympy tool."""
+    from app.services.chat.prompt_builder import _augment_web_and_tools
+
+    settings = Settings(
+        math_tools_enabled=True,
+        mcp_tool_loop_enabled=True,
+        web_search_enabled=False,
+    )
+    user_text = "differentiate x^2"
+    messages = [{"role": "system", "content": "base"}, {"role": "user", "content": user_text}]
     fake_block = MagicMock()
     fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
 

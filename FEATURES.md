@@ -38,10 +38,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (backend `/search` with debounce + pagination).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
-- ✅ **Share / Export** — share a conversation as a markdown transcript via the native share
-  sheet; export an assistant reply as PDF (structured headings/lists/code); export a learning
-  topic (vocab words or trivia facts) as PDF from the project screen.
-  (chat `⋯` menu + drawer long-press); no backend needed.
+- ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
+  share sheet** (Messages, Mail, Files, …); export an assistant reply as PDF; export a
+  learning topic as PDF. Chat `⋯` + drawer long-press; no backend. This is **not** a
+  ChatGPT-style public `chatgpt.com/share/…` URL — anyone with that kind of link could
+  read the thread without signing in. Public web links are a separate privacy feature
+  (not started; do not assume we have them).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
@@ -76,7 +78,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
   remains for non-streaming clients.
-- 🔜 Reactions, read receipts; duplex full-voice mode (out of scope).
+- 🔜 Reactions, read receipts; duplex / live back-and-forth voice (later).
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
@@ -147,9 +149,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.
-- ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks into
-  the system prompt on follow-up turns (capped; invalidated on attachment delete). Chat-history
-  corpus RAG still deferred.
+- ✅ **Attachment RAG** — chunk + embed PDF/doc **text-layer** into pgvector; retrieve top
+  chunks into the system prompt on follow-up turns (capped; invalidated on attachment delete).
+- 🔜 **Chat-history semantic RAG** — the namesake: retrieve a small top-k of **past chat
+  turns** (not the full transcript — Golden Rule 3 still holds). Today we inject structured
+  user memory + the recent window + a per-chat compression summary + keyword `/search`.
+  That is not “recall this conversation from March.” Index in a background job; retrieve at
+  turn start. See [Next actions](#29-next-actions-product-decisions).
 
 ## 7. Context management & performance
 - ✅ **Token-budget window** — recent turns are kept verbatim up to a token budget
@@ -333,9 +339,10 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 - ✅ **MCP gateway skeleton** — `gateways/mcp/` with registry + adapters (`web_search`, `calendar`).
 - ⚠️ **Pre-stream tool round** — when `MCP_TOOLS_ENABLED=true`, `chat_tools.py` invokes matching
   adapters once before streaming (legacy; skipped when the tool loop is on).
-- ✅ **Full tool-calling loop** — when `MCP_TOOL_LOOP_ENABLED=true`, model-initiated LiteLLM
-  `tools=` rounds (`web_search` / `sympy` / `calendar`) with Pydantic-validated args, bounded by
-  `mcp_tool_loop_max_rounds` (default off).
+- ✅ **Full tool-calling loop** — **on by default.** Model-initiated LiteLLM `tools=` rounds
+  (`web_search` / `sympy` / `calendar` / `image_gen`) with Pydantic-validated args, bounded by
+  `mcp_tool_loop_max_rounds`. Heuristic SymPy + web-search inject still run so homework
+  and first-turn search do not wait on a tool call. Legacy `mcp_tools_enabled` stays off.
 - ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
   Pydantic before DB writes (already enforced for calendar proposals and email extraction).
 
@@ -361,7 +368,7 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 5. **Gmail read-only → suggested reminders** ✅
 6. MCP gateway abstraction + pre-stream adapter round ⚠️
 7. Write calendar events / confirm UX ✅
-8. Full LiteLLM tool-calling loop ✅ (flag-gated)
+8. Full LiteLLM tool-calling loop ✅ (on by default)
 9. Email auto-add for high-confidence types (optional, post-MVP) 🔜
 
 ---
@@ -423,8 +430,8 @@ device).
 A consolidated list of what's intentionally **not** (or only partially) in this version.
 
 ### Already shipped (keep for audit trail)
-- ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds behind `MCP_TOOL_LOOP_ENABLED`
-  (default off). See [§16 MCP & calendar](#16-mcp--calendar-planned).
+- ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
+  defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar-planned).
 - ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs; top-k into the prompt.
 - ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision → SymPy → LaTeX/steps.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
@@ -443,7 +450,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **RevenueCat webhook atomic claim** — Redis `SET NX` claim before processing; done-marker
   after success (#535).
 
-### Later / not v1
+### Later / next (not launch-blocking)
 - ✅ **Push-token re-bind hardening** — cross-user Expo token moves require a matching
   install `device_id` (stable id persisted on device; Expo removed `installationId`).
   Mismatched device → 403; successful rebinds log + Sentry breadcrumb. Residual risk:
@@ -454,15 +461,22 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   uuid4 rows are unchanged.
 - 🔜 **Full locale translation** — key-set parity is enforced (**882** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
-- 🔜 **Full chat-history semantic RAG** — embed past chats (beyond keyword `/search` + memory
-  embeddings + attachment RAG). Index in background; retrieve small top-k at turn start so chat
-  stays snappy. Not started.
+- 🔜 **Full chat-history semantic RAG** — core product (the name), not a v2 nice-to-have.
+  Embed past chats beyond keyword `/search` + user-memory embeddings + attachment RAG.
+  Index in background; retrieve small top-k at turn start. Not started.
+- 🔜 **Scanned-PDF OCR** — `pypdf.extract_text()` only reads a text layer. Image-only /
+  photographed PDFs yield no text today (we tell the user we cannot OCR yet). Make this
+  strong via page-render → vision/OCR, then the existing chunk/RAG path. Not started.
+- ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
+  SymPy + web search kept. See [§29](#29-next-actions-product-decisions).
 - 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
-- 🔜 **Code execution** beyond sandboxed HTML/chart preview (by design).
+  Google Docs + GitHub (and similar) are later owned integrations, not user-hosted MCP.
+- 🔜 **Code execution** beyond sandboxed HTML/chart preview — later, not now. Keep the
+  sandboxed WebView exception until then.
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
 - 🔜 **Web client** — same API; see [Web client](#web-client-planned) below.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
-  response caching / prompt-budget UI, duplex full-voice mode (out of scope).
+  response caching / prompt-budget UI, duplex / live voice (later).
 - ⚠️ **Production R2 + store polish** — attachment code is done; prod R2 secrets and App Store /
   Play billing polish still pending (see Pre-deployment TODO).
 
@@ -563,14 +577,14 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
-| PDF / doc upload + server text extract into prompt | ✅ Shipped (no OCR for scanned PDFs) |
+| PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX. 🔜 OCR for scanned / image-only PDFs |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | pgvector RAG over attachment corpora | ✅ Shipped (`attachment_rag`; flag on by default) |
 | Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |
-| Full chat-history corpus RAG | 🔜 Deferred |
-| Full duplex voice mode | 🔒 Out of scope |
+| Full chat-history corpus RAG | 🔜 Next (namesake; not “later/maybe”) |
+| Full duplex voice mode | 🔜 Later |
 
 Notes: multimodal routes through whichever catalog model supports the modality (vision/image-gen
 aliases on OpenRouter). Multimodal calls cost more than text — gated by plan + daily caps
@@ -609,7 +623,7 @@ structured Learning topic type.
 | Pillar | Meaning |
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, reasoning visible |
-| Memory that compounds | Facts learned across chats, injected when relevant |
+| Memory that compounds | User facts + (next) past-chat RAG — the namesake |
 | Utility beyond chat | Todos, Learning, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
@@ -620,17 +634,18 @@ structured Learning topic type.
 | MVP (mobile) | Chat + memory + todos + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | ~70% ops |
 | v1.1 | Web client (same API), locale prose, legal localization | Not started |
-| Later | Full chat-history RAG, gamification, user MCP plugins, folders / family plans | Not started |
+| Next (product) | Scanned-PDF OCR; chat-history RAG | In progress |
+| Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | Not started |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
-flag-gated LiteLLM tool loop ✅, structured profile ✅, drawer FTS search ✅.
+LiteLLM tool loop **on by default** ✅, structured profile ✅, drawer FTS search ✅.
 
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
 | English vocabulary (`language`) — decks, quiz, tutor, SM-2 | Curated trivia marketplace |
 | General knowledge (`trivia`) — topics, scoped quiz chat | Certificates, GitHub linking |
-| Project-scoped chats, home highlight, link todos to projects | In-app code runner (out of scope) |
+| Project-scoped chats, home highlight, link todos to projects | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |
 
 ### Rich rendering (§4 summary)
@@ -646,15 +661,15 @@ flag-gated LiteLLM tool loop ✅, structured profile ✅, drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
-| Vision routing for images | Document OCR for scanned PDFs |
-| PDF text extract + pgvector attachment RAG | Full chat-history corpus RAG |
+| Vision routing for images | Scanned-PDF OCR (page images → vision, then RAG) |
+| PDF text extract + pgvector attachment RAG | Full chat-history corpus RAG (namesake) |
 | Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | — |
 
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → Whisper → composer (dev build), waveform UI, rate limits | Duplex full-voice mode (out of scope) |
+| Record → Whisper → composer (dev build), waveform UI, rate limits | Duplex / live back-and-forth voice (later) |
 | Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
 
 ### Cost guards (recent)
@@ -670,8 +685,8 @@ flag-gated LiteLLM tool loop ✅, structured profile ✅, drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail prod |
-| Gmail → suggested reminders | Outlook, Slack, user MCP servers |
-| MCP gateway skeleton + LiteLLM tool loop (flag-gated) | Arbitrary user MCP servers |
+| Gmail → suggested reminders | Google Docs, GitHub (later owned integrations) |
+| MCP adapters + LiteLLM tool loop **on by default** | Arbitrary user MCP servers |
 
 ### Launch blockers (honest)
 1. Cost guards (speech, Tavily, R1 weight) ✅
@@ -682,10 +697,48 @@ flag-gated LiteLLM tool loop ✅, structured profile ✅, drawer FTS search ✅.
 6. R2 production attachments ⬜
 
 ### Explicitly not v1
-Multi-user teams, collaborative editing, arbitrary code execution (except sandboxed HTML/chart
-preview WebView), web client, gamification (XP/badges beyond learning streaks), duplex voice
-mode, arbitrary user MCP servers, multi-file HTML preview.
+Multi-user teams, collaborative editing, video generation, public unauthenticated share URLs,
+arbitrary user MCP servers, multi-file HTML preview, gamification (XP/badges beyond learning
+streaks). **OpenRouter / product aliases are the intended model setup** — not a gap.
 
-**Planned later (not blocking launch):** full chat-history semantic RAG; locale prose + legal
-bodies; folders / family plans. Attachment RAG and the LiteLLM tool loop are already on `main`
-(tool loop flag-gated, default off) — see deferred list above.
+**Next (do these):** scanned-PDF OCR; chat-history semantic RAG.
+
+**Later (not blocking launch):** Google Docs + GitHub; code execution (beyond the HTML sandbox);
+duplex voice; web client; locale prose + legal bodies; folders / family plans.
+
+---
+
+## 29. Next actions (product decisions)
+
+Compiled from the ChatGPT-gap review. One concern per PR. Do not treat OpenRouter as a
+weakness. No video generation. Native share is enough unless we later decide we want
+**public unauthenticated URLs** (we do not have those today).
+
+### Do next (this is the product)
+
+1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
+   `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
+   Heuristic SymPy + first-turn web search still run. Add Docs/GitHub later as
+   owned tools — not user MCP servers.
+2. **Scanned-PDF OCR** — today `extract_text_from_bytes` uses `pypdf.extract_text()`
+   (text layer only). Image-only PDFs return empty and we tell the user we cannot OCR.
+   Make it strong: render pages → existing vision path (or a dedicated OCR alias) →
+   same chunk/embed RAG. Do not add a second extract pipeline.
+3. **Chat-history semantic RAG** — why the app is called Recall. Today we remember
+   **the user** (typed memory) + a short recent window + a chat summary. We do **not**
+   embed old messages and retrieve them. Keep Golden Rule 3 (never dump the full
+   transcript). Add a background index + top-k at turn start, same shape as attachment RAG.
+
+### Later (scheduled, not “out of scope forever”)
+
+- Google Docs, GitHub (owned integrations).
+- Duplex / live back-and-forth voice.
+- Code execution beyond the sandboxed HTML/chart WebView.
+- Web client (same API).
+- Public share URLs only if we explicitly want unauthenticated read links.
+
+### Not doing
+
+- Video generation.
+- Custom GPTs / arbitrary user MCP servers as the way to “make tools strong.”
+- Calling rented models a product gap.
