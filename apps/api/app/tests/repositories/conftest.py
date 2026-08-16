@@ -39,6 +39,14 @@ async def db_session():
     teardown discards everything unconditionally, including anything that
     was "committed" from the repository code's point of view.
     """
+    # asyncpg connections are bound to the event loop that opened them.
+    # pytest-asyncio gives every test its own loop, and TestClient/anyio
+    # uses yet another. Disposing *after* a db_session test is not enough:
+    # the next db_session setup can still check out a leftover from a
+    # TestClient test and raise "Future attached to a different loop"
+    # during fixture setup. close=False forgets the old pool without
+    # awaiting those connections on this loop.
+    await engine.dispose(close=False)
     async with engine.connect() as connection:
         await connection.begin()
         session = AsyncSession(
@@ -51,12 +59,4 @@ async def db_session():
         finally:
             await session.close()
             await connection.rollback()
-    # asyncpg connections are bound to the event loop that opened them, and
-    # pytest-asyncio (asyncio_default_fixture_loop_scope = "function", see
-    # pyproject.toml) gives every test function its own event loop. Without
-    # this, a connection born on test A's loop could get checked back out
-    # to test B on a different loop and blow up with "Future attached to a
-    # different loop". Disposing the pool after every test guarantees the
-    # next test's first checkout always dials a fresh connection on its own
-    # (current) loop.
-    await engine.dispose()
+    await engine.dispose(close=False)

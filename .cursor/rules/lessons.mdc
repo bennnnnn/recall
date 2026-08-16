@@ -12,6 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **CI `db_session` ERROR: Future attached to a different loop.** Symptom: `test_chats_db` (or any `*_db.py`) fails in fixture setup, not the test body. Cause: the process-wide async engine still holds asyncpg connections from TestClient/anyio or the previous pytest-asyncio function loop. Dispose-after-test is too late. Fix: `await engine.dispose(close=False)` at the **start** of `db_session` so setup never checks out a foreign-loop connection.
 - **Mic stop opened the drawer; New chat then focused the composer.** Parent
   `Gesture.Pan` used view-local `e.x` (~0 on a composer tap) so a mic press
   looked like an edge swipe. Settle could leave the panel on screen with
