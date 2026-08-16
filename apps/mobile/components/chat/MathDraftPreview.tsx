@@ -1,6 +1,7 @@
 import { memo, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
 import {
@@ -9,7 +10,7 @@ import {
   findDraftNodes,
   type DraftNode,
 } from "@/lib/mathDraftSlots";
-import { caretInGroup, type LatexGroup } from "@/lib/mathKeyboardSymbols";
+import { innermostSlot, type LatexGroup } from "@/lib/mathKeyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/mathText";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -23,12 +24,15 @@ type Props = {
   input: string;
   caret?: number;
   onMoveCaret?: (pos: number) => void;
+  /** Composer only. Sent bubbles must not show an insert caret. */
+  showCaret?: boolean;
 };
 
 export const MathDraftPreview = memo(function MathDraftPreview({
   input,
   caret = 0,
   onMoveCaret,
+  showCaret = true,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -38,33 +42,38 @@ export const MathDraftPreview = memo(function MathDraftPreview({
   const after = caretAfterExpression(input);
   const tall = parts.some((p) => p.type === "math" && latexNeedsTallLine(p.value));
   if (!draftShowsMathPreview(input)) return null;
+  const liveCaret = showCaret && caret >= 0;
+  const showBeforeCaret = liveCaret && caret <= before && caret < after;
+  const showAfterCaret = liveCaret && caret >= after;
 
   return (
     <View style={[s.wrap, s.row, tall && { minHeight: MATH_TALL_LINE_HEIGHT }]} testID="math-draft-preview">
       <Pressable
         testID="math-slot-before"
         onPress={() => onMoveCaret?.(before)}
-        style={[s.edge, caret <= before && s.slotActive]}
+        style={[s.edge, showBeforeCaret && s.slotActive]}
         accessibilityRole="button"
       >
-        {caret <= before ? <View style={s.caret} testID="math-slot-before-caret" /> : null}
+        {showBeforeCaret ? <MathComposerCaret testID="math-slot-before-caret" /> : null}
       </Pressable>
       {nodes.map((node, i) => (
         <DraftPiece
           key={`${node.kind}-${node.start}-${i}`}
           node={node}
           input={input}
-          caret={caret}
+          caret={liveCaret ? caret : -1}
+          before={before}
+          after={after}
           onMoveCaret={onMoveCaret}
         />
       ))}
       <Pressable
         testID="math-slot-after"
         onPress={() => onMoveCaret?.(after)}
-        style={[s.edge, caret >= after && s.slotActive]}
+        style={[s.edge, showAfterCaret && s.slotActive]}
         accessibilityRole="button"
       >
-        {caret >= after ? <View style={s.caret} testID="math-slot-after-caret" /> : null}
+        {showAfterCaret ? <MathComposerCaret testID="math-slot-after-caret" /> : null}
       </Pressable>
     </View>
   );
@@ -74,11 +83,15 @@ function DraftPiece({
   node,
   input,
   caret,
+  before,
+  after,
   onMoveCaret,
 }: {
   node: DraftNode;
   input: string;
   caret: number;
+  before: number;
+  after: number;
   onMoveCaret?: (pos: number) => void;
 }) {
   const theme = useTheme();
@@ -101,11 +114,17 @@ function DraftPiece({
         style={[s.textHit, caret >= start && caret <= end && s.slotActive]}
         accessibilityRole="button"
       >
-        {/\\/.test(display) ? (
-          <MathText latex={display} textColor={theme.text} />
-        ) : (
-          <Text style={s.prose}>{display}</Text>
-        )}
+        <View style={s.slotRow}>
+          {caret === start && start > before ? (
+            <MathComposerCaret testID="math-slot-text-caret-start" />
+          ) : null}
+          {/\\/.test(display) ? (
+            <MathText latex={display} textColor={theme.text} />
+          ) : (
+            <Text style={s.prose}>{display}</Text>
+          )}
+          {caret === end && end < after ? <MathComposerCaret testID="math-slot-text-caret" /> : null}
+        </View>
       </Pressable>
     );
   }
@@ -226,9 +245,11 @@ function EditSlot({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const widthRef = useRef(0);
   const inner = text.slice(group.open + 1, group.close);
-  const atStart = caret === group.open + 1;
-  const atEnd = caret === group.close;
-  const active = caretInGroup(caret, group);
+  const focus = innermostSlot(text, caret);
+  const active =
+    focus != null && focus.open === group.open && focus.close === group.close;
+  const atStart = active && caret === group.open + 1;
+  const atEnd = active && caret === group.close;
   return (
     <Pressable
       testID={testID}
@@ -236,6 +257,10 @@ function EditSlot({
         widthRef.current = e.nativeEvent.layout.width;
       }}
       onPress={(e) => {
+        if (!inner) {
+          onMoveCaret?.(group.close);
+          return;
+        }
         const width = widthRef.current;
         const atFront = width > 0 && e.nativeEvent.locationX < width / 2;
         onMoveCaret?.(atFront ? group.open + 1 : group.close);
@@ -244,15 +269,17 @@ function EditSlot({
       accessibilityRole="button"
     >
       <View style={s.slotRow}>
-        {inner && atStart ? <View style={s.caret} testID={`${testID}-caret-start`} /> : null}
+        {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
         {inner ? (
           <MathText latex={inner} textColor={theme.text} />
         ) : active ? (
-          <View style={s.caret} testID={`${testID}-caret`} />
+          <View style={s.placeholderActive}>
+            <MathComposerCaret testID={`${testID}-caret`} />
+          </View>
         ) : (
-          <View style={s.empty} />
+          <View style={s.placeholder} testID={`${testID}-placeholder`} />
         )}
-        {inner && atEnd ? <View style={s.caret} testID={`${testID}-caret-end`} /> : null}
+        {inner && atEnd ? <MathComposerCaret testID={`${testID}-caret-end`} /> : null}
       </View>
     </Pressable>
   );
@@ -295,7 +322,7 @@ const makeStyles = (theme: Theme) =>
       borderTopColor: theme.text,
       marginLeft: 1,
     },
-    index: { marginRight: -2, marginBottom: 10 },
+    index: { marginRight: 0, marginBottom: 14, transform: [{ scale: 0.72 }] },
     sup: { marginBottom: 10 },
     sub: { marginTop: 10 },
     slot: {
@@ -318,15 +345,23 @@ const makeStyles = (theme: Theme) =>
       minHeight: 22,
       justifyContent: "center",
     },
-    empty: {
-      width: 12,
-      height: 14,
+    placeholder: {
+      width: 16,
+      height: 18,
+      borderRadius: 4,
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.textTertiary,
     },
-    caret: {
-      width: 2,
-      height: 16,
-      backgroundColor: theme.primary,
-      borderRadius: 1,
+    placeholderActive: {
+      width: 16,
+      height: 18,
+      borderRadius: 4,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.primaryLight,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.primary,
     },
     edge: {
       minWidth: 18,

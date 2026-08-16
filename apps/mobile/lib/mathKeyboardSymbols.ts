@@ -31,9 +31,10 @@ function key(
 export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "frac", label: "□/□", insert: "\\frac{}{}", group: "basics" }),
   key({ id: "sqrt", label: "√", insert: "\\sqrt{}", group: "basics" }),
-  key({ id: "nroot", label: "ⁿ√", insert: "\\sqrt[]{}", cursorOffset: 6, group: "basics" }),
-  key({ id: "sup", label: "xⁿ", insert: "^{}", group: "basics" }),
-  key({ id: "sub", label: "xₙ", insert: "_{}", group: "basics" }),
+  // ⁿ√ = n × square root (type 6 then ⁿ√ → 6√4 = 12). Nth root is Calc “√[n]”.
+  key({ id: "nroot", label: "ⁿ√", insert: "n\\sqrt{}", group: "basics" }),
+  key({ id: "sup", label: "xⁿ", insert: "x^{}", group: "basics" }),
+  key({ id: "sub", label: "xₙ", insert: "x_{}", group: "basics" }),
   key({ id: "abs", label: "|x|", insert: "||", group: "basics" }),
   key({ id: "pi", label: "π", insert: "\\pi ", group: "basics" }),
   key({ id: "leq", label: "≤", insert: "\\leq ", group: "basics" }),
@@ -57,6 +58,7 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
 
   key({ id: "int", label: "∫", insert: "\\int ", group: "calc" }),
   key({ id: "dint", label: "∫□", insert: "\\int_{}^{}", group: "calc" }),
+  key({ id: "nth", label: "√[n]", insert: "\\sqrt[]{}", cursorOffset: 6, group: "calc" }),
   key({ id: "sum", label: "∑", insert: "\\sum_{}^{}", group: "calc" }),
   key({ id: "prod", label: "∏", insert: "\\prod_{}^{}", group: "calc" }),
   key({ id: "lim", label: "lim", insert: "\\lim_{}", group: "calc" }),
@@ -70,12 +72,11 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "gamma", label: "γ", insert: "\\gamma ", group: "greek" }),
   key({ id: "delta", label: "δ", insert: "\\delta ", group: "greek" }),
   key({ id: "theta", label: "θ", insert: "\\theta ", group: "greek" }),
-  key({ id: "lambda", label: "λ", insert: "\\lambda ", group: "greek" }),
-  key({ id: "mu", label: "μ", insert: "\\mu ", group: "greek" }),
+  key({ id: "pi-greek", label: "π", insert: "\\pi ", group: "greek" }),
   key({ id: "sigma", label: "σ", insert: "\\sigma ", group: "greek" }),
+  key({ id: "Delta", label: "Δ", insert: "\\Delta ", group: "greek" }),
   key({ id: "phi", label: "φ", insert: "\\phi ", group: "greek" }),
   key({ id: "omega", label: "ω", insert: "\\omega ", group: "greek" }),
-  key({ id: "Delta", label: "Δ", insert: "\\Delta ", group: "greek" }),
 ];
 
 /** Always-visible pad row when the math keyboard replaces QWERTY. */
@@ -92,8 +93,6 @@ export const MATH_PAD_KEYS: readonly MathKeyboardSymbol[] = [
   key({ id: "digit-0", label: "0", insert: "0", group: "pad" }),
   key({ id: "digit-dot", label: ".", insert: ".", group: "pad" }),
   key({ id: "var-x", label: "x", insert: "x", group: "pad" }),
-  key({ id: "var-y", label: "y", insert: "y", group: "pad" }),
-  key({ id: "var-n", label: "n", insert: "n", group: "pad" }),
 ];
 
 export function symbolsInGroup(group: MathKeyboardGroup): MathKeyboardSymbol[] {
@@ -109,6 +108,45 @@ export function isCursorInsideInlineMath(text: string, pos: number): boolean {
   return dollars % 2 === 1;
 }
 
+function lastNonSpaceChar(text: string, pos: number): string {
+  let k = Math.min(Math.max(pos, 0), text.length) - 1;
+  while (k >= 0 && /\s/.test(text[k]!)) k -= 1;
+  return text[k] ?? "";
+}
+
+/** ⁿ√ is n × square root. After a number, only insert √ (the n is already there). */
+function nTimesSqrtInsert(text: string, start: number): { insert: string; cursorOffset: number } {
+  const prev = lastNonSpaceChar(text, start);
+  if (/[0-9a-zA-Z.)\]}]/.test(prev)) {
+    return { insert: "\\sqrt{}", cursorOffset: 6 };
+  }
+  return { insert: "n\\sqrt{}", cursorOffset: 7 };
+}
+
+/** xⁿ / xₙ: attach the script to an existing base, otherwise insert `x`. */
+function scriptAttachInsert(
+  text: string,
+  start: number,
+  mark: "^" | "_",
+): { insert: string; cursorOffset: number } {
+  const prev = lastNonSpaceChar(text, start);
+  if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
+    return { insert: `${mark}{}`, cursorOffset: 2 };
+  }
+  return { insert: `x${mark}{}`, cursorOffset: 3 };
+}
+
+function resolveInsert(
+  text: string,
+  start: number,
+  spec: MathKeyboardSymbol,
+): { insert: string; cursorOffset: number } {
+  if (spec.id === "nroot") return nTimesSqrtInsert(text, start);
+  if (spec.id === "sup") return scriptAttachInsert(text, start, "^");
+  if (spec.id === "sub") return scriptAttachInsert(text, start, "_");
+  return spec;
+}
+
 export function spliceMathInsert(
   text: string,
   selection: TextSelection,
@@ -116,11 +154,12 @@ export function spliceMathInsert(
 ): { text: string; selection: TextSelection } {
   const start = Math.max(0, Math.min(selection.start, text.length));
   const end = Math.max(start, Math.min(selection.end, text.length));
-  let snippet = spec.insert;
-  let cursorOffset = spec.cursorOffset;
+  const resolved = resolveInsert(text, start, spec);
+  let snippet = resolved.insert;
+  let cursorOffset = resolved.cursorOffset;
   if (!isCursorInsideInlineMath(text, start)) {
-    snippet = `$${spec.insert}$`;
-    cursorOffset = spec.cursorOffset + 1;
+    snippet = `$${resolved.insert}$`;
+    cursorOffset = resolved.cursorOffset + 1;
   }
   const next = text.slice(0, start) + snippet + text.slice(end);
   const caret = start + cursorOffset;
@@ -251,6 +290,21 @@ export function nextEditSlotCaret(text: string, caret: number): number | null {
   return later.find((s) => s.open === nextOpen)!.close;
 }
 
+/** Previous box — inverse of nextEditSlotCaret; does not wrap. */
+export function prevEditSlotCaret(text: string, caret: number): number | null {
+  const slots = findEditSlots(text);
+  if (slots.length === 0) return null;
+  const current = innermostSlot(text, caret);
+  if (!current) {
+    const earlier = slots.filter((s) => s.close < caret);
+    if (earlier.length === 0) return null;
+    return earlier.reduce((best, s) => (s.open > best.open ? s : best)).close;
+  }
+  const earlier = slots.filter((s) => s.close < current.open);
+  if (earlier.length === 0) return current.open + 1;
+  return earlier.reduce((best, s) => (s.open > best.open ? s : best)).close;
+}
+
 const STAY_IN_SLOT = /^(digit-|var-)/;
 
 /**
@@ -300,7 +354,9 @@ export function autoAdvanceFracDen(
 export type PadCell =
   | { kind: "insert"; spec: MathKeyboardSymbol }
   | { kind: "backspace" }
-  | { kind: "next" };
+  | { kind: "next" }
+  | { kind: "prev" }
+  | { kind: "slot-nav" };
 
 function padSpec(id: string): MathKeyboardSymbol {
   const spec = MATH_PAD_KEYS.find((s) => s.id === id) ?? MATH_KEYBOARD_SYMBOLS.find((s) => s.id === id);
@@ -322,7 +378,7 @@ export const MATH_NUMPAD_ROWS: PadCell[][] = [
     { kind: "insert", spec: padSpec("digit-5") },
     { kind: "insert", spec: padSpec("digit-6") },
     { kind: "insert", spec: padSpec("div") },
-    { kind: "next" },
+    { kind: "slot-nav" },
   ],
   [
     { kind: "insert", spec: padSpec("digit-1") },

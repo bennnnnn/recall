@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
@@ -28,6 +28,40 @@ const FRAC_CHAR_PX = 9;
 const FRAC_PAD_PX = 14;
 const FRAC_STACK_HEIGHT = 40;
 
+/** SpaceMono has no (or a broken) U+2260 — fallback looks like slashed ≡. */
+const MATH_OPERATOR_CHARS = new Set(
+  Array.from("≠≤≥≈∞±∓×÷∈⊂⊆⊃≡∝∼∀∃∅∠⊥∥⟨⟩∘∨∧∖"),
+);
+
+function renderMathRun(
+  value: string,
+  key: string,
+  textStyle: object,
+  glyphStyle: object,
+): ReactNode {
+  const chars = Array.from(value);
+  if (!chars.some((ch) => MATH_OPERATOR_CHARS.has(ch))) {
+    return (
+      <Text key={key} style={textStyle}>
+        {value}
+      </Text>
+    );
+  }
+  return (
+    <Text key={key} style={textStyle}>
+      {chars.map((ch, i) =>
+        MATH_OPERATOR_CHARS.has(ch) ? (
+          <Text key={`${key}-g${i}`} style={glyphStyle}>
+            {ch}
+          </Text>
+        ) : (
+          ch
+        ),
+      )}
+    </Text>
+  );
+}
+
 function fracStackSize(num: string, den: string): { width: number; height: number } {
   const chars = Math.max(num.length, den.length, 1);
   return { width: chars * FRAC_CHAR_PX + FRAC_PAD_PX, height: FRAC_STACK_HEIGHT };
@@ -42,7 +76,8 @@ function estimateMathTextSize(segments: MathSegment[]): { width: number; height:
       width += box.width + 6;
       height = Math.max(height, box.height);
     } else if (seg.type === "sqrt") {
-      width += segmentsToPlain([seg]).length * FRAC_CHAR_PX;
+      width += 14 + (seg.degree ? 10 : 0) + segmentsToPlain(seg.body).length * FRAC_CHAR_PX;
+      height = Math.max(height, 28);
     } else {
       width += Math.max(seg.value.length, 1) * FRAC_CHAR_PX;
     }
@@ -50,10 +85,9 @@ function estimateMathTextSize(segments: MathSegment[]): { width: number; height:
   return { width: Math.max(width, 24), height };
 }
 
-function hasFracSegment(segments: MathSegment[]): boolean {
+function hasTallMath(segments: MathSegment[]): boolean {
   for (const seg of segments) {
-    if (seg.type === "frac") return true;
-    if (seg.type === "sqrt" && hasFracSegment(seg.body)) return true;
+    if (seg.type === "frac" || seg.type === "sqrt") return true;
   }
   return false;
 }
@@ -89,7 +123,7 @@ function renderSegments(
   keyPrefix: string,
   styles: Styles,
   inFrac = false,
-  asBox = false,
+  _asBox = false,
 ): ReactNode[] {
   return segments.map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
@@ -131,23 +165,28 @@ function renderSegments(
       );
     }
     if (seg.type === "sqrt") {
-      return <Text key={key}>{segmentsToPlain([seg])}</Text>;
-    }
-    if (inFrac) {
       return (
-        <Text key={key} style={styles.fracPart}>
-          {seg.value}
-        </Text>
+        <View
+          key={key}
+          style={[styles.sqrtRow, !seg.degree && styles.sqrtAfterCoeff]}
+          testID="math-sqrt"
+        >
+          {seg.degree ? (
+            <Text style={styles.sqrtIndex}>{seg.degree}</Text>
+          ) : null}
+          <Text style={inFrac ? styles.fracPart : styles.base}>√</Text>
+          <View style={styles.sqrtRadicand} testID="math-sqrt-radicand">
+            {renderFracSide(seg.body, `${key}-b`, styles, false)}
+          </View>
+        </View>
       );
     }
-    if (asBox) {
-      return (
-        <Text key={key} style={styles.base}>
-          {seg.value}
-        </Text>
-      );
-    }
-    return seg.value;
+    return renderMathRun(
+      seg.value,
+      key,
+      inFrac ? styles.fracPart : styles.base,
+      styles.glyph,
+    );
   });
 }
 
@@ -159,7 +198,7 @@ export function MathText({ latex, textColor }: Props) {
     () => parseSimpleLatex(fixImplicitExponents(latex.trim())),
     [latex],
   );
-  const tall = useMemo(() => hasFracSegment(segments), [segments]);
+  const tall = useMemo(() => hasTallMath(segments), [segments]);
 
   if (!latex.trim()) return null;
 
@@ -192,13 +231,21 @@ const makeStyles = (theme: Theme, textColor?: string) => {
     base: {
       fontFamily: CODE_FONT,
       fontSize: 16,
-      lineHeight: 24,
+      lineHeight: 28,
       color,
+    },
+    glyph: {
+      // Nested Text inherits SpaceMono unless we name a UI face that has ≠.
+      fontFamily: Platform.select({
+        ios: "Helvetica Neue",
+        android: "sans-serif",
+        default: undefined,
+      }),
     },
     tallRoot: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      flexShrink: 0,
     },
     sup: {
       fontSize: 11,
@@ -226,7 +273,28 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       color,
       textAlign: "center",
     },
-    // Vinculum — the straight horizontal fraction bar.
+    sqrtRow: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      marginHorizontal: 2,
+    },
+    sqrtAfterCoeff: {
+      marginLeft: 6,
+    },
+    sqrtIndex: {
+      fontFamily: CODE_FONT,
+      fontSize: 10,
+      lineHeight: 12,
+      color,
+      marginRight: 1,
+      marginBottom: 10,
+    },
+    sqrtRadicand: {
+      borderTopWidth: StyleSheet.hairlineWidth * 2,
+      borderTopColor: color,
+      paddingTop: 1,
+      marginLeft: 1,
+    },
     vinculum: {
       alignSelf: "stretch",
       height: StyleSheet.hairlineWidth * 2,

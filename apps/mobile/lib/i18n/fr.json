@@ -903,6 +903,7 @@
   "chat.math_keyboard_abc": "ABC",
   "chat.math_keyboard_backspace": "Delete",
   "chat.math_keyboard_next_slot": "Next box",
+  "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
   "chat.math_keyboard_caret_right": "Move cursor right"
 }

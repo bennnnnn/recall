@@ -71,4 +71,19 @@ describe("markdown paragraph wrap", () => {
     expect(getByText("ray extending left")).toBeOnTheScreen();
     expect(getByText("not")).toBeOnTheScreen();
   });
+
+  it("leaves a gap under a paragraph so the next line is not tucked into superscripts", async () => {
+    const { rules } = makeRenderRules(lightTheme);
+    const element = rules.paragraph(
+      { key: "p2", content: "a^2(1+9+81)" },
+      [<Text key="t">Terms</Text>],
+      [],
+      { body: { fontSize: 16, lineHeight: 28 }, text: {}, paragraphRun: { marginBottom: 8 } },
+    );
+    expect(element?.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ lineHeight: 34 }),
+      ]),
+    );
+  });
 });

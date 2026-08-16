@@ -24,6 +24,7 @@ type Props = {
   onInsert: (spec: MathKeyboardSymbol) => void;
   onBackspace: () => void;
   onNextSlot: () => void;
+  onPrevSlot: () => void;
   onStepCaret: (dir: -1 | 1) => void;
 };
 
@@ -38,6 +39,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   onInsert,
   onBackspace,
   onNextSlot,
+  onPrevSlot,
   onStepCaret,
 }: Props) {
   const { t } = useTranslation();
@@ -133,24 +135,64 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           </View>
         ),
       )}
-      <View style={s.numpad}>
-        {MATH_NUMPAD_ROWS.map((row, r) => (
-          <View key={r} style={s.row}>
-            {row.map((cell, c) => (
-              <PadKey
-                key={`${r}-${c}`}
-                cell={cell}
-                onInsert={onInsert}
-                onBackspace={onBackspace}
-                onNextSlot={onNextSlot}
-                backspaceLabel={t("chat.math_keyboard_backspace")}
-                nextLabel={t("chat.math_keyboard_next_slot")}
-                theme={theme}
-              />
-            ))}
-          </View>
-        ))}
-      </View>
+      {group === "greek" ? (
+        <View style={s.row}>
+          <PadKey
+            cell={{ kind: "backspace" }}
+            onInsert={onInsert}
+            onBackspace={onBackspace}
+            onNextSlot={onNextSlot}
+            onPrevSlot={onPrevSlot}
+            backspaceLabel={t("chat.math_keyboard_backspace")}
+            nextLabel={t("chat.math_keyboard_next_slot")}
+            prevLabel={t("chat.math_keyboard_prev_slot")}
+            theme={theme}
+          />
+          <PadKey
+            cell={{ kind: "prev" }}
+            onInsert={onInsert}
+            onBackspace={onBackspace}
+            onNextSlot={onNextSlot}
+            onPrevSlot={onPrevSlot}
+            backspaceLabel={t("chat.math_keyboard_backspace")}
+            nextLabel={t("chat.math_keyboard_next_slot")}
+            prevLabel={t("chat.math_keyboard_prev_slot")}
+            theme={theme}
+          />
+          <PadKey
+            cell={{ kind: "next" }}
+            onInsert={onInsert}
+            onBackspace={onBackspace}
+            onNextSlot={onNextSlot}
+            onPrevSlot={onPrevSlot}
+            backspaceLabel={t("chat.math_keyboard_backspace")}
+            nextLabel={t("chat.math_keyboard_next_slot")}
+            prevLabel={t("chat.math_keyboard_prev_slot")}
+            theme={theme}
+          />
+        </View>
+      ) : (
+        <View style={s.numpad} testID="math-keyboard-numpad">
+          {MATH_NUMPAD_ROWS.map((row, r) => (
+            <View key={r} style={s.row}>
+              {row.map((cell, c) => (
+                <PadKey
+                  key={`${r}-${c}`}
+                  cell={cell}
+                  onInsert={onInsert}
+                  onBackspace={onBackspace}
+                  onNextSlot={onNextSlot}
+                  onPrevSlot={onPrevSlot}
+                  backspaceLabel={t("chat.math_keyboard_backspace")}
+                  nextLabel={t("chat.math_keyboard_next_slot")}
+                  prevLabel={t("chat.math_keyboard_prev_slot")}
+                  theme={theme}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 });
@@ -160,16 +202,20 @@ function PadKey({
   onInsert,
   onBackspace,
   onNextSlot,
+  onPrevSlot,
   backspaceLabel,
   nextLabel,
+  prevLabel,
   theme,
 }: {
   cell: PadCell;
   onInsert: (spec: MathKeyboardSymbol) => void;
   onBackspace: () => void;
   onNextSlot: () => void;
+  onPrevSlot: () => void;
   backspaceLabel: string;
   nextLabel: string;
+  prevLabel: string;
   theme: Theme;
 }) {
   if (cell.kind === "backspace") {
@@ -186,6 +232,50 @@ function PadKey({
       >
         <Ionicons name="backspace-outline" size={20} color={theme.text} />
       </KeyBtn>
+    );
+  }
+  if (cell.kind === "slot-nav") {
+    const s = makeStyles(theme);
+    return (
+      <View style={s.slotNav}>
+        <PadKey
+          cell={{ kind: "prev" }}
+          onInsert={onInsert}
+          onBackspace={onBackspace}
+          onNextSlot={onNextSlot}
+          onPrevSlot={onPrevSlot}
+          backspaceLabel={backspaceLabel}
+          nextLabel={nextLabel}
+          prevLabel={prevLabel}
+          theme={theme}
+        />
+        <PadKey
+          cell={{ kind: "next" }}
+          onInsert={onInsert}
+          onBackspace={onBackspace}
+          onNextSlot={onNextSlot}
+          onPrevSlot={onPrevSlot}
+          backspaceLabel={backspaceLabel}
+          nextLabel={nextLabel}
+          prevLabel={prevLabel}
+          theme={theme}
+        />
+      </View>
+    );
+  }
+  if (cell.kind === "prev") {
+    return (
+      <KeyBtn
+        label="↑"
+        testID="math-key-prev-slot"
+        onPress={() => {
+          buzz();
+          onPrevSlot();
+        }}
+        accessibilityLabel={prevLabel}
+        theme={theme}
+        accent
+      />
     );
   }
   if (cell.kind === "next") {
@@ -258,7 +348,7 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.surfaceAlt,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
-      justifyContent: "flex-end",
+      justifyContent: "flex-start",
       gap: 6,
     },
     tabs: {
@@ -279,6 +369,7 @@ const makeStyles = (theme: Theme) =>
     abc: { paddingHorizontal: 10, paddingVertical: 4 },
     abcLabel: { fontSize: 15, fontWeight: "700", color: theme.primary },
     numpad: { gap: 6, marginTop: 2 },
+    slotNav: { flex: 1, gap: 4 },
     row: {
       flexDirection: "row",
       alignItems: "stretch",

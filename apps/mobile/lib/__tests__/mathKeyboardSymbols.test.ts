@@ -8,6 +8,7 @@ import {
   MATH_KEYBOARD_SYMBOLS,
   MATH_NUMPAD_ROWS,
   nextEditSlotCaret,
+  prevEditSlotCaret,
   spliceBackspace,
   spliceMathInsert,
 } from "@/lib/mathKeyboardSymbols";
@@ -54,6 +55,79 @@ describe("spliceMathInsert", () => {
       expect(spec.cursorOffset).toBeGreaterThanOrEqual(0);
       expect(spec.cursorOffset).toBeLessThanOrEqual(spec.insert.length);
     }
+  });
+
+  it("ⁿ√ is n times square root, not an nth root", () => {
+    const nroot = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nroot")!;
+    expect(nroot.insert).not.toContain("\\sqrt[");
+    expect(spliceMathInsert("", { start: 0, end: 0 }, nroot).text).toBe("$n\\sqrt{}$");
+    expect(spliceMathInsert("$6$", { start: 2, end: 2 }, nroot).text).toBe("$6\\sqrt{}$");
+    expect(spliceMathInsert("$6$", { start: 2, end: 2 }, nroot).text).not.toContain("\\sqrt[");
+  });
+
+  it("Calc √[n] inserts an nth-root index slot", () => {
+    const nth = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nth")!;
+    expect(nth.insert).toBe("\\sqrt[]{}");
+    expect(spliceMathInsert("", { start: 0, end: 0 }, nth).text).toBe("$\\sqrt[]{}$");
+  });
+
+  it("xⁿ inserts a base x and an exponent box, or attaches ^ to an existing base", () => {
+    const sup = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "sup")!;
+    expect(spliceMathInsert("", { start: 0, end: 0 }, sup).text).toBe("$x^{}$");
+    expect(spliceMathInsert("$2$", { start: 2, end: 2 }, sup).text).toBe("$2^{}$");
+    expect(spliceMathInsert("$x$", { start: 2, end: 2 }, sup).text).toBe("$x^{}$");
+  });
+});
+
+describe("key insert matches the button", () => {
+  it.each([
+    ["frac", "\\frac{}{}"],
+    ["sqrt", "\\sqrt{}"],
+    ["nroot", "n\\sqrt{}"],
+    ["sup", "x^{}"],
+    ["sub", "x_{}"],
+    ["abs", "||"],
+    ["pi", "\\pi "],
+    ["leq", "\\leq "],
+    ["geq", "\\geq "],
+    ["neq", "\\neq "],
+    ["times", "\\times "],
+    ["div", "\\div "],
+    ["plus", "+"],
+    ["minus", "-"],
+    ["eq", "="],
+    ["parens", "()"],
+    ["sin", "\\sin()"],
+    ["cos", "\\cos()"],
+    ["tan", "\\tan()"],
+    ["arcsin", "\\arcsin()"],
+    ["log", "\\log()"],
+    ["ln", "\\ln()"],
+    ["exp", "\\exp()"],
+    ["deg", "^{\\circ}"],
+    ["int", "\\int "],
+    ["dint", "\\int_{}^{}"],
+    ["nth", "\\sqrt[]{}"],
+    ["sum", "\\sum_{}^{}"],
+    ["prod", "\\prod_{}^{}"],
+    ["lim", "\\lim_{}"],
+    ["infty", "\\infty "],
+    ["partial", "\\partial "],
+    ["to", "\\to "],
+    ["dx", "\\,dx"],
+    ["alpha", "\\alpha "],
+    ["beta", "\\beta "],
+    ["gamma", "\\gamma "],
+    ["delta", "\\delta "],
+    ["theta", "\\theta "],
+    ["pi-greek", "\\pi "],
+    ["sigma", "\\sigma "],
+    ["Delta", "\\Delta "],
+    ["phi", "\\phi "],
+    ["omega", "\\omega "],
+  ] as const)("%s inserts %s", (id, insert) => {
+    const spec = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === id);
+    expect(spec?.insert).toBe(insert);
   });
 });
 
@@ -136,10 +210,20 @@ describe("spliceBackspace", () => {
 });
 
 describe("MATH_NUMPAD_ROWS", () => {
-  it("is a 4×5 calculator grid with backspace and next-slot", () => {
+  it("is a 4×5 calculator grid with backspace and slot nav", () => {
     expect(MATH_NUMPAD_ROWS).toHaveLength(4);
     expect(MATH_NUMPAD_ROWS.every((row) => row.length === 5)).toBe(true);
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(true);
-    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "next")).toBe(true);
+    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "slot-nav")).toBe(true);
+  });
+});
+
+describe("nextEditSlotCaret / prevEditSlotCaret", () => {
+  it("moves numerator → denominator → back", () => {
+    const text = "$\\frac{1}{}$";
+    const slots = findFracSlots(text)[0]!;
+    const den = nextEditSlotCaret(text, slots.num.close);
+    expect(den).toBe(slots.den.close);
+    expect(prevEditSlotCaret(text, den!)).toBe(slots.num.close);
   });
 });

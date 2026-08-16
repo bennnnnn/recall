@@ -80,13 +80,29 @@ describe("UserMessageContent math/markdown rendering", () => {
   });
 
   it("spaces a bare unspaced equation the user typed", async () => {
-    // The math input formatter (formatMathExpr) adds spaces around `=` and
-    // binary operators before the bare equation is wrapped, so `x=3` renders
-    // as `x = 3` (not the cramped `x=3`), matching how a typed equation looks.
     const { getByText } = await render(
       <UserMessageContent message={userMessage("x=3")} />,
     );
-    expect(getByText("x = 3")).toBeOnTheScreen();
+    expect(getByText("x=3")).toBeOnTheScreen();
+  });
+
+  it("shows 6\\sqrt{4} as typed, not a 6th root", async () => {
+    const { queryByText, getByTestId } = await render(
+      <UserMessageContent message={userMessage("$6\\sqrt{4}$")} />,
+    );
+    expect(queryByText(/√\[6\]/)).toBeNull();
+    expect(queryByText(/\\times/)).toBeNull();
+    expect(getByTestId("math-draft-preview")).toBeOnTheScreen();
+  });
+
+  it("does not format $|5|3$ into a markdown table", async () => {
+    const { getByTestId, queryByText, queryByTestId } = await render(
+      <UserMessageContent message={userMessage("$|5|3$")} />,
+    );
+    expect(getByTestId("math-draft-preview")).toBeOnTheScreen();
+    expect(getByTestId("math-abs")).toBeOnTheScreen();
+    expect(queryByText("---")).toBeNull();
+    expect(queryByTestId("math-slot-before-caret")).toBeNull();
   });
 
   it("renders markdown emphasis instead of literal asterisks", async () => {

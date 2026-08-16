@@ -86,7 +86,7 @@ export function makeMdImg(t: Theme) {
 
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
-    body: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
+    body: { color: t.assistantText, fontSize: 16, lineHeight: 28 },
     code_inline: {
       backgroundColor: t.contentSurface,
       color: t.text,
@@ -100,7 +100,7 @@ export function makeMdStyles(t: Theme) {
     paragraph: { marginVertical: 0 },
     // Text-only paragraph run. Do not reuse `paragraph` — markdown-display
     // mergeStyle copies flexDirection/flexWrap/width onto that key.
-    paragraphRun: { marginVertical: 0 },
+    paragraphRun: { marginTop: 2, marginBottom: 8 },
     bullet_list: { marginVertical: 4 },
     ordered_list: { marginVertical: 4 },
     heading1: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: t.text },

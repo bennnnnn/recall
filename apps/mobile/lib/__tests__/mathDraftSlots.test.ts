@@ -20,6 +20,17 @@ describe("findDraftNodes", () => {
     expect(hasTappableDraftSlot(nodes)).toBe(true);
   });
 
+  it("keeps \\sin() / \\cos() as one group, not a repeated name", () => {
+    const text = "$\\cos()$";
+    const nodes = findDraftNodes(text);
+    expect(nodes.filter((n) => n.kind === "group")).toHaveLength(1);
+    const leftover = nodes
+      .filter((n) => n.kind === "text")
+      .map((n) => text.slice(n.start, n.end).replace(/\$/g, ""))
+      .join("");
+    expect(leftover).not.toMatch(/cos|\\cos/i);
+  });
+
   it("keeps the continue caret inside the closing dollar", () => {
     expect(caretAfterExpression("$\\frac{8}{8}$")).toBe("$\\frac{8}{8}$".length - 1);
   });
@@ -31,6 +42,13 @@ describe("findDraftNodes", () => {
     expect(next).toBeGreaterThan(front);
     const back = stepMathCaret(text, next, -1);
     expect(back).toBe(front);
+  });
+
+  it("steps left from after the expression into the last box", () => {
+    const text = "$\\frac{8}{8}$";
+    const after = caretAfterExpression(text);
+    const back = stepMathCaret(text, after, -1);
+    expect(back).toBeLessThan(after);
   });
 });
 
@@ -63,5 +81,19 @@ describe("spliceMathBackspace", () => {
     const text = "$\\frac{8}{8}$";
     const result = spliceMathBackspace(text, { start: text.length - 1, end: text.length - 1 });
     expect(result.text).toBe("$\\frac{8}{}$");
+  });
+
+  it.each([
+    ["$\\cos()$", "$\\cos()$".length - 1, ""],
+    ["$\\sin()$", "$\\sin()$".length - 1, ""],
+    ["$\\sqrt{}$", "$\\sqrt{}$".length - 1, ""],
+    ["$x^{}$", "$x^{}$".length - 1, "$x$"],
+    ["$x_{}$", "$x_{}$".length - 1, "$x$"],
+    ["$||$", "$||$".length - 1, ""],
+  ])("peels empty %s without leaking latex", (text, caret, expected) => {
+    const result = spliceMathBackspace(text, { start: caret, end: caret });
+    expect(result.text).toBe(expected);
+    expect(result.text).not.toMatch(/\\(cos|sin|sqrt|frac)\b/);
+    expect(result.text).not.toMatch(/[{}]/);
   });
 });

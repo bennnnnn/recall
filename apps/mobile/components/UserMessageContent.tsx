@@ -6,7 +6,10 @@ import { useTranslation } from "react-i18next";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { formatMathExpr } from "@/lib/formatMathInput";
+import {
+  draftShowsMathPreview,
+  MathDraftPreview,
+} from "@/components/chat/MathDraftPreview";
 import { Message } from "@/lib/api";
 import {
   guessFileNameFromCaption,
@@ -100,15 +103,22 @@ export function UserMessageContent({ message }: Props) {
               </View>
             ) : null}
             {showCaption ? (
-              <MarkdownContent content={parsed.caption} mathFormat={formatMathExpr} />
+              <UserBubbleBody content={parsed.caption} />
             ) : plainText ? (
-              <MarkdownContent content={plainText} mathFormat={formatMathExpr} />
+              <UserBubbleBody content={plainText} />
             ) : null}
           </View>
         </CollapsibleMessageBody>
       ) : null}
     </View>
   );
+}
+
+function UserBubbleBody({ content }: { content: string }) {
+  if (draftShowsMathPreview(content)) {
+    return <MathDraftPreview input={content} showCaret={false} />;
+  }
+  return <MarkdownContent content={content} />;
 }
 
 function makeStyles(C: Theme) {

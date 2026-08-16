@@ -1,7 +1,7 @@
 import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { retagMathAndDiagramFences } from "@/lib/mathFenceRetag";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
-import { normalizeImplicitMath } from "@/lib/normalizeImplicitMath";
+import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 import {
   isAnswerLang,
@@ -32,6 +32,150 @@ const FENCED_TABLE_RE =
   /```(?:markdown|md|table|text)?\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
 const FENCE_BLOCK_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
+const LIFT_MATH_FENCE_LANG = /^(math|latex|tex|answer)$/i;
+
+/**
+ * The model glues a fence opener to the end of a sentence
+ * (`Multiply both sides by r: ```math`). CommonMark only recognizes a fence
+ * at the start of a line, so the backticks and the LaTeX body paint as
+ * prose. Pull those openers onto their own line before markdown-it runs.
+ */
+export function breakAttachedMathFences(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+
+  const openFence = (lang: string) => {
+    if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+    out.push("```" + lang.toLowerCase());
+  };
+
+  const takeLang = (afterTicks: string): { lang: string; rest: string } | null => {
+    let i = 0;
+    while (i < afterTicks.length && /[a-zA-Z]/.test(afterTicks[i]!)) i += 1;
+    const lang = afterTicks.slice(0, i);
+    if (!LIFT_MATH_FENCE_LANG.test(lang)) return null;
+    return { lang, rest: afterTicks.slice(i).trim() };
+  };
+
+  const splitTrailingCloser = (rest: string): { body: string; closed: boolean } => {
+    if (rest.endsWith("```")) {
+      return { body: rest.slice(0, -3).trim(), closed: true };
+    }
+    return { body: rest, closed: false };
+  };
+
+  for (const line of lines) {
+    const tick = line.indexOf("```");
+    if (tick === -1) {
+      out.push(line);
+      continue;
+    }
+    const prefix = line.slice(0, tick);
+    const parsed = takeLang(line.slice(tick + 3));
+    if (!parsed) {
+      out.push(line);
+      continue;
+    }
+    const attached = prefix.trim().length > 0;
+    const { body, closed } = splitTrailingCloser(parsed.rest);
+    if (!attached && !body) {
+      out.push(line);
+      continue;
+    }
+    if (attached) out.push(prefix.trimEnd());
+    openFence(parsed.lang);
+    if (body) out.push(body);
+    if (closed) {
+      out.push("```");
+      out.push("");
+    }
+  }
+  return out.join("\n");
+}
+
+const MATHISH_TICK_INNER = /^[\d+\-*/^=().\s\\{}^_√±×÷·,]+$/;
+
+function backtickInnerIsMath(inner: string): boolean {
+  const t = inner.trim();
+  if (!t) return false;
+  if (/\$/.test(t) || /\\[a-zA-Z]+/.test(t)) return true;
+  if (/\b[A-Za-z]{3,}\b/.test(t)) return false;
+  if (isMathLike(t)) return true;
+  return MATHISH_TICK_INNER.test(t) && /[\d=+\-*/]/.test(t);
+}
+
+/**
+ * Models wrap arithmetic in markdown backticks (`2+8=42`) or leave a stray
+ * closer tick on the check line. Those paint as a literal ` on screen.
+ * Leave real ``` fences and non-math inline code alone.
+ */
+export function unwrapProseMathBackticks(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^```/.test(trimmed)) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence) {
+      out.push(line);
+      continue;
+    }
+    let s = line.replace(/`(\$[^`\n]+?\$)`/g, "$1");
+    s = s.replace(/`([^`\n]+)`/g, (full, inner: string) => {
+      const t = String(inner).trim();
+      if (!t) return "";
+      if (!backtickInnerIsMath(t)) return full;
+      if (t.startsWith("$") && t.endsWith("$")) return t;
+      return `$${t}$`;
+    });
+    s = s.replace(/`+\s*$/, "");
+    out.push(s);
+  }
+  return out.join("\n");
+}
+
+/**
+ * CommonMark treats a ```math fence as indented code (raw backticks on screen)
+ * when it sits inside a numbered list item. Pull math/answer fences to column 0
+ * with a blank line before/after so they parse as real fences.
+ */
+export function liftMathFencesOutOfLists(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence: "math" | "other" | null = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const open = trimmed.match(/^```([a-zA-Z][\w-]*)\s*$/);
+    if (inFence == null) {
+      if (open && LIFT_MATH_FENCE_LANG.test(open[1]!)) {
+        if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+        out.push("```" + open[1]!.toLowerCase());
+        inFence = "math";
+        continue;
+      }
+      if (open) {
+        inFence = "other";
+        out.push(line);
+        continue;
+      }
+      out.push(line);
+      continue;
+    }
+    if (/^```$/.test(trimmed)) {
+      out.push(inFence === "math" ? "```" : line);
+      if (inFence === "math") out.push("");
+      inFence = null;
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 function isPipeRow(line: string): boolean {
   const t = line.trim();
   return t.includes("|") && /^\|.+\|$/.test(t);
@@ -40,11 +184,33 @@ function isPipeRow(line: string): boolean {
 function isLoosePipeRow(line: string): boolean {
   const t = line.trim();
   if (!t.includes("|") || isDividerLine(t)) return false;
-  const cells = t
-    .split("|")
+  const cells = splitPipesOutsideMath(t)
     .map((c) => c.trim())
     .filter((c) => c.length > 0);
   return cells.length >= 2;
+}
+
+/** GFM tables split on `|`; abs-bars inside `$...$` must not count as columns. */
+function splitPipesOutsideMath(line: string): string[] {
+  const cells: string[] = [];
+  let buf = "";
+  let inMath = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === "$") {
+      inMath = !inMath;
+      buf += ch;
+      continue;
+    }
+    if (ch === "|" && !inMath) {
+      cells.push(buf);
+      buf = "";
+      continue;
+    }
+    buf += ch;
+  }
+  cells.push(buf);
+  return cells;
 }
 
 function isTableRow(line: string): boolean {
@@ -601,6 +767,9 @@ export function preprocessMarkdown(
 
   out = protectMathEscapes(out);
   out = layoutCheckVerificationLines(out);
+  out = breakAttachedMathFences(out);
+  out = liftMathFencesOutOfLists(out);
+  out = unwrapProseMathBackticks(out);
 
   return out;
 }
