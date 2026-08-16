@@ -11,6 +11,7 @@ from app.gateways.speech_gateway import (
     stream_pcm_via_openrouter,
 )
 from app.services.speech import (
+    SPEECH_MAX_AUDIO_BYTES,
     TTS_FAST_ALIAS,
     TTS_QUALITY_ALIAS,
     iter_tts_pcm,
@@ -45,6 +46,12 @@ async def test_transcribe_disabled_returns_none():
 async def test_transcribe_empty_payload_returns_none():
     settings = Settings(mock_llm_enabled=True, speech_transcription_enabled=True)
     assert await transcribe_audio(settings, b"") is None
+
+
+@pytest.mark.asyncio
+async def test_transcribe_rejects_over_shared_byte_cap():
+    settings = Settings(mock_llm_enabled=True, speech_transcription_enabled=True)
+    assert await transcribe_audio(settings, b"x" * (SPEECH_MAX_AUDIO_BYTES + 1)) is None
 
 
 def test_openrouter_audio_format_from_filename():

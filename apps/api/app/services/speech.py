@@ -8,11 +8,11 @@ from collections.abc import AsyncIterator
 
 from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
+from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES
 from app.services.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
 
-_MAX_BYTES = 5_000_000
 _MAX_TTS_CHARS = 4000
 _MOCK_MP3_BYTES = b"\xff\xfb\x90\x00" + b"\x00" * 64
 
@@ -115,7 +115,7 @@ async def transcribe_audio(
 ) -> str | None:
     if not settings.speech_transcription_enabled:
         return None
-    if not audio_bytes or len(audio_bytes) > _MAX_BYTES:
+    if not audio_bytes or len(audio_bytes) > SPEECH_MAX_AUDIO_BYTES:
         logger.warning(
             "Speech transcription rejected: payload size=%s",
             len(audio_bytes) if audio_bytes else 0,

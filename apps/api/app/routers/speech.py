@@ -17,6 +17,7 @@ from app.models.schemas import (
     SpeechTtsIn,
     SpeechTtsOut,
 )
+from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES, SPEECH_MAX_REQUEST_BYTES
 from app.services import quota as quota_service
 from app.services import speech as speech_service
 
@@ -55,7 +56,6 @@ async def _aiter_nonempty(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
             yield chunk
 
 
-MAX_SPEECH_JSON_BYTES = 7_500_000
 _TTS_FOLLOWUP_TTL_SECONDS = 120
 # One lead + this many rest clips stay on the same daily TTS slot.
 _TTS_FOLLOWUP_MAX_CHUNKS = 32
@@ -75,14 +75,22 @@ def _normalize_tts_part(raw: str | None) -> str:
 def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
     if content_length is not None:
         try:
-            if int(content_length) > MAX_SPEECH_JSON_BYTES:
+            if int(content_length) > SPEECH_MAX_REQUEST_BYTES:
                 raise HTTPException(
                     status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     detail="Audio payload too large",
                 )
         except ValueError:
             pass
-    if body_len > MAX_SPEECH_JSON_BYTES:
+    if body_len > SPEECH_MAX_REQUEST_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Audio payload too large",
+        )
+
+
+def _reject_oversized_audio(data: bytes) -> None:
+    if len(data) > SPEECH_MAX_AUDIO_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Audio payload too large",
@@ -245,6 +253,43 @@ async def transcribe_speech(
     if not settings.speech_transcription_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
 
+    # Size first — a 6MB clip used to pass the 7.5MB body cap, reserve quota,
+    # then fail as 502 when the service rejected at 5MB.
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        _reject_oversized_speech_body(request.headers.get("content-length"), 0)
+        try:
+            raw = await request.body()
+            _reject_oversized_speech_body(None, len(raw))
+            payload = SpeechTranscriptionIn.model_validate(json.loads(raw))
+            data = base64.b64decode(payload.audio_base64, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid audio payload",
+            ) from exc
+        _reject_oversized_audio(data)
+        filename = payload.filename
+    else:
+        # Multipart: check Content-Length BEFORE request.form() parses the body.
+        _reject_oversized_speech_body(request.headers.get("content-length"), 0)
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Missing audio file",
+            )
+        declared_size = getattr(upload, "size", None)
+        if declared_size is not None and int(declared_size) > SPEECH_MAX_AUDIO_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Audio payload too large",
+            )
+        data = await upload.read()  # type: ignore[union-attr]
+        _reject_oversized_audio(data)
+        filename = getattr(upload, "filename", None) or "speech.m4a"
+
     redis = get_redis_client()
     rate_limit = settings.speech_rate_limit_per_minute
     if rate_limit > 0:
@@ -268,42 +313,6 @@ async def transcribe_speech(
         )
 
     try:
-        content_type = request.headers.get("content-type", "")
-        if "application/json" in content_type:
-            _reject_oversized_speech_body(request.headers.get("content-length"), 0)
-            try:
-                raw = await request.body()
-                _reject_oversized_speech_body(None, len(raw))
-                payload = SpeechTranscriptionIn.model_validate(json.loads(raw))
-                data = base64.b64decode(payload.audio_base64, validate=True)
-            except (ValueError, binascii.Error) as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid audio payload",
-                ) from exc
-            return await _transcribe_bytes(settings, data, payload.filename)
-
-        # Multipart path: check Content-Length BEFORE request.form() parses
-        # the body (form() buffers the whole multipart body into memory/disk).
-        # Without this, a client could send a huge multipart body and the
-        # server would buffer it all before any size check could reject it.
-        _reject_oversized_speech_body(request.headers.get("content-length"), 0)
-        form = await request.form()
-        upload = form.get("file")
-        if upload is None or not hasattr(upload, "read"):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Missing audio file",
-            )
-        # Secondary guard: the UploadFile's declared .size (from the multipart
-        # Content-Disposition) may differ from the top-level Content-Length
-        # when there are multiple parts. Check it before reading the bytes.
-        declared_size = getattr(upload, "size", None)
-        if declared_size is not None:
-            _reject_oversized_speech_body(None, int(declared_size))
-        data = await upload.read()  # type: ignore[union-attr]
-        _reject_oversized_speech_body(None, len(data))
-        filename = getattr(upload, "filename", None) or "speech.m4a"
         return await _transcribe_bytes(settings, data, filename)
     except HTTPException as exc:
         if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
