@@ -93,9 +93,31 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
-    await memory_consolidation.consolidate_user_memory_sections(
+    outcome = await memory_consolidation.consolidate_user_memory_sections(
         settings,
         user_id=UUID(payload["user_id"]),
+    )
+    if outcome != "skipped_lock":
+        return
+    try:
+        retries = int(payload.get("lock_retries") or 0)
+    except (TypeError, ValueError):
+        retries = 0
+    if retries >= _MEMORY_LOCK_MAX_RETRIES:
+        logger.warning(
+            "Memory consolidation dropped after lock retries user_id=%s",
+            payload.get("user_id"),
+        )
+        return
+
+    await asyncio.sleep(_MEMORY_LOCK_RETRY_BACKOFF_S * (retries + 1))
+    await enqueue(
+        get_redis_client(),
+        "memory_consolidate",
+        {
+            "user_id": payload["user_id"],
+            "lock_retries": retries + 1,
+        },
     )
 
 

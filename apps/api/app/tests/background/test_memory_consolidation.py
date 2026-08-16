@@ -125,7 +125,7 @@ async def test_consolidate_skips_when_write_lock_held():
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
-    assert changed is False
+    assert changed == "skipped_lock"
     list_for_user.assert_not_awaited()
     merge.assert_not_awaited()
 

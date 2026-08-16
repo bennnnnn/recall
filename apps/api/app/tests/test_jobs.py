@@ -292,11 +292,50 @@ async def test_handle_memory_consolidate_delegates():
         _patch_session(),
         patch(
             "app.background.handlers.memory_consolidation.consolidate_user_memory_sections",
-            AsyncMock(),
+            AsyncMock(return_value=True),
         ) as job,
     ):
         await job_handlers._handle_memory_consolidate(Settings(), {"user_id": str(uuid4())})
     job.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_memory_consolidate_retries_skipped_lock_with_backoff():
+    payload = {"user_id": str(uuid4())}
+    with (
+        _patch_session(),
+        patch(
+            "app.background.handlers.memory_consolidation.consolidate_user_memory_sections",
+            AsyncMock(return_value="skipped_lock"),
+        ),
+        patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
+        patch("app.background.handlers.get_redis_client", MagicMock()),
+        patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
+    ):
+        await job_handlers._handle_memory_consolidate(Settings(), payload)
+
+    sleep_mock.assert_awaited_once_with(2.0)
+    enqueue_mock.assert_awaited_once()
+    assert enqueue_mock.await_args.args[1] == "memory_consolidate"
+    assert enqueue_mock.await_args.args[2]["lock_retries"] == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_memory_consolidate_drops_after_lock_retries():
+    payload = {"user_id": str(uuid4()), "lock_retries": 3}
+    with (
+        _patch_session(),
+        patch(
+            "app.background.handlers.memory_consolidation.consolidate_user_memory_sections",
+            AsyncMock(return_value="skipped_lock"),
+        ),
+        patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
+        patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
+    ):
+        await job_handlers._handle_memory_consolidate(Settings(), payload)
+
+    sleep_mock.assert_not_awaited()
+    enqueue_mock.assert_not_awaited()
 
 
 # ── worker ───────────────────────────────────────────────────────────────────
