@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
@@ -143,6 +143,7 @@ function AssistantActions({
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const speakGenRef = useRef(0);
 
   const handleCopy = async () => {
     tap();
@@ -154,13 +155,16 @@ function AssistantActions({
 
   const handleSpeak = async () => {
     if (speaking) {
+      speakGenRef.current += 1;
       stopSpeaking();
       setSpeaking(false);
       return;
     }
+    const gen = ++speakGenRef.current;
     tap();
     setSpeaking(true);
     const result = await speakPlainText(content, "en-US", { token });
+    if (gen !== speakGenRef.current) return;
     setSpeaking(false);
     if (!result.ok) {
       Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));

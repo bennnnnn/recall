@@ -6,6 +6,7 @@ import base64
 import io
 import logging
 import wave
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 from app.core.config import Settings
@@ -130,6 +131,29 @@ async def transcribe_via_openrouter(
         return None
 
 
+def _tts_request_payload(
+    *,
+    model: str,
+    text: str,
+    voice: str,
+    response_format: str,
+    language: str | None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "model": model,
+        "input": text,
+        "voice": voice,
+        "response_format": response_format,
+    }
+    if model.startswith("openai/"):
+        payload["provider"] = {
+            "options": {
+                "openai": {"instructions": _openai_tts_instructions(language)},
+            }
+        }
+    return payload
+
+
 def _openai_tts_instructions(language: str | None) -> str:
     base = "Speak clearly and naturally, as a helpful assistant reading a message aloud."
     locale = (language or "").strip()
@@ -150,18 +174,13 @@ async def synthesize_via_openrouter(
     # response_format. A `language` field 400s and the app falls back to
     # on-device speech — pass locale only as OpenAI voice instructions.
     response_format = tts_response_format(model)
-    payload: dict[str, object] = {
-        "model": model,
-        "input": text,
-        "voice": voice,
-        "response_format": response_format,
-    }
-    if model.startswith("openai/"):
-        payload["provider"] = {
-            "options": {
-                "openai": {"instructions": _openai_tts_instructions(language)},
-            }
-        }
+    payload = _tts_request_payload(
+        model=model,
+        text=text,
+        voice=voice,
+        response_format=response_format,
+        language=language,
+    )
     try:
         client = get_pooled_client(_TTS_TIMEOUT)
         response = await client.post(
@@ -199,3 +218,47 @@ async def synthesize_via_openrouter(
     except Exception:
         logger.exception("Speech TTS failed model=%s chars=%s", model, len(text))
         return None
+
+
+async def stream_pcm_via_openrouter(
+    settings: Settings,
+    text: str,
+    *,
+    model: str,
+    voice: str,
+    language: str | None = None,
+) -> AsyncIterator[bytes]:
+    """Yield PCM (or raw audio) as OpenRouter produces it — do not buffer the clip."""
+    payload = _tts_request_payload(
+        model=model,
+        text=text,
+        voice=voice,
+        response_format="pcm",
+        language=language,
+    )
+    try:
+        client = get_pooled_client(_TTS_TIMEOUT)
+        async with client.stream(
+            "POST",
+            _OPENROUTER_SPEECH_URL,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        ) as response:
+            if response.status_code >= 400:
+                error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
+                logger.warning(
+                    "OpenRouter TTS stream failed model=%s status=%s body=%s",
+                    model,
+                    response.status_code,
+                    error_body,
+                )
+                return
+            async for chunk in response.aiter_bytes():
+                if chunk:
+                    yield chunk
+    except Exception:
+        logger.exception("Speech TTS stream failed model=%s chars=%s", model, len(text))
+        return

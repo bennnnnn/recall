@@ -72,9 +72,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
-- ✅ **Read aloud (TTS)** — speaker uses OpenRouter **Gemini 3.1 Flash TTS** by default
-  (`POST /speech/tts`); **Kokoro 82M** is the cheap alternative (`speech-tts-fast-model`).
-  Dev build required; falls back to on-device `expo-speech` if the cloud call fails.
+- ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
+  (`POST /speech/tts/stream`) and starts playback on the first audio bytes; **Kokoro 82M**
+  is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
+  remains for non-streaming clients.
 - 🔜 Reactions, read receipts; duplex full-voice mode (out of scope).
 
 ## 4. Formatting & rendering
@@ -654,7 +655,7 @@ flag-gated LiteLLM tool loop ✅, structured profile ✅, drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → Whisper → composer (dev build), waveform UI, rate limits | Duplex full-voice mode (out of scope) |
-| Device TTS + cloud TTS (`POST /speech/tts`, daily caps, device fallback) | — |
+| Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
 
 ### Cost guards (recent)
 | Guard | Free | Pro |

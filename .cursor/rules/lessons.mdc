@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Cloud TTS waited for a full MP3/JSON clip.** `POST /speech/tts` buffered OpenRouter
+  `response.content`, wrapped WAV, then `audio_base64`. The app could not start sound until
+  the last byte. Fix: `POST /speech/tts/stream` proxies PCM with `aiter_bytes`; mobile plays
+  ~120ms WAV clips as they arrive (`ttsPcm.ts`).
 - **GitHub “Compare & pull request” on a branch you thought was merged.** Squash-merge
   does not put those SHAs on `main`; pushing more onto the old head (or leaving
   `claude/*` agent branches) recreates a PR prompt. Fix: never push a merged head;

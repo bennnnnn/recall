@@ -3,16 +3,22 @@
  */
 import { prefFilePath, readPrefFile, writePrefFile } from "@/lib/filePrefs";
 
+export const TTS_DEVICE_MODEL = "device";
 export const TTS_QUALITY_MODEL = "speech-tts-model";
 export const TTS_FAST_MODEL = "speech-tts-fast-model";
-export type TtsModelAlias = typeof TTS_QUALITY_MODEL | typeof TTS_FAST_MODEL;
+export type TtsModelAlias =
+  | typeof TTS_DEVICE_MODEL
+  | typeof TTS_QUALITY_MODEL
+  | typeof TTS_FAST_MODEL;
 
 const FILE_NAME = "recall.tts-model.txt";
 
 let cachedPreference: TtsModelAlias | null = null;
 
 export function normalizeTtsModel(raw: string | null | undefined): TtsModelAlias {
-  return raw === TTS_FAST_MODEL ? TTS_FAST_MODEL : TTS_QUALITY_MODEL;
+  if (raw === TTS_FAST_MODEL) return TTS_FAST_MODEL;
+  if (raw === TTS_QUALITY_MODEL) return TTS_QUALITY_MODEL;
+  return TTS_DEVICE_MODEL;
 }
 
 export async function getTtsModel(): Promise<TtsModelAlias> {

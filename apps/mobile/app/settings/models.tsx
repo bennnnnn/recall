@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { useTtsPreference } from "@/hooks/useTtsPreference";
 import { useTheme } from "@/lib/theme";
-import { TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
+import { TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -158,6 +158,17 @@ export default function ModelsSettingsScreen() {
         </SettingsGroup>
 
         <SettingsGroup label={t("settings.tts")} styles={s}>
+          <SettingsSwitchRow
+            title={t("settings.tts_device")}
+            subtitle={t("settings.tts_device_meta")}
+            value={ttsModel === TTS_DEVICE_MODEL}
+            onValueChange={(enabled) => {
+              if (enabled) selectTtsModel(TTS_DEVICE_MODEL);
+            }}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
           <SettingsSwitchRow
             title={t("settings.tts_gemini")}
             subtitle={t("settings.tts_gemini_meta")}

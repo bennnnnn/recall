@@ -5,10 +5,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.gateways.speech_gateway import openrouter_audio_format, pcm_to_wav
+from app.gateways.speech_gateway import (
+    openrouter_audio_format,
+    pcm_to_wav,
+    stream_pcm_via_openrouter,
+)
 from app.services.speech import (
     TTS_FAST_ALIAS,
     TTS_QUALITY_ALIAS,
+    iter_tts_pcm,
     normalize_tts_alias,
     resolve_tts_model,
     resolve_tts_voice,
@@ -224,3 +229,49 @@ async def test_synthesize_uses_openrouter_when_mock_llm_but_key_present():
 
     assert result == (b"ID3real-tts", "audio/mpeg")
     assert client.post.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_stream_pcm_yields_chunks_without_buffering():
+    class _Resp:
+        status_code = 200
+
+        async def __aenter__(self) -> "_Resp":
+            return self
+
+        async def __aexit__(self, *args: object) -> bool:
+            return False
+
+        async def aiter_bytes(self, chunk_size: int = 4096):
+            yield b"aa"
+            yield b"bb"
+
+    client = MagicMock()
+    client.stream.return_value = _Resp()
+    settings = Settings(openrouter_api_key="sk-or-test")
+    chunks: list[bytes] = []
+    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
+        async for chunk in stream_pcm_via_openrouter(
+            settings,
+            "Hello",
+            model="google/gemini-3.1-flash-tts-preview",
+            voice="Kore",
+        ):
+            chunks.append(chunk)
+    assert chunks == [b"aa", b"bb"]
+    body = client.stream.call_args.kwargs["json"]
+    assert body["response_format"] == "pcm"
+    assert body["input"] == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_iter_tts_pcm_mock_without_key():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        speech_tts_enabled=True,
+    )
+    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+        chunks = [chunk async for chunk in iter_tts_pcm(settings, "Hello")]
+    assert len(chunks) == 1
+    assert len(chunks[0]) > 0

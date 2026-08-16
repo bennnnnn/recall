@@ -2174,3 +2174,52 @@ def test_speech_tts_disabled():
         json={"text": "hello"},
     )
     assert r.status_code == 404
+
+
+def test_speech_tts_stream_ok():
+    import fakeredis.aioredis
+
+    async def _chunks(*_args, **_kwargs):
+        yield b"pcm"
+        yield b"-hi"
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.iter_tts_pcm",
+            _chunks,
+        ),
+    ):
+        r = client.post(
+            "/speech/tts/stream",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "hello", "language": "en-US"},
+        )
+    assert r.status_code == 200
+    assert r.content == b"pcm-hi"
+    assert "L16" in r.headers.get("content-type", "")
+
+
+def test_speech_tts_stream_empty_is_502():
+    import fakeredis.aioredis
+
+    async def _empty(*_args, **_kwargs):
+        if False:
+            yield b"x"
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.routers.speech.speech_service.iter_tts_pcm", _empty),
+    ):
+        r = client.post(
+            "/speech/tts/stream",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "hello"},
+        )
+    assert r.status_code == 502

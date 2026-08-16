@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 
 from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
@@ -134,3 +135,37 @@ async def synthesize_speech(
         voice=voice,
         language=language,
     )
+
+
+async def iter_tts_pcm(
+    settings: Settings,
+    text: str,
+    *,
+    language: str | None = None,
+    model_alias: str | None = None,
+) -> AsyncIterator[bytes]:
+    """Yield PCM bytes as they arrive from OpenRouter (empty if synthesis fails)."""
+    if not settings.speech_tts_enabled:
+        return
+    plain = " ".join((text or "").split()).strip()
+    if not plain:
+        return
+    if len(plain) > _MAX_TTS_CHARS:
+        plain = plain[:_MAX_TTS_CHARS]
+    if mock_llm.should_mock_llm(settings) and not settings.openrouter_api_key:
+        # 50ms of silence so the stream endpoint can be tested without a key.
+        yield b"\x00\x00" * 1200
+        return
+    if not settings.openrouter_api_key:
+        return
+
+    model = resolve_tts_model(settings, alias=model_alias)
+    voice = resolve_tts_voice(settings, model)
+    async for chunk in speech_gateway.stream_pcm_via_openrouter(
+        settings,
+        plain,
+        model=model,
+        voice=voice,
+        language=language,
+    ):
+        yield chunk

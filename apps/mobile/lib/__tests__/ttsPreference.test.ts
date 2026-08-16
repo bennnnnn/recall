@@ -5,6 +5,7 @@ import {
   normalizeTtsModel,
   resetTtsModelCache,
   setTtsModel,
+  TTS_DEVICE_MODEL,
   TTS_FAST_MODEL,
   TTS_QUALITY_MODEL,
 } from "@/lib/ttsPreference";
@@ -35,10 +36,11 @@ describe("ttsPreference", () => {
     writeAsStringAsync.mockReset();
   });
 
-  it("defaults unknown values to Gemini quality TTS", () => {
-    expect(normalizeTtsModel(null)).toBe(TTS_QUALITY_MODEL);
-    expect(normalizeTtsModel("nope")).toBe(TTS_QUALITY_MODEL);
+  it("defaults unknown values to on-device speech", () => {
+    expect(normalizeTtsModel(null)).toBe(TTS_DEVICE_MODEL);
+    expect(normalizeTtsModel("nope")).toBe(TTS_DEVICE_MODEL);
     expect(normalizeTtsModel(TTS_FAST_MODEL)).toBe(TTS_FAST_MODEL);
+    expect(normalizeTtsModel(TTS_QUALITY_MODEL)).toBe(TTS_QUALITY_MODEL);
   });
 
   it("reads Kokoro from the pref file", async () => {
