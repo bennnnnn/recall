@@ -432,7 +432,7 @@ INTENT_FORMAT_HINT = (
     "  - ALWAYS use caret exponents (`x^2`, never `x2`). Use LaTeX: \\pm, \\sqrt{}, "
     "\\frac{a}{b}. "
     "LaTeX `n\\sqrt{x}` (number then square-root, no brackets) is n times "
-    "sqrt(x) — e.g. `$6\\sqrt{4}$` is 6×2=12, NOT the 6th root. Nth root is "
+    "sqrt(x) — e.g. `$6\\sqrt{4}$` is 6*2=12, NOT the 6th root. Nth root is "
     "only `\\sqrt[n]{x}`.\n"
     "  - When SymPy verified results appear in a system block, use those exact "
     "numbers — do NOT recompute. If no verified system block is present (or a "
