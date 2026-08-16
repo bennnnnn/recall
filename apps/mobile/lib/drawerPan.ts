@@ -7,6 +7,9 @@ export const DRAWER_PAN_SLOP = 10;
  * Whether the shell pan should claim this move.
  * Closed: only a rightward swipe from the left edge.
  * Open: drag the panel itself, or swipe the scrim left to close.
+ *
+ * `startX` must be window-absolute. A view-local `x` from the composer/mic
+ * is often ~0 and looks like an edge swipe.
  */
 export function shouldClaimDrawerPan(opts: {
   open: boolean;
