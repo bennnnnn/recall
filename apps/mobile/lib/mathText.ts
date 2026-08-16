@@ -128,6 +128,7 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\beta/g, "β"],
   [/\\gamma/g, "γ"],
   [/\\delta/g, "δ"],
+  [/\\varepsilon/g, "ε"],
   [/\\epsilon/g, "ε"],
   [/\\zeta/g, "ζ"],
   [/\\eta/g, "η"],

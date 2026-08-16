@@ -51,6 +51,30 @@ import type { Theme } from "@/lib/theme";
 
 type StyleMap = Record<string, object>;
 
+const CHECK_TICK_RE = /([✓✔✅])/u;
+
+function withGreenTicks(
+  text: string,
+  tickColor: string,
+  keyPrefix: string,
+): ReactNode {
+  if (!text.includes("✓") && !text.includes("✔") && !text.includes("✅")) {
+    return text;
+  }
+  return text.split(CHECK_TICK_RE).map((bit, i) =>
+    bit === "✓" || bit === "✔" || bit === "✅" ? (
+      <Text
+        key={`${keyPrefix}-tick-${i}`}
+        style={{ color: tickColor, fontWeight: "700" }}
+      >
+        {bit}
+      </Text>
+    ) : (
+      bit
+    ),
+  );
+}
+
 function renderTextWithMath(
   node: { key: string; content: string },
   parent: unknown,
@@ -58,6 +82,7 @@ function renderTextWithMath(
   inheritedStyles: object,
   mdTable: MdTableStyles,
   _mdMath: MdMathStyles,
+  tickColor: string,
 ) {
   const parts = splitInlineMath(node.content);
   const runHeight = parts.reduce<number | undefined>((acc, p) => {
@@ -77,7 +102,7 @@ function renderTextWithMath(
   if (parts.length === 1 && parts[0].type === "text") {
     return (
       <Text key={node.key} style={base} selectable>
-        {node.content}
+        {withGreenTicks(node.content, tickColor, node.key)}
       </Text>
     );
   }
@@ -102,7 +127,7 @@ function renderTextWithMath(
           }
           return (
             <Text key={key} style={base} selectable>
-              {part.value}
+              {withGreenTicks(part.value, tickColor, key)}
             </Text>
           );
         })}
@@ -121,7 +146,7 @@ function renderTextWithMath(
             <MathText key={`${node.key}-m-${i}`} latex={part.value} />
           ) : (
             <Text key={`${node.key}-t-${i}`} style={base} selectable>
-              {part.value}
+              {withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)}
             </Text>
           ),
         )}
@@ -135,7 +160,7 @@ function renderTextWithMath(
         part.type === "math" ? (
           <MathText key={`${node.key}-m-${i}`} latex={part.value} />
         ) : (
-          part.value
+          withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)
         ),
       )}
     </Text>
@@ -171,7 +196,16 @@ function makeSharedRules(
       parent: unknown,
       styles: StyleMap,
       inheritedStyles: object = {},
-    ) => renderTextWithMath(node, parent, styles, inheritedStyles, mdTable, mdMath),
+    ) =>
+      renderTextWithMath(
+        node,
+        parent,
+        styles,
+        inheritedStyles,
+        mdTable,
+        mdMath,
+        t.success,
+      ),
     textgroup: (node: { key: string }, children: ReactNode) => (
       <Fragment key={node.key}>{children}</Fragment>
     ),

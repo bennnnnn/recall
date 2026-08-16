@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 const BAR_COUNT = 36;
 const MIN_H = 3;
@@ -22,12 +22,11 @@ type BarProps = {
   index: number;
   meter: SharedValue<number>;
   phase: SharedValue<number>;
-  stopPulse: SharedValue<number>;
   processing: SharedValue<number>;
   color: string;
 };
 
-function WaveBar({ index, meter, phase, stopPulse, processing, color }: BarProps) {
+function WaveBar({ index, meter, phase, processing, color }: BarProps) {
   const style = useAnimatedStyle(() => {
     const center = (BAR_COUNT - 1) / 2;
     const dist = Math.abs(index - center) / center;
@@ -35,13 +34,16 @@ function WaveBar({ index, meter, phase, stopPulse, processing, color }: BarProps
     const wave = Math.sin(phase.value * Math.PI * 2 + index * 0.38) * 0.5 + 0.5;
     const proc = processing.value;
     const recordingLevel = 0.08 + meter.value * centerWeight * (0.25 + 0.75 * wave);
-    const processingLevel = 0.15 + 0.45 * centerWeight * (0.4 + 0.6 * wave);
+    // One bump traveling L→R — reads as "working on the take", not live mic.
+    const sweep = phase.value * (BAR_COUNT + 8) - 4;
+    const d = Math.abs(index - sweep);
+    const bump = Math.max(0, 1 - d / 3.4);
+    const processingLevel = 0.1 + 0.78 * bump;
     const level = recordingLevel * (1 - proc) + processingLevel * proc;
-    const stopShrink = 1 - stopPulse.value * 0.85 * (0.4 + dist * 0.6);
-    const h = MIN_H + (MAX_H - MIN_H) * level * stopShrink;
+    const h = MIN_H + (MAX_H - MIN_H) * level;
     return {
       height: h,
-      opacity: 0.35 + 0.65 * level,
+      opacity: 0.28 + 0.72 * level,
     };
   });
 
@@ -54,17 +56,19 @@ type Props = {
   meterLevel: number;
 };
 
-/** ChatGPT-style waveform in the composer while dictating or transcribing. */
-export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: Props) {
+/** Live meter while dictating; a traveling sweep + label while transcribing. */
+export function VoiceComposerWaveform({
+  recording: _recording,
+  transcribing,
+  meterLevel,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const meter = useSharedValue(0.12);
   const phase = useSharedValue(0);
-  const stopPulse = useSharedValue(0);
   const processing = useSharedValue(transcribing ? 1 : 0);
-  const prevRecording = useRef(recording);
 
   useEffect(() => {
     meter.value = withTiming(meterLevel, { duration: motionMs(70, reduceMotion) });
@@ -72,39 +76,29 @@ export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: P
 
   useEffect(() => {
     if (reduceMotion) {
-      phase.value = 0.5;
+      phase.value = transcribing ? 0.45 : 0.5;
       return;
     }
+    phase.value = 0;
     phase.value = withRepeat(
-      withTiming(1, { duration: 1400, easing: Easing.linear }),
+      withTiming(1, {
+        duration: transcribing ? 1700 : 1100,
+        easing: Easing.linear,
+      }),
       -1,
       false,
     );
-  }, [phase, reduceMotion]);
+  }, [phase, reduceMotion, transcribing]);
 
   useEffect(() => {
     processing.value = withTiming(transcribing ? 1 : 0, {
-      duration: motionMs(320, reduceMotion),
+      duration: motionMs(180, reduceMotion),
     });
   }, [transcribing, processing, reduceMotion]);
 
-  useEffect(() => {
-    if (prevRecording.current && !recording) {
-      stopPulse.value = 0;
-      if (reduceMotion) {
-        stopPulse.value = 0;
-      } else {
-        stopPulse.value = withSequence(
-          withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }),
-          withTiming(0, { duration: 280, easing: Easing.inOut(Easing.cubic) }),
-        );
-      }
-    }
-    prevRecording.current = recording;
-  }, [recording, stopPulse, reduceMotion]);
-
   const indices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
   const label = transcribing ? t("chat.voice_transcribing") : t("chat.voice_listening");
+  const barColor = transcribing ? theme.textSecondary : theme.primary;
 
   return (
     <View
@@ -112,6 +106,11 @@ export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: P
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
     >
+      {transcribing ? (
+        <Text style={s.status} numberOfLines={1}>
+          {t("chat.voice_transcribing")}
+        </Text>
+      ) : null}
       <View style={s.bars}>
         {indices.map((i) => (
           <WaveBar
@@ -119,9 +118,8 @@ export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: P
             index={i}
             meter={meter}
             phase={phase}
-            stopPulse={stopPulse}
             processing={processing}
-            color={theme.primary}
+            color={barColor}
           />
         ))}
       </View>
@@ -129,15 +127,23 @@ export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: P
   );
 }
 
-function makeStyles(_t: Theme) {
+function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       flex: 1,
       minHeight: 28,
-      justifyContent: "center",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
       paddingVertical: 2,
     },
+    status: {
+      ...Type.caption,
+      color: t.textSecondary,
+      flexShrink: 0,
+    },
     bars: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",

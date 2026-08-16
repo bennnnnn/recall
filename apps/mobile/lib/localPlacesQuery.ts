@@ -42,6 +42,47 @@ const PROXIMITY_PHRASES = [
 const LOCATION_QUESTION =
   /^\s*(?:where am i(?:\s+(?:at|right\s+now|right\s+nwo|now|currently))?\??|what(?:'s| is) my (?:current\s+)?location\??|where(?:'s| is) my (?:current\s+)?location\??|where(?:'re| are) we(?:\s+(?:right\s+now|now|currently))?\??|my (?:current\s+)?location\??|location\??)\s*[.!?]*\s*$/i;
 
+const LOCATION_ASK_MAX_LEN = 80;
+const LOCATION_ASK_FOLDED = new Set([
+  "whereami",
+  "whereamiat",
+  "whereamirightnow",
+  "whereamirightnwo",
+  "whereaminow",
+  "whereamicurently",
+  "whatsmylocation",
+  "whatismylocation",
+  "whatsmycurrentlocation",
+  "whatismycurrentlocation",
+  "wherismylocation",
+  "wheresmylocation",
+  "whereismylocation",
+  "wherearewe",
+  "wherearewenow",
+  "wherearewerightnow",
+  "wherearewecurently",
+  "mylocation",
+  "mycurrentlocation",
+  "location",
+]);
+
+/** Letters only, consecutive duplicates collapsed — "Where am iI" → whereami. */
+function foldLocationAsk(text: string): string {
+  if (text.length > LOCATION_ASK_MAX_LEN) return "";
+  let out = "";
+  let prev = "";
+  const lower = text.toLowerCase();
+  for (let i = 0; i < lower.length; i++) {
+    const ch = lower[i]!;
+    if (ch < "a" || ch > "z") continue;
+    if (ch !== prev) {
+      out += ch;
+      prev = ch;
+    }
+  }
+  return out;
+}
+
 function subjectWithoutProximity(cleaned: string): string {
   let subject = cleaned.trim();
   for (const pattern of PROXIMITY_PHRASES) {
@@ -51,7 +92,10 @@ function subjectWithoutProximity(cleaned: string): string {
 }
 
 export function isLocationQuestion(text: string): boolean {
-  return LOCATION_QUESTION.test(text.trim());
+  const cleaned = text.trim();
+  if (!cleaned) return false;
+  if (LOCATION_QUESTION.test(cleaned)) return true;
+  return LOCATION_ASK_FOLDED.has(foldLocationAsk(cleaned));
 }
 
 export function isProximityQuery(text: string): boolean {

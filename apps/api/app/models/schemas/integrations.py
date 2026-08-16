@@ -24,12 +24,15 @@ class SpeechTranscriptionIn(BaseModel):
 class SpeechTtsIn(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     language: str | None = Field(default=None, max_length=16)
+    model: str | None = Field(default=None, max_length=64)
+    # "lead" + one or more "rest" clips are one user tap: reserve quota on lead only.
+    part: str | None = Field(default="full", max_length=8)
 
 
 class SpeechTtsOut(BaseModel):
     audio_base64: str
     content_type: str = "audio/mpeg"
-    model: str = "tts-model"
+    model: str = "speech-tts-model"
 
 
 class GoogleCalendarConnectRequest(BaseModel):

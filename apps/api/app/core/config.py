@@ -153,7 +153,7 @@ class Settings(BaseSettings):
     # catalog alias `speech-tts-model`.
     speech_tts_enabled: bool = True
     speech_tts_model: str = ""
-    speech_tts_voice: str = "alloy"
+    speech_tts_voice: str = ""
     daily_speech_tts: int = 20
     daily_speech_tts_pro: int = 100
 

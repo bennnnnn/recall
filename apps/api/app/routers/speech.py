@@ -1,8 +1,10 @@
 import base64
 import binascii
 import json
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
@@ -20,8 +22,54 @@ from app.services import speech as speech_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 
-# Matches SpeechTranscriptionIn.audio_base64 max_length plus JSON wrapper overhead.
+TTS_STREAM_MEDIA_TYPE = "audio/L16;rate=24000;channels=1"
+
+
+async def _reserve_tts_or_raise(user: User, settings: Settings) -> None:
+    redis = get_redis_client()
+    rate_limit = settings.speech_rate_limit_per_minute
+    if rate_limit > 0:
+        allowed = await allow_request_fail_closed(
+            redis,
+            f"speech_tts_rl:{user.id}",
+            limit=rate_limit,
+            window_seconds=60,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
+            )
+
+    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
+    if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.speech_tts_limit_exceeded_message(user),
+        )
+
+
+async def _aiter_nonempty(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+    async for chunk in chunks:
+        if chunk:
+            yield chunk
+
+
 MAX_SPEECH_JSON_BYTES = 7_500_000
+_TTS_FOLLOWUP_TTL_SECONDS = 120
+# One lead + this many rest clips stay on the same daily TTS slot.
+_TTS_FOLLOWUP_MAX_CHUNKS = 32
+
+
+def _tts_followup_key(user_id: object) -> str:
+    return f"speech_tts_followup:{user_id}"
+
+
+def _normalize_tts_part(raw: str | None) -> str:
+    part = (raw or "full").strip().lower()
+    if part in {"full", "lead", "rest"}:
+        return part
+    return "full"
 
 
 def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
@@ -72,7 +120,14 @@ async def synthesize_speech(
 
     redis = get_redis_client()
     rate_limit = settings.speech_rate_limit_per_minute
-    if rate_limit > 0:
+    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
+    part = _normalize_tts_part(body.part)
+    reserved_quota = False
+    followup_key = _tts_followup_key(user.id)
+    followup = await redis.get(followup_key) if part == "rest" else None
+    # Same utterance as the lead: more short clips, one daily slot, no per-minute burn.
+    billed = not (part == "rest" and followup)
+    if billed and rate_limit > 0:
         allowed = await allow_request_fail_closed(
             redis,
             f"speech_tts_rl:{user.id}",
@@ -84,19 +139,21 @@ async def synthesize_speech(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
-
-    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
-    if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.speech_tts_limit_exceeded_message(user),
-        )
+    if billed:
+        if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=quota_service.speech_tts_limit_exceeded_message(user),
+            )
+        reserved_quota = True
 
     try:
+        alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
             settings,
             body.text,
             language=body.language,
+            model_alias=alias,
         )
         if not result:
             raise HTTPException(
@@ -104,18 +161,79 @@ async def synthesize_speech(
                 detail="Could not synthesize speech",
             )
         audio_bytes, content_type = result
+        if part == "lead":
+            await redis.set(
+                followup_key,
+                str(_TTS_FOLLOWUP_MAX_CHUNKS),
+                ex=_TTS_FOLLOWUP_TTL_SECONDS,
+            )
+        elif part == "rest" and followup:
+            try:
+                remaining = int(followup)
+            except ValueError:
+                remaining = 0
+            if remaining <= 1:
+                await redis.delete(followup_key)
+            else:
+                await redis.set(
+                    followup_key,
+                    str(remaining - 1),
+                    ex=_TTS_FOLLOWUP_TTL_SECONDS,
+                )
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,
-            model="tts-model",
+            model=alias,
         )
     except HTTPException as exc:
-        if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
+        if reserved_quota and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
             await quota_service.refund_speech_tts(redis, user.id)
         raise
     except Exception:
-        await quota_service.refund_speech_tts(redis, user.id)
+        if reserved_quota:
+            await quota_service.refund_speech_tts(redis, user.id)
         raise
+
+
+@router.post("/tts/stream")
+async def stream_speech(
+    body: SpeechTtsIn,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> StreamingResponse:
+    if not settings.speech_tts_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+
+    await _reserve_tts_or_raise(user, settings)
+    redis = get_redis_client()
+    alias = speech_service.normalize_tts_alias(body.model)
+
+    async def body_iter() -> AsyncIterator[bytes]:
+        got = False
+        try:
+            async for chunk in _aiter_nonempty(
+                speech_service.iter_tts_pcm(
+                    settings,
+                    body.text,
+                    language=body.language,
+                    model_alias=alias,
+                )
+            ):
+                got = True
+                yield chunk
+        finally:
+            if not got:
+                await quota_service.refund_speech_tts(redis, user.id)
+
+    return StreamingResponse(
+        body_iter(),
+        media_type=TTS_STREAM_MEDIA_TYPE,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+            "X-Recall-Tts-Model": alias,
+        },
+    )
 
 
 @router.post("/transcribe", response_model=SpeechTranscriptionOut)

@@ -317,7 +317,6 @@ function ChatScreen() {
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
-    cancelVoiceInput,
   } = useVoiceInput({
     token,
     onTranscript: (text) => {
@@ -515,7 +514,6 @@ function ChatScreen() {
       voiceTranscribing,
       voiceMeterLevel,
       toggleVoiceInput,
-      cancelVoiceInput,
     },
   });
   openUpgradeRef.current = chatScreenBody.openUpgradeSheet;

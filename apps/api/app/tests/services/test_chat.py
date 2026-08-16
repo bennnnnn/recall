@@ -267,9 +267,12 @@ def test_math_formula_shape_rule_is_unified():
         # Must not tell the model to put step formulas in ```math fences.
         assert "NEVER indent a ```math fence inside that list item" not in blob
     assert "numbered solution steps" in INTENT_FORMAT_HINT.lower()
+    assert "general definition or formula" in INTENT_FORMAT_HINT.lower()
     assert "```answer" in INTENT_FORMAT_HINT
     assert "```steps" in INTENT_FORMAT_HINT
     assert "never use a ```steps fence for math" in INTENT_FORMAT_HINT.lower()
+    assert "both sides" in INTENT_FORMAT_HINT.lower()
+    assert "F + 3 - 3 = 3 - 3" in INTENT_FORMAT_HINT
 
 
 def test_math_solver_hint_does_not_overclaim_unverified_scope():

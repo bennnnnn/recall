@@ -43,6 +43,12 @@ describe("copyBlock heuristics", () => {
     expect(shouldRenderAsCopyBlock("copy", advice)).toBe(false);
   });
 
+  it("does not treat a prose expression like 2 + Y as a final-answer card", () => {
+    expect(looksLikeMathAnswer("2 + Y")).toBe(false);
+    expect(looksLikeMathAnswer("Y")).toBe(false);
+    expect(looksLikeMathAnswer("$Y$")).toBe(false);
+  });
+
   it("treats short numeric finals as math answers, not Copy", () => {
     expect(looksLikeMathAnswer("120")).toBe(true);
     expect(looksLikeMathAnswer("$x = 3$")).toBe(true);

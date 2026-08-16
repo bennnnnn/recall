@@ -26,6 +26,7 @@ KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
         "image-gen-model",
         "speech-stt-model",
         "speech-tts-model",
+        "speech-tts-fast-model",
     }
 )
 

@@ -74,10 +74,6 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     }
   }, [token, recording, transcribing, t, showUnavailable]);
 
-  const cancelRecording = useCallback(async () => {
-    await stopRecording();
-  }, [stopRecording]);
-
   const finishRecording = useCallback(async () => {
     if (!token) return;
     setTranscribing(true);
@@ -144,6 +140,5 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     voiceTranscribing: transcribing,
     voiceMeterLevel: meterLevel,
     toggleVoiceInput: toggleRecording,
-    cancelVoiceInput: cancelRecording,
   };
 }

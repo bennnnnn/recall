@@ -2087,7 +2087,7 @@ def test_speech_tts_ok():
     assert r.status_code == 200
     body = r.json()
     assert body["content_type"] == "audio/mpeg"
-    assert body["model"] == "tts-model"
+    assert body["model"] == "speech-tts-model"
     assert base64.b64decode(body["audio_base64"]) == b"fake-mp3"
 
 
@@ -2122,6 +2122,50 @@ def test_speech_tts_daily_cap():
     assert first.status_code == 200
     assert second.status_code == 429
     assert "read-aloud" in second.json()["detail"].lower()
+
+
+def test_speech_tts_lead_allows_multiple_rest_followups():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.synthesize_speech",
+            AsyncMock(return_value=(b"ok", "audio/mpeg")),
+        ),
+    ):
+        lead = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "first clip", "part": "lead"},
+        )
+        rest_one = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "second clip", "part": "rest"},
+        )
+        rest_two = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "third clip", "part": "rest"},
+        )
+        extra_full = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "another page", "part": "full"},
+        )
+    assert lead.status_code == 200
+    assert rest_one.status_code == 200
+    assert rest_two.status_code == 200
+    assert extra_full.status_code == 429
 
 
 def test_speech_tts_rate_limit_message():
@@ -2174,3 +2218,58 @@ def test_speech_tts_disabled():
         json={"text": "hello"},
     )
     assert r.status_code == 404
+
+
+def test_speech_tts_stream_ok():
+    import fakeredis.aioredis
+
+    async def _chunks(*_args, **_kwargs):
+        yield b"pcm"
+        yield b"-hi"
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.iter_tts_pcm",
+            _chunks,
+        ),
+    ):
+        r = client.post(
+            "/speech/tts/stream",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "hello", "language": "en-US"},
+        )
+    assert r.status_code == 200
+    assert r.content == b"pcm-hi"
+    assert "L16" in r.headers.get("content-type", "")
+
+
+def test_speech_tts_stream_empty_refunds():
+    import fakeredis.aioredis
+
+    async def _empty(*_args, **_kwargs):
+        if False:
+            yield b"x"
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.routers.speech.speech_service.iter_tts_pcm", _empty),
+        patch(
+            "app.routers.speech.quota_service.refund_speech_tts",
+            AsyncMock(),
+        ) as refund,
+    ):
+        r = client.post(
+            "/speech/tts/stream",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "hello"},
+        )
+    assert r.status_code == 200
+    assert r.content == b""
+    refund.assert_awaited()

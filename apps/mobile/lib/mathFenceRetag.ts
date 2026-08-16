@@ -119,6 +119,25 @@ export function isHeavyInlineMath(latex: string): boolean {
   return /\\begin\{[\w*]+\}/.test(latex);
 }
 
+const INLINE_MATH_FENCE_MAX = 48;
+
+/**
+ * Short one-line ```math (or untagged algebra) belongs in the sentence as
+ * `$...$`, not a gray card. Display environments and multi-line derivations
+ * stay block fences.
+ */
+export function shouldRenderMathFenceInline(body: string): boolean {
+  const t = stripRedundantDollarWrap(body.trim());
+  if (!t || t.includes("\n")) return false;
+  if (t.length > INLINE_MATH_FENCE_MAX) return false;
+  if (/\\begin\{/.test(t)) return false;
+  if (/[=\\]/.test(t) && !/^\d+\s*[+\-*/]\s*[A-Za-z]$/.test(t)) return false;
+  if (/^[A-Za-z]$/.test(t)) return true;
+  if (/^\d+\s*[+\-*/]\s*[A-Za-z]$/.test(t)) return true;
+  if (/^[A-Za-z]\s*[+\-*/]\s*\d+$/.test(t)) return true;
+  return false;
+}
+
 /**
  * Rewrite model math fences before markdown parse (latex/plain → math only).
  *

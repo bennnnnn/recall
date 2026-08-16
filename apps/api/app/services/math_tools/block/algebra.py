@@ -37,8 +37,10 @@ def _verified_block_equation(
         "`$...$`; never ```math for step equations — those stream blank). "
         "A ```math fence is OK only for a standalone final display equation. "
         "Do NOT recompute the solutions. Show worked steps by COPYING the "
-        "verified steps above verbatim — do NOT derive intermediate algebra "
-        "yourself. Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters. "
+        "verified steps above verbatim — including any 'both sides' line "
+        "(e.g. F + 3 - 3 = 3 - 3) before you simplify. Do NOT skip to "
+        "F = 3 - 3. Do NOT derive intermediate algebra yourself. "
+        "Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters. "
         "End with this final-answer fence (copy verbatim):\n"
         f"```answer\n{answer}\n```"
     )

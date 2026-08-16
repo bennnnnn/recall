@@ -7,6 +7,8 @@ import {
   isCursorInsideInlineMath,
   MATH_KEYBOARD_SYMBOLS,
   MATH_NUMPAD_ROWS,
+  mathGroupCanToggleDigits,
+  mathGroupShowsNumpad,
   nextEditSlotCaret,
   prevEditSlotCaret,
   spliceBackspace,
@@ -57,12 +59,10 @@ describe("spliceMathInsert", () => {
     }
   });
 
-  it("ⁿ√ is n times square root, not an nth root", () => {
+  it("ⁿ√ inserts an nth-root index, not n times square root", () => {
     const nroot = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nroot")!;
-    expect(nroot.insert).not.toContain("\\sqrt[");
-    expect(spliceMathInsert("", { start: 0, end: 0 }, nroot).text).toBe("$n\\sqrt{}$");
-    expect(spliceMathInsert("$6$", { start: 2, end: 2 }, nroot).text).toBe("$6\\sqrt{}$");
-    expect(spliceMathInsert("$6$", { start: 2, end: 2 }, nroot).text).not.toContain("\\sqrt[");
+    expect(nroot.insert).toBe("\\sqrt[]{}");
+    expect(spliceMathInsert("", { start: 0, end: 0 }, nroot).text).toBe("$\\sqrt[]{}$");
   });
 
   it("Calc √[n] inserts an nth-root index slot", () => {
@@ -71,11 +71,24 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("", { start: 0, end: 0 }, nth).text).toBe("$\\sqrt[]{}$");
   });
 
+  it("n! attaches to a number, or inserts n on an empty draft", () => {
+    const fact = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "fact")!;
+    expect(spliceMathInsert("", { start: 0, end: 0 }, fact).text).toBe("$n!$");
+    expect(spliceMathInsert("$5$", { start: 2, end: 2 }, fact).text).toBe("$5!$");
+  });
+
   it("xⁿ inserts a base x and an exponent box, or attaches ^ to an existing base", () => {
     const sup = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "sup")!;
     expect(spliceMathInsert("", { start: 0, end: 0 }, sup).text).toBe("$x^{}$");
     expect(spliceMathInsert("$2$", { start: 2, end: 2 }, sup).text).toBe("$2^{}$");
     expect(spliceMathInsert("$x$", { start: 2, end: 2 }, sup).text).toBe("$x^{}$");
+  });
+
+  it("digits stay prose inside a convert draft", () => {
+    const one = { id: "digit-1", label: "1", insert: "1", cursorOffset: 1, group: "pad" as const };
+    const typed = spliceMathInsert("convert  km to mi", { start: 8, end: 8 }, one);
+    expect(typed.text).toBe("convert 1 km to mi");
+    expect(typed.text).not.toContain("$");
   });
 });
 
@@ -83,7 +96,7 @@ describe("key insert matches the button", () => {
   it.each([
     ["frac", "\\frac{}{}"],
     ["sqrt", "\\sqrt{}"],
-    ["nroot", "n\\sqrt{}"],
+    ["nroot", "\\sqrt[]{}"],
     ["sup", "x^{}"],
     ["sub", "x_{}"],
     ["abs", "||"],
@@ -100,31 +113,72 @@ describe("key insert matches the button", () => {
     ["sin", "\\sin()"],
     ["cos", "\\cos()"],
     ["tan", "\\tan()"],
+    ["cot", "\\cot()"],
+    ["sec", "\\sec()"],
+    ["csc", "\\csc()"],
     ["arcsin", "\\arcsin()"],
+    ["arccos", "\\arccos()"],
+    ["arctan", "\\arctan()"],
+    ["arccot", "\\cot^{-1}()"],
+    ["arcsec", "\\sec^{-1}()"],
+    ["arccsc", "\\csc^{-1}()"],
+    ["rad", "\\mathrm{rad}"],
+    ["arcsinh", "\\sinh^{-1}()"],
+    ["arccosh", "\\cosh^{-1}()"],
+    ["arctanh", "\\tanh^{-1}()"],
     ["log", "\\log()"],
     ["ln", "\\ln()"],
+    ["logn", "\\log_{}()"],
     ["exp", "\\exp()"],
+    ["tenpow", "10^{}"],
+    ["sinh", "\\sinh()"],
+    ["cosh", "\\cosh()"],
+    ["tanh", "\\tanh()"],
     ["deg", "^{\\circ}"],
     ["int", "\\int "],
     ["dint", "\\int_{}^{}"],
+    ["iint", "\\iint "],
     ["nth", "\\sqrt[]{}"],
     ["sum", "\\sum_{}^{}"],
     ["prod", "\\prod_{}^{}"],
     ["lim", "\\lim_{}"],
     ["infty", "\\infty "],
     ["partial", "\\partial "],
+    ["der", "\\frac{d}{dx}"],
+    ["der2", "\\frac{d^{2}}{dx^{2}}"],
     ["to", "\\to "],
     ["dx", "\\,dx"],
+    ["pm", "\\pm "],
+    ["approx", "\\approx "],
+    ["binom", "\\binom{}{}"],
+    ["percent", "\\%"],
+    ["euler", "e"],
+    ["imag", "i"],
     ["alpha", "\\alpha "],
     ["beta", "\\beta "],
     ["gamma", "\\gamma "],
     ["delta", "\\delta "],
+    ["epsilon", "\\varepsilon "],
+    ["zeta", "\\zeta "],
+    ["eta", "\\eta "],
     ["theta", "\\theta "],
+    ["kappa", "\\kappa "],
+    ["lambda", "\\lambda "],
+    ["mu", "\\mu "],
+    ["nu", "\\nu "],
+    ["xi", "\\xi "],
     ["pi-greek", "\\pi "],
+    ["rho", "\\rho "],
     ["sigma", "\\sigma "],
-    ["Delta", "\\Delta "],
+    ["tau", "\\tau "],
     ["phi", "\\phi "],
+    ["chi", "\\chi "],
+    ["psi", "\\psi "],
     ["omega", "\\omega "],
+    ["Gamma", "\\Gamma "],
+    ["Delta", "\\Delta "],
+    ["Sigma", "\\Sigma "],
+    ["Omega", "\\Omega "],
   ] as const)("%s inserts %s", (id, insert) => {
     const spec = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === id);
     expect(spec?.insert).toBe(insert);
@@ -209,10 +263,33 @@ describe("spliceBackspace", () => {
   });
 });
 
+describe("mathGroupShowsNumpad", () => {
+  it("keeps digits on Basics only", () => {
+    expect(mathGroupShowsNumpad("basics")).toBe(true);
+    expect(mathGroupShowsNumpad("trig")).toBe(false);
+    expect(mathGroupShowsNumpad("calc")).toBe(false);
+    expect(mathGroupShowsNumpad("greek")).toBe(false);
+  });
+});
+
+describe("mathGroupCanToggleDigits", () => {
+  it("offers 123 on symbol tabs that hide the number pad", () => {
+    expect(mathGroupCanToggleDigits("trig")).toBe(true);
+    expect(mathGroupCanToggleDigits("calc")).toBe(true);
+    expect(mathGroupCanToggleDigits("greek")).toBe(true);
+    expect(mathGroupCanToggleDigits("basics")).toBe(false);
+    expect(mathGroupCanToggleDigits("converter")).toBe(false);
+  });
+});
+
 describe("MATH_NUMPAD_ROWS", () => {
-  it("is a 4×5 calculator grid with backspace and slot nav", () => {
+  it("is a calculator grid with comma, y, backspace, and slot nav", () => {
     expect(MATH_NUMPAD_ROWS).toHaveLength(4);
-    expect(MATH_NUMPAD_ROWS.every((row) => row.length === 5)).toBe(true);
+    const ids = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
+      c.kind === "insert" ? [c.spec.id] : [],
+    );
+    expect(ids).toContain("comma");
+    expect(ids).toContain("var-y");
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(true);
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "slot-nav")).toBe(true);
   });

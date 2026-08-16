@@ -12,7 +12,9 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
+import { useTtsPreference } from "@/hooks/useTtsPreference";
 import { useTheme } from "@/lib/theme";
+import { TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -36,6 +38,7 @@ export default function ModelsSettingsScreen() {
     autoEnabled,
     modelEnabledSet,
   } = useModels();
+  const { ttsModel, selectTtsModel } = useTtsPreference();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -152,6 +155,41 @@ export default function ModelsSettingsScreen() {
               </View>
             );
           })}
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.tts")} styles={s}>
+          <SettingsSwitchRow
+            title={t("settings.tts_device")}
+            subtitle={t("settings.tts_device_meta")}
+            value={ttsModel === TTS_DEVICE_MODEL}
+            onValueChange={(enabled) => {
+              if (enabled) selectTtsModel(TTS_DEVICE_MODEL);
+            }}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsSwitchRow
+            title={t("settings.tts_gemini")}
+            subtitle={t("settings.tts_gemini_meta")}
+            value={ttsModel === TTS_QUALITY_MODEL}
+            onValueChange={(enabled) => {
+              if (enabled) selectTtsModel(TTS_QUALITY_MODEL);
+            }}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsSwitchRow
+            title={t("settings.tts_kokoro")}
+            subtitle={t("settings.tts_kokoro_meta")}
+            value={ttsModel === TTS_FAST_MODEL}
+            onValueChange={(enabled) => {
+              if (enabled) selectTtsModel(TTS_FAST_MODEL);
+            }}
+            styles={s}
+            theme={theme}
+          />
         </SettingsGroup>
       </ScrollView>
       <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />

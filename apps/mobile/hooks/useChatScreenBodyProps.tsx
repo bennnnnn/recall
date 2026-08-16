@@ -106,7 +106,6 @@ export type UseChatScreenBodyPropsParams = {
     voiceTranscribing: boolean;
     voiceMeterLevel: number;
     toggleVoiceInput: () => void | Promise<void>;
-    cancelVoiceInput: () => void | Promise<void>;
   };
   listFooter?: ReactElement | null;
   hideHomeStarters?: boolean;
@@ -180,7 +179,6 @@ export function useChatScreenBodyProps({
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
-    cancelVoiceInput,
   },
   listFooter = null,
   hideHomeStarters = false,
@@ -225,9 +223,6 @@ export function useChatScreenBodyProps({
   const onVoicePress = useCallback(() => {
     void toggleVoiceInput();
   }, [toggleVoiceInput]);
-  const onVoiceCancel = useCallback(() => {
-    void cancelVoiceInput();
-  }, [cancelVoiceInput]);
   const onCloseUpgrade = useCallback(() => setUpgradeVisible(false), []);
 
   const listHeader = useMemo(
@@ -332,7 +327,6 @@ export function useChatScreenBodyProps({
       voiceTranscribing,
       voiceMeterLevel,
       onVoicePress,
-      onVoiceCancel,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,
@@ -396,7 +390,6 @@ export function useChatScreenBodyProps({
       voiceTranscribing,
       voiceMeterLevel,
       onVoicePress,
-      onVoiceCancel,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,

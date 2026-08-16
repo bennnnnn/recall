@@ -274,9 +274,15 @@ export function looksLikeMathAnswer(content: string): boolean {
   const sample = content.trim();
   if (!sample || sample.length > 80) return false;
   if (/\n/.test(sample)) return false;
+  // A lone variable or "2 + Y" mentioned in prose is not a final-answer card.
+  if (/^[A-Za-z]$/.test(sample)) return false;
+  if (/^\d+\s*[+\-*/]\s*[A-Za-z]\s*$/.test(sample)) return false;
+  if (/^[A-Za-z]\s*[+\-*/]\s*\d+\s*$/.test(sample)) return false;
   // Bare number, optional % / factorial: 120, 5!, -3.5
   if (/^[±+\-]?\d+(?:[.,]\d+)?(?:\s*[%])?!?$/.test(sample)) return true;
-  if (/^\$[^$\n]+\$$/.test(sample)) return true;
+  if (/^\$[^$\n]+\$$/.test(sample)) {
+    return looksLikeMathAnswer(sample.slice(1, -1));
+  }
   if (/^\\boxed\{[^}]+\}$/.test(sample)) return true;
   // Short scalar assignment final: x = 2, n = 120 (not multi-step / worded).
   if (/^[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?$/.test(sample)) return true;
