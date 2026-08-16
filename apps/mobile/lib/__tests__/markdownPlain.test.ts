@@ -1,4 +1,5 @@
-import { markdownToPlainText, markdownToPrintHtml } from "@/lib/markdownPlain";
+import * as markdownPlain from "@/lib/markdownPlain";
+import { markdownToPlainText } from "@/lib/markdownPlain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 import { projectLearningToPrintHtml } from "@/lib/exportProjectPdf";
 import type { ProjectDetail, ProjectItem } from "@/lib/api";
@@ -11,10 +12,17 @@ describe("markdownPlain", () => {
     expect(plain).not.toContain("```");
   });
 
-  it("builds print html with escaped title", () => {
-    const html = markdownToPrintHtml("Report <script>", "Hello");
-    expect(html).toContain("Report &lt;script&gt;");
-    expect(html).toContain("Hello");
+  it("does not re-export print helpers that pull KaTeX", () => {
+    expect(Object.keys(markdownPlain)).toEqual(["markdownToPlainText"]);
+  });
+
+  it("does not load printDocument", () => {
+    jest.resetModules();
+    jest.doMock("@/lib/printDocument", () => {
+      throw new Error("markdownPlain must not import printDocument");
+    });
+    expect(() => require("@/lib/markdownPlain")).not.toThrow();
+    jest.dontMock("@/lib/printDocument");
   });
 });
 

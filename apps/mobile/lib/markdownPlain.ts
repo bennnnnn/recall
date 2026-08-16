@@ -1,6 +1,5 @@
-/** Strip common markdown to plain text for TTS (and other non-print uses). */
-
-import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+/** Strip common markdown to plain text for TTS (and other non-print uses).
+ * Do not import printDocument here — that module statically loads KaTeX. */
 
 export function markdownToPlainText(markdown: string): string {
   let text = markdown;
@@ -13,9 +12,4 @@ export function markdownToPlainText(markdown: string): string {
   text = text.replace(/(\*\*|__|\*|_|`|~~)/g, "");
   text = text.replace(/\n{3,}/g, "\n\n");
   return text.trim();
-}
-
-/** Structured print HTML for message PDF export. */
-export function markdownToPrintHtml(title: string, markdown: string): string {
-  return markdownToStructuredPrintHtml(title, markdown);
 }
