@@ -151,14 +151,6 @@ export const ChatComposer = memo(function ChatComposer({
     }
   }, [math.mathBarOpen, math.toggleMathBar]);
 
-  const onConverterAsk = useCallback(
-    (text: string) => {
-      if (!isOffline) math.closeMathBar();
-      onSend(text);
-    },
-    [isOffline, math.closeMathBar, onSend],
-  );
-
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
@@ -350,7 +342,7 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
-              onAsk={onConverterAsk}
+              onAsk={onSend}
               onBackspace={math.backspace}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}

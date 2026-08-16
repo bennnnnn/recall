@@ -156,7 +156,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-converter-ask"));
     expect(onSend).toHaveBeenCalledWith("convert 5 m to cm");
     expect(onChangeInput).not.toHaveBeenCalledWith("convert 5 m to cm");
-    expect(queryByTestId("math-converter")).toBeNull();
+    expect(getByTestId("math-converter")).toBeTruthy();
   });
 
   it("reopens the Converter tab after ABC", async () => {
