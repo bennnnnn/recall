@@ -69,7 +69,7 @@ type Props = {
   docked?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
-  /** Recent chat already has math — offer ƒ even with an empty composer. */
+  /** Recent chat already has math — offer the math keyboard even with an empty composer. */
   mathContext?: boolean;
 };
 
@@ -200,7 +200,7 @@ export const ChatComposer = memo(function ChatComposer({
                 accessibilityLabel={t("chat.math_keyboard_show")}
                 testID="math-keyboard-toggle"
               >
-                <Text style={s.chipLabel}>ƒ</Text>
+                <Ionicons name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
             </View>
           ) : null}
@@ -230,7 +230,15 @@ export const ChatComposer = memo(function ChatComposer({
                   meterLevel={voiceMeterLevel}
                 />
               ) : (
-                <View style={s.inputField}>
+                <Pressable
+                  style={s.inputField}
+                  testID="chat-composer-field"
+                  onPress={() => {
+                    if (!math.mathBarOpen || showMathPreview) return;
+                    math.closeMathBar();
+                    requestAnimationFrame(() => inputRef.current?.focus());
+                  }}
+                >
                   {showMathPreview ? (
                     <MathDraftPreview
                       input={input}
@@ -263,12 +271,9 @@ export const ChatComposer = memo(function ChatComposer({
                         : undefined
                     }
                     caretHidden={showMathPreview || math.mathBarOpen}
-                    pointerEvents={parkInput ? "none" : "auto"}
+                    pointerEvents={parkInput || math.mathBarOpen ? "none" : "auto"}
                     showSoftInputOnFocus={!math.mathBarOpen}
-                    onFocus={() => {
-                      onCloseAttachSheet();
-                      math.onComposerFocus();
-                    }}
+                    onFocus={onCloseAttachSheet}
                     multiline
                     returnKeyType="default"
                   />
@@ -277,7 +282,7 @@ export const ChatComposer = memo(function ChatComposer({
                       <MathComposerCaret testID="math-composer-caret" />
                     </View>
                   ) : null}
-                </View>
+                </Pressable>
               )}
               <View style={s.sendBtnSlot}>
                 {streaming ? (
@@ -324,7 +329,10 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
+              onInsertPlain={math.insertPlain}
               onBackspace={math.backspace}
+              group={math.mathGroup}
+              onGroupChange={math.setMathGroup}
               onNextSlot={math.nextSlot}
               onPrevSlot={math.prevSlot}
               onStepCaret={math.stepCaret}
@@ -412,7 +420,6 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     chipPressed: { opacity: 0.55 },
-    chipLabel: { fontSize: 16, fontWeight: "700", color: theme.primary },
     input: {
       flex: 1,
       fontSize: 16,
