@@ -852,7 +852,7 @@ async def test_load_project_for_prompt_scoped():
             project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
-        ),
+        ) as list_items,
         patch.object(
             project_items_repo,
             "list_quiz_exclusion_contents",
@@ -866,6 +866,7 @@ async def test_load_project_for_prompt_scoped():
     assert "linked to ONE learning topic" in block
     assert "Spanish" in block
     assert "hola" in block
+    list_items.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1956,20 +1957,6 @@ async def test_load_project_for_prompt_trivia_hint():
             project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=["Colossus of Rhodes"]),
-        ),
-        patch(
-            "app.services.projects.stats.count_stats",
-            AsyncMock(
-                return_value={
-                    "total": 1,
-                    "mastered_count": 0,
-                    "new_count": 1,
-                    "learning_count": 0,
-                    "mastered_today": 0,
-                    "missed_today": 0,
-                    "pending_today": 1,
-                }
-            ),
         ),
         patch(
             "app.repositories.users.get_by_id",

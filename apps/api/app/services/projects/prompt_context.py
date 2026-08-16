@@ -217,12 +217,7 @@ async def load_project_for_prompt(
             user.timezone if user else None,
             client_timezone,
         )
-        stats = await project_stats.count_stats(
-            session,
-            project_id,
-            user_id,
-            timezone_name=tz_name,
-        )
+        stats = project_stats.stats_from_items(items, timezone_name=tz_name)
         today_line = _format_today_session_line(project, stats)
     if _is_language_project(project):
         hint = _language_tutor_hint(quiz_mode)
