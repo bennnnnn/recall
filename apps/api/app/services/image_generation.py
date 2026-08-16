@@ -10,7 +10,11 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.gateways import image_gateway, mock_llm
-from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
+from app.gateways.storage_gateway import (
+    StorageGateway,
+    UnconfiguredStorageGateway,
+    get_storage_gateway,
+)
 from app.models.orm import Message, User
 from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
@@ -43,6 +47,20 @@ class ImageGenerationError(Exception):
         self.detail = detail
         self.status_code = status_code
         super().__init__(detail)
+
+
+async def _rollback_written_bytes(gateway: StorageGateway, storage_key: str | None) -> None:
+    """Delete object storage if persist failed after write_bytes.
+
+    The orphan reaper only sees attachment rows. A write with no row (or a
+    failed persist) would leak the object forever without this rollback.
+    """
+    if not storage_key:
+        return
+    try:
+        await gateway.delete_bytes(storage_key)
+    except Exception:
+        logger.exception("Failed to delete orphaned generated image %s", storage_key)
 
 
 def normalize_aspect_ratio(value: str | None) -> AspectRatio | None:
@@ -133,6 +151,7 @@ async def generate_for_chat(
         await quota_service.refund_image_generation(redis, user.id)
         raise ImageGenerationError("Prompt is required", status_code=400)
 
+    written_key: str | None = None
     try:
         # Provider HTTP — no DB session held.
         generated = await generate_image(
@@ -166,6 +185,7 @@ async def generate_for_chat(
         )
         attachment_id = UUID(presigned.attachment_id)
         await gateway.write_bytes(presigned.storage_key, image_bytes)
+        written_key = presigned.storage_key
 
         async with SessionLocal() as session:
             await attachments_repo.create_pending(
@@ -213,11 +233,15 @@ async def generate_for_chat(
             )
             if linked != 1:
                 raise ImageGenerationError("Could not link generated image", status_code=500)
+            # Bytes were generated and validated here — skip /file re-download.
+            await attachments_repo.mark_verified(session, attachment_id)
     except ImageGenerationError as exc:
+        await _rollback_written_bytes(gateway, written_key)
         if exc.status_code not in (403, 429):
             await quota_service.refund_image_generation(redis, user.id)
         raise
     except Exception:
+        await _rollback_written_bytes(gateway, written_key)
         await quota_service.refund_image_generation(redis, user.id)
         raise
 

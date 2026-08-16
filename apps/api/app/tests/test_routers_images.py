@@ -176,6 +176,10 @@ def test_generate_image_success():
             "app.services.image_generation.attachments_repo.link_to_message",
             AsyncMock(return_value=1),
         ),
+        patch(
+            "app.services.image_generation.attachments_repo.mark_verified",
+            AsyncMock(),
+        ) as mark_verified,
         patch("app.services.image_generation.bytes_match_claimed", return_value=True),
     ):
         client = TestClient(app)
@@ -191,3 +195,65 @@ def test_generate_image_success():
     assert body["assistant_message"]["role"] == "assistant"
     assert "/attachments/" in body["assistant_message"]["content"]
     gateway.write_bytes.assert_awaited_once()
+    mark_verified.assert_awaited_once()
+    gateway.delete_bytes.assert_not_called()
+
+
+def test_generate_image_deletes_storage_when_persist_fails():
+    """A write with no attachment row leaks forever — rollback the object."""
+    user = _fake_user(plan="pro")
+    chat_id = uuid4()
+    attachment_id = uuid4()
+    storage_key = f"{user.id}/{attachment_id}"
+    app = _app_with_user(user)
+
+    chat = MagicMock(spec=Chat)
+    chat.id = chat_id
+
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.presign_upload = AsyncMock(
+        return_value=PresignedUpload(
+            attachment_id=str(attachment_id),
+            upload_url=f"/attachments/{attachment_id}/upload",
+            storage_key=storage_key,
+            headers={"Content-Type": "image/png"},
+            api_upload=True,
+        )
+    )
+    gateway.write_bytes = AsyncMock()
+    gateway.delete_bytes = AsyncMock()
+
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+
+    with (
+        patch("app.services.image_generation.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.services.image_generation.chats_repo.get_by_id",
+            AsyncMock(return_value=chat),
+        ),
+        patch(
+            "app.services.image_generation.generate_image",
+            AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
+        ),
+        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.services.image_generation.attachments_repo.create_pending",
+            AsyncMock(side_effect=RuntimeError("db down")),
+        ),
+        patch("app.services.image_generation.bytes_match_claimed", return_value=True),
+    ):
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post(
+            "/images/generate",
+            headers={"Authorization": "Bearer tok"},
+            json={"chat_id": str(chat_id), "prompt": "a cat"},
+        )
+
+    assert r.status_code == 500
+    gateway.write_bytes.assert_awaited_once_with(storage_key, b"\x89PNG\r\n")
+    gateway.delete_bytes.assert_awaited_once_with(storage_key)
+    # Reserved once, refunded after persist fail.
+    assert fake_redis.incrby.await_count == 2
+    assert fake_redis.incrby.await_args_list[1].args[1] == -1
