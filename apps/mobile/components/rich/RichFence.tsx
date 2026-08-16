@@ -10,12 +10,12 @@ import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { EmailCard } from "@/components/rich/EmailCard";
-import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
-import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import {
   LazyChartBlock,
   LazyChemistryBlock,
+  LazyFunctionGraphBlock,
+  LazyGeometryBlock,
   LazyMermaidBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
@@ -66,8 +66,8 @@ export function renderRichFence(
     // ```geometry / ```graph it's told to use for diagrams.
     if (l === "json" || l === "") {
       const kind = detectJsonRichFenceKind(content);
-      if (kind === "geometry") return <GeometryBlock key={key} content={content} />;
-      if (kind === "graph") return <FunctionGraphBlock key={key} content={content} />;
+      if (kind === "geometry") return <LazyGeometryBlock key={key} content={content} />;
+      if (kind === "graph") return <LazyFunctionGraphBlock key={key} content={content} />;
     }
     return null;
   }
@@ -101,11 +101,11 @@ export function renderRichFence(
   }
 
   if (l === "geometry") {
-    return <GeometryBlock key={key} content={content} />;
+    return <LazyGeometryBlock key={key} content={content} />;
   }
 
   if (l === "graph") {
-    return <FunctionGraphBlock key={key} content={content} />;
+    return <LazyFunctionGraphBlock key={key} content={content} />;
   }
 
   if (l === "places") {

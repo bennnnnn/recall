@@ -101,12 +101,12 @@ describe("GeometryBlock", () => {
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect(tree).toContain("right-angle-mark");
     expect(tree).toContain("90°");
     expect(tree).toContain("36.9°");
     expect(tree).toContain("53.1°");
-    expect(tree).toContain("interior-angle-arc");
-    expect(tree).toContain("interior-angle-backdrop");
+    expect(tree).toContain("RNSVGPath");
+    expect(tree).toContain("RNSVGRect");
+    expect(tree).not.toContain("right-angle-mark");
   });
 
   it("draws leader lines when a skinny right triangle cannot fit 10° inside", async () => {
@@ -120,7 +120,8 @@ describe("GeometryBlock", () => {
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
     expect(tree).toContain("90°");
-    expect(tree).toContain("interior-angle-leader");
+    expect(tree).toContain("RNSVGLine");
+    expect(tree).not.toContain("interior-angle-leader");
   });
 
   it("draws a diagonal-angle arc when rectangle show_angle + show_diagonal", async () => {
@@ -136,16 +137,15 @@ describe("GeometryBlock", () => {
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect(tree).toContain("diagonal-angle-arc");
     expect(tree).toContain("∠");
-    // Bracket (90°) must stay off when the diagonal angle is shown.
-    expect(tree).not.toContain("right-angle-mark");
+    expect(tree).toContain("RNSVGPath");
+    expect(tree).not.toContain("90°");
   });
 
   it("draws side tick marks on a square by default", async () => {
     const content = JSON.stringify({ type: "square", side: 5, unit: "cm" });
     const { toJSON } = await render(<GeometryBlock content={content} />);
-    expect(JSON.stringify(toJSON())).toContain("side-tick-mark");
+    expect(JSON.stringify(toJSON())).toContain("RNSVGLine");
   });
 
   it("does not draw altitude on an SSS triangle unless asked", async () => {
@@ -158,7 +158,7 @@ describe("GeometryBlock", () => {
       show_angle: true,
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
-    expect(JSON.stringify(toJSON())).not.toContain("altitude-line");
+    expect(JSON.stringify(toJSON())).not.toContain("\"strokeDasharray\":[\"5\",\"4\"]");
   });
 
   it("draws altitude and equal-side ticks on an isosceles SSS triangle", async () => {
@@ -174,8 +174,8 @@ describe("GeometryBlock", () => {
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect(tree).toContain("altitude-line");
-    expect(tree).toContain("side-tick-mark");
+    expect(tree).toContain("\"strokeDasharray\":[\"5\",\"4\"]");
+    expect(tree).toContain("RNSVGLine");
   });
 
   it("draws a separate median when scalene and show_median is set", async () => {
@@ -191,8 +191,8 @@ describe("GeometryBlock", () => {
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect(tree).toContain("altitude-line");
-    expect(tree).toContain("median-line");
+    expect(tree).toContain("\"strokeDasharray\":[\"5\",\"4\"]");
+    expect(tree).toContain("\"strokeDasharray\":[\"2\",\"3\"]");
   });
 
   it("hides labels when show_labels is false", async () => {
