@@ -25,6 +25,7 @@ function asksUserToWriteSentence(content: string): boolean {
     content,
   );
 }
+import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, type ParsedMessageImage } from "@/lib/messageAttachments";
@@ -195,15 +196,16 @@ export function deriveAssistantMessageContent(
   });
 
   const hasMarkdown = markdownContent.trim().length > 0;
-  // Live clock is device-driven (local or pinned IANA) — a Sources chip would
-  // imply the time came from those links, which it didn't.
+  // Live clock and "where am I" are device-driven — a Sources chip would
+  // imply the answer came from those links, which it didn't.
   const showSearchSources =
     searchSources.length > 0 &&
     !layoutFrozen &&
     !showLiveClock &&
     !hideQuizFenceInMarkdown &&
     !showVocabCard &&
-    !showCalendarProposals;
+    !showCalendarProposals &&
+    !(priorUserText != null && isLocationQuestion(priorUserText));
 
   const interactiveQuiz =
     !isUser && !layoutFrozen && quizForStrip && isRenderableVocabQuiz(quizForStrip)

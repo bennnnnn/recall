@@ -215,8 +215,6 @@
   "chat.unpin": "Désépingler",
   "chat.unpinned_toast": "Chat désépinglé",
   "chat.voice_a11y": "Voice input",
-  "chat.voice_cancel_a11y": "Annuler l'enregistrement",
-  "chat.voice_cancel_hint": "Ignorer cet enregistrement sans le transcrire",
   "chat.voice_listening": "Listening…",
   "chat.voice_network_failed": "Couldn't reach the server to transcribe. Check your connection (USB: run adb reverse tcp:8000 tcp:8000).",
   "chat.voice_permission_body": "Allow microphone access in Settings to dictate messages.",

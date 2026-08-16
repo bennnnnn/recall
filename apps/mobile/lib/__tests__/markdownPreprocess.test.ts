@@ -105,14 +105,24 @@ $)
     // Live: "For $x = 2$: $2^2 + 2 = 6$" (or one $x = 2: 2^2$ span) rendered
     // as 2:2². Split the label from the formula and force a space after `:`.
     expect(layoutCheckVerificationLines("For $x = 2$:$2^2 + 2 = 6$")).toBe(
-      "For $x = 2$: $2^2 + 2 = 6$",
+      "For $x = 2$:\n  $2^2 + 2 = 6$",
     );
     expect(layoutCheckVerificationLines("For $x = 2: 2^2 + 2 = 6$")).toBe(
-      "For $x = 2$: $2^2 + 2 = 6$",
+      "For $x = 2$:\n  $2^2 + 2 = 6$",
     );
     expect(layoutCheckVerificationLines("- [x] For $x = -2$:$(-2)^2 + 2 = 6$")).toBe(
-      "- [x] For $x = -2$: $(-2)^2 + 2 = 6$",
+      "- [x] For $x = -2$:\n  $(-2)^2 + 2 = 6$",
     );
+  });
+
+  it("puts the check substitution on the line under For n = …", () => {
+    expect(layoutCheckVerificationLines("• For F = 0: 0 + 3 = 3 ✓")).toBe(
+      "• For F = 0:\n  0 + 3 = 3 ✓",
+    );
+    expect(layoutCheckVerificationLines("- For F = 0: 0 + 3 = 3")).toBe(
+      "- For F = 0:\n  0 + 3 = 3",
+    );
+    expect(layoutCheckVerificationLines("For example: try again")).toBe("For example: try again");
   });
 
   it("preprocess keeps math adjacent to bold labels", () => {
@@ -140,13 +150,30 @@ x = 0
 
     const out = preprocessMarkdown(input);
 
-    // Both math fences must survive as ```math fences, not be dropped/unwrapped.
     expect(out).toContain("```math\n5 = 5 + x\n```");
     expect(out).toContain("```math\nx = 0\n```");
-    // The ordered list numbering must stay intact — no renumbering/splitting.
     expect(out).toContain("2. Simplify the left side:");
     expect(out).toContain("3. Subtract 5 from both sides to isolate x:");
     expect(out).toContain("4. Final result:");
+  });
+
+  it("keeps 2 + Y / Y in the sentence instead of a math card", () => {
+    const input = `**Solve an equation** involving
+\`\`\`math
+2 + Y
+\`\`\`
+? (e.g., 2 + Y = 7)
+
+what
+\`\`\`math
+Y
+\`\`\`
+represents`;
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/```math/);
+    expect(out).toContain("$2 + Y$");
+    expect(out).toContain("$Y$");
+    expect(out).toMatch(/involving \$2 \+ Y\$ \?/);
   });
 
   it("lifts an indented evaluation-bar ```math fence out of a numbered step", () => {

@@ -25,7 +25,9 @@ describe("geo intent", () => {
   it("detects where-am-I asks and requires geo", () => {
     expect(isLocationQuestion("Where am I right now")).toBe(true);
     expect(isLocationQuestion("where am i right nwo")).toBe(true);
+    expect(isLocationQuestion("Where am iI")).toBe(true);
     expect(isGeoQuery("Where am I right now")).toBe(true);
+    expect(isGeoQuery("Where am iI")).toBe(true);
     expect(isPlacesListQuery("Where am I right now")).toBe(false);
     expect(isLocationQuestion("where am I going tomorrow")).toBe(false);
   });

@@ -76,4 +76,14 @@ describe("markdown render rules", () => {
     );
     expect(getByText("world")).toBeOnTheScreen();
   });
+
+  it("paints a trailing verification tick green", async () => {
+    const { getByText } = await render(
+      <MarkdownContent content={"0 + 3 = 3 ✓"} />,
+    );
+    const tick = getByText("✓");
+    expect(StyleSheet.flatten(tick.props.style)).toMatchObject({
+      color: lightTheme.success,
+    });
+  });
 });

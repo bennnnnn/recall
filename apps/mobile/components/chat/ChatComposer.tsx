@@ -65,8 +65,6 @@ type Props = {
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
-  /** Discard in-progress recording without uploading/transcribing. */
-  onVoiceCancel?: () => void;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
   docked?: boolean;
   onOpenMathScanner?: () => void;
@@ -99,7 +97,6 @@ export const ChatComposer = memo(function ChatComposer({
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
   onVoicePress,
-  onVoiceCancel,
   docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
@@ -295,18 +292,6 @@ export const ChatComposer = memo(function ChatComposer({
                   </Pressable>
                 ) : (
                   <>
-                    {onVoiceCancel && voiceRecording ? (
-                      <Pressable
-                        style={s.voiceCancelBtn}
-                        onPress={onVoiceCancel}
-                        hitSlop={6}
-                        accessibilityRole="button"
-                        accessibilityLabel={t("chat.voice_cancel_a11y")}
-                        accessibilityHint={t("chat.voice_cancel_hint")}
-                      >
-                        <Ionicons name="close" size={18} color={theme.textSecondary} />
-                      </Pressable>
-                    ) : null}
                     {showMic && onVoicePress ? (
                       <VoiceMicButton
                         recording={voiceRecording}
@@ -315,11 +300,7 @@ export const ChatComposer = memo(function ChatComposer({
                         onPress={onVoicePress}
                       />
                     ) : null}
-                    {voiceTranscribing ? (
-                      <View style={[s.sendBtn, s.sendBtnDisabled]}>
-                        <Text style={[s.sendIcon, s.sendIconDisabled]}>…</Text>
-                      </View>
-                    ) : showSend ? (
+                    {showSend ? (
                       <Pressable
                         style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
                         onPress={onSend}
@@ -462,16 +443,6 @@ function makeStyles(theme: Theme) {
       justifyContent: "flex-end",
       gap: 6,
       minHeight: 40,
-    },
-    voiceCancelBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
     },
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },

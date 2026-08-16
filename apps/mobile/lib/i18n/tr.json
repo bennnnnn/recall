@@ -215,8 +215,6 @@
   "chat.unpin": "Sabitlemeyi kaldır",
   "chat.unpinned_toast": "Sabitleme kaldırıldı",
   "chat.voice_a11y": "Voice input",
-  "chat.voice_cancel_a11y": "Kaydı iptal et",
-  "chat.voice_cancel_hint": "Bu kaydı yazıya dökmeden sil",
   "chat.voice_listening": "Listening…",
   "chat.voice_network_failed": "Couldn't reach the server to transcribe. Check your connection (USB: run adb reverse tcp:8000 tcp:8000).",
   "chat.voice_permission_body": "Allow microphone access in Settings to dictate messages.",

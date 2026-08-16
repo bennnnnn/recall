@@ -1,11 +1,12 @@
 /**
  * Custom slide drawer. Chat stays mounted; the sidebar slides in from the
  * left. Open via the header button, Android back, or an interactive swipe
- * from the left edge; close via scrim tap, back, or swipe left.
+ * from the left edge; close via scrim tap, back, or by dragging the panel.
  *
  * Edge open uses Gesture.Pan with manualActivation (same claim rules as the
  * old PanResponder) so taps on the header menu button are not stolen by an
- * opaque left-edge hit strip.
+ * opaque left-edge hit strip. When the drawer is open, a horizontal drag on
+ * the panel itself moves it (vertical list scroll still wins).
  */
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -23,18 +24,23 @@ import { ConversationList } from "@/components/ConversationList";
 import { DrawerProvider } from "@/contexts/DrawerContext";
 import { registerDrawer } from "@/lib/drawer";
 import { tap } from "@/lib/haptics";
-import { Motion } from "@/lib/motion";
 import { shadowOverlay } from "@/lib/shadow";
 import { type Theme, useTheme } from "@/lib/theme";
 
-/** Left-edge hit slop for swipe-to-open (pt). */
+/** Left-edge hit slop for swipe-to-open (pt). Must stay a local const — Reanimated worklets cannot read imported names here. */
 const EDGE_WIDTH = 28;
 /** Fraction of drawer width that counts as "open enough" to finish open. */
 const OPEN_PROGRESS = 0.35;
 /** Horizontal velocity (px/s from RNGH) to fling open/closed. */
 const FLING_VX = 800;
 
-const SPRING = { damping: 28, stiffness: 280 } as const;
+const SPRING = {
+  damping: 28,
+  stiffness: 280,
+  // Without this the panel overshoots past 0, a strip of chat shows on the
+  // left, then the drawer springs back — looks like the screen flashing through.
+  overshootClamping: true,
+} as const;
 
 export function DrawerShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
@@ -73,9 +79,13 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       isOpenSV.value = open ? 1 : 0;
       if (withHaptic && open) tap();
       translateX.value = withSpring(open ? 0 : -w, SPRING);
-      overlayOpacity.value = withTiming(open ? 1 : 0, {
-        duration: open ? Motion.duration.snappy : 150,
-      });
+      if (open) {
+        // Cover chat immediately — a 200ms scrim fade lets the screen show
+        // through while the panel is still sliding in.
+        overlayOpacity.value = 1;
+      } else {
+        overlayOpacity.value = withTiming(0, { duration: 150 });
+      }
     },
     [isOpenSV, overlayOpacity, translateX, widthSV],
   );
@@ -131,17 +141,12 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           }
           const w = widthSV.value;
           const openNow = isOpenSV.value > 0.5;
-          if (!openNow) {
-            if (touchStartX.value <= EDGE_WIDTH && dx > 0) {
-              manager.activate();
-            } else {
-              manager.fail();
-            }
-            return;
-          }
-          // Open: only claim horizontal swipes that start on the scrim, not the drawer
-          // (so ConversationRow Swipeable keeps working).
-          if (touchStartX.value >= w && dx < 0) {
+          // Inline (not shouldClaimDrawerPan): worklets cannot close over
+          // imported helpers without a Hermes "Property doesn't exist" crash.
+          const onPanel = openNow && touchStartX.value < w;
+          const onScrimClose = openNow && touchStartX.value >= w && dx < 0;
+          const onEdgeOpen = !openNow && touchStartX.value <= EDGE_WIDTH && dx > 0;
+          if (onPanel || onScrimClose || onEdgeOpen) {
             manager.activate();
           } else {
             manager.fail();

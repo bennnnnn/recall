@@ -66,7 +66,11 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
 
     steps: list[str] = []
     if degree == 1 and c1 != 0:
-        # a*x + c0 = 0  →  a*x = -c0  →  x = -c0/a
+        # School-style: write the inverse on BOTH sides, then simplify.
+        # Wrong: "Subtract 3" then jump to F = 3 - 3. Right: F + 3 - 3 = 3 - 3.
+        both_sides = _linear_both_sides_steps(lhs, rhs, var, c1, c0)
+        if both_sides:
+            return both_sides
         isolated = simplify(-c0 / c1)
         steps.append(f"Isolate: {latex(c1)} \\cdot {variable} = {latex(-c0)}")
         steps.append(f"Solve: {variable} = {latex(isolated)}")
@@ -101,6 +105,50 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
         )
         return steps
 
+    return steps
+
+
+def _linear_both_sides_steps(lhs: Any, rhs: Any, var: Any, c1: Any, c0: Any) -> list[str]:
+    """Verified linear steps that apply add/subtract/divide to both sides."""
+    if not hasattr(lhs, "as_independent") or var not in getattr(lhs, "free_symbols", set()):
+        return []
+
+    steps: list[str] = []
+    indep, _dep = lhs.as_independent(var, as_Add=True)
+    cur_lhs, cur_rhs = lhs, rhs
+
+    if indep != 0 and getattr(indep, "is_number", False):
+        if indep > 0:
+            steps.append(
+                f"Subtract {latex(indep)} from both sides: "
+                f"{latex(cur_lhs)} - {latex(indep)} = {latex(cur_rhs)} - {latex(indep)}"
+            )
+        else:
+            addend = -indep
+            steps.append(
+                f"Add {latex(addend)} to both sides: "
+                f"{latex(cur_lhs)} + {latex(addend)} = {latex(cur_rhs)} + {latex(addend)}"
+            )
+        cur_lhs = simplify(cur_lhs - indep)
+        cur_rhs = simplify(cur_rhs - indep)
+        steps.append(f"Simplify: {latex(cur_lhs)} = {latex(cur_rhs)}")
+
+    coeff = cur_lhs.coeff(var) if hasattr(cur_lhs, "coeff") else c1
+    isolated = simplify(-c0 / c1)
+    final = f"{var} = {latex(isolated)}"
+    if coeff != 0 and coeff != 1 and coeff != -1:
+        steps.append(
+            f"Divide both sides by {latex(coeff)}: "
+            f"\\frac{{{latex(cur_lhs)}}}{{{latex(coeff)}}} = "
+            f"\\frac{{{latex(cur_rhs)}}}{{{latex(coeff)}}}"
+        )
+        steps.append(f"Simplify: {final}")
+    elif coeff == -1:
+        steps.append(f"Multiply both sides by -1: {latex(-cur_lhs)} = {latex(-cur_rhs)}")
+        if final not in (steps[-1] if steps else ""):
+            steps.append(f"Simplify: {final}")
+    elif not any(final in line for line in steps):
+        steps.append(f"Solve: {final}")
     return steps
 
 

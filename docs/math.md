@@ -42,7 +42,7 @@ The API persists and forwards the user's message **verbatim**. Capture happens i
 | Post-stream fences | `apps/api/app/services/math_fence.py` |
 | Camera OCR | `apps/api/app/services/math_image_extract.py` |
 | MCP sympy | `apps/api/app/gateways/mcp/sympy_adapter.py` |
-| Prompt hints | `apps/api/app/services/chat/prompt_constants.py` |
+| Prompt hints | `apps/api/app/services/chat/prompt_constants/` (`math.py`, …) |
 | Mobile preprocess | `apps/mobile/lib/markdownPreprocess.ts`, `normalizeImplicitMath.ts` |
 | Composer math input | `mathPasteNormalize.ts`, `mathKeyboardSymbols.ts`, `MathKeyboardBar` |
 | Render | `MathText`, `MathView` / `MathFormulaWebView`, `GeometryBlock`, `FunctionGraphBlock` |

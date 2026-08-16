@@ -104,6 +104,20 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.showSearchSources).toBe(false);
   });
 
+  it("hides Sources on a where-am-I reply even when search hits leaked", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      priorUserText: "Where am iI",
+      content: "You're in **San Francisco, CA**.",
+      liveSearchSources: [
+        { title: "Los Baños", url: "https://example.com/lb" },
+      ],
+    });
+
+    expect(result.searchSources).toHaveLength(1);
+    expect(result.showSearchSources).toBe(false);
+  });
+
   it("shows tap chips for markdown A–D even without a vocab_quiz fence", () => {
     const result = deriveAssistantMessageContent({
       ...base,
