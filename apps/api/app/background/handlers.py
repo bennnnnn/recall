@@ -31,7 +31,7 @@ from app.background import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.jobs import enqueue, register
+from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
 from app.services import transactional_email as transactional_email_service
 
@@ -56,6 +56,42 @@ _MEMORY_LOCK_MAX_RETRIES = 3
 _MEMORY_LOCK_RETRY_BACKOFF_S = 2.0
 
 
+def _memory_lock_retries(payload: dict[str, Any]) -> int:
+    try:
+        return int(payload.get("lock_retries") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _reenqueue_after_memory_lock(
+    *,
+    job_type: str,
+    retry_payload: dict[str, Any],
+    dedupe_stem: str,
+    warning: str,
+) -> None:
+    """Re-enqueue a lock-busy memory job, or discard to the DLQ after the cap.
+
+    Each attempt uses its own ``dedupe_key`` (``{stem}:lock{n}``) so a
+    reclaim of this entry plus the retry cannot double-run the same pass.
+    Exhausted retries raise ``JobDiscardError`` so the worker records the
+    drop in the DLQ instead of acking a silent success.
+    """
+    retries = _memory_lock_retries(retry_payload)
+    if retries >= _MEMORY_LOCK_MAX_RETRIES:
+        logger.warning("%s", warning)
+        raise JobDiscardError(warning)
+
+    next_retries = retries + 1
+    await asyncio.sleep(_MEMORY_LOCK_RETRY_BACKOFF_S * next_retries)
+    await enqueue(
+        get_redis_client(),
+        job_type,
+        {**retry_payload, "lock_retries": next_retries},
+        dedupe_key=f"{dedupe_stem}:lock{next_retries}",
+    )
+
+
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
     outcome = await memory_extraction.extract_and_store_memories(
         settings,
@@ -67,28 +103,19 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
         return
     # Write lock busy (consolidation or sibling extraction). Re-enqueue a
     # bounded number of times so the turn's memory isn't silently dropped.
-    try:
-        retries = int(payload.get("lock_retries") or 0)
-    except (TypeError, ValueError):
-        retries = 0
-    if retries >= _MEMORY_LOCK_MAX_RETRIES:
-        logger.warning(
-            "Memory extraction dropped after lock retries user_id=%s chat_id=%s",
-            payload.get("user_id"),
-            payload.get("chat_id"),
-        )
-        return
-
-    await asyncio.sleep(_MEMORY_LOCK_RETRY_BACKOFF_S * (retries + 1))
-    await enqueue(
-        get_redis_client(),
-        "memory",
-        {
+    await _reenqueue_after_memory_lock(
+        job_type="memory",
+        retry_payload={
             "user_id": payload["user_id"],
             "chat_id": payload["chat_id"],
             "transcript": payload["transcript"],
-            "lock_retries": retries + 1,
+            "lock_retries": payload.get("lock_retries") or 0,
         },
+        dedupe_stem=f"memory:{payload['user_id']}:{payload['chat_id']}",
+        warning=(
+            "Memory extraction dropped after lock retries "
+            f"user_id={payload.get('user_id')} chat_id={payload.get('chat_id')}"
+        ),
     )
 
 
@@ -99,25 +126,16 @@ async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]
     )
     if outcome != "skipped_lock":
         return
-    try:
-        retries = int(payload.get("lock_retries") or 0)
-    except (TypeError, ValueError):
-        retries = 0
-    if retries >= _MEMORY_LOCK_MAX_RETRIES:
-        logger.warning(
-            "Memory consolidation dropped after lock retries user_id=%s",
-            payload.get("user_id"),
-        )
-        return
-
-    await asyncio.sleep(_MEMORY_LOCK_RETRY_BACKOFF_S * (retries + 1))
-    await enqueue(
-        get_redis_client(),
-        "memory_consolidate",
-        {
+    await _reenqueue_after_memory_lock(
+        job_type="memory_consolidate",
+        retry_payload={
             "user_id": payload["user_id"],
-            "lock_retries": retries + 1,
+            "lock_retries": payload.get("lock_retries") or 0,
         },
+        dedupe_stem=f"memory_consolidate:{payload['user_id']}",
+        warning=(
+            f"Memory consolidation dropped after lock retries user_id={payload.get('user_id')}"
+        ),
     )
 
 

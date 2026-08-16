@@ -261,10 +261,13 @@ async def test_handle_memory_retries_skipped_lock_with_backoff():
     sleep_mock.assert_awaited_once_with(2.0)
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[2]["lock_retries"] == 1
+    assert enqueue_mock.await_args.kwargs["dedupe_key"] == (
+        f"memory:{payload['user_id']}:{payload['chat_id']}:lock1"
+    )
 
 
 @pytest.mark.asyncio
-async def test_handle_memory_drops_after_lock_retries():
+async def test_handle_memory_discards_after_lock_retries():
     payload = {
         "user_id": str(uuid4()),
         "chat_id": str(uuid4()),
@@ -279,6 +282,7 @@ async def test_handle_memory_drops_after_lock_retries():
         ),
         patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
         patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
+        pytest.raises(jobs.JobDiscardError, match="lock retries"),
     ):
         await job_handlers._handle_memory(Settings(), payload)
 
@@ -318,10 +322,13 @@ async def test_handle_memory_consolidate_retries_skipped_lock_with_backoff():
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[1] == "memory_consolidate"
     assert enqueue_mock.await_args.args[2]["lock_retries"] == 1
+    assert enqueue_mock.await_args.kwargs["dedupe_key"] == (
+        f"memory_consolidate:{payload['user_id']}:lock1"
+    )
 
 
 @pytest.mark.asyncio
-async def test_handle_memory_consolidate_drops_after_lock_retries():
+async def test_handle_memory_consolidate_discards_after_lock_retries():
     payload = {"user_id": str(uuid4()), "lock_retries": 3}
     with (
         _patch_session(),
@@ -331,6 +338,7 @@ async def test_handle_memory_consolidate_drops_after_lock_retries():
         ),
         patch("app.background.handlers.enqueue", AsyncMock()) as enqueue_mock,
         patch("app.background.handlers.asyncio.sleep", AsyncMock()) as sleep_mock,
+        pytest.raises(jobs.JobDiscardError, match="lock retries"),
     ):
         await job_handlers._handle_memory_consolidate(Settings(), payload)
 
