@@ -149,8 +149,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.
-- ✅ **Attachment RAG** — chunk + embed PDF/doc **text-layer** into pgvector; retrieve top
-  chunks into the system prompt on follow-up turns (capped; invalidated on attachment delete).
+- ✅ **Attachment RAG** — chunk + embed PDF/doc text (text-layer, or scanned-PDF OCR) into
+  pgvector; retrieve top chunks into the system prompt on follow-up turns (capped;
+  invalidated on attachment delete).
 - ✅ **Chat-history semantic RAG** — background `message_index` embeds past turns into
   `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
   window. Golden Rule 3 still holds — never the full transcript. First index also
@@ -284,7 +285,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔒 **No other code execution** — all other code (Python, shell, etc.) is rendered/highlighted
   only, and nothing runs outside the sandboxed preview WebView. (By design.)
 
-## 16. MCP & calendar (planned)
+## 16. MCP & calendar
 
 Connect external context (starting with Google Calendar) so the assistant knows the user's schedule,
 can align todos with meetings, and eventually act via tools — **all server-side** (no MCP secrets or
@@ -430,7 +431,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 
 ### Already shipped (keep for audit trail)
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
-  defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar-planned).
+  defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar).
 - ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs; top-k into the prompt.
 - ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision → SymPy → LaTeX/steps.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
@@ -449,7 +450,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **RevenueCat webhook atomic claim** — Redis `SET NX` claim before processing; done-marker
   after success (#535).
 
-### Later / next (not launch-blocking)
+### Later / future (not the current coding backlog)
 - ✅ **Push-token re-bind hardening** — cross-user Expo token moves require a matching
   install `device_id` (stable id persisted on device; Expo removed `installationId`).
   Mismatched device → 403; successful rebinds log + Sentry breadcrumb. Residual risk:
@@ -475,17 +476,31 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Web client** — same API; see [Web client](#web-client-planned) below.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching / prompt-budget UI, duplex / live voice (later).
-- ⚠️ **Production R2 + store polish** — attachment code is done; prod R2 secrets and App Store /
-  Play billing polish still pending (see Pre-deployment TODO).
+- 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
+  Play billing polish are **future owner ops**, not a product coding task.
 
-### Pre-deployment TODO (from the holistic review)
+**Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 
-**Owner ops (you):** infra + store steps live in Lists → **Launch** (local Dev User) and
+| Area | Still not built |
+|------|-----------------|
+| Auth | Email/password, magic links, multi-device session management |
+| Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
+| Messaging | Reactions, read receipts; duplex / live voice |
+| Models | User-tunable routing rules; response-cache / prompt-budget UI |
+| Todos | 1-hour-early email/push nudges beyond the local lead picker |
+| Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
+| Todos↔Learning | `project_id` on todo items exists in the API; mobile link/filter UI stays **off** (banned) |
+| Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
+| Platform | Web client; code execution beyond HTML sandbox; multi-file HTML preview; virus scan |
+| i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
+| Polish | Full type/space ownership; Sentry/logging polish; App Store / Play / family plans |
+| Launch ops | Neon / Redis / R2 / Fly / EAS; landing page; on-device QA; prod R2 secrets |
+
+### Future — owner ops (was “Pre-deployment TODO”)
+
+Infra + store steps live in Lists → **Launch** (local Dev User) and
 [`docs/PRODUCTION.md` § Owner actions](./docs/PRODUCTION.md#owner-actions-you--not-code).
-Code cannot finish these.
-
-Action items still open before the first production deploy. Correctness follow-ups from the
-Jul 2026 architecture review are mostly shipped (see below); these remain:
+**Future — not the current backlog.** Code cannot finish these.
 
 - ⚠️ **R2 storage credentials** — the `R2StorageGateway` is wired and tested, but attachments
   run on local fallback until `STORAGE_BACKEND=r2` + `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` /
@@ -495,21 +510,19 @@ Jul 2026 architecture review are mostly shipped (see below); these remain:
   `REVENUECAT_WEBHOOK_AUTH` (plus DB/Redis/Google/JWT/dev-flags). `ENVIRONMENT` now
   **defaults to `production` (fail-closed)** — local `.env` / `.env.example` must set
   `ENVIRONMENT=development`.
-- 🔜 **Mobile gate + on-device pass** — `pnpm typecheck && pnpm lint && pnpm test` must run
-  locally (deps don't install in the CI/dev-container env). Then an iOS **and** Android
-  dev-build pass for: Google Sign-In, HTML/chart preview WebView, push, RevenueCat, the new
-  cross-platform deck Modal, autoscroll, and the markdown throttle.
+- 🔜 **Mobile gate + on-device pass** — **future.** `pnpm typecheck && pnpm lint && pnpm test`
+  locally, then an iOS **and** Android dev-build pass (Google Sign-In, HTML/chart WebView,
+  push, RevenueCat, deck Modal, autoscroll, markdown throttle).
 - ✅ **FlashList migration** — `ConversationList` and `Todos` now use `FlashList`
   (v2, auto-measured). Chat drawer rows and the flat reminders/done lists are
   virtualized; the calendar day-view and `ListGroupsView` render in the header
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — all 9 locales share identical key sets (**882** keys), but
-  many non-English values are still English copy (~350 keys in Spanish as a proxy). Structural
-  i18n is complete; human translation of remaining prose is deferred.
-- 🔜 **Legal page bodies** — `/legal/privacy` and `/legal/terms` remain English-only
-  markdown on the API (nav titles are localized). Locale-aware legal content is deferred.
+- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**882** keys);
+  ~350 non-en values are still English. Structural i18n is complete.
+- 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
+  markdown on the API (nav titles are localized).
 - ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
   augmentation run outside the DB session; calendar/Gmail still use a short session.
 - ✅ **Background-job DLQ** — failed jobs (including unknown type / bad JSON) go to
@@ -548,7 +561,7 @@ Still open (non-blocking / larger effort):
 
 - 🔜 Multi-file HTML preview (deliberately deferred — single self-contained ` ```html ` fence)
 - 🔜 Broader RTL coverage beyond the initial WebView / mount-queue suite
-- 🔜 Locale prose + legal page bodies (see Pre-deployment TODO)
+- 🔜 Locale prose + legal page bodies (future; see owner-ops list above)
 
 ### Review audit follow-ups (PR #129, Jul 2026)
 
@@ -630,10 +643,10 @@ structured Learning topic type.
 | Phase | Scope | Status |
 |-------|--------|--------|
 | MVP (mobile) | Chat + memory + todos + Learning + calendar/Gmail + attachments | ~95% code-complete |
-| Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | ~70% ops |
-| v1.1 | Web client (same API), locale prose, legal localization | Not started |
+| Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
+| v1.1 | Web client (same API), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
-| Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | Not started |
+| Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | 🔜 Future |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
 chat-history RAG ✅, LiteLLM tool loop **on by default** ✅, structured profile ✅,
@@ -659,7 +672,7 @@ drawer FTS search ✅.
 ### Attachments & multimodal
 | Shipped | Not done |
 |---------|----------|
-| Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
+| Presigned upload, magic-byte validation, daily image cap | Production R2 secrets (future owner ops) |
 | Vision routing for images + scanned-PDF OCR (page render → vision → RAG) | — |
 | PDF text extract + pgvector attachment RAG | — |
 | Chat-history corpus RAG (pgvector top-k, not full transcript) | — |
@@ -684,28 +697,28 @@ drawer FTS search ✅.
 ### Integrations
 | Shipped | Not done |
 |---------|----------|
-| Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail prod |
+| Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail (future) |
 | Gmail → suggested reminders | Google Docs, GitHub (later owned integrations) |
 | MCP adapters + LiteLLM tool loop **on by default** | Arbitrary user MCP servers |
 
-### Launch blockers (honest)
+### Future — launch ops (owner, not product code)
 1. Cost guards (speech, Tavily, R1 weight) ✅
-2. Provision Neon, Redis, R2, Fly, EAS ⬜
-3. Landing page + support URL ⬜
-4. Google OAuth verification (Gmail) ⬜
-5. On-device QA matrix (iOS + Android) ⬜
-6. R2 production attachments ⬜
+2. 🔜 Provision Neon, Redis, R2, Fly, EAS
+3. 🔜 Landing page + support URL
+4. 🔜 Google OAuth verification (Gmail)
+5. 🔜 On-device QA matrix (iOS + Android)
+6. 🔜 R2 production attachments
 
 ### Explicitly not v1
 Multi-user teams, collaborative editing, video generation, public unauthenticated share URLs,
 arbitrary user MCP servers, multi-file HTML preview, gamification (XP/badges beyond learning
 streaks). **OpenRouter / product aliases are the intended model setup** — not a gap.
 
-**Next (do these):** launch ops (see Pre-deployment TODO). The three product items
-(tool loop, scanned-PDF OCR, chat-history RAG) are done.
+**Next (product):** none — tool loop, scanned-PDF OCR, and chat-history RAG are done.
 
-**Later (not blocking launch):** Google Docs + GitHub; code execution (beyond the HTML sandbox);
-duplex voice; web client; locale prose + legal bodies; folders / family plans.
+**Future (not implementing now):** launch ops (provision, landing page, Gmail OAuth, on-device
+QA, prod R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
+web client; locale prose + legal bodies; folders / family plans.
 
 ---
 
@@ -715,7 +728,7 @@ Compiled from the ChatGPT-gap review. One concern per PR. Do not treat OpenRoute
 weakness. No video generation. Native share is enough unless we later decide we want
 **public unauthenticated URLs** (we do not have those today).
 
-### Do next (this is the product)
+### Done (this product pass)
 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
    `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
@@ -726,13 +739,17 @@ weakness. No video generation. Native share is enough unless we later decide we 
 3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
    start excluding the recent window. Golden Rule 3: never dump the full transcript.
 
-### Later (scheduled, not “out of scope forever”)
+### Future (not implementing now)
 
+- Launch ops: provision Neon / Redis / R2 / Fly / EAS; landing page + support URL;
+  Google OAuth verification (Gmail); on-device QA (iOS + Android); production R2 secrets.
 - Google Docs, GitHub (owned integrations).
 - Duplex / live back-and-forth voice.
 - Code execution beyond the sandboxed HTML/chart WebView.
 - Web client (same API).
+- Locale prose + legal page bodies.
 - Public share URLs only if we explicitly want unauthenticated read links.
+- Folders, family plans, response-cache / prompt-budget UI, user-tunable routing.
 
 ### Not doing
 
