@@ -3,19 +3,22 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Text,
+    exists,
+    func,
+    literal,
+    null,
+    or_,
+    select,
+    union_all,
+)
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import SessionLocal
 from app.models.orm import Chat, Message
-
-# Extra rows per source so a merge of two independently-paged lists still
-# fills `limit` after sort. Offset is applied in SQL — do not also slice
-# `[offset:]` in Python.
-_SEARCH_MERGE_MARGIN = 10
-# Distinct message chat-ids used to hide title hits that already have a
-# body match. Bounded so a broad query cannot materialize the whole set.
-_DISTINCT_CHAT_CAP = 200
 
 
 def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
@@ -26,7 +29,12 @@ def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
 async def search_conversations(
     session: AsyncSession, user_id: UUID, query: str, limit: int = 20, offset: int = 0
 ) -> tuple[list[dict[str, Any]], int]:
-    """Search chat titles and message bodies, merged by recency."""
+    """Search chat titles and message bodies as one recency-ordered timeline.
+
+    Title and message hits are unioned, then offset/limit apply once. ``total``
+    is the union count (stable across pages), not a page-local title set.
+    Title-only rows omit chats that already have a matching message.
+    """
     q = query.strip()
     if not q:
         return [], 0
@@ -36,92 +44,65 @@ async def search_conversations(
         Message.user_id == user_id,
         or_(_trgm_match(Message.content, q), Message.content.ilike(pattern)),
     )
+    title_match = or_(_trgm_match(Chat.title, q), Chat.title.ilike(pattern))
+    message_hit = exists(select(1).where(Message.chat_id == Chat.id, *msg_where))
 
-    msg_count_stmt = select(func.count()).select_from(Message).where(*msg_where)
-    page_limit = limit + _SEARCH_MERGE_MARGIN
-    title_stmt = (
-        select(Chat)
-        .where(
-            Chat.user_id == user_id,
-            Chat.title.isnot(None),
-            Chat.title != "",
-            or_(_trgm_match(Chat.title, q), Chat.title.ilike(pattern)),
-        )
-        .order_by(Chat.updated_at.desc())
-        .offset(offset)
-        .limit(page_limit)
-    )
-    msg_chat_ids_stmt = (
-        select(Message.chat_id.distinct()).where(*msg_where).limit(_DISTINCT_CHAT_CAP)
+    title_stmt = select(
+        literal("title").label("match_type"),
+        sql_cast(null(), Message.id.type).label("message_id"),
+        Chat.id.label("chat_id"),
+        Chat.title.label("chat_title"),
+        sql_cast(Chat.title, Text).label("content"),
+        literal("chat").label("role"),
+        func.coalesce(Chat.updated_at, Chat.created_at).label("created_at"),
+    ).where(
+        Chat.user_id == user_id,
+        Chat.title.isnot(None),
+        Chat.title != "",
+        title_match,
+        ~message_hit,
     )
     msg_stmt = (
         select(
-            Message.id,
-            Message.content,
-            Message.role,
-            Message.created_at,
+            literal("message").label("match_type"),
+            Message.id.label("message_id"),
             Chat.id.label("chat_id"),
             Chat.title.label("chat_title"),
+            Message.content.label("content"),
+            Message.role.label("role"),
+            Message.created_at.label("created_at"),
         )
         .join(Chat, Message.chat_id == Chat.id)
         .where(*msg_where)
-        .order_by(Message.created_at.desc())
-        .offset(offset)
-        .limit(page_limit)
     )
+    combined = union_all(msg_stmt, title_stmt).subquery("search_hits")
+    count_stmt = select(func.count()).select_from(combined)
+    page_stmt = select(combined).order_by(combined.c.created_at.desc()).offset(offset).limit(limit)
 
-    async def _count_messages() -> int:
-        async with SessionLocal() as s:
-            result = await s.execute(msg_count_stmt)
+    async def _count_hits() -> int:
+        async with SessionLocal() as extra:
+            result = await extra.execute(count_stmt)
             return result.scalar_one()
 
-    async def _title_matches() -> list[Chat]:
-        async with SessionLocal() as s:
-            result = await s.execute(title_stmt)
-            return list(result.scalars().all())
-
-    async def _message_chat_ids() -> set[UUID]:
-        async with SessionLocal() as s:
-            result = await s.scalars(msg_chat_ids_stmt)
-            return set(result.all())
-
-    message_total, title_chats, message_chat_ids_set, msg_rows_result = await asyncio.gather(
-        _count_messages(), _title_matches(), _message_chat_ids(), session.execute(msg_stmt)
-    )
-    msg_rows = msg_rows_result.all()
-
-    title_only = [chat for chat in title_chats if chat.id not in message_chat_ids_set]
-    total = message_total + len(title_only)
+    total, page_result = await asyncio.gather(_count_hits(), session.execute(page_stmt))
 
     results: list[dict[str, Any]] = []
-    for row in msg_rows:
+    for row in page_result.all():
+        raw = row.content or ""
+        content = _snippet(raw, q, 120) if row.match_type == "message" else raw
+        created = row.created_at or datetime.now(UTC)
         results.append(
             {
-                "match_type": "message",
-                "message_id": row.id,
+                "match_type": row.match_type,
+                "message_id": row.message_id,
                 "chat_id": row.chat_id,
                 "chat_title": row.chat_title,
-                "content": _snippet(row.content, q, 120),
+                "content": content,
                 "role": row.role,
-                "created_at": row.created_at,
+                "created_at": created,
             }
         )
-
-    for chat in title_only:
-        results.append(
-            {
-                "match_type": "title",
-                "message_id": None,
-                "chat_id": chat.id,
-                "chat_title": chat.title,
-                "content": chat.title or "",
-                "role": "chat",
-                "created_at": chat.updated_at or chat.created_at or datetime.now(UTC),
-            }
-        )
-
-    results.sort(key=lambda item: item["created_at"], reverse=True)
-    return results[:limit], total
+    return results, total
 
 
 # Backwards-compatible alias for tests/imports that still reference this name.

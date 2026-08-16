@@ -7,47 +7,60 @@ import pytest
 from app.repositories import search as search_repo
 
 
+def _title_row(*, chat_id, title: str, created_at: datetime):
+    row = MagicMock()
+    row.match_type = "title"
+    row.message_id = None
+    row.chat_id = chat_id
+    row.chat_title = title
+    row.content = title
+    row.role = "chat"
+    row.created_at = created_at
+    return row
+
+
+def _message_row(*, message_id, chat_id, title: str, content: str, created_at: datetime):
+    row = MagicMock()
+    row.match_type = "message"
+    row.message_id = message_id
+    row.chat_id = chat_id
+    row.chat_title = title
+    row.content = content
+    row.role = "user"
+    row.created_at = created_at
+    return row
+
+
+class SessionCM:
+    def __init__(self, session: AsyncMock) -> None:
+        self._session = session
+
+    async def __aenter__(self):
+        return self._session
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+
 @pytest.mark.asyncio
 async def test_search_includes_title_only_match():
     user_id = uuid4()
     chat_id = uuid4()
     session = AsyncMock()
+    created = datetime.now(UTC)
 
-    title_chat = MagicMock()
-    title_chat.id = chat_id
-    title_chat.title = "Trip planning"
-    title_chat.updated_at = datetime.now(UTC)
-    title_chat.created_at = datetime.now(UTC)
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 1
+    page_result = MagicMock()
+    page_result.all.return_value = [
+        _title_row(chat_id=chat_id, title="Trip planning", created_at=created)
+    ]
 
-    msg_count_result = MagicMock()
-    msg_count_result.scalar_one.return_value = 0
+    count_session = AsyncMock()
+    count_session.execute = AsyncMock(return_value=count_result)
+    session.execute = AsyncMock(return_value=page_result)
 
-    title_result = MagicMock()
-    title_result.scalars.return_value.all.return_value = [title_chat]
-
-    msg_chat_ids_result = MagicMock()
-    msg_chat_ids_result.all.return_value = []
-
-    msg_rows_result = MagicMock()
-    msg_rows_result.all.return_value = []
-
-    # search_conversations parallelizes the count/title/chat-ids queries on their
-    # own short-lived sessions (asyncio.gather); only the main msg_stmt uses the
-    # session passed in by the caller.
-    parallel_session = AsyncMock()
-    parallel_session.execute = AsyncMock(side_effect=[msg_count_result, title_result])
-    parallel_session.scalars = AsyncMock(return_value=msg_chat_ids_result)
-
-    class SessionCM:
-        async def __aenter__(self):
-            return parallel_session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
-    session.execute = AsyncMock(return_value=msg_rows_result)
-
-    with patch("app.repositories.search.SessionLocal", return_value=SessionCM()):
+    with patch("app.repositories.search.SessionLocal", return_value=SessionCM(count_session)):
         results, total = await search_repo.search_conversations(session, user_id, "trip")
 
     assert total == 1
@@ -58,49 +71,69 @@ async def test_search_includes_title_only_match():
 
 
 @pytest.mark.asyncio
-async def test_search_pages_both_branches_in_sql():
-    """Offset is applied in SQL on message and title queries, not by
-    materializing limit+offset message rows then slicing in Python."""
+async def test_search_pages_the_merged_union_once():
+    """Offset/limit apply to the union, not to title and message streams separately."""
     user_id = uuid4()
     session = AsyncMock()
-    msg_count_result = MagicMock()
-    msg_count_result.scalar_one.return_value = 0
-    title_result = MagicMock()
-    title_result.scalars.return_value.all.return_value = []
-    msg_chat_ids_result = MagicMock()
-    msg_chat_ids_result.all.return_value = []
-    msg_rows_result = MagicMock()
-    msg_rows_result.all.return_value = []
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 50
+    page_result = MagicMock()
+    page_result.all.return_value = []
 
-    captured: list[object] = []
+    count_session = AsyncMock()
+    count_session.execute = AsyncMock(return_value=count_result)
+    session.execute = AsyncMock(return_value=page_result)
 
-    async def capture_execute(stmt: object) -> MagicMock:
-        captured.append(stmt)
-        if len(captured) == 1:
-            return msg_count_result
-        return title_result
+    with patch("app.repositories.search.SessionLocal", return_value=SessionCM(count_session)):
+        _, total = await search_repo.search_conversations(
+            session, user_id, "trip", limit=20, offset=40
+        )
 
-    parallel_session = AsyncMock()
-    parallel_session.execute = capture_execute
-    parallel_session.scalars = AsyncMock(return_value=msg_chat_ids_result)
+    assert total == 50
+    page_stmt = session.execute.await_args.args[0]
+    count_sql = str(count_session.execute.await_args.args[0]).lower()
+    page_sql = str(page_stmt).lower()
+    assert "union" in count_sql
+    assert "union" in page_sql
+    assert page_stmt._offset_clause is not None
+    assert page_stmt._limit_clause is not None
+    assert str(page_stmt._limit_clause) == "20" or page_stmt._limit == 20
 
-    class SessionCM:
-        async def __aenter__(self):
-            return parallel_session
 
-        async def __aexit__(self, *_args: object) -> None:
-            return None
+@pytest.mark.asyncio
+async def test_search_total_is_stable_across_pages():
+    user_id = uuid4()
+    now = datetime.now(UTC)
+    chat_id = uuid4()
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 3
 
-    session.execute = AsyncMock(return_value=msg_rows_result)
+    page1 = MagicMock()
+    page1.all.return_value = [
+        _message_row(
+            message_id=uuid4(),
+            chat_id=chat_id,
+            title="Trip",
+            content="trip notes",
+            created_at=now,
+        )
+    ]
+    page2 = MagicMock()
+    page2.all.return_value = [
+        _title_row(chat_id=uuid4(), title="Trip planning", created_at=now),
+    ]
 
-    with patch("app.repositories.search.SessionLocal", return_value=SessionCM()):
-        await search_repo.search_conversations(session, user_id, "trip", limit=20, offset=40)
+    count_session = AsyncMock()
+    count_session.execute = AsyncMock(return_value=count_result)
+    session = AsyncMock()
+    session.execute = AsyncMock(side_effect=[page1, page2])
 
-    title_stmt = captured[1]
-    msg_stmt = session.execute.await_args.args[0]
-    count_sql = str(captured[0]).lower()
-    assert "join" not in count_sql
-    assert getattr(title_stmt, "_offset", None) == 40 or title_stmt._offset_clause is not None
-    assert msg_stmt._offset_clause is not None
-    assert str(title_stmt._limit_clause) == "30" or title_stmt._limit == 30
-    assert str(msg_stmt._limit_clause) == "30" or msg_stmt._limit == 30
+    with patch("app.repositories.search.SessionLocal", return_value=SessionCM(count_session)):
+        _page_one, total_one = await search_repo.search_conversations(
+            session, user_id, "trip", limit=1, offset=0
+        )
+        _page_two, total_two = await search_repo.search_conversations(
+            session, user_id, "trip", limit=1, offset=1
+        )
+
+    assert total_one == total_two == 3
