@@ -3,6 +3,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Decoded audio cap. Router and transcribe_audio must use this same value
+# so a 6MB clip is 413, not a service None → 502 after quota reserve.
+SPEECH_MAX_AUDIO_BYTES = 5_000_000
+SPEECH_MAX_B64_CHARS = 4 * ((SPEECH_MAX_AUDIO_BYTES + 2) // 3)
+SPEECH_MAX_REQUEST_BYTES = SPEECH_MAX_B64_CHARS + 4096
+
 
 class WebSearchClassification(BaseModel):
     needs_search: bool
@@ -17,7 +23,7 @@ class SpeechTranscriptionOut(BaseModel):
 
 
 class SpeechTranscriptionIn(BaseModel):
-    audio_base64: str = Field(max_length=7_000_000)
+    audio_base64: str = Field(max_length=SPEECH_MAX_B64_CHARS)
     filename: str = "speech.m4a"
 
 

@@ -2041,10 +2041,12 @@ def test_speech_transcribe_rejects_oversized_multipart_content_length():
     BEFORE the file is read into memory (memory-exhaustion DoS guard)."""
     import fakeredis.aioredis
 
+    from app.models.schemas.integrations import SPEECH_MAX_REQUEST_BYTES
+
     user = _fake_user()
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    oversized = b"x" * (7_500_001)
+    oversized = b"x" * (SPEECH_MAX_REQUEST_BYTES + 1)
     with (
         patch("app.routers.speech.get_redis_client", return_value=fake_redis),
         patch(
@@ -2062,6 +2064,41 @@ def test_speech_transcribe_rejects_oversized_multipart_content_length():
         )
     assert r.status_code == 413
     transcribe_mock.assert_not_awaited()
+
+
+def test_speech_transcribe_6mb_is_413_before_quota():
+    """6MB used to pass the 7.5MB body cap, reserve quota, then 502 at 5MB."""
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_transcriptions=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    six_mb = b"x" * 6_000_000
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="ok"),
+        ) as transcribe_mock,
+    ):
+        oversized = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", six_mb, "audio/m4a")},
+        )
+        ok = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+    assert oversized.status_code == 413
+    assert ok.status_code == 200
+    transcribe_mock.assert_awaited_once()
 
 
 def test_speech_tts_ok():
