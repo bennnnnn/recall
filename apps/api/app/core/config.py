@@ -82,6 +82,16 @@ class Settings(BaseSettings):
     attachment_rag_chunk_overlap: int = 120
     attachment_rag_max_chunks_per_file: int = 40
 
+    # Chat-history semantic RAG (pgvector over past turns; top-k at turn start).
+    # Never dumps the full transcript — Golden Rule 3. Recent-window ids are
+    # excluded so this complements memory + summary, not duplicates them.
+    chat_history_rag_enabled: bool = True
+    chat_history_rag_chunk_limit: int = 6
+    chat_history_rag_min_similarity: float = 0.30
+    chat_history_rag_chunk_chars: int = 900
+    chat_history_rag_chunk_overlap: int = 120
+    chat_history_rag_max_chunks_per_message: int = 6
+
     # Daily image-upload cap (per user, UTC day). Vision/image inputs cost more
     # than text, so cap uploads separately from the token quota. Enforced at
     # presign so a user can't accumulate uploads past the limit.

@@ -103,6 +103,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Learning projects | `routers/projects.py`, `services/projects/`, `vocab_quiz.py`, `daily_learning.py` | `app/projects/`, quiz chips |
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
 | Attachments + RAG | `routers/attachments.py`, `attachment_*.py`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
+| Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
 | Image gen (Pro) | `routers/images.py`, `image_generation.py`, `image_gen_intent.py` | composer send only (no prompt sheet) |
 | Speech STT/TTS | `routers/speech.py`, `services/speech.py` | `useVoiceInput`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
@@ -136,7 +137,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -145,16 +146,16 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
 3. Image-generation intent interception (Pro; may return without an LLM turn)
-4. `turn_prep/`: memory + recent window, attachments/RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve
+4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream math fence correction (`math_fence.py`)
 8. Persist assistant + usage in a finalize task
-9. `enqueue_post_turn_jobs` — topic, memory, todos, projects, compress, suggestions, attachment_index (best-effort; must not raise into the stream)
+9. `enqueue_post_turn_jobs` — topic, memory, todos, projects, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `todos`, `projects`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `todos`, `projects`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, Gmail periodic, attachment orphan reaper).
 
@@ -270,11 +271,11 @@ JWT_SECRET=...
 
 Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In · Tavily (web search) · R2 (attachments) · Sentry · RevenueCat
 
-**Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings and attachment RAG.
+**Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings, attachment RAG, and chat-history RAG.
 
 **Shipped beyond the original MVP week:** Learning projects + quizzes, todos/reminders, Gmail/calendar, attachments + RAG, image gen, STT/TTS, web search, math/geometry/graph, rich fences, Pro/RevenueCat, push, Fly `api`/`worker` split, flag-gated MCP tool loop. Full catalog: FEATURES.md.
 
-**Later:** web client, full chat-history semantic RAG, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose. The owned tool loop is on by default (see Service Overview).
+**Later:** web client, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose. The owned tool loop is on by default (see Service Overview). Chat-history semantic RAG is shipped.
 
 ## Milestones (MVP week — complete)
 

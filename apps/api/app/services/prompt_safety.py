@@ -63,6 +63,16 @@ def wrap_untrusted(label: str, content: str, *, first_party: bool = False) -> st
     )
 
 
+def text_before_attachment_markers(content: str) -> str:
+    """Return the caption/prose before a persisted ``[File:`` / ``[Image:`` marker."""
+    if not content:
+        return content
+    indexes = [content.find(marker) for marker in _ATTACHMENT_MARKERS if marker in content]
+    if not indexes:
+        return content
+    return content[: min(indexes)]
+
+
 def wrap_persisted_attachment_excerpts(content: str) -> str:
     """Wrap file/image excerpts in a user message for model context only.
 

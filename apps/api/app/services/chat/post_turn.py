@@ -335,6 +335,22 @@ async def enqueue_post_turn_jobs(
                 f"attachment_index:{attachment_id}",
             ),
         )
+    if (
+        settings.chat_history_rag_enabled
+        and ctx.assistant_message_id is not None
+        and not ctx.skip_memory_jobs
+    ):
+        job_specs.append(
+            (
+                "message_index",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "assistant_message_id": str(ctx.assistant_message_id),
+                },
+                f"message_index:{ctx.assistant_message_id}",
+            ),
+        )
 
     await asyncio.gather(
         *(
