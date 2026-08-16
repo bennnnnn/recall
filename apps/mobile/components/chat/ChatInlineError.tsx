@@ -12,6 +12,7 @@ type Props = {
   error: ResolvedChatError | null;
   upgradeLabel?: string;
   onUpgrade?: () => void;
+  onStop?: () => void;
   onDismiss: () => void;
   bottom: number;
 };
@@ -20,6 +21,7 @@ export function ChatInlineError({
   error,
   upgradeLabel,
   onUpgrade,
+  onStop,
   onDismiss,
   bottom,
 }: Props) {
@@ -47,6 +49,17 @@ export function ChatInlineError({
       {error.kind === "quota" && onUpgrade && upgradeLabel ? (
         <Pressable style={s.cta} onPress={onUpgrade}>
           <Text style={s.ctaText}>{upgradeLabel}</Text>
+        </Pressable>
+      ) : null}
+      {error.kind === "busy" && onStop ? (
+        <Pressable
+          style={s.cta}
+          onPress={onStop}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.stop_a11y")}
+          testID="chat-busy-stop"
+        >
+          <Text style={s.ctaText}>{t("chat.stop")}</Text>
         </Pressable>
       ) : null}
       <Pressable

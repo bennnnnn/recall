@@ -64,7 +64,7 @@ type Props = {
   onCancelEdit: () => void;
   onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
-  onSend: () => void;
+  onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
   voiceAvailable?: boolean;
@@ -321,7 +321,7 @@ export const ChatComposer = memo(function ChatComposer({
                     {showSend ? (
                       <Pressable
                         style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
-                        onPress={onSend}
+                        onPress={() => onSend()}
                         hitSlop={6}
                         accessibilityRole="button"
                         accessibilityLabel={t("chat.send_a11y")}
@@ -342,7 +342,9 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
-              onInsertPlain={math.insertPlain}
+              onAsk={onSend}
+              onStop={onStop}
+              streaming={streaming}
               onBackspace={math.backspace}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}
