@@ -141,6 +141,54 @@ def test_create_language_project_rejects_duplicate():
     create_mock.assert_not_awaited()
 
 
+def test_create_second_language_project_allowed():
+    user = _fake_user()
+    user.locale = "en"
+    app = _app_with_user(user)
+    project = _project(kind="language", title="Español · Beginner", target_language="es")
+
+    with (
+        patch(
+            "app.repositories.projects.create",
+            AsyncMock(return_value=project),
+        ) as create_mock,
+        patch(
+            "app.repositories.projects.find_language_by_target",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "Español · Beginner", "kind": "language", "target_language": "es"},
+        )
+
+    assert r.status_code == 201
+    assert create_mock.await_args.kwargs["target_language"] == "es"
+
+
+def test_create_unknown_target_language_rejected():
+    user = _fake_user()
+    user.locale = "en"
+    app = _app_with_user(user)
+
+    with patch(
+        "app.repositories.projects.create",
+        AsyncMock(),
+    ) as create_mock:
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "Japanese", "kind": "language", "target_language": "ja"},
+        )
+
+    assert r.status_code == 400
+    assert r.json()["detail"] == "unsupported_target_language"
+    create_mock.assert_not_awaited()
+
+
 def test_create_unsupported_kind_rejected():
     user = _fake_user()
     app = _app_with_user(user)

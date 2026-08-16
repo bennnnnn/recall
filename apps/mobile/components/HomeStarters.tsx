@@ -71,7 +71,7 @@ function ProjectHighlightCard({
     queueChatLaunch(
       buildHomeDailyQuizChatPrompt(highlight),
       highlight.project_id,
-      variant === "vocab" ? "en" : undefined,
+      variant === "vocab" ? (highlight.target_language ?? "en") : undefined,
       variant,
       "chat",
     );

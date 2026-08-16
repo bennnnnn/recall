@@ -4,19 +4,23 @@ from __future__ import annotations
 
 from app.models.orm import Project
 from app.models.schemas import ProjectStats
+from app.services.projects.common import language_display_name
 
 PROJECT_HINT = (
     "The user keeps **Learning** workspaces — only two kinds:\n"
-    "1) **English vocabulary** (`language`) — words, definitions, daily quiz.\n"
-    "2) **General knowledge** (`trivia`) — topic facts, daily quiz.\n"
+    "1) **Vocabulary** (`language`) — words, definitions, daily quiz. One project per "
+    "target language (en, es, fr, de, it, pt, ru, tr, am).\n"
+    "2) **General knowledge** (`trivia`) — topic facts, daily quiz. One per user.\n"
     "Do NOT create learning topics for coding repos, apps to build, math courses, or other subjects.\n"
     "When they ask about learning topics, answer from the injected list below.\n"
-    "Creating via chat — name → type (language|trivia) → description → confirm. Changes sync "
-    "after your reply; phrase as what you will set up, never claim a project was already "
-    "created or updated in this turn.\n"
-    "At most ONE English vocabulary project and ONE trivia project per user. "
-    "Do NOT create a second — use set_level on the existing one when skill grows.\n"
-    "When telling the user their English level, use the plain label only (Beginner, Elementary, "
+    "Creating via chat — name → type (language|trivia) → target_language (ISO) → description → "
+    "confirm. Changes sync after your reply; phrase as what you will set up, never claim a "
+    "project was already created or updated in this turn.\n"
+    "At most ONE vocabulary project per target language and ONE trivia project per user. "
+    "You MAY create a second language project when they want a different language "
+    "(e.g. Spanish when they already have English). Use set_level on the existing project "
+    "when skill in that language grows.\n"
+    "When telling the user their level, use the plain label only (Beginner, Elementary, "
     "Intermediate, …) — do not mention CEFR or A1–C2 codes unless they ask.\n"
     "Do not invent titles or list names the user did not choose."
 )
@@ -115,27 +119,39 @@ LANGUAGE_BONUS_QUIZ_RULES = (
 )
 
 
-LANGUAGE_CHAT_TUTOR_HINT = (
-    "Active **language** project — **daily vocabulary in chat**.\n"
-    "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
-    "Each word has: term, definition, example_sentence, status "
-    "(new | learning | mastered).\n\n"
-    "**Daily session: learning formats (not exam-only).**\n"
-    f"{VOCAB_LEARNING_FORMATS_BLOCK}\n"
-    "Wait for their reply before revealing whether they are right.\n"
-    "**On wrong / weak answers:** say so briefly, give a short hint (not the full answer), "
-    "do NOT say 'word mastered'. For MCQ wrongs: do NOT redisplay choices or a new "
-    "```vocab_quiz fence — chips stay on the previous message (up to 3 tries). "
-    "After 3 MCQ wrongs: briefly reveal, keep as learning, then a DIFFERENT next word.\n"
-    "**On correct / solid answers:** congratulate briefly (mastery is recorded via sync or "
-    "MCQ auto-grade), then continue with a DIFFERENT next word in a **different** format "
-    "when possible until today's daily_goal is met.\n"
-    "Gibberish / unrelated text = wrong.\n"
-    "Keep replies short. Prefer failed/learning words due for review, then new — never re-quiz "
-    "✓ mastered as a 'freebie'.\n"
-    "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
-    f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
-)
+def language_tutor_hint(target_language: str | None = "en") -> str:
+    """Tutor rules for a vocabulary project; `None` is generic (several languages)."""
+    if target_language is None:
+        vocab = "vocabulary"
+        skill = "skill level in that language"
+    else:
+        name = language_display_name(target_language)
+        vocab = f"{name} vocabulary"
+        skill = f"{name} skill level"
+    return (
+        f"Active **language** project — **daily {vocab} in chat**.\n"
+        f"The project **level** is the user's **{skill}** (level1=beginner … level6=fluent).\n"
+        "Each word has: term, definition, example_sentence, status "
+        "(new | learning | mastered).\n\n"
+        "**Daily session: learning formats (not exam-only).**\n"
+        f"{VOCAB_LEARNING_FORMATS_BLOCK}\n"
+        "Wait for their reply before revealing whether they are right.\n"
+        "**On wrong / weak answers:** say so briefly, give a short hint (not the full answer), "
+        "do NOT say 'word mastered'. For MCQ wrongs: do NOT redisplay choices or a new "
+        "```vocab_quiz fence — chips stay on the previous message (up to 3 tries). "
+        "After 3 MCQ wrongs: briefly reveal, keep as learning, then a DIFFERENT next word.\n"
+        "**On correct / solid answers:** congratulate briefly (mastery is recorded via sync or "
+        "MCQ auto-grade), then continue with a DIFFERENT next word in a **different** format "
+        "when possible until today's daily_goal is met.\n"
+        "Gibberish / unrelated text = wrong.\n"
+        "Keep replies short. Prefer failed/learning words due for review, then new — never re-quiz "
+        "✓ mastered as a 'freebie'.\n"
+        "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
+        f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
+    )
+
+
+LANGUAGE_CHAT_TUTOR_HINT = language_tutor_hint("en")
 
 
 # Default — chat-based daily sessions (LLM picks format each turn).
@@ -199,8 +215,10 @@ TRIVIA_CHAT_TUTOR_HINT = (
 TRIVIA_TUTOR_HINT = TRIVIA_CHAT_TUTOR_HINT
 
 
-def _language_tutor_hint(_quiz_mode: str | None = None) -> str:
-    return LANGUAGE_CHAT_TUTOR_HINT
+def _language_tutor_hint(
+    _quiz_mode: str | None = None, *, target_language: str | None = "en"
+) -> str:
+    return language_tutor_hint(target_language)
 
 
 def _trivia_tutor_hint(_quiz_mode: str | None = None) -> str:
@@ -254,9 +272,10 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         if project.description and project.description.strip()
         else ""
     )
+    name = language_display_name(getattr(project, "target_language", None))
     return (
-        f'Start today\'s vocabulary session for my "{title}" English project.\n'
-        f"My English level: {lvl}.{goal}\n"
+        f'Start today\'s vocabulary session for my "{title}" {name} project.\n'
+        f"My {name} level: {lvl}.{goal}\n"
         f"{_language_progress_line(stats)}\n\n"
         "Teach and practice one word at a time — mix teach→use (vocab_card then a sentence), "
         "use→define (sentence then open definition), and occasional A–D ```vocab_quiz. "

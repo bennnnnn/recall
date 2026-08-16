@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useHome } from "@/contexts/HomeContext";
 import { AddFab } from "@/components/AddFab";
+import { Button } from "@/components/Button";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
@@ -33,11 +34,12 @@ import {
   VOCAB_DAILY_GOALS,
   type VocabDailyGoal,
 } from "@/lib/dailyGoals";
+import { LANGUAGES } from "@/lib/i18n/languages";
 import { isLanguageProject, LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
-  buildEnglishOnboardingPrompt,
+  buildLanguageOnboardingPrompt,
   buildProjectAskPromptFromProject,
   buildProjectReviewPrompt,
   buildTriviaOnboardingPrompt,
@@ -45,7 +47,7 @@ import {
 } from "@/lib/projectChat";
 import {
   canAddLearningProject,
-  englishProjectTitle,
+  languageProjectTitle,
   triviaProjectTitle,
   type CreateStep,
 } from "@/lib/projectCreateFlow";
@@ -89,6 +91,7 @@ export default function ProjectsScreen() {
 
   const [createStep, setCreateStep] = useState<CreateStep | null>(null);
   const [kind, setKind] = useState<ProjectKind | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState("en");
   const [level, setLevel] = useState<LanguageLevel>("level1");
   const [triviaLevel, setTriviaLevel] = useState<LanguageLevel>("level3");
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
@@ -118,6 +121,7 @@ export default function ProjectsScreen() {
   const resetCreate = useCallback(() => {
     setCreateStep(null);
     setKind(null);
+    setTargetLanguage("en");
     setLevel("level1");
     setTriviaLevel("level3");
     setDailyGoal(DEFAULT_VOCAB_DAILY_GOAL);
@@ -140,7 +144,7 @@ export default function ProjectsScreen() {
     queueChatLaunch(
       buildProjectAskPromptFromProject(project, t),
       project.id,
-      isLang ? "en" : undefined,
+      isLang ? project.target_language : undefined,
       variant,
       "chat",
     );
@@ -156,7 +160,7 @@ export default function ProjectsScreen() {
     queueChatLaunch(
       buildProjectReviewPrompt(detail),
       project.id,
-      isLang ? "en" : undefined,
+      isLang ? project.target_language : undefined,
       variant,
       "chat",
     );
@@ -165,14 +169,8 @@ export default function ProjectsScreen() {
 
   const selectSubject = (next: ProjectKind) => {
     if (next === "language") {
-      const existing = findLanguageProject(projects, "en");
-      if (existing) {
-        resetCreate();
-        router.push(`/projects/${existing.id}`);
-        return;
-      }
       setKind(next);
-      setCreateStep("level");
+      setCreateStep("language");
       return;
     }
     if (next === "trivia") {
@@ -187,10 +185,21 @@ export default function ProjectsScreen() {
     }
   };
 
-  const handleCreateEnglish = async () => {
+  const selectTargetLanguage = (code: string) => {
+    const existing = findLanguageProject(projects, code);
+    if (existing) {
+      resetCreate();
+      router.push(`/projects/${existing.id}`);
+      return;
+    }
+    setTargetLanguage(code);
+    setCreateStep("level");
+  };
+
+  const handleCreateLanguage = async () => {
     if (!token || kind !== "language" || creating) return;
 
-    const title = englishProjectTitle(level, t);
+    const title = languageProjectTitle(level, targetLanguage);
 
     setCreating(true);
     try {
@@ -199,12 +208,18 @@ export default function ProjectsScreen() {
         description: "",
         kind: "language",
         level,
-        target_language: "en",
+        target_language: targetLanguage,
         daily_goal: dailyGoal,
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(buildEnglishOnboardingPrompt(title, level, dailyGoal), project.id, "en", "vocab", "chat");
+      queueChatLaunch(
+        buildLanguageOnboardingPrompt(title, level, dailyGoal, targetLanguage),
+        project.id,
+        targetLanguage,
+        "vocab",
+        "chat",
+      );
       router.replace("/");
     } catch {
       Alert.alert(t("common.error"), t("projects.create_failed"));
@@ -267,15 +282,9 @@ export default function ProjectsScreen() {
             <Text style={s.createLabel}>{t("projects.what_to_learn")}</Text>
             <View style={s.subjectList}>
               {SUBJECTS.map((item) => {
-                const existingEnglish =
-                  item === "language" ? findLanguageProject(projects, "en") : undefined;
                 const existingTrivia = item === "trivia" ? findTriviaProject(projects) : undefined;
                 const continueHint =
-                  existingEnglish && item === "language"
-                    ? t("projects.language_continue")
-                    : existingTrivia && item === "trivia"
-                      ? t("projects.trivia_continue")
-                      : null;
+                  existingTrivia && item === "trivia" ? t("projects.trivia_continue") : null;
                 return (
                   <Pressable
                     key={item}
@@ -299,6 +308,38 @@ export default function ProjectsScreen() {
           </>
         ) : null}
 
+        {createStep === "language" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.language_pick_label")}</Text>
+            <Text style={s.stepHint}>{t("projects.language_pick_hint")}</Text>
+            <View style={s.subjectList}>
+              {LANGUAGES.map((item) => {
+                const existing = findLanguageProject(projects, item.code);
+                return (
+                  <Pressable
+                    key={item.code}
+                    style={s.subjectRow}
+                    onPress={() => selectTargetLanguage(item.code)}
+                  >
+                    <View style={s.subjectMain}>
+                      <Text style={s.subjectText}>{item.label}</Text>
+                      {existing ? (
+                        <Text style={s.subjectHint}>{t("projects.language_continue")}</Text>
+                      ) : null}
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Button
+              title={t("projects.back")}
+              onPress={() => setCreateStep("subject")}
+              variant="outline"
+            />
+          </>
+        ) : null}
+
         {createStep === "level" ? (
           <StepPicker
             label={t("projects.level_label")}
@@ -311,7 +352,7 @@ export default function ProjectsScreen() {
             isSelected={(value) => value === level}
             onSelect={setLevel}
             backLabel={t("projects.back")}
-            onBack={() => setCreateStep("subject")}
+            onBack={() => setCreateStep("language")}
             continueLabel={t("common.continue")}
             onContinue={() => setCreateStep("daily")}
           />
@@ -375,7 +416,7 @@ export default function ProjectsScreen() {
             onBack={() => setCreateStep(kind === "trivia" ? "trivia_level" : "level")}
             continueLabel={t("projects.create")}
             onContinue={() =>
-              void (kind === "trivia" ? handleCreateTrivia() : handleCreateEnglish())
+              void (kind === "trivia" ? handleCreateTrivia() : handleCreateLanguage())
             }
             continueBusy={creating}
           />

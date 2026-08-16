@@ -31,17 +31,21 @@ async def extract_project_actions(
                 '"create_project|delete_project|set_description|set_level|add|start_learning|'
                 'master|unmaster|delete|delete_list", '
                 '"project_title": "must match a topic title from state when possible", '
-                '"kind": "language|trivia (language = English vocabulary; trivia = general knowledge)", '
+                '"kind": "language|trivia (language = vocabulary in a target language; '
+                'trivia = general knowledge)", '
+                '"target_language": "ISO 639-1 for language projects: en|es|fr|de|it|pt|ru|tr|am", '
                 '"level": "level1-level6 (for language topics)", '
                 '"description": "optional description", '
                 '"list_title": "group/list name (e.g. Travel, General)", '
                 '"content": "one word/phrase per add action", '
-                '"definition": "meaning in plain English", '
+                '"definition": "meaning in the user\'s app language", '
                 '"example_sentence": "example using the word", '
                 '"note": "alias for example_sentence"}]}. '
                 "Rules:\n"
-                "- Only create language (English vocab) or trivia (general knowledge) topics. "
+                "- Only create language (vocabulary) or trivia (general knowledge) topics. "
                 "Never create coding/math/other subject workspaces.\n"
+                "- language create_project MUST include target_language. You MAY create a second "
+                "language project when the user wants a different language than one they already have.\n"
                 "- Do NOT emit create_project for software products, apps to build, repos, or "
                 "codebases (e.g. 'dating app project', 'my React app').\n"
                 "- add: ONE action per vocabulary word. Use list_title=General unless the user "
@@ -55,7 +59,7 @@ async def extract_project_actions(
                 "- master: ONLY when the user answered correctly this turn. "
                 "NEVER emit master if the user was wrong, the assistant said their "
                 "answer was wrong, or the assistant corrected them to a different option.\n"
-                "- set_level: when user moves up (level1=beginner … level6=fluent English skill).\n"
+                "- set_level: when user moves up (level1=beginner … level6=fluent in that language).\n"
                 "- Return empty actions array if nothing should change."
             ),
         },

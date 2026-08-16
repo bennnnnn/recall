@@ -376,19 +376,21 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 ## 17. Projects (utility workspaces)
 
 Recall is evolving from chat-only into a **holistic AI utility app**. **Learning** topics are
-user-created workspaces beside **Todos** — for English vocabulary, general knowledge quizzes,
-courses, habits, and anything else that needs structure over time.
+user-created workspaces beside **Todos** — for vocabulary in any of the nine app languages,
+general knowledge quizzes, courses, habits, and anything else that needs structure over time.
 
 ### v1 (shipped foundation)
 - ✅ **`projects` table** — title, description, `kind` (`general` | `vocabulary` | `language` |
   `trivia` | `learning`), archive flag.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Learning** link → list → create → detail screen.
-- ✅ **Project kinds** — API + mobile support only **English vocabulary** (`language`, with
-  `vocabulary` as a write alias) and **general knowledge** (`trivia`). Legacy kinds
-  (`programming`, `math`, …) are rejected on create and hidden from list/detail.
+- ✅ **Project kinds** — API + mobile support **vocabulary** (`language`, with `vocabulary` as
+  a write alias) for the nine UI locales (`en`, `es`, `fr`, `de`, `it`, `pt`, `ru`, `tr`,
+  `am`) — one project per target language — and **general knowledge** (`trivia`, one per
+  user). Legacy kinds (`programming`, `math`, …) are rejected on create and hidden from
+  list/detail.
 
-### Phase 2 — Vocabulary (Learning English)
+### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — organize words by deck title on the detail screen.
 - ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
@@ -625,8 +627,8 @@ Internal product snapshot for leadership, engineering, design, GTM, and App Stor
 
 ### Mission
 Recall is a **personal AI utility** — not a generic chatbot. It remembers who you are, helps you
-act (todos, calendar, email), and supports **Learning** (English vocabulary + general knowledge
-quizzes). One trusted assistant combining ChatGPT-grade conversation with durable memory and
+act (todos, calendar, email), and supports **Learning** (vocabulary in the nine app languages +
+general knowledge quizzes). One trusted assistant combining ChatGPT-grade conversation with durable memory and
 everyday productivity. **Programming help lives in main chat** (code blocks, previews) — not as a
 structured Learning topic type.
 
@@ -655,7 +657,7 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| English vocabulary (`language`) — decks, quiz, tutor, SM-2 | Curated trivia marketplace |
+| Vocabulary (`language`) — nine target languages, decks, quiz, tutor, SM-2 | Curated trivia marketplace |
 | General knowledge (`trivia`) — topics, scoped quiz chat | Certificates, GitHub linking |
 | Project-scoped chats, home highlight, link todos to projects | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |

@@ -158,6 +158,101 @@ async def test_apply_project_actions_skips_duplicate_language_project():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_creates_second_target_language():
+    session = _session_with_savepoint()
+    user_id = uuid4()
+    existing = _project("English")
+    existing.target_language = "en"
+    created = _project("Spanish")
+    created.target_language = "es"
+    with (
+        patch.object(
+            projects_repo,
+            "list_for_user",
+            AsyncMock(side_effect=[[existing], [existing, created]]),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_recent_for_projects",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_repo,
+            "create",
+            AsyncMock(return_value=created),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="create_project",
+                    project_title="Spanish",
+                    kind="language",
+                    target_language="es",
+                ),
+            ],
+        )
+    assert applied == 1
+    assert create_mock.await_args.kwargs["target_language"] == "es"
+
+
+@pytest.mark.asyncio
+async def test_create_learning_project_allows_second_language():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.locale = "en"
+    user.timezone = "UTC"
+    created = _project("Español · Beginner")
+    created.target_language = "es"
+    with (
+        patch.object(projects_repo, "find_language_by_target", AsyncMock(return_value=None)),
+        patch.object(projects_repo, "create", AsyncMock(return_value=created)) as create_mock,
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        result = await projects_service.create_learning_project(
+            session,
+            user,
+            title="Español · Beginner",
+            description=None,
+            kind="language",
+            target_language="es",
+        )
+    assert result is created
+    assert create_mock.await_args.kwargs["target_language"] == "es"
+    assert create_mock.await_args.kwargs["native_language"] == "en"
+
+
+@pytest.mark.asyncio
+async def test_create_learning_project_rejects_unknown_target():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.locale = "en"
+    with pytest.raises(ValueError, match="unsupported_target_language"):
+        await projects_service.create_learning_project(
+            session,
+            user,
+            title="Japanese",
+            description=None,
+            kind="language",
+            target_language="ja",
+        )
+
+
+def test_normalize_and_infer_target_language():
+    assert projects_service.normalize_target_language("ES") == "es"
+    assert projects_service.normalize_target_language("ja") is None
+    assert projects_service.language_display_name("fr") == "French"
+    from app.services.projects.common import infer_target_language
+
+    assert infer_target_language("Spanish vocabulary") == "es"
+    assert infer_target_language("Words", "de") == "de"
+
+
+@pytest.mark.asyncio
 async def test_apply_project_actions_handles_create_project_race():
     """Simulates two near-concurrent project-sync jobs both passing the
     in-memory "no existing language project" check before either commits —
@@ -906,7 +1001,7 @@ async def test_load_project_for_prompt_chat_mode():
             session, user_id, project_id, Settings(), quiz_mode="chat"
         )
 
-    assert "daily vocabulary in chat" in block
+    assert "daily English vocabulary in chat" in block
     assert "learning formats" in block.lower() or "teach→use" in block
     assert "vocab_card" in block
     assert "Presentation mode: chat" in block
@@ -978,7 +1073,7 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
         )
 
     assert "presentation mode: chat" in block.lower()
-    assert "daily vocabulary in chat" in block.lower()
+    assert "daily english vocabulary in chat" in block.lower()
     assert "exam (legacy)" not in block.lower()
 
 
@@ -1979,6 +2074,15 @@ async def test_load_project_for_prompt_trivia_hint():
     assert "Colossus of Rhodes" in block
     assert "Do NOT ask these again" in block
     assert "quiz ledger" in block
+
+
+def test_language_tutor_hint_uses_target_language():
+    from app.services.projects import language_tutor_hint
+
+    hint = language_tutor_hint("es")
+    assert "Spanish vocabulary" in hint
+    assert "Spanish skill level" in hint
+    assert "English skill level" not in hint
 
 
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():

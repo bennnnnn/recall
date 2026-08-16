@@ -24,6 +24,7 @@ type Props = {
   activityDate: string;
   dayMeta?: ProjectDailyHistoryDay;
   isTrivia?: boolean;
+  speechLanguage?: string;
   studyAction?: ProjectStudyAction | null;
   /** Optional embedded map from a fat detail payload; omit to lazy-load via /daily-items. */
   itemsByDate?: Record<string, ProjectItem[]>;
@@ -38,6 +39,7 @@ export function ProjectDayItemsList({
   activityDate,
   dayMeta,
   isTrivia = false,
+  speechLanguage = "en-US",
   studyAction = null,
   itemsByDate,
   missedItems: missedItemsProp,
@@ -171,6 +173,7 @@ export function ProjectDayItemsList({
                 <ProjectItemRow
                   item={item}
                   showSpeech={!isTrivia}
+                  speechLanguage={speechLanguage}
                   busy={busyId === item.id}
                   onStatusChange={handleStatusChange}
                 />
@@ -214,6 +217,7 @@ export function ProjectDayItemsList({
                 <ProjectItemRow
                   item={item}
                   showSpeech={!isTrivia}
+                  speechLanguage={speechLanguage}
                   busy={busyId === item.id}
                   onStatusChange={handleStatusChange}
                 />

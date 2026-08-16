@@ -1,6 +1,6 @@
 """Real-Postgres tests for app.repositories.projects — specifically the
-partial unique index added by migration 0055 (at most one active
-language/trivia project per user). A mocked `AsyncSession` can't exercise a
+partial unique indexes (one active language project per target language,
+one trivia project per user). A mocked `AsyncSession` can't exercise a
 real DB constraint, so these use the `db_session` fixture from conftest.py.
 """
 
@@ -26,13 +26,9 @@ async def _make_user(session):
 
 
 @pytest.mark.asyncio
-async def test_one_active_language_project_per_user_enforced_by_db(db_session):
-    """BUG FIX (was silent): "one language + one trivia project per user"
-    (FEATURES.md) was only checked in-memory in apply_project_actions, which
-    two near-concurrent project-sync jobs could both pass before either
-    commits (at-least-once job redelivery, see core/jobs.py). The partial
-    unique index from migration 0055 makes the DB itself refuse the second
-    active row for the same (user_id, kind)."""
+async def test_one_active_language_project_per_target_enforced_by_db(db_session):
+    """Two active language rows for the same (user, target_language) must
+    fail at the DB (migration 0065), not only in apply_project_actions."""
     user = await _make_user(db_session)
     user_id = user.id
     await projects_repo.create(db_session, user_id=user_id, title="English", kind="language")
@@ -54,6 +50,18 @@ async def test_one_active_language_project_per_user_enforced_by_db(db_session):
     )
     assert len(rows) == 1
     assert rows[0].title == "English"
+
+
+@pytest.mark.asyncio
+async def test_same_user_can_have_two_target_languages(db_session):
+    user = await _make_user(db_session)
+    await projects_repo.create(
+        db_session, user_id=user.id, title="English", kind="language", target_language="en"
+    )
+    second = await projects_repo.create(
+        db_session, user_id=user.id, title="Spanish", kind="language", target_language="es"
+    )
+    assert second.target_language == "es"
 
 
 @pytest.mark.asyncio

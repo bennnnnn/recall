@@ -3,16 +3,17 @@ import {
   canAddLearningProject,
   resolveProjectDescription,
   resolveProjectTitle,
-  englishProjectTitle,
+  languageProjectTitle,
 } from "@/lib/projectCreateFlow";
 import type { Project } from "@/lib/api";
 
 const t = (key: string) => key;
 
 describe("projectCreateFlow", () => {
-  it("tracks english as three steps ending on daily", () => {
-    expect(createStepProgress("level", "language")).toEqual({ current: 2, total: 3 });
-    expect(createStepProgress("daily", "language")).toEqual({ current: 3, total: 3 });
+  it("tracks language as four steps ending on daily", () => {
+    expect(createStepProgress("language", "language")).toEqual({ current: 2, total: 4 });
+    expect(createStepProgress("level", "language")).toEqual({ current: 3, total: 4 });
+    expect(createStepProgress("daily", "language")).toEqual({ current: 4, total: 4 });
   });
 
   it("tracks trivia as three steps ending on daily", () => {
@@ -20,8 +21,9 @@ describe("projectCreateFlow", () => {
     expect(createStepProgress("daily", "trivia")).toEqual({ current: 3, total: 3 });
   });
 
-  it("builds english project title from level", () => {
-    expect(englishProjectTitle("level2", t)).toBe("projects.kind.language · Elementary");
+  it("builds language project title from level and target", () => {
+    expect(languageProjectTitle("level2", "es")).toBe("Español · Elementary");
+    expect(languageProjectTitle("level1", "en")).toBe("English · Beginner");
   });
 
   it("drops description when it matches title", () => {
@@ -33,7 +35,7 @@ describe("projectCreateFlow", () => {
     expect(resolveProjectTitle("World facts", "trivia", "level1", t)).toBe("World facts");
   });
 
-  it("allows add learning until both english and trivia exist", () => {
+  it("allows add learning until every language and trivia exist", () => {
     const english: Project = {
       id: "1",
       title: "English",
@@ -63,7 +65,15 @@ describe("projectCreateFlow", () => {
     expect(canAddLearningProject([])).toBe(true);
     expect(canAddLearningProject([english])).toBe(true);
     expect(canAddLearningProject([trivia])).toBe(true);
-    expect(canAddLearningProject([english, trivia])).toBe(false);
+    expect(canAddLearningProject([english, trivia])).toBe(true);
     expect(canAddLearningProject([english, { ...trivia, archived: true }])).toBe(true);
+    const allLanguages: Project[] = ["en", "es", "fr", "de", "it", "pt", "ru", "tr", "am"].map(
+      (code, index) => ({
+        ...english,
+        id: `lang-${index}`,
+        target_language: code,
+      }),
+    );
+    expect(canAddLearningProject([...allLanguages, trivia])).toBe(false);
   });
 });

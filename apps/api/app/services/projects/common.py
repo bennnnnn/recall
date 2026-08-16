@@ -19,11 +19,84 @@ async def _invalidate_home_for_user(user_id: UUID) -> None:
 DEFAULT_LIST = "General"
 
 
-# Product surface: English vocabulary + general knowledge only.
+# Product surface: vocabulary (one project per target language) + general knowledge.
 LEARNING_PRODUCT_KINDS = frozenset({"language", "trivia"})
+
+# Same codes as mobile UI locales (`apps/mobile/lib/i18n/languages.ts`).
+LEARNING_TARGET_LANGUAGES = frozenset({"en", "es", "fr", "de", "it", "pt", "ru", "tr", "am"})
+
+LANGUAGE_DISPLAY_NAMES: dict[str, str] = {
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "tr": "Turkish",
+    "am": "Amharic",
+}
+
+_LANGUAGE_TITLE_ALIASES: dict[str, str] = {
+    "english": "en",
+    "spanish": "es",
+    "español": "es",
+    "espanol": "es",
+    "french": "fr",
+    "français": "fr",
+    "francais": "fr",
+    "german": "de",
+    "deutsch": "de",
+    "italian": "it",
+    "italiano": "it",
+    "portuguese": "pt",
+    "português": "pt",
+    "portugues": "pt",
+    "russian": "ru",
+    "русский": "ru",
+    "turkish": "tr",
+    "türkçe": "tr",
+    "turkce": "tr",
+    "amharic": "am",
+    "አማርኛ": "am",
+}
 
 
 LEARNING_KIND_ALIASES = {"vocabulary": "language"}
+
+
+def normalize_target_language(code: str | None) -> str | None:
+    """Return an allowlisted ISO 639-1 code, or None if missing/unknown."""
+    if not isinstance(code, str):
+        return None
+    raw = code.strip().lower().replace("_", "-")
+    if not raw:
+        return None
+    iso = raw.split("-", 1)[0]
+    if iso in LEARNING_TARGET_LANGUAGES:
+        return iso
+    return None
+
+
+def locale_language(locale: str | None) -> str:
+    """Best-effort app-language code from a user locale (defaults to English)."""
+    return normalize_target_language(locale) or "en"
+
+
+def language_display_name(code: str | None) -> str:
+    return LANGUAGE_DISPLAY_NAMES[normalize_target_language(code) or "en"]
+
+
+def infer_target_language(title: str, explicit: str | None = None) -> str:
+    """Prefer an explicit allowlisted code; else infer from the project title."""
+    normalized = normalize_target_language(explicit)
+    if normalized:
+        return normalized
+    lowered = title.strip().lower()
+    for alias, code in _LANGUAGE_TITLE_ALIASES.items():
+        if alias in lowered:
+            return code
+    return "en"
 
 
 def normalize_project_kind(kind: str) -> str:

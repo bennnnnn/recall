@@ -17,8 +17,11 @@ from app.services.projects.common import (
     DEFAULT_LIST,
     LEARNING_KIND_ALIASES,
     LEARNING_PRODUCT_KINDS,
+    LEARNING_TARGET_LANGUAGES,
     is_learning_product_kind,
+    language_display_name,
     normalize_project_kind,
+    normalize_target_language,
 )
 from app.services.projects.crud import (
     build_stats,
@@ -53,6 +56,7 @@ from app.services.projects.prompts import (
     VOCAB_QUIZ_FORMAT_BLOCK,
     VOCAB_QUIZ_MARKDOWN_EXAMPLE,
     build_language_quiz_prompt,
+    language_tutor_hint,
 )
 from app.services.projects.quiz_context import (
     load_project_quiz_context,
@@ -81,6 +85,7 @@ __all__ = [
     "LANGUAGE_TUTOR_HINT",
     "LEARNING_KIND_ALIASES",
     "LEARNING_PRODUCT_KINDS",
+    "LEARNING_TARGET_LANGUAGES",
     "LEVEL_GUIDANCE",
     "MAX_PROJECT_ACTIONS_PER_TURN",
     "MAX_PROJECT_ITEMS_PER_PROJECT",
@@ -110,6 +115,8 @@ __all__ = [
     "group_items",
     "group_trivia_items",
     "is_learning_product_kind",
+    "language_display_name",
+    "language_tutor_hint",
     "list_projects_for_user",
     "load_daily_learning_summary_for_prompt",
     "load_project_for_prompt",
@@ -117,6 +124,7 @@ __all__ = [
     "load_projects_for_prompt",
     "looks_like_vocab_question",
     "normalize_project_kind",
+    "normalize_target_language",
     "stats_from_items",
     "sync_projects_from_transcript",
     "transcript_implies_project_sync",

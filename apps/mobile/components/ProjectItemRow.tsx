@@ -12,6 +12,8 @@ type Props = {
   item: ProjectItem;
   busy?: boolean;
   showSpeech?: boolean;
+  /** BCP-47 locale for TTS (defaults to English). */
+  speechLanguage?: string;
   /** Stable parent callback — takes item id so rows stay memo-friendly. */
   onStatusChange?: (itemId: string, status: VocabStatus) => void | Promise<void>;
   onSpeechUnavailable?: () => void;
@@ -33,6 +35,7 @@ export const ProjectItemRow = memo(function ProjectItemRow({
   item,
   busy = false,
   showSpeech = true,
+  speechLanguage = "en-US",
   onStatusChange,
   onSpeechUnavailable,
 }: Props) {
@@ -87,7 +90,7 @@ export const ProjectItemRow = memo(function ProjectItemRow({
               hitSlop={14}
               onPress={async () => {
                 const result = await speakWord(item.content, {
-                  language: "en-US",
+                  language: speechLanguage,
                   pronunciationUrl: item.pronunciation_url,
                   token,
                 });
