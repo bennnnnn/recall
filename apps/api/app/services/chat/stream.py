@@ -274,18 +274,9 @@ async def _try_image_gen_for_turn(
     if not image_prompt:
         return False
     try:
-        if replace_assistant_id is not None:
-            async with SessionLocal() as session:
-                last = await messages_repo.get_last(session, chat_id)
-                if (
-                    last is not None
-                    and last.id == replace_assistant_id
-                    and last.role == "assistant"
-                ):
-                    await messages_repo.delete_message(session, last)
-                    await session.commit()
         # generate_for_chat opens its own short-lived sessions around DB work
-        # and keeps none open during the provider HTTP call.
+        # and keeps none open during the provider HTTP call. Do not delete the
+        # prior assistant first — 403/404 soft-fail cannot restore it.
         _user_msg, asst_msg = await image_generation_service.generate_for_chat(
             settings,
             user=user,
@@ -301,6 +292,12 @@ async def _try_image_gen_for_turn(
             # Not available / not Pro — let the chat model explain.
             return False
         raise ChatServiceError(exc.detail) from exc
+
+    if replace_assistant_id is not None:
+        async with SessionLocal() as session:
+            old = await messages_repo.get_by_id(session, replace_assistant_id, chat_id)
+            if old is not None and old.role == "assistant":
+                await messages_repo.delete_message(session, old)
 
     if result is not None:
         result["message_id"] = str(asst_msg.id)

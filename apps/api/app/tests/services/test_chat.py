@@ -1762,6 +1762,93 @@ async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [403, 404])
+async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
+    """403/404 must not delete the prior assistant (omit-until-success)."""
+    from app.services.chat.stream import _try_image_gen_for_turn
+    from app.services.image_generation import ImageGenerationError
+
+    user = MagicMock()
+    user.id = uuid4()
+    old_id = uuid4()
+    delete_message = AsyncMock()
+
+    with (
+        patch("app.services.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.services.chat.stream.extract_image_gen_prompt", return_value="a cat"),
+        patch("app.services.chat.stream.messages_repo.delete_message", delete_message),
+        patch(
+            "app.services.chat.stream.image_generation_service.generate_for_chat",
+            AsyncMock(side_effect=ImageGenerationError("Not available", status_code=status_code)),
+        ),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="Generate image: a cat",
+            result=None,
+            create_user_message=False,
+            replace_assistant_id=old_id,
+        )
+
+    assert handled is False
+    delete_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_image_regen_deletes_prior_assistant_only_after_success():
+    from app.services.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    old_id = uuid4()
+    chat_id = uuid4()
+    old = MagicMock()
+    old.id = old_id
+    old.role = "assistant"
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-gen-model"
+    order: list[str] = []
+
+    async def generate_for_chat(*_args, **_kwargs):
+        order.append("generate")
+        return MagicMock(), asst_msg
+
+    async def delete_message(_session, message):
+        order.append(f"delete:{message.id}")
+
+    get_by_id = AsyncMock(return_value=old)
+
+    with (
+        patch("app.services.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.services.chat.stream.extract_image_gen_prompt", return_value="a cat"),
+        patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.stream.messages_repo.get_by_id", get_by_id),
+        patch("app.services.chat.stream.messages_repo.delete_message", delete_message),
+        patch(
+            "app.services.chat.stream.image_generation_service.generate_for_chat",
+            generate_for_chat,
+        ),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=chat_id,
+            content="Generate image: a cat",
+            result={},
+            create_user_message=False,
+            replace_assistant_id=old_id,
+        )
+
+    assert handled is True
+    assert order == ["generate", f"delete:{old_id}"]
+    get_by_id.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
     """WS/SSE CancelledError after tokens must persist like soft stop (no full refund)."""
     import asyncio
