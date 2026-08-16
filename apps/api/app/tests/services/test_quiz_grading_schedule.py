@@ -97,3 +97,23 @@ async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
     )
     assert mastered_today == 1
     assert missed_today == 0
+
+
+def test_failed_quiz_today_uses_user_timezone_not_utc(monkeypatch):
+    """04:00 UTC is still the previous local evening in America/Los_Angeles."""
+    now_utc = datetime(2026, 8, 16, 4, 0, tzinfo=UTC)
+    missed = datetime(2026, 8, 15, 22, 0, tzinfo=UTC)
+    item = _item(status="learning")
+    item.last_incorrect_at = missed
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now_utc.astimezone(tz) if tz is not None else now_utc
+
+    monkeypatch.setattr("app.services.daily_learning.datetime", _Frozen)
+
+    assert quiz_grading._failed_quiz_today(item, timezone_name="UTC") is False
+    assert quiz_grading._failed_quiz_today(item, timezone_name="America/Los_Angeles") is True
+    assert quiz_grading._recently_missed_quiz(item, timezone_name="UTC") is False
+    assert quiz_grading._recently_missed_quiz(item, timezone_name="America/Los_Angeles") is True
