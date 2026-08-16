@@ -21,7 +21,8 @@ import {
 } from "@/lib/dailyGoals";
 import { isLanguageProject, levelLabel, levelPickerOptions } from "@/lib/languageLevels";
 import { invalidateProjectDetail } from "@/lib/projectDetailCache";
-import { englishProjectTitle } from "@/lib/projectCreateFlow";
+import { languageLabel } from "@/lib/i18n/languages";
+import { languageProjectTitle } from "@/lib/projectCreateFlow";
 import { isTriviaProject } from "@/lib/projectUi";
 import {
   encodeTriviaTopics,
@@ -66,7 +67,7 @@ export default function LearningSettingsScreen() {
     }, [refresh]),
   );
 
-  const languageProject = projects.find((p) => isLanguageProject(p.kind));
+  const languageProjects = projects.filter((p) => isLanguageProject(p.kind));
   const triviaProject = projects.find((p) => isTriviaProject(p.kind));
 
   const saveDailyGoal = async (project: Project, nextGoal: number) => {
@@ -94,7 +95,7 @@ export default function LearningSettingsScreen() {
     try {
       const patch =
         kind === "language"
-          ? { level, title: englishProjectTitle(level, t) }
+          ? { level, title: languageProjectTitle(level, project.target_language) }
           : { level };
       const updated = await api.updateProject(token, project.id, patch);
       setProjects((prev) => mergeProjectRow(prev, updated));
@@ -145,7 +146,7 @@ export default function LearningSettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  const hasLearningProjects = languageProject != null || triviaProject != null;
+  const hasLearningProjects = languageProjects.length > 0 || triviaProject != null;
 
   const pickerTitle =
     pickerTarget?.mode === "level"
@@ -182,8 +183,12 @@ export default function LearningSettingsScreen() {
 
         {hasLearningProjects ? (
           <>
-            {languageProject ? (
-              <SettingsGroup label={t("settings.learning.english_section")} styles={s}>
+            {languageProjects.map((languageProject) => (
+              <SettingsGroup
+                key={languageProject.id}
+                label={languageLabel(languageProject.target_language)}
+                styles={s}
+              >
                 <SettingsLinkRow
                   title={t("settings.learning.level_label")}
                   value={levelLabel(languageProject.level)}
@@ -208,7 +213,7 @@ export default function LearningSettingsScreen() {
                   theme={theme}
                 />
               </SettingsGroup>
-            ) : null}
+            ))}
 
             {triviaProject ? (
               <SettingsGroup label={t("settings.learning.trivia_section")} styles={s}>

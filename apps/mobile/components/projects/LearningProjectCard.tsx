@@ -93,7 +93,7 @@ export function LearningProjectCard({
             </View>
             <View style={s.headerText}>
               <Text style={s.headerTitle} numberOfLines={1}>
-                {learningProjectTitle(project.kind, t, project.title)}
+                {learningProjectTitle(project.kind, t, project.title, project.target_language)}
               </Text>
               {showLearningUi ? (
                 <Text style={s.headerSubtitle} numberOfLines={2}>

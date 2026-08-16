@@ -91,7 +91,7 @@ export type Todo = {
   updated_at: string;
 };
 
-/** Product learning kinds: English vocabulary + general knowledge. */
+/** Product learning kinds: vocabulary (one project per target language) + trivia. */
 export type ProjectKind = "language" | "vocabulary" | "trivia";
 export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
 export type VocabStatus = "new" | "learning" | "mastered";
@@ -208,6 +208,7 @@ export type HomeProjectHighlight = {
   project_id: string;
   title: string;
   kind: "language" | "trivia";
+  target_language?: string;
   daily_goal: number;
   mastered_today: number;
   missed_today?: number;

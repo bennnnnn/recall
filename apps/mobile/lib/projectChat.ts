@@ -1,6 +1,7 @@
 import type { HomeProjectHighlight, LanguageLevel, Project, ProjectDetail, ProjectStats } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
+import { languageLabel } from "@/lib/i18n/languages";
 import { learningProjectTitle } from "@/lib/projectUi";
 import {
   formatTriviaTopicLabels,
@@ -64,7 +65,7 @@ export type ProjectAskPromptOptions = {
 
 function defaultScreenTitle(project: ProjectDetail): string {
   if (project.kind === "trivia") return "General Knowledge";
-  if (isLanguageProject(project.kind)) return "Words";
+  if (isLanguageProject(project.kind)) return languageLabel(project.target_language);
   return project.title;
 }
 
@@ -101,7 +102,7 @@ export function buildProjectAskPromptFromProject(
   const detail = projectDetailForChat(project);
   const isTrivia = project.kind === "trivia";
   return buildProjectAskPrompt(detail, {
-    screenTitle: learningProjectTitle(project.kind, t, project.title),
+    screenTitle: learningProjectTitle(project.kind, t, project.title, project.target_language),
     topicLabels: isTrivia
       ? formatTriviaTopicLabels(parseTriviaTopics(project.description), t)
       : undefined,
@@ -134,17 +135,19 @@ function progressLine(project: ProjectDetail): string {
   );
 }
 
-/** Opens chat after a new English vocabulary project is created. */
-export function buildEnglishOnboardingPrompt(
+/** Opens chat after a new vocabulary project is created. */
+export function buildLanguageOnboardingPrompt(
   title: string,
   level: LanguageLevel,
   dailyGoal: number,
+  targetLanguage = "en",
 ): string {
   const lvl = levelLabel(level);
+  const name = languageLabel(targetLanguage);
   return (
-    `I just set up my "${title}" English vocabulary project.\n` +
+    `I just set up my "${title}" ${name} vocabulary project.\n` +
     `My level: ${lvl}. My daily goal: ${dailyGoal} new words per session.\n\n` +
-    `You're my English tutor. Generate exactly ${dailyGoal} new vocabulary words matched to ${lvl} ` +
+    `You're my ${name} tutor. Generate exactly ${dailyGoal} new vocabulary words matched to ${lvl} ` +
     `(high-frequency words I'll actually use). Save them to this project with ` +
     `definition and example_sentence.\n\n` +
     `Then teach each word briefly and quiz me one at a time until I master all ${dailyGoal}. ` +
@@ -315,6 +318,7 @@ export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
 /** Starts an interactive multiple-choice vocabulary quiz in chat. */
 export function buildProjectQuizPrompt(project: ProjectDetail): string {
   const lvl = levelLabel(project.level);
+  const name = languageLabel(project.target_language);
   const goal = project.description?.trim() ? ` ${project.description.trim()}.` : "";
   const daily = resolveProjectDailyGoal(project);
 
@@ -328,8 +332,8 @@ export function buildProjectQuizPrompt(project: ProjectDetail): string {
   }
 
   return (
-    `Start an interactive vocabulary session for my "${project.title}" English project.\n` +
-    `My English level: ${lvl}.${goal}\n` +
+    `Start an interactive vocabulary session for my "${project.title}" ${name} project.\n` +
+    `My ${name} level: ${lvl}.${goal}\n` +
     `${progressLine(project)}\n\n` +
     "One word at a time from my new and learning words, matched to my level.\n" +
     "Mix learning formats: teach→use (```vocab_card``` with word+definition only — " +

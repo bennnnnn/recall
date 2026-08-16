@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-# Product learning kinds: English vocabulary + general knowledge.
+# Product learning kinds: vocabulary (one project per target language) + trivia.
 # `vocabulary` is accepted as a write alias and normalized to `language`.
 ProjectKind = Literal["language", "vocabulary", "trivia"]
 
@@ -151,6 +151,7 @@ class ProjectActionItem(BaseModel):
     ]
     project_title: str = Field(min_length=1, max_length=200)
     kind: ProjectKind | None = None
+    target_language: str | None = Field(default=None, max_length=10)
     description: str | None = Field(default=None, max_length=4000)
     level: LanguageLevel | None = None
     list_title: str = Field(default="General", max_length=200)

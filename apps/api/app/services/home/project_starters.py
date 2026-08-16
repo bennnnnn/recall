@@ -15,6 +15,7 @@ from app.repositories import projects as projects_repo
 from app.services import daily_learning, learning_insights
 from app.services.home.util import CompletedDaily, ProjectHomeContent
 from app.services.projects import stats as project_stats
+from app.services.projects.common import normalize_target_language
 
 
 def is_language_project(project: Project) -> bool:
@@ -83,6 +84,8 @@ def project_highlight(
         project_id=project.id,
         title=project.title.strip(),
         kind=daily_home_kind(project),
+        target_language=normalize_target_language(getattr(project, "target_language", None))
+        or "en",
         daily_goal=daily_goal,
         mastered_today=stats.mastered_today,
         missed_today=int(getattr(stats, "missed_today", 0) or 0),

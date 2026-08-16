@@ -19,7 +19,9 @@ from app.services.projects.common import (
     LEARNING_PRODUCT_KINDS,
     _is_trivia_project,
     is_learning_product_kind,
+    locale_language,
     normalize_project_kind,
+    normalize_target_language,
 )
 from app.services.projects.prompt_context import _stats_for_items
 
@@ -171,8 +173,17 @@ async def create_learning_project(
     normalized = normalize_project_kind(kind)
     if normalized not in LEARNING_PRODUCT_KINDS:
         raise ValueError("unsupported_project_kind")
+    resolved_target = target_language
+    resolved_native = native_language
     if normalized == "language":
-        existing = await projects_repo.find_language_by_target(session, user.id, target_language)
+        resolved = normalize_target_language(target_language)
+        if resolved is None:
+            raise ValueError("unsupported_target_language")
+        resolved_target = resolved
+        resolved_native = normalize_target_language(native_language) or locale_language(
+            getattr(user, "locale", None)
+        )
+        existing = await projects_repo.find_language_by_target(session, user.id, resolved_target)
         if existing:
             raise ValueError("language_project_exists")
     if normalized == "trivia":
@@ -185,8 +196,8 @@ async def create_learning_project(
         title=title,
         description=description,
         kind=normalized,
-        target_language=target_language,
-        native_language=native_language,
+        target_language=resolved_target,
+        native_language=resolved_native,
         level=level,
         daily_goal=daily_goal if normalized in LEARNING_PRODUCT_KINDS else None,
         timezone_name=time_context_service.effective_timezone(user.timezone, None),
@@ -214,6 +225,17 @@ async def update_learning_project(
         patch["kind"] = normalize_project_kind(patch["kind"])
         if patch["kind"] not in LEARNING_PRODUCT_KINDS:
             raise ProjectsError("unsupported_project_kind", status_code=400)
+    if "target_language" in patch and patch["target_language"] is not None:
+        kind = normalize_project_kind(patch.get("kind") or item.kind)
+        if kind == "language":
+            resolved = normalize_target_language(patch["target_language"])
+            if resolved is None:
+                raise ProjectsError("unsupported_target_language", status_code=400)
+            if resolved != (item.target_language or "en").strip().lower():
+                other = await projects_repo.find_language_by_target(session, user.id, resolved)
+                if other and other.id != item.id:
+                    raise ProjectsError("language_project_exists", status_code=409)
+            patch["target_language"] = resolved
     new_goal = patch.get("daily_goal")
     if isinstance(new_goal, int) and new_goal != item.daily_goal:
         tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)

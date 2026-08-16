@@ -42,6 +42,7 @@ import {
   invalidateProjectDetail,
   isProjectDetailFresh,
 } from "@/lib/projectDetailCache";
+import { speechLocale } from "@/lib/i18n/languages";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { localDateKey } from "@/lib/reminderCalendar";
@@ -151,7 +152,7 @@ export default function ProjectDetailScreen() {
   useLayoutEffect(() => {
     if (!project) return;
     navigation.setOptions({
-      title: learningProjectTitle(project.kind, t, project.title),
+      title: learningProjectTitle(project.kind, t, project.title, project.target_language),
       headerRight: () => (
         <Pressable
           onPress={() => void exportLearningPdf()}
@@ -276,7 +277,7 @@ export default function ProjectDetailScreen() {
     queueChatLaunch(
       buildProjectReviewPrompt(project),
       project.id,
-      isLang ? "en" : undefined,
+      isLang ? project.target_language : undefined,
       variant,
       "chat",
     );
@@ -289,7 +290,7 @@ export default function ProjectDetailScreen() {
     queueChatLaunch(
       buildProjectAskPromptFromProject(project, t),
       project.id,
-      isLang ? "en" : undefined,
+      isLang ? project.target_language : undefined,
       variant,
       "chat",
     );
@@ -301,7 +302,7 @@ export default function ProjectDetailScreen() {
     if (isTrivia) {
       queueChatLaunch(buildProjectBonusQuestionsPrompt(project), project.id, undefined, "trivia", "chat");
     } else if (isLang) {
-      queueChatLaunch(buildProjectBonusWordsPrompt(project), project.id, "en");
+      queueChatLaunch(buildProjectBonusWordsPrompt(project), project.id, project.target_language);
     }
     router.replace("/");
   };
@@ -374,6 +375,7 @@ export default function ProjectDetailScreen() {
           activityDate={selectedDay}
           dayMeta={selectedDayMeta}
           isTrivia={isTrivia}
+          speechLanguage={speechLocale(project.target_language)}
           itemsByDate={project.daily_items_by_date ?? {}}
           missedItems={selectedDayMissed}
           studyAction={todayStudyAction}
@@ -393,6 +395,7 @@ export default function ProjectDetailScreen() {
                   key={item.id}
                   item={item}
                   showSpeech
+                  speechLanguage={speechLocale(project.target_language)}
                   busy={conceptBusyId === item.id}
                   onStatusChange={handleItemStatusChange}
                 />

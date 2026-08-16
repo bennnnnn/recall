@@ -18,15 +18,16 @@ from app.services.projects.common import (
     _item_status,
     _language_daily_goal,
     _trivia_daily_goal,
+    language_display_name,
 )
 from app.services.projects.prompts import (
-    LANGUAGE_TUTOR_HINT,
     TRIVIA_TUTOR_HINT,
     _language_tutor_hint,
     _level_guidance,
     _quiz_mode_banner,
     _trivia_level_guidance,
     _trivia_tutor_hint,
+    language_tutor_hint,
 )
 from app.services.projects.quiz_context import (
     _covered_quiz_prompt_lines,
@@ -55,8 +56,9 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
             meta = f"{project.kind}, topics={project.description or 'general'}"
         skill_line = ""
         if _is_language_project(project):
+            name = language_display_name(project.target_language)
             skill_line = (
-                f"English skill: {guidance}\n"
+                f"{name} skill: {guidance}\n"
                 f"Daily goal: {_language_daily_goal(project)} new words per session\n"
             )
         elif _is_trivia_project(project):
@@ -220,7 +222,7 @@ async def load_project_for_prompt(
         stats = project_stats.stats_from_items(items, timezone_name=tz_name)
         today_line = _format_today_session_line(project, stats)
     if _is_language_project(project):
-        hint = _language_tutor_hint(quiz_mode)
+        hint = _language_tutor_hint(quiz_mode, target_language=project.target_language)
         if today_line:
             hint = f"{today_line}\n\n{hint}"
         block = f"{block}\n\n{hint}" if block else hint
@@ -258,8 +260,14 @@ async def load_projects_for_prompt(
         limit=settings.project_item_inject_limit,
     )
     block = format_projects_block(projects, items)
-    if any(_is_language_project(p) for p in projects):
-        block = f"{block}\n\n{LANGUAGE_TUTOR_HINT}" if block else LANGUAGE_TUTOR_HINT
+    lang_projects = [p for p in projects if _is_language_project(p)]
+    if lang_projects:
+        hint = (
+            language_tutor_hint(lang_projects[0].target_language)
+            if len(lang_projects) == 1
+            else language_tutor_hint(None)
+        )
+        block = f"{block}\n\n{hint}" if block else hint
     if any(_is_trivia_project(p) for p in projects):
         block = f"{block}\n\n{TRIVIA_TUTOR_HINT}" if block else TRIVIA_TUTOR_HINT
     return block

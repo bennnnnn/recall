@@ -1,4 +1,5 @@
 import {
+  buildLanguageOnboardingPrompt,
   buildProjectAskPrompt,
   buildProjectAskPromptFromProject,
   buildProjectBonusQuestionsPrompt,
@@ -123,6 +124,21 @@ describe("projectChat daily goal helpers", () => {
     expect(prompt).toContain("vocab_quiz");
     expect(prompt).toContain("quiz_type");
     expect(prompt).toContain("Start the first bonus question now");
+  });
+
+  it("onboarding prompt names the target language", () => {
+    const prompt = buildLanguageOnboardingPrompt("Español · Beginner", "level1", 10, "es");
+    expect(prompt).toContain("Español vocabulary");
+    expect(prompt).toContain("You're my Español tutor");
+    expect(prompt).not.toContain("English tutor");
+  });
+
+  it("language ask prompt uses the target language as the screen title", () => {
+    const prompt = buildProjectAskPromptFromProject(
+      languageProject({ target_language: "fr", title: "Français · Beginner" }),
+      t,
+    );
+    expect(prompt).toContain("Continue my Français session.");
   });
 
   it("bonus words prompt requires explicit opt-in", () => {

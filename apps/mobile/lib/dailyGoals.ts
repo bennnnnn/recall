@@ -1,4 +1,4 @@
-/** Daily batch sizes for English vocabulary learning. */
+/** Daily batch sizes for vocabulary learning. */
 export const VOCAB_DAILY_GOALS = [5, 10, 15] as const;
 
 export type VocabDailyGoal = (typeof VOCAB_DAILY_GOALS)[number];

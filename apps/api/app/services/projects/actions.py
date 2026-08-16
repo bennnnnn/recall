@@ -23,7 +23,9 @@ from app.services.projects.common import (
     _is_trivia_project,
     _item_status,
     _list_key,
+    _normalize,
     _resolve_list_title,
+    infer_target_language,
     normalize_project_kind,
 )
 from app.services.projects.quiz_grading import _failed_quiz_today, _recently_missed_quiz
@@ -80,11 +82,14 @@ async def _project_action_create_project(
     # continue` guard was dead code; removed.
     title = action.project_title
     kind = normalize_project_kind(action.kind or "language")
-    if kind == "language" and _find_language_project(state.projects, "en"):
+    target_language = infer_target_language(title, action.target_language)
+    if kind == "language" and _find_language_project(state.projects, target_language):
         return 0
     if kind == "trivia" and any(_is_trivia_project(p) for p in state.projects):
         return 0
-    if _find_project(state.projects, title):
+    # Exact title only — `_find_project` falls back to the sole project, which
+    # would block creating Spanish when English already exists.
+    if any(_normalize(p.title) == _normalize(title) for p in state.projects):
         return 0
     try:
         # SAVEPOINT so a unique-index race rolls back this INSERT only —
@@ -98,17 +103,16 @@ async def _project_action_create_project(
                 description=(action.description or "").strip() or None,
                 kind=kind,
                 level=action.level or "level1",
-                target_language="en",
+                target_language=target_language if kind == "language" else "en",
                 commit=False,
             )
     except IntegrityError:
         # BUG FIX (was silent): the in-memory checks above aren't
         # safe against two near-concurrent project-sync jobs for
         # the same user both passing before either commits. The
-        # DB partial unique index (migration 0055) is the real
-        # guard — a race loses here and should just no-op, not
-        # raise into the background job or poison the rest of
-        # this turn's actions with an un-rolled-back session.
+        # DB partial unique indexes (one language per target, one
+        # trivia) are the real guard — a race loses here and
+        # should just no-op, not raise into the background job.
         logger.debug(
             "create_project raced with an existing active %s project for user_id=%s; skipping",
             kind,

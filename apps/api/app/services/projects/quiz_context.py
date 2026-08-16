@@ -17,6 +17,7 @@ from app.services.projects.common import (
     _is_trivia_project,
     _item_status,
     _trivia_daily_goal,
+    language_display_name,
 )
 from app.services.projects.prompts import (
     _LEVEL_LABELS,
@@ -311,7 +312,8 @@ async def load_project_quiz_context(
         )
     lines = [
         f"Active vocabulary session — project: {project.title} ({_LEVEL_LABELS.get(level, level)}).",
-        f"English skill: {_level_guidance(level)}",
+        f"{language_display_name(getattr(project, 'target_language', None))} skill: "
+        f"{_level_guidance(level)}",
         follow,
     ]
     if not retry_same:

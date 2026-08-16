@@ -1,12 +1,13 @@
 import type { LanguageLevel, Project, ProjectKind } from "@/lib/api";
+import { LANGUAGES, languageLabel } from "@/lib/i18n/languages";
 import { levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { findTriviaProject } from "@/lib/triviaProject";
 
-export type CreateStep = "subject" | "level" | "daily" | "topics" | "trivia_level";
+export type CreateStep = "subject" | "language" | "level" | "daily" | "topics" | "trivia_level";
 
 export function createStepsForKind(kind: ProjectKind | null): CreateStep[] {
-  if (kind === "language") return ["subject", "level", "daily"];
+  if (kind === "language") return ["subject", "language", "level", "daily"];
   if (kind === "trivia") return ["subject", "topics", "daily"];
   return ["subject"];
 }
@@ -28,18 +29,16 @@ export function goalStepHint(
   kind: ProjectKind,
   level: LanguageLevel,
   t: (key: string) => string,
+  targetLanguage = "en",
 ): string {
   if (kind === "language") {
-    return `${t("projects.kind.language")} · ${levelLabel(level)}`;
+    return `${languageLabel(targetLanguage)} · ${levelLabel(level)}`;
   }
   return t(`projects.kind.${kind === "vocabulary" ? "language" : kind}`);
 }
 
-export function englishProjectTitle(
-  level: LanguageLevel,
-  t: (key: string) => string,
-): string {
-  return `${t("projects.kind.language")} · ${levelLabel(level)}`;
+export function languageProjectTitle(level: LanguageLevel, targetLanguage = "en"): string {
+  return `${languageLabel(targetLanguage)} · ${levelLabel(level)}`;
 }
 
 export function triviaProjectTitle(t: (key: string) => string): string {
@@ -52,7 +51,7 @@ export function fallbackProjectTitle(
   t: (key: string) => string,
 ): string {
   if (kind === "language") {
-    return englishProjectTitle(level, t);
+    return languageProjectTitle(level);
   }
   if (kind === "trivia") {
     return triviaProjectTitle(t);
@@ -82,10 +81,12 @@ export function resolveProjectDescription(titleInput: string, goalInput: string)
   return goal;
 }
 
-/** v1 learning is capped at English vocabulary + general knowledge. */
+/** True until every allowlisted language and trivia exist. */
 export function canAddLearningProject(projects: Project[]): boolean {
   const active = projects.filter((project) => !project.archived);
-  const hasLanguage = findLanguageProject(active, "en") != null;
   const hasTrivia = findTriviaProject(active) != null;
-  return !(hasLanguage && hasTrivia);
+  const missingLanguage = LANGUAGES.some(
+    (lang) => findLanguageProject(active, lang.code) == null,
+  );
+  return missingLanguage || !hasTrivia;
 }

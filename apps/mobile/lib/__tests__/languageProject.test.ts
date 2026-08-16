@@ -1,3 +1,4 @@
+import { languageLabel, speechLocale } from "@/lib/i18n/languages";
 import { findLanguageProject } from "@/lib/languageProject";
 import type { Project } from "@/lib/api";
 
@@ -31,5 +32,12 @@ describe("languageProject", () => {
   it("returns undefined when no match", () => {
     expect(findLanguageProject([english], "fr")).toBeUndefined();
     expect(findLanguageProject([], "en")).toBeUndefined();
+  });
+
+  it("maps target language to label and TTS locale", () => {
+    expect(languageLabel("es")).toBe("Español");
+    expect(speechLocale("es")).toBe("es-ES");
+    expect(speechLocale("am")).toBe("am-ET");
+    expect(speechLocale("ja")).toBe("en-US");
   });
 });
