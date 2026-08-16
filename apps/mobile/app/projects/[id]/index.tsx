@@ -111,7 +111,7 @@ export default function ProjectDetailScreen() {
       // Paint cache immediately; only force-network when stale/missing so quiz
       // returns still refresh after invalidateProjectDetail.
       void load({ silent: hasPaint, force: !fresh });
-      void refreshHome({ silent: true, force: true });
+      void refreshHome({ silent: true });
     }, [load, id, refreshHome]),
   );
 

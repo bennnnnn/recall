@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { AppState, type AppStateStatus } from "react-native";
-import { useFocusEffect } from "expo-router";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type HomeScreen } from "@/lib/api";
@@ -110,12 +109,8 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     void refresh({ silent: true, force: true });
   }, [refresh, token, userName]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void refresh({ silent: true });
-    }, [refresh]),
-  );
-
+  // Focus refresh lives on chat / Learning screens — this provider wraps the
+  // whole stack and must not refetch on every route change.
   useEffect(() => {
     if (!token) return;
     const onAppState = (state: AppStateStatus) => {
