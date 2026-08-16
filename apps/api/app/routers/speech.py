@@ -200,27 +200,23 @@ async def stream_speech(
     await _reserve_tts_or_raise(user, settings)
     redis = get_redis_client()
     alias = speech_service.normalize_tts_alias(body.model)
-    chunks = _aiter_nonempty(
-        speech_service.iter_tts_pcm(
-            settings,
-            body.text,
-            language=body.language,
-            model_alias=alias,
-        )
-    )
-    try:
-        first = await anext(chunks)
-    except StopAsyncIteration:
-        await quota_service.refund_speech_tts(redis, user.id)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not synthesize speech",
-        ) from None
 
     async def body_iter() -> AsyncIterator[bytes]:
-        yield first
-        async for chunk in chunks:
-            yield chunk
+        got = False
+        try:
+            async for chunk in _aiter_nonempty(
+                speech_service.iter_tts_pcm(
+                    settings,
+                    body.text,
+                    language=body.language,
+                    model_alias=alias,
+                )
+            ):
+                got = True
+                yield chunk
+        finally:
+            if not got:
+                await quota_service.refund_speech_tts(redis, user.id)
 
     return StreamingResponse(
         body_iter(),

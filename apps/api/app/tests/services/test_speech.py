@@ -17,6 +17,7 @@ from app.services.speech import (
     normalize_tts_alias,
     resolve_tts_model,
     resolve_tts_voice,
+    split_tts_lead,
     synthesize_speech,
     transcribe_audio,
 )
@@ -275,3 +276,67 @@ async def test_iter_tts_pcm_mock_without_key():
         chunks = [chunk async for chunk in iter_tts_pcm(settings, "Hello")]
     assert len(chunks) == 1
     assert len(chunks[0]) > 0
+
+
+def test_split_tts_lead_keeps_short_text():
+    assert split_tts_lead("Hello there.") == ("Hello there.", "")
+
+
+def test_split_tts_lead_cuts_at_sentence():
+    first = (
+        "This is the opening sentence, long enough that a later paragraph "
+        "should not delay the first sound."
+    )
+    second = (
+        "And this is a much longer follow-up that should wait for the second "
+        "request after playback has already started for the lead."
+    )
+    padded = f"{first} {second} {second} {second}"
+    lead, rest = split_tts_lead(padded)
+    assert lead.startswith("This is the opening")
+    assert "And this is a much longer" not in lead
+    assert rest.startswith("And this")
+
+
+@pytest.mark.asyncio
+async def test_iter_tts_pcm_yields_lead_before_rest_finishes():
+    import asyncio
+
+    order: list[str] = []
+
+    async def fake_stream(_settings: Settings, text: str, **_kwargs: object):
+        if text.startswith("Lead"):
+            order.append("lead-start")
+            yield b"LEAD"
+            order.append("lead-done")
+            return
+        order.append("rest-start")
+        await asyncio.sleep(0.05)
+        yield b"REST"
+        order.append("rest-done")
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_tts_enabled=True,
+    )
+    with (
+        patch("app.services.speech.mock_llm.should_mock_llm", return_value=False),
+        patch(
+            "app.services.speech.split_tts_lead",
+            return_value=("Lead sentence.", "Rest of the message."),
+        ),
+        patch(
+            "app.services.speech.speech_gateway.stream_pcm_via_openrouter",
+            fake_stream,
+        ),
+    ):
+        chunks: list[bytes] = []
+        async for chunk in iter_tts_pcm(settings, "unused"):
+            chunks.append(chunk)
+            if chunk == b"LEAD":
+                order.append("yielded-lead")
+
+    assert chunks == [b"LEAD", b"REST"]
+    assert order.index("yielded-lead") < order.index("rest-done")
+    assert "rest-start" in order

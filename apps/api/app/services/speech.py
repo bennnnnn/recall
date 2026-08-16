@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 
@@ -27,6 +28,29 @@ _RETIRED_TTS_SLUGS = frozenset(
     }
 )
 _OPENAI_TTS_VOICES = frozenset({"alloy", "echo", "fable", "onyx", "nova", "shimmer"})
+_TTS_LEAD_MAX_CHARS = 220
+_TTS_LEAD_MIN_CHARS = 24
+_TTS_SENTENCE_ENDS = frozenset(".!?")
+
+
+def split_tts_lead(plain: str) -> tuple[str, str]:
+    """First sentence (or ~220 chars) so the stream can start before the rest."""
+    normalized = " ".join((plain or "").split()).strip()
+    if len(normalized) <= _TTS_LEAD_MAX_CHARS:
+        return normalized, ""
+    window = normalized[:_TTS_LEAD_MAX_CHARS]
+    cut = -1
+    for index in range(len(window) - 1, _TTS_LEAD_MIN_CHARS - 1, -1):
+        if window[index] not in _TTS_SENTENCE_ENDS:
+            continue
+        if index + 1 < len(window) and window[index + 1] != " ":
+            continue
+        cut = index + 1
+        break
+    if cut < _TTS_LEAD_MIN_CHARS:
+        space = window.rfind(" ")
+        cut = space if space >= _TTS_LEAD_MIN_CHARS else _TTS_LEAD_MAX_CHARS
+    return normalized[:cut].strip(), normalized[cut:].strip()
 
 
 def normalize_tts_alias(raw: str | None) -> str:
@@ -137,6 +161,27 @@ async def synthesize_speech(
     )
 
 
+async def _collect_pcm(
+    settings: Settings,
+    text: str,
+    *,
+    model: str,
+    voice: str,
+    language: str | None,
+) -> list[bytes]:
+    chunks: list[bytes] = []
+    async for chunk in speech_gateway.stream_pcm_via_openrouter(
+        settings,
+        text,
+        model=model,
+        voice=voice,
+        language=language,
+    ):
+        if chunk:
+            chunks.append(chunk)
+    return chunks
+
+
 async def iter_tts_pcm(
     settings: Settings,
     text: str,
@@ -144,7 +189,7 @@ async def iter_tts_pcm(
     language: str | None = None,
     model_alias: str | None = None,
 ) -> AsyncIterator[bytes]:
-    """Yield PCM bytes as they arrive from OpenRouter (empty if synthesis fails)."""
+    """Yield lead-sentence PCM first, then the rest (empty if synthesis fails)."""
     if not settings.speech_tts_enabled:
         return
     plain = " ".join((text or "").split()).strip()
@@ -152,20 +197,46 @@ async def iter_tts_pcm(
         return
     if len(plain) > _MAX_TTS_CHARS:
         plain = plain[:_MAX_TTS_CHARS]
+    lead, rest = split_tts_lead(plain)
     if mock_llm.should_mock_llm(settings) and not settings.openrouter_api_key:
-        # 50ms of silence so the stream endpoint can be tested without a key.
         yield b"\x00\x00" * 1200
+        if rest:
+            yield b"\x00\x00" * 400
         return
     if not settings.openrouter_api_key:
         return
 
     model = resolve_tts_model(settings, alias=model_alias)
     voice = resolve_tts_voice(settings, model)
-    async for chunk in speech_gateway.stream_pcm_via_openrouter(
-        settings,
-        plain,
-        model=model,
-        voice=voice,
-        language=language,
-    ):
-        yield chunk
+    rest_task: asyncio.Task[list[bytes]] | None = None
+    if rest:
+        rest_task = asyncio.create_task(
+            _collect_pcm(
+                settings,
+                rest,
+                model=model,
+                voice=voice,
+                language=language,
+            )
+        )
+    try:
+        async for chunk in speech_gateway.stream_pcm_via_openrouter(
+            settings,
+            lead,
+            model=model,
+            voice=voice,
+            language=language,
+        ):
+            if chunk:
+                yield chunk
+        if rest_task is None:
+            return
+        for chunk in await rest_task:
+            yield chunk
+    finally:
+        if rest_task is not None and not rest_task.done():
+            rest_task.cancel()
+            try:
+                await rest_task
+            except asyncio.CancelledError:
+                logger.debug("Cancelled in-flight rest TTS after stream close")

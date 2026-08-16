@@ -2203,7 +2203,7 @@ def test_speech_tts_stream_ok():
     assert "L16" in r.headers.get("content-type", "")
 
 
-def test_speech_tts_stream_empty_is_502():
+def test_speech_tts_stream_empty_refunds():
     import fakeredis.aioredis
 
     async def _empty(*_args, **_kwargs):
@@ -2216,10 +2216,16 @@ def test_speech_tts_stream_empty_is_502():
     with (
         patch("app.routers.speech.get_redis_client", return_value=fake_redis),
         patch("app.routers.speech.speech_service.iter_tts_pcm", _empty),
+        patch(
+            "app.routers.speech.quota_service.refund_speech_tts",
+            AsyncMock(),
+        ) as refund,
     ):
         r = client.post(
             "/speech/tts/stream",
             headers={"Authorization": "Bearer tok"},
             json={"text": "hello"},
         )
-    assert r.status_code == 502
+    assert r.status_code == 200
+    assert r.content == b""
+    refund.assert_awaited()
