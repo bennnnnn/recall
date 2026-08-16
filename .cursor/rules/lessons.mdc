@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Mic stop opened the drawer; New chat then focused the composer.** Parent
+  `Gesture.Pan` used view-local `e.x` (~0 on a composer tap) so a mic press
+  looked like an edge swipe. Settle could leave the panel on screen with
+  `drawerOpen` false → `pointerEvents: none` on the panel, taps hit the
+  composer, keyboard opens. Fix: claim with `absoluteX`; keep the panel
+  `pointerEvents` auto; no nested `GestureHandlerRootView` in ConversationList.
 - **Cloud TTS waited for a full MP3/JSON clip.** `POST /speech/tts` buffered OpenRouter
   `response.content`, wrapped WAV, then `audio_base64`. The app could not start sound until
   the last byte. Fix: `POST /speech/tts/stream` proxies PCM with `aiter_bytes`; mobile plays

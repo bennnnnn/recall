@@ -10,7 +10,14 @@
  */
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BackHandler, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  BackHandler,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -78,6 +85,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       drawerOpenRef.current = open;
       isOpenSV.value = open ? 1 : 0;
       if (withHaptic && open) tap();
+      if (open) Keyboard.dismiss();
       translateX.value = withSpring(open ? 0 : -w, SPRING);
       if (open) {
         // Cover chat immediately — a 200ms scrim fade lets the screen show
@@ -101,6 +109,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     setDrawerOpen(true);
     drawerOpenRef.current = true;
     isOpenSV.value = 1;
+    Keyboard.dismiss();
   }, [isOpenSV]);
 
   const open = useCallback(() => settleToRef.current(true, true), []);
@@ -124,15 +133,18 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       Gesture.Pan()
         .manualActivation(true)
         .onBegin((e) => {
-          touchStartX.value = e.x;
-          touchStartY.value = e.y;
+          // Window coords — view-local `e.x` is 0 for composer/mic taps and
+          // looks like an edge swipe, which opens the drawer and then leaves
+          // the panel on screen with React still "closed" (taps fall through).
+          touchStartX.value = e.absoluteX;
+          touchStartY.value = e.absoluteY;
           didActivate.value = 0;
         })
         .onTouchesMove((e, manager) => {
           const t = e.changedTouches[0];
           if (!t) return;
-          const dx = t.x - touchStartX.value;
-          const dy = t.y - touchStartY.value;
+          const dx = t.absoluteX - touchStartX.value;
+          const dy = t.absoluteY - touchStartY.value;
           // Wait for a clear move before claiming (lets header taps through).
           if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
           if (Math.abs(dy) >= Math.abs(dx)) {
@@ -252,7 +264,10 @@ export function DrawerShell({ children }: { children: ReactNode }) {
                 {
                   width: drawerWidth,
                   backgroundColor: theme.bg,
-                  pointerEvents: drawerOpen ? "auto" : "none",
+                  // Always receive hits while on-screen. Gating on React
+                  // `drawerOpen` left a visible panel with pointerEvents none
+                  // after a bad edge claim — New chat then focused the composer.
+                  pointerEvents: "auto",
                 },
                 drawerStyle,
               ]}

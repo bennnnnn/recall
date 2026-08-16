@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
@@ -256,7 +256,7 @@ export function ConversationList(_props: unknown) {
   const bottomFadeColors = bottomChromeFadeColors(theme);
 
   return (
-    <GestureHandlerRootView style={s.root}>
+    <View style={s.root}>
       <ActionBanner
         message={actionBanner?.message ?? null}
         icon={actionBanner?.icon}
@@ -381,6 +381,6 @@ export function ConversationList(_props: unknown) {
           }}
         />
       )}
-    </GestureHandlerRootView>
+    </View>
   );
 }

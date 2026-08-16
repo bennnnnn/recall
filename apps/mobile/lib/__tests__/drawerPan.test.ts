@@ -15,6 +15,18 @@ describe("shouldClaimDrawerPan", () => {
     ).toBe(true);
   });
 
+  it("ignores a composer/mic tap whose window X is not on the edge", () => {
+    expect(
+      shouldClaimDrawerPan({
+        open: false,
+        startX: 350,
+        dx: 24,
+        dy: 4,
+        drawerWidth: w,
+      }),
+    ).toBe(false);
+  });
+
   it("ignores a closed-drawer swipe that does not start on the edge", () => {
     expect(
       shouldClaimDrawerPan({
