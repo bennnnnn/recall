@@ -170,8 +170,12 @@ async def consolidate_user_memory_sections(
     settings: Settings,
     *,
     user_id: UUID,
-) -> bool:
-    """Merge duplicate facts per section (merge-not-replace) via the memory model."""
+) -> bool | str:
+    """Merge duplicate facts per section (merge-not-replace) via the memory model.
+
+    Returns ``\"skipped_lock\"`` when the write lock is busy so the job
+    handler can re-enqueue with backoff (same as extraction).
+    """
     try:
         # Holds the same memwrite:{user_id} lock extraction uses for its
         # read-modify-write section — without it, a concurrently-running
@@ -181,7 +185,7 @@ async def consolidate_user_memory_sections(
         lock_token = await acquire_memory_write_lock(user_id)
         if not lock_token:
             logger.info("Memory consolidation skipped: write lock held for user_id=%s", user_id)
-            return False
+            return "skipped_lock"
         try:
             async with SessionLocal() as session:
                 snapshot = await _load_consolidation_snapshot(session, user_id)
