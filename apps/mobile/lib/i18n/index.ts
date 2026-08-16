@@ -2,29 +2,44 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
 import en from "./en.json";
-import es from "./es.json";
-import fr from "./fr.json";
-import de from "./de.json";
-import it from "./it.json";
-import pt from "./pt.json";
-import ru from "./ru.json";
-import tr from "./tr.json";
-import am from "./am.json";
 
-export const resources = {
-  en: { translation: en },
-  es: { translation: es },
-  fr: { translation: fr },
-  de: { translation: de },
-  it: { translation: it },
-  pt: { translation: pt },
-  ru: { translation: ru },
-  tr: { translation: tr },
-  am: { translation: am },
-} as const;
+type LocaleBundle = typeof en;
+
+const LOCALE_LOADERS: Record<string, () => Promise<{ default: LocaleBundle }>> = {
+  es: () => import("./es.json"),
+  fr: () => import("./fr.json"),
+  de: () => import("./de.json"),
+  it: () => import("./it.json"),
+  pt: () => import("./pt.json"),
+  ru: () => import("./ru.json"),
+  tr: () => import("./tr.json"),
+  am: () => import("./am.json"),
+};
+
+const loadedLocales = new Set<string>(["en"]);
+
+/** Boot English only. Other locales load when the user preference is not `en`. */
+export async function ensureLocale(lng: string): Promise<void> {
+  const code = lng.trim() || "en";
+  if (code === "en") {
+    await i18n.changeLanguage("en");
+    return;
+  }
+  if (!loadedLocales.has(code)) {
+    const load = LOCALE_LOADERS[code];
+    if (!load) {
+      await i18n.changeLanguage("en");
+      return;
+    }
+    const mod = await load();
+    i18n.addResourceBundle(code, "translation", mod.default, true, true);
+    loadedLocales.add(code);
+  }
+  await i18n.changeLanguage(code);
+}
 
 i18n.use(initReactI18next).init({
-  resources,
+  resources: { en: { translation: en } },
   lng: "en",
   fallbackLng: {
     de: ["en"],
