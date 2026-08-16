@@ -205,8 +205,8 @@ export function appendConverterDigit(
   return current + key;
 }
 
-/** Prompt if the user wants the model to explain the same conversion. */
-export function converterInsertText(digits: string, fromPrompt: string, toPrompt: string): string {
+/** Prompt sent when the user taps Ask on the converter pad. */
+export function converterAskText(digits: string, fromPrompt: string, toPrompt: string): string {
   const left = digits.endsWith(".") ? digits.slice(0, -1) : digits;
   return `convert ${left} ${fromPrompt} to ${toPrompt}`;
 }

@@ -76,7 +76,7 @@ export type ChatScreenBodyProps = {
   onMathScanCaptured: (pending: PendingAttachment) => void;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
-  onSend: () => void;
+  onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
   voiceAvailable: boolean;

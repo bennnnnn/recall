@@ -64,7 +64,7 @@ type Props = {
   onCancelEdit: () => void;
   onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
-  onSend: () => void;
+  onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
   voiceAvailable?: boolean;
@@ -150,6 +150,14 @@ export const ChatComposer = memo(function ChatComposer({
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [math.mathBarOpen, math.toggleMathBar]);
+
+  const onConverterAsk = useCallback(
+    (text: string) => {
+      if (!isOffline) math.closeMathBar();
+      onSend(text);
+    },
+    [isOffline, math.closeMathBar, onSend],
+  );
 
   if (!visible) return null;
 
@@ -321,7 +329,7 @@ export const ChatComposer = memo(function ChatComposer({
                     {showSend ? (
                       <Pressable
                         style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
-                        onPress={onSend}
+                        onPress={() => onSend()}
                         hitSlop={6}
                         accessibilityRole="button"
                         accessibilityLabel={t("chat.send_a11y")}
@@ -342,7 +350,7 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
-              onInsertPlain={math.insertPlain}
+              onAsk={onConverterAsk}
               onBackspace={math.backspace}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}

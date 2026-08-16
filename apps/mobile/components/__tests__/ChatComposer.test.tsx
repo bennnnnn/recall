@@ -138,10 +138,11 @@ describe("ChatComposer math keyboard", () => {
     expect(getAllByTestId("math-group")).toHaveLength(1);
   });
 
-  it("inserts a convert prompt for the model, not a computed answer", async () => {
+  it("sends a convert prompt on Ask, not a computed answer", async () => {
     const onChangeInput = jest.fn();
+    const onSend = jest.fn();
     const { getByTestId, queryByTestId } = await render(
-      <ChatComposer {...baseProps} onChangeInput={onChangeInput} />,
+      <ChatComposer {...baseProps} onChangeInput={onChangeInput} onSend={onSend} />,
     );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
@@ -152,10 +153,9 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-converter-5"));
     expect(getByTestId("math-converter-from-value").props.children).toBe("5");
     expect(getByTestId("math-converter-to-value").props.children).toBe("500");
-    await fireEvent.press(getByTestId("math-converter-insert"));
-    expect(onChangeInput).toHaveBeenCalledWith("convert 5 m to cm");
-    expect(getByTestId("math-converter")).toBeTruthy();
-    await fireEvent.press(getByTestId("chat-composer-field"));
+    await fireEvent.press(getByTestId("math-converter-ask"));
+    expect(onSend).toHaveBeenCalledWith("convert 5 m to cm");
+    expect(onChangeInput).not.toHaveBeenCalledWith("convert 5 m to cm");
     expect(queryByTestId("math-converter")).toBeNull();
   });
 

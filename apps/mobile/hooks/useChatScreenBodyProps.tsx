@@ -198,9 +198,12 @@ export function useChatScreenBodyProps({
     },
     [handleSend],
   );
-  const onSend = useCallback(() => {
-    void handleSend();
-  }, [handleSend]);
+  const onSend = useCallback(
+    (text?: string) => {
+      void handleSend(text);
+    },
+    [handleSend],
+  );
   const onQuotaUpgrade = useCallback(() => {
     quotaNudge.dismiss();
     setUpgradeVisible(true);
