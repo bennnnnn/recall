@@ -114,33 +114,35 @@ async def _process_attachments(
     if not isinstance(gateway, LocalStorageGateway):
         from app.exceptions import AttachmentValidationError
 
-        verified = await asyncio.gather(
-            *[
-                attachment_content_service.verify_uploaded_bytes(
-                    gateway,
-                    content_type=row.content_type,
-                    storage_key=row.storage_key,
-                    declared_size=row.size_bytes,
-                )
-                for row in attachment_rows
-            ]
-        )
-        for row, (data, error) in zip(attachment_rows, verified, strict=True):
-            if error:
-                if attachment_content_service.is_image_content_type(row.content_type):
-                    from app.services import quota as quota_service
-
-                    await quota_service.refund_image_upload(redis, user_id)
-                async with SessionLocal() as purge_session:
-                    await attachment_content_service.purge_invalid_upload(
+        unverified = [row for row in attachment_rows if row.verified_at is None]
+        if unverified:
+            verified = await asyncio.gather(
+                *[
+                    attachment_content_service.verify_uploaded_bytes(
                         gateway,
-                        purge_session,
-                        attachment_id=row.id,
+                        content_type=row.content_type,
                         storage_key=row.storage_key,
+                        declared_size=row.size_bytes,
                     )
-                raise AttachmentValidationError(error)
-            if data:
-                bytes_by_key[row.storage_key] = data
+                    for row in unverified
+                ]
+            )
+            for row, (data, error) in zip(unverified, verified, strict=True):
+                if error:
+                    if attachment_content_service.is_image_content_type(row.content_type):
+                        from app.services import quota as quota_service
+
+                        await quota_service.refund_image_upload(redis, user_id)
+                    async with SessionLocal() as purge_session:
+                        await attachment_content_service.purge_invalid_upload(
+                            gateway,
+                            purge_session,
+                            attachment_id=row.id,
+                            storage_key=row.storage_key,
+                        )
+                    raise AttachmentValidationError(error)
+                if data:
+                    bytes_by_key[row.storage_key] = data
     attachment_lines: list[str] = []
     formatted = await asyncio.gather(
         *(

@@ -44,6 +44,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
     row.content_type = "image/png"
     row.storage_key = "user/key"
     row.size_bytes = 128
+    row.verified_at = None
 
     settings = Settings(attachments_enabled=True)
     redis = AsyncMock()
@@ -387,6 +388,7 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     row.content_type = "text/plain"
     row.storage_key = "user/doc.txt"
     row.size_bytes = 5
+    row.verified_at = None
     payload = b"hello"
 
     settings = Settings(attachments_enabled=True)
@@ -436,3 +438,65 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     assert format_mock.await_args.kwargs["data"] == payload
     assert result.bytes_by_key[row.storage_key] == payload
     read_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_skips_verify_when_already_verified():
+    from datetime import UTC, datetime
+
+    from app.services.chat.turn_prep.attachments import _process_attachments
+
+    user_id = uuid4()
+    attachment_id = uuid4()
+    user = MagicMock()
+    user.id = user_id
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "text/plain"
+    row.storage_key = "user/doc.txt"
+    row.size_bytes = 5
+    row.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
+
+    settings = Settings(attachments_enabled=True)
+    redis = AsyncMock()
+    session = AsyncMock()
+    gateway = MagicMock()
+
+    class SessionCM:
+        async def __aenter__(self):
+            return session
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    with (
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch(
+            "app.gateways.storage_gateway.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_content.verify_uploaded_bytes",
+            AsyncMock(return_value=(b"hello", None)),
+        ) as verify_mock,
+        patch(
+            "app.services.attachment_content.format_attachment_lines",
+            AsyncMock(return_value=(["[File: x]"], False)),
+        ),
+        patch(
+            "app.services.attachment_content.read_attachment_bytes",
+            AsyncMock(return_value=b"hello"),
+        ),
+    ):
+        await _process_attachments(
+            user_id=user_id,
+            user=user,
+            content="hi",
+            attachment_ids=[attachment_id],
+            settings=settings,
+            redis=redis,
+            on_status=None,
+        )
+
+    verify_mock.assert_not_awaited()
