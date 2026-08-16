@@ -56,6 +56,7 @@ class _ProjectApplyState:
     chat_id: UUID | None
     projects: list[Project]
     items: list[ProjectItem]
+    timezone_name: str = "UTC"
 
 
 def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | None:
@@ -241,7 +242,7 @@ async def _project_action_start_learning(
         )
         state.items.append(item)
     if item and _item_status(item) != "mastered":
-        if not _failed_quiz_today(item):
+        if not _failed_quiz_today(item, timezone_name=state.timezone_name):
             from app.services.projects.quiz_grading import apply_quiz_result
 
             await apply_quiz_result(state.session, item, is_correct=False, commit=False)
@@ -264,7 +265,7 @@ async def _project_action_master(state: _ProjectApplyState, action: ProjectActio
     if not item:
         item = _find_item_by_content(state.items, project.id, action.content)
     if item and _item_status(item) != "mastered":
-        if _recently_missed_quiz(item):
+        if _recently_missed_quiz(item, timezone_name=state.timezone_name):
             logger.info(
                 "Skipping master for recently missed quiz item user_id=%s word=%s",
                 state.user_id,
@@ -387,12 +388,21 @@ async def apply_project_actions(
         [project.id for project in projects],
         per_project_limit=_ACTION_RELOAD_LIMIT,
     )
+    from app.repositories import users as users_repo
+    from app.services import time_context as time_context_service
+
+    user = await users_repo.get_by_id(session, user_id)
+    timezone_name = time_context_service.effective_timezone(
+        user.timezone if user is not None else None,
+        None,
+    )
     state = _ProjectApplyState(
         session=session,
         user_id=user_id,
         chat_id=chat_id,
         projects=projects,
         items=items,
+        timezone_name=timezone_name,
     )
 
     def _on_error(action: ProjectActionItem) -> None:

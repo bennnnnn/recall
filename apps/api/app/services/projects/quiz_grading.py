@@ -71,20 +71,28 @@ async def apply_quiz_result(
     )
 
 
-def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 86_400) -> bool:
-    """Block sync-master for a day after a fail so failed words stay learning."""
+def _missed_on_local_today(item: ProjectItem, *, timezone_name: str) -> bool:
+    """True when last_incorrect_at is on the user's local calendar day.
+
+    Same midnight as ``count_today_vocab_stats`` — not UTC date.
+    """
+    from app.services.daily_learning import start_of_today_utc
+
     missed = getattr(item, "last_incorrect_at", None)
     if not isinstance(missed, datetime):
         return False
-    return (datetime.now(UTC) - missed.astimezone(UTC)).total_seconds() < within_seconds
+    missed_utc = missed.astimezone(UTC) if missed.tzinfo else missed.replace(tzinfo=UTC)
+    return missed_utc >= start_of_today_utc(timezone_name)
 
 
-def _failed_quiz_today(item: ProjectItem) -> bool:
-    """True when last_incorrect_at is already on today's UTC calendar day."""
-    missed = getattr(item, "last_incorrect_at", None)
-    if not isinstance(missed, datetime):
-        return False
-    return missed.astimezone(UTC).date() == datetime.now(UTC).date()
+def _recently_missed_quiz(item: ProjectItem, *, timezone_name: str = "UTC") -> bool:
+    """Block sync-master after a fail on the user's local today."""
+    return _missed_on_local_today(item, timezone_name=timezone_name)
+
+
+def _failed_quiz_today(item: ProjectItem, *, timezone_name: str = "UTC") -> bool:
+    """True when last_incorrect_at is already on today's local calendar day."""
+    return _missed_on_local_today(item, timezone_name=timezone_name)
 
 
 async def _persist_quiz_outcome(

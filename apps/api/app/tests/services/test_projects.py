@@ -14,6 +14,14 @@ from app.services.projects import prompt_context as projects_prompt_context
 from app.services.projects import sync as projects_sync
 
 
+@pytest.fixture(autouse=True)
+def _utc_user_for_project_actions():
+    user = MagicMock()
+    user.timezone = "UTC"
+    with patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)):
+        yield
+
+
 class _FakeSessionCM:
     def __init__(self, session: AsyncMock):
         self._session = session
