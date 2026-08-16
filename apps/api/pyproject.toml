@@ -36,6 +36,8 @@ dependencies = [
     "cryptography>=50.0.0,<51",
     "boto3>=1.35.0,<1.44",
     "sentry-sdk[fastapi]>=2.66.0,<2.67",
+    "pypdfium2>=4.30.0,<5",
+    "pillow>=11.0.0,<12",
 ]
 
 [dependency-groups]
@@ -114,6 +116,7 @@ module = [
     "app.repositories",
     "app.repositories.*",
     "app.services.attachment_content",
+    "app.services.attachment_ocr",
     "app.services.attachment_upload",
     "app.services.quota",
 ]

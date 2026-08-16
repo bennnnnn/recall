@@ -136,7 +136,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 

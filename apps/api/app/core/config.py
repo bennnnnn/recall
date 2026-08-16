@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     # thread (like the SymPy math solve) bounded by this timeout so a large or
     # adversarially crafted file can't block the event loop.
     attachment_extract_timeout_seconds: float = 5.0
+    # Image-only / photographed PDFs have no text layer. After the fast
+    # pypdf extract returns empty, render pages (pypdfium2) and transcribe
+    # via vision-chat. Separate budget — vision is network, not the 5s CPU
+    # extract timeout. Same excerpt + chunk/RAG path; no second pipeline.
+    attachment_ocr_enabled: bool = True
+    attachment_ocr_max_pages: int = 6
+    attachment_ocr_timeout_seconds: float = 30.0
+    attachment_ocr_page_timeout_seconds: float = 12.0
+    attachment_ocr_render_scale: float = 1.5
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
     # Model-initiated LiteLLM tools= loop (bounded rounds before stream).
