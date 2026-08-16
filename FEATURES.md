@@ -464,9 +464,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Full chat-history semantic RAG** — core product (the name), not a v2 nice-to-have.
   Embed past chats beyond keyword `/search` + user-memory embeddings + attachment RAG.
   Index in background; retrieve small top-k at turn start. Not started.
-- 🔜 **Scanned-PDF OCR** — `pypdf.extract_text()` only reads a text layer. Image-only /
-  photographed PDFs yield no text today (we tell the user we cannot OCR yet). Make this
-  strong via page-render → vision/OCR, then the existing chunk/RAG path. Not started.
+- ✅ **Scanned-PDF OCR** — text-layer `pypdf` first; empty PDFs render pages (`pypdfium2`)
+  and transcribe via `vision-chat`, then the same excerpt + attachment RAG path. Cap +
+  timeout in `attachment_ocr_*`. Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
   SymPy + web search kept. See [§29](#29-next-actions-product-decisions).
 - 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
@@ -577,7 +577,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
-| PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX. 🔜 OCR for scanned / image-only PDFs |
+| PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
@@ -634,7 +634,7 @@ structured Learning topic type.
 | MVP (mobile) | Chat + memory + todos + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | ~70% ops |
 | v1.1 | Web client (same API), locale prose, legal localization | Not started |
-| Next (product) | Scanned-PDF OCR; chat-history RAG | In progress |
+| Next (product) | Chat-history semantic RAG | In progress |
 | Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | Not started |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
@@ -661,7 +661,7 @@ LiteLLM tool loop **on by default** ✅, structured profile ✅, drawer FTS sear
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
-| Vision routing for images | Scanned-PDF OCR (page images → vision, then RAG) |
+| Vision routing for images + scanned-PDF OCR (page render → vision → RAG) | — |
 | PDF text extract + pgvector attachment RAG | Full chat-history corpus RAG (namesake) |
 | Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | — |
@@ -701,7 +701,7 @@ Multi-user teams, collaborative editing, video generation, public unauthenticate
 arbitrary user MCP servers, multi-file HTML preview, gamification (XP/badges beyond learning
 streaks). **OpenRouter / product aliases are the intended model setup** — not a gap.
 
-**Next (do these):** scanned-PDF OCR; chat-history semantic RAG.
+**Next (do these):** chat-history semantic RAG.
 
 **Later (not blocking launch):** Google Docs + GitHub; code execution (beyond the HTML sandbox);
 duplex voice; web client; locale prose + legal bodies; folders / family plans.
@@ -720,10 +720,8 @@ weakness. No video generation. Native share is enough unless we later decide we 
    `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
    Heuristic SymPy + first-turn web search still run. Add Docs/GitHub later as
    owned tools — not user MCP servers.
-2. **Scanned-PDF OCR** — today `extract_text_from_bytes` uses `pypdf.extract_text()`
-   (text layer only). Image-only PDFs return empty and we tell the user we cannot OCR.
-   Make it strong: render pages → existing vision path (or a dedicated OCR alias) →
-   same chunk/embed RAG. Do not add a second extract pipeline.
+2. ✅ **Scanned-PDF OCR** — text-layer extract first; empty PDFs render pages →
+   `vision-chat` transcription → same excerpt + chunk/embed RAG. No second pipeline.
 3. **Chat-history semantic RAG** — why the app is called Recall. Today we remember
    **the user** (typed memory) + a short recent window + a chat summary. We do **not**
    embed old messages and retrieve them. Keep Golden Rule 3 (never dump the full

@@ -223,13 +223,29 @@ async def extract_text_from_bytes_async(
 ) -> str | None:
     """Offload the sync, CPU-bound parse to a worker thread with a timeout,
     so a large or adversarially crafted PDF/DOCX can't block the event loop —
-    same pattern as the SymPy math solve offload."""
+    same pattern as the SymPy math solve offload.
+
+    When a PDF has no text layer, fall through to vision OCR (scanned /
+    photographed pages) using a separate network timeout. A CPU-extract
+    timeout does not then spend another 30s on vision.
+    """
+    timed_out = False
     try:
         async with asyncio.timeout(settings.attachment_extract_timeout_seconds):
-            return await asyncio.to_thread(extract_text_from_bytes, content_type, data)
+            text = await asyncio.to_thread(extract_text_from_bytes, content_type, data)
     except TimeoutError:
         logger.warning("Attachment text extraction timed out for content_type=%s", content_type)
+        timed_out = True
+        text = None
+    if text:
+        return text
+    if timed_out:
         return None
+    if content_type == "application/pdf" and settings.attachment_ocr_enabled:
+        from app.services.attachment_ocr import ocr_scanned_pdf
+
+        return await ocr_scanned_pdf(settings, data)
+    return None
 
 
 async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:
@@ -354,7 +370,7 @@ async def format_attachment_lines(
                 [
                     file_ref,
                     "[File attached: application/pdf. No extractable text — this is likely a "
-                    "scanned or image-only PDF. Tell the user Recall can't OCR scanned PDFs yet; "
+                    "scanned or image-only PDF. OCR did not recover text; "
                     "suggest a text-based PDF or pasting the text.]",
                 ],
                 False,
