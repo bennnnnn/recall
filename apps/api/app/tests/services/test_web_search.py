@@ -33,6 +33,7 @@ from app.services.web_search import (
         ("explain Python decorators", False),
         ("what time is it", False),
         ("where am I?", False),
+        ("Where am iI", False),
         ("help me write an email to my boss", False),
         ("remember that I like hiking", False),
         ("Best restaurants near me", True),

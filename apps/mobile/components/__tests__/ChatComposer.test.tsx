@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
 
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(),
+  getStringAsync: jest.fn(async () => ""),
   hasImageAsync: jest.fn(async () => false),
   getImageAsync: jest.fn(),
 }));
@@ -17,6 +20,10 @@ jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
   }),
+}));
+
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock("react-native-reanimated", () => {
@@ -97,6 +104,7 @@ describe("ChatComposer math keyboard", () => {
 
     expect(queryByTestId("math-key-frac")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
     expect(getByTestId("math-composer-caret")).toBeTruthy();
     expect(getByTestId("math-key-frac")).toBeTruthy();
 
@@ -130,15 +138,87 @@ describe("ChatComposer math keyboard", () => {
     expect(getAllByTestId("math-group")).toHaveLength(1);
   });
 
-  it("hides the number pad on the Greek tab", async () => {
+  it("inserts a convert prompt for the model, not a computed answer", async () => {
+    const onChangeInput = jest.fn();
+    const { getByTestId, queryByTestId } = await render(
+      <ChatComposer {...baseProps} onChangeInput={onChangeInput} />,
+    );
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    expect(getByTestId("math-converter")).toBeTruthy();
+    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
+    expect(getByTestId("math-converter-from-value").props.children).toBe("1");
+    expect(getByTestId("math-converter-to-value").props.children).toBe("100");
+    await fireEvent.press(getByTestId("math-converter-5"));
+    expect(getByTestId("math-converter-from-value").props.children).toBe("5");
+    expect(getByTestId("math-converter-to-value").props.children).toBe("500");
+    await fireEvent.press(getByTestId("math-converter-insert"));
+    expect(onChangeInput).toHaveBeenCalledWith("convert 5 m to cm");
+    expect(getByTestId("math-converter")).toBeTruthy();
+    await fireEvent.press(getByTestId("chat-composer-field"));
+    expect(queryByTestId("math-converter")).toBeNull();
+  });
+
+  it("reopens the Converter tab after ABC", async () => {
+    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    expect(getByTestId("math-converter")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(queryByTestId("math-converter")).toBeNull();
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-converter")).toBeTruthy();
+  });
+
+  it("opens the unit list in a sheet, not inside the pad", async () => {
+    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    expect(queryByTestId("math-converter-picker")).toBeNull();
+    await fireEvent.press(getByTestId("math-converter-from-unit"));
+    expect(getByTestId("math-converter-picker")).toBeTruthy();
+    expect(getByTestId("math-converter-unit-km")).toBeTruthy();
+    expect(getByTestId("math-converter-numpad")).toBeTruthy();
+    const lengthHeight = StyleSheet.flatten(getByTestId("math-converter-picker").props.style).height;
+    await fireEvent.press(getByTestId("math-converter-cat-speed"));
+    expect(getByTestId("math-converter-unit-kmh")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-converter-cat-temperature"));
+    expect(getByTestId("math-converter-unit-c")).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId("math-converter-picker").props.style).height).toBe(
+      lengthHeight,
+    );
+  });
+
+  it("hides the number pad on Trig, Calc, and Greek until 123", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-keyboard-numpad")).toBeTruthy();
+    expect(queryByTestId("math-keyboard-123")).toBeNull();
+    await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
+    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
+    expect(getByTestId("math-key-arccos")).toBeTruthy();
+    expect(getByTestId("math-key-arccot")).toBeTruthy();
+    expect(getByTestId("math-key-rad")).toBeTruthy();
+    expect(getByTestId("math-key-arcsinh")).toBeTruthy();
+    expect(queryByTestId("math-key-log")).toBeNull();
+    expect(getByTestId("math-keyboard-123")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
+    expect(getByTestId("math-keyboard-numpad")).toBeTruthy();
     expect(getByTestId("math-key-digit-7")).toBeTruthy();
+    expect(queryByTestId("math-key-arccos")).toBeNull();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
+    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
+    expect(getByTestId("math-key-arccos")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
+    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
+    expect(getByTestId("math-key-der")).toBeTruthy();
+    expect(getByTestId("math-key-log")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-tab-greek"));
     expect(queryByTestId("math-keyboard-numpad")).toBeNull();
     expect(queryByTestId("math-key-digit-7")).toBeNull();
     expect(getByTestId("math-key-alpha")).toBeTruthy();
+    expect(getByTestId("math-key-lambda")).toBeTruthy();
+    expect(getByTestId("math-key-Omega")).toBeTruthy();
     expect(getByTestId("math-key-backspace")).toBeTruthy();
   });
 
@@ -218,17 +298,27 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
   });
 
-  it("ⁿ√ after a number is n times square root, not an nth-root index", async () => {
+  it("ⁿ√ opens an nth-root index box", async () => {
     function Harness() {
       const [input, setInput] = useState("");
       return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
     }
-    const { getByTestId, queryByTestId } = await render(<Harness />);
+    const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    await fireEvent.press(getByTestId("math-key-digit-6"));
     await fireEvent.press(getByTestId("math-key-nroot"));
-    expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
-    expect(queryByTestId("math-slot-nroot-index")).toBeNull();
+    expect(getByTestId("math-slot-nroot-index")).toBeTruthy();
+  });
+
+  it("types a comma and y from the number pad", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-var-y"));
+    await fireEvent.press(getByTestId("math-key-comma"));
+    expect(getByTestId("chat-composer-input").props.value).toBe("$y,$");
   });
 
   it("shows a gray box for the empty exponent until it is focused", async () => {
@@ -378,5 +468,17 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-key-frac")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(queryByTestId("math-key-frac")).toBeNull();
+  });
+
+  it("does not offer the math scanner just because the composer focused", async () => {
+    (Clipboard.getStringAsync as jest.Mock).mockResolvedValue("");
+    (Clipboard.hasImageAsync as jest.Mock).mockResolvedValue(true);
+    const { getByTestId, queryByText } = await render(
+      <ChatComposer {...baseProps} onOpenMathScanner={jest.fn()} />,
+    );
+    fireEvent(getByTestId("chat-composer-input"), "focus");
+    await waitFor(() => {
+      expect(queryByText("chat.math_paste_scan_hint")).toBeNull();
+    });
   });
 });

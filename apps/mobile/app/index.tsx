@@ -4,7 +4,7 @@ import {
   View,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +19,7 @@ import {
   composerAttachmentExtra,
 } from "@/components/chat/ChatComposer";
 import { DrawerShell } from "@/components/DrawerShell";
+import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -76,6 +77,11 @@ function ChatScreen() {
   const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
+  useFocusEffect(
+    useCallback(() => {
+      void refreshHome({ silent: true });
+    }, [refreshHome]),
+  );
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
     useChatErrorHandlers(isPro);
   const activeChatId = draft.activeChatId;
@@ -290,7 +296,6 @@ function ChatScreen() {
   });
 
   const {
-    input,
     setInput,
     pendingAttachment,
     setPendingAttachment,
@@ -317,7 +322,6 @@ function ChatScreen() {
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
-    cancelVoiceInput,
   } = useVoiceInput({
     token,
     onTranscript: (text) => {
@@ -503,7 +507,6 @@ function ChatScreen() {
     isPro,
     dismissChatError,
     composerAnimatedStyle,
-    input,
     setInput,
     streaming: streamActive,
     editing: { editingMessageId, setEditingMessageId },
@@ -515,7 +518,6 @@ function ChatScreen() {
       voiceTranscribing,
       voiceMeterLevel,
       toggleVoiceInput,
-      cancelVoiceInput,
     },
   });
   openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
@@ -555,7 +557,9 @@ function ChatScreen() {
 export default function HomeScreen() {
   return (
     <DrawerShell>
-      <ChatScreen />
+      <ComposerDraftProvider>
+        <ChatScreen />
+      </ComposerDraftProvider>
     </DrawerShell>
   );
 }

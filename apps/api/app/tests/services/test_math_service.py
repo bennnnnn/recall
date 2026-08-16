@@ -187,6 +187,15 @@ def test_solve_linear_includes_worked_isolation_steps() -> None:
     # 2*x = 6  →  x = 3
     assert "2" in steps_text
     assert "x = 3" in steps_text
+    assert "4 - 4" in steps_text or "2 x + 4 - 4" in steps_text
+
+
+def test_solve_linear_shows_subtract_on_both_sides() -> None:
+    """F + 3 = 3 must show F + 3 - 3 = 3 - 3, not jump to F = 3 - 3."""
+    result = math_service.solve_equation(EquationInput(lhs="F + 3", rhs="3", variables=["F"]))
+    steps_text = "\n".join(result.steps)
+    assert "F + 3 - 3 = 3 - 3" in steps_text
+    assert "F = 0" in steps_text
 
 
 def test_worked_steps_empty_for_unrecognized_form() -> None:

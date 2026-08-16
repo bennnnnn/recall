@@ -22,6 +22,10 @@ import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
+import {
+  useComposerDraftApiOptional,
+  useComposerDraftValueOptional,
+} from "@/contexts/ComposerDraftContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
@@ -30,6 +34,8 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlot
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+
+function noopComposerInput(_text: string) {}
 
 export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
@@ -47,8 +53,9 @@ type Props = {
   paddingBottom?: number;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
   token: string | null;
-  input: string;
-  onChangeInput: (text: string) => void;
+  /** Tests pass these; production reads ComposerDraftContext. */
+  input?: string;
+  onChangeInput?: (text: string) => void;
   streaming: boolean;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
@@ -65,13 +72,11 @@ type Props = {
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
-  /** Discard in-progress recording without uploading/transcribing. */
-  onVoiceCancel?: () => void;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
   docked?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
-  /** Recent chat already has math — offer ƒ even with an empty composer. */
+  /** Recent chat already has math — offer the math keyboard even with an empty composer. */
   mathContext?: boolean;
 };
 
@@ -81,8 +86,8 @@ export const ChatComposer = memo(function ChatComposer({
   paddingBottom,
   animatedContainerStyle,
   token,
-  input,
-  onChangeInput,
+  input: inputProp,
+  onChangeInput: onChangeInputProp,
   streaming,
   attachBusy,
   pendingAttachment,
@@ -99,7 +104,6 @@ export const ChatComposer = memo(function ChatComposer({
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
   onVoicePress,
-  onVoiceCancel,
   docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
@@ -108,6 +112,12 @@ export const ChatComposer = memo(function ChatComposer({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const draft = useComposerDraftValueOptional();
+  const draftApi = useComposerDraftApiOptional();
+  const input = inputProp ?? draft?.input ?? "";
+  const onChangeInput =
+    onChangeInputProp ??
+    (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
@@ -203,7 +213,7 @@ export const ChatComposer = memo(function ChatComposer({
                 accessibilityLabel={t("chat.math_keyboard_show")}
                 testID="math-keyboard-toggle"
               >
-                <Text style={s.chipLabel}>ƒ</Text>
+                <Ionicons name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
             </View>
           ) : null}
@@ -233,7 +243,15 @@ export const ChatComposer = memo(function ChatComposer({
                   meterLevel={voiceMeterLevel}
                 />
               ) : (
-                <View style={s.inputField}>
+                <Pressable
+                  style={s.inputField}
+                  testID="chat-composer-field"
+                  onPress={() => {
+                    if (!math.mathBarOpen || showMathPreview) return;
+                    math.closeMathBar();
+                    requestAnimationFrame(() => inputRef.current?.focus());
+                  }}
+                >
                   {showMathPreview ? (
                     <MathDraftPreview
                       input={input}
@@ -266,12 +284,9 @@ export const ChatComposer = memo(function ChatComposer({
                         : undefined
                     }
                     caretHidden={showMathPreview || math.mathBarOpen}
-                    pointerEvents={parkInput ? "none" : "auto"}
+                    pointerEvents={parkInput || math.mathBarOpen ? "none" : "auto"}
                     showSoftInputOnFocus={!math.mathBarOpen}
-                    onFocus={() => {
-                      onCloseAttachSheet();
-                      math.onComposerFocus();
-                    }}
+                    onFocus={onCloseAttachSheet}
                     multiline
                     returnKeyType="default"
                   />
@@ -280,7 +295,7 @@ export const ChatComposer = memo(function ChatComposer({
                       <MathComposerCaret testID="math-composer-caret" />
                     </View>
                   ) : null}
-                </View>
+                </Pressable>
               )}
               <View style={s.sendBtnSlot}>
                 {streaming ? (
@@ -295,18 +310,6 @@ export const ChatComposer = memo(function ChatComposer({
                   </Pressable>
                 ) : (
                   <>
-                    {onVoiceCancel && voiceRecording ? (
-                      <Pressable
-                        style={s.voiceCancelBtn}
-                        onPress={onVoiceCancel}
-                        hitSlop={6}
-                        accessibilityRole="button"
-                        accessibilityLabel={t("chat.voice_cancel_a11y")}
-                        accessibilityHint={t("chat.voice_cancel_hint")}
-                      >
-                        <Ionicons name="close" size={18} color={theme.textSecondary} />
-                      </Pressable>
-                    ) : null}
                     {showMic && onVoicePress ? (
                       <VoiceMicButton
                         recording={voiceRecording}
@@ -315,11 +318,7 @@ export const ChatComposer = memo(function ChatComposer({
                         onPress={onVoicePress}
                       />
                     ) : null}
-                    {voiceTranscribing ? (
-                      <View style={[s.sendBtn, s.sendBtnDisabled]}>
-                        <Text style={[s.sendIcon, s.sendIconDisabled]}>…</Text>
-                      </View>
-                    ) : showSend ? (
+                    {showSend ? (
                       <Pressable
                         style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
                         onPress={onSend}
@@ -343,7 +342,10 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
+              onInsertPlain={math.insertPlain}
               onBackspace={math.backspace}
+              group={math.mathGroup}
+              onGroupChange={math.setMathGroup}
               onNextSlot={math.nextSlot}
               onPrevSlot={math.prevSlot}
               onStepCaret={math.stepCaret}
@@ -431,7 +433,6 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     chipPressed: { opacity: 0.55 },
-    chipLabel: { fontSize: 16, fontWeight: "700", color: theme.primary },
     input: {
       flex: 1,
       fontSize: 16,
@@ -462,16 +463,6 @@ function makeStyles(theme: Theme) {
       justifyContent: "flex-end",
       gap: 6,
       minHeight: 40,
-    },
-    voiceCancelBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
     },
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },

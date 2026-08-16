@@ -1,13 +1,15 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { MathConverterPad } from "@/components/chat/MathConverterPad";
 import { selection as hapticSelection } from "@/lib/haptics";
-
 import {
   MATH_KEYBOARD_GROUPS,
   MATH_NUMPAD_ROWS,
+  mathGroupCanToggleDigits,
+  mathGroupShowsNumpad,
   symbolsInGroup,
   type MathKeyboardGroup,
   type MathKeyboardSymbol,
@@ -22,10 +24,13 @@ type Props = {
   height: number;
   onToggle: () => void;
   onInsert: (spec: MathKeyboardSymbol) => void;
+  onInsertPlain: (text: string) => void;
   onBackspace: () => void;
   onNextSlot: () => void;
   onPrevSlot: () => void;
   onStepCaret: (dir: -1 | 1) => void;
+  group: MathKeyboardGroup;
+  onGroupChange: (group: MathKeyboardGroup) => void;
 };
 
 function buzz() {
@@ -37,15 +42,20 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   height,
   onToggle,
   onInsert,
+  onInsertPlain,
   onBackspace,
   onNextSlot,
   onPrevSlot,
   onStepCaret,
+  group,
+  onGroupChange,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [group, setGroup] = useState<MathKeyboardGroup>("basics");
+  const [digitsOpen, setDigitsOpen] = useState(false);
+  const canToggleDigits = mathGroupCanToggleDigits(group);
+  const showNumpad = mathGroupShowsNumpad(group) || (canToggleDigits && digitsOpen);
   const fnRows = useMemo(() => {
     const functions = symbolsInGroup(group);
     const rows: MathKeyboardSymbol[][] = [];
@@ -54,6 +64,10 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
     }
     return rows;
   }, [group]);
+  const changeGroup = (next: MathKeyboardGroup) => {
+    if (!mathGroupCanToggleDigits(next)) setDigitsOpen(false);
+    onGroupChange(next);
+  };
 
   if (!open) return null;
 
@@ -64,12 +78,18 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
       testID="math-keyboard-pad"
     >
       <View style={s.tabs}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.tabRow}
+          keyboardShouldPersistTaps="handled"
+        >
         {MATH_KEYBOARD_GROUPS.map((id) => {
           const selected = id === group;
           return (
             <Pressable
               key={id}
-              onPress={() => setGroup(id)}
+              onPress={() => changeGroup(id)}
               style={[s.tab, selected && s.tabSelected]}
               accessibilityRole="button"
               accessibilityState={{ selected }}
@@ -81,6 +101,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
             </Pressable>
           );
         })}
+        </ScrollView>
         <View style={s.nav}>
         <Pressable
           onPress={() => {
@@ -117,7 +138,13 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
         </Pressable>
         </View>
       </View>
-      {fnRows.map((row, r) =>
+      {group === "converter" ? (
+        <MathConverterPad onInsertPlain={onInsertPlain} />
+      ) : (
+        <>
+      {canToggleDigits && digitsOpen
+        ? null
+        : fnRows.map((row, r) =>
         row.length === 0 ? null : (
           <View key={r} style={s.row}>
             {row.map((spec) => (
@@ -135,43 +162,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           </View>
         ),
       )}
-      {group === "greek" ? (
-        <View style={s.row}>
-          <PadKey
-            cell={{ kind: "backspace" }}
-            onInsert={onInsert}
-            onBackspace={onBackspace}
-            onNextSlot={onNextSlot}
-            onPrevSlot={onPrevSlot}
-            backspaceLabel={t("chat.math_keyboard_backspace")}
-            nextLabel={t("chat.math_keyboard_next_slot")}
-            prevLabel={t("chat.math_keyboard_prev_slot")}
-            theme={theme}
-          />
-          <PadKey
-            cell={{ kind: "prev" }}
-            onInsert={onInsert}
-            onBackspace={onBackspace}
-            onNextSlot={onNextSlot}
-            onPrevSlot={onPrevSlot}
-            backspaceLabel={t("chat.math_keyboard_backspace")}
-            nextLabel={t("chat.math_keyboard_next_slot")}
-            prevLabel={t("chat.math_keyboard_prev_slot")}
-            theme={theme}
-          />
-          <PadKey
-            cell={{ kind: "next" }}
-            onInsert={onInsert}
-            onBackspace={onBackspace}
-            onNextSlot={onNextSlot}
-            onPrevSlot={onPrevSlot}
-            backspaceLabel={t("chat.math_keyboard_backspace")}
-            nextLabel={t("chat.math_keyboard_next_slot")}
-            prevLabel={t("chat.math_keyboard_prev_slot")}
-            theme={theme}
-          />
-        </View>
-      ) : (
+      {showNumpad ? (
         <View style={s.numpad} testID="math-keyboard-numpad">
           {MATH_NUMPAD_ROWS.map((row, r) => (
             <View key={r} style={s.row}>
@@ -192,6 +183,70 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
             </View>
           ))}
         </View>
+      ) : null}
+      {canToggleDigits ? (
+        <View style={s.row}>
+          <KeyBtn
+            label={
+              digitsOpen ? t(`chat.math_keyboard_group_${group}`) : t("chat.math_keyboard_123")
+            }
+            testID="math-keyboard-123"
+            onPress={() => {
+              buzz();
+              setDigitsOpen((open) => !open);
+            }}
+            accessibilityLabel={
+              digitsOpen ? t(`chat.math_keyboard_group_${group}`) : t("chat.math_keyboard_123")
+            }
+            theme={theme}
+            accent
+          />
+          {digitsOpen ? (
+            <>
+              <View style={s.keySpacer} />
+              <View style={s.keySpacer} />
+              <View style={s.keySpacer} />
+            </>
+          ) : (
+            <>
+              <PadKey
+                cell={{ kind: "backspace" }}
+                onInsert={onInsert}
+                onBackspace={onBackspace}
+                onNextSlot={onNextSlot}
+                onPrevSlot={onPrevSlot}
+                backspaceLabel={t("chat.math_keyboard_backspace")}
+                nextLabel={t("chat.math_keyboard_next_slot")}
+                prevLabel={t("chat.math_keyboard_prev_slot")}
+                theme={theme}
+              />
+              <PadKey
+                cell={{ kind: "prev" }}
+                onInsert={onInsert}
+                onBackspace={onBackspace}
+                onNextSlot={onNextSlot}
+                onPrevSlot={onPrevSlot}
+                backspaceLabel={t("chat.math_keyboard_backspace")}
+                nextLabel={t("chat.math_keyboard_next_slot")}
+                prevLabel={t("chat.math_keyboard_prev_slot")}
+                theme={theme}
+              />
+              <PadKey
+                cell={{ kind: "next" }}
+                onInsert={onInsert}
+                onBackspace={onBackspace}
+                onNextSlot={onNextSlot}
+                onPrevSlot={onPrevSlot}
+                backspaceLabel={t("chat.math_keyboard_backspace")}
+                nextLabel={t("chat.math_keyboard_next_slot")}
+                prevLabel={t("chat.math_keyboard_prev_slot")}
+                theme={theme}
+              />
+            </>
+          )}
+        </View>
+      ) : null}
+        </>
       )}
     </View>
   );
@@ -356,8 +411,9 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       gap: 4,
     },
+    tabRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingRight: 4 },
     tab: {
-      paddingHorizontal: 8,
+      paddingHorizontal: 6,
       paddingVertical: 4,
       borderRadius: 8,
     },
@@ -369,6 +425,7 @@ const makeStyles = (theme: Theme) =>
     abc: { paddingHorizontal: 10, paddingVertical: 4 },
     abcLabel: { fontSize: 15, fontWeight: "700", color: theme.primary },
     numpad: { gap: 6, marginTop: 2 },
+    keySpacer: { flex: 1 },
     slotNav: { flex: 1, gap: 4 },
     row: {
       flexDirection: "row",

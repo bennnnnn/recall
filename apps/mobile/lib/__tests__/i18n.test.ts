@@ -1,3 +1,4 @@
+import i18n, { ensureLocale } from "@/lib/i18n";
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
 import de from "@/lib/i18n/de.json";
@@ -21,4 +22,20 @@ describe("i18n locale files", () => {
       expect(extra).toEqual([]);
     });
   }
+});
+
+describe("i18n runtime", () => {
+  it("boots with English only", () => {
+    expect(i18n.hasResourceBundle("en", "translation")).toBe(true);
+    expect(i18n.hasResourceBundle("es", "translation")).toBe(false);
+  });
+
+  it("loads a locale on demand and falls back for unknown codes", async () => {
+    await ensureLocale("es");
+    expect(i18n.hasResourceBundle("es", "translation")).toBe(true);
+    expect(i18n.language).toBe("es");
+
+    await ensureLocale("not-a-locale");
+    expect(i18n.language).toBe("en");
+  });
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
@@ -20,7 +20,6 @@ import { VocabCard } from "@/components/VocabCard";
 import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
-import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
@@ -29,7 +28,7 @@ import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
-import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
+import { prefetchReadAloud, speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 
@@ -127,6 +126,7 @@ function AssistantActions({
   theme,
   hidden = false,
   thumbsOnly = false,
+  prefetchSpeech = false,
 }: {
   messageId: string;
   content: string;
@@ -137,12 +137,20 @@ function AssistantActions({
   hidden?: boolean;
   /** Image-only replies: thumbs only (no copy / speak / PDF / regenerate). */
   thumbsOnly?: boolean;
+  /** Latest finished assistant reply — warm the first cloud TTS clip. */
+  prefetchSpeech?: boolean;
 }) {
   const { t } = useTranslation();
   const token = useAuthToken();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const speakGenRef = useRef(0);
+
+  useEffect(() => {
+    if (!prefetchSpeech || thumbsOnly || hidden || !token || !content.trim()) return;
+    void prefetchReadAloud(content, token);
+  }, [prefetchSpeech, thumbsOnly, hidden, token, content]);
 
   const handleCopy = async () => {
     tap();
@@ -154,13 +162,16 @@ function AssistantActions({
 
   const handleSpeak = async () => {
     if (speaking) {
+      speakGenRef.current += 1;
       stopSpeaking();
       setSpeaking(false);
       return;
     }
+    const gen = ++speakGenRef.current;
     tap();
     setSpeaking(true);
     const result = await speakPlainText(content, "en-US", { token });
+    if (gen !== speakGenRef.current) return;
     setSpeaking(false);
     if (!result.ok) {
       Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
@@ -174,6 +185,7 @@ function AssistantActions({
     try {
       const titleMatch = content.match(/^#\s+(.+)$/m);
       const title = titleMatch?.[1]?.trim() || t("chat.export_pdf_default_title");
+      const { exportMessageAsPdf } = await import("@/lib/exportMessagePdf");
       await exportMessageAsPdf(title, content);
     } catch (error) {
       if (isShareCancelled(error)) return;
@@ -508,6 +520,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             theme={theme}
             hidden={!actionsReady}
             thumbsOnly={imageOnlyActions}
+            prefetchSpeech={Boolean(isLastAssistant && !isGenerating)}
           />
         </View>
       ) : null}

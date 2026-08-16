@@ -2,6 +2,7 @@ import {
   isHeavyInlineMath,
   looksLikeLatexFence,
   retagMathAndDiagramFences,
+  shouldRenderMathFenceInline,
   stripEmbeddedDollarWraps,
   stripRedundantDollarWrap,
 } from "@/lib/mathFenceRetag";
@@ -19,6 +20,16 @@ describe("mathFenceRetag", () => {
     expect(isHeavyInlineMath(String.raw`\sqrt{4}`)).toBe(false);
     expect(isHeavyInlineMath(String.raw`\mathbb{R}`)).toBe(false);
     expect(isHeavyInlineMath(String.raw`\hat{x}`)).toBe(false);
+  });
+
+  it("shouldRenderMathFenceInline: mention snippets only, not display equations", () => {
+    expect(shouldRenderMathFenceInline("2 + Y")).toBe(true);
+    expect(shouldRenderMathFenceInline("Y")).toBe(true);
+    expect(shouldRenderMathFenceInline("x = 0")).toBe(false);
+    expect(shouldRenderMathFenceInline(String.raw`\pi r^2`)).toBe(false);
+    expect(shouldRenderMathFenceInline(String.raw`\begin{aligned}x&=1\end{aligned}`)).toBe(
+      false,
+    );
   });
 
   it("retags latex fence to math", () => {

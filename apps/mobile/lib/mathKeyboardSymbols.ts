@@ -1,4 +1,4 @@
-export const MATH_KEYBOARD_GROUPS = ["basics", "trig", "calc", "greek"] as const;
+export const MATH_KEYBOARD_GROUPS = ["basics", "trig", "calc", "greek", "converter"] as const;
 export type MathKeyboardGroup = (typeof MATH_KEYBOARD_GROUPS)[number] | "pad";
 
 export type MathKeyboardSymbol = {
@@ -8,6 +8,8 @@ export type MathKeyboardSymbol = {
   /** Cursor offset from the start of `insert`. */
   cursorOffset: number;
   group: MathKeyboardGroup;
+  /** Prose insert. Do not wrap in `$...$`. */
+  plain?: boolean;
 };
 
 export type TextSelection = { start: number; end: number };
@@ -31,8 +33,7 @@ function key(
 export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "frac", label: "□/□", insert: "\\frac{}{}", group: "basics" }),
   key({ id: "sqrt", label: "√", insert: "\\sqrt{}", group: "basics" }),
-  // ⁿ√ = n × square root (type 6 then ⁿ√ → 6√4 = 12). Nth root is Calc “√[n]”.
-  key({ id: "nroot", label: "ⁿ√", insert: "n\\sqrt{}", group: "basics" }),
+  key({ id: "nroot", label: "ⁿ√", insert: "\\sqrt[]{}", cursorOffset: 6, group: "basics" }),
   key({ id: "sup", label: "xⁿ", insert: "x^{}", group: "basics" }),
   key({ id: "sub", label: "xₙ", insert: "x_{}", group: "basics" }),
   key({ id: "abs", label: "|x|", insert: "||", group: "basics" }),
@@ -50,33 +51,77 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "sin", label: "sin", insert: "\\sin()", group: "trig" }),
   key({ id: "cos", label: "cos", insert: "\\cos()", group: "trig" }),
   key({ id: "tan", label: "tan", insert: "\\tan()", group: "trig" }),
+  key({ id: "cot", label: "cot", insert: "\\cot()", group: "trig" }),
+  key({ id: "sec", label: "sec", insert: "\\sec()", group: "trig" }),
+  key({ id: "csc", label: "csc", insert: "\\csc()", group: "trig" }),
   key({ id: "arcsin", label: "sin⁻¹", insert: "\\arcsin()", group: "trig" }),
-  key({ id: "log", label: "log", insert: "\\log()", group: "trig" }),
-  key({ id: "ln", label: "ln", insert: "\\ln()", group: "trig" }),
-  key({ id: "exp", label: "exp", insert: "\\exp()", group: "trig" }),
+  key({ id: "arccos", label: "cos⁻¹", insert: "\\arccos()", group: "trig" }),
+  key({ id: "arctan", label: "tan⁻¹", insert: "\\arctan()", group: "trig" }),
+  key({ id: "arccot", label: "cot⁻¹", insert: "\\cot^{-1}()", group: "trig" }),
+  key({ id: "arcsec", label: "sec⁻¹", insert: "\\sec^{-1}()", group: "trig" }),
+  key({ id: "arccsc", label: "csc⁻¹", insert: "\\csc^{-1}()", group: "trig" }),
   key({ id: "deg", label: "°", insert: "^{\\circ}", cursorOffset: 8, group: "trig" }),
+  key({ id: "rad", label: "rad", insert: "\\mathrm{rad}", group: "trig" }),
+  key({ id: "sinh", label: "sinh", insert: "\\sinh()", group: "trig" }),
+  key({ id: "cosh", label: "cosh", insert: "\\cosh()", group: "trig" }),
+  key({ id: "tanh", label: "tanh", insert: "\\tanh()", group: "trig" }),
+  key({ id: "arcsinh", label: "sinh⁻¹", insert: "\\sinh^{-1}()", group: "trig" }),
+  key({ id: "arccosh", label: "cosh⁻¹", insert: "\\cosh^{-1}()", group: "trig" }),
+  key({ id: "arctanh", label: "tanh⁻¹", insert: "\\tanh^{-1}()", group: "trig" }),
+  key({ id: "trig-theta", label: "θ", insert: "\\theta ", group: "trig" }),
+  key({ id: "trig-pi", label: "π", insert: "\\pi ", group: "trig" }),
 
   key({ id: "int", label: "∫", insert: "\\int ", group: "calc" }),
   key({ id: "dint", label: "∫□", insert: "\\int_{}^{}", group: "calc" }),
-  key({ id: "nth", label: "√[n]", insert: "\\sqrt[]{}", cursorOffset: 6, group: "calc" }),
+  key({ id: "iint", label: "∬", insert: "\\iint ", group: "calc" }),
   key({ id: "sum", label: "∑", insert: "\\sum_{}^{}", group: "calc" }),
   key({ id: "prod", label: "∏", insert: "\\prod_{}^{}", group: "calc" }),
   key({ id: "lim", label: "lim", insert: "\\lim_{}", group: "calc" }),
   key({ id: "infty", label: "∞", insert: "\\infty ", group: "calc" }),
   key({ id: "partial", label: "∂", insert: "\\partial ", group: "calc" }),
+  key({ id: "der", label: "d/dx", insert: "\\frac{d}{dx}", group: "calc" }),
+  key({ id: "der2", label: "d²", insert: "\\frac{d^{2}}{dx^{2}}", group: "calc" }),
+  key({ id: "nth", label: "√[n]", insert: "\\sqrt[]{}", cursorOffset: 6, group: "calc" }),
   key({ id: "to", label: "→", insert: "\\to ", group: "calc" }),
   key({ id: "dx", label: "dx", insert: "\\,dx", group: "calc" }),
+  key({ id: "log", label: "log", insert: "\\log()", group: "calc" }),
+  key({ id: "ln", label: "ln", insert: "\\ln()", group: "calc" }),
+  key({ id: "logn", label: "logₙ", insert: "\\log_{}()", group: "calc" }),
+  key({ id: "exp", label: "exp", insert: "\\exp()", group: "calc" }),
+  key({ id: "tenpow", label: "10ⁿ", insert: "10^{}", group: "calc" }),
+  key({ id: "pm", label: "±", insert: "\\pm ", group: "calc" }),
+  key({ id: "approx", label: "≈", insert: "\\approx ", group: "calc" }),
+  key({ id: "binom", label: "nCr", insert: "\\binom{}{}", group: "calc" }),
+  key({ id: "fact", label: "n!", insert: "n!", group: "calc" }),
+  key({ id: "percent", label: "%", insert: "\\%", group: "calc" }),
+  key({ id: "euler", label: "e", insert: "e", group: "calc" }),
+  key({ id: "imag", label: "i", insert: "i", group: "calc" }),
 
   key({ id: "alpha", label: "α", insert: "\\alpha ", group: "greek" }),
   key({ id: "beta", label: "β", insert: "\\beta ", group: "greek" }),
   key({ id: "gamma", label: "γ", insert: "\\gamma ", group: "greek" }),
   key({ id: "delta", label: "δ", insert: "\\delta ", group: "greek" }),
+  key({ id: "epsilon", label: "ε", insert: "\\varepsilon ", group: "greek" }),
+  key({ id: "zeta", label: "ζ", insert: "\\zeta ", group: "greek" }),
+  key({ id: "eta", label: "η", insert: "\\eta ", group: "greek" }),
   key({ id: "theta", label: "θ", insert: "\\theta ", group: "greek" }),
+  key({ id: "kappa", label: "κ", insert: "\\kappa ", group: "greek" }),
+  key({ id: "lambda", label: "λ", insert: "\\lambda ", group: "greek" }),
+  key({ id: "mu", label: "μ", insert: "\\mu ", group: "greek" }),
+  key({ id: "nu", label: "ν", insert: "\\nu ", group: "greek" }),
+  key({ id: "xi", label: "ξ", insert: "\\xi ", group: "greek" }),
   key({ id: "pi-greek", label: "π", insert: "\\pi ", group: "greek" }),
+  key({ id: "rho", label: "ρ", insert: "\\rho ", group: "greek" }),
   key({ id: "sigma", label: "σ", insert: "\\sigma ", group: "greek" }),
-  key({ id: "Delta", label: "Δ", insert: "\\Delta ", group: "greek" }),
+  key({ id: "tau", label: "τ", insert: "\\tau ", group: "greek" }),
   key({ id: "phi", label: "φ", insert: "\\phi ", group: "greek" }),
+  key({ id: "chi", label: "χ", insert: "\\chi ", group: "greek" }),
+  key({ id: "psi", label: "ψ", insert: "\\psi ", group: "greek" }),
   key({ id: "omega", label: "ω", insert: "\\omega ", group: "greek" }),
+  key({ id: "Gamma", label: "Γ", insert: "\\Gamma ", group: "greek" }),
+  key({ id: "Delta", label: "Δ", insert: "\\Delta ", group: "greek" }),
+  key({ id: "Sigma", label: "Σ", insert: "\\Sigma ", group: "greek" }),
+  key({ id: "Omega", label: "Ω", insert: "\\Omega ", group: "greek" }),
 ];
 
 /** Always-visible pad row when the math keyboard replaces QWERTY. */
@@ -92,11 +137,23 @@ export const MATH_PAD_KEYS: readonly MathKeyboardSymbol[] = [
   key({ id: "digit-9", label: "9", insert: "9", group: "pad" }),
   key({ id: "digit-0", label: "0", insert: "0", group: "pad" }),
   key({ id: "digit-dot", label: ".", insert: ".", group: "pad" }),
-  key({ id: "var-x", label: "x", insert: "x", group: "pad" }),
+  key({ id: "comma", label: ",", insert: ",", group: "pad" }),
+  key({ id: "var-x", label: "𝑥", insert: "x", group: "pad" }),
+  key({ id: "var-y", label: "𝑦", insert: "y", group: "pad" }),
 ];
 
 export function symbolsInGroup(group: MathKeyboardGroup): MathKeyboardSymbol[] {
   return MATH_KEYBOARD_SYMBOLS.filter((s) => s.group === group);
+}
+
+/** Digits are always on Basics. Converter has its own pad. */
+export function mathGroupShowsNumpad(group: MathKeyboardGroup): boolean {
+  return group === "basics";
+}
+
+/** Trig / Calc / Greek start on symbols; 123 reveals the shared number pad. */
+export function mathGroupCanToggleDigits(group: MathKeyboardGroup): boolean {
+  return group === "trig" || group === "calc" || group === "greek";
 }
 
 export function isCursorInsideInlineMath(text: string, pos: number): boolean {
@@ -114,13 +171,13 @@ function lastNonSpaceChar(text: string, pos: number): string {
   return text[k] ?? "";
 }
 
-/** ⁿ√ is n × square root. After a number, only insert √ (the n is already there). */
-function nTimesSqrtInsert(text: string, start: number): { insert: string; cursorOffset: number } {
+/** n!: attach `!` to an existing base, otherwise insert `n`. */
+function factAttachInsert(text: string, start: number): { insert: string; cursorOffset: number } {
   const prev = lastNonSpaceChar(text, start);
-  if (/[0-9a-zA-Z.)\]}]/.test(prev)) {
-    return { insert: "\\sqrt{}", cursorOffset: 6 };
+  if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
+    return { insert: "!", cursorOffset: 1 };
   }
-  return { insert: "n\\sqrt{}", cursorOffset: 7 };
+  return { insert: "n!", cursorOffset: 2 };
 }
 
 /** xⁿ / xₙ: attach the script to an existing base, otherwise insert `x`. */
@@ -141,10 +198,37 @@ function resolveInsert(
   start: number,
   spec: MathKeyboardSymbol,
 ): { insert: string; cursorOffset: number } {
-  if (spec.id === "nroot") return nTimesSqrtInsert(text, start);
   if (spec.id === "sup") return scriptAttachInsert(text, start, "^");
   if (spec.id === "sub") return scriptAttachInsert(text, start, "_");
+  if (spec.id === "fact") return factAttachInsert(text, start);
   return spec;
+}
+
+function looksLikeUnitConvertDraft(text: string): boolean {
+  return /\bconvert\b/i.test(text) && /\bto\b/i.test(text);
+}
+
+function fillUnitConvert(template: string, value: string): string {
+  return template.replace(/^convert {2}/, `convert ${value} `);
+}
+
+function numberRangeForUnit(
+  text: string,
+  start: number,
+): { from: number; to: number; value: string } | null {
+  const dollar = text.lastIndexOf("$", Math.max(0, start - 1));
+  if (dollar !== -1) {
+    const close = text.indexOf("$", dollar + 1);
+    if (close !== -1 && start >= dollar && start <= close + 1) {
+      const inner = text.slice(dollar + 1, close).trim();
+      if (/^\d+(?:\.\d+)?$/.test(inner)) {
+        return { from: dollar, to: close + 1, value: inner };
+      }
+    }
+  }
+  const match = /(\d+(?:\.\d+)?)\s*$/.exec(text.slice(0, start));
+  if (!match || match.index == null) return null;
+  return { from: match.index, to: start, value: match[1]! };
 }
 
 export function spliceMathInsert(
@@ -154,10 +238,33 @@ export function spliceMathInsert(
 ): { text: string; selection: TextSelection } {
   const start = Math.max(0, Math.min(selection.start, text.length));
   const end = Math.max(start, Math.min(selection.end, text.length));
+  if (spec.plain) {
+    const num = numberRangeForUnit(text, start);
+    let from = start;
+    let to = end;
+    let snippet: string;
+    let cursorOffset: number;
+    if (num) {
+      from = num.from;
+      to = Math.max(end, num.to);
+      snippet = fillUnitConvert(spec.insert, num.value);
+      cursorOffset = snippet.length;
+    } else {
+      snippet = spec.insert;
+      cursorOffset = spec.cursorOffset;
+      if (isCursorInsideInlineMath(text, start)) {
+        snippet = `$${snippet}`;
+        cursorOffset += 1;
+      }
+    }
+    const next = text.slice(0, from) + snippet + text.slice(to);
+    const caret = from + cursorOffset;
+    return { text: next, selection: { start: caret, end: caret } };
+  }
   const resolved = resolveInsert(text, start, spec);
   let snippet = resolved.insert;
   let cursorOffset = resolved.cursorOffset;
-  if (!isCursorInsideInlineMath(text, start)) {
+  if (!isCursorInsideInlineMath(text, start) && !looksLikeUnitConvertDraft(text)) {
     snippet = `$${resolved.insert}$`;
     cursorOffset = resolved.cursorOffset + 1;
   }
@@ -386,12 +493,14 @@ export const MATH_NUMPAD_ROWS: PadCell[][] = [
     { kind: "insert", spec: padSpec("digit-3") },
     { kind: "insert", spec: padSpec("minus") },
     { kind: "insert", spec: padSpec("parens") },
+    { kind: "insert", spec: padSpec("plus") },
   ],
   [
     { kind: "insert", spec: padSpec("digit-0") },
     { kind: "insert", spec: padSpec("digit-dot") },
+    { kind: "insert", spec: padSpec("comma") },
     { kind: "insert", spec: padSpec("var-x") },
-    { kind: "insert", spec: padSpec("plus") },
+    { kind: "insert", spec: padSpec("var-y") },
     { kind: "insert", spec: padSpec("eq") },
   ],
 ];

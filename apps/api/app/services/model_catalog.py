@@ -233,11 +233,22 @@ CATALOG: tuple[ChatModel, ...] = (
     ),
     _or(
         id="speech-tts-model",
-        label="Speech synthesis",
-        # OpenRouter requires the dated snapshot slug; bare gpt-4o-mini-tts 404s.
-        model="openai/gpt-4o-mini-tts-2025-12-15",
-        provider="openai",
+        label="Gemini TTS",
+        # Default read-aloud. OpenRouter has no OpenAI GPT TTS.
+        model="google/gemini-3.1-flash-tts-preview",
+        provider="google",
         selectable=False,
+        description="Higher-quality read-aloud (Gemini 3.1 Flash TTS).",
+    ),
+    _or(
+        id="speech-tts-fast-model",
+        label="Kokoro TTS",
+        # Cheap OpenRouter TTS (~$0.62/1M chars). MiniMax Speech is costlier;
+        # there is no GLM TTS on OpenRouter.
+        model="hexgrad/kokoro-82m",
+        provider="hexgrad",
+        selectable=False,
+        description="Lower-cost read-aloud.",
     ),
 )
 

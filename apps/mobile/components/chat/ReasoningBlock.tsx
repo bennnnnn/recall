@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,7 @@ type Props = {
   streaming?: boolean;
 };
 
-export function ReasoningBlock({ content, streaming = false }: Props) {
+export const ReasoningBlock = memo(function ReasoningBlock({ content, streaming = false }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -41,7 +41,7 @@ export function ReasoningBlock({ content, streaming = false }: Props) {
       <Text style={s.body}>{preview}</Text>
     </View>
   );
-}
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({

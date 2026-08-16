@@ -101,6 +101,8 @@ def test_is_location_question():
     assert is_location_question("Where's my location")
     assert is_location_question("What's my location")
     assert is_location_question("what's my current location")
+    assert is_location_question("Where am iI")
+    assert is_location_question("where am ii")
     assert not is_location_question("weather in Paris")
     assert not is_location_question("Where is the meeting")
     assert not is_location_question("where am I going tomorrow")

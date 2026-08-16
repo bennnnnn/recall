@@ -2,6 +2,7 @@ import React, { memo } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
+import { useThrottledStreamText } from "@/hooks/useThrottledStreamText";
 import type { Message } from "@/lib/api";
 
 type Props = {
@@ -41,6 +42,15 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   onQuizAnswer,
 }: Props) {
   const streamingDraft = useStreamingDraft();
+  const liveReasoning = useThrottledStreamText(streamingDraft?.reasoning, streamVisualActive);
+  const streamStatus = useThrottledStreamText(
+    imageGenPending ? "image_gen" : streamingDraft?.status,
+    streamVisualActive,
+  );
+  const streamStatusDetail = useThrottledStreamText(
+    imageGenPending ? undefined : streamingDraft?.statusDetail,
+    streamVisualActive,
+  );
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
   const isActiveQuiz = item.role === "assistant" && item.id === activeQuizMessageId;
 
@@ -51,9 +61,9 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       isGenerating={streamVisualActive}
       liveContent={streamingDraft?.content}
       liveSearchSources={streamingDraft?.search_sources}
-      liveReasoning={streamingDraft?.reasoning}
-      streamStatus={imageGenPending ? "image_gen" : streamingDraft?.status}
-      streamStatusDetail={imageGenPending ? undefined : streamingDraft?.statusDetail}
+      liveReasoning={liveReasoning}
+      streamStatus={streamStatus}
+      streamStatusDetail={streamStatusDetail}
       isLastAssistant={isLastAssistant}
       onRegenerate={
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined

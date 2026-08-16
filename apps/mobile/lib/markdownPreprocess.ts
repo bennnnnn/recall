@@ -1,5 +1,9 @@
 import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
-import { retagMathAndDiagramFences } from "@/lib/mathFenceRetag";
+import {
+  retagMathAndDiagramFences,
+  shouldRenderMathFenceInline,
+  stripRedundantDollarWrap,
+} from "@/lib/mathFenceRetag";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
@@ -93,7 +97,7 @@ export function breakAttachedMathFences(content: string): string {
   return out.join("\n");
 }
 
-const MATHISH_TICK_INNER = /^[\d+\-*/^=().\s\\{}^_√±×÷·,]+$/;
+const MATHISH_TICK_INNER = /^[\dA-Za-z+\-*/^=().\s\\{}^_√±×÷·,]+$/;
 
 function backtickInnerIsMath(inner: string): boolean {
   const t = inner.trim();
@@ -101,7 +105,7 @@ function backtickInnerIsMath(inner: string): boolean {
   if (/\$/.test(t) || /\\[a-zA-Z]+/.test(t)) return true;
   if (/\b[A-Za-z]{3,}\b/.test(t)) return false;
   if (isMathLike(t)) return true;
-  return MATHISH_TICK_INNER.test(t) && /[\d=+\-*/]/.test(t);
+  return MATHISH_TICK_INNER.test(t) && /[\d=+\-*/^]/.test(t);
 }
 
 /**
@@ -172,6 +176,74 @@ export function liftMathFencesOutOfLists(content: string): string {
       continue;
     }
     out.push(line);
+  }
+  return out.join("\n");
+}
+
+const INLINE_MATH_FENCE_INFO = /^(math|latex|tex)?$/i;
+
+function isFenceCloser(line: string, open: { char: "`" | "~"; len: number }): boolean {
+  const m = readFenceMarker(line);
+  return Boolean(m && m.char === open.char && m.len >= open.len && !m.info);
+}
+
+function appendInlineMath(out: string[], latex: string): void {
+  const piece = `$${latex}$`;
+  while (out.length > 0 && out[out.length - 1]!.trim() === "") out.pop();
+  if (out.length > 0 && out[out.length - 1]!.trim() !== "") {
+    const prev = out[out.length - 1]!;
+    const gap = prev.endsWith(" ") ? "" : " ";
+    out[out.length - 1] = prev.replace(/\s+$/, "") + gap + piece;
+    return;
+  }
+  out.push(piece);
+}
+
+/**
+ * Models put `$2+Y$` / `Y` in ```math (or an untagged fence). Those parse as
+ * block cards — a gray box that splits the sentence. Fold short one-liners
+ * back into `$...$`. Keep ```answer finals and multi-line display math.
+ */
+export function inlineShortMathFences(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const open = readFenceMarker(lines[i]!);
+    const lang = open?.info.split(/\s/)[0] ?? "";
+    if (!open || !INLINE_MATH_FENCE_INFO.test(lang)) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    const body: string[] = [];
+    let j = i + 1;
+    while (j < lines.length && !isFenceCloser(lines[j]!, open)) {
+      body.push(lines[j]!);
+      j += 1;
+    }
+    if (j >= lines.length) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    const raw = body.join("\n").trim();
+    const keepAnswer = isAnswerLang(lang) && looksLikeMathAnswer(raw);
+    const keepCode = !lang && looksLikeCode(raw);
+    if (keepAnswer || keepCode || !shouldRenderMathFenceInline(raw)) {
+      for (let k = i; k <= j; k += 1) out.push(lines[k]!);
+      i = j + 1;
+      continue;
+    }
+    appendInlineMath(out, stripRedundantDollarWrap(raw));
+    i = j + 1;
+    while (i < lines.length && lines[i]!.trim() === "") i += 1;
+    if (i < lines.length && /^[?!,.;:]/.test(lines[i]!.trim())) {
+      const tail = lines[i]!.trim();
+      const last = out[out.length - 1] ?? "";
+      out[out.length - 1] = last + (last.endsWith(" ") ? "" : " ") + tail;
+      i += 1;
+    }
   }
   return out.join("\n");
 }
@@ -530,9 +602,8 @@ function normalizeVerificationBullets(content: string): string {
 }
 
 /**
- * Check lines like `For $x = 2$: $2^2 + 2 = 6$` (or one `$x = 2: 2^2$` span)
- * were rendering as `2:2²` — colon between two math runs with no space.
- * Split the label from the formula and keep a space after the colon.
+ * Check lines like `For $x = 2$: $2^2 + 2 = 6$` (or `For F = 0: 0 + 3 = 3 ✓`)
+ * must not cram the substitution onto the label line. Split after the colon.
  */
 export function layoutCheckVerificationLines(content: string): string {
   let out = content.replace(
@@ -540,7 +611,33 @@ export function layoutCheckVerificationLines(content: string): string {
     (_m, label: string, formula: string) => `$${label.trim()}$: $${formula.trim()}$`,
   );
   out = out.replace(/\$:\s*/g, "$: ");
-  return out;
+  return out.split("\n").map(splitPackedCheckLine).join("\n");
+}
+
+function splitPackedCheckLine(line: string): string {
+  const colon = indexOfCheckLabelColon(line);
+  if (colon < 0) return line;
+  const after = line.slice(colon + 1).trim();
+  if (!after || !looksLikeCheckComputation(after)) return line;
+  const before = line.slice(0, colon + 1).trimEnd();
+  return `${before}\n  ${after}`;
+}
+
+/** Colon that closes `For x = 2:` / `For $F = 0$:` — not "for example:". */
+function indexOfCheckLabelColon(line: string): number {
+  const lower = line.toLowerCase();
+  const forAt = lower.indexOf("for ");
+  if (forAt < 0) return -1;
+  const colon = line.indexOf(":", forAt + 4);
+  if (colon < 0) return -1;
+  const label = line.slice(forAt, colon);
+  if (!label.includes("=")) return -1;
+  return colon;
+}
+
+function looksLikeCheckComputation(s: string): boolean {
+  if (s.length < 3) return false;
+  return /[\d$=+\-]/.test(s);
 }
 
 // A backslash immediately followed by an ASCII punctuation character —
@@ -769,6 +866,7 @@ export function preprocessMarkdown(
   out = layoutCheckVerificationLines(out);
   out = breakAttachedMathFences(out);
   out = liftMathFencesOutOfLists(out);
+  out = inlineShortMathFences(out);
   out = unwrapProseMathBackticks(out);
 
   return out;

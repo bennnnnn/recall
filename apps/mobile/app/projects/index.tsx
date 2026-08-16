@@ -98,9 +98,10 @@ export default function ProjectsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Force after quiz sessions so Today x/y isn't stuck on a 20s stale window.
-      void refresh({ silent: true, force: true });
-      void refreshHome({ silent: true, force: true });
+      // Stale-gated. Quiz returns bust projectDetailCache; do not force /home
+      // and /projects on every Learning open.
+      void refresh({ silent: true });
+      void refreshHome({ silent: true });
     }, [refresh, refreshHome]),
   );
 

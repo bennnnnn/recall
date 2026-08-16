@@ -11,7 +11,6 @@ import {
   type SetStateAction,
 } from "react";
 import { AppState, type AppStateStatus } from "react-native";
-import { useFocusEffect } from "expo-router";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type Project } from "@/lib/api";
@@ -90,12 +89,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void refresh({ silent: true });
-    }, [refresh]),
-  );
-
+  // Focus refresh lives on Learning screens — do not refetch from this
+  // app-wide provider on every route change.
   useEffect(() => {
     if (!token) return;
     const onAppState = (state: AppStateStatus) => {

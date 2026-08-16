@@ -58,6 +58,47 @@ _LOCATION_QUESTION = re.compile(
     re.IGNORECASE,
 )
 
+# Folded letter-runs of the phrases above so "Where am iI" still counts.
+_LOCATION_ASK_MAX_LEN = 80
+_LOCATION_ASK_FOLDED = frozenset(
+    {
+        "whereami",
+        "whereamiat",
+        "whereamirightnow",
+        "whereamirightnwo",
+        "whereaminow",
+        "whereamicurently",
+        "whatsmylocation",
+        "whatismylocation",
+        "whatsmycurrentlocation",
+        "whatismycurrentlocation",
+        "wherismylocation",
+        "wheresmylocation",
+        "whereismylocation",
+        "wherearewe",
+        "wherearewenow",
+        "wherearewerightnow",
+        "wherearewecurently",
+        "mylocation",
+        "mycurrentlocation",
+        "location",
+    }
+)
+
+
+def _fold_location_ask(text: str) -> str:
+    """Letters only, consecutive duplicates collapsed — linear, length-capped."""
+    if len(text) > _LOCATION_ASK_MAX_LEN:
+        return ""
+    out: list[str] = []
+    prev = ""
+    for ch in text.lower():
+        if "a" <= ch <= "z":
+            if ch != prev:
+                out.append(ch)
+                prev = ch
+    return "".join(out)
+
 
 def resolve_timezone(tz: str | None) -> ZoneInfo:
     try:
@@ -124,7 +165,9 @@ def is_location_question(text: str) -> bool:
     cleaned = collapse_ws(text)
     if not cleaned:
         return False
-    return bool(_LOCATION_QUESTION.match(cleaned))
+    if _LOCATION_QUESTION.match(cleaned):
+        return True
+    return _fold_location_ask(cleaned) in _LOCATION_ASK_FOLDED
 
 
 def format_location_answer(location: str | None, timezone: str | None) -> str:

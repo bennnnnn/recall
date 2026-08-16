@@ -63,8 +63,6 @@ export type ChatScreenBodyProps = {
   onUpgrade: () => void;
   onDismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
-  input: string;
-  onChangeInput: (text: string) => void;
   streaming: boolean;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
@@ -86,7 +84,6 @@ export type ChatScreenBodyProps = {
   voiceTranscribing: boolean;
   voiceMeterLevel: number;
   onVoicePress?: () => void;
-  onVoiceCancel?: () => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
   listFooter?: ReactElement | null;
@@ -130,8 +127,6 @@ export function ChatScreenBody({
   onUpgrade,
   onDismissChatError,
   composerAnimatedStyle,
-  input,
-  onChangeInput,
   streaming,
   attachBusy,
   pendingAttachment,
@@ -153,7 +148,6 @@ export function ChatScreenBody({
   voiceTranscribing,
   voiceMeterLevel,
   onVoicePress,
-  onVoiceCancel,
   upgradeVisible,
   onCloseUpgrade,
   listFooter = null,
@@ -226,8 +220,6 @@ export function ChatScreenBody({
         visible={!drawerOpen}
         animatedContainerStyle={composerAnimatedStyle}
         token={token}
-        input={input}
-        onChangeInput={onChangeInput}
         streaming={streaming}
         attachBusy={attachBusy}
         pendingAttachment={pendingAttachment}
@@ -244,7 +236,6 @@ export function ChatScreenBody({
         voiceTranscribing={voiceTranscribing}
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
-        onVoiceCancel={onVoiceCancel}
         onOpenMathScanner={onOpenMathScanner}
         onMathChromeHeightChange={onMathChromeHeightChange}
         mathContext={mathContext}

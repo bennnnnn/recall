@@ -10,7 +10,9 @@ import {
   autoAdvanceFracDen,
   caretForInsert,
   fracTapAdvancesToDen,
+  isCursorInsideInlineMath,
   MATH_KEYBOARD_SYMBOLS,
+  type MathKeyboardGroup,
   nextEditSlotCaret,
   prevEditSlotCaret,
   spliceMathInsert,
@@ -30,6 +32,7 @@ export function useMathKeyboardInsert(options: {
 }) {
   const { input, setInput, onImageOnlyPaste } = options;
   const [mathBarOpen, setMathBarOpen] = useState(false);
+  const [mathGroup, setMathGroup] = useState<MathKeyboardGroup>("basics");
   const [padHeight, setPadHeight] = useState(MATH_PAD_FALLBACK_HEIGHT);
   const [selection, setSelection] = useState<TextSelection>({ start: 0, end: 0 });
   const [forcedSelection, setForcedSelection] = useState<TextSelection | undefined>();
@@ -85,12 +88,30 @@ export function useMathKeyboardInsert(options: {
     [input, onImageOnlyPaste, pinSelection, selection, setInput],
   );
 
-  const onComposerFocus = useCallback(() => {
-    if (!onImageOnlyPaste) return;
-    void clipboardIsImageOnly().then((imageOnly) => {
-      if (imageOnly) onImageOnlyPaste();
-    });
-  }, [onImageOnlyPaste]);
+  const closeMathBar = useCallback(() => {
+    mathBarOpenRef.current = false;
+    setMathBarOpen(false);
+  }, []);
+
+  const insertPlain = useCallback(
+    (chunk: string) => {
+      if (!chunk) return;
+      const sel = pinRef.current ?? selection;
+      const text = textRef.current;
+      const start = Math.max(0, Math.min(sel.start, text.length));
+      const end = Math.max(start, Math.min(sel.end, text.length));
+      const snippet = isCursorInsideInlineMath(text, start) ? `$${chunk}` : chunk;
+      const replaceDraft = /^convert\s/i.test(text.trim());
+      const next = replaceDraft
+        ? chunk
+        : `${text.slice(0, start)}${snippet}${text.slice(end)}`;
+      const caret = replaceDraft ? chunk.length : start + snippet.length;
+      textRef.current = next;
+      setInput(next);
+      pinSelection({ start: caret, end: caret });
+    },
+    [pinSelection, selection, setInput],
+  );
 
   const insertSymbol = useCallback(
     (spec: MathKeyboardSymbol) => {
@@ -177,12 +198,15 @@ export function useMathKeyboardInsert(options: {
     mathBarOpen,
     padHeight,
     toggleMathBar,
+    closeMathBar,
+    mathGroup,
+    setMathGroup,
     selection,
     forcedSelection,
     onSelectionChange,
     onChangeText,
-    onComposerFocus,
     insertSymbol,
+    insertPlain,
     backspace,
     nextSlot,
     prevSlot,
