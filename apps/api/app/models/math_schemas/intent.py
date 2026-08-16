@@ -117,7 +117,7 @@ class MathIntent(BaseModel):
     numtheory_a: int | None = None
     numtheory_b: int | None = None
     # Matrix — determinant/inverse of a small square matrix.
-    matrix_op: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"] | None = None
+    matrix_op: Literal["determinant", "inverse"] | None = None
     matrix_rows: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay
     # base+height-only for the existing "triangle"/"right_triangle" kinds.
@@ -151,4 +151,3 @@ class MathIntent(BaseModel):
     unit_from: str | None = None
     unit_to: str | None = None
     taylor_n: int | None = None
-    matrix_rows_b: list[list[float]] | None = None

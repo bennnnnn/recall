@@ -35,31 +35,6 @@ def test_should_inject_gmail_block_for_inbox_and_day_planning():
     assert not email_service.should_inject_gmail_block("best restaurants near me")
 
 
-def test_format_inbox_answer_lists_messages():
-    from app.gateways.google_gmail_gateway import GmailMessage
-    from app.services import email as email_service
-
-    messages = [
-        GmailMessage(
-            id="1",
-            subject="Hello",
-            snippet="Quick update",
-            body_text="",
-            received_at=None,
-            from_address="Friend <friend@example.com>",
-            label_ids=("INBOX", "UNREAD"),
-        )
-    ]
-    answer = email_service.format_inbox_answer(
-        google_email="me@example.com",
-        messages=messages,
-        pending_suggestions=[],
-    )
-    assert "me@example.com" in answer
-    assert "Needs attention" in answer
-    assert "Hello" in answer
-
-
 def test_parse_ics_event_extracts_title_and_time():
     ics = """BEGIN:VCALENDAR
 BEGIN:VEVENT

@@ -97,23 +97,6 @@ def format_not_connected_answer() -> str:
     )
 
 
-def format_inbox_answer(
-    *,
-    google_email: str,
-    messages: list[GmailMessage],
-    pending_suggestions: list,
-    fetch_error: str | None = None,
-) -> str:
-    """Legacy helper — prefer LLM + triaged block for user-facing inbox answers."""
-    block = email_triage_service.format_triaged_inbox_block(
-        google_email=google_email,
-        messages=messages,
-        pending_suggestions=pending_suggestions,
-        fetch_error=fetch_error,
-    )
-    return f"{block}\n\n(Want help with a specific thread or drafting a reply?)"
-
-
 def _cache_key(user_id: UUID) -> str:
     return f"gmail:recent:{user_id}"
 

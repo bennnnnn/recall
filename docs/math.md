@@ -68,7 +68,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
-| Linear algebra | det, inverse, multiply, rref, eigenvalues (≤4) | `matrix` |
+| Linear algebra | 2×2–4×4 det and inverse | `matrix` |
 | Calc II (thin) | Taylor, partials, first-order `dsolve`. Polar/parametric/double integrals stay LLM | `calculus` |
 | Probability | Binomial PMF, expected value of a list | `probability` |
 | Complex / units | Simplify `a+bi`; length/mass/time/temp convert | `complex`, `unit` |
@@ -76,7 +76,6 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Precalc / Calc I | simplify, factor, expand, d/dx, ∫, definite ∫, limits, series sum, Newton | `calculus`, `limit`, `series`, `numerical_method` |
 | Stats (descriptive) | mean, median, mode, variance, stdev | `statistics` |
 | Discrete (intro) | n!, nCr, nPr | `combinatorics` |
-| Linear algebra (tiny) | 2×2–4×4 **det** and **inverse** only | `matrix` |
 
 ```mermaid
 flowchart TB
@@ -98,7 +97,7 @@ Still not a verified kind (the model may answer; it must **not** claim SymPy):
 
 1. **Trig identities** — remain LLM-only. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with relative side units (not invented cm). SSS still uses law of cosines for angles-from-sides.
 2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
-3. **Linear algebra** beyond 4×4 multiply / rref / eigen (no general NL matrix parsing).
+3. **Linear algebra** beyond 4×4 det / inverse (no multiply / rref / eigen; no general NL matrix parsing).
 4. **Full unit catalogs** (only common length/mass/time/temp).
 
 New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.

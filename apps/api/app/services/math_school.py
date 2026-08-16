@@ -6,7 +6,6 @@ import math
 
 from sympy import (
     Function,
-    Rational,
     Symbol,
     cos,
     dsolve,
@@ -19,7 +18,7 @@ from sympy import (
     tan,
 )
 
-from app.models.math_schemas import MathExprResult, MatrixInput, MatrixResult
+from app.models.math_schemas import MathExprResult
 from app.services.math_service import MathServiceError, _parse_expression
 
 _LENGTH_TO_M = {
@@ -209,41 +208,6 @@ def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
         raise MathServiceError("could not solve ODE") from exc
     tex = str(latex(sol))
     return MathExprResult(result=tex, latex=tex, solved=True)
-
-
-def compute_matrix_extended(data: MatrixInput) -> MatrixResult:
-    from sympy import Matrix as SyMatrix
-
-    mat = SyMatrix([[Rational(str(v)) for v in row] for row in data.rows])
-    if data.operation == "multiply":
-        if data.rows_b is None:
-            raise MathServiceError("matrix multiply needs a second matrix")
-        other = SyMatrix([[Rational(str(v)) for v in row] for row in data.rows_b])
-        product = mat * other
-        return MatrixResult(
-            operation="multiply",
-            result_latex=latex(product),
-            steps=[f"AB = {latex(product)}"],
-        )
-    if data.operation == "rref":
-        rref, _pivots = mat.rref()
-        return MatrixResult(
-            operation="rref",
-            result_latex=latex(rref),
-            steps=[f"\\mathrm{{rref}} = {latex(rref)}"],
-        )
-    if data.operation == "eigenvalues":
-        if mat.rows != mat.cols:
-            raise MathServiceError("eigenvalues need a square matrix")
-        eigs = mat.eigenvals()
-        parts = [f"{latex(val)}^{{({mult})}}" for val, mult in eigs.items()]
-        body = ", ".join(parts)
-        return MatrixResult(
-            operation="eigenvalues",
-            result_latex=body,
-            steps=[f"\\lambda = {body}"],
-        )
-    raise MathServiceError(f"unsupported matrix operation {data.operation}")
 
 
 def evaluate_trig_expr(expr: str) -> str:
