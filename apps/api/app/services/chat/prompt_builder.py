@@ -466,6 +466,7 @@ def _integration_hints(
     is_day_plan: bool,
     projects_block: str,
     summary: str | None,
+    chat_history_rag_block: str = "",
 ) -> list[str]:
     """Time / web / calendar / gmail / memory / todos / projects / summary hints."""
     parts: list[str] = [
@@ -499,6 +500,8 @@ def _integration_hints(
         parts.append(
             wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{summary}")
         )
+    if chat_history_rag_block:
+        parts.append(chat_history_rag_block)
     return parts
 
 
@@ -561,6 +564,19 @@ async def build_prompt_messages(
         recent_source = [m for m in recent_source if m.id not in omit_message_ids]
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
+    chat_history_rag_block = ""
+    if not slim_context and settings.chat_history_rag_enabled and query_text and query_text.strip():
+        from app.services import chat_history_rag as chat_history_rag_service
+
+        exclude = {m.id for m in recent}
+        if omit_message_ids:
+            exclude |= omit_message_ids
+        chat_history_rag_block = await chat_history_rag_service.retrieve_for_prompt(
+            settings,
+            user_id=user.id,
+            query=query_text,
+            exclude_message_ids=exclude,
+        )
     if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
         out["context_summarized"] = chat.summary_message_count
     local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
@@ -632,6 +648,7 @@ async def build_prompt_messages(
                 is_day_plan=is_day_plan,
                 projects_block=blocks.projects_block,
                 summary=summary,
+                chat_history_rag_block=chat_history_rag_block,
             )
         )
 

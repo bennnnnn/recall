@@ -238,6 +238,22 @@ async def recent_user_contents(
     return [str(content) for content in reversed(result.scalars().all()) if str(content).strip()]
 
 
+async def list_recent_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int,
+) -> list[Message]:
+    """Newest messages across the user's chats (chat-history RAG backfill)."""
+    result = await session.execute(
+        select(Message)
+        .where(Message.user_id == user_id, Message.role.in_(("user", "assistant")))
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def get_by_id(session: AsyncSession, message_id: UUID, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message).where(Message.id == message_id, Message.chat_id == chat_id)

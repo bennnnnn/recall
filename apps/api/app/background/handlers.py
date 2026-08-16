@@ -24,6 +24,7 @@ from app.background import (
     gmail_sync,
     memory_consolidation,
     memory_extraction,
+    message_indexing,
     project_sync,
     suggestion_generation,
     todo_sync,
@@ -221,6 +222,7 @@ def register_all() -> None:
     register("gmail_sync", _handle_gmail_sync)
     register("transactional_email", _handle_transactional_email)
     register("attachment_index", attachment_indexing.index_attachment_job)
+    register("message_index", message_indexing.index_message_job)
 
 
 register_all()

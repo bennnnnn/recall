@@ -151,11 +151,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (editable in Settings → Profile) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc **text-layer** into pgvector; retrieve top
   chunks into the system prompt on follow-up turns (capped; invalidated on attachment delete).
-- 🔜 **Chat-history semantic RAG** — the namesake: retrieve a small top-k of **past chat
-  turns** (not the full transcript — Golden Rule 3 still holds). Today we inject structured
-  user memory + the recent window + a per-chat compression summary + keyword `/search`.
-  That is not “recall this conversation from March.” Index in a background job; retrieve at
-  turn start. See [Next actions](#29-next-actions-product-decisions).
+- ✅ **Chat-history semantic RAG** — background `message_index` embeds past turns into
+  `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
+  window. Golden Rule 3 still holds — never the full transcript. First index also
+  backfills the user's recent 40 messages so older chats are searchable after one turn.
 
 ## 7. Context management & performance
 - ✅ **Token-budget window** — recent turns are kept verbatim up to a token budget
@@ -461,9 +460,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   uuid4 rows are unchanged.
 - 🔜 **Full locale translation** — key-set parity is enforced (**882** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
-- 🔜 **Full chat-history semantic RAG** — core product (the name), not a v2 nice-to-have.
-  Embed past chats beyond keyword `/search` + user-memory embeddings + attachment RAG.
-  Index in background; retrieve small top-k at turn start. Not started.
+- ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
+  at turn start (excludes the recent window). Same shape as attachment RAG.
 - ✅ **Scanned-PDF OCR** — text-layer `pypdf` first; empty PDFs render pages (`pypdfium2`)
   and transcribe via `vision-chat`, then the same excerpt + attachment RAG path. Cap +
   timeout in `attachment_ocr_*`. Not a second extract pipeline.
@@ -583,7 +581,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | pgvector RAG over attachment corpora | ✅ Shipped (`attachment_rag`; flag on by default) |
 | Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |
-| Full chat-history corpus RAG | 🔜 Next (namesake; not “later/maybe”) |
+| Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
 | Full duplex voice mode | 🔜 Later |
 
 Notes: multimodal routes through whichever catalog model supports the modality (vision/image-gen
@@ -623,7 +621,7 @@ structured Learning topic type.
 | Pillar | Meaning |
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, reasoning visible |
-| Memory that compounds | User facts + (next) past-chat RAG — the namesake |
+| Memory that compounds | User facts + past-chat RAG — the namesake |
 | Utility beyond chat | Todos, Learning, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
@@ -634,11 +632,12 @@ structured Learning topic type.
 | MVP (mobile) | Chat + memory + todos + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | ~70% ops |
 | v1.1 | Web client (same API), locale prose, legal localization | Not started |
-| Next (product) | Chat-history semantic RAG | In progress |
+| Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
 | Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | Not started |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
-LiteLLM tool loop **on by default** ✅, structured profile ✅, drawer FTS search ✅.
+chat-history RAG ✅, LiteLLM tool loop **on by default** ✅, structured profile ✅,
+drawer FTS search ✅.
 
 ### Learning (not “programming projects”)
 | Shipped | Not done |
@@ -662,7 +661,8 @@ LiteLLM tool loop **on by default** ✅, structured profile ✅, drawer FTS sear
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
 | Vision routing for images + scanned-PDF OCR (page render → vision → RAG) | — |
-| PDF text extract + pgvector attachment RAG | Full chat-history corpus RAG (namesake) |
+| PDF text extract + pgvector attachment RAG | — |
+| Chat-history corpus RAG (pgvector top-k, not full transcript) | — |
 | Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | — |
 
@@ -701,7 +701,8 @@ Multi-user teams, collaborative editing, video generation, public unauthenticate
 arbitrary user MCP servers, multi-file HTML preview, gamification (XP/badges beyond learning
 streaks). **OpenRouter / product aliases are the intended model setup** — not a gap.
 
-**Next (do these):** chat-history semantic RAG.
+**Next (do these):** launch ops (see Pre-deployment TODO). The three product items
+(tool loop, scanned-PDF OCR, chat-history RAG) are done.
 
 **Later (not blocking launch):** Google Docs + GitHub; code execution (beyond the HTML sandbox);
 duplex voice; web client; locale prose + legal bodies; folders / family plans.
@@ -722,10 +723,8 @@ weakness. No video generation. Native share is enough unless we later decide we 
    owned tools — not user MCP servers.
 2. ✅ **Scanned-PDF OCR** — text-layer extract first; empty PDFs render pages →
    `vision-chat` transcription → same excerpt + chunk/embed RAG. No second pipeline.
-3. **Chat-history semantic RAG** — why the app is called Recall. Today we remember
-   **the user** (typed memory) + a short recent window + a chat summary. We do **not**
-   embed old messages and retrieve them. Keep Golden Rule 3 (never dump the full
-   transcript). Add a background index + top-k at turn start, same shape as attachment RAG.
+3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
+   start excluding the recent window. Golden Rule 3: never dump the full transcript.
 
 ### Later (scheduled, not “out of scope forever”)
 
