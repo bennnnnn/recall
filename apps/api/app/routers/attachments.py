@@ -149,6 +149,7 @@ async def upload_attachment_bytes(
         )
 
     await gateway.write_bytes(row.storage_key, data)
+    await attachments_repo.mark_verified(session, row.id)
 
 
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -454,6 +454,10 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
             AsyncMock(return_value=row),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.routers.attachments.attachments_repo.mark_verified",
+            AsyncMock(),
+        ) as mark_verified,
     ):
         client = TestClient(app)
         r = client.put(
@@ -464,6 +468,7 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
 
     assert r.status_code == 204
     gateway.write_bytes.assert_awaited_once()
+    mark_verified.assert_awaited_once()
 
 
 def test_serve_file_rejects_spoofed_r2_bytes():
@@ -733,6 +738,7 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
             AsyncMock(return_value=row),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.attachments_repo.mark_verified", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.put(
