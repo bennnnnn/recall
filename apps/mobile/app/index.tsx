@@ -254,6 +254,7 @@ function ChatScreen() {
   stopTurnRef.current = () => {
     imageGen.cancel();
     stopGeneration();
+    dismissChatError();
   };
   const streamActive = llmBusy || imageGen.generating;
 

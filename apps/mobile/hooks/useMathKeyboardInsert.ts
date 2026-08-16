@@ -10,7 +10,6 @@ import {
   autoAdvanceFracDen,
   caretForInsert,
   fracTapAdvancesToDen,
-  isCursorInsideInlineMath,
   MATH_KEYBOARD_SYMBOLS,
   type MathKeyboardGroup,
   nextEditSlotCaret,
@@ -92,26 +91,6 @@ export function useMathKeyboardInsert(options: {
     mathBarOpenRef.current = false;
     setMathBarOpen(false);
   }, []);
-
-  const insertPlain = useCallback(
-    (chunk: string) => {
-      if (!chunk) return;
-      const sel = pinRef.current ?? selection;
-      const text = textRef.current;
-      const start = Math.max(0, Math.min(sel.start, text.length));
-      const end = Math.max(start, Math.min(sel.end, text.length));
-      const snippet = isCursorInsideInlineMath(text, start) ? `$${chunk}` : chunk;
-      const replaceDraft = /^convert\s/i.test(text.trim());
-      const next = replaceDraft
-        ? chunk
-        : `${text.slice(0, start)}${snippet}${text.slice(end)}`;
-      const caret = replaceDraft ? chunk.length : start + snippet.length;
-      textRef.current = next;
-      setInput(next);
-      pinSelection({ start: caret, end: caret });
-    },
-    [pinSelection, selection, setInput],
-  );
 
   const insertSymbol = useCallback(
     (spec: MathKeyboardSymbol) => {
@@ -206,7 +185,6 @@ export function useMathKeyboardInsert(options: {
     onSelectionChange,
     onChangeText,
     insertSymbol,
-    insertPlain,
     backspace,
     nextSlot,
     prevSlot,

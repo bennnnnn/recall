@@ -10,7 +10,7 @@ import {
   CONVERTER_DEFAULT_DIGITS,
   appendConverterDigit,
   convertUnit,
-  converterInsertText,
+  converterAskText,
   defaultUnits,
   findUnit,
   formatConvertNumber,
@@ -18,14 +18,20 @@ import {
 } from "@/lib/unitConverter";
 
 type Props = {
-  onInsertPlain: (text: string) => void;
+  onAsk: (text: string) => void;
+  onStop: () => void;
+  streaming: boolean;
 };
 
 function buzz() {
   hapticSelection();
 }
 
-export const MathConverterPad = memo(function MathConverterPad({ onInsertPlain }: Props) {
+export const MathConverterPad = memo(function MathConverterPad({
+  onAsk,
+  onStop,
+  streaming,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -62,10 +68,14 @@ export const MathConverterPad = memo(function MathConverterPad({ onInsertPlain }
     setPickerFor(null);
   };
 
-  const insert = () => {
-    if (!from || !to) return;
+  const ask = () => {
     buzz();
-    onInsertPlain(converterInsertText(digits, from.prompt, to.prompt));
+    if (streaming) {
+      onStop();
+      return;
+    }
+    if (!from || !to) return;
+    onAsk(converterAskText(digits, from.prompt, to.prompt));
   };
 
   return (
@@ -115,14 +125,15 @@ export const MathConverterPad = memo(function MathConverterPad({ onInsertPlain }
         {CONVERTER_PAD.map((row, r) => (
           <View key={r} style={s.row}>
             {row.map((cell) =>
-              cell === "ins" ? (
+              cell === "ask" ? (
                 <Key
                   key={cell}
-                  label={t("chat.math_converter_insert")}
-                  testID="math-converter-insert"
-                  onPress={insert}
+                  label={streaming ? t("chat.stop") : t("chat.math_converter_ask")}
+                  testID="math-converter-ask"
+                  onPress={ask}
                   theme={theme}
                   accent
+                  trailing={streaming ? "■" : "↑"}
                 />
               ) : (
                 <Key
@@ -154,7 +165,7 @@ const CONVERTER_PAD = [
   ["7", "8", "9", "AC"],
   ["4", "5", "6", "back"],
   ["1", "2", "3", "±"],
-  ["0", ".", "ins"],
+  ["0", ".", "ask"],
 ] as const;
 
 function UnitChip({
@@ -187,12 +198,14 @@ function Key({
   onPress,
   theme,
   accent,
+  trailing,
 }: {
   label: string;
   testID: string;
   onPress: () => void;
   theme: Theme;
   accent?: boolean;
+  trailing?: string;
 }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
@@ -203,7 +216,10 @@ function Key({
       accessibilityLabel={label}
       testID={testID}
     >
-      <Text style={s.keyLabel}>{label}</Text>
+      <View style={s.keyInner}>
+        <Text style={s.keyLabel}>{label}</Text>
+        {trailing ? <Text style={s.keyTrailing}>{trailing}</Text> : null}
+      </View>
     </Pressable>
   );
 }
@@ -248,6 +264,8 @@ const makeStyles = (theme: Theme) =>
       borderColor: theme.border,
     },
     keyAccent: { backgroundColor: theme.primaryLight },
+    keyInner: { flexDirection: "row", alignItems: "center", gap: 4 },
     keyLabel: { fontSize: 17, fontWeight: "600", color: theme.text },
+    keyTrailing: { fontSize: 16, fontWeight: "700", color: theme.primary },
     pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
   });

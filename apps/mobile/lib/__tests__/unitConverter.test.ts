@@ -1,7 +1,7 @@
 import {
   appendConverterDigit,
   convertUnit,
-  converterInsertText,
+  converterAskText,
   defaultUnits,
   findUnit,
   formatConvertNumber,
@@ -57,10 +57,10 @@ describe("appendConverterDigit", () => {
   });
 });
 
-describe("converterInsertText", () => {
+describe("converterAskText", () => {
   it("asks the model to convert — does not include an answer", () => {
-    expect(converterInsertText("5", "m", "cm")).toBe("convert 5 m to cm");
-    expect(converterInsertText("5", "m", "cm")).not.toContain("=");
+    expect(converterAskText("5", "m", "cm")).toBe("convert 5 m to cm");
+    expect(converterAskText("5", "m", "cm")).not.toContain("=");
   });
 
   it("defaults length to meters → centimeters", () => {

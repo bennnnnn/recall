@@ -76,7 +76,7 @@ export type ChatScreenBodyProps = {
   onMathScanCaptured: (pending: PendingAttachment) => void;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
-  onSend: () => void;
+  onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
   voiceAvailable: boolean;
@@ -213,6 +213,7 @@ export function ChatScreenBody({
         bottom={composerClearance + 8}
         upgradeLabel={!isPro ? t("chat.quota_nudge_cta") : undefined}
         onUpgrade={!isPro ? onUpgrade : undefined}
+        onStop={onStop}
         onDismiss={onDismissChatError}
       />
 
