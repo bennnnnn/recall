@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
@@ -55,6 +55,9 @@ export function useChatMessageList({
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
   }, [messages.length, setMenuVisible]);
+
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   const lastAssistantId = useMemo(
     () => findLastAssistantId(messages),
@@ -114,9 +117,11 @@ export function useChatMessageList({
     ],
   );
 
+  // Read messages from a ref so feedback/refetch/done does not change
+  // renderItem identity and force FlashList to revisit every visible row.
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
-      const priorUserText = priorUserTextFor(messages, index);
+      const priorUserText = priorUserTextFor(messagesRef.current, index);
 
       if (item.id === "streaming" || item.id === IMAGE_GEN_PENDING_ASSISTANT_ID) {
         return (
@@ -173,7 +178,6 @@ export function useChatMessageList({
     },
     [
       sharedRowProps,
-      messages,
       streaming,
       finalizing,
       lastAssistantId,
