@@ -73,7 +73,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
-  (`POST /speech/tts/stream`) and starts playback on the first sentence; **Kokoro 82M**
+  (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
   remains for non-streaming clients.
 - 🔜 Reactions, read receipts; duplex full-voice mode (out of scope).

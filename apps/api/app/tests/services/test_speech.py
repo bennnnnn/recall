@@ -282,20 +282,22 @@ def test_split_tts_lead_keeps_short_text():
     assert split_tts_lead("Hello there.") == ("Hello there.", "")
 
 
-def test_split_tts_lead_cuts_at_sentence():
-    first = (
-        "This is the opening sentence, long enough that a later paragraph "
-        "should not delay the first sound."
+def test_split_tts_lead_does_not_stop_after_one_word():
+    rest_body = (
+        "Here is a longer explanation that should stay in the lead until we "
+        "have enough audio to cover the next request. Then this leftover "
+        "paragraph is fetched only after playback has already started."
     )
-    second = (
-        "And this is a much longer follow-up that should wait for the second "
-        "request after playback has already started for the lead."
-    )
-    padded = f"{first} {second} {second} {second}"
-    lead, rest = split_tts_lead(padded)
-    assert lead.startswith("This is the opening")
-    assert "And this is a much longer" not in lead
-    assert rest.startswith("And this")
+    lead, rest = split_tts_lead(f"Sure. {rest_body}")
+    assert lead.startswith("Sure.")
+    assert len(lead) >= 120
+    assert rest
+
+
+def test_split_tts_lead_caps_the_window():
+    lead, rest = split_tts_lead(f"{'alpha ' * 40}. Extra sentence after the cut.")
+    assert len(lead) <= 160
+    assert rest
 
 
 @pytest.mark.asyncio

@@ -28,29 +28,36 @@ _RETIRED_TTS_SLUGS = frozenset(
     }
 )
 _OPENAI_TTS_VOICES = frozenset({"alloy", "echo", "fable", "onyx", "nova", "shimmer"})
-_TTS_LEAD_MAX_CHARS = 220
-_TTS_LEAD_MIN_CHARS = 24
+_TTS_LEAD_MIN_CHARS = 120
+_TTS_LEAD_MAX_CHARS = 160
 _TTS_SENTENCE_ENDS = frozenset(".!?")
 
 
 def split_tts_lead(plain: str) -> tuple[str, str]:
-    """First sentence (or ~220 chars) so the stream can start before the rest."""
+    """Opening chunk: long enough to speak while the rest synthesizes."""
     normalized = " ".join((plain or "").split()).strip()
-    if len(normalized) <= _TTS_LEAD_MAX_CHARS:
+    if not normalized:
+        return "", ""
+    if len(normalized) <= _TTS_LEAD_MIN_CHARS:
         return normalized, ""
     window = normalized[:_TTS_LEAD_MAX_CHARS]
     cut = -1
-    for index in range(len(window) - 1, _TTS_LEAD_MIN_CHARS - 1, -1):
-        if window[index] not in _TTS_SENTENCE_ENDS:
+    for index, char in enumerate(window):
+        if char not in _TTS_SENTENCE_ENDS:
             continue
         if index + 1 < len(window) and window[index + 1] != " ":
             continue
         cut = index + 1
-        break
+        if cut >= _TTS_LEAD_MIN_CHARS:
+            break
     if cut < _TTS_LEAD_MIN_CHARS:
         space = window.rfind(" ")
-        cut = space if space >= _TTS_LEAD_MIN_CHARS else _TTS_LEAD_MAX_CHARS
-    return normalized[:cut].strip(), normalized[cut:].strip()
+        cut = space if space > 0 else _TTS_LEAD_MAX_CHARS
+    lead = normalized[:cut].strip()
+    rest = normalized[cut:].strip()
+    if not rest:
+        return normalized, ""
+    return lead, rest
 
 
 def normalize_tts_alias(raw: str | None) -> str:

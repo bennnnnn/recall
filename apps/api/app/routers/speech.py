@@ -57,6 +57,8 @@ async def _aiter_nonempty(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
 
 MAX_SPEECH_JSON_BYTES = 7_500_000
 _TTS_FOLLOWUP_TTL_SECONDS = 120
+# One lead + this many rest clips stay on the same daily TTS slot.
+_TTS_FOLLOWUP_MAX_CHUNKS = 32
 
 
 def _tts_followup_key(user_id: object) -> str:
@@ -118,7 +120,14 @@ async def synthesize_speech(
 
     redis = get_redis_client()
     rate_limit = settings.speech_rate_limit_per_minute
-    if rate_limit > 0:
+    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
+    part = _normalize_tts_part(body.part)
+    reserved_quota = False
+    followup_key = _tts_followup_key(user.id)
+    followup = await redis.get(followup_key) if part == "rest" else None
+    # Same utterance as the lead: more short clips, one daily slot, no per-minute burn.
+    billed = not (part == "rest" and followup)
+    if billed and rate_limit > 0:
         allowed = await allow_request_fail_closed(
             redis,
             f"speech_tts_rl:{user.id}",
@@ -130,20 +139,7 @@ async def synthesize_speech(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
-
-    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
-    part = _normalize_tts_part(body.part)
-    reserved_quota = False
-    if part == "rest":
-        followup = await redis.get(_tts_followup_key(user.id))
-        if not followup:
-            if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=quota_service.speech_tts_limit_exceeded_message(user),
-                )
-            reserved_quota = True
-    else:
+    if billed:
         if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -167,12 +163,23 @@ async def synthesize_speech(
         audio_bytes, content_type = result
         if part == "lead":
             await redis.set(
-                _tts_followup_key(user.id),
-                "1",
+                followup_key,
+                str(_TTS_FOLLOWUP_MAX_CHUNKS),
                 ex=_TTS_FOLLOWUP_TTL_SECONDS,
             )
-        elif part == "rest":
-            await redis.delete(_tts_followup_key(user.id))
+        elif part == "rest" and followup:
+            try:
+                remaining = int(followup)
+            except ValueError:
+                remaining = 0
+            if remaining <= 1:
+                await redis.delete(followup_key)
+            else:
+                await redis.set(
+                    followup_key,
+                    str(remaining - 1),
+                    ex=_TTS_FOLLOWUP_TTL_SECONDS,
+                )
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,

@@ -5,16 +5,7 @@ import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-syst
 import { requestRaw } from "@/lib/api/client";
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import { markdownToPlainText } from "@/lib/markdownPlain";
-import {
-  alignPcmBytes,
-  concatBytes,
-  looksLikeMpeg,
-  pcmToWavBytes,
-  TTS_FIRST_CLIP_BYTES,
-  TTS_NEXT_CLIP_BYTES,
-  TTS_PCM_SAMPLE_RATE,
-  uint8ToBase64,
-} from "@/lib/ttsPcm";
+import { splitTtsChunks } from "@/lib/ttsLead";
 import { getTtsModel, TTS_DEVICE_MODEL } from "@/lib/ttsPreference";
 import { loadExpoAudio } from "@/lib/voiceAudio";
 
@@ -26,6 +17,27 @@ let cloudPlayerCleanup: (() => void) | null = null;
 let ttsAbort: AbortController | null = null;
 /** Bumped on every stop / new speak so in-flight work cannot start device TTS. */
 let speakGeneration = 0;
+let ttsTapAt = 0;
+let ttsStartLoggedFor = -1;
+
+function markTtsTap(): void {
+  ttsTapAt = Date.now();
+  ttsStartLoggedFor = -1;
+}
+
+function ttsElapsedMs(): number {
+  return ttsTapAt > 0 ? Date.now() - ttsTapAt : 0;
+}
+
+function logTtsLatency(stage: string, extra?: Record<string, string | number | boolean>): void {
+  console.info("[tts-latency]", { ms: ttsElapsedMs(), stage, ...extra });
+}
+
+function logTtsSpeechStarted(): void {
+  if (ttsStartLoggedFor === speakGeneration) return;
+  ttsStartLoggedFor = speakGeneration;
+  logTtsLatency("speech_started");
+}
 
 /** Sync require keeps expo-speech in the main bundle (async import() breaks Metro module IDs). */
 function loadSpeech(): SpeechModule | null {
@@ -74,51 +86,62 @@ function stopDeviceSpeech(): void {
   }
 }
 
-const TTS_STREAM_TIMEOUT_MS = 180_000;
+const TTS_JSON_TIMEOUT_MS = 60_000;
 
-async function fetchCloudTtsStream(
+type TtsClip = { audio_base64: string; content_type: string };
+
+type PrefetchState = {
+  key: string;
+  model: string;
+  chunks: string[];
+  abort: AbortController;
+  clips: Array<TtsClip | null>;
+  inflight: Array<Promise<TtsClip | null> | null>;
+};
+
+let prefetch: PrefetchState | null = null;
+
+function prefetchCacheKey(text: string, model: string): string {
+  return `${model}\0${text}`;
+}
+
+async function fetchCloudTtsClip(
   token: string,
   text: string,
-  language: string | undefined,
-  model: string | undefined,
-  signal?: AbortSignal,
-): Promise<Response> {
-  return requestRaw(
-    "/speech/tts/stream",
+  language: string,
+  model: string,
+  part: "full" | "lead" | "rest",
+  signal: AbortSignal,
+): Promise<TtsClip | null> {
+  const plain = text.slice(0, 4000).trim();
+  if (!plain) return null;
+  const response = await requestRaw(
+    "/speech/tts",
     token,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/octet-stream",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: text.slice(0, 4000).trim(),
-        language: language ?? null,
-        model: model ?? null,
+        text: plain,
+        language,
+        model,
+        part,
       }),
       signal,
     },
     true,
-    TTS_STREAM_TIMEOUT_MS,
+    TTS_JSON_TIMEOUT_MS,
   );
-}
-
-function chunkToUint8(value: Uint8Array | undefined): Uint8Array {
-  if (!value) return new Uint8Array();
-  return value instanceof Uint8Array ? value : new Uint8Array(value);
-}
-
-async function drainStreamBytes(
-  initial: Uint8Array,
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-): Promise<Uint8Array> {
-  let buffer = initial;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) return buffer;
-    buffer = concatBytes(buffer, chunkToUint8(value));
-  }
+  if (!response.ok) return null;
+  const data = (await response.json()) as {
+    audio_base64?: string;
+    content_type?: string;
+  };
+  if (!data.audio_base64) return null;
+  return {
+    audio_base64: data.audio_base64,
+    content_type: data.content_type ?? "audio/mpeg",
+  };
 }
 
 /** Cloud TTS clip playback (expo-audio). Never mix with expo-speech. */
@@ -187,6 +210,7 @@ async function playCloudBase64(
       }
     };
     player.play();
+    logTtsSpeechStarted();
     await waitUntilPlaybackEnds(player, maxWaitMs ?? CLOUD_PLAYBACK_MAX_MS);
     if (!isCurrentSpeak(generation)) return { ok: true };
     return { ok: true };
@@ -238,6 +262,7 @@ function beginDeviceSpeech(
       Speech.speak(plain, {
         language,
         rate: 0.92,
+        onStart: () => logTtsSpeechStarted(),
         onDone: () => resolve({ ok: true }),
         onStopped: () => resolve({ ok: true }),
         onError: () => resolve({ ok: false, reason: "error" }),
@@ -253,7 +278,98 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && (error.name === "AbortError" || error.name === "CanceledError");
 }
 
-async function playStreamingCloudTts(
+function ttsPartForChunk(index: number, total: number): "full" | "lead" | "rest" {
+  if (total <= 1) return "full";
+  return index === 0 ? "lead" : "rest";
+}
+
+function ensurePrefetchState(text: string, model: string): PrefetchState {
+  const key = prefetchCacheKey(text, model);
+  if (prefetch?.key === key) return prefetch;
+  prefetch?.abort.abort();
+  const chunks = splitTtsChunks(text);
+  const next: PrefetchState = {
+    key,
+    model,
+    chunks,
+    abort: new AbortController(),
+    clips: chunks.map(() => null),
+    inflight: chunks.map(() => null),
+  };
+  prefetch = next;
+  return next;
+}
+
+function ensureChunk(
+  state: PrefetchState,
+  index: number,
+  token: string,
+  language: string,
+  signal: AbortSignal,
+): Promise<TtsClip | null> {
+  const cached = state.clips[index];
+  if (cached) return Promise.resolve(cached);
+  const pending = state.inflight[index];
+  if (pending) return pending;
+  const chunk = state.chunks[index];
+  if (!chunk) return Promise.resolve(null);
+  const request = fetchCloudTtsClip(
+    token,
+    chunk,
+    language,
+    state.model,
+    ttsPartForChunk(index, state.chunks.length),
+    signal,
+  )
+    .then((clip) => {
+      if (state.clips[index] == null) state.clips[index] = clip;
+      if (state.inflight[index] === request) state.inflight[index] = null;
+      return state.clips[index];
+    })
+    .catch((error: unknown) => {
+      if (state.inflight[index] === request) state.inflight[index] = null;
+      if (isAbortError(error)) return state.clips[index];
+      throw error;
+    });
+  state.inflight[index] = request;
+  return request;
+}
+
+/** Warm the first clip of the latest assistant reply so tap is not a 10s OpenRouter wait. */
+export async function prefetchReadAloud(
+  text: string,
+  token: string | null,
+): Promise<void> {
+  if (!token || !canUseVoiceInput() || ttsAbort) return;
+  const model = await getTtsModel();
+  if (model === TTS_DEVICE_MODEL) return;
+  const plain = markdownToPlainText(text).slice(0, 4000);
+  if (!plain) return;
+  const state = ensurePrefetchState(plain, model);
+  if (state.clips[0] || state.inflight[0]) {
+    if (state.chunks.length > 1 && !state.clips[1] && !state.inflight[1]) {
+      void ensureChunk(state, 1, token, "en-US", state.abort.signal);
+    }
+    return;
+  }
+  logTtsLatency("prefetch_start", {
+    leadChars: state.chunks[0]?.length ?? 0,
+    chunks: state.chunks.length,
+  });
+  try {
+    const clip = await ensureChunk(state, 0, token, "en-US", state.abort.signal);
+    if (prefetch !== state) return;
+    logTtsLatency("prefetch_ready", { ok: Boolean(clip), chunks: state.chunks.length });
+    if (clip && state.chunks.length > 1) {
+      void ensureChunk(state, 1, token, "en-US", state.abort.signal);
+    }
+  } catch (error) {
+    if (isAbortError(error)) return;
+    logTtsLatency("prefetch_failed");
+  }
+}
+
+async function playChunkPipeline(
   token: string,
   text: string,
   language: string,
@@ -261,79 +377,48 @@ async function playStreamingCloudTts(
   generation: number,
   signal: AbortSignal,
 ): Promise<SpeakResult> {
-  const response = await fetchCloudTtsStream(token, text, language, model, signal);
+  const state = ensurePrefetchState(text, model);
+  const first = state.chunks[0];
+  if (!first) return { ok: false, reason: "error" };
+  const cached = Boolean(state.clips[0]);
+  logTtsLatency("lead_request", {
+    leadChars: first.length,
+    chunks: state.chunks.length,
+    cached,
+  });
+  const leadClip = await ensureChunk(state, 0, token, language, signal);
   if (!isCurrentSpeak(generation)) return { ok: true };
-  if (!response.ok) return { ok: false, reason: "error" };
-  if (!response.body) return { ok: false, reason: "unavailable" };
-
-  const reader = response.body.getReader();
-  const first = await reader.read();
-  if (!isCurrentSpeak(generation)) {
-    await reader.cancel().catch(() => undefined);
-    return { ok: true };
-  }
-  if (first.done || !first.value?.length) {
+  if (!leadClip) {
+    logTtsLatency("lead_failed");
     return { ok: false, reason: "error" };
   }
+  logTtsLatency("lead_ready", { leadChars: first.length, cached });
 
-  let buffer = chunkToUint8(first.value);
-  if (looksLikeMpeg(buffer)) {
-    const all = await drainStreamBytes(buffer, reader);
+  for (let index = 0; index < state.chunks.length; index += 1) {
     if (!isCurrentSpeak(generation)) return { ok: true };
-    return playCloudBase64(uint8ToBase64(all), "audio/mpeg", generation);
+    const clip =
+      index === 0 ? leadClip : await ensureChunk(state, index, token, language, signal);
+    if (!clip) return index === 0 ? { ok: false, reason: "error" } : { ok: true };
+    if (index + 1 < state.chunks.length) {
+      void ensureChunk(state, index + 1, token, language, signal);
+    }
+    const played = await playCloudBase64(clip.audio_base64, clip.content_type, generation);
+    if (!played.ok) return played;
   }
-
-  let awaitingFirstClip = true;
-  let playTail: Promise<SpeakResult> = Promise.resolve({ ok: true });
-
-  const enqueuePcm = (pcm: Uint8Array) => {
-    const copy = pcm.slice();
-    const b64 = uint8ToBase64(pcmToWavBytes(copy));
-    const clipMs = Math.ceil((copy.length / (TTS_PCM_SAMPLE_RATE * 2)) * 1000) + 160;
-    playTail = playTail.then((prev) => {
-      if (!prev.ok) return prev;
-      if (!isCurrentSpeak(generation)) return { ok: true };
-      return playCloudBase64(b64, "audio/wav", generation, clipMs);
-    });
-  };
-
-  const flush = (minBytes: number, force: boolean) => {
-    while (buffer.length >= (force ? 2 : minBytes)) {
-      const take = force ? alignPcmBytes(buffer.length) : alignPcmBytes(minBytes);
-      if (take < 2) break;
-      enqueuePcm(buffer.subarray(0, take));
-      buffer = buffer.subarray(take);
-      awaitingFirstClip = false;
-      if (force) break;
-    }
-  };
-
-  flush(TTS_FIRST_CLIP_BYTES, false);
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!isCurrentSpeak(generation)) {
-      await reader.cancel().catch(() => undefined);
-      return { ok: true };
-    }
-    if (value?.length) {
-      buffer = concatBytes(buffer, chunkToUint8(value));
-      flush(awaitingFirstClip ? TTS_FIRST_CLIP_BYTES : TTS_NEXT_CLIP_BYTES, false);
-    }
-  }
-  flush(2, true);
-  return playTail;
+  return { ok: true };
 }
 
 /**
- * Cloud TTS streams PCM and starts playback on the first ~120ms.
- * Device speech is a separate setting — this path never starts it.
+ * Cloud TTS plays a finished WAV/MP3 for the first sentence, then the rest.
+ * Raw PCM streaming caused static and waited for the full body on device.
  */
 export async function speakPlainText(
   text: string,
   language = "en-US",
   options?: { token?: string | null },
 ): Promise<SpeakResult> {
+  markTtsTap();
+  logTtsLatency("tap");
   stopSpeaking();
   const generation = speakGeneration;
   const plain = markdownToPlainText(text).slice(0, 4000);
@@ -352,7 +437,7 @@ export async function speakPlainText(
   const ac = new AbortController();
   ttsAbort = ac;
   try {
-    return await playStreamingCloudTts(
+    return await playChunkPipeline(
       token,
       plain,
       language,
@@ -365,6 +450,8 @@ export async function speakPlainText(
       return { ok: true };
     }
     return { ok: false, reason: "error" };
+  } finally {
+    if (ttsAbort === ac) ttsAbort = null;
   }
 }
 
