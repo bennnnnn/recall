@@ -63,8 +63,6 @@ export type ChatScreenBodyProps = {
   onUpgrade: () => void;
   onDismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
-  input: string;
-  onChangeInput: (text: string) => void;
   streaming: boolean;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
@@ -130,8 +128,6 @@ export function ChatScreenBody({
   onUpgrade,
   onDismissChatError,
   composerAnimatedStyle,
-  input,
-  onChangeInput,
   streaming,
   attachBusy,
   pendingAttachment,
@@ -226,8 +222,6 @@ export function ChatScreenBody({
         visible={!drawerOpen}
         animatedContainerStyle={composerAnimatedStyle}
         token={token}
-        input={input}
-        onChangeInput={onChangeInput}
         streaming={streaming}
         attachBusy={attachBusy}
         pendingAttachment={pendingAttachment}
