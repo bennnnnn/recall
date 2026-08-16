@@ -90,7 +90,6 @@ export type UseChatScreenBodyPropsParams = {
   isPro: boolean;
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
-  input: string;
   setInput: (value: string) => void;
   streaming: boolean;
   /** Which message (if any) the composer is editing in place. */
@@ -167,7 +166,6 @@ export function useChatScreenBodyProps({
   isPro,
   dismissChatError,
   composerAnimatedStyle,
-  input,
   setInput,
   streaming,
   editing: { editingMessageId, setEditingMessageId },
@@ -189,9 +187,8 @@ export function useChatScreenBodyProps({
   const { headerInset, composerClearance, listBottomPad, emptyHeight } = layout;
   listBottomPadRef.current = listBottomPad;
 
-  // Keep list-facing callbacks identity-stable. bodyProps still rebuilds on
-  // every keystroke (composer `input`), but ChatMessageList is memo'd — fresh
-  // inline arrows here used to defeat that memo and re-render the whole list.
+  // Keep list-facing callbacks identity-stable. Composer text lives in
+  // ComposerDraftContext so keystrokes do not rebuild bodyProps.
   const onLoadOlder = useCallback(() => {
     void loadOlderMessages();
   }, [loadOlderMessages]);
@@ -304,8 +301,6 @@ export function useChatScreenBodyProps({
       onUpgrade,
       onDismissChatError: dismissChatError,
       composerAnimatedStyle,
-      input,
-      onChangeInput: setInput,
       streaming,
       attachBusy,
       pendingAttachment,
@@ -367,7 +362,6 @@ export function useChatScreenBodyProps({
       onUpgrade,
       dismissChatError,
       composerAnimatedStyle,
-      input,
       setInput,
       streaming,
       attachBusy,

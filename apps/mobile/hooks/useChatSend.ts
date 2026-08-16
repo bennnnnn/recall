@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
+import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+
 type Router = ReturnType<typeof useRouter>;
 
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
@@ -122,7 +124,7 @@ export function useChatSend({
   } = draft;
   const { newMessageCountRef } = scroll;
 
-  const [input, setInput] = useState("");
+  const { setInput, inputRef } = useComposerDraftApi();
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
@@ -143,13 +145,6 @@ export function useChatSend({
   } | null>(null);
 
   const attachPickInFlightRef = useRef(false);
-  // Read composer text via ref so handleSend (and quiz/starter wrappers that
-  // depend on it) stay identity-stable across keystrokes. Otherwise every
-  // character rebuilds onQuizAnswer → sharedRowProps → renderItem and defeats
-  // FlashList / ChatMessageList memo while typing.
-  const inputRef = useRef(input);
-  inputRef.current = input;
-
   useEffect(() => {
     if (chatId && pendingSend) {
       const {
@@ -450,7 +445,6 @@ export function useChatSend({
   );
 
   return {
-    input,
     setInput,
     pendingAttachment,
     setPendingAttachment,

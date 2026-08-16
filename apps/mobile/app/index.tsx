@@ -19,6 +19,7 @@ import {
   composerAttachmentExtra,
 } from "@/components/chat/ChatComposer";
 import { DrawerShell } from "@/components/DrawerShell";
+import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -295,7 +296,6 @@ function ChatScreen() {
   });
 
   const {
-    input,
     setInput,
     pendingAttachment,
     setPendingAttachment,
@@ -507,7 +507,6 @@ function ChatScreen() {
     isPro,
     dismissChatError,
     composerAnimatedStyle,
-    input,
     setInput,
     streaming: streamActive,
     editing: { editingMessageId, setEditingMessageId },
@@ -558,7 +557,9 @@ function ChatScreen() {
 export default function HomeScreen() {
   return (
     <DrawerShell>
-      <ChatScreen />
+      <ComposerDraftProvider>
+        <ChatScreen />
+      </ComposerDraftProvider>
     </DrawerShell>
   );
 }

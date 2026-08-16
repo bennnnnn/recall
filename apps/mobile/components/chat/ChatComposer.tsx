@@ -22,6 +22,10 @@ import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
+import {
+  useComposerDraftApiOptional,
+  useComposerDraftValueOptional,
+} from "@/contexts/ComposerDraftContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
@@ -30,6 +34,8 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlot
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+
+function noopComposerInput(_text: string) {}
 
 export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
@@ -47,8 +53,9 @@ type Props = {
   paddingBottom?: number;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
   token: string | null;
-  input: string;
-  onChangeInput: (text: string) => void;
+  /** Tests pass these; production reads ComposerDraftContext. */
+  input?: string;
+  onChangeInput?: (text: string) => void;
   streaming: boolean;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
@@ -79,8 +86,8 @@ export const ChatComposer = memo(function ChatComposer({
   paddingBottom,
   animatedContainerStyle,
   token,
-  input,
-  onChangeInput,
+  input: inputProp,
+  onChangeInput: onChangeInputProp,
   streaming,
   attachBusy,
   pendingAttachment,
@@ -105,6 +112,12 @@ export const ChatComposer = memo(function ChatComposer({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const draft = useComposerDraftValueOptional();
+  const draftApi = useComposerDraftApiOptional();
+  const input = inputProp ?? draft?.input ?? "";
+  const onChangeInput =
+    onChangeInputProp ??
+    (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
