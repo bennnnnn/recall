@@ -70,7 +70,7 @@ function TickMarks({
           y2={seg.y2}
           stroke={color}
           strokeWidth={1.5}
-          accessibilityLabel="side-tick-mark"
+          accessible={false}
         />
       ))}
     </>
@@ -141,7 +141,7 @@ function VertexAngleGraphic({
           fill="none"
           stroke={color}
           strokeWidth={1.5}
-          accessibilityLabel="right-angle-mark"
+          accessible={false}
         />
       ) : (
         <Path
@@ -149,7 +149,7 @@ function VertexAngleGraphic({
           fill="none"
           stroke={color}
           strokeWidth={1.5}
-          accessibilityLabel="interior-angle-arc"
+          accessible={false}
         />
       )}
       {mark.leader ? (
@@ -160,7 +160,7 @@ function VertexAngleGraphic({
           y2={mark.leader.y2}
           stroke={color}
           strokeWidth={1}
-          accessibilityLabel="interior-angle-leader"
+          accessible={false}
         />
       ) : null}
       <Rect
@@ -170,7 +170,7 @@ function VertexAngleGraphic({
         height={mark.labelHeight}
         rx={3}
         fill={fill}
-        accessibilityLabel="interior-angle-backdrop"
+        accessible={false}
       />
       <SvgText
         x={mark.labelX}
@@ -180,7 +180,7 @@ function VertexAngleGraphic({
         fontWeight="600"
         textAnchor="middle"
         alignmentBaseline="middle"
-        accessibilityLabel={`interior-angle-${mark.text}`}
+        accessible={false}
       >
         {mark.text}
       </SvgText>
@@ -277,7 +277,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
             fill="none"
             stroke={theme.textSecondary}
             strokeWidth={1.5}
-            accessibilityLabel="diagonal-angle-arc"
+            accessible={false}
           />
           <SvgText x={x + 22} y={y + 28} fill={theme.textSecondary} fontSize={12}>
             {`∠\u00A0${labels.angle}`}
@@ -343,7 +343,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
         fill={theme.contentSurface}
         stroke={theme.primary}
         strokeWidth={2}
-        accessibilityLabel="triangle-outline"
+        accessible={false}
       />
       {showAltitude ? (
         <Line
@@ -354,7 +354,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
           stroke={colors.height}
           strokeWidth={2}
           strokeDasharray="5,4"
-          accessibilityLabel="altitude-line"
+          accessible={false}
         />
       ) : null}
       {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
@@ -613,7 +613,7 @@ function TriangleSidesDiagram({
           stroke={colors.height}
           strokeWidth={2}
           strokeDasharray="5,4"
-          accessibilityLabel="altitude-line"
+          accessible={false}
         />
       ) : null}
       {showMedian && !altitudeIsMedian ? (
@@ -625,7 +625,7 @@ function TriangleSidesDiagram({
           stroke={colors.median}
           strokeWidth={1.5}
           strokeDasharray="2,3"
-          accessibilityLabel="median-line"
+          accessible={false}
         />
       ) : null}
       {showMedian && altitudeIsMedian && !showAltitude ? (
@@ -637,7 +637,7 @@ function TriangleSidesDiagram({
           stroke={colors.median}
           strokeWidth={1.5}
           strokeDasharray="2,3"
-          accessibilityLabel="median-line"
+          accessible={false}
         />
       ) : null}
       {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}

@@ -1,7 +1,7 @@
 // Integration coverage for the fence dispatch/splice layer between parsed
 // markdown and the Math*/Geometry*/FunctionGraphBlock rich components — zero
 // coverage before this file (only each block's own logic was unit tested).
-import { render } from "@testing-library/react-native";
+import { render, waitFor } from "@testing-library/react-native";
 
 import { renderFence, type FenceNode } from "@/components/markdown/markdownFenceRender";
 
@@ -36,6 +36,23 @@ jest.mock("@expo/vector-icons", () => ({
 jest.mock("@/components/WebPreviewCodeBlock", () => ({
   WebPreviewCodeBlock: "WebPreviewCodeBlock",
 }));
+// This suite's jest env cannot evaluate React.lazy dynamic import(). Eager
+// stand-ins keep geometry/graph dispatch coverage without vm-modules.
+jest.mock("@/components/rich/LazyHeavyRich", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
+  const React = require("react");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
+  const { GeometryBlock } = require("@/components/rich/GeometryBlock");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
+  const { FunctionGraphBlock } = require("@/components/rich/FunctionGraphBlock");
+  return {
+    ...jest.requireActual("@/components/rich/LazyHeavyRich"),
+    LazyGeometryBlock: ({ content }: { content: string }) =>
+      React.createElement(GeometryBlock, { content }),
+    LazyFunctionGraphBlock: ({ content }: { content: string }) =>
+      React.createElement(FunctionGraphBlock, { content }),
+  };
+});
 // Same reasoning — CircularClockBlock pulls in react-native-reanimated,
 // which needs native worklets init unavailable in this test env; none of
 // this file's fence bodies are clock content.
@@ -161,7 +178,9 @@ describe("renderFence geometry/graph dispatch", () => {
   it("routes an explicit ```geometry fence to GeometryBlock", async () => {
     const content = JSON.stringify({ type: "square", side: 5, unit: "cm" });
     const { toJSON } = await render(<>{renderFence(node(content, "geometry"))}</>);
-    expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    await waitFor(() => {
+      expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    });
   });
 
   it("routes an explicit ```graph fence to FunctionGraphBlock", async () => {
@@ -174,7 +193,9 @@ describe("renderFence geometry/graph dispatch", () => {
       ],
     });
     const { getByText } = await render(<>{renderFence(node(content, "graph"))}</>);
-    expect(getByText("y = x²")).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(getByText("y = x²")).toBeOnTheScreen();
+    });
   });
 
   it("sniffs an untagged ```json geometry blob and routes it to GeometryBlock", async () => {
@@ -183,7 +204,9 @@ describe("renderFence geometry/graph dispatch", () => {
     // fallback (detectJsonRichFenceKind) must still route it correctly.
     const content = JSON.stringify({ type: "rectangle", width: 6, height: 4, unit: "cm" });
     const { toJSON } = await render(<>{renderFence(node(content, "json"))}</>);
-    expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    await waitFor(() => {
+      expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    });
   });
 
   it("sniffs an untagged fence graph blob and routes it to FunctionGraphBlock", async () => {
@@ -196,7 +219,9 @@ describe("renderFence geometry/graph dispatch", () => {
       ],
     });
     const { getByText } = await render(<>{renderFence(node(content))}</>);
-    expect(getByText("y = sin(x)")).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(getByText("y = sin(x)")).toBeOnTheScreen();
+    });
   });
 });
 
