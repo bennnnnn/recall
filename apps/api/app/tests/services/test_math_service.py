@@ -59,6 +59,8 @@ def test_normalize_unicode_scripts_and_glyphs() -> None:
     assert math_service._normalize_latex_to_sympy("\u03c0") == "pi"
     assert math_service._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
     assert math_service._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
+    assert math_service._normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
+    assert math_service._normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
     parsed = math_service._parse_expression("x\u00b2 + 1", ["x"])
     assert parsed is not None
 

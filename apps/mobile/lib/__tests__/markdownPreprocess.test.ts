@@ -1,4 +1,4 @@
-import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines } from "@/lib/markdownPreprocess";
+import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks } from "@/lib/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
@@ -147,6 +147,76 @@ x = 0
     expect(out).toContain("2. Simplify the left side:");
     expect(out).toContain("3. Subtract 5 from both sides to isolate x:");
     expect(out).toContain("4. Final result:");
+  });
+
+  it("lifts an indented evaluation-bar ```math fence out of a numbered step", () => {
+    const input = `2. Apply the limits 2 and 8:
+   \`\`\`math
+   \\left.\\frac{x^{3}}{3}\\right|_{2}^{8}
+   = \\frac{8^{3}}{3}-\\frac{2^{3}}{3}
+   = \\frac{512}{3}-\\frac{8}{3}
+   = \\frac{504}{3}
+   \`\`\`
+
+3. Simplify:
+   \`\`\`math
+   \\frac{504}{3} = 168
+   \`\`\``;
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```math\n");
+    expect(out).not.toMatch(/^[ \t]+```math/m);
+    const tokens = markdownItInstance.parse(out, {});
+    const fenceBodies = tokens
+      .filter((t) => t.type === "fence")
+      .map((t) => t.content);
+    expect(fenceBodies.some((b) => b.includes("\\left."))).toBe(true);
+    expect(fenceBodies.some((b) => b.includes("504"))).toBe(true);
+    const asText = tokens
+      .filter((t) => t.type === "inline" || t.type === "paragraph_open")
+      .map((t) => t.content)
+      .join("\n");
+    expect(asText).not.toContain("```math");
+  });
+
+  it("BUG FIX regression: ```math glued to a sentence is a real fence, not raw LaTeX", () => {
+    // Live: "Multiply both sides by r: ```math" then the equation — CommonMark
+    // ignored the mid-line opener and painted ```math, \frac, \quad, \Rightarrow.
+    const input =
+      "Multiply both sides by r: ```math\n" +
+      "r^2 + 1 = \\frac{17}{4}r \\quad \\Rightarrow \\quad 4r^2 - 17r + 4 = 0\n" +
+      "```\n\n*Solve:*\n```math\n(4r-1)(r-4)=0\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/r: ```math/);
+    expect(breakAttachedMathFences("Multiply both sides by r: ```math")).toContain(
+      "```math",
+    );
+    expect(out).toContain("Multiply both sides by r:");
+    const tokens = markdownItInstance.parse(out, {});
+    const fences = tokens.filter((t) => t.type === "fence");
+    expect(fences.length).toBeGreaterThanOrEqual(2);
+    expect(fences.some((t) => t.content.includes("\\frac{17}{4}"))).toBe(true);
+    const asText = tokens
+      .filter((t) => t.type === "inline")
+      .map((t) => t.content)
+      .join("\n");
+    expect(asText).not.toContain("```math");
+    expect(asText).not.toContain("\\frac");
+  });
+
+  it("BUG FIX regression: does not leave a stray backtick on a check-sum line", () => {
+    // Live: "✅ Check sum: 2 + 8 + 32 = 42`" — leftover markdown tick.
+    const input = "✅ Check sum: `2 + 8 + 32 = 42`\n✅ Check sum: 2 + 8 + 32 = 42`";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/42`/);
+    expect(unwrapProseMathBackticks("✅ Check sum: 2 + 8 + 32 = 42`")).toBe(
+      "✅ Check sum: 2 + 8 + 32 = 42",
+    );
+    expect(out).toContain("2 + 8 + 32 = 42");
+  });
+
+  it("does not unwrap non-math inline code", () => {
+    const input = "Install with `npm install` then run.";
+    expect(preprocessMarkdown(input)).toContain("`npm install`");
   });
 
   it("BUG FIX regression: does not unwrap a math fence just because its content starts with a dollar sign", () => {
@@ -364,6 +434,12 @@ Bob | 88`;
     const out = preprocessMarkdown(input);
     expect(out).toContain("---");
     expect(out).toContain("name: deploy");
+  });
+
+  it("does not turn composer abs-bars $|5|3$ into a GFM table", () => {
+    const input = "$|5|3$";
+    expect(normalizeMarkdownTables(input)).toBe(input);
+    expect(preprocessMarkdown(input)).not.toMatch(/---/);
   });
 });
 

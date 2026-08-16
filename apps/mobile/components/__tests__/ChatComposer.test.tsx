@@ -67,11 +67,26 @@ const baseProps = {
   onSend: jest.fn(),
   onStop: jest.fn(),
   isOffline: false,
+  mathContext: true,
 };
 
 describe("ChatComposer math keyboard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("hides the math pill when the chat is not about math", async () => {
+    const { queryByTestId } = await render(
+      <ChatComposer {...baseProps} mathContext={false} input="" />,
+    );
+    expect(queryByTestId("math-keyboard-toggle")).toBeNull();
+  });
+
+  it("shows the math pill when the draft looks like math", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} mathContext={false} input={"$\\sqrt{9}$"} />,
+    );
+    expect(getByTestId("math-keyboard-toggle")).toBeTruthy();
   });
 
   it("toggles the symbol bar and inserts a fraction at the caret", async () => {
@@ -82,6 +97,7 @@ describe("ChatComposer math keyboard", () => {
 
     expect(queryByTestId("math-key-frac")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-composer-caret")).toBeTruthy();
     expect(getByTestId("math-key-frac")).toBeTruthy();
 
     await fireEvent.press(getByTestId("math-key-frac"));
@@ -102,10 +118,35 @@ describe("ChatComposer math keyboard", () => {
     expect(onChangeInput).toHaveBeenCalledWith("$\\sin()$");
   });
 
+  it("renders a trig function once, not as a doubled name", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, getAllByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
+    await fireEvent.press(getByTestId("math-key-cos"));
+    expect(getAllByTestId("math-group")).toHaveLength(1);
+  });
+
+  it("hides the number pad on the Greek tab", async () => {
+    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-keyboard-numpad")).toBeTruthy();
+    expect(getByTestId("math-key-digit-7")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-tab-greek"));
+    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
+    expect(queryByTestId("math-key-digit-7")).toBeNull();
+    expect(getByTestId("math-key-alpha")).toBeTruthy();
+    expect(getByTestId("math-key-backspace")).toBeTruthy();
+  });
+
   it("renders the draft as math, not raw LaTeX", async () => {
     const { getByTestId } = await render(
       <ChatComposer {...baseProps} input={"$\\frac{1}{2}$"} />,
     );
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-draft-preview")).toBeTruthy();
     expect(getByTestId("math-frac")).toBeTruthy();
     expect(getByTestId("math-vinculum")).toBeTruthy();
@@ -122,6 +163,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
+    expect(getByTestId("math-slot-den-placeholder")).toBeTruthy();
     await fireEvent.press(getByTestId("math-key-digit-1"));
     await fireEvent.press(getByTestId("math-key-next-slot"));
     await fireEvent.press(getByTestId("math-key-digit-2"));
@@ -133,6 +175,38 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-slot-after")).toBeTruthy();
   });
 
+  it("tabs to the denominator and back to the numerator", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-frac"));
+    expect(getByTestId("math-slot-num-caret")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-key-next-slot"));
+    expect(getByTestId("math-slot-den-caret")).toBeTruthy();
+    expect(queryByTestId("math-slot-num-caret")).toBeNull();
+    await fireEvent.press(getByTestId("math-key-prev-slot"));
+    expect(getByTestId("math-slot-num-caret")).toBeTruthy();
+  });
+
+  it("does not show raw latex after deleting an empty cos", async () => {
+    let latest = "";
+    function Harness() {
+      const [input, setInput] = useState("");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByText } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
+    await fireEvent.press(getByTestId("math-key-cos"));
+    await fireEvent.press(getByTestId("math-key-backspace"));
+    expect(latest).not.toMatch(/\\cos/);
+    expect(queryByText("\\cos")).toBeNull();
+  });
+
   it("shows a tappable box for square root, not only for fractions", async () => {
     function Harness() {
       const [input, setInput] = useState("");
@@ -142,6 +216,74 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sqrt"));
     expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
+  });
+
+  it("ⁿ√ after a number is n times square root, not an nth-root index", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-digit-6"));
+    await fireEvent.press(getByTestId("math-key-nroot"));
+    expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
+    expect(queryByTestId("math-slot-nroot-index")).toBeNull();
+  });
+
+  it("shows a gray box for the empty exponent until it is focused", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-sup"));
+    expect(getByTestId("math-slot-sup-caret")).toBeTruthy();
+    expect(queryByTestId("math-slot-sup-placeholder")).toBeNull();
+  });
+
+  it("xⁿ on an empty composer shows a base x and an exponent box", async () => {
+    let latest = "";
+    function Harness() {
+      const [input, setInput] = useState("");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-sup"));
+    expect(latest).toBe("$x^{}$");
+    expect(getByTestId("math-draft-preview")).toBeTruthy();
+    expect(getByTestId("math-sup")).toBeTruthy();
+    expect(getByTestId("math-slot-sup-caret")).toBeTruthy();
+  });
+
+  it("shows a caret in the subscript box", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-sub"));
+    expect(getByTestId("math-slot-sub-caret")).toBeTruthy();
+  });
+
+  it("moves the blue caret to the denominator when that box is tapped", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-frac"));
+    expect(getByTestId("math-slot-num-caret")).toBeTruthy();
+    expect(getByTestId("math-slot-den-placeholder")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-slot-den"));
+    expect(queryByTestId("math-slot-num-caret")).toBeNull();
+    expect(getByTestId("math-slot-num-placeholder")).toBeTruthy();
+    expect(getByTestId("math-slot-den-caret")).toBeTruthy();
   });
 
   it("backspaces a fraction without showing raw LaTeX", async () => {
@@ -184,6 +326,50 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-slot-before-caret")).toBeTruthy();
     await fireEvent.press(getByTestId("math-key-backspace"));
     expect(latest).toBe("$\\frac{}{8}$");
+  });
+
+  it("inserts at the tapped end of the draft, not the start", async () => {
+    let latest = "$|5|99$";
+    function Harness() {
+      const [input, setInput] = useState("$|5|99$");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-slot-before-caret")).toBeTruthy();
+    expect(queryByTestId("math-slot-after-caret")).toBeNull();
+    await fireEvent.press(getByTestId("math-slot-after"));
+    expect(queryByTestId("math-slot-before-caret")).toBeNull();
+    expect(getByTestId("math-slot-after-caret")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-key-digit-7"));
+    expect(latest).toBe("$|5|997$");
+  });
+
+  it("ABC keeps the visual fraction and lets you type words in front of it", async () => {
+    let latest = "";
+    function Harness() {
+      const [input, setInput] = useState("");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-frac"));
+    await fireEvent.press(getByTestId("math-key-digit-9"));
+    expect(getByTestId("math-slot-num-caret-end")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-draft-preview")).toBeTruthy();
+    expect(getByTestId("math-frac")).toBeTruthy();
+    expect(queryByTestId("math-key-frac")).toBeNull();
+    expect(queryByTestId("math-slot-num-caret-end")).toBeNull();
+    expect(getByTestId("math-slot-before-caret")).toBeTruthy();
+    const before = latest;
+    const denTyped = before.replace("}{}", "}{g}");
+    await fireEvent.changeText(getByTestId("chat-composer-input"), denTyped);
+    expect(latest.startsWith("g")).toBe(true);
+    expect(latest).toContain("\\frac{9}{}");
+    expect(latest).not.toContain("\\frac{9}{g}");
   });
 
   it("hides the bar when toggled off", async () => {

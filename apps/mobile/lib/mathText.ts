@@ -37,19 +37,41 @@ const MAX_MATH_NEST_DEPTH = 12;
  * line above unless both MathText and the wrapping markdown Text use this.
  */
 export const MATH_TALL_LINE_HEIGHT = 46;
+/** Superscripts (`a^2`, a²) need more leading than body 25 or they clip the line above. */
+export const MATH_SCRIPT_LINE_HEIGHT = 34;
 
 /** True when native/inline layout must leave room above/below the run. */
 export function latexNeedsTallLine(latex: string): boolean {
   return /\\(?:d|t|c)?frac|\\sqrt/.test(latex);
 }
 
+const SUPER_OR_SUB_RE = /\^|_\{|[\u00B2\u00B3\u00B9\u2070-\u207F\u2080-\u208E]/;
+
+/** Line height the wrapping markdown Text must use so math doesn't overlap neighbors. */
+export function mathRunLineHeight(latex: string): number | undefined {
+  if (latexNeedsTallLine(latex)) {
+    // Several inline stacks in one sentence (`r=1/4`, then another frac, then
+    // a comma) must not inflate every wrapped fragment to 46px or punctuation
+    // sits on its own huge line.
+    const stacks = latex.split(/\\(?:d|t|c)?frac|\\sqrt/).length - 1;
+    if (stacks > 1 || latex.length > 48) return MATH_SCRIPT_LINE_HEIGHT;
+    return MATH_TALL_LINE_HEIGHT;
+  }
+  if (SUPER_OR_SUB_RE.test(latex)) return MATH_SCRIPT_LINE_HEIGHT;
+  return undefined;
+}
+
 /**
- * Stacked `\\frac` is a nested View. Inside a paragraph `Text` that View
- * gets a zero-size text attachment on iOS and paints over neighboring
- * words (the "smudged" line). Those spans must leave the text run.
+ * Stacked `\\frac` / `\\sqrt` is a nested View. Inside a paragraph `Text`
+ * that View gets a zero-size text attachment on iOS and paints over
+ * neighboring words (the "smudged" line) unless it leaves the text run.
  */
 export function latexHasStackedFrac(latex: string): boolean {
   return /\\(?:d|t|c)?frac/.test(latex);
+}
+
+export function latexHasNestedMathView(latex: string): boolean {
+  return latexHasStackedFrac(latex) || /\\sqrt/.test(latex);
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
@@ -66,7 +88,10 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // Short forms — common in homework; without these "$x \le 2$" leaks "\le".
   [/\\le(?![a-zA-Z])/g, "≤"],
   [/\\ge(?![a-zA-Z])/g, "≥"],
-  [/\\neq/g, "≠"],
+  [/\\neq(?![a-zA-Z])/g, "≠"],
+  // Short form — models write `$a \ne 0$` as often as `\neq`.
+  [/\\ne(?![a-zA-Z])/g, "≠"],
+  [/\\not=/g, "≠"],
   [/\\approx/g, "≈"],
   [/\\infty/g, "∞"],
   [/\\cup(?![a-zA-Z])/g, "∪"],
@@ -146,6 +171,10 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\longmapsto/g, "⟼"],
   [/\\mapsto/g, "↦"],
   [/\\quad/g, "  "],
+  [/\\qquad/g, "    "],
+  [/\\displaystyle/g, ""],
+  [/\\textstyle/g, ""],
+  [/\\scriptstyle/g, ""],
   [/\\,/g, " "],
   [/\\;/g, " "],
   [/\\!/g, ""],

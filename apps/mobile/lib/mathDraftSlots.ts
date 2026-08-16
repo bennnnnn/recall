@@ -111,8 +111,8 @@ export function findDraftNodes(text: string): DraftNode[] {
       continue;
     }
     const group = tryGroup(text, i);
-    if (group) {
-      flush(i);
+    if (group && group.start >= textStart) {
+      flush(group.start);
       nodes.push(group);
       textStart = i = group.end;
       continue;
@@ -227,7 +227,33 @@ function collapseEmptyMath(
   let next = text.replace(/\$\$/g, "");
   if (next === "$") next = "";
   const pos = Math.max(0, Math.min(caret, next.length));
-  return { text: next, selection: { start: pos, end: pos } };
+  return commitBackspace({ text: next, selection: { start: pos, end: pos } });
+}
+
+function snapCaretOffRaw(text: string, pos: number): number {
+  if (!text) return 0;
+  const p = Math.max(0, Math.min(pos, text.length));
+  const rawAt = (i: number) => {
+    const c = text[i];
+    return c === "\\" || c === "{" || c === "}";
+  };
+  if (p < text.length && rawAt(p)) {
+    const prev = [...mathCaretStops(text)].reverse().find((s) => s <= p);
+    if (prev != null) return prev;
+  }
+  if (p > 0 && rawAt(p - 1) && text[p] !== "$") {
+    const prev = [...mathCaretStops(text)].reverse().find((s) => s < p);
+    if (prev != null) return prev;
+  }
+  return p;
+}
+
+function commitBackspace(result: { text: string; selection: TextSelection }): {
+  text: string;
+  selection: TextSelection;
+} {
+  const start = snapCaretOffRaw(result.text, result.selection.start);
+  return { text: result.text, selection: { start, end: start } };
 }
 
 function slotCut(text: string, slot: LatexGroup, caret: number): number {
@@ -266,7 +292,11 @@ export function spliceMathBackspace(
       (inner.length > 0
         ? inner.reduce((best, s) => (s.close - s.open < best.close - best.open ? s : best))
         : slots.filter((s) => s.close < pos).at(-1)) ?? slots.at(-1);
-    if (!slot) return deleteTokenBefore(text, pos, 0) ?? { text, selection: { start: pos, end: pos } };
+    if (!slot) {
+      return commitBackspace(
+        deleteTokenBefore(text, pos, 0) ?? { text, selection: { start: pos, end: pos } },
+      );
+    }
 
     if (slot.close - slot.open > 1) {
       const cut = slotCut(text, slot, pos);
@@ -324,5 +354,7 @@ export function spliceMathBackspace(
     if (forward) return forward;
     return collapseEmptyMath("", 0);
   }
-  return deleteTokenBefore(text, cut, 0) ?? { text, selection: { start: pos, end: pos } };
+  return commitBackspace(
+    deleteTokenBefore(text, cut, 0) ?? { text, selection: { start: pos, end: pos } },
+  );
 }

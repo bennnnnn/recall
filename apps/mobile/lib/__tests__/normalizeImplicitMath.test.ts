@@ -68,6 +68,13 @@ describe("normalizeImplicitMath", () => {
     expect(normalizeImplicitMathInProse(input)).toBe(input);
   });
 
+  it("BUG FIX regression: So + equation stays prose + math, not 'Sor'", () => {
+    const out = normalizeImplicitMathInProse("So r + 1/r = 17/4");
+    expect(out.startsWith("So ")).toBe(true);
+    expect(out).toContain("$r + 1/r = 17/4$");
+    expect(out).not.toMatch(/^\$So /);
+  });
+
   it("BUG FIX regression: wraps a bare LaTeX command embedded mid-sentence, not just whole-line equations", () => {
     // Reported live: "...or simplifying\\frac{8!}{6!}? 😄" rendered the raw
     // backslash command since it has no $...$ wrap at all and isn't a
@@ -224,5 +231,6 @@ describe("fixImplicitExponents", () => {
     expect(fixImplicitExponents("x = \\pm x2")).toBe("x = \\pm x^2");
     // Unaffected: genuine implicit exponents with no preceding command.
     expect(fixImplicitExponents("x2 = 4")).toBe("x^2 = 4");
+    expect(fixImplicitExponents("r + 1/r = 17/4")).toBe("r + 1/r = 17/4");
   });
 });

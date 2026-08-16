@@ -174,6 +174,84 @@ def _rewrite_unicode_script_runs(s: str) -> str:
     return "".join(out)
 
 
+def _read_brace_group(s: str, i: int) -> tuple[str, int] | None:
+    if i >= len(s) or s[i] != "{":
+        return None
+    depth = 0
+    j = i
+    while j < len(s):
+        if s[j] == "{":
+            depth += 1
+        elif s[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return s[i + 1 : j], j + 1
+        j += 1
+    return None
+
+
+def _rewrite_latex_sqrts(s: str) -> str:
+    """`\\sqrt{x}` → sqrt(x); `\\sqrt[n]{x}` → (x)**(1/(n)). Linear scan."""
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if s.startswith("\\sqrt", i) and (i + 5 >= n or not s[i + 5].isalpha()):
+            j = i + 5
+            degree: str | None = None
+            if j < n and s[j] == "[":
+                close = s.find("]", j + 1)
+                if close == -1:
+                    out.append(s[i])
+                    i += 1
+                    continue
+                degree = s[j + 1 : close]
+                j = close + 1
+            while j < n and s[j] == " ":
+                j += 1
+            grp = _read_brace_group(s, j)
+            if grp is not None:
+                body, j = grp
+            else:
+                k = j
+                while k < n and (s[k].isalnum() or s[k] == "."):
+                    k += 1
+                if k == j:
+                    out.append(s[i])
+                    i += 1
+                    continue
+                body = s[j:k]
+                j = k
+            if degree is not None and degree.strip():
+                out.append(f"({body})**(1/({degree}))")
+            else:
+                out.append(f"sqrt({body})")
+            i = j
+            continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
+def _implicit_mul_before_sqrt(s: str) -> str:
+    """`6sqrt(4)` → `6*sqrt(4)` so juxtaposition is multiplication, not a 6th root."""
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if s.startswith("sqrt(", i):
+            prev = ""
+            for ch in reversed(out):
+                if not ch.isspace():
+                    prev = ch
+                    break
+            if prev and (prev.isdigit() or prev in ")."):
+                out.append("*")
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
 def _normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
     s = expr
@@ -184,6 +262,8 @@ def _normalize_latex_to_sympy(expr: str) -> str:
     s = re.sub("\u221a\\s*\\(([^()]*)\\)", r"sqrt(\1)", s)
     s = s.replace("\u221a", "sqrt")
     s = _rewrite_unicode_script_runs(s)
+    s = _rewrite_latex_sqrts(s)
+    s = _implicit_mul_before_sqrt(s)
     s = _LATEX_ABS_LEFT_RIGHT_RE.sub(r"Abs(\1)", s)
     s = _LATEX_ABS_VERT_RE.sub("", s)
     for pattern, replacement in _LATEX_SYMBOL_SUBS:

@@ -18,15 +18,15 @@ import {
   MATH_DRAFT_PREVIEW_HEIGHT,
   draftShowsMathPreview,
 } from "@/components/chat/MathDraftPreview";
+import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
-import {
-  composerShowsMic,
-  composerShowsSend,
-} from "@/lib/chatComposerLogic";
+import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
+import { textLooksLikeMath } from "@/lib/mathComposerIntent";
+import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
@@ -34,6 +34,7 @@ import { Theme, useTheme } from "@/lib/theme";
 export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
+const MATH_KEYBOARD_CHIP_HEIGHT = 36;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
   if (!attachment) return 0;
@@ -70,6 +71,8 @@ type Props = {
   docked?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
+  /** Recent chat already has math — offer ƒ even with an empty composer. */
+  mathContext?: boolean;
 };
 
 export const ChatComposer = memo(function ChatComposer({
@@ -100,6 +103,7 @@ export const ChatComposer = memo(function ChatComposer({
   docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
+  mathContext = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -112,8 +116,10 @@ export const ChatComposer = memo(function ChatComposer({
     onImageOnlyPaste: onOpenMathScanner ? () => setScanHint(true) : undefined,
   });
   const showMathPreview = draftShowsMathPreview(input);
+  const showMathChip =
+    !math.mathBarOpen && (mathContext || textLooksLikeMath(input));
   const mathChromeHeight =
-    (math.mathBarOpen ? math.padHeight : 0) +
+    (math.mathBarOpen ? math.padHeight : showMathChip ? MATH_KEYBOARD_CHIP_HEIGHT : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? 40 : 0);
 
@@ -121,17 +127,25 @@ export const ChatComposer = memo(function ChatComposer({
     onMathChromeHeightChange?.(visible ? mathChromeHeight : 0);
   }, [mathChromeHeight, onMathChromeHeightChange, visible]);
 
+  useEffect(() => {
+    if (!math.mathBarOpen) return;
+    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [math.mathBarOpen]);
+
   const onToggleMathBar = useCallback(() => {
     const wasOpen = math.mathBarOpen;
     math.toggleMathBar();
     if (wasOpen) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [math.mathBarOpen, math.toggleMathBar, math.insertSymbol, math.backspace]);
+  }, [math.mathBarOpen, math.toggleMathBar]);
 
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
+  const parkInput = showMathPreview;
+  const showEmptyCaret = math.mathBarOpen && !showMathPreview && !input.trim();
   const showMic = composerShowsMic({
     voiceAvailable: Boolean(voiceAvailable && onVoicePress && token),
     voiceRecording,
@@ -180,6 +194,19 @@ export const ChatComposer = memo(function ChatComposer({
               </Pressable>
             </View>
           ) : null}
+          {showMathChip ? (
+            <View style={s.chipRow}>
+              <Pressable
+                onPress={onToggleMathBar}
+                style={({ pressed }) => [s.chip, pressed && s.chipPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.math_keyboard_show")}
+                testID="math-keyboard-toggle"
+              >
+                <Text style={s.chipLabel}>ƒ</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <View style={s.inputWrap}>
             {pendingAttachment ? (
               <ComposerAttachmentPreview
@@ -199,18 +226,6 @@ export const ChatComposer = memo(function ChatComposer({
               >
                 <Ionicons name="attach-outline" size={22} color={theme.primary} />
               </Pressable>
-              {math.mathBarOpen ? null : (
-                <Pressable
-                  style={s.attachBtn}
-                  onPress={onToggleMathBar}
-                  hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("chat.math_keyboard_show")}
-                  testID="math-keyboard-toggle"
-                >
-                  <Text style={s.mathToggle}>ƒ</Text>
-                </Pressable>
-              )}
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform
                   recording={voiceRecording}
@@ -223,21 +238,35 @@ export const ChatComposer = memo(function ChatComposer({
                     <MathDraftPreview
                       input={input}
                       caret={math.selection.start}
-                      onMoveCaret={math.moveCaret}
+                      onMoveCaret={(pos) => {
+                        if (math.mathBarOpen) {
+                          math.moveCaret(pos);
+                          return;
+                        }
+                        const before = caretBeforeExpression(input);
+                        const after = caretAfterExpression(input);
+                        if (pos <= before) math.moveCaret(0);
+                        else if (pos >= after) math.moveCaret(input.length);
+                        else math.moveCaret(pos);
+                      }}
                     />
                   ) : null}
                   <TextInput
                     ref={inputRef}
                     testID="chat-composer-input"
-                    style={[s.input, showMathPreview && s.inputHidden]}
+                    style={[s.input, parkInput ? s.inputParked : null]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
                     placeholderTextColor={theme.textTertiary}
                     value={input}
                     onChangeText={math.onChangeText}
                     onSelectionChange={math.onSelectionChange}
-                    selection={math.mathBarOpen ? math.selection : math.forcedSelection}
-                    caretHidden={math.mathBarOpen}
-                    pointerEvents={math.mathBarOpen ? "none" : "auto"}
+                    selection={
+                      showMathPreview
+                        ? (math.forcedSelection ?? math.selection)
+                        : undefined
+                    }
+                    caretHidden={showMathPreview || math.mathBarOpen}
+                    pointerEvents={parkInput ? "none" : "auto"}
                     showSoftInputOnFocus={!math.mathBarOpen}
                     onFocus={() => {
                       onCloseAttachSheet();
@@ -246,6 +275,11 @@ export const ChatComposer = memo(function ChatComposer({
                     multiline
                     returnKeyType="default"
                   />
+                  {showEmptyCaret ? (
+                    <View style={s.emptyCaret} pointerEvents="none">
+                      <MathComposerCaret testID="math-composer-caret" />
+                    </View>
+                  ) : null}
                 </View>
               )}
               <View style={s.sendBtnSlot}>
@@ -311,6 +345,7 @@ export const ChatComposer = memo(function ChatComposer({
               onInsert={math.insertSymbol}
               onBackspace={math.backspace}
               onNextSlot={math.nextSlot}
+              onPrevSlot={math.prevSlot}
               onStepCaret={math.stepCaret}
             />
           ) : null}
@@ -363,6 +398,14 @@ function makeStyles(theme: Theme) {
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },
+    emptyCaret: {
+      position: "absolute",
+      left: 0,
+      top: 2,
+      bottom: 2,
+      justifyContent: "center",
+      zIndex: 2,
+    },
     attachBtn: {
       width: 32,
       height: 32,
@@ -370,7 +413,25 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       marginBottom: 1,
     },
-    mathToggle: { fontSize: 18, fontWeight: "700", color: theme.primary, marginTop: -1 },
+    chipRow: {
+      height: MATH_KEYBOARD_CHIP_HEIGHT,
+      marginBottom: 4,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    chip: {
+      minWidth: 36,
+      height: 32,
+      paddingHorizontal: 10,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    chipPressed: { opacity: 0.55 },
+    chipLabel: { fontSize: 16, fontWeight: "700", color: theme.primary },
     input: {
       flex: 1,
       fontSize: 16,
@@ -379,14 +440,13 @@ function makeStyles(theme: Theme) {
       paddingVertical: 0,
       minHeight: 22,
     },
-    inputHidden: {
+    inputParked: {
       position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      color: "transparent",
-      maxHeight: undefined,
+      width: 1,
+      height: 1,
+      opacity: 0,
+      overflow: "hidden",
+      flex: 0,
     },
     sendBtn: {
       width: 40,

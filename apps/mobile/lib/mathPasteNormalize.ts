@@ -4,6 +4,7 @@
  * `apps/api/app/services/math_service/parse.py`.
  */
 
+import { formatMathExpr } from "@/lib/formatMathInput";
 import { isMathLike } from "@/lib/normalizeImplicitMath";
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
@@ -48,9 +49,34 @@ export function pastedDeltaLooksLikeMath(delta: string): boolean {
   const s = delta.trim();
   if (s.length < 1) return false;
   if (/\*\*|__/.test(s)) return false;
+  if (/\$[^$\n]+\$/.test(s) || /```math\b/i.test(s)) return true;
   if (MATH_GLYPH_RE.test(s)) return true;
   if (isMathLike(s) && /[=+\-^√\\]/.test(s)) return true;
   return false;
+}
+
+/**
+ * Sites like MathPapa copy stacked fractions as HTML. iOS TextInput only
+ * gets the accessibility dump: numerator and denominator as separate
+ * tokens (`1\\n3 x` or `1 3 x`), so `1/3 x` never reaches slash-to-frac.
+ */
+export function restoreCopiedFractions(raw: string): string {
+  let s = raw.replace(/\u00a0/g, " ");
+  s = s.replace(
+    /(\d+(?:\.\d+)?)\s*[\n\r]+\s*(\d+(?:\.\d+)?)(?=\s*[a-zA-Z=])/g,
+    "\\frac{$1}{$2}",
+  );
+  if (!/\\frac/.test(s) && !/\d+\s*\/\s*\d/.test(s)) {
+    s = s.replace(
+      /(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*([a-zA-Z])/g,
+      "\\frac{$1}{$2} $3",
+    );
+  }
+  return s;
+}
+
+function formatPastedExpr(expr: string): string {
+  return formatMathExpr(restoreCopiedFractions(expr));
 }
 
 export function normalizePastedMath(delta: string): string {
@@ -67,8 +93,15 @@ export function normalizePastedMath(delta: string): string {
   s = normalizeUnicodeScripts(s);
   const trimmed = s.trim();
   if (!trimmed) return delta;
-  if (trimmed.includes("$")) return s;
-  return `$${trimmed}$`;
+  if (/```math\b/i.test(trimmed)) {
+    return trimmed.replace(/```math\n([\s\S]*?)```/gi, (_m, body: string) => {
+      return "```math\n" + formatPastedExpr(String(body).trim()) + "\n```";
+    });
+  }
+  if (trimmed.includes("$")) {
+    return s.replace(/\$([^$\n]+)\$/g, (_m, inner: string) => `$${formatPastedExpr(inner)}$`);
+  }
+  return `$${formatPastedExpr(trimmed)}$`;
 }
 
 /** Longest common prefix/suffix → inserted middle. Null if not a paste-sized insert. */
@@ -84,7 +117,10 @@ export function extractInsertedDelta(prev: string, next: string): string | null 
     ne -= 1;
   }
   const inserted = next.slice(i, ne);
-  if (inserted.length < PASTE_GROWTH_MIN) return null;
+  if (inserted.length < 1) return null;
+  if (inserted.length < PASTE_GROWTH_MIN && !pastedDeltaLooksLikeMath(inserted)) {
+    return null;
+  }
   return inserted;
 }
 

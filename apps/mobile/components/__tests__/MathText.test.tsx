@@ -78,4 +78,31 @@ describe("MathText", () => {
     expect(queryByText(/\\frac/)).toBeNull();
     expect(screen.getByText(/m = ±/)).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: \\neq / \\ne render as ≠, not ≡ or the word ne", async () => {
+    const neq = await render(<MathText latex={String.raw`a \neq 0`} />);
+    expect(neq.getByText(/≠/)).toBeOnTheScreen();
+    expect(neq.queryByText(/≡/)).toBeNull();
+    const ne = await render(<MathText latex={String.raw`a \ne 0`} />);
+    expect(ne.getByText(/≠/)).toBeOnTheScreen();
+    expect(ne.queryByText(/\bne\b/)).toBeNull();
+  });
+
+  it("renders a square root with a vinculum, not nth-root brackets", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MathText latex={String.raw`9\sqrt{9}`} />,
+    );
+    expect(getByTestId("math-sqrt")).toBeOnTheScreen();
+    expect(queryByText(/√\[/)).toBeNull();
+  });
+
+  it("renders an nth-root index without \\sqrt[n] brackets", async () => {
+    const { getByTestId, getAllByText, queryByText } = await render(
+      <MathText latex={String.raw`\sqrt[9]{9}`} />,
+    );
+    expect(getByTestId("math-sqrt")).toBeOnTheScreen();
+    expect(getAllByText("9")).toHaveLength(2);
+    expect(queryByText("√[9]9̅")).toBeNull();
+    expect(queryByText(/√\[9\]/)).toBeNull();
+  });
 });

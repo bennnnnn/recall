@@ -12,10 +12,12 @@ import {
   fracTapAdvancesToDen,
   MATH_KEYBOARD_SYMBOLS,
   nextEditSlotCaret,
+  prevEditSlotCaret,
   spliceMathInsert,
   type MathKeyboardSymbol,
   type TextSelection,
 } from "@/lib/mathKeyboardSymbols";
+import { applyPinnedTextChange } from "@/lib/mathComposerChange";
 import { applyComposerTextChange, extractInsertedDelta } from "@/lib/mathPasteNormalize";
 import { spliceMathBackspace, stepMathCaret } from "@/lib/mathDraftSlots";
 
@@ -32,6 +34,7 @@ export function useMathKeyboardInsert(options: {
   const [selection, setSelection] = useState<TextSelection>({ start: 0, end: 0 });
   const [forcedSelection, setForcedSelection] = useState<TextSelection | undefined>();
   const pinRef = useRef<TextSelection | null>(null);
+  const mathBarOpenRef = useRef(false);
   const textRef = useRef(input);
   textRef.current = input;
 
@@ -45,12 +48,15 @@ export function useMathKeyboardInsert(options: {
     (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
       const next = event.nativeEvent.selection;
       const pinned = pinRef.current;
-      if (pinned) {
+      // Preview caret is the source of truth whenever `$` is in the draft.
+      // The parked TextInput keeps the OS caret in the last LaTeX slot.
+      if (pinned && textRef.current.includes("$")) {
         if (next.start !== pinned.start || next.end !== pinned.end) {
           setForcedSelection({ ...pinned });
         }
         return;
       }
+      pinRef.current = next;
       setSelection(next);
       setForcedSelection(undefined);
     },
@@ -59,26 +65,24 @@ export function useMathKeyboardInsert(options: {
 
   const onChangeText = useCallback(
     (next: string) => {
-      const delta = extractInsertedDelta(input, next);
-      const converted = applyComposerTextChange(input, next);
+      const pin = pinRef.current ?? selection;
+      const replayed = applyPinnedTextChange(input, next, pin);
+      const converted = applyComposerTextChange(input, replayed.text);
+      const caret =
+        converted === replayed.text
+          ? replayed.caret
+          : replayed.caret + (converted.length - replayed.text.length);
+      textRef.current = converted;
       setInput(converted);
-      if (delta && converted !== next) {
-        const prefixLen = (() => {
-          let i = 0;
-          const minLen = Math.min(input.length, next.length);
-          while (i < minLen && input[i] === next[i]) i += 1;
-          return i;
-        })();
-        const caretPos = prefixLen + (converted.length - (next.length - delta.length));
-        pinSelection({ start: caretPos, end: caretPos });
-      }
+      pinSelection({ start: caret, end: caret });
+      const delta = extractInsertedDelta(input, next);
       if (delta && onImageOnlyPaste) {
         void clipboardIsImageOnly().then((imageOnly) => {
           if (imageOnly) onImageOnlyPaste();
         });
       }
     },
-    [input, onImageOnlyPaste, pinSelection, setInput],
+    [input, onImageOnlyPaste, pinSelection, selection, setInput],
   );
 
   const onComposerFocus = useCallback(() => {
@@ -121,6 +125,13 @@ export function useMathKeyboardInsert(options: {
     pinSelection({ start: jump, end: jump });
   }, [pinSelection, selection]);
 
+  const prevSlot = useCallback(() => {
+    const sel = pinRef.current ?? selection;
+    const jump = prevEditSlotCaret(textRef.current, sel.start);
+    if (jump == null) return;
+    pinSelection({ start: jump, end: jump });
+  }, [pinSelection, selection]);
+
   const stepCaret = useCallback(
     (dir: -1 | 1) => {
       const sel = pinRef.current ?? selection;
@@ -148,15 +159,19 @@ export function useMathKeyboardInsert(options: {
 
   const toggleMathBar = useCallback(() => {
     if (mathBarOpen) {
-      pinRef.current = null;
+      mathBarOpenRef.current = false;
+      // Sit in front of `$...$` so ABC types words beside the formula, not
+      // raw LaTeX inside a slot.
+      pinSelection({ start: 0, end: 0 });
       setMathBarOpen(false);
       return;
     }
     const measured = Keyboard.metrics()?.height ?? 0;
     if (measured >= 200) setPadHeight(measured);
     Keyboard.dismiss();
+    mathBarOpenRef.current = true;
     setMathBarOpen(true);
-  }, [mathBarOpen]);
+  }, [mathBarOpen, pinSelection]);
 
   return {
     mathBarOpen,
@@ -170,6 +185,7 @@ export function useMathKeyboardInsert(options: {
     insertSymbol,
     backspace,
     nextSlot,
+    prevSlot,
     stepCaret,
     moveCaret,
     symbols: MATH_KEYBOARD_SYMBOLS,

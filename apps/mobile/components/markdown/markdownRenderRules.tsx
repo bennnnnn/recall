@@ -44,9 +44,8 @@ import { splitInlineMath } from "@/lib/markdownPreprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
 import {
-  latexHasStackedFrac,
-  latexNeedsTallLine,
-  MATH_TALL_LINE_HEIGHT,
+  latexHasNestedMathView,
+  mathRunLineHeight,
 } from "@/lib/mathText";
 import type { Theme } from "@/lib/theme";
 
@@ -61,13 +60,18 @@ function renderTextWithMath(
   _mdMath: MdMathStyles,
 ) {
   const parts = splitInlineMath(node.content);
-  const tallMath = parts.some((p) => p.type === "math" && latexNeedsTallLine(p.value));
+  const runHeight = parts.reduce<number | undefined>((acc, p) => {
+    if (p.type !== "math") return acc;
+    const h = mathRunLineHeight(p.value);
+    if (h == null) return acc;
+    return acc == null ? h : Math.max(acc, h);
+  }, undefined);
   const base = [
     inheritedStyles,
     styles.text,
     inTableCell(parent) && mdTable.cellText,
     inTableHeader(parent) && mdTable.headerText,
-    tallMath && { lineHeight: MATH_TALL_LINE_HEIGHT },
+    runHeight != null && { lineHeight: runHeight },
   ];
 
   if (parts.length === 1 && parts[0].type === "text") {
@@ -106,11 +110,10 @@ function renderTextWithMath(
     );
   }
 
-  // Stacked \frac is a View. It must be a direct child of the paragraph
-  // Text (see `inline` / `textgroup` below). Wrapping this run in another
-  // Text — or splitting it into a column View inside those Texts — is what
-  // made part (b) paint two sentence halves on top of each other.
-  if (parts.some((p) => p.type === "math" && latexHasStackedFrac(p.value))) {
+  // Nested math Views (frac / sqrt) must be direct children of the paragraph
+  // Text. Wrapping this run in another Text is what made neighboring
+  // sentences paint on top of each other.
+  if (parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))) {
     return (
       <Fragment key={node.key}>
         {parts.map((part, i) =>
@@ -304,10 +307,17 @@ function makeSharedRules(
       // Do not use `styles.paragraph` — mergeStyle copies the library's
       // flexDirection/flexWrap/width onto it, which turns nested Text into
       // flex items that each take a line.
+      const raw = astText(node);
+      const runHeight = mathRunLineHeight(raw);
       return (
         <Text
           key={node.key}
-          style={[styles.body, styles.text, styles.paragraphRun]}
+          style={[
+            styles.body,
+            styles.text,
+            styles.paragraphRun,
+            runHeight != null && { lineHeight: runHeight },
+          ]}
           selectable
         >
           {children}
@@ -324,20 +334,23 @@ function makeSharedRules(
         {"\n"}
       </Text>
     ),
-    inline: (node: AstNode, children: ReactNode, _p: unknown, styles: StyleMap) => (
+    inline: (node: AstNode, children: ReactNode, _p: unknown, styles: StyleMap) => {
+      const runHeight = mathRunLineHeight(astText(node));
+      return (
       <Text
         key={node.key}
         style={[
           styles.inline,
           styles.body,
           styles.text,
-          latexHasStackedFrac(astText(node)) && { lineHeight: MATH_TALL_LINE_HEIGHT },
+          runHeight != null && { lineHeight: runHeight },
         ]}
         selectable
       >
         {children}
       </Text>
-    ),
+      );
+    },
     span: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
       <Text key={node.key} style={styles.span} selectable>
         {children}

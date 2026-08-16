@@ -1,4 +1,4 @@
-import { formatMathExpr } from "@/lib/formatMathInput";
+import { formatMathExpr, formatMathMessage } from "@/lib/formatMathInput";
 
 describe("formatMathExpr", () => {
   describe("power", () => {
@@ -67,6 +67,10 @@ describe("formatMathExpr", () => {
     it("converts +- to \\pm", () => {
       expect(formatMathExpr("x = +-3")).toBe("x = \\pm 3");
     });
+    it("does not treat plus then unary minus as \\pm", () => {
+      expect(formatMathExpr("x + -5")).toBe("x + -5");
+      expect(formatMathExpr("\\frac{1}{4}x + -5")).toBe("\\frac{1}{4}x + -5");
+    });
     it("can be disabled", () => {
       // pm off → `+-` stays as `+-` (both unary after `=`), no \pm.
       const out = formatMathExpr("x = +-3", { pm: false });
@@ -88,8 +92,48 @@ describe("formatMathExpr", () => {
     it("handles a fraction and sqrt without corrupting them", () => {
       expect(formatMathExpr("\\frac{1}{2}=0.5")).toBe("\\frac{1}{2} = 0.5");
     });
+    it("keeps 9\\sqrt{9} as 9 times square root, not a 9th root", () => {
+      expect(formatMathExpr("9\\sqrt{9}")).toBe("9 \\times \\sqrt{9}");
+      expect(formatMathMessage("$9\\sqrt{9}$")).toBe("$9 \\times \\sqrt{9}$");
+      expect(formatMathMessage("$9\\sqrt{9}$")).not.toContain("\\sqrt[");
+    });
+    it("does not insert times between \\pm and a square root", () => {
+      expect(formatMathExpr("x = \\pm\\sqrt{4}")).toBe("x = \\pm\\sqrt{4}");
+    });
+    it("leaves an nth-root \\sqrt[n]{x} unchanged", () => {
+      expect(formatMathExpr("\\sqrt[9]{9}")).toBe("\\sqrt[9]{9}");
+      expect(formatMathMessage("$\\sqrt[9]{9}$")).toBe("$\\sqrt[9]{9}$");
+    });
     it("returns empty for empty input", () => {
       expect(formatMathExpr("")).toBe("");
     });
+  });
+
+  describe("times", () => {
+    it("converts binary * to \\times", () => {
+      expect(formatMathExpr("2*x=6")).toBe("2 \\times x = 6");
+    });
+  });
+
+  describe("slashFrac", () => {
+    it("converts a simple a/b to \\frac", () => {
+      expect(formatMathExpr("1/2")).toBe("\\frac{1}{2}");
+      expect(formatMathExpr("a/b=1")).toBe("\\frac{a}{b} = 1");
+    });
+  });
+});
+
+describe("formatMathMessage", () => {
+  it("wraps a bare equation and spaces equals", () => {
+    expect(formatMathMessage("x=4")).toBe("$x = 4$");
+  });
+  it("formats inside existing $...$", () => {
+    expect(formatMathMessage("$x=4$")).toBe("$x = 4$");
+  });
+  it("formats a math fence body", () => {
+    expect(formatMathMessage("```math\nx=4\n```")).toBe("```math\nx = 4\n```");
+  });
+  it("leaves ordinary chat alone", () => {
+    expect(formatMathMessage("I'm going later")).toBe("I'm going later");
   });
 });

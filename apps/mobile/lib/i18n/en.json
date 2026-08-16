@@ -44,6 +44,7 @@
   "chat.math_keyboard_group_greek": "Greek",
   "chat.math_keyboard_group_trig": "Trig",
   "chat.math_keyboard_next_slot": "Next box",
+  "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_show": "Math symbols",
   "chat.math_paste_scan_cta": "Scan math",
   "chat.math_paste_scan_hint": "That paste looks like an image. Use the math scanner instead?",

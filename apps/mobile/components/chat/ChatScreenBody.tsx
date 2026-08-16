@@ -1,4 +1,4 @@
-import { ReactElement, RefObject } from "react";
+import { ReactElement, RefObject, useMemo } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +20,7 @@ import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
+import { messagesLookLikeMath } from "@/lib/mathComposerIntent";
 import type { Theme } from "@/lib/theme";
 
 export type ChatScreenBodyProps = {
@@ -159,6 +160,10 @@ export function ChatScreenBody({
   hideHomeStarters = false,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
+  const mathContext = useMemo(
+    () => messagesLookLikeMath(messages.map((m) => m.content)),
+    [messages],
+  );
 
   return (
     <View style={s.container}>
@@ -242,6 +247,7 @@ export function ChatScreenBody({
         onVoiceCancel={onVoiceCancel}
         onOpenMathScanner={onOpenMathScanner}
         onMathChromeHeightChange={onMathChromeHeightChange}
+        mathContext={mathContext}
       />
 
       <AttachmentSourceSheet

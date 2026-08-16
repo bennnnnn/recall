@@ -1,8 +1,10 @@
 import {
   MATH_TALL_LINE_HEIGHT,
+  MATH_SCRIPT_LINE_HEIGHT,
   PROTECTED_ESCAPE_MARKER,
   latexHasStackedFrac,
   latexNeedsTallLine,
+  mathRunLineHeight,
   parseSimpleLatex,
   segmentsToPlain,
   splitMathLines,
@@ -174,10 +176,23 @@ describe("parseSimpleLatex", () => {
   it("BUG FIX regression: previously-missing Greek letters and arrows render as unicode, not raw backslash text", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\delta \sigma \omega`))).toBe("δ σ ω");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \implies b`))).toBe("a ⇒ b");
+    expect(
+      segmentsToPlain(
+        parseSimpleLatex(String.raw`\displaystyle\lim_{x \to 0} \frac{\sin x}{x}`),
+      ),
+    ).not.toContain("displaystyle");
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`a \quad \Rightarrow \quad b`)),
+    ).toContain("⇒");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \Longrightarrow b`))).toBe("a ⟹ b");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`f: a \mapsto b`))).toBe("f: a ↦ b");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`x \le 2`))).toBe("x ≤ 2");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`x \ge 0`))).toBe("x ≥ 0");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \neq 0`))).toBe("a ≠ 0");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \ne 0`))).toBe("a ≠ 0");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \not= 0`))).toBe("a ≠ 0");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \neq 0`))).not.toContain("≡");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \ne 0`))).not.toBe("a ne 0");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`A \cup B \cap C`))).toBe("A ∪ B ∩ C");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`x \in \mathbb{R}`))).toContain("ℝ");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`n \in \mathbb{Z}`))).toContain("ℤ");
@@ -303,6 +318,11 @@ describe("latexNeedsTallLine", () => {
     expect(latexNeedsTallLine(String.raw`\dfrac{1}{2}`)).toBe(true);
     expect(latexNeedsTallLine(String.raw`\sqrt{25}`)).toBe(true);
     expect(MATH_TALL_LINE_HEIGHT).toBeGreaterThan(25);
+    expect(mathRunLineHeight(String.raw`a^2(1+9+81)`)).toBe(MATH_SCRIPT_LINE_HEIGHT);
+    expect(mathRunLineHeight(String.raw`\frac{1}{2}`)).toBe(MATH_TALL_LINE_HEIGHT);
+    expect(
+      mathRunLineHeight(String.raw`\frac{1}{4}: \frac{8}{1/4}=32, 8 \cdot \frac{1}{4}=2`),
+    ).toBe(MATH_SCRIPT_LINE_HEIGHT);
   });
 
   it("is false for flat inline algebra", () => {

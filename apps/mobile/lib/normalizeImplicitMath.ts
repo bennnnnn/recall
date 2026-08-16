@@ -44,8 +44,8 @@ export function fixImplicitExponents(expr: string): string {
   // what the answer says. Same risk for any command ending in a letter
   // immediately followed by digits ("\log2", "\sin2", ...).
   s = s.replace(/(?<!\\[a-zA-Z]*)([a-zA-Z])([0-9]+)(?=[+\-=)\]|,\s]|$)/g, "$1^$2");
-  s = s.replace(/^(\d)(\d)(?=[+\-*/=])/, "$1^$2");
-  s = s.replace(/(\s)(\d)(\d)(?=[+\-*/=])/g, "$1$2^$3");
+  s = s.replace(/^(\d)(\d)(?=[+\-*=])/, "$1^$2");
+  s = s.replace(/(\s)(\d)(\d)(?=[+\-*=])/g, "$1$2^$3");
   if (s.includes("±") && !s.includes("\\pm")) {
     s = s.replace(/±\s*/g, "\\pm ");
   }
@@ -88,10 +88,16 @@ export function isMathLike(inner: string): boolean {
   return /[+\-*/^\\=]/.test(s);
 }
 
+const MATH_LINE_WORDS =
+  /^(sin|cos|tan|sec|csc|cot|log|ln|lg|exp|lim|max|min|gcd|lcm|det|abs|mod|arg|erf|or|and|if|iff|vs)$/i;
+
 function looksLikeBareEquation(line: string): boolean {
   const s = fixImplicitExponents(line.trim());
   if (!/=/.test(s)) return false;
-  return BARE_EQUATION_RE.test(s) && isMathLike(s);
+  if (!BARE_EQUATION_RE.test(s) || !isMathLike(s)) return false;
+  // "So r + 1/r = 17/4" used to wrap including "So" → MathText painted "Sor".
+  const words = s.match(/[A-Za-z]{2,}/g) ?? [];
+  return words.every((w) => MATH_LINE_WORDS.test(w));
 }
 
 function unwrapParens(expr: string): string {
@@ -202,6 +208,16 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
     if (isMathLike(expr) || looksLikeBareEquation(expr)) {
       const mark = verifyLabel[2].match(/[✓✔✅]\s*$/u)?.[0] ?? "";
       return `${verifyLabel[1]}${wrapMath(expr, format)}${mark ? ` ${mark.trim()}` : ""}`;
+    }
+  }
+
+  const discourseLead = out.match(
+    /^(\s*(?:So|Thus|Hence|Then|Therefore|Now|Also|Finally|And|But),?\s+)(.+)$/i,
+  );
+  if (discourseLead) {
+    const expr = discourseLead[2].trim();
+    if (looksLikeBareEquation(expr) || isMathLike(expr)) {
+      return `${discourseLead[1]}${wrapMath(expr, format)}`;
     }
   }
 
