@@ -182,11 +182,6 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
     from sympy import Matrix, Rational
 
     mat = Matrix([[Rational(str(v)) for v in row] for row in data.rows])
-    if data.operation in {"multiply", "rref", "eigenvalues"}:
-        from app.services.math_school import compute_matrix_extended
-
-        extra = compute_matrix_extended(data)
-        return extra
     if mat.rows != mat.cols:
         raise MathServiceError("determinant/inverse need a square matrix")
     det = mat.det()

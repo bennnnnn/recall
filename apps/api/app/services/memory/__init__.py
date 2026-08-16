@@ -44,9 +44,6 @@ from app.services.memory.selection import (
     _eligible_memory as _eligible_memory,
 )
 from app.services.memory.selection import (
-    _merge_always_and_gated as _merge_always_and_gated,
-)
-from app.services.memory.selection import (
     format_memory_block as format_memory_block,
 )
 from app.services.memory.selection import (

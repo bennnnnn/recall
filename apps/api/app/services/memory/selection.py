@@ -105,20 +105,3 @@ def select_memories_semantic(
     merged = always + gated
     type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
     return merged[:type_cap]
-
-
-def _merge_always_and_gated(
-    always: list[Memory],
-    gated: list[Memory],
-    settings: Settings,
-) -> list[Memory]:
-    seen: set[str] = set()
-    merged: list[Memory] = []
-    for memory in always + gated:
-        if memory.type in seen:
-            continue
-        seen.add(memory.type)
-        merged.append(memory)
-    merged.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
-    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
-    return merged[:type_cap]
