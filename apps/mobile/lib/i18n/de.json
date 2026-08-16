@@ -205,6 +205,7 @@
   "chat.status.thinking_1": "Arbeite das durch…",
   "chat.status.thinking_2": "Fast geschafft…",
   "chat.status.thinking_3": "Zusammenhänge werden geknüpft…",
+  "chat.stop": "Stop",
   "chat.stop_a11y": "Generierung stoppen",
   "chat.suggestions": "Vorschläge",
   "chat.thumbs_down_a11y": "Schlechte Antwort",

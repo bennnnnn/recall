@@ -213,6 +213,7 @@ export function ChatScreenBody({
         bottom={composerClearance + 8}
         upgradeLabel={!isPro ? t("chat.quota_nudge_cta") : undefined}
         onUpgrade={!isPro ? onUpgrade : undefined}
+        onStop={onStop}
         onDismiss={onDismissChatError}
       />
 

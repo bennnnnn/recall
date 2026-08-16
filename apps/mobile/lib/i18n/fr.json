@@ -205,6 +205,7 @@
   "chat.status.thinking_1": "J'y réfléchis…",
   "chat.status.thinking_2": "Presque fini…",
   "chat.status.thinking_3": "Mise en relation des idées…",
+  "chat.stop": "Stop",
   "chat.stop_a11y": "Arrêter la génération",
   "chat.suggestions": "Suggestions",
   "chat.thumbs_down_a11y": "Mauvaise réponse",

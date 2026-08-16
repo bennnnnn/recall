@@ -19,13 +19,19 @@ import {
 
 type Props = {
   onAsk: (text: string) => void;
+  onStop: () => void;
+  streaming: boolean;
 };
 
 function buzz() {
   hapticSelection();
 }
 
-export const MathConverterPad = memo(function MathConverterPad({ onAsk }: Props) {
+export const MathConverterPad = memo(function MathConverterPad({
+  onAsk,
+  onStop,
+  streaming,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -63,8 +69,12 @@ export const MathConverterPad = memo(function MathConverterPad({ onAsk }: Props)
   };
 
   const ask = () => {
-    if (!from || !to) return;
     buzz();
+    if (streaming) {
+      onStop();
+      return;
+    }
+    if (!from || !to) return;
     onAsk(converterAskText(digits, from.prompt, to.prompt));
   };
 
@@ -118,12 +128,12 @@ export const MathConverterPad = memo(function MathConverterPad({ onAsk }: Props)
               cell === "ask" ? (
                 <Key
                   key={cell}
-                  label={t("chat.math_converter_ask")}
+                  label={streaming ? t("chat.stop") : t("chat.math_converter_ask")}
                   testID="math-converter-ask"
                   onPress={ask}
                   theme={theme}
                   accent
-                  trailing="↑"
+                  trailing={streaming ? "■" : "↑"}
                 />
               ) : (
                 <Key

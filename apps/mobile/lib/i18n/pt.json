@@ -205,6 +205,7 @@
   "chat.status.thinking_1": "Processando isso…",
   "chat.status.thinking_2": "Quase lá…",
   "chat.status.thinking_3": "Ligando os pontos…",
+  "chat.stop": "Stop",
   "chat.stop_a11y": "Parar geração",
   "chat.suggestions": "Sugestões",
   "chat.thumbs_down_a11y": "Resposta ruim",

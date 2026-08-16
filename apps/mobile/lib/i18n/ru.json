@@ -205,6 +205,7 @@
   "chat.status.thinking_1": "Обрабатываю…",
   "chat.status.thinking_2": "Почти готово…",
   "chat.status.thinking_3": "Связываю факты…",
+  "chat.stop": "Stop",
   "chat.stop_a11y": "Остановить генерацию",
   "chat.suggestions": "Подсказки",
   "chat.thumbs_down_a11y": "Плохой ответ",

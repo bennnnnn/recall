@@ -159,6 +159,20 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-converter")).toBeTruthy();
   });
 
+  it("turns Ask into Stop while a reply is generating", async () => {
+    const onSend = jest.fn();
+    const onStop = jest.fn();
+    const { getByTestId, getByLabelText } = await render(
+      <ChatComposer {...baseProps} streaming onSend={onSend} onStop={onStop} />,
+    );
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    expect(getByLabelText("chat.stop")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-converter-ask"));
+    expect(onStop).toHaveBeenCalled();
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
   it("reopens the Converter tab after ABC", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));

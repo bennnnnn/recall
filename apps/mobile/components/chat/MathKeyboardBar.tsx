@@ -25,6 +25,8 @@ type Props = {
   onToggle: () => void;
   onInsert: (spec: MathKeyboardSymbol) => void;
   onAsk: (text: string) => void;
+  onStop: () => void;
+  streaming: boolean;
   onBackspace: () => void;
   onNextSlot: () => void;
   onPrevSlot: () => void;
@@ -43,6 +45,8 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   onToggle,
   onInsert,
   onAsk,
+  onStop,
+  streaming,
   onBackspace,
   onNextSlot,
   onPrevSlot,
@@ -139,7 +143,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
         </View>
       </View>
       {group === "converter" ? (
-        <MathConverterPad onAsk={onAsk} />
+        <MathConverterPad onAsk={onAsk} onStop={onStop} streaming={streaming} />
       ) : (
         <>
       {canToggleDigits && digitsOpen
