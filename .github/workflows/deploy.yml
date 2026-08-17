@@ -57,6 +57,11 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: EAS production build
-        env:
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+        # EXPO_PUBLIC_* values are NOT injected by this workflow — EAS Build runs
+        # on EAS's cloud, so GitHub Actions `env:` does not reach the build
+        # environment. Set every EXPO_PUBLIC_* (API_URL, EAS_PROJECT_ID,
+        # GOOGLE_WEB/IOS_CLIENT_ID, DEV_AUTH_ENABLED=false, REVENUECAT_*_API_KEY,
+        # SENTRY_DSN) as EAS Secrets (dashboard → Secrets, or `eas env:push`).
+        # app.config.ts fails the build if EXPO_PUBLIC_API_URL is empty for a
+        # production/preview profile.
         run: eas build --platform all --profile production --non-interactive --no-wait
