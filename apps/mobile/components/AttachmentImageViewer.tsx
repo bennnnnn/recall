@@ -9,9 +9,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { useAuthToken } from "@/contexts/AuthContext";
 import {
   ensureLocalAttachmentFile,
@@ -175,7 +175,7 @@ export function AttachmentImageViewer({
               hitSlop={12}
               accessibilityLabel={t("preview.close")}
             >
-              <Ionicons name="close" size={28} color={C.text} />
+              <Icon name="close" size={28} color={C.text} />
             </Pressable>
 
             <View style={s.headerActions}>
@@ -189,7 +189,7 @@ export function AttachmentImageViewer({
                 {busy === "share" ? (
                   <ActivityIndicator color={C.text} size="small" />
                 ) : (
-                  <Ionicons name="share-outline" size={24} color={C.text} />
+                  <Icon name="share-outline" size={24} color={C.text} />
                 )}
               </Pressable>
               <Pressable
@@ -202,7 +202,7 @@ export function AttachmentImageViewer({
                 {busy === "download" ? (
                   <ActivityIndicator color={C.text} size="small" />
                 ) : (
-                  <Ionicons name="download-outline" size={24} color={C.text} />
+                  <Icon name="download-outline" size={24} color={C.text} />
                 )}
               </Pressable>
             </View>

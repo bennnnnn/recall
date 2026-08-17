@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
-import type { Ionicons } from "@expo/vector-icons";
+
+import { type IoniconName } from "@/lib/icons";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -49,11 +50,11 @@ export function useChatActions({
   const [renameText, setRenameText] = useState("");
   const [actionBanner, setActionBanner] = useState<{
     message: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: IoniconName;
   } | null>(null);
 
   const showActionBanner = useCallback(
-    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
+    (message: string, icon?: IoniconName) => {
       setActionBanner({ message, icon });
     },
     [],

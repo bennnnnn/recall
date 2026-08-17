@@ -1,13 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
+import { Icon } from "@/components/Icon";
+import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
 export const ACTION_SHEET_ICON_SIZE = 20;
 
 type Props = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   label: string;
   onPress: () => void;
   theme: Theme;
@@ -40,7 +41,7 @@ export function ActionSheetRow({
         accessibilityRole="button"
         accessibilityLabel={label}
       >
-        <Ionicons name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
+        <Icon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
         <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
       </Pressable>
     </>

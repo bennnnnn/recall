@@ -1,9 +1,10 @@
 import { useMemo, useState, useCallback, type MutableRefObject, type ReactElement, type RefObject } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { Ionicons } from "@expo/vector-icons";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
+
+import { type IoniconName } from "@/lib/icons";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -38,7 +39,7 @@ export type UseChatScreenBodyPropsParams = {
   listBottomPadRef: MutableRefObject<number>;
   actionBanner: {
     message: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: IoniconName;
   } | null;
   dismissActionBanner: () => void;
   /** Everything needed to render the collapsible ChatHeader (title, nav, menu). */

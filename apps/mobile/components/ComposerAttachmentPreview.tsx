@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import type { PendingAttachment } from "@/lib/attachments";
 
@@ -34,7 +34,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
           accessibilityLabel={t("chat.remove_attachment_a11y")}
           disabled={uploading}
         >
-          <Ionicons name="close" size={14} color={C.text} />
+          <Icon name="close" size={14} color={C.text} />
         </Pressable>
       </View>
     );
@@ -43,7 +43,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
   return (
     <View style={s.fileWrap}>
       <View style={s.fileIcon}>
-        <Ionicons name="document-outline" size={18} color={C.primary} />
+        <Icon name="document-outline" size={18} color={C.primary} />
       </View>
       <Text style={s.fileName} numberOfLines={1}>
         {attachment.fileName}
@@ -57,7 +57,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
           accessibilityRole="button"
           accessibilityLabel={t("chat.remove_attachment_a11y")}
         >
-          <Ionicons name="close-circle" size={18} color={C.textTertiary} />
+          <Icon name="close-circle" size={18} color={C.textTertiary} />
         </Pressable>
       )}
     </View>

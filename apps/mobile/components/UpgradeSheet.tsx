@@ -1,12 +1,13 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { AppSheet } from "@/components/AppSheet";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { type IoniconName } from "@/lib/icons";
 import {
   getMonthlyProPackage,
   isPurchasesConfigured,
@@ -120,7 +121,7 @@ export function UpgradeSheet({ visible, onClose }: Props) {
       contentContainerStyle={s.sheet}
     >
       <View style={s.iconWrap}>
-        <Ionicons name="sparkles" size={28} color={theme.primary} />
+        <Icon name="sparkles" size={28} color={theme.primary} />
       </View>
       <Text style={s.title}>{t("upgrade.title")}</Text>
       <Text style={s.body}>{t("upgrade.body")}</Text>
@@ -163,13 +164,13 @@ function FeatureRow({
   text,
   theme,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   text: string;
   theme: Theme;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: Space.xs }}>
-      <Ionicons name={icon} size={18} color={theme.primary} />
+      <Icon name={icon} size={18} color={theme.primary} />
       <Text style={{ flex: 1, ...Type.secondary, color: theme.textSecondary }}>{text}</Text>
     </View>
   );

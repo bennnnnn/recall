@@ -8,8 +8,7 @@ import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Ionicons } from "@expo/vector-icons";
-
+import { type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
@@ -90,7 +89,7 @@ function ChatScreen() {
   const setInputRef = useRef<(value: string) => void>(() => {});
   const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
-    (message: string, icon?: keyof typeof Ionicons.glyphMap) => void
+    (message: string, icon?: IoniconName) => void
   >(() => {});
 
   const todosCtx = useTodosOptional();
