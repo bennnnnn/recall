@@ -365,3 +365,46 @@ async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -
 
 async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
     await _refund_daily(redis, _daily_key("imggen", user_id))
+
+
+# ── Global UTC-day spend kill-switch (OpenRouter $) ──────────────────────────
+# Integer millicents so INCRBY stays atomic. 0-limit settings are unlimited
+# (dev/tests). Redis errors fail closed: treat as exceeded so we do not burn
+# money while the meter is blind.
+
+
+def _spend_key(day: date | None = None) -> str:
+    return f"spend_mcents:{(day or utc_today()).isoformat()}"
+
+
+def _usd_to_millicents(usd: float) -> int:
+    return max(0, int(round(usd * 1000)))
+
+
+async def record_global_spend(redis: Redis, usd: float) -> int:
+    """Add estimated dollars to today's global spend counter. Returns millicents."""
+    amount = _usd_to_millicents(usd)
+    if amount <= 0:
+        return await get_global_spend_millicents(redis)
+    key = _spend_key()
+    new_total = await redis.incrby(key, amount)
+    if new_total == amount:
+        await redis.expire(key, _DAILY_TTL)
+    return new_total
+
+
+async def get_global_spend_millicents(redis: Redis) -> int:
+    value = await redis.get(_spend_key())
+    return int(value or 0)
+
+
+async def global_spend_exceeded(redis: Redis, settings: Settings) -> bool:
+    """True when today's spend is at/over the cap, or Redis is down and a cap is set."""
+    if settings.daily_global_spend_usd <= 0:
+        return False
+    limit = _usd_to_millicents(settings.daily_global_spend_usd)
+    try:
+        return await get_global_spend_millicents(redis) >= limit
+    except RedisError:
+        logger.warning("Global spend check failed; treating as exceeded", exc_info=True)
+        return True

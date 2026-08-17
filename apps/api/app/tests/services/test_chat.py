@@ -1287,7 +1287,11 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            Settings(
+                max_output_tokens=100,
+                memory_extract_every_n_turns=1,
+                mcp_tool_loop_enabled=False,
+            ),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
@@ -1298,7 +1302,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         if finalize is not None:
             await finalize
 
-    # Default memory_extract_every_n_turns=1 enqueues memory on every turn.
+    # Explicit every-turn setting still enqueues memory on later turns.
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert job_types.count("memory") == 1
     assert "topic" not in job_types

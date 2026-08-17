@@ -322,3 +322,33 @@ async def test_refund_image_generation(fake_redis):
     assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
     await quota_service.refund_image_generation(fake_redis, user_id)
     assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
+
+
+@pytest.mark.asyncio
+async def test_global_spend_unlimited_when_limit_zero(fake_redis):
+    settings = Settings(daily_global_spend_usd=0)
+    await quota_service.record_global_spend(fake_redis, 50.0)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is False
+
+
+@pytest.mark.asyncio
+async def test_global_spend_exceeded_after_recording(fake_redis):
+    settings = Settings(daily_global_spend_usd=1.0)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is False
+    await quota_service.record_global_spend(fake_redis, 0.4)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is False
+    await quota_service.record_global_spend(fake_redis, 0.6)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is True
+
+
+@pytest.mark.asyncio
+async def test_global_spend_redis_error_fails_closed():
+    settings = Settings(daily_global_spend_usd=10.0)
+
+    class _Boom:
+        async def get(self, _key: str) -> None:
+            from redis.exceptions import RedisError
+
+            raise RedisError("down")
+
+    assert await quota_service.global_spend_exceeded(_Boom(), settings) is True  # type: ignore[arg-type]

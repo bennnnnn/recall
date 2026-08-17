@@ -205,6 +205,11 @@ async def finalize_stream_turn_db(
             )
         except Exception:
             logger.exception("adjust_usage failed after successful finalize commit; not refunding")
+        if est_cost:
+            try:
+                await quota_service.record_global_spend(redis, est_cost)
+            except Exception:
+                logger.exception("record_global_spend failed after successful finalize")
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:
@@ -234,18 +239,25 @@ async def enqueue_post_turn_jobs(
         if ctx.assistant_message_id is not None
         else f"prior{ctx.prior_count}"
     )
+    spend_capped = await quota_service.global_spend_exceeded(redis, settings)
+    if spend_capped:
+        logger.warning(
+            "skipping background LLM jobs: global spend cap user_id=%s chat_id=%s",
+            ctx.user_id,
+            ctx.chat_id,
+        )
     should_extract_memory = turn_number == 1 or (
         settings.memory_extract_every_n_turns > 0
         and turn_number % settings.memory_extract_every_n_turns == 0
     )
     if (
-        not ctx.skip_memory_jobs
+        not spend_capped
+        and not ctx.skip_memory_jobs
         and should_extract_memory
         and ctx.user is not None
         and ctx.user.memory_enabled
     ):
-        # No dedupe: lock-busy path re-enqueues the same logical turn; a done
-        # key would drop those retries.
+        # Dedupe per assistant message. Lock-busy retries use `{stem}:lock{n}`.
         job_specs.append(
             (
                 "memory",
@@ -253,11 +265,16 @@ async def enqueue_post_turn_jobs(
                     "user_id": str(ctx.user_id),
                     "chat_id": str(ctx.chat_id),
                     "transcript": cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
+                    "assistant_message_id": turn_key,
                 },
-                None,
+                f"memory:{turn_key}",
             ),
         )
-    if not ctx.skip_memory_jobs and todos_service.transcript_implies_todo_sync(transcript):
+    if (
+        not spend_capped
+        and not ctx.skip_memory_jobs
+        and todos_service.transcript_implies_todo_sync(transcript)
+    ):
         todo_transcript = transcript
         try:
             async with SessionLocal() as session:
@@ -280,9 +297,13 @@ async def enqueue_post_turn_jobs(
                 f"todosync:{ctx.chat_id}:{turn_key}",
             ),
         )
-    if not ctx.skip_memory_jobs and projects_service.transcript_implies_project_sync(
-        transcript,
-        chat_project_id=ctx.chat_project_id,
+    if (
+        not spend_capped
+        and not ctx.skip_memory_jobs
+        and projects_service.transcript_implies_project_sync(
+            transcript,
+            chat_project_id=ctx.chat_project_id,
+        )
     ):
         job_specs.append(
             (
@@ -308,7 +329,7 @@ async def enqueue_post_turn_jobs(
                 f"topic:{ctx.chat_id}",
             ),
         )
-    if settings.history_compression_enabled:
+    if not spend_capped and settings.history_compression_enabled:
         # Dedupe by chat: rapid successive turns on the same chat coalesce —
         # the worker skips a duplicate enqueue, and the one job that runs
         # compresses whatever is pending at that time (including the later
@@ -321,9 +342,9 @@ async def enqueue_post_turn_jobs(
                 f"compress:{ctx.chat_id}",
             )
         )
-    if ctx.prior_count % 10 == 0:
+    if not spend_capped and ctx.prior_count % 10 == 0:
         job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}, None))
-    for attachment_id in ctx.indexable_attachment_ids:
+    for attachment_id in ctx.indexable_attachment_ids if not spend_capped else []:
         job_specs.append(
             (
                 "attachment_index",
@@ -336,7 +357,8 @@ async def enqueue_post_turn_jobs(
             ),
         )
     if (
-        settings.chat_history_rag_enabled
+        not spend_capped
+        and settings.chat_history_rag_enabled
         and ctx.assistant_message_id is not None
         and not ctx.skip_memory_jobs
     ):

@@ -53,7 +53,10 @@ async def test_enqueue_post_turn_jobs_includes_message_index():
         skip_memory_jobs=False,
         prior_count=4,
     )
-    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+    with (
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+    ):
         await enqueue_post_turn_jobs(
             redis,
             Settings(chat_history_rag_enabled=True, history_compression_enabled=False),
