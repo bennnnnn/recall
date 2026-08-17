@@ -64,7 +64,9 @@ import {
   parseTriviaTopics,
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 const SUBJECTS: ProjectKind[] = ["language", "trivia"];
 
@@ -517,7 +519,7 @@ export default function ProjectsScreen() {
             <View style={s.modalClose} />
           </View>
           <ScrollView
-            contentContainerStyle={[s.modalContent, { paddingBottom: insets.bottom + 24 }]}
+            contentContainerStyle={[s.modalContent, { paddingBottom: insets.bottom + Space.lg }]}
             keyboardShouldPersistTaps="handled"
           >
             <View style={s.createCard}>{renderCreateSteps()}</View>
@@ -531,13 +533,13 @@ export default function ProjectsScreen() {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    content: { padding: 16, paddingBottom: 96 },
-    listGap: { height: 12 },
+    content: { padding: Space.md, paddingBottom: 96 },
+    listGap: { height: Space.sm },
     modalRoot: { flex: 1, backgroundColor: C.bg },
     modalHeader: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: C.border,
@@ -546,21 +548,21 @@ function makeStyles(C: Theme) {
     modalHeaderTitle: {
       flex: 1,
       textAlign: "center",
+      ...Type.title,
       fontSize: 17,
-      fontWeight: "700",
       color: C.text,
     },
-    modalContent: { padding: 16 },
+    modalContent: { padding: Space.md },
     createCard: { gap: 10 },
-    createLabel: { fontSize: 20, fontWeight: "700", color: C.text },
-    stepHint: { fontSize: 14, color: C.textSecondary, marginBottom: 4 },
-    subjectList: { gap: 8 },
+    createLabel: { ...Type.title, color: C.text },
+    stepHint: { ...Type.label, fontWeight: "400", color: C.textSecondary, marginBottom: Space.xxs },
+    subjectList: { gap: Space.xs },
     subjectRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      gap: Space.sm,
       paddingVertical: 14,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       borderRadius: 14,
       backgroundColor: C.surface,
       borderWidth: 1,
@@ -578,9 +580,9 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    subjectText: { fontSize: 16, fontWeight: "600", color: C.text },
+    subjectText: { ...Type.body, fontWeight: "600", color: C.text },
     subjectMain: { flex: 1, gap: 2 },
-    subjectHint: { fontSize: 13, color: C.textSecondary },
+    subjectHint: { ...Type.caption, fontWeight: "400", color: C.textSecondary },
     subjectRowMuted: { opacity: 0.65 },
     subjectTextActive: { color: C.primaryDark },
     input: {
@@ -588,24 +590,24 @@ function makeStyles(C: Theme) {
       borderRadius: 12,
       borderWidth: 1,
       borderColor: C.border,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      fontSize: 16,
+      ...Type.body,
       color: C.text,
     },
     inputMultiline: { minHeight: 88, textAlignVertical: "top" },
     empty: {
       textAlign: "center",
       color: C.textSecondary,
-      fontSize: 15,
-      paddingVertical: 24,
+      ...Type.secondary,
+      paddingVertical: Space.lg,
     },
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      gap: Space.sm,
       paddingVertical: 14,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       borderRadius: 14,
       backgroundColor: C.surface,
     },
@@ -618,15 +620,14 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
     },
     rowMain: { flex: 1, gap: 2 },
-    rowTitle: { fontSize: 16, fontWeight: "700", color: C.text },
-    rowMeta: { fontSize: 13, color: C.textSecondary },
-    topicsDone: { fontSize: 16, fontWeight: "700", color: C.primary },
+    rowTitle: { ...Type.body, fontWeight: "700", color: C.text },
+    rowMeta: { ...Type.caption, fontWeight: "400", color: C.textSecondary },
+    topicsDone: { ...Type.body, fontWeight: "700", color: C.primary },
     topicsDoneDisabled: { opacity: 0.4 },
     fieldLabel: {
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: C.textSecondary,
-      marginTop: 4,
+      marginTop: Space.xxs,
     },
   });
 }

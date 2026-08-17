@@ -26,6 +26,7 @@ import {
   registerRemotePushToken,
   unregisterRemotePushToken,
 } from "@/lib/pushNotifications";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function NotificationsSettingsScreen() {
@@ -115,7 +116,7 @@ export default function NotificationsSettingsScreen() {
     <>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <SettingsGroup label={t("settings.notifications")} styles={s}>
           <SettingsSwitchRow

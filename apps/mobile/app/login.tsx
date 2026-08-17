@@ -26,7 +26,9 @@ import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { tap } from "@/lib/haptics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
+import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
  * white, unlike the primary-tinted border below (which DOES follow theme). */
@@ -322,8 +324,8 @@ function makeStyles(theme: Theme) {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingTop: 12,
-      paddingBottom: 24,
+      paddingTop: Space.sm,
+      paddingBottom: Space.lg,
     },
     logoGlow: {
       borderRadius: 28,
@@ -350,13 +352,13 @@ function makeStyles(theme: Theme) {
       letterSpacing: -1,
     },
     subtitle: {
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 24,
       color: theme.textSecondary,
-      marginTop: 8,
+      marginTop: Space.xs,
       textAlign: "center",
       maxWidth: 300,
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
     },
     highlights: {
       flexDirection: "row",
@@ -372,8 +374,8 @@ function makeStyles(theme: Theme) {
       gap: 6,
       backgroundColor: theme.isDark ? theme.surface : withAlpha(GLASS_WHITE, 0.72),
       borderRadius: 999,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.isDark ? theme.border : withAlpha(theme.primary, 0.12),
     },
@@ -386,12 +388,11 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     highlightText: {
-      fontSize: 13,
-      fontWeight: "600",
+      ...Type.caption,
       color: theme.textSecondary,
     },
     actions: {
-      paddingBottom: 8,
+      paddingBottom: Space.xs,
       gap: 14,
     },
     devBanner: {
@@ -401,7 +402,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.5),
       borderRadius: 14,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: Space.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.isDark
         ? withAlpha(GLASS_WHITE, 0.1)
@@ -409,7 +410,8 @@ function makeStyles(theme: Theme) {
     },
     devBannerText: {
       flex: 1,
-      fontSize: 13,
+      ...Type.caption,
+      fontWeight: "400",
       lineHeight: 19,
       color: theme.textSecondary,
     },
@@ -424,10 +426,10 @@ function makeStyles(theme: Theme) {
       gap: 10,
       width: "100%",
       borderRadius: 16,
-      paddingVertical: 16,
+      paddingVertical: Space.md,
       backgroundColor: "#000000",
     },
-    appleText: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
+    appleText: { ...Type.body, fontWeight: "600", color: "#FFFFFF" },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -439,13 +441,12 @@ function makeStyles(theme: Theme) {
       borderColor: theme.isDark
         ? withAlpha(GLASS_WHITE, 0.12)
         : withAlpha(theme.primary, 0.18),
-      paddingVertical: 16,
+      paddingVertical: Space.md,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.55),
     },
-    googleText: { fontSize: 16, fontWeight: "600", color: theme.text },
+    googleText: { ...Type.body, fontWeight: "600", color: theme.text },
     orText: {
-      fontSize: 13,
-      fontWeight: "600",
+      ...Type.caption,
       color: theme.textTertiary,
       textAlign: "center",
     },
@@ -461,18 +462,18 @@ function makeStyles(theme: Theme) {
       paddingVertical: 14,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.06 : 0.45),
     },
-    devSecondaryText: { fontSize: 15, fontWeight: "600", color: theme.primary },
+    devSecondaryText: { ...Type.secondary, fontWeight: "600", color: theme.primary },
     dim: { opacity: 0.55 },
     pressed: { opacity: 0.85 },
     links: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: Space.xs,
       marginTop: 2,
     },
-    link: { fontSize: 13, color: theme.textTertiary },
+    link: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
     linkPressable: { textDecorationLine: "underline" },
-    dot: { fontSize: 13, color: theme.textTertiary },
+    dot: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
   });
 }

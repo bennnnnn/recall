@@ -21,6 +21,7 @@ import {
   promptWindowTokens,
   usageUsedTokens,
 } from "@/lib/quota";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 
@@ -119,7 +120,7 @@ export default function ModelsSettingsScreen() {
     <>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <SettingsGroup label={t("settings.usage_group")} styles={s}>
           <SettingsValueRow

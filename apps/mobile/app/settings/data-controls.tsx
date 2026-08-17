@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { isAccountDeleteComplete } from "@/lib/accountDelete";
 import { api } from "@/lib/api";
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function DataControlsScreen() {
@@ -115,7 +116,7 @@ export default function DataControlsScreen() {
   return (
     <ScrollView
       style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
     >
       <SettingsGroup styles={s}>
         <SettingsLinkRow

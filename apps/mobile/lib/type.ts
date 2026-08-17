@@ -27,4 +27,16 @@ export const Type = {
     fontSize: 14,
     fontWeight: "600",
   },
+  /** Screen / section titles */
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 26,
+  },
+  /** Onboarding / marketing display */
+  display: {
+    fontSize: 28,
+    fontWeight: "700",
+    lineHeight: 34,
+  },
 } as const satisfies Record<string, TextStyle>;

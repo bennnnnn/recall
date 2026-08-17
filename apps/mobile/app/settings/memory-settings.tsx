@@ -15,6 +15,7 @@ import {
   fetchMemories,
   prefetchMemories,
 } from "@/lib/memoryListCache";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function MemorySettingsScreen() {
@@ -42,7 +43,7 @@ export default function MemorySettingsScreen() {
   return (
     <ScrollView
       style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
     >
       <SettingsGroup styles={s}>
         <SettingsSwitchRow

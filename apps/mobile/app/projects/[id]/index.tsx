@@ -53,7 +53,10 @@ import {
   learningProjectTitle,
   projectStatsLabels,
 } from "@/lib/projectUi";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 export default function ProjectDetailScreen() {
@@ -438,23 +441,23 @@ export default function ProjectDetailScreen() {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
-    content: { padding: 16, gap: 16, paddingBottom: 40 },
-    studyCtaBeforeList: { marginBottom: 8 },
+    content: { padding: Space.md, gap: Space.md, paddingBottom: Space.xl + Space.xs },
+    studyCtaBeforeList: { marginBottom: Space.xs },
     statsSection: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       padding: 14,
       gap: 10,
     },
     statsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     statsHeaderTitle: {
-      fontSize: 13,
+      ...Type.caption,
       fontWeight: "700",
       color: theme.textTertiary,
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
-    statsSummary: { fontSize: 14, lineHeight: 20, color: theme.textSecondary },
+    statsSummary: { ...Type.label, fontWeight: "400", lineHeight: 20, color: theme.textSecondary },
     statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     statCard: {
       width: "47%",
@@ -465,17 +468,17 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 4,
     },
-    statValue: { fontSize: 22, fontWeight: "800", color: theme.text },
+    statValue: { ...Type.title, fontSize: 22, fontWeight: "800", color: theme.text },
     statHighlight: { color: theme.primary },
     statLabel: { fontSize: 11, fontWeight: "600", color: theme.textSecondary, textAlign: "center" },
     listSection: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       padding: 14,
       gap: 10,
     },
     listTitle: {
-      fontSize: 13,
+      ...Type.caption,
       fontWeight: "700",
       color: theme.textTertiary,
       textTransform: "uppercase",
@@ -483,21 +486,21 @@ function makeStyles(theme: Theme) {
     },
     itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     itemMain: { flex: 1, gap: 2 },
-    itemTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-    itemContent: { fontSize: 16, fontWeight: "700", color: theme.text, flex: 1 },
+    itemTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: Space.xs },
+    itemContent: { ...Type.body, fontWeight: "700", color: theme.text, flex: 1 },
     itemMastered: { color: theme.textSecondary, textDecorationLine: "line-through" },
-    itemDef: { fontSize: 14, color: theme.textSecondary },
-    itemNote: { fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontStyle: "italic" },
+    itemDef: { ...Type.label, fontWeight: "400", color: theme.textSecondary },
+    itemNote: { ...Type.caption, fontWeight: "400", lineHeight: 18, color: theme.textSecondary, fontStyle: "italic" },
     itemMeta: { fontSize: 11, fontWeight: "600", color: theme.textTertiary, marginTop: 2 },
     practiceSection: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
-      padding: 16,
+      borderRadius: Radius.xl,
+      padding: Space.md,
       gap: 10,
     },
-    practiceTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
-    practiceBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
+    practiceTitle: { ...Type.body, fontWeight: "700", color: theme.text },
+    practiceBody: { ...Type.label, fontWeight: "400", lineHeight: 21, color: theme.textSecondary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
-    deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
+    deleteBtnText: { ...Type.secondary, fontWeight: "600", color: theme.danger },
   });
 }
