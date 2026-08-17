@@ -99,6 +99,13 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`A \subset B`))).toContain("⊂");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \equiv b`))).toContain("≡");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`(f \circ g)(2)`))).toBe("(f ∘ g)(2)");
+    // `\cdot` used to eat `\cdots` → "·s" in factorial steps.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`n \times (n-1) \times \cdots \times 1`))).toBe(
+      "n × (n-1) × ⋯ × 1",
+    );
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`1, 2, \ldots, n`))).toBe("1, 2, …, n");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`1, 2, \dots, n`))).toBe("1, 2, …, n");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \cdot b`))).toBe("a · b");
   });
 
   it("BUG FIX regression: renders known function names without the leading backslash", () => {

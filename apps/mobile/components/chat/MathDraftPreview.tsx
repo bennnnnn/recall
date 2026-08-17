@@ -153,7 +153,7 @@ function DraftPiece({
 
   if (node.kind === "sqrt") {
     return (
-      <View style={s.inline} testID="math-sqrt">
+      <View style={s.sqrtRow} testID="math-sqrt">
         {node.index ? (
           <View style={s.index}>
             <EditSlot
@@ -165,8 +165,8 @@ function DraftPiece({
             />
           </View>
         ) : null}
-        <Text style={s.prose}>√</Text>
-        <View style={s.sqrtBody}>
+        <Text style={s.sqrtSign}>√</Text>
+        <View style={s.sqrtBody} testID="math-sqrt-radicand">
           <EditSlot
             text={input}
             group={node.body}
@@ -303,8 +303,21 @@ const makeStyles = (theme: Theme) =>
       flexDirection: "row",
       alignItems: "center",
     },
+    // Tops share an edge so the √ hook stays on the vinculum when the
+    // radicand grows (MathText lineHeight 28). `center` dropped the glyph
+    // and left a gap; `flex-end` would do the same once the slot is taller
+    // than the sign.
+    sqrtRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+    },
     prose: {
       fontSize: 16,
+      color: theme.text,
+    },
+    sqrtSign: {
+      fontSize: 16,
+      lineHeight: 20,
       color: theme.text,
     },
     frac: {
@@ -318,11 +331,12 @@ const makeStyles = (theme: Theme) =>
       marginVertical: 2,
     },
     sqrtBody: {
-      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopWidth: StyleSheet.hairlineWidth * 2,
       borderTopColor: theme.text,
+      paddingTop: 1,
       marginLeft: 1,
     },
-    index: { marginRight: 0, marginBottom: 14, transform: [{ scale: 0.72 }] },
+    index: { marginRight: 0, marginTop: -2, transform: [{ scale: 0.72 }] },
     sup: { marginBottom: 10 },
     sub: { marginTop: 10 },
     slot: {

@@ -312,6 +312,21 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
   });
 
+  it("keeps the radical bar after a digit is typed into the root", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByText } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-sqrt"));
+    await fireEvent.press(getByTestId("math-key-digit-8"));
+    expect(getByTestId("math-sqrt")).toBeTruthy();
+    expect(getByTestId("math-sqrt-radicand")).toBeTruthy();
+    expect(getByTestId("math-slot-sqrt")).toBeTruthy();
+    expect(queryByText(/\\sqrt/)).toBeNull();
+  });
+
   it("ⁿ√ opens an nth-root index box", async () => {
     function Harness() {
       const [input, setInput] = useState("");
