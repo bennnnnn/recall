@@ -198,10 +198,10 @@ export default function LoginScreen() {
                   accessibilityState={{ disabled: busy, busy: busyProvider === "apple" }}
                 >
                   {busyProvider === "apple" ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={theme.brand.appleInk} />
                   ) : (
                     <>
-                      <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                      <Ionicons name="logo-apple" size={20} color={theme.brand.appleInk} />
                       <Text style={s.appleText}>{t("login.apple")}</Text>
                     </>
                   )}
@@ -224,7 +224,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.textSecondary} />
                   ) : (
                     <>
-                      <Ionicons name="logo-google" size={20} color="#4285F4" />
+                      <Ionicons name="logo-google" size={20} color={theme.brand.google} />
                       <Text style={s.googleText}>{t("login.google")}</Text>
                     </>
                   )}
@@ -427,9 +427,9 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       paddingVertical: Space.md,
-      backgroundColor: "#000000",
+      backgroundColor: theme.brand.apple,
     },
-    appleText: { ...Type.body, fontWeight: "600", color: "#FFFFFF" },
+    appleText: { ...Type.body, fontWeight: "600", color: theme.brand.appleInk },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",

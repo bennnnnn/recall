@@ -71,6 +71,11 @@ export type Theme = {
     twitter: string;
     linkedin: string;
     gmail: string;
+    /** Google "G" blue — vendor-mandated, same in light & dark. */
+    google: string;
+    /** Apple Sign-In button fill (black) and its ink (white) — vendor-mandated. */
+    apple: string;
+    appleInk: string;
   };
 };
 
@@ -123,7 +128,7 @@ export const lightTheme: Theme = {
 
   scrim: "rgba(0,0,0,0.40)",
 
-  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335" },
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
 export const darkTheme: Theme = {
@@ -171,7 +176,7 @@ export const darkTheme: Theme = {
 
   scrim: "rgba(0,0,0,0.60)",
 
-  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335" },
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
 /** Active palette for the current color scheme (system or user override). */
