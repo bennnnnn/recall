@@ -76,6 +76,25 @@ async def test_spend_cap_keeps_topic_drops_llm_jobs():
 
 
 @pytest.mark.asyncio
+async def test_suggestions_job_has_user_dedupe_key():
+    """The suggestions job must dedupe by user — the handler reads recent
+    activity at run time, so a coalesced run covers the latest state and rapid
+    turns at the % 10 boundary don't stack duplicate suggestion jobs."""
+    ctx = _ctx(prior_count=10, run_title=False)  # turn 11; 11 % 3 != 0 (no memory)
+    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(history_compression_enabled=False, chat_history_rag_enabled=False),
+            ctx,
+            "ok",
+        )
+    job_types = [c.args[1] for c in enqueue.call_args_list]
+    assert "suggestions" in job_types
+    suggestions_call = next(c for c in enqueue.call_args_list if c.args[1] == "suggestions")
+    assert suggestions_call.kwargs["dedupe_key"] == f"suggestions:{ctx.user_id}"
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_path_skips_when_spend_capped():
     from app.services.chat.stream import _run_tool_loop_path
 
