@@ -862,6 +862,7 @@
   "share.role_user": "Sen",
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
+  "suggested.from_sender": "{{sender}}",
   "terms.title": "Hizmet Şartları",
   "todos.add_reminder": "Hatırlatma ekle",
   "todos.add_todo": "Listeye ekle",

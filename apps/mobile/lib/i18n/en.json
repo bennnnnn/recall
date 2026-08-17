@@ -902,6 +902,7 @@
   "share.role_user": "You",
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
+  "suggested.from_sender": "From {{sender}}",
   "terms.title": "Terms of Service",
   "todos.add_reminder": "Add reminder",
   "todos.add_todo": "Add to list",

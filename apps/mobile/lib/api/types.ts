@@ -307,6 +307,7 @@ export type SuggestedReminder = {
   notes: string | null;
   confidence: number;
   source_snippet: string | null;
+  source_sender: string | null;
   status: string;
   created_at: string;
   gmail_message_id: string;

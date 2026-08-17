@@ -55,6 +55,12 @@ GMAIL_INBOX_ANSWER_HINT = (
     "4) Offer to open a specific thread or draft a reply if helpful."
 )
 
+EMAIL_SUGGESTION_NUDGE_HINT = (
+    "Pending Gmail suggested reminders are listed above. Mention them only when "
+    "the user asks about plans, errands, upcoming events, or email — not on "
+    "unrelated turns (math, quizzes, code, casual chat). Confirm before adding."
+)
+
 _EXTERNAL_EMAIL = re.compile(
     r"\b("
     r"check my (?:email|inbox|mail)|"
@@ -160,6 +166,11 @@ async def is_connected(session: AsyncSession, user_id: UUID) -> bool:
     return await gmail_repo.get_for_user(session, user_id) is not None
 
 
+async def load_pending_suggestions_nudge(session: AsyncSession, user_id: UUID) -> str | None:
+    pending = await suggested_repo.list_pending_for_user(session, user_id, limit=5)
+    return format_pending_suggestions_nudge(pending)
+
+
 def format_gmail_block(
     *,
     google_email: str,
@@ -173,6 +184,22 @@ def format_gmail_block(
         pending_suggestions=pending_suggestions,
         fetch_error=fetch_error,
     )
+
+
+def format_pending_suggestions_nudge(pending_suggestions: list) -> str | None:
+    """Compact pending list for turns that do not load the full inbox."""
+    if not pending_suggestions:
+        return None
+    lines = [
+        f"Pending email suggestions ({len(pending_suggestions)}) — "
+        "user confirms before anything is added:"
+    ]
+    for row in pending_suggestions[:5]:
+        due = f" — due {row.due_at.isoformat()}" if getattr(row, "due_at", None) else ""
+        sender = getattr(row, "source_sender", None)
+        who = f" (from {sender})" if sender else ""
+        lines.append(f"- {row.title}{who}{due}")
+    return "\n".join(lines)
 
 
 async def load_gmail_context(
@@ -316,6 +343,11 @@ async def _extract_reminder_item(
     extracted = _parse_from_ics(message, default_tz=default_tz)
     if extracted is not None:
         return extracted
+    from app.services.email_sender_templates import extract_from_sender_template
+
+    templated = extract_from_sender_template(message)
+    if templated is not None:
+        return templated
     return await _extract_with_llm(settings, message)
 
 
@@ -355,6 +387,9 @@ async def _write_suggested_reminder(
     due_at = extracted.due_at
     if due_at is not None and due_at.tzinfo is None:
         due_at = due_at.replace(tzinfo=UTC)
+    from app.services.email_sender_templates import display_sender
+
+    sender = display_sender(message.from_address).strip() or None
     await suggested_repo.create(
         session,
         user_id=user_id,
@@ -364,6 +399,7 @@ async def _write_suggested_reminder(
         notes=extracted.notes,
         confidence=extracted.confidence,
         source_snippet=message.snippet[:500] if message.snippet else None,
+        source_sender=sender[:120] if sender else None,
     )
 
 

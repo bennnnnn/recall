@@ -862,6 +862,7 @@
   "share.role_user": "Вы",
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
+  "suggested.from_sender": "От {{sender}}",
   "terms.title": "Условия использования",
   "todos.add_reminder": "Добавить напоминание",
   "todos.add_todo": "Добавить в список",

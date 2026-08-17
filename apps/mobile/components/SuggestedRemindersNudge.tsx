@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { api, SuggestedReminder } from "@/lib/api";
+import { describeDueAt } from "@/lib/dueDate";
 import {
   fetchSuggestedReminders,
   getCachedSuggestedReminders,
@@ -35,16 +36,18 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
       return;
     }
     try {
-      const data = await fetchSuggestedReminders(token);
+      const data = await fetchSuggestedReminders(token, { force: true });
       setReminders((data?.reminders ?? []).slice(0, 3));
     } catch {
       setReminders([]);
     }
   }, [token]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   if (reminders.length === 0) return null;
 
@@ -93,13 +96,23 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
       </Pressable>
       {!collapsed ? (
         <View style={s.body}>
-          {reminders.map((item) => (
+          {reminders.map((item) => {
+            const dueLabel = item.due_at ? describeDueAt(item.due_at)?.label : null;
+            const fromLabel = item.source_sender
+              ? t("suggested.from_sender", { sender: item.source_sender })
+              : null;
+            const meta = [fromLabel, dueLabel].filter(Boolean).join(" · ");
+            return (
             <View key={item.id} style={s.row}>
               <View style={s.rowBody}>
                 <Text style={s.title} numberOfLines={1}>
                   {item.title}
                 </Text>
-                {item.source_snippet ? (
+                {meta ? (
+                  <Text style={s.meta} numberOfLines={1}>
+                    {meta}
+                  </Text>
+                ) : item.source_snippet ? (
                   <Text style={s.snippet} numberOfLines={1}>
                     {item.source_snippet}
                   </Text>
@@ -120,7 +133,8 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
                 <Ionicons name="close" size={18} color={theme.textTertiary} />
               </Pressable>
             </View>
-          ))}
+            );
+          })}
           <Pressable style={s.viewAll} onPress={() => router.push("/todos")}>
             <Text style={s.viewAllText}>{t("chat.email_suggestions_view_all")}</Text>
           </Pressable>
@@ -153,6 +167,7 @@ function makeStyles(t: Theme) {
     row: { flexDirection: "row", alignItems: "center", gap: 8 },
     rowBody: { flex: 1 },
     title: { fontSize: 14, fontWeight: "600", color: t.text },
+    meta: { fontSize: 12, color: t.textSecondary, marginTop: 2 },
     snippet: { fontSize: 12, color: t.textTertiary, marginTop: 2 },
     addBtn: {
       paddingHorizontal: 10,

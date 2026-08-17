@@ -862,6 +862,7 @@
   "share.role_user": "Tu",
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
+  "suggested.from_sender": "Da {{sender}}",
   "terms.title": "Termini di servizio",
   "todos.add_reminder": "Aggiungi promemoria",
   "todos.add_todo": "Aggiungi alla lista",

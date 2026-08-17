@@ -29,7 +29,14 @@ export function SuggestedReminderRow({ reminder, busy, onAdd, onDismiss }: Props
         <Text style={s.title} numberOfLines={2}>
           {reminder.title}
         </Text>
-        {dueLabel ? <Text style={s.meta}>{dueLabel}</Text> : null}
+        {reminder.source_sender ? (
+          <Text style={s.meta}>
+            {t("suggested.from_sender", { sender: reminder.source_sender })}
+            {dueLabel ? ` · ${dueLabel}` : ""}
+          </Text>
+        ) : dueLabel ? (
+          <Text style={s.meta}>{dueLabel}</Text>
+        ) : null}
         {reminder.source_snippet ? (
           <Text style={s.snippet} numberOfLines={2}>
             {reminder.source_snippet}
