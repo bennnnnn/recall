@@ -211,3 +211,62 @@ async def test_apply_deterministic_verifier_agreement_persists():
     assert grade.correct_letter == "A"
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is True
+
+
+@pytest.mark.asyncio
+async def test_new_vocab_quiz_word_lands_in_current_path_chapter():
+    from app.models.orm import Project
+
+    session = AsyncMock()
+    user_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    project = Project(
+        id=project_id,
+        user_id=user_id,
+        title="Español",
+        kind="language",
+        level="level1",
+        target_language="es",
+        learning_path=["Greetings", "Food"],
+    )
+    created = AsyncMock()
+
+    with (
+        patch(
+            "app.repositories.projects.get_by_id",
+            new=AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.projects.quiz_grading.create_item",
+            new=AsyncMock(return_value=created),
+        ) as create_mock,
+        patch(
+            "app.services.projects.quiz_grading.apply_quiz_result",
+            new=AsyncMock(return_value=created),
+        ),
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value="A"),
+        ),
+    ):
+        grade = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=uuid.uuid4(),
+            project_id=project_id,
+            assistant_content=VOCAB_FENCE,
+            user_answer="A",
+            attempt=1,
+        )
+
+    assert grade is not None
+    assert grade.is_correct is True
+    assert create_mock.await_args.kwargs["list_title"] == "Greetings"
