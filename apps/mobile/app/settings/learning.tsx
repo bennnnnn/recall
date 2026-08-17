@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { StateView } from "@/components/StateView";
 import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
 import {
   makeSettingsStyles,
@@ -42,6 +43,7 @@ function mergeProjectRow(prev: Project[], updated: Project): Project[] {
 export default function LearningSettingsScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -154,10 +156,9 @@ export default function LearningSettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
       >
-        <Text style={s.sectionHint}>{t("settings.learning.hint")}</Text>
-
         {hasLearningProjects ? (
           <>
+            <Text style={s.sectionHint}>{t("settings.learning.hint")}</Text>
             {languageProjects.map((languageProject) => (
               <SettingsGroup
                 key={languageProject.id}
@@ -250,7 +251,14 @@ export default function LearningSettingsScreen() {
             ) : null}
           </>
         ) : (
-          <Text style={s.sectionHint}>{t("settings.learning.empty")}</Text>
+          <StateView
+            variant="empty"
+            compact
+            icon="school-outline"
+            title={t("settings.learning.empty")}
+            onRetry={() => router.push("/projects")}
+            retryLabel={t("settings.learning.create")}
+          />
         )}
       </ScrollView>
 
