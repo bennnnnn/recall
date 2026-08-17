@@ -9,12 +9,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -154,7 +154,7 @@ export default function LoginScreen() {
             {HIGHLIGHTS.map((item) => (
               <View key={item.labelKey} style={s.highlight}>
                 <View style={s.highlightIcon}>
-                  <Ionicons name={item.icon} size={16} color={theme.primary} />
+                  <Icon name={item.icon} size={16} color={theme.primary} />
                 </View>
                 <Text style={s.highlightText}>{t(item.labelKey)}</Text>
               </View>
@@ -166,7 +166,7 @@ export default function LoginScreen() {
           {expoGoAndroid && showDevLogin ? (
             <>
               <View style={s.devBanner}>
-                <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+                <Icon name="information-circle-outline" size={18} color={theme.primary} />
                 <Text style={s.devBannerText}>{t("login.dev_expo_hint")}</Text>
               </View>
               <Button
@@ -181,7 +181,7 @@ export default function LoginScreen() {
             <>
               {expoGoIos ? (
                 <View style={s.devBanner}>
-                  <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+                  <Icon name="information-circle-outline" size={18} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.dev_expo_ios_hint")}</Text>
                 </View>
               ) : null}
@@ -202,7 +202,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.brand.appleInk} />
                   ) : (
                     <>
-                      <Ionicons name="logo-apple" size={20} color={theme.brand.appleInk} />
+                      <Icon name="logo-apple" size={20} color={theme.brand.appleInk} />
                       <Text style={s.appleText}>{t("login.apple")}</Text>
                     </>
                   )}
@@ -225,14 +225,14 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.textSecondary} />
                   ) : (
                     <>
-                      <Ionicons name="logo-google" size={20} color={theme.brand.google} />
+                      <Icon name="logo-google" size={20} color={theme.brand.google} />
                       <Text style={s.googleText}>{t("login.google")}</Text>
                     </>
                   )}
                 </Pressable>
               ) : showDevLogin && !showAppleLogin ? (
                 <View style={s.devBanner}>
-                  <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+                  <Icon name="information-circle-outline" size={18} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.error_not_configured")}</Text>
                 </View>
               ) : null}
