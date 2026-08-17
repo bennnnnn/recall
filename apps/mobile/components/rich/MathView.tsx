@@ -2,9 +2,11 @@ import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
+import { MathSvgBlock } from "@/components/rich/MathSvgBlock";
 import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
+import { MATH_SVG_NATIVE_ENABLED } from "@/lib/mathSvgBridge";
 import { MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { useTheme } from "@/lib/theme";
@@ -35,6 +37,18 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
           // alone collides the same way sibling math fences do without tokenIndex.
           <MathBlock key={`line:${i}:${line}`} latex={line} />
         ))}
+      </View>
+    );
+  }
+
+  // SPIKE: SVG-native path (hidden shared WebView → MathJax → <SvgXml>).
+  // Self-gates on MATH_SVG_NATIVE_ENABLED and falls back to the visible
+  // MathFormulaWebView when the bridge is off/unready. Default OFF — flip
+  // on-device to A/B against the visible-WebView path below.
+  if (MATH_SVG_NATIVE_ENABLED) {
+    return (
+      <View style={styles.wrap}>
+        <MathSvgBlock latex={trimmed} textColor={theme.text} />
       </View>
     );
   }
