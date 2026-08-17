@@ -54,7 +54,7 @@ function SettingsRowChrome({
   title,
   subtitle,
   value,
-  showChevron,
+  chevron,
   danger,
   styles,
   theme,
@@ -64,7 +64,7 @@ function SettingsRowChrome({
   title: string;
   subtitle?: string;
   value?: string;
-  showChevron: boolean;
+  chevron?: "forward" | "down" | "up";
   danger?: boolean;
   styles: SettingsStyles;
   theme: Theme;
@@ -91,8 +91,12 @@ function SettingsRowChrome({
             {value}
           </Text>
         ) : null}
-        {showChevron ? (
-          <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
+        {chevron ? (
+          <Ionicons
+            name={`chevron-${chevron}`}
+            size={18}
+            color={theme.textTertiary}
+          />
         ) : null}
       </View>
     </>
@@ -132,7 +136,7 @@ export function SettingsLinkRow({
         title={title}
         subtitle={subtitle}
         value={value}
-        showChevron={!danger}
+        chevron={danger ? undefined : "forward"}
         danger={danger}
         styles={styles}
         theme={theme}
@@ -166,10 +170,93 @@ export function SettingsValueRow({
         title={title}
         subtitle={subtitle}
         value={value}
-        showChevron={false}
         styles={styles}
         theme={theme}
       />
+    </View>
+  );
+}
+
+export function SettingsInlinePicker({
+  icon,
+  title,
+  subtitle,
+  value,
+  options,
+  selectedKey,
+  expanded,
+  disabled,
+  onToggle,
+  onSelect,
+  styles,
+  theme,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  value: string;
+  options: { key: string; label: string }[];
+  selectedKey: string;
+  expanded: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+  onSelect: (key: string) => void;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  return (
+    <View>
+      <Pressable
+        style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
+        onPress={onToggle}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+      >
+        <SettingsRowChrome
+          icon={icon}
+          title={title}
+          subtitle={subtitle}
+          value={value}
+          chevron={expanded ? "up" : "down"}
+          styles={styles}
+          theme={theme}
+        />
+      </Pressable>
+      {expanded
+        ? options.map((option) => {
+            const active = option.key === selectedKey;
+            return (
+              <Pressable
+                key={option.key}
+                style={({ pressed }) => [
+                  styles.inlineOption,
+                  pressed && styles.rowPressed,
+                ]}
+                disabled={disabled}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={option.label}
+                onPress={() => {
+                  if (!active) onSelect(option.key);
+                  onToggle();
+                }}
+              >
+                <Text
+                  style={[
+                    styles.pickerOptionText,
+                    active && styles.pickerOptionTextActive,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+                {active ? (
+                  <Ionicons name="checkmark" size={18} color={theme.primary} />
+                ) : null}
+              </Pressable>
+            );
+          })
+        : null}
     </View>
   );
 }
@@ -653,6 +740,16 @@ export function makeSettingsStyles(t: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
       marginBottom: 8,
+    },
+    inlineOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      minHeight: 44,
+      paddingVertical: 11,
+      paddingRight: 14,
+      paddingLeft: 58,
     },
     pickerOption: {
       flexDirection: "row",
