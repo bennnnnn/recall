@@ -251,11 +251,3 @@ def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:
         if not needed.issubset(answered):
             return i
     return None
-
-
-def dump_tool_debug(messages: list[dict[str, Any]]) -> str:
-    """Compact debug string for tests/logging."""
-    return json.dumps(
-        [{"role": m.get("role"), "keys": sorted(m.keys())} for m in messages],
-        default=str,
-    )
