@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -97,7 +97,7 @@ export function ChartBlock({ content }: Props) {
     <View style={s.wrap}>
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Ionicons name="bar-chart-outline" size={16} color={theme.primary} />
+          <Icon name="bar-chart-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.chart")}</Text>
         </View>
         <Text style={s.lineCount}>
@@ -150,7 +150,7 @@ export function ChartBlock({ content }: Props) {
           onPress={() => setShowSource((v) => !v)}
           hitSlop={8}
         >
-          <Ionicons
+          <Icon
             name={showSource ? "eye-off-outline" : "code-slash-outline"}
             size={18}
             color={showSource ? theme.primary : theme.textSecondary}
@@ -165,7 +165,7 @@ export function ChartBlock({ content }: Props) {
           onPress={() => setExpanded((v) => !v)}
           hitSlop={8}
         >
-          <Ionicons
+          <Icon
             name={expanded ? "contract-outline" : "expand-outline"}
             size={18}
             color={theme.textSecondary}
@@ -176,7 +176,7 @@ export function ChartBlock({ content }: Props) {
         </Pressable>
 
         <Pressable style={s.openBtn} onPress={handleOpenVegaEditor} hitSlop={8}>
-          <Ionicons name="open-outline" size={18} color={theme.onPrimary} />
+          <Icon name="open-outline" size={18} color={theme.onPrimary} />
           <Text style={s.openLabel}>{t("rich.vega_editor")}</Text>
         </Pressable>
       </View>

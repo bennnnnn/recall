@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { fullEmailText } from "@/lib/emailCompose";
@@ -108,7 +108,7 @@ export function EmailCard({ draft }: Props) {
               editing ? t("chat.email_card_done") : t("chat.email_card_edit")
             }
           >
-            <Ionicons
+            <Icon
               name={editing ? "checkmark-outline" : "create-outline"}
               size={20}
               color={editing ? theme.primary : theme.textSecondary}
@@ -122,7 +122,7 @@ export function EmailCard({ draft }: Props) {
             accessibilityLabel={t("chat.email_card_copy")}
             disabled={editing}
           >
-            <Ionicons
+            <Icon
               name={copied ? "checkmark-outline" : "copy-outline"}
               size={20}
               color={copied ? theme.primary : theme.textSecondary}
@@ -136,7 +136,7 @@ export function EmailCard({ draft }: Props) {
             accessibilityLabel={t("chat.email_card_gmail")}
             disabled={gmailOpening || editing}
           >
-            <Ionicons name="mail-outline" size={16} color={theme.brand.gmail} />
+            <Icon name="mail-outline" size={16} color={theme.brand.gmail} />
             <Text style={s.gmailBtnText}>{t("rich.gmail")}</Text>
           </Pressable>
         </View>

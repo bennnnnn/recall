@@ -1,14 +1,15 @@
 import { ReactNode, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
+import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
+import { type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   label: string;
   copyText?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   iconColor?: string;
   accentColor?: string;
   children: ReactNode;
@@ -31,7 +32,7 @@ export function CardShell({
     <View style={[s.wrap, { borderLeftColor: resolvedAccent }]}>
       <View style={s.header}>
         <View style={s.labelRow}>
-          {icon ? <Ionicons name={icon} size={15} color={resolvedIconColor} /> : null}
+          {icon ? <Icon name={icon} size={15} color={resolvedIconColor} /> : null}
           <Text style={s.label}>{label}</Text>
         </View>
         {copyText ? <CopyButton text={copyText} /> : null}

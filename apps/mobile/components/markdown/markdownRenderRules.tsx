@@ -1,5 +1,5 @@
 import { Children, Fragment, ReactNode } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { Image, Text, View } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
@@ -259,7 +259,7 @@ function makeSharedRules(
           }
           return (
             <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-              <Ionicons
+              <Icon
                 name="square-outline"
                 size={18}
                 color={t.textTertiary}
