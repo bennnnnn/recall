@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -133,7 +133,7 @@ export function ChemistryBlock({ content }: Props) {
       <View style={s.wrap}>
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <Ionicons name="flask-outline" size={16} color={theme.primary} />
+            <Icon name="flask-outline" size={16} color={theme.primary} />
             <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
           </View>
         </View>
@@ -148,7 +148,7 @@ export function ChemistryBlock({ content }: Props) {
     <View style={s.wrap}>
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Ionicons name="flask-outline" size={16} color={theme.primary} />
+          <Icon name="flask-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
         </View>
       </View>

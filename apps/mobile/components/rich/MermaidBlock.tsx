@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -84,7 +84,7 @@ export function MermaidBlock({ content }: Props) {
     <View style={s.wrap}>
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Ionicons name="git-network-outline" size={16} color={theme.primary} />
+          <Icon name="git-network-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.mermaid_diagram")}</Text>
         </View>
         <Pressable onPress={() => setShowSource((v) => !v)} hitSlop={8}>
@@ -127,7 +127,7 @@ export function MermaidBlock({ content }: Props) {
       <View style={s.actions}>
         <CopyButton text={content} variant="action" />
         <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
-          <Ionicons name="open-outline" size={18} color={theme.onPrimary} />
+          <Icon name="open-outline" size={18} color={theme.onPrimary} />
           <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
         </Pressable>
       </View>

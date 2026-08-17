@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
@@ -21,7 +21,7 @@ export function CollapsibleBlock({ title, body }: Props) {
         accessibilityState={{ expanded: open }}
         accessibilityLabel={title}
       >
-        <Ionicons
+        <Icon
           name={open ? "chevron-down" : "chevron-forward"}
           size={16}
           color={theme.textSecondary}

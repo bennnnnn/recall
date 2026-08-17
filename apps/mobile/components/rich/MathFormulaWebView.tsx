@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -224,7 +224,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
           accessibilityRole="button"
           accessibilityLabel={t("rich.expand")}
         >
-          <Ionicons name="expand-outline" size={16} color={theme.textSecondary} />
+          <Icon name="expand-outline" size={16} color={theme.textSecondary} />
           <Text style={s.expandLabel}>{t("rich.expand")}</Text>
         </Pressable>
       ) : null}
@@ -252,7 +252,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
               accessibilityLabel={t("preview.close")}
               style={s.modalClose}
             >
-              <Ionicons name="close" size={24} color={theme.text} />
+              <Icon name="close" size={24} color={theme.text} />
             </Pressable>
           </View>
           <WebView

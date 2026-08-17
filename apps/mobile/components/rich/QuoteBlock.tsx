@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
@@ -13,7 +13,7 @@ export function QuoteBlock({ quote, author, children }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Ionicons
+      <Icon
         name="chatbox-ellipses-outline"
         size={18}
         color={theme.textTertiary}

@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
+import { type IoniconName } from "@/lib/icons";
 import { SocialPlatform } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -14,7 +15,7 @@ function platformMeta(
   t: (key: string) => string,
 ): Record<
   SocialPlatform,
-  { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }
+  { label: string; icon: IoniconName; color: string }
 > {
   return {
     twitter: { label: t("rich.post_draft_x"), icon: "logo-twitter", color: theme.brand.twitter },
@@ -46,7 +47,7 @@ export function SocialPostCard({ text, platform }: Props) {
     >
       <View style={s.card}>
         <View style={s.avatar}>
-          <Ionicons name="person" size={16} color={theme.textSecondary} />
+          <Icon name="person" size={16} color={theme.textSecondary} />
         </View>
         <View style={s.content}>
           <Text style={s.name}>{t("common.you")}</Text>
