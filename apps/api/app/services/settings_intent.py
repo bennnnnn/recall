@@ -62,6 +62,11 @@ _APPEARANCE_NICKNAMES: dict[str, str] = {
     "light": "light",
     "day": "light",
     "system": "system",
+    # "default" = follow the system theme, the product default. Without
+    # this the heuristic misses "switch to default theme" and the user has no
+    # way to undo an explicit light/dark choice via chat. ("auto" is NOT
+    # aliased here — it collides with the "auto" model alias.)
+    "default": "system",
 }
 
 _LANGUAGE_NICKNAMES: dict[str, str] = {

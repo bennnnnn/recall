@@ -9,6 +9,8 @@ from app.services.settings_intent import extract_settings_changes
         ("switch to dark mode", "appearance", "dark"),
         ("use light theme", "appearance", "light"),
         ("change appearance to system", "appearance", "system"),
+        ("switch to default theme", "appearance", "system"),
+        ("set appearance to default", "appearance", "system"),
         ("dark mode", "appearance", "dark"),
         ("use pro", "default_model", "smart-chat"),
         ("switch to flash", "default_model", "free-chat"),
