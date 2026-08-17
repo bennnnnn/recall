@@ -105,6 +105,25 @@ describe("MathText", () => {
     expect(queryByText(/√\[/)).toBeNull();
   });
 
+  it("BUG FIX regression: the radicand is full size under the bar, not a subscript", async () => {
+    // Reported live ("the square root is totally broken"): the radicand reused
+    // the fraction-sized side renderer (11px) and bottom-aligned against the
+    // 16px √, so `\sqrt{8}` read as "√ subscript 8" with the bar floating in
+    // the sign's leading.
+    const { getByTestId } = await render(<MathText latex={String.raw`\sqrt{8}`} />);
+    expect(getByTestId("math-sqrt")).toHaveStyle({ alignItems: "flex-start" });
+    expect(screen.getByText("8")).toHaveStyle({ fontSize: 16, lineHeight: 20 });
+  });
+
+  it("BUG FIX regression: a script inside \\sqrt{} does not leak a literal caret", async () => {
+    // Live: "√ 8^3" — the radicand was flattened with segmentsToPlain, which
+    // turns a sup segment back into `^3`.
+    const { queryByText } = await render(<MathText latex={String.raw`\sqrt{8^3}`} />);
+    expect(queryByText(/\^/)).toBeNull();
+    expect(screen.getByText("8")).toBeOnTheScreen();
+    expect(screen.getByText("³")).toBeOnTheScreen();
+  });
+
   it("renders an nth-root index without \\sqrt[n] brackets", async () => {
     const { getByTestId, getAllByText, queryByText } = await render(
       <MathText latex={String.raw`\sqrt[9]{9}`} />,

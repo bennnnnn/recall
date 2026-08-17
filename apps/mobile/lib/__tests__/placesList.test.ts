@@ -37,6 +37,20 @@ describe("placesList", () => {
     );
   });
 
+  it("does not merge adjacent inline math spans into a broken link", () => {
+    // Reported live ("leaked latex"): `Integrate 9 over $x \in [0,2]$ \times
+    // $y \in [1,3]$:` — the old regex matched `[0,2]$ \times $` and rewrote it
+    // to `[0,2]( \times )`, leaking the `$` delimiters and painting `0,2` blue.
+    const math = "Integrate 9 over $x \\in [0,2]$ \\times $y \\in [1,3]$:";
+    expect(repairBrokenMarkdownLinks(math)).toBe(math);
+    expect(repairBrokenMarkdownLinks(math)).not.toContain("](");
+  });
+
+  it("still repairs a www. url without an explicit scheme", () => {
+    const broken = "[Google]$www.google.com$";
+    expect(repairBrokenMarkdownLinks(broken)).toBe("[Google](www.google.com)");
+  });
+
   it("parses minimal rows", () => {
     expect(parsePlacesJson('[{"name":"A","address":"1 Main St"}]')).toEqual([
       {
