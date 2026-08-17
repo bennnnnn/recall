@@ -19,6 +19,7 @@ import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -280,7 +281,7 @@ function makeStyles(t: Theme, compact: boolean) {
     },
     meta: { flex: 1, minWidth: 0 },
     name: { fontSize: 14, fontWeight: "600", color: t.text },
-    kind: { fontSize: 12, color: t.textTertiary, marginTop: 2 },
+    kind: { ...Type.meta, color: t.textTertiary, marginTop: 2 },
     previewWrap: {
       marginTop: 8,
       height: 180,

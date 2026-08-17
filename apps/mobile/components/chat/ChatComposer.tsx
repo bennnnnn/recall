@@ -35,6 +35,7 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlot
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 function noopComposerInput(_text: string) {}
 
@@ -417,7 +418,7 @@ function makeStyles(theme: Theme) {
     tokenHint: {
       marginTop: 4,
       marginLeft: 40,
-      fontSize: 12,
+      ...Type.meta,
       color: theme.textTertiary,
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },

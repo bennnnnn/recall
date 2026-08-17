@@ -16,6 +16,7 @@ import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from 
 import { learningProgressColors } from "@/lib/homeLearningCard";
 import { selection, tap } from "@/lib/haptics";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   onSelect: (prompt: string) => void;
@@ -338,11 +339,8 @@ function makeStyles(t: Theme) {
     },
     projectFill: { height: 4, borderRadius: 2 },
     sectionLabel: {
-      fontSize: 11,
-      fontWeight: "700",
+      ...Type.overline,
       color: t.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.8,
       marginBottom: 8,
     },
     sectionLabelUrgent: {

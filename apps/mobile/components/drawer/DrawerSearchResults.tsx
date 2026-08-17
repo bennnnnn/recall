@@ -6,6 +6,7 @@ import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { displayChatTitle } from "@/lib/chatTitle";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import type { SearchResult } from "@/lib/api";
 
 type ChromeProps = {
@@ -117,11 +118,8 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     section: { marginBottom: 8 },
     sectionTitle: {
-      fontSize: 11,
-      fontWeight: "700",
+      ...Type.overline,
       color: theme.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.8,
       paddingHorizontal: 14,
       paddingTop: 12,
       paddingBottom: 6,

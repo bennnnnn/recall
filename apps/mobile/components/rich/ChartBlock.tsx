@@ -14,6 +14,7 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { escapeForInlineJsTemplate, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -205,7 +206,7 @@ function makeStyles(t: Theme) {
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
     headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
-    lineCount: { fontSize: 12, color: t.textTertiary },
+    lineCount: { ...Type.meta, color: t.textTertiary },
     previewBox: {
       backgroundColor: t.bg,
       borderBottomWidth: StyleSheet.hairlineWidth,
