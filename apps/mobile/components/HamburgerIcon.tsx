@@ -8,7 +8,7 @@ type Props = {
 };
 
 /** Two-line menu icon (ChatGPT-style) — bottom bar shorter. */
-export function HamburgerIcon({ size = 22, color }: Props) {
+export function HamburgerIcon({ size = 20, color }: Props) {
   const theme = useTheme();
   const lineColor = color ?? theme.text;
   const lineHeight = 2.5;
