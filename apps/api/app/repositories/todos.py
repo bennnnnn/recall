@@ -33,7 +33,7 @@ async def list_due_soon(
 
 
 async def list_for_user(
-    session: AsyncSession, user_id: UUID, *, limit: int = 200, offset: int = 0
+    session: AsyncSession, user_id: UUID, *, limit: int = 1000, offset: int = 0
 ) -> list[TodoItem]:
     result = await session.execute(
         select(TodoItem)
