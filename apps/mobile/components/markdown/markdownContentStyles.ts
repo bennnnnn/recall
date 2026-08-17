@@ -2,6 +2,7 @@ import { StyleSheet } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export const verifyCheckStyles = StyleSheet.create({
   verifyRow: {
@@ -46,8 +47,8 @@ export function makeMdMath(t: Theme) {
       height: 7,
       borderRadius: 4,
       backgroundColor: t.assistantText,
-      // Body is 16/25 — center the disc on the first line.
-      marginTop: 9,
+      // Body is 16/22 — center the disc on the first line.
+      marginTop: 8,
       marginRight: 10,
       marginLeft: 2,
       flexShrink: 0,
@@ -86,7 +87,7 @@ export function makeMdImg(t: Theme) {
 
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
-    body: { color: t.assistantText, fontSize: 16, lineHeight: 28 },
+    body: { ...Type.body, color: t.assistantText },
     code_inline: {
       backgroundColor: t.contentSurface,
       color: t.text,
@@ -103,12 +104,12 @@ export function makeMdStyles(t: Theme) {
     paragraphRun: { marginTop: 2, marginBottom: 8 },
     bullet_list: { marginVertical: 4 },
     ordered_list: { marginVertical: 4 },
-    heading1: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: t.text },
-    heading2: { fontSize: 18, fontWeight: "700", marginBottom: 6, color: t.text },
-    heading3: { fontSize: 16, fontWeight: "600", marginBottom: 4, color: t.text },
-    heading4: { fontSize: 15, fontWeight: "600", marginBottom: 4, color: t.text },
-    heading5: { fontSize: 14, fontWeight: "600", marginBottom: 2, color: t.text },
-    heading6: { fontSize: 13, fontWeight: "600", marginBottom: 2, color: t.text },
+    heading1: { ...Type.h1, marginBottom: 8, color: t.text },
+    heading2: { ...Type.h2, marginBottom: 6, color: t.text },
+    heading3: { ...Type.h3, marginBottom: 4, color: t.text },
+    heading4: { ...Type.h4, marginBottom: 4, color: t.text },
+    heading5: { ...Type.h5, marginBottom: 2, color: t.text },
+    heading6: { ...Type.h6, marginBottom: 2, color: t.text },
     strong: { fontWeight: "700", color: t.text },
     em: { fontStyle: "italic" },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },

@@ -60,4 +60,12 @@ export const Type = {
     fontWeight: "700",
     lineHeight: 34,
   },
+  /** Markdown heading ladder (h1–h6). No lineHeight — matches the legacy
+   *  markdown styles (single-line headings rely on default leading). */
+  h1: { fontSize: 20, fontWeight: "700" },
+  h2: { fontSize: 18, fontWeight: "700" },
+  h3: { fontSize: 16, fontWeight: "600" },
+  h4: { fontSize: 15, fontWeight: "600" },
+  h5: { fontSize: 14, fontWeight: "600" },
+  h6: { fontSize: 13, fontWeight: "600" },
 } as const satisfies Record<string, TextStyle>;
