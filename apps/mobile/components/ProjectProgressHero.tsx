@@ -207,7 +207,7 @@ function MetricPill({
         gap: 2,
       }}
     >
-      <Text style={{ fontSize: 18, fontWeight: "800", color: accent }}>{value}</Text>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: accent }}>{value}</Text>
       <Text
         style={{
           fontSize: 10,
@@ -241,7 +241,7 @@ function makeStyles(theme: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
-    pct: { fontSize: 14, fontWeight: "800", color: theme.primary },
+    pct: { fontSize: 14, fontWeight: "700", color: theme.primary },
     pctComplete: { color: theme.success },
     doneSubtitle: {
       fontSize: 14,

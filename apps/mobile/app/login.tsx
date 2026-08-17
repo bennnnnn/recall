@@ -340,7 +340,7 @@ function makeStyles(theme: Theme) {
     },
     title: {
       fontSize: 36,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.text,
       letterSpacing: -1,
     },
