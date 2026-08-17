@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { HamburgerIcon } from "@/components/HamburgerIcon";
+import { NewChatIcon } from "@/components/NewChatIcon";
 import { ReminderBadge } from "@/components/ReminderBadge";
 import {
   CHROME_FADE_EXTRA,
@@ -12,7 +13,6 @@ import {
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
-import { NEW_CHAT_ICON } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -132,7 +132,7 @@ export const ChatHeader = memo(function ChatHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
               >
-                <Ionicons name={NEW_CHAT_ICON} size={22} color={theme.text} />
+                <NewChatIcon size={22} color={theme.text} />
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
