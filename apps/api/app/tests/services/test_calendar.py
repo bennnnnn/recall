@@ -45,6 +45,7 @@ def test_format_not_connected_mentions_settings():
             True,
         ),
         ("Help me plan my day based on what you know about me.", True),
+        ("What time is my flight", True),
         ("solve for the hypotenuse", False),
         ("best restaurants near me", False),
         ("what is photosynthesis", False),

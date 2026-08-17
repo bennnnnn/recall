@@ -116,6 +116,8 @@ def should_inject_calendar_block(text: str) -> bool:
         return True
     if is_calendar_create_request(cleaned):
         return True
+    if time_context_service.is_scheduled_event_time_question(cleaned):
+        return True
     return bool(_SCHEDULE_CONTEXT.search(cleaned))
 
 

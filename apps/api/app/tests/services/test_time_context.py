@@ -62,6 +62,23 @@ def test_is_time_question(text, expected):
 @pytest.mark.parametrize(
     "text,expected",
     [
+        ("what time is my flight", True),
+        ("When is the meeting?", True),
+        ("what time does my train leave", True),
+        ("what time is it", False),
+        ("tell me about flight delays", False),
+        ("schedule a reminder for 5pm", False),
+    ],
+)
+def test_is_scheduled_event_time_question(text, expected):
+    from app.services.time_context import is_scheduled_event_time_question
+
+    assert is_scheduled_event_time_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
         ("what time is it in dc", True),
         ("What time is it in Tokyo?", True),
         ("what's the time in London", True),

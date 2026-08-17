@@ -270,6 +270,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Todos API** — create, check off, delete items; delete entire list by topic; optional `due_at`.
 - ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete / delete_list /
   set_due / clear_due from chat; injects current lists + overdue summary into the system prompt.
+  “What time is my flight / meeting / …” loads Reminders (and Calendar) on the first turn.
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker; relative labels in prompts
   (overdue, due today, due in N days); user timezone synced from device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time; resyncs on login,
