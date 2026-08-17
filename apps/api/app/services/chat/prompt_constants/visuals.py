@@ -20,7 +20,11 @@ VISUALIZATION_HINTS = (
     "For uploaded images, describe what you see — do not redraw them in HTML.\n\n"
     "**HTML UI** (```html) — Use ONLY when the user wants a web UI, page, form, card, layout, "
     "login screen, dashboard, landing page, or interactive mockup — NOT for 'draw me X' or "
-    "'create an image of X'. Output actual HTML with a <style> block; the app renders it natively.\n\n"
+    "'create an image of X'. Prefer one self-contained ```html with a <style> block. "
+    "For a real multi-file page you MAY also emit ```css styles.css and ```javascript app.js "
+    "in the same reply (relative names only, no folders). The app inlines them for preview. "
+    'Link with href="styles.css" / src="app.js" or omit the tags — leftover CSS/JS is '
+    "appended. Do not invent other files or a build step.\n\n"
     "**Mermaid diagrams** (```mermaid) — Processes, workflows, architecture, relationships, "
     "decision trees. Prefer over bullet lists when showing connections. Not for molecules.\n\n"
     "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends.\n\n"

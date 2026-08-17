@@ -390,6 +390,7 @@
   "preview.loading": "Loading preview…",
   "preview.open_in_browser": "Open in browser",
   "preview.preview_html": "Preview HTML",
+  "preview.preview_html_bundled": "Preview HTML with CSS/JS from this reply",
   "preview.render_failed": "Preview failed to render",
   "preview.run_tab": "Run",
   "preview.share": "Share",

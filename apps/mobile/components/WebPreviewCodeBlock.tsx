@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/htmlPreviewBundle";
+import { useHtmlPreviewFiles } from "@/lib/htmlPreviewFiles";
 import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -24,6 +26,14 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [modalOpen, setModalOpen] = useState(false);
+  const siblingFiles = useHtmlPreviewFiles();
+  const previewHtml = useMemo(
+    () => bundleHtmlPreview(code, siblingFiles),
+    [code, siblingFiles],
+  );
+  const previewLabel = previewHasSiblingAssets(siblingFiles)
+    ? t("preview.preview_html_bundled")
+    : t("preview.preview_html");
 
   return (
     <>
@@ -37,7 +47,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             activeOpacity={0.6}
             hitSlop={4}
             accessibilityRole="button"
-            accessibilityLabel={t("preview.preview_html")}
+            accessibilityLabel={previewLabel}
           >
             <Ionicons
               name="play-outline"
@@ -54,13 +64,13 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               activeOpacity={0.6}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel={t("preview.preview_html")}
+              accessibilityLabel={previewLabel}
             >
               <Ionicons name="play-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={s.iconBtn}
-              onPress={() => void openHtmlInBrowser(code)}
+              onPress={() => void openHtmlInBrowser(previewHtml)}
               activeOpacity={0.6}
               hitSlop={4}
               accessibilityRole="button"
@@ -74,7 +84,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
 
       {modalOpen ? (
         <Suspense fallback={null}>
-          <HtmlPreviewModalLazy visible html={code} onClose={() => setModalOpen(false)} />
+          <HtmlPreviewModalLazy visible html={previewHtml} onClose={() => setModalOpen(false)} />
         </Suspense>
       ) : null}
     </>
