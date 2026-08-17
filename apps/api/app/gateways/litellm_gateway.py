@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
 from typing import Any, cast, get_args, get_origin
@@ -397,8 +398,10 @@ async def _stream_chat_once(
                 stream_options={"include_usage": True},
                 **kwargs,
             )
-        # Idle timeout per chunk — not a wall-clock cap on the whole reply.
+        # Idle timeout per chunk, plus a hard wall-clock cap on the whole reply.
         idle_seconds = settings.chat_stream_timeout_seconds
+        max_seconds = max(1, settings.chat_stream_max_seconds)
+        deadline = time.monotonic() + max_seconds
         stream_iter = response.__aiter__()
 
         async def _next_chunk() -> Any | None:
@@ -408,14 +411,35 @@ async def _stream_chat_once(
                 return None
 
         while True:
-            try:
-                chunk = await asyncio.wait_for(_next_chunk(), timeout=idle_seconds)
-            except TimeoutError as exc:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 logger.warning(
-                    "LiteLLM stream idle timed out for alias=%s (idle=%ss)",
+                    "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
                     model_alias,
-                    idle_seconds,
+                    max_seconds,
                 )
+                raise ModelUnavailableError(
+                    _CHAT_MODEL_UNAVAILABLE_MSG,
+                    failed_alias=model_alias,
+                )
+            try:
+                chunk = await asyncio.wait_for(
+                    _next_chunk(),
+                    timeout=min(idle_seconds, remaining),
+                )
+            except TimeoutError as exc:
+                if time.monotonic() >= deadline:
+                    logger.warning(
+                        "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
+                        model_alias,
+                        max_seconds,
+                    )
+                else:
+                    logger.warning(
+                        "LiteLLM stream idle timed out for alias=%s (idle=%ss)",
+                        model_alias,
+                        idle_seconds,
+                    )
                 raise ModelUnavailableError(
                     _CHAT_MODEL_UNAVAILABLE_MSG,
                     failed_alias=model_alias,

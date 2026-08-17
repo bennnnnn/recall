@@ -272,9 +272,12 @@ class Settings(BaseSettings):
     memory_min_similarity: float = 0.35
 
     # Abort hung provider streams after this many seconds with no new chunk
-    # (idle timeout). A long healthy reply can exceed this wall-clock total —
-    # only silence between tokens trips it.
+    # (idle timeout). A long healthy reply can exceed this as long as tokens
+    # keep arriving — the wall-clock cap below still applies.
     chat_stream_timeout_seconds: int = 180
+    # Hard cap on one provider stream (seconds). Stops a slow drip from holding
+    # the chatprep lock, RAM, and the OpenRouter meter indefinitely.
+    chat_stream_max_seconds: int = 600
     # Fail fast when the provider never opens an SSE stream (separate from read timeout).
     chat_stream_connect_timeout_seconds: int = 15
 

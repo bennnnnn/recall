@@ -802,6 +802,51 @@ async def test_stream_chat_once_idle_timeout_allows_long_active_stream():
 
 
 @pytest.mark.asyncio
+async def test_stream_chat_once_wall_clock_stops_slow_drip():
+    """A slow drip under the idle timeout must still die on the wall-clock cap."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        chat_stream_timeout_seconds=30,
+        chat_stream_max_seconds=1,
+    )
+
+    class DripStream:
+        def __init__(self) -> None:
+            self.n = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            self.n += 1
+            await asyncio.sleep(0.35)
+            delta = MagicMock()
+            delta.content = "x"
+            delta.reasoning_content = None
+            choice = MagicMock()
+            choice.delta = delta
+            chunk = MagicMock()
+            chunk.choices = [choice]
+            chunk.usage = None
+            return chunk
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=DripStream()),
+    ):
+        with pytest.raises(litellm_gateway.ModelUnavailableError) as exc_info:
+            async for _ in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+            ):
+                pass
+    assert "isn't responding" in exc_info.value.message
+
+
+@pytest.mark.asyncio
 async def test_acompletion_with_fallback_times_out_hung_provider():
     """A hung background (non-streaming) LLM call must be aborted by the
     background timeout and fall back to the next alias rather than stalling

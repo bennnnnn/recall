@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import math
@@ -145,6 +146,10 @@ async def turn_resources(
         lock_key=lock_key,
         lock_token=lock_token,
     )
+    refresh_task = asyncio.create_task(
+        _chatprep_refresh_loop(redis, lock_key, lock_token),
+        name="chatprep-refresh",
+    )
     try:
         yield resources
     except BaseException:
@@ -154,7 +159,23 @@ async def turn_resources(
         await resources.refund()
         raise
     finally:
+        refresh_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await refresh_task
         await release_lock(redis, lock_key, lock_token)
+
+
+async def _chatprep_refresh_loop(redis: Redis, lock_key: str, lock_token: str) -> None:
+    """Keep the prepare lock alive through prompt gather and the tool loop."""
+    try:
+        while True:
+            await asyncio.sleep(_CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
+            try:
+                await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
+            except Exception:
+                logger.debug("chatprep lock refresh failed", exc_info=True)
+    except asyncio.CancelledError:
+        return
 
 
 async def _yield_with_chatprep_refresh(
@@ -204,6 +225,54 @@ def weighted_reserve_tokens(
     )
     base += vision_extra
     return math.ceil(base * model_catalog.quota_multiplier(model))
+
+
+def prompt_weighted_reserve_tokens(
+    prompt_messages: list[dict[str, Any]],
+    *,
+    model: str,
+    settings: Settings,
+    max_output: int | None = None,
+) -> int:
+    """Reserve against the assembled prompt, not just the latest user line."""
+    prompt_tokens = 0
+    for message in prompt_messages:
+        content = message.get("content")
+        if isinstance(content, str):
+            prompt_tokens += estimate_tokens(content)
+    base = prompt_tokens + (max_output if max_output is not None else settings.max_output_tokens)
+    return math.ceil(base * model_catalog.quota_multiplier(model))
+
+
+async def _top_up_reserve_for_prompt(
+    res: TurnResources,
+    *,
+    settings: Settings,
+    ctx: StreamContext,
+    daily_limit: int,
+) -> None:
+    messages = ctx.prompt_messages
+    if not isinstance(messages, list):
+        return
+    needed = prompt_weighted_reserve_tokens(
+        messages,
+        model=ctx.model,
+        settings=settings,
+        max_output=ctx.max_output_tokens,
+    )
+    extra = needed - res.reserved_tokens
+    if extra <= 0:
+        return
+    ok = await quota_service.reserve_usage(
+        res.redis,
+        str(res.user_id),
+        extra,
+        daily_limit=daily_limit,
+    )
+    if not ok:
+        raise QuotaExceededError(quota_exceeded_message(ctx.user) if ctx.user is not None else "")
+    res.reserved_tokens = needed
+    ctx.reserved_tokens = needed
 
 
 async def reserve_turn_quota(
@@ -401,6 +470,7 @@ async def stream_chat_response(
             user=user,
             timing=timing,
         )
+        await _top_up_reserve_for_prompt(res, settings=settings, ctx=ctx, daily_limit=daily_limit)
 
         async for token in _yield_with_chatprep_refresh(
             redis,
@@ -542,6 +612,12 @@ async def stream_regenerate_response(
             run_title=False,
             skip_memory_jobs=bundle.minimal_quiz,
             regenerate_backup=regenerate_backup,
+        )
+        await _top_up_reserve_for_prompt(
+            res,
+            settings=settings,
+            ctx=ctx,
+            daily_limit=quota_service.daily_limit_for_user(user, settings),
         )
 
         try:
@@ -1158,6 +1234,7 @@ async def stream_and_finalize(
 
 
 __all__ = [
+    "prompt_weighted_reserve_tokens",
     "reserve_turn_quota",
     "stream_and_finalize",
     "stream_chat_response",
