@@ -11,6 +11,7 @@ import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
+  SettingsValueRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
@@ -174,56 +175,68 @@ export default function SettingsScreen() {
             remainingPct={remainingPct}
           />
           <Text style={s.profileName}>{displayName}</Text>
-          <Text style={[s.profilePlan, isPro && s.accountPro]}>{accountLabel}</Text>
+          {user?.email ? (
+            <Text style={s.profileEmail} numberOfLines={1}>
+              {user.email}
+            </Text>
+          ) : null}
+          <View style={[s.planPill, isPro && s.planPillPro]}>
+            <Text style={[s.planPillText, isPro && s.planPillTextPro]}>
+              {accountLabel}
+            </Text>
+          </View>
         </View>
 
         <SettingsGroup label={t("settings.profile")} styles={s}>
           <SettingsLinkRow
+            icon="person-outline"
             title={t("settings.name_label")}
             value={displayName}
             onPress={() => openField("name")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="calendar-outline"
             title={t("settings.age_label")}
             value={user?.age != null ? String(user.age) : t("settings.not_set")}
             onPress={() => openField("age")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="flag-outline"
             title={t("settings.country_label")}
             value={user?.country?.trim() || t("settings.not_set")}
             onPress={() => openField("country")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="briefcase-outline"
             title={t("settings.job_label")}
             value={user?.job?.trim() || t("settings.not_set")}
             onPress={() => openField("job")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
-          <View style={s.menuRow}>
-            <Text style={[s.rowTitle, s.menuRowTitle]}>{t("settings.email_label")}</Text>
-            <Text style={s.linkValue} numberOfLines={1}>
-              {user?.email}
-            </Text>
-          </View>
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           {isPro ? (
-            <View style={s.menuRow}>
-              <Text style={[s.rowTitle, s.menuRowTitle]}>{t("settings.account_label")}</Text>
-              <Text style={s.linkValue}>{accountLabel}</Text>
-            </View>
+            <SettingsValueRow
+              icon="diamond-outline"
+              iconTone="warning"
+              title={t("settings.account_label")}
+              value={accountLabel}
+              styles={s}
+              theme={theme}
+            />
           ) : (
             <SettingsLinkRow
+              icon="diamond-outline"
+              iconTone="warning"
               title={t("settings.account_label")}
               value={accountLabel}
               onPress={() => setUpgradeVisible(true)}
@@ -233,32 +246,42 @@ export default function SettingsScreen() {
           )}
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.general")} styles={s}>
+        <SettingsGroup label={t("settings.app")} styles={s}>
           <SettingsLinkRow
+            icon="sparkles-outline"
             title={t("settings.model")}
+            subtitle={t("settings.model_summary")}
             value={modelsValue}
             onPress={() => router.push("/settings/models")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="color-palette-outline"
+            iconTone="accent"
             title={t("settings.personalization")}
+            subtitle={t("settings.personalization_summary")}
             value={selectedLanguage.label}
             onPress={() => router.push("/settings/preferences")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="school-outline"
+            iconTone="success"
             title={t("settings.learning.title")}
+            subtitle={t("settings.learning_summary")}
             onPress={() => router.push("/settings/learning")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="cube-outline"
             title={t("settings.memory")}
+            subtitle={t("settings.memory_desc")}
             value={memoryValue}
             onPress={() => {
               if (token) prefetchMemories(token);
@@ -267,17 +290,23 @@ export default function SettingsScreen() {
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="notifications-outline"
+            iconTone="warning"
             title={t("settings.notifications")}
+            subtitle={t("settings.notifications_summary")}
             value={user?.push_notifications_enabled ? t("settings.on") : t("settings.off")}
             onPress={() => router.push("/settings/notifications")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="link-outline"
+            iconTone="accent"
             title={t("settings.integrations")}
+            subtitle={t("settings.integrations_manage")}
             value={integrationsValue}
             onPress={() => router.push("/settings/integrations")}
             styles={s}
@@ -285,31 +314,38 @@ export default function SettingsScreen() {
           />
         </SettingsGroup>
 
-        <SettingsGroup styles={s}>
+        <SettingsGroup label={t("settings.data_and_privacy")} styles={s}>
           <SettingsLinkRow
+            icon="shield-outline"
             title={t("settings.data_controls")}
+            subtitle={t("settings.data_controls_summary")}
             onPress={() => router.push("/settings/data-controls")}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="information-circle-outline"
             title={t("settings.about")}
+            subtitle={t("settings.about_summary")}
             onPress={() => router.push("/settings/about")}
             styles={s}
             theme={theme}
           />
         </SettingsGroup>
 
-        <Pressable
-          style={s.signOut}
-          onPress={async () => {
-            await signOut();
-            router.replace("/login");
-          }}
-        >
-          <Text style={s.signOutText}>{t("settings.sign_out")}</Text>
-        </Pressable>
+        <View style={[s.footerGroup, s.signOut]}>
+          <Pressable
+            style={({ pressed }) => [s.signOutRow, pressed && s.rowPressed]}
+            onPress={async () => {
+              await signOut();
+              router.replace("/login");
+            }}
+            accessibilityRole="button"
+          >
+            <Text style={s.signOutText}>{t("settings.sign_out")}</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <SettingsFieldSheet

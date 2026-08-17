@@ -11,8 +11,23 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Theme } from "@/lib/theme";
+import { Theme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
+
+export type SettingsIconTone = "primary" | "accent" | "success" | "warning";
+
+function iconToneColors(theme: Theme, tone: SettingsIconTone) {
+  switch (tone) {
+    case "accent":
+      return { fg: theme.accent, bg: theme.accentLight };
+    case "success":
+      return { fg: theme.success, bg: theme.successLight };
+    case "warning":
+      return { fg: theme.warning, bg: withAlpha(theme.warning, 0.16) };
+    default:
+      return { fg: theme.primary, bg: theme.primaryLight };
+  }
+}
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
 
@@ -33,15 +48,74 @@ export function SettingsGroup({
   );
 }
 
+function SettingsRowChrome({
+  icon,
+  iconTone = "primary",
+  title,
+  subtitle,
+  value,
+  showChevron,
+  danger,
+  styles,
+  theme,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconTone?: SettingsIconTone;
+  title: string;
+  subtitle?: string;
+  value?: string;
+  showChevron: boolean;
+  danger?: boolean;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  const tone = iconToneColors(theme, iconTone);
+  return (
+    <>
+      {icon ? (
+        <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
+          <Ionicons
+            name={icon}
+            size={18}
+            color={danger ? theme.danger : tone.fg}
+          />
+        </View>
+      ) : null}
+      <View style={styles.rowBody}>
+        <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>
+          {title}
+        </Text>
+        {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
+      </View>
+      <View style={styles.linkTrailing}>
+        {value ? (
+          <Text style={styles.linkValue} numberOfLines={1}>
+            {value}
+          </Text>
+        ) : null}
+        {showChevron ? (
+          <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
+        ) : null}
+      </View>
+    </>
+  );
+}
+
 export function SettingsLinkRow({
   title,
+  subtitle,
   value,
+  icon,
+  iconTone,
   onPress,
   styles,
   theme,
 }: {
   title: string;
+  subtitle?: string;
   value?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconTone?: SettingsIconTone;
   onPress: () => void;
   styles: SettingsStyles;
   theme: Theme;
@@ -52,16 +126,50 @@ export function SettingsLinkRow({
       onPress={onPress}
       accessibilityRole="button"
     >
-      <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
-      <View style={styles.linkTrailing}>
-        {value ? (
-          <Text style={styles.linkValue} numberOfLines={1}>
-            {value}
-          </Text>
-        ) : null}
-        <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
-      </View>
+      <SettingsRowChrome
+        icon={icon}
+        iconTone={iconTone}
+        title={title}
+        subtitle={subtitle}
+        value={value}
+        showChevron
+        styles={styles}
+        theme={theme}
+      />
     </Pressable>
+  );
+}
+
+export function SettingsValueRow({
+  title,
+  subtitle,
+  value,
+  icon,
+  iconTone,
+  styles,
+  theme,
+}: {
+  title: string;
+  subtitle?: string;
+  value?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconTone?: SettingsIconTone;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  return (
+    <View style={styles.menuRow} accessibilityRole="text">
+      <SettingsRowChrome
+        icon={icon}
+        iconTone={iconTone}
+        title={title}
+        subtitle={subtitle}
+        value={value}
+        showChevron={false}
+        styles={styles}
+        theme={theme}
+      />
+    </View>
   );
 }
 
@@ -399,22 +507,50 @@ export function makeSettingsStyles(t: Theme) {
 
     profileHeader: {
       alignItems: "center",
-      gap: 4,
-      marginBottom: 8,
-      paddingTop: 8,
+      gap: 6,
+      marginBottom: 4,
+      paddingTop: 12,
+      paddingBottom: 4,
     },
     profileName: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: "700",
       color: t.text,
-      marginTop: 4,
+      marginTop: 6,
+    },
+    profileEmail: {
+      ...Type.secondary,
+      color: t.textSecondary,
     },
     profilePlan: {
       fontSize: 14,
       fontWeight: "600",
       color: t.textSecondary,
     },
+    planPill: {
+      marginTop: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: Radius.full,
+      backgroundColor: t.primaryLight,
+    },
+    planPillPro: {
+      backgroundColor: withAlpha(t.warning, 0.16),
+    },
+    planPillText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: t.primary,
+    },
+    planPillTextPro: { color: t.warning },
     accountPro: { color: t.warning },
+    iconWell: {
+      width: 32,
+      height: 32,
+      borderRadius: Radius.xs,
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
     section: { marginTop: Space.lg },
     sectionLabel: {
@@ -507,9 +643,9 @@ export function makeSettingsStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "space-between",
       gap: 12,
-      minHeight: 48,
+      minHeight: 52,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 13,
     },
     linkTrailing: {
       flexDirection: "row",
@@ -608,7 +744,9 @@ export function makeSettingsStyles(t: Theme) {
     barFill: { height: 6, borderRadius: 3, backgroundColor: t.primary },
 
     signOut: {
-      marginTop: 20,
+      marginTop: Space.lg,
+    },
+    signOutRow: {
       paddingVertical: 16,
       alignItems: "center",
     },
@@ -636,6 +774,9 @@ export function makeSettingsStyles(t: Theme) {
       height: StyleSheet.hairlineWidth,
       backgroundColor: t.border,
       marginLeft: 14,
+    },
+    menuSeparatorWithIcon: {
+      marginLeft: 58,
     },
 
     mKeyboardAvoider: { flex: 1 },
