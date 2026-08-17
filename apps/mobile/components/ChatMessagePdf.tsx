@@ -8,9 +8,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { Icon } from "@/components/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -118,7 +119,7 @@ export function ChatMessagePdf({
         accessibilityRole="button"
       >
         <View style={s.iconWrap}>
-          <Ionicons name="document-text-outline" size={22} color={theme.primary} />
+          <Icon name="document-text-outline" size={22} color={theme.primary} />
         </View>
         <View style={s.meta}>
           <Text style={s.name} numberOfLines={2}>
@@ -126,7 +127,7 @@ export function ChatMessagePdf({
           </Text>
           <Text style={s.kind}>PDF</Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
+        <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
       </Pressable>
 
       {!compact && canRenderInline && WebView && canMount && previewHtml ? (
@@ -228,13 +229,13 @@ function AttachmentPdfViewer({
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
           <Pressable onPress={onClose} hitSlop={8} accessibilityLabel={t("chat.pdf_close_a11y")}>
-            <Ionicons name="close" size={24} color={theme.text} />
+            <Icon name="close" size={24} color={theme.text} />
           </Pressable>
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
           <Pressable onPress={onShare} hitSlop={8} accessibilityLabel={t("chat.pdf_share_a11y")}>
-            <Ionicons name="share-outline" size={22} color={theme.primary} />
+            <Icon name="share-outline" size={22} color={theme.primary} />
           </Pressable>
         </View>
         <View style={s.body}>

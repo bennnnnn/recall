@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
@@ -54,7 +54,7 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+        <Icon name="calendar-outline" size={20} color={theme.primary} />
         <Text style={s.title} numberOfLines={2}>
           {proposal.title}
         </Text>
@@ -68,7 +68,7 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
       {error ? <Text style={s.error}>{error}</Text> : null}
       {done ? (
         <View style={s.doneRow}>
-          <Ionicons name="checkmark-circle" size={18} color={theme.primary} />
+          <Icon name="checkmark-circle" size={18} color={theme.primary} />
           <Text style={s.doneText}>{t("calendar.proposal_added")}</Text>
         </View>
       ) : (

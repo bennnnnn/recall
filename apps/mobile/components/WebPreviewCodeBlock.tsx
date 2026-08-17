@@ -1,8 +1,8 @@
 import React, { Suspense, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 
+import { Icon } from "@/components/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
 import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/htmlPreviewBundle";
 import { useHtmlPreviewFiles } from "@/lib/htmlPreviewFiles";
@@ -49,7 +49,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             accessibilityRole="button"
             accessibilityLabel={previewLabel}
           >
-            <Ionicons
+            <Icon
               name="play-outline"
               size={16}
               color={modalOpen ? theme.primary : theme.textSecondary}
@@ -66,7 +66,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               accessibilityRole="button"
               accessibilityLabel={previewLabel}
             >
-              <Ionicons name="play-outline" size={18} color={theme.textSecondary} />
+              <Icon name="play-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={s.iconBtn}
@@ -76,7 +76,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               accessibilityRole="button"
               accessibilityLabel={t("preview.open_in_browser")}
             >
-              <Ionicons name="open-outline" size={18} color={theme.textSecondary} />
+              <Icon name="open-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         }

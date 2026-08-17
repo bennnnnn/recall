@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -23,7 +23,7 @@ export function SuggestedReminderRow({ reminder, busy, onAdd, onDismiss }: Props
   return (
     <View style={s.row}>
       <View style={s.iconWrap}>
-        <Ionicons name="mail-outline" size={18} color={theme.primary} />
+        <Icon name="mail-outline" size={18} color={theme.primary} />
       </View>
       <View style={s.body}>
         <Text style={s.title} numberOfLines={2}>

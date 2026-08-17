@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
+import { type IoniconName } from "@/lib/icons";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
@@ -22,7 +23,7 @@ type Props = {
   onSelect: (prompt: string) => void;
 };
 
-function starterIcon(kind: HomeStarter["kind"]): keyof typeof Ionicons.glyphMap {
+function starterIcon(kind: HomeStarter["kind"]): IoniconName {
   switch (kind) {
     case "time":
       return "time-outline";
@@ -94,7 +95,7 @@ function ProjectHighlightCard({
           <Text style={s.projectProgressLabel} numberOfLines={1}>
             {label}
           </Text>
-          <Ionicons name="chevron-forward" size={16} color={theme.textTertiary} />
+          <Icon name="chevron-forward" size={16} color={theme.textTertiary} />
         </View>
         <View style={[s.projectTrack, { backgroundColor: colors.track }]}>
           <View
@@ -143,7 +144,7 @@ function UrgentTodoSection({
               accessibilityRole="button"
               accessibilityLabel={todo.content}
             >
-              <Ionicons
+              <Icon
                 name={overdue ? "alert-circle-outline" : "alarm-outline"}
                 size={18}
                 color={theme.danger}
@@ -158,7 +159,7 @@ function UrgentTodoSection({
                   </Text>
                 ) : null}
               </View>
-              <Ionicons name="chevron-forward" size={16} color={theme.danger} />
+              <Icon name="chevron-forward" size={16} color={theme.danger} />
             </Pressable>
             {onDismiss ? (
               <Pressable
@@ -171,7 +172,7 @@ function UrgentTodoSection({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.home.dismiss_reminder")}
               >
-                <Ionicons name="close" size={14} color={theme.textSecondary} />
+                <Icon name="close" size={14} color={theme.textSecondary} />
               </Pressable>
             ) : null}
           </View>
@@ -283,7 +284,7 @@ export function HomeStarters({ onSelect }: Props) {
                 accessibilityLabel={starter.text}
                 accessibilityHint={t("chat.home.dismiss_suggestion")}
               >
-                <Ionicons
+                <Icon
                   name={starterIcon(starter.kind)}
                   size={14}
                   color={theme.primary}

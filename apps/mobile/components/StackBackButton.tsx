@@ -1,10 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Href, useRouter } from "expo-router";
 import { Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { inkIconColor } from "@/lib/icons";
-import { useTheme } from "@/lib/theme";
+import { Icon } from "@/components/Icon";
 
 type Props = {
   /** Where to go when there is no back stack (e.g. opened via deep link). */
@@ -12,7 +10,6 @@ type Props = {
 };
 
 export function StackBackButton({ fallback = "/" }: Props) {
-  const theme = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -27,10 +24,9 @@ export function StackBackButton({ fallback = "/" }: Props) {
       accessibilityRole="button"
       accessibilityLabel={t("common.back")}
     >
-      <Ionicons
+      <Icon
         name="chevron-back"
         size={24}
-        color={inkIconColor(theme)}
       />
     </Pressable>
   );

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -84,11 +84,11 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
   return (
     <View style={s.wrap}>
       <Pressable style={s.header} onPress={() => setCollapsed((v) => !v)}>
-        <Ionicons name="mail-unread-outline" size={18} color={theme.primary} />
+        <Icon name="mail-unread-outline" size={18} color={theme.primary} />
         <Text style={s.headerText}>
           {t("chat.email_suggestions", { count: reminders.length })}
         </Text>
-        <Ionicons
+        <Icon
           name={collapsed ? "chevron-down" : "chevron-up"}
           size={16}
           color={theme.textTertiary}
@@ -130,7 +130,7 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
                 disabled={busyId === item.id}
                 onPress={() => void handleDismiss(item.id)}
               >
-                <Ionicons name="close" size={18} color={theme.textTertiary} />
+                <Icon name="close" size={18} color={theme.textTertiary} />
               </Pressable>
             </View>
             );
