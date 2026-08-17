@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
-import type { Ionicons } from "@expo/vector-icons";
+
+import { type IoniconName } from "@/lib/icons";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -41,7 +42,7 @@ type Options = {
   resolveQuizVariant: (projectId: string | null | undefined) => QuizVariant;
   setInputRef: React.MutableRefObject<(value: string) => void>;
   listRef: React.RefObject<FlashListRef<Message> | null>;
-  showActionBanner: (message: string, icon?: keyof typeof Ionicons.glyphMap) => void;
+  showActionBanner: (message: string, icon?: IoniconName) => void;
   t: (key: string) => string;
   onFocusLaunch?: () => void;
 };

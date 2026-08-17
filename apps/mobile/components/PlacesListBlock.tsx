@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -106,7 +106,7 @@ function PlaceDetailsSheet({
                 ) : null}
               </View>
               <Pressable style={s.openBtn} onPress={openInMaps}>
-                <Ionicons name="map-outline" size={20} color={theme.onPrimary} />
+                <Icon name="map-outline" size={20} color={theme.onPrimary} />
                 <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
               </Pressable>
             </>

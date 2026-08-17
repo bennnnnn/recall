@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, ViewStyle } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { notifySuccess, tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -64,7 +64,7 @@ export function CopyButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={copied ? { selected: true } : undefined}
     >
-      <Ionicons
+      <Icon
         name={copied ? (variant === "action" ? "checkmark-circle" : "checkmark-outline") : "copy-outline"}
         size={iconSize}
         color={copied ? theme.primary : theme.textSecondary}

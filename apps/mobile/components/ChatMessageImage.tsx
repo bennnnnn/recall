@@ -7,10 +7,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
+import { Icon } from "@/components/Icon";
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/config";
@@ -181,7 +181,7 @@ export function ChatMessageImage({
               style={[s.preview, s.fallback]}
               accessibilityLabel={t("chat.image_unavailable_a11y")}
             >
-              <Ionicons name="image-outline" size={28} color={C.textTertiary} />
+              <Icon name="image-outline" size={28} color={C.textTertiary} />
             </View>
           ) : usePlainPreview ? (
             <Image

@@ -1,7 +1,6 @@
 import { ReactElement, RefObject, useMemo } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { Ionicons } from "@expo/vector-icons";
 import { type AnimatedStyle } from "react-native-reanimated";
 
 import { ActionBanner } from "@/components/ActionBanner";
@@ -20,6 +19,7 @@ import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
+import { type IoniconName } from "@/lib/icons";
 import { messagesLookLikeMath } from "@/lib/mathComposerIntent";
 import type { Theme } from "@/lib/theme";
 
@@ -31,7 +31,7 @@ export type ChatScreenBodyProps = {
   composerClearance: number;
   actionBanner: {
     message: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: IoniconName;
   } | null;
   onDismissActionBanner: () => void;
   listRef: RefObject<FlashListRef<Message> | null>;

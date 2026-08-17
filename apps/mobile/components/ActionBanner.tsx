@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -10,6 +9,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Icon } from "@/components/Icon";
+import { type IoniconName } from "@/lib/icons";
 import { Motion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
@@ -17,7 +18,7 @@ import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   message: string | null;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   onDismiss: () => void;
   bottomOffset?: number;
 };
@@ -81,7 +82,7 @@ export function ActionBanner({
           pointerEvents="box-none"
         >
           <Pressable style={s.toast} onPress={onDismiss}>
-            <Ionicons name={icon} size={18} color={toastText} />
+            <Icon name={icon} size={18} color={toastText} />
             <Text style={s.text} numberOfLines={2}>
               {message}
             </Text>

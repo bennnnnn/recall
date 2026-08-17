@@ -1,7 +1,7 @@
 import { Platform, Pressable, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Icon } from "@/components/Icon";
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import { tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
@@ -31,7 +31,7 @@ export function AddFab({ onPress, accessibilityLabel }: Props) {
       accessibilityLabel={accessibilityLabel}
       style={[s.btn, { bottom, right: 16 + insets.right }]}
     >
-      <Ionicons name="add" size={28} color={theme.onPrimary} />
+      <Icon name="add" size={28} color={theme.onPrimary} />
     </Pressable>
   );
 }

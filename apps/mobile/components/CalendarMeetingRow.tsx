@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { GoogleCalendarEvent } from "@/lib/api";
@@ -20,7 +20,7 @@ export function CalendarMeetingRow({ event }: Props) {
   return (
     <View style={s.row}>
       <View style={s.iconWrap}>
-        <Ionicons name="calendar" size={18} color={theme.primary} />
+        <Icon name="calendar" size={18} color={theme.primary} />
       </View>
       <View style={s.main}>
         <Text style={s.title} numberOfLines={2}>

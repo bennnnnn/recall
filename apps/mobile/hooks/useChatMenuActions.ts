@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
+import { type IoniconName } from "@/lib/icons";
 import { sanitizeManualChatTitle } from "@/lib/chatTitle";
 import { shareConversation } from "@/lib/share";
 
@@ -36,7 +36,7 @@ export function useChatMenuActions({
   const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
   const [actionBanner, setActionBanner] = useState<{
     message: string;
-    icon?: keyof typeof Ionicons.glyphMap;
+    icon?: IoniconName;
   } | null>(null);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function useChatMenuActions({
   }, [isDrawerOpen]);
 
   const showActionBanner = useCallback(
-    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
+    (message: string, icon?: IoniconName) => {
       setActionBanner({ message, icon });
     },
     [],

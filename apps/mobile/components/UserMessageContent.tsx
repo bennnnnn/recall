@@ -1,8 +1,8 @@
 import React, { Suspense, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -86,7 +86,7 @@ export function UserMessageContent({ message }: Props) {
 
       {quizLetter ? (
         <View style={s.quizAnswer} accessibilityLabel={`Quiz answer ${quizLetter}`}>
-          <Ionicons name="checkmark-circle-outline" size={16} color={C.primary} />
+          <Icon name="checkmark-circle-outline" size={16} color={C.primary} />
           <Text style={s.quizAnswerLetter}>{quizLetter}</Text>
         </View>
       ) : null}
@@ -96,7 +96,7 @@ export function UserMessageContent({ message }: Props) {
           <View style={[s.textBubble, hasImages && s.textBubbleBelowImage]}>
             {parsed.hasFileAttachment && !showPdf ? (
               <View style={s.fileChip}>
-                <Ionicons name="document-outline" size={16} color={C.primary} />
+                <Icon name="document-outline" size={16} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>
                   {t("chat.attached_file")}
                 </Text>

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -33,7 +33,7 @@ export function SuggestionChips({ suggestions, onSelect, onDismiss }: Props) {
               onLongPress={() => onDismiss(item.id)}
               accessibilityHint={t("chat.home.dismiss_suggestion")}
             >
-              <Ionicons name="bulb-outline" size={14} color={theme.primary} />
+              <Icon name="bulb-outline" size={14} color={theme.primary} />
               <Text style={s.chipText} numberOfLines={2}>
                 {label}
               </Text>

@@ -1,12 +1,12 @@
 import { useCallback } from "react";
 import { Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
+import { type IoniconName } from "@/lib/icons";
 
 type Params = {
   token: string | null;
@@ -14,7 +14,7 @@ type Params = {
   moveChatArchiveState: (chatId: string, archived: boolean) => void;
   removeChatFromGroupsById: (chatId: string) => void;
   reloadChats: () => void;
-  showActionBanner: (message: string, icon?: keyof typeof Ionicons.glyphMap) => void;
+  showActionBanner: (message: string, icon?: IoniconName) => void;
 };
 
 /** Multi-select bulk archive/delete for the drawer's selection mode. */
