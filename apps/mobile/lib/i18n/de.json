@@ -955,5 +955,13 @@
   "onboarding.chat_title": "Frag einfach",
   "onboarding.chat_body": "Eine schwere Frage. Eine Sprache. Hausaufgaben. Ein Gespräch.",
   "onboarding.remember_title": "Sie bleibt dran",
-  "onboarding.remember_body": "Morgen weiß sie noch, woran du arbeitest."
+  "onboarding.remember_body": "Morgen weiß sie noch, woran du arbeitest.",
+  "chat.draft_tokens": "~{{count}} tokens",
+  "settings.prompt_window": "Prompt window",
+  "settings.prompt_window_summary": "Last {{count}} messages stay in the prompt",
+  "settings.prompt_window_value": "{{tokens}} tokens",
+  "settings.usage_group": "Usage",
+  "settings.usage_today": "Today",
+  "settings.usage_today_split": "{{input}} in · {{output}} out",
+  "settings.usage_today_value": "{{used}} / {{limit}}"
 }

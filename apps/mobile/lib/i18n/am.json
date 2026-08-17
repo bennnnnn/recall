@@ -955,5 +955,13 @@
   "onboarding.chat_title": "ማንኛውንም ይጠይቁ",
   "onboarding.chat_body": "ከባድ ጥያቄ። ቋንቋ። የቤት ስራ። አንድ ውይይት።",
   "onboarding.remember_title": "ይከተላል",
-  "onboarding.remember_body": "ነገ ምን እየሰሩ እንደሆነ አሁንም ያውቃል።"
+  "onboarding.remember_body": "ነገ ምን እየሰሩ እንደሆነ አሁንም ያውቃል።",
+  "chat.draft_tokens": "~{{count}} tokens",
+  "settings.prompt_window": "Prompt window",
+  "settings.prompt_window_summary": "Last {{count}} messages stay in the prompt",
+  "settings.prompt_window_value": "{{tokens}} tokens",
+  "settings.usage_group": "Usage",
+  "settings.usage_today": "Today",
+  "settings.usage_today_split": "{{input}} in · {{output}} out",
+  "settings.usage_today_value": "{{used}} / {{limit}}"
 }

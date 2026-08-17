@@ -257,6 +257,8 @@ export type Usage = {
   daily_limit: number;
   used_tokens?: number;
   remaining: number;
+  context_token_budget?: number;
+  recent_message_window?: number;
 };
 
 export type ModelInfo = {

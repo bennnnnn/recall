@@ -22,6 +22,8 @@ class UsageOut(BaseModel):
     daily_limit: int
     used_tokens: int
     remaining: int
+    context_token_budget: int
+    recent_message_window: int
 
 
 class ModelInfo(BaseModel):

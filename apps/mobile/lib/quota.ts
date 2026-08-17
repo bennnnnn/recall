@@ -43,3 +43,15 @@ export function formatUsageSummary(
 export function quotaAlertTitle(isPro: boolean, t: (key: string) => string): string {
   return isPro ? t("chat.quota_title_pro") : t("chat.quota_title");
 }
+
+export function formatTokenCount(n: number): string {
+  return Math.round(n).toLocaleString("en-US");
+}
+
+export function promptWindowTokens(usage: Usage | null): number {
+  return usage?.context_token_budget ?? 6000;
+}
+
+export function promptWindowMessages(usage: Usage | null): number {
+  return usage?.recent_message_window ?? 20;
+}

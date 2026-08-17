@@ -955,5 +955,13 @@
   "onboarding.chat_title": "Demandez n'importe quoi",
   "onboarding.chat_body": "Une question difficile. Une langue. Les devoirs. La même conversation.",
   "onboarding.remember_title": "Elle suit",
-  "onboarding.remember_body": "Demain, elle sait encore sur quoi vous travaillez."
+  "onboarding.remember_body": "Demain, elle sait encore sur quoi vous travaillez.",
+  "chat.draft_tokens": "~{{count}} tokens",
+  "settings.prompt_window": "Prompt window",
+  "settings.prompt_window_summary": "Last {{count}} messages stay in the prompt",
+  "settings.prompt_window_value": "{{tokens}} tokens",
+  "settings.usage_group": "Usage",
+  "settings.usage_today": "Today",
+  "settings.usage_today_split": "{{input}} in · {{output}} out",
+  "settings.usage_today_value": "{{used}} / {{limit}}"
 }
