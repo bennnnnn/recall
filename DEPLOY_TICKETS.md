@@ -41,7 +41,7 @@ revocation, per-memory fact delete, SSE chat fallback, manual deploy workflow, p
       → `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`.
 - [ ] **Google Cloud**: OAuth consent screen; web client (API verify) + iOS + Android clients.
       Enable Calendar/Gmail scopes + redirect URIs if shipping integrations.
-- [ ] **RevenueCat** (if monetizing): app-specific SDK keys + webhook auth secret.
+- [ ] **RevenueCat** (Pro ships at launch — required): app-specific SDK keys + webhook auth secret.
       Webhook → `https://<api>/webhooks/revenuecat`.
 - [ ] **Sentry** (optional but recommended): DSNs for backend + mobile.
 - [ ] **Optional:** `TAVILY_API_KEY` (web search; DuckDuckGo fallback exists),
@@ -72,7 +72,7 @@ Required keys (also listed in `apps/api/.env.production.example`):
 - [ ] `JWT_SECRET` (≥32 chars), `DATABASE_URL`, `REDIS_URL`
 - [ ] `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - [ ] `OPENROUTER_API_KEY`, `CORS_ORIGINS` (explicit list — not empty, not `*`)
-- [ ] `REVENUECAT_WEBHOOK_AUTH` (+ `REVENUECAT_SECRET_KEY` if monetizing)
+- [ ] `REVENUECAT_WEBHOOK_AUTH` + `REVENUECAT_SECRET_KEY` (both required — Pro ships at launch; `validate_production_settings` fails boot without them)
 - [ ] `OAUTH_TOKEN_ENCRYPTION_KEY` (or use `./scripts/generate-prod-secrets.sh`)
 - [ ] **R2:** `STORAGE_BACKEND=r2`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 - [ ] Optional: `SENTRY_DSN`, `CHAT_STREAM_TIMEOUT_SECONDS` (180), `BACKGROUND_LLM_TIMEOUT_SECONDS` (60), `REST_RATE_LIMIT_PER_MINUTE` (240)
@@ -94,7 +94,7 @@ Set in **EAS dashboard → Secrets** (production + preview):
 - [ ] `EXPO_PUBLIC_EAS_PROJECT_ID` (push; `npx eas init`)
 - [ ] `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
 - [ ] `EXPO_PUBLIC_DEV_AUTH_ENABLED=false`
-- [ ] `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` (if monetizing)
+- [ ] `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` (required — Pro ships at launch)
 - [ ] `EXPO_PUBLIC_SENTRY_DSN` (mobile crash reporting — needs the native build)
 
 Build + submit:
@@ -111,7 +111,7 @@ Build + submit:
 - [ ] Sign in with Apple (iOS only — not shown on Android)
 - [ ] WebView HTML/JS + chart + Mermaid previews
 - [ ] Push notifications (real device)
-- [ ] RevenueCat purchase flow (if monetizing)
+- [ ] RevenueCat purchase flow (Pro ships at launch)
 - [ ] Offline banner → send is blocked with alert → reconnect resumes
 - [ ] Core chat: stream, stop, regenerate, edit, model picker, quota nudge
 - [ ] Attachments upload/download against **real R2** (not local disk)
