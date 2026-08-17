@@ -3,6 +3,7 @@ import { Href, useRouter } from "expo-router";
 import { Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { inkIconColor } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -29,7 +30,7 @@ export function StackBackButton({ fallback = "/" }: Props) {
       <Ionicons
         name="chevron-back"
         size={24}
-        color={theme.isDark ? theme.text : "#000000"}
+        color={inkIconColor(theme)}
       />
     </Pressable>
   );
