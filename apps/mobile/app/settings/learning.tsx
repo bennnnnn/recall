@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
-import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
 import {
   makeSettingsStyles,
   SettingsGroup,
+  SettingsInlinePicker,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,10 +39,6 @@ function mergeProjectRow(prev: Project[], updated: Project): Project[] {
   );
 }
 
-type PickerTarget =
-  | { mode: "daily"; project: Project; kind: "language" | "trivia" }
-  | { mode: "level"; project: Project; kind: "language" | "trivia" };
-
 export default function LearningSettingsScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
@@ -52,7 +48,7 @@ export default function LearningSettingsScreen() {
   const { projects: allProjects, refresh, setProjects } = useProjects();
 
   const [saving, setSaving] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+  const [openPicker, setOpenPicker] = useState<string | null>(null);
   const [topicsProject, setTopicsProject] = useState<Project | null>(null);
   const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
 
@@ -148,30 +144,9 @@ export default function LearningSettingsScreen() {
 
   const hasLearningProjects = languageProjects.length > 0 || triviaProject != null;
 
-  const pickerTitle =
-    pickerTarget?.mode === "level"
-      ? pickerTarget.kind === "trivia"
-        ? t("settings.learning.difficulty_picker_title")
-        : t("settings.learning.level_picker_title")
-      : pickerTarget?.kind === "trivia"
-        ? t("settings.learning.questions_picker_title")
-        : t("settings.learning.words_picker_title");
-
-  const pickerOptions =
-    pickerTarget?.mode === "level"
-      ? pickerTarget.kind === "trivia"
-        ? triviaDifficultyPickerOptions(t)
-        : levelPickerOptions()
-      : pickerTarget
-        ? dailyGoalPickerOptions(pickerTarget.kind, t)
-        : [];
-
-  const pickerSelectedKey =
-    pickerTarget?.mode === "level"
-      ? pickerTarget.project.level
-      : pickerTarget
-        ? String(resolveDailyGoal(pickerTarget.project.daily_goal))
-        : String(resolveDailyGoal(null));
+  const togglePicker = (id: string) => {
+    setOpenPicker((cur) => (cur === id ? null : id));
+  };
 
   return (
     <View style={s.root}>
@@ -189,28 +164,36 @@ export default function LearningSettingsScreen() {
                 label={languageLabel(languageProject.target_language)}
                 styles={s}
               >
-                <SettingsLinkRow
+                <SettingsInlinePicker
                   icon="school-outline"
                   title={t("settings.learning.level_label")}
                   value={levelLabel(languageProject.level)}
-                  onPress={() =>
-                    setPickerTarget({ mode: "level", project: languageProject, kind: "language" })
+                  options={levelPickerOptions()}
+                  selectedKey={languageProject.level}
+                  expanded={openPicker === `${languageProject.id}-level`}
+                  disabled={saving}
+                  onToggle={() => togglePicker(`${languageProject.id}-level`)}
+                  onSelect={(key) =>
+                    void saveLevel(languageProject, key as LanguageLevel, "language")
                   }
                   styles={s}
                   theme={theme}
                 />
                 <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-                <SettingsLinkRow
+                <SettingsInlinePicker
                   icon="book-outline"
                   title={t("settings.learning.words_label")}
                   value={formatDailyGoalShort(resolveDailyGoal(languageProject.daily_goal))}
-                  onPress={() =>
-                    setPickerTarget({
-                      mode: "daily",
-                      project: languageProject,
-                      kind: "language",
-                    })
-                  }
+                  options={dailyGoalPickerOptions("language", t)}
+                  selectedKey={String(resolveDailyGoal(languageProject.daily_goal))}
+                  expanded={openPicker === `${languageProject.id}-daily`}
+                  disabled={saving}
+                  onToggle={() => togglePicker(`${languageProject.id}-daily`)}
+                  onSelect={(key) => {
+                    const nextGoal = Number(key);
+                    if (!Number.isFinite(nextGoal)) return;
+                    void saveDailyGoal(languageProject, nextGoal);
+                  }}
                   styles={s}
                   theme={theme}
                 />
@@ -219,24 +202,36 @@ export default function LearningSettingsScreen() {
 
             {triviaProject ? (
               <SettingsGroup label={t("settings.learning.trivia_section")} styles={s}>
-                <SettingsLinkRow
+                <SettingsInlinePicker
                   icon="speedometer-outline"
                   title={t("settings.learning.difficulty_label")}
                   value={triviaDifficultyLabel(triviaProject.level, t)}
-                  onPress={() =>
-                    setPickerTarget({ mode: "level", project: triviaProject, kind: "trivia" })
+                  options={triviaDifficultyPickerOptions(t)}
+                  selectedKey={triviaProject.level}
+                  expanded={openPicker === `${triviaProject.id}-level`}
+                  disabled={saving}
+                  onToggle={() => togglePicker(`${triviaProject.id}-level`)}
+                  onSelect={(key) =>
+                    void saveLevel(triviaProject, key as LanguageLevel, "trivia")
                   }
                   styles={s}
                   theme={theme}
                 />
                 <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-                <SettingsLinkRow
+                <SettingsInlinePicker
                   icon="help-circle-outline"
                   title={t("settings.learning.questions_label")}
                   value={formatDailyGoalShort(resolveDailyGoal(triviaProject.daily_goal))}
-                  onPress={() =>
-                    setPickerTarget({ mode: "daily", project: triviaProject, kind: "trivia" })
-                  }
+                  options={dailyGoalPickerOptions("trivia", t)}
+                  selectedKey={String(resolveDailyGoal(triviaProject.daily_goal))}
+                  expanded={openPicker === `${triviaProject.id}-daily`}
+                  disabled={saving}
+                  onToggle={() => togglePicker(`${triviaProject.id}-daily`)}
+                  onSelect={(key) => {
+                    const nextGoal = Number(key);
+                    if (!Number.isFinite(nextGoal)) return;
+                    void saveDailyGoal(triviaProject, nextGoal);
+                  }}
                   styles={s}
                   theme={theme}
                 />
@@ -258,29 +253,6 @@ export default function LearningSettingsScreen() {
           <Text style={s.sectionHint}>{t("settings.learning.empty")}</Text>
         )}
       </ScrollView>
-
-      <SettingsPickerModal
-        visible={pickerTarget != null}
-        title={pickerTitle}
-        options={pickerOptions}
-        selectedKey={pickerSelectedKey}
-        onClose={() => setPickerTarget(null)}
-        onSelect={(key) => {
-          if (!pickerTarget) return;
-          if (pickerTarget.mode === "level") {
-            void saveLevel(pickerTarget.project, key as LanguageLevel, pickerTarget.kind);
-            setPickerTarget(null);
-            return;
-          }
-          const nextGoal = Number(key);
-          if (!Number.isFinite(nextGoal)) return;
-          void saveDailyGoal(pickerTarget.project, nextGoal);
-          setPickerTarget(null);
-        }}
-        disabled={saving}
-        styles={s}
-        theme={theme}
-      />
 
       <TriviaTopicsPickerModal
         visible={topicsProject != null}

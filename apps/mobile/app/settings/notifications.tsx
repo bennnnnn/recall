@@ -4,11 +4,10 @@ import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
 import {
   makeSettingsStyles,
   SettingsGroup,
-  SettingsLinkRow,
+  SettingsInlinePicker,
   SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,7 +35,7 @@ export default function NotificationsSettingsScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const [reminderLeadPickerOpen, setReminderLeadPickerOpen] = useState(false);
+  const [leadOpen, setLeadOpen] = useState(false);
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
@@ -141,31 +140,24 @@ export default function NotificationsSettingsScreen() {
         </SettingsGroup>
 
         <SettingsGroup label={t("settings.reminders")} styles={s}>
-          <SettingsLinkRow
+          <SettingsInlinePicker
             icon="alarm-outline"
             title={t("settings.reminder_lead")}
             subtitle={t("settings.reminder_lead_desc")}
             value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}
-            onPress={() => setReminderLeadPickerOpen(true)}
+            options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
+              key: String(minutes),
+              label: t("settings.reminder_lead_value", { count: minutes }),
+            }))}
+            selectedKey={String(reminderLeadMinutes)}
+            expanded={leadOpen}
+            onToggle={() => setLeadOpen((open) => !open)}
+            onSelect={(key) => void saveReminderLead(Number(key))}
             styles={s}
             theme={theme}
           />
         </SettingsGroup>
       </ScrollView>
-
-      <SettingsPickerModal
-        visible={reminderLeadPickerOpen}
-        title={t("settings.reminder_lead")}
-        selectedKey={String(reminderLeadMinutes)}
-        options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
-          key: String(minutes),
-          label: t("settings.reminder_lead_value", { count: minutes }),
-        }))}
-        onClose={() => setReminderLeadPickerOpen(false)}
-        onSelect={(key) => void saveReminderLead(Number(key))}
-        styles={s}
-        theme={theme}
-      />
     </>
   );
 }

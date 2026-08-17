@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
-import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
 import {
   makeSettingsStyles,
   SettingsGroup,
+  SettingsInlinePicker,
   SettingsLinkRow,
   SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
@@ -32,10 +32,9 @@ export default function PreferencesSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [saving, setSaving] = useState(false);
-  const [appearancePickerOpen, setAppearancePickerOpen] = useState(false);
-  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
-  const [stylePickerOpen, setStylePickerOpen] = useState(false);
-  const [tonePickerOpen, setTonePickerOpen] = useState(false);
+  const [openPicker, setOpenPicker] = useState<
+    "appearance" | "style" | "tone" | "language" | null
+  >(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
 
@@ -110,44 +109,89 @@ export default function PreferencesSettingsScreen() {
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
       >
         <SettingsGroup label={t("settings.appearance")} styles={s}>
-          <SettingsLinkRow
+          <SettingsInlinePicker
             icon="contrast-outline"
             title={t("settings.appearance")}
             subtitle={t("settings.appearance_summary")}
             value={t(`settings.appearance_${appearancePreference}`)}
-            onPress={() => setAppearancePickerOpen(true)}
+            options={APPEARANCE_OPTIONS.map((option) => ({
+              key: option,
+              label: t(`settings.appearance_${option}`),
+            }))}
+            selectedKey={appearancePreference}
+            expanded={openPicker === "appearance"}
+            onToggle={() =>
+              setOpenPicker((cur) => (cur === "appearance" ? null : "appearance"))
+            }
+            onSelect={(option) =>
+              void setAppearancePreference(option as (typeof APPEARANCE_OPTIONS)[number])
+            }
             styles={s}
             theme={theme}
           />
         </SettingsGroup>
 
         <SettingsGroup label={t("settings.chat")} styles={s}>
-          <SettingsLinkRow
+          <SettingsInlinePicker
             icon="text-outline"
             title={t("settings.style")}
             subtitle={t("settings.style_summary")}
             value={t(`settings.style_${selectedStyle}`)}
-            onPress={() => setStylePickerOpen(true)}
+            options={STYLES.map((st) => ({
+              key: st,
+              label: t(`settings.style_${st}`),
+            }))}
+            selectedKey={selectedStyle}
+            expanded={openPicker === "style"}
+            onToggle={() =>
+              setOpenPicker((cur) => (cur === "style" ? null : "style"))
+            }
+            onSelect={(st) =>
+              void patch({ response_style: st as (typeof STYLES)[number] })
+            }
+            disabled={saving}
             styles={s}
             theme={theme}
           />
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
+          <SettingsInlinePicker
             icon="chatbubble-ellipses-outline"
             title={t("settings.tone")}
             subtitle={t("settings.tone_hint")}
             value={t(`settings.tone_${selectedTone}`)}
-            onPress={() => setTonePickerOpen(true)}
+            options={RESPONSE_TONES.map((tone) => ({
+              key: tone,
+              label: t(`settings.tone_${tone}`),
+            }))}
+            selectedKey={selectedTone}
+            expanded={openPicker === "tone"}
+            onToggle={() =>
+              setOpenPicker((cur) => (cur === "tone" ? null : "tone"))
+            }
+            onSelect={(tone) =>
+              void patch({ response_tone: tone as (typeof RESPONSE_TONES)[number] })
+            }
+            disabled={saving}
             styles={s}
             theme={theme}
           />
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
+          <SettingsInlinePicker
             icon="globe-outline"
             title={t("settings.language")}
             subtitle={t("settings.language_summary")}
             value={selectedLanguage.label}
-            onPress={() => setLanguagePickerOpen(true)}
+            options={LANGUAGES.map((lang) => ({
+              key: lang.code,
+              label: lang.label,
+            }))}
+            selectedKey={user?.locale ?? selectedLanguage.code}
+            expanded={openPicker === "language"}
+            onToggle={() =>
+              setOpenPicker((cur) => (cur === "language" ? null : "language"))
+            }
+            onSelect={(code) => void patch({ locale: code })}
+            disabled={saving}
             styles={s}
             theme={theme}
           />
@@ -181,59 +225,6 @@ export default function PreferencesSettingsScreen() {
         </SettingsGroup>
       </ScrollView>
 
-      <SettingsPickerModal
-        visible={appearancePickerOpen}
-        title={t("settings.appearance")}
-        selectedKey={appearancePreference}
-        options={APPEARANCE_OPTIONS.map((option) => ({
-          key: option,
-          label: t(`settings.appearance_${option}`),
-        }))}
-        onClose={() => setAppearancePickerOpen(false)}
-        onSelect={(option) =>
-          void setAppearancePreference(option as (typeof APPEARANCE_OPTIONS)[number])
-        }
-        styles={s}
-        theme={theme}
-      />
-      <SettingsPickerModal
-        visible={languagePickerOpen}
-        title={t("settings.language")}
-        selectedKey={user?.locale ?? selectedLanguage.code}
-        options={LANGUAGES.map((lang) => ({ key: lang.code, label: lang.label }))}
-        onClose={() => setLanguagePickerOpen(false)}
-        onSelect={(code) => void patch({ locale: code })}
-        disabled={saving}
-        styles={s}
-        theme={theme}
-      />
-      <SettingsPickerModal
-        visible={stylePickerOpen}
-        title={t("settings.style")}
-        selectedKey={selectedStyle}
-        options={STYLES.map((st) => ({ key: st, label: t(`settings.style_${st}`) }))}
-        onClose={() => setStylePickerOpen(false)}
-        onSelect={(st) => void patch({ response_style: st as (typeof STYLES)[number] })}
-        disabled={saving}
-        styles={s}
-        theme={theme}
-      />
-      <SettingsPickerModal
-        visible={tonePickerOpen}
-        title={t("settings.tone")}
-        selectedKey={selectedTone}
-        options={RESPONSE_TONES.map((tone) => ({
-          key: tone,
-          label: t(`settings.tone_${tone}`),
-        }))}
-        onClose={() => setTonePickerOpen(false)}
-        onSelect={(tone) =>
-          void patch({ response_tone: tone as (typeof RESPONSE_TONES)[number] })
-        }
-        disabled={saving}
-        styles={s}
-        theme={theme}
-      />
       <SettingsFieldSheet
         visible={instructionsOpen}
         title={t("settings.custom_instructions")}

@@ -1,6 +1,6 @@
 /**
  * Bottom-sheet text editor for settings (profile fields, custom instructions).
- * Matches ChatRenameSheet / SettingsPickerModal AppSheet pattern.
+ * Matches ChatRenameSheet AppSheet pattern.
  */
 import { useMemo } from "react";
 import {
