@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { displayChatTitle } from "@/lib/chatTitle";
@@ -59,7 +59,7 @@ export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
       onPress={() => onOpenChat(result.chat_id, result.message_id)}
     >
       <View style={s.searchResultHeader}>
-        <Ionicons
+        <Icon
           name={
             result.match_type === "title"
               ? "chatbubble-outline"

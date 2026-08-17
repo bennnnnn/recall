@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { NewChatIcon } from "@/components/NewChatIcon";
 import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
@@ -48,11 +48,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >
-        <Ionicons
-          name="settings-outline"
-          size={22}
-          color={theme.onPrimary}
-        />
+        <Icon name="settings-outline" size={22} color={theme.onPrimary} />
       </Pressable>
     </View>
   );

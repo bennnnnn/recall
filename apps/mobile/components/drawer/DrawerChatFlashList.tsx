@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react";
 import { Pressable, RefreshControl, Text } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { StateView } from "@/components/StateView";
 import {
   ConversationRow,
@@ -176,7 +176,7 @@ export function DrawerChatFlashList({
           >
             <Text style={s.sectionTitle}>{item.title}</Text>
             <Text style={s.sectionCount}>{item.count}</Text>
-            <Ionicons
+            <Icon
               name={collapsed ? "chevron-down" : "chevron-up"}
               size={16}
               color={theme.textTertiary}

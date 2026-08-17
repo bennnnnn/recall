@@ -1,7 +1,7 @@
 import { Pressable, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
@@ -56,7 +56,7 @@ export function DrawerHeader({
       <View style={s.header}>
         {searchOpen ? (
           <View style={s.searchBar}>
-            <Ionicons name="search-outline" size={18} color={theme.textSecondary} />
+            <Icon name="search-outline" size={18} color={theme.textSecondary} />
             <TextInput
               ref={searchInputRef}
               style={s.searchInput}
@@ -125,7 +125,7 @@ export function DrawerHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("search.open_accessibility")}
               >
-                <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
+                <Icon name="search-outline" size={20} color={theme.textSecondary} />
               </Pressable>
             </View>
           </View>

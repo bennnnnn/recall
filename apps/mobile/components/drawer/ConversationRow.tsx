@@ -1,9 +1,9 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/lib/chatTitle";
@@ -84,7 +84,7 @@ export const ConversationRow = memo(function ConversationRow({
     >
       {selectionMode ? (
         <View style={r.rowIcon}>
-          <Ionicons
+          <Icon
             name={selected ? "checkbox" : "square-outline"}
             size={20}
             color={selected ? theme.primary : theme.textTertiary}
@@ -92,7 +92,7 @@ export const ConversationRow = memo(function ConversationRow({
         </View>
       ) : chat.pinned ? (
         <View style={r.rowIcon}>
-          <Ionicons name="bookmark" size={16} color={theme.primary} />
+          <Icon name="bookmark" size={16} color={theme.primary} />
         </View>
       ) : null}
       <Text
@@ -123,7 +123,7 @@ export const ConversationRow = memo(function ConversationRow({
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >
-          <Ionicons name="trash-outline" size={18} color={theme.onPrimary} />
+          <Icon name="trash-outline" size={18} color={theme.onPrimary} />
           <Text style={r.swipeDeleteText}>{t("common.delete")}</Text>
         </Pressable>
       )}
