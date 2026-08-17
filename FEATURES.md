@@ -269,7 +269,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Security** — Google ID-token verification (incl. `email_verified`), rate limiting on
   auth + WebSocket, production config guards (no dev auth / mock / weak secret in prod),
   locked-down CORS.
-- ✅ **Ops** — `/health` liveness + `/health/ready` (DB + Redis) checks, graceful shutdown, DB
+- ✅ **Ops** — `/health` liveness + `/health/ready` (Postgres; Redis reported as
+  `ok`/`degraded` without draining the fleet), graceful shutdown, DB
   connection pooling.
 - ✅ **Quality** — CI (Postgres + Redis services, ruff, mypy, pytest with coverage gate).
 - ✅ **Background jobs** — title / memory / compression are enqueued to a **durable Redis Stream**
