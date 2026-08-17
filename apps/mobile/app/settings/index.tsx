@@ -4,7 +4,7 @@ import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { AvatarUsageRing } from "@/components/AvatarUsageRing";
+import { Avatar } from "@/components/Avatar";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
@@ -15,9 +15,8 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { api, type User } from "@/lib/api";
+import { type User } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
-import { usageRemainingPercent } from "@/lib/quota";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { prefetchMemories } from "@/lib/memoryListCache";
 import {
@@ -39,7 +38,6 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [usage, setUsage] = useState<Awaited<ReturnType<typeof api.todayUsage>> | null>(null);
   const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [editField, setEditField] = useState<ProfileField | null>(null);
@@ -47,13 +45,9 @@ export default function SettingsScreen() {
 
   const refreshSummary = useCallback(async () => {
     if (!token) return;
-    const [usageR, integrationsR] = await Promise.allSettled([
-      api.todayUsage(token),
-      fetchIntegrationStatus(token),
-    ]);
-    if (usageR.status === "fulfilled") setUsage(usageR.value);
-    if (integrationsR.status === "fulfilled" && integrationsR.value) {
-      setConnectedCount(connectedCountFromStatus(integrationsR.value));
+    const integrationsR = await Promise.allSettled([fetchIntegrationStatus(token)]);
+    if (integrationsR[0].status === "fulfilled" && integrationsR[0].value) {
+      setConnectedCount(connectedCountFromStatus(integrationsR[0].value));
     }
   }, [token]);
 
@@ -128,7 +122,6 @@ export default function SettingsScreen() {
   if (!token) return <Redirect href="/login" />;
 
   const displayName = getDisplayName(user?.name, t("common.you"));
-  const remainingPct = usage ? Math.round(usageRemainingPercent(usage)) : null;
   const accountLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
   const selectedLanguage =
     LANGUAGES.find((l) => l.code === (user?.locale ?? "en")) ?? LANGUAGES[0];
@@ -169,12 +162,7 @@ export default function SettingsScreen() {
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <View style={s.profileHeader}>
-          <AvatarUsageRing
-            name={user?.name ?? null}
-            uri={user?.avatar_url}
-            size={72}
-            remainingPct={remainingPct}
-          />
+          <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={72} />
           <Text style={s.profileName}>{displayName}</Text>
           {user?.email ? (
             <Text style={s.profileEmail} numberOfLines={1}>
