@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import type { GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
 import {
   addMonths,
@@ -181,8 +182,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 18,
     },
     monthLabel: {
-      fontSize: 17,
-      fontWeight: "700",
+      ...Type.navTitle,
       color: theme.text,
     },
     weekdayRow: {

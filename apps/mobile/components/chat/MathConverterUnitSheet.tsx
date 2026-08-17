@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import {
   UNIT_CATEGORIES,
   UNITS_BY_CATEGORY,
@@ -113,7 +114,7 @@ const makeStyles = (theme: Theme) =>
       justifyContent: "space-between",
       marginBottom: 10,
     },
-    title: { fontSize: 17, fontWeight: "700", color: theme.text },
+    title: { ...Type.navTitle, color: theme.text },
     close: { fontSize: 24, color: theme.textSecondary, paddingHorizontal: 4 },
     cats: { gap: 8, paddingBottom: 12 },
     cat: {

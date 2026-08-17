@@ -106,7 +106,7 @@ function makeStyles(C: Theme) {
       borderBottomColor: C.border,
       gap: Space.sm,
     },
-    title: { flex: 1, ...Type.title, fontSize: 17, color: C.text, textAlign: "center" },
+    title: { flex: 1, ...Type.navTitle, color: C.text, textAlign: "center" },
     cancelText: { ...Type.body, color: C.textSecondary, minWidth: 64 },
     saveText: { ...Type.body, fontWeight: "700", color: C.primary, minWidth: 64, textAlign: "right" },
     body: { padding: Space.md, gap: 10 },

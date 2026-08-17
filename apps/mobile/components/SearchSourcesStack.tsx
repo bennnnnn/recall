@@ -19,6 +19,7 @@ import {
   hostnameFromUrl,
 } from "@/lib/searchSources";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 const MAX_CHIP_ICONS = 3;
 
@@ -248,8 +249,7 @@ function makeSheetStyles(theme: Theme) {
       marginBottom: 10,
     },
     title: {
-      fontSize: 17,
-      fontWeight: "700",
+      ...Type.navTitle,
       color: theme.text,
       paddingHorizontal: 20,
       marginBottom: 8,
