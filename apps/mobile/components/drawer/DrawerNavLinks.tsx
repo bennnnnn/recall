@@ -1,10 +1,9 @@
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { ReminderBadge } from "@/components/ReminderBadge";
 import { tap } from "@/lib/haptics";
-import { inkIconColor } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -41,18 +40,9 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.projects")}
       >
-        <Ionicons
-          name="school-outline"
-          size={18}
-          color={inkIconColor(theme)}
-        />
+        <Icon name="school-outline" size={18} />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={theme.textTertiary}
-          style={s.todosChevron}
-        />
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
       <Pressable
@@ -64,18 +54,9 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.lists")}
       >
-        <Ionicons
-          name="list-outline"
-          size={18}
-          color={inkIconColor(theme)}
-        />
+        <Icon name="list-outline" size={18} />
         <Text style={s.todosLinkText}>{t("drawer.lists")}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={theme.textTertiary}
-          style={s.todosChevron}
-        />
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
       <Pressable
@@ -92,22 +73,13 @@ export function DrawerNavLinks({
         }
       >
         <View style={s.navIconWrap}>
-          <Ionicons
-            name="notifications-outline"
-            size={18}
-            color={inkIconColor(theme)}
-          />
+          <Icon name="notifications-outline" size={18} />
           {showIndicator ? (
             <ReminderBadge count={unseenCount} style={s.navBadge} />
           ) : null}
         </View>
         <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={theme.textTertiary}
-          style={s.todosChevron}
-        />
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
     </View>
   );

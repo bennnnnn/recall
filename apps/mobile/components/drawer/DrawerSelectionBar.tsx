@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import type { Theme } from "@/lib/theme";
 import type { ConversationListStyles } from "./conversationListStyles";
 
@@ -33,7 +33,7 @@ export function DrawerSelectionBar({
         onPress={onArchive}
         accessibilityRole="button"
       >
-        <Ionicons
+        <Icon
           name="archive-outline"
           size={18}
           color={disabled ? theme.textTertiary : theme.primary}
@@ -48,7 +48,7 @@ export function DrawerSelectionBar({
         onPress={onDelete}
         accessibilityRole="button"
       >
-        <Ionicons
+        <Icon
           name="trash-outline"
           size={18}
           color={disabled ? theme.textTertiary : theme.danger}
