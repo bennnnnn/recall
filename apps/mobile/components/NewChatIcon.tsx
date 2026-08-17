@@ -9,7 +9,7 @@ type Props = {
  * Rounded square with a pencil through the top-right corner.
  * Feather `edit` / SF `square.and.pencil` — not Ionicons `create` (notepad).
  */
-export function NewChatIcon({ size = 18, color }: Props) {
+export function NewChatIcon({ size = 20, color }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
