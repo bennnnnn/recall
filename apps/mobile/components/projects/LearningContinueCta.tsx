@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { learningProgressColors } from "@/lib/homeLearningCard";
 import { Theme, useTheme } from "@/lib/theme";
@@ -83,7 +83,7 @@ export function LearningContinueCta({
         <Text style={[s.ctaText, { color: accent }, outline && s.ctaTextOutline]}>
           {parts.lead}
         </Text>
-        <Ionicons name="chevron-forward" size={15} color={accent} />
+        <Icon name="chevron-forward" size={15} color={accent} />
       </View>
     </Pressable>
   );

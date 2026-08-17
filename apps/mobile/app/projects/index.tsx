@@ -12,12 +12,13 @@ import {
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { type IoniconName } from "@/lib/icons";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useHome } from "@/contexts/HomeContext";
 import { AddFab } from "@/components/AddFab";
@@ -70,7 +71,7 @@ import { Type } from "@/lib/type";
 
 const SUBJECTS: ProjectKind[] = ["language", "trivia"];
 
-function kindIcon(kind: ProjectKind): keyof typeof Ionicons.glyphMap {
+function kindIcon(kind: ProjectKind): IoniconName {
   if (kind === "language" || kind === "vocabulary") return "language-outline";
   if (kind === "trivia") return "bulb-outline";
   return "folder-outline";
@@ -294,7 +295,7 @@ export default function ProjectsScreen() {
                     onPress={() => selectSubject(item)}
                   >
                     <View style={s.subjectIcon}>
-                      <Ionicons name={kindIcon(item)} size={22} color={C.primary} />
+                      <Icon name={kindIcon(item)} size={22} color={C.primary} />
                     </View>
                     <View style={s.subjectMain}>
                       <Text style={s.subjectText}>{t(`projects.kind.${item}`)}</Text>
@@ -302,7 +303,7 @@ export default function ProjectsScreen() {
                         <Text style={s.subjectHint}>{continueHint}</Text>
                       ) : null}
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                    <Icon name="chevron-forward" size={18} color={C.textTertiary} />
                   </Pressable>
                 );
               })}
@@ -329,7 +330,7 @@ export default function ProjectsScreen() {
                         <Text style={s.subjectHint}>{t("projects.language_continue")}</Text>
                       ) : null}
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                    <Icon name="chevron-forward" size={18} color={C.textTertiary} />
                   </Pressable>
                 );
               })}
@@ -513,7 +514,7 @@ export default function ProjectsScreen() {
               accessibilityRole="button"
               accessibilityLabel={t("common.close")}
             >
-              <Ionicons name="close" size={26} color={C.textSecondary} />
+              <Icon name="close" size={26} color={C.textSecondary} />
             </Pressable>
             <Text style={s.modalHeaderTitle}>{t("projects.add_learning")}</Text>
             <View style={s.modalClose} />

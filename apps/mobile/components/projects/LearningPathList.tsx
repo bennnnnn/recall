@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { ProjectItemRow } from "@/components/ProjectItemRow";
@@ -73,7 +73,7 @@ export function LearningPathList({
               accessibilityRole="button"
               accessibilityState={{ expanded: open }}
             >
-              <Ionicons
+              <Icon
                 name={chapter.complete ? "checkmark-circle" : "ellipse-outline"}
                 size={20}
                 color={chapter.complete ? theme.primary : theme.textTertiary}
@@ -87,7 +87,7 @@ export function LearningPathList({
                   })}
                 </Text>
               </View>
-              <Ionicons
+              <Icon
                 name={open ? "chevron-up" : "chevron-down"}
                 size={16}
                 color={theme.textTertiary}

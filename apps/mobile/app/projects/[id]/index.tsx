@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { Redirect, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -168,7 +168,7 @@ export default function ProjectDetailScreen() {
           {exportingPdf ? (
             <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Ionicons name="document-text-outline" size={22} color={theme.primary} />
+            <Icon name="document-text-outline" size={22} color={theme.primary} />
           )}
         </Pressable>
       ),

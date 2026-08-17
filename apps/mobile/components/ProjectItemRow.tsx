@@ -1,11 +1,12 @@
 import { memo, useMemo } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import type { ProjectItem, VocabStatus } from "@/lib/api";
 import { speakWord } from "@/lib/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
+import { type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -19,7 +20,7 @@ type Props = {
   onSpeechUnavailable?: () => void;
 };
 
-function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
+function statusIcon(item: ProjectItem): IoniconName {
   if (item.status === "mastered" || item.mastered) return "checkmark-circle";
   if (item.status === "learning") return "ellipse";
   return "ellipse-outline";
@@ -77,7 +78,7 @@ export const ProjectItemRow = memo(function ProjectItemRow({
         {busy ? (
           <ActivityIndicator size="small" color={theme.primary} />
         ) : (
-          <Ionicons name={statusIcon(item)} size={22} color={statusColor(item, theme)} />
+          <Icon name={statusIcon(item)} size={22} color={statusColor(item, theme)} />
         )}
       </Pressable>
       <View style={s.main}>
@@ -101,7 +102,7 @@ export const ProjectItemRow = memo(function ProjectItemRow({
               accessibilityRole="button"
               accessibilityLabel={t("chat.read_aloud_a11y")}
             >
-              <Ionicons name="volume-medium-outline" size={18} color={theme.primary} />
+              <Icon name="volume-medium-outline" size={18} color={theme.primary} />
             </Pressable>
           ) : null}
         </View>
@@ -127,7 +128,7 @@ export const ProjectItemRow = memo(function ProjectItemRow({
                   : t("projects.status_new")}
             </Text>
             {onStatusChange ? (
-              <Ionicons name="chevron-down" size={12} color={theme.textTertiary} />
+              <Icon name="chevron-down" size={12} color={theme.textTertiary} />
             ) : null}
           </View>
         </Pressable>

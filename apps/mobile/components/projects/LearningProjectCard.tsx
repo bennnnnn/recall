@@ -1,18 +1,19 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import type { Project } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
+import { type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { isTriviaProject, learningProjectTitle } from "@/lib/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   project: Project;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   onOpen: () => void;
   onStudy?: () => void;
   onReview?: () => void;
@@ -89,7 +90,7 @@ export function LearningProjectCard({
         <Pressable style={s.mainTap} onPress={onOpen}>
           <View style={s.header}>
             <View style={s.iconWrap}>
-              <Ionicons name={icon} size={22} color={theme.primary} />
+              <Icon name={icon} size={22} color={theme.primary} />
             </View>
             <View style={s.headerText}>
               <Text style={s.headerTitle} numberOfLines={1}>
@@ -101,7 +102,7 @@ export function LearningProjectCard({
                 </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
+            <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
           </View>
 
           {showLearningUi && stats ? (

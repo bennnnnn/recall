@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -37,7 +37,7 @@ export function VocabCard({ card, language = "en" }: Props) {
           accessibilityRole="button"
           accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
         >
-          <Ionicons name="volume-medium-outline" size={20} color={theme.primary} />
+          <Icon name="volume-medium-outline" size={20} color={theme.primary} />
         </Pressable>
       </View>
       <Text style={s.definition}>{card.definition}</Text>

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -47,7 +47,7 @@ export function TriviaTopicsPickerModal({
             accessibilityRole="button"
             accessibilityLabel={t("common.close")}
           >
-            <Ionicons name="close" size={26} color={theme.textSecondary} />
+            <Icon name="close" size={26} color={theme.textSecondary} />
           </Pressable>
           <Text style={s.headerTitle}>{t("projects.trivia.topics_picker_title")}</Text>
           <Pressable
@@ -71,7 +71,7 @@ export function TriviaTopicsPickerModal({
                   onPress={() => onToggle(topic.id)}
                 >
                   <Text style={[s.rowText, isSelected && s.rowTextActive]}>{t(topic.labelKey)}</Text>
-                  {isSelected ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
+                  {isSelected ? <Icon name="checkmark" size={18} color={theme.primary} /> : null}
                 </Pressable>
               );
             })}

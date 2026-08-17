@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { Button } from "@/components/Button";
 import { Theme, useTheme } from "@/lib/theme";
@@ -65,7 +65,7 @@ export function StepPicker<T>({
               onPress={() => onSelect(option.value)}
             >
               <Text style={[s.rowText, selected && s.rowTextActive]}>{option.label}</Text>
-              {selected ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
+              {selected ? <Icon name="checkmark" size={18} color={theme.primary} /> : null}
             </Pressable>
           );
         })}

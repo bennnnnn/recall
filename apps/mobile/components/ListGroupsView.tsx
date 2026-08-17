@@ -6,7 +6,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import DraggableFlatList, {
   type RenderItemParams,
   ScaleDecorator,
@@ -103,11 +103,11 @@ export function ListGroupsView({
                     accessibilityRole="button"
                     accessibilityLabel={t("lists.delete_group_confirm")}
                   >
-                    <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
+                    <Icon name="trash-outline" size={16} color={C.textTertiary} />
                   </Pressable>
                 ) : null}
                 <Pressable hitSlop={8} onPress={() => toggleCollapsed(group.topic)}>
-                  <Ionicons
+                  <Icon
                     name={isCollapsed ? "chevron-down" : "chevron-up"}
                     size={18}
                     color={C.textTertiary}
@@ -266,7 +266,7 @@ function ListItemRow({
         accessibilityRole="checkbox"
         accessibilityState={{ checked: todo.checked, disabled: busy }}
       >
-        <Ionicons
+        <Icon
           name={todo.checked ? "checkbox" : "square-outline"}
           size={CHECKBOX_SIZE}
           color={todo.checked ? C.primary : C.textTertiary}
@@ -282,7 +282,7 @@ function ListItemRow({
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >
-          <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
+          <Icon name="trash-outline" size={16} color={C.textTertiary} />
         </Pressable>
       ) : null}
     </Pressable>
@@ -306,7 +306,7 @@ function ListItemRow({
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >
-          <Ionicons name="trash-outline" size={18} color={C.onPrimary} />
+          <Icon name="trash-outline" size={18} color={C.onPrimary} />
           <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
         </Pressable>
       )}

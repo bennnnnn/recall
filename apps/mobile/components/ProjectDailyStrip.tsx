@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ProjectDailyHistoryDay } from "@/lib/api";
@@ -119,7 +119,7 @@ function DayCell({
         ]}
       >
         {inactive ? null : complete ? (
-          <Ionicons
+          <Icon
             name="checkmark"
             size={14}
             color={theme.isDark ? theme.bg : theme.onPrimary}
@@ -127,7 +127,7 @@ function DayCell({
         ) : partial || todayPartial ? (
           <Text style={s.partialText}>{completedCount}</Text>
         ) : skipped ? (
-          <Ionicons name="remove" size={14} color={theme.textTertiary} />
+          <Icon name="remove" size={14} color={theme.textTertiary} />
         ) : (
           <Text style={s.todayText}>{completedCount > 0 ? completedCount : "·"}</Text>
         )}
