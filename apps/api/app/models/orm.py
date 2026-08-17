@@ -484,6 +484,7 @@ class SuggestedReminder(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[float] = mapped_column(default=0.5, server_default="0.5")
     source_snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_sender: Mapped[str | None] = mapped_column(String(120), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending")
     notification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

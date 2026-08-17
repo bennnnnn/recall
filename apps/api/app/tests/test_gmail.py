@@ -115,6 +115,40 @@ def test_format_not_connected_answer_mentions_settings():
     assert "Gmail" in answer
 
 
+def test_format_pending_suggestions_nudge_includes_sender():
+    from app.services import email as email_service
+
+    pending = MagicMock()
+    pending.title = "Amazon delivery — Your order has shipped"
+    pending.due_at = datetime(2026, 6, 30, tzinfo=UTC)
+    pending.source_sender = "Amazon"
+    block = email_service.format_pending_suggestions_nudge([pending])
+    assert block is not None
+    assert "Amazon delivery" in block
+    assert "from Amazon" in block
+    assert email_service.format_pending_suggestions_nudge([]) is None
+
+
+@pytest.mark.asyncio
+async def test_extract_reminder_item_uses_sender_template_before_llm():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.services import email as email_service
+
+    message = GmailMessage(
+        id="g1",
+        subject="Your order has shipped",
+        snippet="Package arriving tomorrow",
+        body_text="",
+        received_at=None,
+        from_address="Amazon <auto-confirm@amazon.com>",
+    )
+    with patch("app.services.email._extract_with_llm", AsyncMock()) as llm:
+        item = await email_service._extract_reminder_item(Settings(), message, default_tz="UTC")
+    assert item is not None
+    assert item.title.startswith("Amazon delivery")
+    llm.assert_not_awaited()
+
+
 def test_format_gmail_block_includes_pending_and_messages():
     from app.gateways.google_gmail_gateway import GmailMessage
     from app.services import email as email_service

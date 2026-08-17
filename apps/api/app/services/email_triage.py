@@ -115,7 +115,9 @@ def format_triaged_inbox_block(
         lines.append(f"Pending suggested reminders ({len(pending_suggestions)}):")
         for row in pending_suggestions[:8]:
             due = f" — due {row.due_at.isoformat()}" if row.due_at else ""
-            lines.append(f"- {row.title}{due}")
+            sender = getattr(row, "source_sender", None)
+            who = f" (from {sender})" if sender else ""
+            lines.append(f"- {row.title}{who}{due}")
 
     if not messages and not pending_suggestions and not fetch_error:
         lines.append("No recent inbox messages found in the last sync window.")

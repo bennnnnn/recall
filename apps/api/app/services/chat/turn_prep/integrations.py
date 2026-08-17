@@ -68,6 +68,11 @@ async def _load_gmail_context_block(
         return await email_service.load_gmail_context(session, redis, user, settings)
 
 
+async def _load_pending_email_nudge(user_id: UUID) -> str | None:
+    async with SessionLocal() as session:
+        return await email_service.load_pending_suggestions_nudge(session, user_id)
+
+
 async def _load_prior_user_messages(chat_id: UUID) -> list[str]:
     async with SessionLocal() as session:
         return await messages_repo.recent_user_contents(session, chat_id)
@@ -148,6 +153,7 @@ async def _inject_integration_blocks(
                 ),
             )
         )
+    email_nudge: str | None = None
     if gmail_context is not None:
         google_email, messages, pending_suggestions, fetch_error = gmail_context
         gmail_block = email_service.format_gmail_block(
@@ -168,6 +174,13 @@ async def _inject_integration_blocks(
                 ),
             )
         )
+    elif settings.gmail_enabled:
+        pending.append(
+            (
+                "email_nudge",
+                _timed_integration_load("email_nudge", _load_pending_email_nudge(user.id)),
+            )
+        )
 
     if pending:
         results = await asyncio.gather(*(task for _, task in pending))
@@ -176,6 +189,8 @@ async def _inject_integration_blocks(
                 calendar_block = result
             elif label == "gmail":
                 gmail_block = result
+            elif label == "email_nudge":
+                email_nudge = result
 
     if calendar_block:
         integration_blocks.append(wrap_untrusted("calendar", calendar_block))
@@ -183,6 +198,9 @@ async def _inject_integration_blocks(
         integration_blocks.append(wrap_untrusted("gmail", gmail_block))
         if email_service.is_external_email_question(content):
             integration_blocks.append(email_service.GMAIL_INBOX_ANSWER_HINT)
+    elif email_nudge:
+        integration_blocks.append(wrap_untrusted("email suggestions", email_nudge))
+        integration_blocks.append(email_service.EMAIL_SUGGESTION_NUDGE_HINT)
     if (
         not settings.mcp_tools_enabled
         and calendar_service.is_calendar_create_request(content)

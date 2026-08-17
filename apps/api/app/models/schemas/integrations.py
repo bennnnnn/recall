@@ -114,6 +114,7 @@ class SuggestedReminderOut(BaseModel):
     notes: str | None = None
     confidence: float
     source_snippet: str | None = None
+    source_sender: str | None = None
     status: str
     created_at: datetime
     gmail_message_id: str

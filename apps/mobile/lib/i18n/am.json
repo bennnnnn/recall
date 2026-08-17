@@ -862,6 +862,7 @@
   "share.role_user": "እርስዎ",
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
+  "suggested.from_sender": "ከ{{sender}}",
   "terms.title": "የአገልግሎት ውሎች",
   "todos.add_reminder": "ማስታወሻ ጨምር",
   "todos.add_todo": "ወደ ዝርዝር ጨምር",

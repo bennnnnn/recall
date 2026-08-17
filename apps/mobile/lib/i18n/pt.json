@@ -862,6 +862,7 @@
   "share.role_user": "Você",
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
+  "suggested.from_sender": "De {{sender}}",
   "terms.title": "Termos de Serviço",
   "todos.add_reminder": "Adicionar lembrete",
   "todos.add_todo": "Adicionar à lista",

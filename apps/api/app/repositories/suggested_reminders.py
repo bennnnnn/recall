@@ -77,6 +77,7 @@ async def create(
     notes: str | None,
     confidence: float,
     source_snippet: str | None,
+    source_sender: str | None = None,
 ) -> SuggestedReminder:
     row = SuggestedReminder(
         user_id=user_id,
@@ -86,6 +87,7 @@ async def create(
         notes=notes,
         confidence=confidence,
         source_snippet=source_snippet,
+        source_sender=source_sender,
         status="pending",
     )
     session.add(row)
