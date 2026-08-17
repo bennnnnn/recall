@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -77,7 +77,7 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
             },
           ]}
         >
-          <Ionicons
+          <Icon
             name={recording ? "stop" : "mic-outline"}
             size={recording ? 16 : 22}
             color={recording ? theme.onPrimary : theme.primary}

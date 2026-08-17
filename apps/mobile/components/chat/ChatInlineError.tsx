@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
@@ -43,7 +43,7 @@ export function ChatInlineError({
   return (
     <View style={[s.wrap, { bottom }]}>
       <View style={s.body}>
-        <Ionicons name={iconName} size={16} color={theme.warning} style={s.icon} />
+        <Icon name={iconName} size={16} color={theme.warning} style={s.icon} />
         <Text style={s.text}>{error.message}</Text>
       </View>
       {error.kind === "quota" && onUpgrade && upgradeLabel ? (
@@ -69,7 +69,7 @@ export function ChatInlineError({
         accessibilityRole="button"
         accessibilityLabel={t("chat.error_dismiss_a11y")}
       >
-        <Ionicons name="close" size={16} color={theme.textTertiary} />
+        <Icon name="close" size={16} color={theme.textTertiary} />
       </Pressable>
     </View>
   );

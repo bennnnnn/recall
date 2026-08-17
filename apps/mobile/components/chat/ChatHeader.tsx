@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { HamburgerIcon } from "@/components/HamburgerIcon";
@@ -114,7 +114,7 @@ export const ChatHeader = memo(function ChatHeader({
               })}
             >
               <View style={s.headerIconWrap}>
-                <Ionicons name="notifications-outline" size={22} color={theme.text} />
+                <Icon name="notifications-outline" size={22} color={theme.text} />
                 <ReminderBadge count={unseenCount} style={s.headerBadge} />
               </View>
             </Pressable>
@@ -144,7 +144,7 @@ export const ChatHeader = memo(function ChatHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.menu")}
               >
-                <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
+                <Icon name="ellipsis-vertical" size={22} color={theme.text} />
               </Pressable>
             </View>
           ) : null}

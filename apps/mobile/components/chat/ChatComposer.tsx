@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import Animated, { type AnimatedStyle } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
@@ -219,7 +219,7 @@ export const ChatComposer = memo(function ChatComposer({
                 accessibilityLabel={t("chat.math_keyboard_show")}
                 testID="math-keyboard-toggle"
               >
-                <Ionicons name="keypad-outline" size={18} color={theme.primary} />
+                <Icon name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
             </View>
           ) : null}
@@ -240,7 +240,7 @@ export const ChatComposer = memo(function ChatComposer({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.attach_a11y")}
               >
-                <Ionicons name="attach-outline" size={22} color={theme.primary} />
+                <Icon name="attach-outline" size={22} color={theme.primary} />
               </Pressable>
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform

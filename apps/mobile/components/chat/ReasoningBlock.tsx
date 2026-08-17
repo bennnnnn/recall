@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -28,10 +28,10 @@ export const ReasoningBlock = memo(function ReasoningBlock({ content, streaming 
         accessibilityRole="button"
         accessibilityState={{ expanded }}
       >
-        <Ionicons name="sparkles-outline" size={14} color={theme.textSecondary} />
+        <Icon name="sparkles-outline" size={14} color={theme.textSecondary} />
         <Text style={s.title}>{t("chat.reasoning_title")}</Text>
         {streaming ? <Text style={s.live}>{t("chat.reasoning_live")}</Text> : null}
-        <Ionicons
+        <Icon
           name={expanded ? "chevron-up" : "chevron-down"}
           size={14}
           color={theme.textTertiary}

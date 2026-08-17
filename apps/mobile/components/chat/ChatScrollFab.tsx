@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { shadowElevated } from "@/lib/shadow";
@@ -33,7 +33,7 @@ export function ChatScrollFab({ visible, bottomOffset, scrollAwayCount, onPress 
         accessibilityRole="button"
         accessibilityLabel={t("chat.scroll_to_latest")}
       >
-        <Ionicons name="chevron-down" size={22} color={C.text} />
+        <Icon name="chevron-down" size={22} color={C.text} />
         {badgeLabel ? (
           <View style={s.badge}>
             <Text style={s.badgeText}>{badgeLabel}</Text>
