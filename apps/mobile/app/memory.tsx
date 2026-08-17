@@ -10,11 +10,11 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { AppSheet } from "@/components/AppSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
@@ -78,7 +78,7 @@ function MemorySectionCard({
         >
           <Text style={s.groupTitle}>{memoryTypeLabel(section.type, t)}</Text>
           {collapsible || (showFacts && facts.length > COLLAPSED_LINES) ? (
-            <Ionicons
+            <Icon
               name={expanded ? "chevron-up" : "chevron-down"}
               size={18}
               color={theme.textSecondary}
@@ -92,7 +92,7 @@ function MemorySectionCard({
             accessibilityRole="button"
             accessibilityLabel={t("memory.edit_section_a11y")}
           >
-            <Ionicons name="create-outline" size={16} color={theme.textTertiary} />
+            <Icon name="create-outline" size={16} color={theme.textTertiary} />
           </Pressable>
           <Pressable
             hitSlop={14}
@@ -100,7 +100,7 @@ function MemorySectionCard({
             accessibilityRole="button"
             accessibilityLabel={t("memory.delete_section_a11y")}
           >
-            <Ionicons name="trash-outline" size={16} color={theme.textTertiary} />
+            <Icon name="trash-outline" size={16} color={theme.textTertiary} />
           </Pressable>
         </View>
       </View>
@@ -115,7 +115,7 @@ function MemorySectionCard({
                 accessibilityRole="button"
                 accessibilityLabel={t("memory.delete_fact_a11y")}
               >
-                <Ionicons name="close-circle-outline" size={18} color={theme.textTertiary} />
+                <Icon name="close-circle-outline" size={18} color={theme.textTertiary} />
               </Pressable>
             </View>
           ))

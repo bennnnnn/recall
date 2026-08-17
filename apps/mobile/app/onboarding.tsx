@@ -1,11 +1,11 @@
 import { useMemo } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { tap } from "@/lib/haptics";
@@ -72,7 +72,7 @@ export default function Onboarding() {
         {FEATURES.map((f) => (
           <View key={f.titleKey} style={s.feature}>
             <View style={s.featureIcon}>
-              <Ionicons name={f.icon as never} size={20} color={theme.primary} />
+              <Icon name={f.icon as never} size={20} color={theme.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.featureTitle}>{t(f.titleKey)}</Text>
