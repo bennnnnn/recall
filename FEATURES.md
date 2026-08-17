@@ -203,6 +203,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 10. Settings & profile
 - ✅ **Account** — shows name + email; profile picture from Google (initials fallback).
+- ✅ **Settings home** — Account / App / Data & privacy groups with icon wells and
+  one-line subtitles. Same destinations; chrome only.
 - ✅ **Structured profile** — name, age, country, and job editable in Settings → Profile;
   persisted on `users` and injected into the chat system prompt (see [§6](#6-memory-remembering-the-user)).
 - ✅ **Default model** — Flash / Pro.
