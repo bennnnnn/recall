@@ -117,10 +117,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus **Max**
   (`max-chat`, OpenRouter) which appears once an OpenRouter key is configured.
 - ✅ **Manual switching** — model picker in the composer + a default in Settings (respected).
-- 🔜 **Chat settings from natural language** — small allowlist only, confirm-then-write
-  (calendar-proposal style): this-chat model (`free-chat` / `smart-chat` / `max-chat` from
-  nicknames like “GPT”), app language, daily learning goal. Respect `enabled_models` + plan.
-  No open settings tool. Theme stays in Settings. Not now.
+- ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
+  (calendar-proposal style): model (Flash / Pro / Max / Auto, nicknames like “GPT”),
+  tone (funny / professional / casual / soft), app language, and appearance
+  (light / dark / system — applied on-device). Respects `enabled_models` + plan.
+  No open settings tool. Daily learning goal still Settings-only.
 - ✅ **Auto routing** — an **Auto** chip (composer + Settings) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
@@ -507,7 +508,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Auth | Email/password, magic links, multi-device session management |
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
 | Messaging | Reactions, read receipts; duplex / live voice |
-| Models | User-tunable routing rules; response-cache / prompt-budget UI; NL settings allowlist (model / locale / daily goal, confirm-then-write) |
+| Models | User-tunable routing rules; response-cache / prompt-budget UI; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
