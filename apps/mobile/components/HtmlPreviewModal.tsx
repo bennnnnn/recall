@@ -132,9 +132,11 @@ function makeTagStyles(theme: Theme) {
  */
 function LiveWebPreview({
   html,
+  theme,
   styles: s,
 }: {
   html: string;
+  theme: Theme;
   styles: ReturnType<typeof makeStyles>;
 }) {
   const { t } = useTranslation();
@@ -142,8 +144,8 @@ function LiveWebPreview({
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
   const fullHtml = useMemo(
-    () => prepareHtmlRunDocument(wrapFullDocument(html)),
-    [html],
+    () => prepareHtmlRunDocument(wrapFullDocument(html, theme)),
+    [html, theme],
   );
   const source = useMemo(() => ({ html: fullHtml }), [fullHtml]);
 
@@ -304,7 +306,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
               errorColor={theme.danger}
               errorMessage={t("preview.render_failed")}
             >
-              <LiveWebPreview html={html} styles={s} />
+              <LiveWebPreview html={html} theme={theme} styles={s} />
             </PreviewRenderBoundary>
           ) : (
             <StaticHtmlPreview
@@ -381,7 +383,7 @@ const makeStyles = (theme: Theme) =>
       alignSelf: "stretch",
       position: "relative",
       minHeight: 200,
-      backgroundColor: "#FFFFFF",
+      backgroundColor: theme.bg,
     },
     // Absolute fill — never gate mount on onLayout height (Modal blank bug).
     webview: {
@@ -390,7 +392,7 @@ const makeStyles = (theme: Theme) =>
       right: 0,
       bottom: 0,
       left: 0,
-      backgroundColor: "#FFFFFF",
+      backgroundColor: theme.bg,
     },
     emptyOverlay: {
       position: "absolute",

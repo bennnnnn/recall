@@ -6,24 +6,41 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import { Linking, Platform, Share } from "react-native";
 import { stripScripts } from "@/lib/previewSandbox";
+import type { Theme } from "@/lib/theme";
+import { CODE_FONT } from "@/lib/fonts";
 
-/** Wrap bare HTML into a full document for browser rendering. */
-export function wrapFullDocument(html: string): string {
+/**
+ * Wrap bare HTML into a full document.
+ *
+ * `theme` threads app palette tokens into the document so the in-app Run tab
+ * matches the active color scheme (dark mode no longer renders a white sheet).
+ * Omit `theme` for the system-browser export path, which keeps light-only
+ * defaults and lets the browser chrome control its own scheme. A document that
+ * already has its own `<!DOCTYPE>`/`<html>` shell is returned unchanged — its
+ * embedded styles are the author's choice, not ours to rewrite.
+ */
+export function wrapFullDocument(html: string, theme?: Theme): string {
   if (/^\s*<!DOCTYPE/i.test(html) || /^\s*<html/i.test(html)) {
     return html;
   }
+  const bg = theme?.bg ?? "#FFFFFF";
+  const text = theme?.text ?? "#111827";
+  const border = theme?.border ?? "#E5E7EB";
+  const thBg = theme?.surface ?? "#F1F5F9";
+  const preBg = theme?.codeBg ?? "#F1F5F9";
+  const codeFont = `'${CODE_FONT}', monospace`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 16px; line-height: 1.5; color: #111827; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 16px; line-height: 1.5; color: ${text}; background: ${bg}; }
   table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-  td, th { border: 1px solid #E5E7EB; padding: 8px; }
-  th { background: #F1F5F9; font-weight: 600; }
-  pre { background: #F1F5F9; padding: 12px; border-radius: 8px; overflow-x: auto; }
-  code { font-family: 'SF Mono', monospace; font-size: 14px; }
+  td, th { border: 1px solid ${border}; padding: 8px; }
+  th { background: ${thBg}; font-weight: 600; }
+  pre { background: ${preBg}; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  code { font-family: ${codeFont}; font-size: 14px; }
   img { max-width: 100%; }
 </style>
 </head>
