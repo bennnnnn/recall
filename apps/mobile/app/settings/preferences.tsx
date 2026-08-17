@@ -19,6 +19,7 @@ import { LANGUAGES } from "@/lib/i18n";
 import { DEFAULT_RESPONSE_TONE, normalizeResponseTone, RESPONSE_TONES } from "@/lib/responseTone";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
 import { useAppearance } from "@/contexts/AppearanceContext";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 const STYLES = ["short", "balanced", "detailed"] as const;
@@ -106,7 +107,7 @@ export default function PreferencesSettingsScreen() {
     <>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <SettingsGroup label={t("settings.appearance")} styles={s}>
           <SettingsInlinePicker

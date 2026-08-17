@@ -12,6 +12,7 @@ import {
 } from "@/components/settings/settingsUi";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function AboutScreen() {
@@ -24,7 +25,7 @@ export default function AboutScreen() {
   return (
     <ScrollView
       style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
     >
       <SettingsGroup styles={s}>
         <SettingsLinkRow

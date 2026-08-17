@@ -14,7 +14,9 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -98,23 +100,23 @@ function makeStyles(C: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: 16,
+      paddingHorizontal: Space.md,
       paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: C.border,
-      gap: 12,
+      gap: Space.sm,
     },
-    title: { flex: 1, fontSize: 17, fontWeight: "700", color: C.text, textAlign: "center" },
-    cancelText: { fontSize: 16, color: C.textSecondary, minWidth: 64 },
-    saveText: { fontSize: 16, fontWeight: "700", color: C.primary, minWidth: 64, textAlign: "right" },
-    body: { padding: 16, gap: 10 },
-    hint: { fontSize: 13, color: C.textSecondary, lineHeight: 18 },
+    title: { flex: 1, ...Type.title, fontSize: 17, color: C.text, textAlign: "center" },
+    cancelText: { ...Type.body, color: C.textSecondary, minWidth: 64 },
+    saveText: { ...Type.body, fontWeight: "700", color: C.primary, minWidth: 64, textAlign: "right" },
+    body: { padding: Space.md, gap: 10 },
+    hint: { ...Type.caption, fontWeight: "400", color: C.textSecondary, lineHeight: 18 },
     input: {
       backgroundColor: C.contentSurface,
       borderRadius: 12,
       paddingHorizontal: 14,
-      paddingVertical: 12,
-      fontSize: 16,
+      paddingVertical: Space.sm,
+      ...Type.body,
       color: C.text,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,

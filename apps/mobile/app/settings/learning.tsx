@@ -32,6 +32,7 @@ import {
   triviaDifficultyPickerOptions,
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 function mergeProjectRow(prev: Project[], updated: Project): Project[] {
@@ -154,7 +155,7 @@ export default function LearningSettingsScreen() {
     <View style={s.root}>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         {hasLearningProjects ? (
           <>

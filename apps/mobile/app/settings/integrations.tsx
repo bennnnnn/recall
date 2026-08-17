@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { IntegrationPanel, makeSettingsStyles, SettingsGroup } from "@/components/settings/settingsUi";
 import { StateView } from "@/components/StateView";
 import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -35,7 +36,7 @@ export default function IntegrationsSettingsScreen() {
   return (
     <ScrollView
       style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24, gap: 16 }]}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg, gap: Space.md }]}
     >
       {loadError ? (
         <StateView

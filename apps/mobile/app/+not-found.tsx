@@ -3,7 +3,9 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export default function NotFoundScreen() {
   const { t } = useTranslation();
@@ -31,21 +33,20 @@ function makeStyles(theme: Theme) {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      padding: 20,
+      padding: Space.md,
       backgroundColor: theme.bg,
     },
     title: {
-      fontSize: 20,
-      fontWeight: "700",
+      ...Type.title,
       color: theme.text,
       textAlign: "center",
     },
     link: {
-      marginTop: 15,
-      paddingVertical: 15,
+      marginTop: Space.md,
+      paddingVertical: Space.md,
     },
     linkText: {
-      fontSize: 15,
+      ...Type.secondary,
       fontWeight: "600",
       color: theme.primary,
     },

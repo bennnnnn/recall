@@ -25,6 +25,7 @@ import {
   fetchIntegrationStatus,
   getCachedConnectedCount,
 } from "@/lib/integrationStatusCache";
+import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 type ProfileField = "name" | "age" | "country" | "job";
@@ -165,7 +166,7 @@ export default function SettingsScreen() {
     <View style={s.root}>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <View style={s.profileHeader}>
           <AvatarUsageRing

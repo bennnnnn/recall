@@ -9,7 +9,9 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { tap } from "@/lib/haptics";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 const FEATURES = [
   {
@@ -89,10 +91,10 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: {
       flex: 1,
-      paddingHorizontal: 24,
+      paddingHorizontal: Space.lg,
       justifyContent: "center",
     },
-    hero: { alignItems: "center", marginBottom: 40 },
+    hero: { alignItems: "center", marginBottom: Space.xl + Space.xs },
     badge: {
       width: 72,
       height: 72,
@@ -100,23 +102,22 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 16,
+      marginBottom: Space.md,
     },
     badgeStar: { fontSize: 30, color: theme.onPrimary },
     title: {
-      fontSize: 28,
+      ...Type.display,
       fontWeight: "800",
       color: theme.text,
       letterSpacing: -0.5,
     },
     subtitle: {
-      fontSize: 16,
+      ...Type.body,
       color: theme.textSecondary,
-      marginTop: 6,
+      marginTop: Space.xs,
       textAlign: "center",
-      lineHeight: 22,
     },
-    features: { gap: 20, marginBottom: 40 },
+    features: { gap: 20, marginBottom: Space.xl + Space.xs },
     feature: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
     featureIcon: {
       width: 40,
@@ -127,12 +128,12 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     featureTitle: {
-      fontSize: 16,
+      ...Type.body,
       fontWeight: "700",
       color: theme.text,
       marginBottom: 2,
     },
-    featureBody: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
+    featureBody: { ...Type.label, fontWeight: "400", color: theme.textSecondary, lineHeight: 20 },
     cta: {
       alignSelf: "stretch",
     },

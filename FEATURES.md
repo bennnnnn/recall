@@ -247,8 +247,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   stacks, fade for auth/onboarding, fade-from-bottom for drawer utility screens (memory, todos).
 - ✅ **Shared Button / type / space / motion tokens** — primary CTAs via `components/Button`;
   `lib/type.ts`, `lib/space.ts`, `lib/motion.ts` for high-traffic roles (incremental migration).
-- 🔜 Full typography/spacing ownership across every screen; compact chip/pill controls stay
-  specialized (not the shared Button).
+- ✅ **Full typography/spacing ownership on screens** — `app/*` screens and settings
+  chrome use `Type` / `Space` for body, caption, label, title, and display roles.
+  Compact chip/pill controls stay specialized (not the shared Button). Login
+  wordmark and 11px stat chips keep their one-off sizes.
 
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
@@ -530,7 +532,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; multi-file HTML preview; virus scan |
 | i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
-| Polish | Full type/space ownership; Sentry/logging polish; App Store / Play / family plans |
+| Polish | Sentry/logging polish; App Store / Play / family plans |
 | Launch ops | Neon / Redis / R2 / Fly / EAS; landing page; on-device QA; prod R2 secrets |
 
 ### Future — owner ops (was “Pre-deployment TODO”)

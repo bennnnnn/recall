@@ -23,7 +23,9 @@ import { useMemoryActions } from "@/hooks/useMemoryActions";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/memoryListCache";
 import { splitMemoryFacts } from "@/lib/memoryFacts";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
 const COLLAPSED_LINES = 3;
@@ -266,7 +268,7 @@ export default function MemoryScreen() {
     <>
       <ScrollView
         style={s.root}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -387,10 +389,11 @@ function makeStyles(theme: Theme) {
     backgroundColor: theme.bg,
   },
   root: { flex: 1, backgroundColor: theme.bg },
-  content: { padding: 16 },
-  heading: { fontSize: 20, fontWeight: "700", color: theme.text, marginBottom: 6 },
+  content: { padding: Space.md },
+  heading: { ...Type.title, color: theme.text, marginBottom: Space.xs },
   subheading: {
-    fontSize: 14,
+    ...Type.label,
+    fontWeight: "400",
     color: theme.textSecondary,
     marginBottom: 20,
     lineHeight: 20,
@@ -400,23 +403,23 @@ function makeStyles(theme: Theme) {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: Space.xs,
+    gap: Space.xs,
   },
   groupHeaderMain: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
+    gap: Space.xs,
   },
   groupHeaderActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: Space.sm,
   },
   groupTitle: {
-    fontSize: 13,
+    ...Type.caption,
     fontWeight: "700",
     color: theme.text,
     textTransform: "uppercase",
@@ -433,26 +436,26 @@ function makeStyles(theme: Theme) {
     gap: 10,
     marginBottom: 10,
   },
-  factText: { flex: 1, fontSize: 15, color: theme.text, lineHeight: 22 },
-  cardText: { fontSize: 15, color: theme.text, lineHeight: 22 },
+  factText: { flex: 1, ...Type.secondary, color: theme.text },
+  cardText: { ...Type.secondary, color: theme.text },
   expandHint: {
-    fontSize: 13,
-    fontWeight: "600",
+    ...Type.caption,
     color: theme.primary,
-    marginTop: 8,
+    marginTop: Space.xs,
   },
-  conf: { fontSize: 12, color: theme.textTertiary, marginTop: 8 },
+  conf: { fontSize: 12, color: theme.textTertiary, marginTop: Space.xs },
   editTitle: {
+    ...Type.title,
     fontSize: 18,
-    fontWeight: "700",
     color: theme.text,
-    marginBottom: 6,
+    marginBottom: Space.xs,
   },
   editHint: {
-    fontSize: 14,
+    ...Type.label,
+    fontWeight: "400",
     color: theme.textSecondary,
     lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: Space.sm,
   },
   editInput: {
     minHeight: 140,
@@ -460,11 +463,11 @@ function makeStyles(theme: Theme) {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.border,
     borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
+    padding: Space.sm,
+    ...Type.secondary,
     color: theme.text,
     backgroundColor: theme.bg,
-    marginBottom: 16,
+    marginBottom: Space.md,
   },
   editActions: {
     flexDirection: "row",
@@ -472,12 +475,12 @@ function makeStyles(theme: Theme) {
     gap: 10,
   },
   editCancel: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.sm,
     borderRadius: 10,
   },
   editCancelText: {
-    fontSize: 15,
+    ...Type.secondary,
     fontWeight: "600",
     color: theme.textSecondary,
   },
@@ -485,14 +488,14 @@ function makeStyles(theme: Theme) {
     minWidth: 96,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: Space.md,
+    paddingVertical: Space.sm,
     borderRadius: 10,
     backgroundColor: theme.primary,
   },
   editSaveDisabled: { opacity: 0.7 },
   editSaveText: {
-    fontSize: 15,
+    ...Type.secondary,
     fontWeight: "700",
     color: theme.onPrimary,
   },
