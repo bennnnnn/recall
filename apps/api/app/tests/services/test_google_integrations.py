@@ -139,6 +139,40 @@ async def test_google_oauth_revoke_accepts_success():
 
 
 @pytest.mark.asyncio
+async def test_connect_calendar_rejects_when_feature_disabled():
+    """connect_calendar must refuse when google_calendar_enabled is off (or
+    client creds are missing) — mirroring Gmail's is_configured gate. Without
+    this, a disabled deployment still accepted connects and stored rows that
+    every later fetch would reject (connected-but-broken)."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "user@example.com"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(
+        google_calendar_enabled=False, google_client_id="x", google_client_secret="y"
+    )
+
+    with (
+        patch(
+            "app.services.google_integrations.exchange_server_auth_code",
+            AsyncMock(),
+        ) as exchange_mock,
+        patch(
+            "app.services.google_integrations.calendar_repo.upsert",
+            AsyncMock(),
+        ) as upsert_mock,
+    ):
+        with pytest.raises(google_integrations_service.GoogleConnectError, match="not available"):
+            await google_integrations_service.connect_calendar(
+                session, redis, settings, user, "server-auth-code"
+            )
+
+    exchange_mock.assert_not_awaited()
+    upsert_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_connect_calendar_rejects_missing_calendar_readonly_scope():
     """connect_calendar must require calendar.readonly in the granted scopes
     before upsert — mirroring Gmail's check. Without this, a user who grants
