@@ -142,8 +142,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
-- ✅ **Automatic extraction** — durable facts are extracted in the background **every turn**
-  by default (`memory_extract_every_n_turns=1`; raise the setting to throttle).
+- ✅ **Automatic extraction** — durable facts are extracted in the background every N
+  turns (`memory_extract_every_n_turns=3` by default; always on turn 1).
 - ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript capped ~4k
   (head+tail); memory wrapped as first-party notes (fence kept); account email injected
   only for email/draft/inbox intents.

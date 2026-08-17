@@ -34,6 +34,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
+from app.services import quota as quota_service
 from app.services import transactional_email as transactional_email_service
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,19 @@ async def _reenqueue_after_memory_lock(
     )
 
 
+async def _spend_capped(settings: Settings) -> bool:
+    """Fail-closed: skip extra LLM/embed work when the global $ cap is hit."""
+    if settings.daily_global_spend_usd <= 0:
+        return False
+    if await quota_service.global_spend_exceeded(get_redis_client(), settings):
+        logger.warning("skipping background LLM job: global spend cap")
+        return True
+    return False
+
+
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     outcome = await memory_extraction.extract_and_store_memories(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -110,9 +123,10 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
             "user_id": payload["user_id"],
             "chat_id": payload["chat_id"],
             "transcript": payload["transcript"],
+            "assistant_message_id": payload.get("assistant_message_id") or "",
             "lock_retries": payload.get("lock_retries") or 0,
         },
-        dedupe_stem=f"memory:{payload['user_id']}:{payload['chat_id']}",
+        dedupe_stem=f"memory:{payload.get('assistant_message_id') or payload['chat_id']}",
         warning=(
             "Memory extraction dropped after lock retries "
             f"user_id={payload.get('user_id')} chat_id={payload.get('chat_id')}"
@@ -121,6 +135,8 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     outcome = await memory_consolidation.consolidate_user_memory_sections(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -141,6 +157,8 @@ async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]
 
 
 async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     await todo_sync.sync_todos_from_chat(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -150,6 +168,8 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     await project_sync.sync_projects_from_chat(
         settings,
         user_id=UUID(payload["user_id"]),
@@ -159,6 +179,8 @@ async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     from app.services.projects.path_seed import seed_language_path
 
     await seed_language_path(
@@ -169,12 +191,16 @@ async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> 
 
 
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     user_id_raw = payload.get("user_id")
     user_id = UUID(user_id_raw) if user_id_raw else None
     await compaction.compress_chat_history(settings, UUID(payload["chat_id"]), user_id=user_id)
 
 
 async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
     await suggestion_generation.generate_suggestions(
         settings,
         UUID(payload["user_id"]),
@@ -220,6 +246,18 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
         )
 
 
+async def _handle_attachment_index(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
+    await attachment_indexing.index_attachment_job(settings, payload)
+
+
+async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
+    await message_indexing.index_message_job(settings, payload)
+
+
 def register_all() -> None:
     """Register every live job type. Idempotent — `register` overwrites by key."""
     register("topic", _handle_topic)
@@ -232,8 +270,8 @@ def register_all() -> None:
     register("suggestions", _handle_suggestions)
     register("gmail_sync", _handle_gmail_sync)
     register("transactional_email", _handle_transactional_email)
-    register("attachment_index", attachment_indexing.index_attachment_job)
-    register("message_index", message_indexing.index_message_job)
+    register("attachment_index", _handle_attachment_index)
+    register("message_index", _handle_message_index)
 
 
 register_all()

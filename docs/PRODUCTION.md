@@ -68,6 +68,7 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
 | `REVENUECAT_SECRET_KEY` | yes | REST API; TRANSFER + plan sync |
 | `TAVILY_API_KEY` | if web search | |
+| `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
 | R2 vars | yes | See §3 |
 
 ```bash

@@ -206,6 +206,9 @@ class Settings(BaseSettings):
 
     daily_token_limit: int = 100_000
     daily_token_limit_pro: int = 500_000
+    # UTC-day OpenRouter spend ceiling (foreground + background). 0 = unlimited
+    # (dev/tests). Production boot requires a positive value.
+    daily_global_spend_usd: float = 0.0
     max_output_tokens: int = 1200
     recent_message_window: int = 20  # hard cap on verbatim messages
 
@@ -231,8 +234,8 @@ class Settings(BaseSettings):
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
     # Run memory extraction every N completed assistant turns (always runs on turn 1).
-    # Default 1 = every turn — sparse extraction missed durable facts between batches.
-    memory_extract_every_n_turns: int = 1
+    # Default 3 — every-turn extraction doubled background LLM spend.
+    memory_extract_every_n_turns: int = 3
     memory_query_embed_cache_ttl: int = 3600
     # Chat-path live embed budget. Background jobs use background_llm_timeout_seconds.
     memory_query_embed_timeout_seconds: float = 2.0
@@ -399,6 +402,11 @@ def validate_production_settings(settings: Settings) -> None:
     # with a generic ModelUnavailableError — fail fast at startup instead.
     if not settings.openrouter_api_key:
         errors.append("OPENROUTER_API_KEY is required in production (chat would otherwise fail)")
+    if settings.daily_global_spend_usd <= 0:
+        errors.append(
+            "DAILY_GLOBAL_SPEND_USD must be > 0 in production "
+            "(UTC-day OpenRouter spend kill-switch)"
+        )
     # Unsigned RevenueCat webhooks would let anyone grant themselves Pro.
     if not settings.revenuecat_webhook_auth:
         errors.append("REVENUECAT_WEBHOOK_AUTH is required in production")

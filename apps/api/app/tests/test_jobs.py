@@ -245,6 +245,7 @@ async def test_handle_memory_retries_skipped_lock_with_backoff():
         "user_id": str(uuid4()),
         "chat_id": str(uuid4()),
         "transcript": "t",
+        "assistant_message_id": str(uuid4()),
     }
     with (
         _patch_session(),
@@ -262,7 +263,7 @@ async def test_handle_memory_retries_skipped_lock_with_backoff():
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[2]["lock_retries"] == 1
     assert enqueue_mock.await_args.kwargs["dedupe_key"] == (
-        f"memory:{payload['user_id']}:{payload['chat_id']}:lock1"
+        f"memory:{payload['assistant_message_id']}:lock1"
     )
 
 

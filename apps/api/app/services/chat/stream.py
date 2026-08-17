@@ -741,6 +741,13 @@ async def _run_tool_loop_path(
 ) -> None:
     """Run MCP tool rounds when enabled; may update ``ctx.verified_math``."""
     if settings.mcp_tool_loop_enabled and not ctx.instant_reply and not ctx.lightweight_turn:
+        if await quota_service.global_spend_exceeded(redis, settings):
+            logger.warning(
+                "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
+                ctx.user_id,
+                ctx.chat_id,
+            )
+            return
         from app.services import tool_loop as tool_loop_service
 
         (

@@ -28,6 +28,7 @@ def test_validate_production_settings_ok():
             r2_access_key_id="key",
             r2_secret_access_key="secret",
             r2_bucket="recall",
+            daily_global_spend_usd=100.0,
         )
     )
 
@@ -256,6 +257,31 @@ def test_validate_production_settings_rejects_cors_wildcard():
     )
     with pytest.raises(RuntimeError, match="wildcard"):
         validate_production_settings(Settings(**base, cors_origins="*"))
+
+
+def test_validate_production_settings_requires_global_spend_cap():
+    with pytest.raises(RuntimeError, match="DAILY_GLOBAL_SPEND_USD"):
+        validate_production_settings(
+            Settings(
+                environment="production",
+                dev_auth_enabled=False,
+                mock_llm_enabled=False,
+                jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+                google_client_id="client-id",
+                google_client_secret="secret",
+                cors_origins="https://app.recall.app",
+                openrouter_api_key="sk-or-xxx",
+                revenuecat_webhook_auth="whsec-xxx",
+                revenuecat_secret_key="sk_rc_xxx",
+                oauth_token_encryption_key=_VALID_FERNET_KEY,
+                storage_backend="r2",
+                r2_account_id="acct",
+                r2_access_key_id="key",
+                r2_secret_access_key="secret",
+                r2_bucket="recall",
+                daily_global_spend_usd=0,
+            )
+        )
 
 
 def test_validate_production_settings_requires_google_client_secret():
