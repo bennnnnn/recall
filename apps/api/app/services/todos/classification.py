@@ -138,6 +138,10 @@ def query_implies_todos(query_text: str | None) -> bool:
         return False
     if _TODO_QUERY_FIXED.search(text):
         return True
+    from app.services.time_context import is_scheduled_event_time_question
+
+    if is_scheduled_event_time_question(text):
+        return True
     low = text.lower()
     return _implies_add_to_list(low) or _implies_mark_done(low) or _implies_move_to_tomorrow(low)
 

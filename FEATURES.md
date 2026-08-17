@@ -117,6 +117,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus **Max**
   (`max-chat`, OpenRouter) which appears once an OpenRouter key is configured.
 - ✅ **Manual switching** — model picker in the composer + a default in Settings (respected).
+- 🔜 **Chat settings from natural language** — small allowlist only, confirm-then-write
+  (calendar-proposal style): this-chat model (`free-chat` / `smart-chat` / `max-chat` from
+  nicknames like “GPT”), app language, daily learning goal. Respect `enabled_models` + plan.
+  No open settings tool. Theme stays in Settings. Not now.
 - ✅ **Auto routing** — an **Auto** chip (composer + Settings) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
@@ -270,6 +274,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Todos API** — create, check off, delete items; delete entire list by topic; optional `due_at`.
 - ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete / delete_list /
   set_due / clear_due from chat; injects current lists + overdue summary into the system prompt.
+  “What time is my flight / meeting / …” loads Reminders (and Calendar) on the first turn.
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker; relative labels in prompts
   (overdue, due today, due in N days); user timezone synced from device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time; resyncs on login,
@@ -278,6 +283,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
+- 🔜 **Flight-aware reminders** — parse confirmation mail (airline, flight number, departure)
+  into a suggested reminder (confirm before add, same as other Gmail suggestions). Later:
+  live status (delayed / cancelled / gate) from a flight API when the user asks. Not v1.
 
 ## 15. Code execution policy
 - ⚠️ **Sandboxed HTML/CSS/JS preview only** — `html` fences can be previewed/run in an isolated
@@ -324,6 +332,9 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 - ✅ **ICS invite parsing** — folded lines, `TZID` / all-day `VALUE=DATE`, location/description
   notes, cancelled events skipped (LLM fallback when no `.ics`).
 - 🔜 Richer sender templates, proactive chat nudges for email suggestions.
+- 🔜 **Flight confirmations** — extract airline + flight number + departure into the
+  suggested reminder (not a free-text “flight” title only). Live delay/cancel status is
+  a later flight-API step, not inbox guessing.
 
 **Privacy & UX** (unchanged intent)
 - Clear copy: what is read, how long it is kept, revoke = stop + delete tokens
@@ -496,8 +507,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Auth | Email/password, magic links, multi-device session management |
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
 | Messaging | Reactions, read receipts; duplex / live voice |
-| Models | User-tunable routing rules; response-cache / prompt-budget UI |
-| Todos | 1-hour-early email/push nudges beyond the local lead picker |
+| Models | User-tunable routing rules; response-cache / prompt-budget UI; NL settings allowlist (model / locale / daily goal, confirm-then-write) |
+| Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |

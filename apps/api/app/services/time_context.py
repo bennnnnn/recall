@@ -41,6 +41,12 @@ _SCHEDULED_EVENT = re.compile(
     re.IGNORECASE,
 )
 
+# Paired with ``_SCHEDULED_EVENT`` — "what time is my flight", not "what time is it".
+_EVENT_WHEN = re.compile(
+    r"\b(what time(?:'s| is)|when(?:'s| is)|what time does)\b",
+    re.IGNORECASE,
+)
+
 _AGAIN_QUESTION = re.compile(
     r"^(?:again|one more time|tell me again|refresh|update(?: it)?)[.!?]*$",
     re.IGNORECASE,
@@ -145,6 +151,16 @@ def is_remote_time_question(text: str) -> bool:
         return False
     place = cleaned[match.end() :].rstrip(".!?").strip()
     return bool(place)
+
+
+def is_scheduled_event_time_question(text: str) -> bool:
+    """True when they ask when a personal event is (flight, meeting, …)."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    if _SCHEDULED_EVENT.search(cleaned) is None:
+        return False
+    return _EVENT_WHEN.search(cleaned) is not None
 
 
 def is_time_question(text: str) -> bool:

@@ -374,8 +374,11 @@ def test_query_implies_todos():
     assert todos_service.query_implies_todos("Add milk to my grocery list")
     assert todos_service.query_implies_todos("mark laundry done")
     assert todos_service.query_implies_todos("move dentist to tomorrow")
+    assert todos_service.query_implies_todos("What time is my flight")
+    assert todos_service.query_implies_todos("when is the meeting")
     assert not todos_service.query_implies_todos("Who am I?")
     assert not todos_service.query_implies_todos("Explain quantum physics")
+    assert not todos_service.query_implies_todos("tell me about flight delays")
 
 
 def test_find_item_requires_exact_normalized_match():
@@ -618,6 +621,7 @@ def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
     assert "```reminder" in hint
     assert "Only say a reminder is set if you emitted that fence" in hint
+    assert "do not ask" in hint and "flight number" in hint
 
 
 def test_should_inject_todos_prompt():
