@@ -47,6 +47,22 @@ _APPEARANCE_LABELS = {
     "system": "System",
 }
 
+# Aliases the model emits in a settings_proposal fence that aren't in
+# _APPEARANCE_VALUES. "default"/"auto"/"automatic" mean "follow the system
+# theme" — the product default. Without this normalization the model's
+# "Appearance → Default" proposal is silently dropped by validate_changes
+# and the confirm fails with "I couldn't change that setting." — so the user
+# can't undo an explicit light/dark choice via chat.
+_APPEARANCE_ALIASES: dict[str, str] = {
+    "default": "system",
+    "auto": "system",
+    "automatic": "system",
+}
+
+
+def _normalize_appearance(value: str) -> str:
+    return _APPEARANCE_ALIASES.get(value, value)
+
 
 class SettingsProposalError(ChatServiceError):
     def __init__(self, detail: str, *, status_code: int = 400) -> None:
@@ -107,9 +123,12 @@ def validate_changes(
     already: list[SettingsChange] = []
     for change in changes:
         if change.field == "appearance":
-            if change.value not in _APPEARANCE_VALUES:
+            # Normalize model-emitted aliases ("default"/"auto") to "system"
+            # before the allowlist check so they apply instead of being dropped.
+            value = _normalize_appearance(change.value)
+            if value not in _APPEARANCE_VALUES:
                 continue
-            apply.append(change)
+            apply.append(SettingsChange("appearance", value))
             continue
         if change.field == "default_model":
             if not _model_allowed(user, settings, change.value):

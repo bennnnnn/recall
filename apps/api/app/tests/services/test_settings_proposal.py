@@ -59,6 +59,24 @@ def test_validate_skips_already_set_tone() -> None:
     assert blocked is None
 
 
+def test_validate_normalizes_appearance_default_to_system() -> None:
+    """The model emits appearance="default" to undo an explicit light/dark
+    choice (follow the system theme). Without normalization this is silently
+    dropped (not in {light,dark,system}) and confirm fails with "I couldn't
+    change that setting." Normalize "default" -> "system" so it applies."""
+    user = _user()
+    settings = MagicMock()
+    apply, _already, blocked = validate_changes(
+        user,  # type: ignore[arg-type]
+        settings,
+        [SettingsChange("appearance", "default")],
+    )
+    assert blocked is None
+    assert len(apply) == 1
+    assert apply[0].field == "appearance"
+    assert apply[0].value == "system"
+
+
 def test_format_proposal_includes_fence() -> None:
     text = format_proposal_reply(
         proposal_id="abc",
