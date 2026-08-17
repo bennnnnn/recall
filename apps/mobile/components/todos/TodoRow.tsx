@@ -15,7 +15,6 @@ type Props = {
   variant?: "open" | "done";
   busy?: boolean;
   highlighted?: boolean;
-  projectTitle?: string | null;
   /** Stable parent callbacks (take the todo) — avoid per-row closures that defeat memo. */
   onToggle: (todo: Todo) => void;
   onDue?: (todo: Todo) => void;
@@ -28,7 +27,6 @@ export const TodoRow = memo(function TodoRow({
   variant,
   busy,
   highlighted,
-  projectTitle,
   onToggle,
   onDue,
   onDelete,
@@ -74,11 +72,6 @@ export const TodoRow = memo(function TodoRow({
         >
           {todo.content}
         </Text>
-        {projectTitle ? (
-          <Text style={s.projectLinked} numberOfLines={1}>
-            {t("todos.project_linked", { title: projectTitle })}
-          </Text>
-        ) : null}
         {due && !todo.checked ? (
           <Text style={[s.dueLabel, dueToneStyle]}>{due.label}</Text>
         ) : null}

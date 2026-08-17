@@ -413,8 +413,9 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
   injection scopes to that one project (+ tutor hints) instead of all projects.
-- ⚠️ **Link todos to projects** — optional `project_id` on todo items (API create/update +
-  prompt annotation). Mobile link/filter UI is not wired (Lists project-filter chips banned).
+- ❌ **Link todos to Learning** — optional `project_id` may exist on todo rows in the API.
+  Mobile must not show it (no “Linked to …”, no filter chips, no folder control). Lists,
+  Reminders, and Learning stay separate.
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
@@ -461,7 +462,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
   (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
   uuid4 rows are unchanged.
-- 🔜 **Full locale translation** — key-set parity is enforced (**882** keys); ~350 strings still
+- 🔜 **Full locale translation** — key-set parity is enforced (**928** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
@@ -491,7 +492,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Models | User-tunable routing rules; response-cache / prompt-budget UI |
 | Todos | 1-hour-early email/push nudges beyond the local lead picker |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
-| Todos↔Learning | `project_id` on todo items exists in the API; mobile link/filter UI stays **off** (banned) |
+| Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; multi-file HTML preview; virus scan |
 | i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
@@ -521,7 +522,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**882** keys);
+- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**928** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized).
@@ -659,7 +660,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Vocabulary (`language`) — nine target languages, decks, quiz, tutor, SM-2 | Curated trivia marketplace |
 | General knowledge (`trivia`) — topics, scoped quiz chat | Certificates, GitHub linking |
-| Project-scoped chats, home highlight, link todos to projects | In-app code runner (later) |
+| Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |
 
 ### Rich rendering (§4 summary)
