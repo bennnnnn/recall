@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { ReminderBadge } from "@/components/ReminderBadge";
 import { tap } from "@/lib/haptics";
-import { filledIconName, inkIconColor } from "@/lib/icons";
+import { inkIconColor } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -42,7 +42,7 @@ export function DrawerNavLinks({
         accessibilityLabel={t("drawer.projects")}
       >
         <Ionicons
-          name={filledIconName("school-outline")}
+          name="school-outline"
           size={18}
           color={inkIconColor(theme)}
         />
@@ -65,7 +65,7 @@ export function DrawerNavLinks({
         accessibilityLabel={t("drawer.lists")}
       >
         <Ionicons
-          name={filledIconName("list-outline")}
+          name="list-outline"
           size={18}
           color={inkIconColor(theme)}
         />
@@ -93,7 +93,7 @@ export function DrawerNavLinks({
       >
         <View style={s.navIconWrap}>
           <Ionicons
-            name={filledIconName("notifications-outline")}
+            name="notifications-outline"
             size={18}
             color={inkIconColor(theme)}
           />
