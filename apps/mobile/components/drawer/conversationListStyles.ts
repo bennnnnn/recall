@@ -128,12 +128,8 @@ export function makeConversationListStyles(theme: Theme) {
     list: { flex: 1 },
     section: { marginTop: 18 },
     sectionTitle: {
-      ...Type.caption,
-      fontSize: 11,
-      fontWeight: "700",
+      ...Type.overline,
       color: theme.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.8,
       paddingHorizontal: Space.md,
       marginBottom: 2,
     },

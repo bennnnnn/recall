@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { url: string };
 
@@ -85,7 +86,7 @@ function makeStyles(theme: Theme) {
     loadingText: { fontSize: 14, color: theme.textSecondary },
     title: { fontSize: 15, fontWeight: "700", color: theme.text },
     desc: { fontSize: 14, lineHeight: 20, color: theme.textSecondary },
-    domain: { fontSize: 12, color: theme.primary, marginTop: 2 },
+    domain: { ...Type.meta, color: theme.primary, marginTop: 2 },
     url: { flex: 1, fontSize: 14, color: theme.primary },
   });
 }

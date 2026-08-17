@@ -22,6 +22,20 @@ export const Type = {
     fontSize: 13,
     fontWeight: "600",
   },
+  /** 12pt regular meta — timestamps, domain lines, "PDF" kind labels.
+   *  No lineHeight (matches caption/label: single-line roles omit it). */
+  meta: {
+    fontSize: 12,
+    fontWeight: "400",
+  },
+  /** 11pt uppercase tracked overline — drawer/home section dividers.
+   *  No lineHeight (single-line role). */
+  overline: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
   /** Compact control labels */
   label: {
     fontSize: 14,

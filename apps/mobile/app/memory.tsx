@@ -443,7 +443,7 @@ function makeStyles(theme: Theme) {
     color: theme.primary,
     marginTop: Space.xs,
   },
-  conf: { fontSize: 12, color: theme.textTertiary, marginTop: Space.xs },
+  conf: { ...Type.meta, color: theme.textTertiary, marginTop: Space.xs },
   editTitle: {
     ...Type.title,
     fontSize: 18,
