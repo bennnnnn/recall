@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { ReminderBadge } from "@/components/ReminderBadge";
 import { tap } from "@/lib/haptics";
+import { filledIconName, inkIconColor } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -40,7 +41,11 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.projects")}
       >
-        <Ionicons name="school-outline" size={18} color={theme.text} />
+        <Ionicons
+          name={filledIconName("school-outline")}
+          size={18}
+          color={inkIconColor(theme)}
+        />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
         <Ionicons
           name="chevron-forward"
@@ -59,7 +64,11 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.lists")}
       >
-        <Ionicons name="list-outline" size={18} color={theme.text} />
+        <Ionicons
+          name={filledIconName("list-outline")}
+          size={18}
+          color={inkIconColor(theme)}
+        />
         <Text style={s.todosLinkText}>{t("drawer.lists")}</Text>
         <Ionicons
           name="chevron-forward"
@@ -84,9 +93,9 @@ export function DrawerNavLinks({
       >
         <View style={s.navIconWrap}>
           <Ionicons
-            name={showIndicator ? "notifications" : "notifications-outline"}
+            name={filledIconName("notifications-outline")}
             size={18}
-            color={theme.text}
+            color={inkIconColor(theme)}
           />
           {showIndicator ? (
             <ReminderBadge count={unseenCount} style={s.navBadge} />

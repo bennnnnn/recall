@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { tap } from "@/lib/haptics";
+import { filledIconName } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -35,7 +36,11 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.new_chat")}
       >
-        <Ionicons name="pencil-outline" size={18} color={theme.onPrimary} />
+        <Ionicons
+          name={filledIconName("pencil-outline")}
+          size={18}
+          color={theme.onPrimary}
+        />
         <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
       </Pressable>
       <Pressable
@@ -47,7 +52,11 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >
-        <Ionicons name="settings-outline" size={22} color={theme.onPrimary} />
+        <Ionicons
+          name={filledIconName("settings-outline")}
+          size={22}
+          color={theme.onPrimary}
+        />
       </Pressable>
     </View>
   );

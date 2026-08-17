@@ -9,23 +9,11 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { filledIconName, inkIconColor } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
-
-function rowIconColor(theme: Theme, danger?: boolean) {
-  if (danger) return theme.danger;
-  return theme.isDark ? theme.text : "#000000";
-}
-
-function filledIconName(
-  name: keyof typeof Ionicons.glyphMap,
-): keyof typeof Ionicons.glyphMap {
-  if (!name.endsWith("-outline")) return name;
-  const filled = name.slice(0, -"-outline".length) as keyof typeof Ionicons.glyphMap;
-  return Ionicons.glyphMap[filled] ? filled : name;
-}
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
 
@@ -71,7 +59,7 @@ function SettingsRowChrome({
         <Ionicons
           name={filledIconName(icon)}
           size={20}
-          color={rowIconColor(theme, danger)}
+          color={inkIconColor(theme, danger)}
         />
       ) : null}
       <View style={styles.rowBody}>
@@ -275,7 +263,7 @@ export function SettingsSwitchRow({
   return (
     <View style={styles.menuRow}>
       {icon ? (
-        <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
+        <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -329,7 +317,7 @@ export function InfoRow({
 }) {
   return (
     <View style={compact ? styles.menuRow : styles.row}>
-      <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
+      <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.meta}>{value}</Text>
@@ -393,7 +381,7 @@ export function IntegrationPanel({
   const showBody = !collapsible || expanded;
   const header = (
     <>
-      <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
+      <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
@@ -462,7 +450,7 @@ export function AccordionSection({
       <Text style={styles.sectionLabel}>{label}</Text>
       <View style={styles.group}>
         <Pressable style={styles.accordionHeader} onPress={onToggle}>
-          <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
+          <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
           <View style={styles.rowBody}>
             <Text style={styles.meta}>
               {count > 0 ? String(count) : emptyText}
@@ -555,7 +543,7 @@ export function NavRow({
       <Ionicons
         name={filledIconName(icon)}
         size={20}
-        color={rowIconColor(theme, danger)}
+        color={inkIconColor(theme, danger)}
       />
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
