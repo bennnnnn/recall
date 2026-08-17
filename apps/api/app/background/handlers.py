@@ -158,6 +158,16 @@ async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
     )
 
 
+async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> None:
+    from app.services.projects.path_seed import seed_language_path
+
+    await seed_language_path(
+        settings,
+        user_id=UUID(payload["user_id"]),
+        project_id=UUID(payload["project_id"]),
+    )
+
+
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
     user_id_raw = payload.get("user_id")
     user_id = UUID(user_id_raw) if user_id_raw else None
@@ -217,6 +227,7 @@ def register_all() -> None:
     register("memory_consolidate", _handle_memory_consolidate)
     register("todos", _handle_todos)
     register("projects", _handle_projects)
+    register("language_path", _handle_language_path)
     register("compress", _handle_compress)
     register("suggestions", _handle_suggestions)
     register("gmail_sync", _handle_gmail_sync)

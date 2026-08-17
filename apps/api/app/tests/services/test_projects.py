@@ -211,6 +211,7 @@ async def test_create_learning_project_allows_second_language():
         patch.object(projects_repo, "find_language_by_target", AsyncMock(return_value=None)),
         patch.object(projects_repo, "create", AsyncMock(return_value=created)) as create_mock,
         patch("app.services.home.invalidate_home_cache", AsyncMock()),
+        patch("app.services.projects.crud.enqueue_language_path_job", AsyncMock()) as enqueue_path,
     ):
         result = await projects_service.create_learning_project(
             session,
@@ -223,6 +224,7 @@ async def test_create_learning_project_allows_second_language():
     assert result is created
     assert create_mock.await_args.kwargs["target_language"] == "es"
     assert create_mock.await_args.kwargs["native_language"] == "en"
+    enqueue_path.assert_awaited_once()
 
 
 @pytest.mark.asyncio

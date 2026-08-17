@@ -409,6 +409,13 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on vocab status changes; due counts prefer `due_at` (falls back to 24h heuristic).
 - ✅ **Deck browse on language detail** — browse words by deck on the language project detail screen.
+- ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
+  (decks). Create enqueues a `language_path` job: the model suggests 8–12 chapters and
+  seeds the first lesson; LLM failure falls back to a level template. Progress is
+  derived (mastered/total; chapter complete at ≥80% and a small word floor). Extract
+  adds words to the current chapter and can append a user-named topic. Detail shows
+  Chapters + Up next. No generic `learning` kind, lesson notes, certificates, or
+  marketplace.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
@@ -657,7 +664,7 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Vocabulary (`language`) — nine target languages, decks, quiz, tutor, SM-2 | Curated trivia marketplace |
+| Language (`language`) — nine targets, ordered path, decks, quiz, tutor, SM-2 | Curated trivia marketplace |
 | General knowledge (`trivia`) — topics, scoped quiz chat | Certificates, GitHub linking |
 | Project-scoped chats, home highlight, link todos to projects | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |

@@ -227,11 +227,16 @@ async def apply_deterministic_quiz_answer(
     word = quiz.word.strip()
     if not word:
         return None
-    list_title = DEFAULT_LIST
     items = await project_items_repo.find_quiz_candidates(session, user_id, project.id, word)
-    existing = _find_item(items, project.id, list_title, word) or _find_item_by_content(
-        items, project.id, word
-    )
+    existing = _find_item_by_content(items, project.id, word)
+    list_title = (existing.list_title.strip() if existing else "") or DEFAULT_LIST
+    if should_persist and existing is None:
+        from app.services.projects.path import resolve_add_list_title
+
+        deck_items = await project_items_repo.list_for_user(
+            session, user_id, project_id=project.id, limit=500
+        )
+        list_title = resolve_add_list_title(project, DEFAULT_LIST, deck_items)
     if should_persist:
         await _persist_quiz_outcome(
             session,

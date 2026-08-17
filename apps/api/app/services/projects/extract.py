@@ -36,7 +36,7 @@ async def extract_project_actions(
                 '"target_language": "ISO 639-1 for language projects: en|es|fr|de|it|pt|ru|tr|am", '
                 '"level": "level1-level6 (for language topics)", '
                 '"description": "optional description", '
-                '"list_title": "group/list name (e.g. Travel, General)", '
+                '"list_title": "chapter/deck name from the project path (e.g. Greetings)", '
                 '"content": "one word/phrase per add action", '
                 '"definition": "meaning in the user\'s app language", '
                 '"example_sentence": "example using the word", '
@@ -48,8 +48,10 @@ async def extract_project_actions(
                 "language project when the user wants a different language than one they already have.\n"
                 "- Do NOT emit create_project for software products, apps to build, repos, or "
                 "codebases (e.g. 'dating app project', 'my React app').\n"
-                "- add: ONE action per vocabulary word. Use list_title=General unless the user "
-                "named a specific list.\n"
+                "- add: ONE action per vocabulary word. Use the current path chapter "
+                "(Teach and add new words in: …) as list_title unless the user named a "
+                "different topic — then use that title so it can be appended to the path. "
+                "Do not default to General.\n"
                 "- add: emit when user asked OR assistant listed new words to add this turn. "
                 "Only add words appropriate for the topic's level (level1=beginner basics only).\n"
                 "- start_learning: when the user FAILED a word/question this turn "

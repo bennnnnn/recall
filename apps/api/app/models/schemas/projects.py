@@ -13,6 +13,13 @@ LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level
 VocabStatus = Literal["new", "learning", "mastered"]
 
 
+class PathChapterProgress(BaseModel):
+    title: str
+    mastered: int = 0
+    total: int = 0
+    complete: bool = False
+
+
 class ProjectOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,6 +34,27 @@ class ProjectOut(BaseModel):
     archived: bool
     created_at: datetime
     updated_at: datetime
+    learning_path: list[str] = Field(default_factory=list)
+
+    @field_validator("learning_path", mode="before")
+    @classmethod
+    def coerce_learning_path(cls, value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        titles: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            title = item.strip()[:200]
+            if not title:
+                continue
+            key = title.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            titles.append(title)
+        return titles
 
 
 class ProjectCreate(BaseModel):
@@ -134,6 +162,8 @@ class ProjectDetailOut(ProjectOut):
     daily_items_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
     daily_missed_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
     lists: list[ProjectListGroup] = Field(default_factory=list)
+    path_progress: list[PathChapterProgress] = Field(default_factory=list)
+    up_next: str | None = None
 
 
 class ProjectActionItem(BaseModel):

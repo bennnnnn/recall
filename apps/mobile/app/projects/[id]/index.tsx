@@ -19,6 +19,7 @@ import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
+import { LearningPathList } from "@/components/projects/LearningPathList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
@@ -231,7 +232,17 @@ export default function ProjectDetailScreen() {
 
   const isLang = isLanguageProject(project.kind);
   const isTrivia = isTriviaProject(project.kind);
-  const showDeckBrowse = isLang && project.lists.length > 0;
+  const pathProgress = project.path_progress ?? [];
+  const pathKeys = new Set(
+    (project.learning_path ?? pathProgress.map((chapter) => chapter.title)).map((title) =>
+      title.trim().toLowerCase(),
+    ),
+  );
+  const extraDecks = isLang
+    ? project.lists.filter((group) => !pathKeys.has(group.list_title.trim().toLowerCase()))
+    : [];
+  const showPath = isLang;
+  const showDeckBrowse = extraDecks.length > 0;
   const stats = project.stats;
   const statLabels = projectStatsLabels(project.kind, t);
   const dailyGoal = isLang || isTrivia ? resolveDailyGoal(project.daily_goal) : undefined;
@@ -383,9 +394,20 @@ export default function ProjectDetailScreen() {
         />
       ) : null}
 
+      {showPath ? (
+        <LearningPathList
+          pathProgress={pathProgress}
+          upNext={project.up_next}
+          lists={project.lists}
+          speechLanguage={speechLocale(project.target_language)}
+          busyId={conceptBusyId}
+          onStatusChange={handleItemStatusChange}
+        />
+      ) : null}
+
       {showDeckBrowse ? (
         <>
-          {project.lists.map((group) => (
+          {extraDecks.map((group) => (
             <View key={group.list_title} style={s.listSection}>
               <Text style={s.listTitle}>
                 {formatProjectListTitle(group.list_title, project.kind, t)}

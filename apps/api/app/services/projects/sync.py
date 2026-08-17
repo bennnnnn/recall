@@ -71,6 +71,7 @@ async def _load_project_sync_snapshot(
                     "level": getattr(p, "level", "level1"),
                     "target_language": getattr(p, "target_language", "en"),
                     "description": p.description,
+                    "learning_path": getattr(p, "learning_path", None) or [],
                     "archived": p.archived,
                 }
                 for p in projects

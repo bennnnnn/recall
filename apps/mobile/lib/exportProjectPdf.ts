@@ -106,7 +106,7 @@ export function projectLearningToPrintHtml(
   const kindLabel = isTriviaProject(project.kind)
     ? "General knowledge"
     : isLanguageProject(project.kind)
-      ? "Vocabulary"
+      ? "Language"
       : "Learning";
   const title = `${project.title.trim() || "Learning"} — ${kindLabel}`;
   return wrapPrintDocument(title, bodyParts.join("\n"), meta);

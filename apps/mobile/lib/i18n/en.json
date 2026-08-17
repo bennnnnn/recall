@@ -502,7 +502,7 @@
   "projects.journey_title": "Your journey",
   "projects.journey_topic_progress": "{{mastered}}/{{total}} learned",
   "projects.kind.general": "General",
-  "projects.kind.language": "Vocabulary",
+  "projects.kind.language": "Language",
   "projects.kind.learning": "General learning",
   "projects.kind.math": "Math",
   "projects.kind.programming": "Programming",

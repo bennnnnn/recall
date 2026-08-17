@@ -23,6 +23,13 @@ from app.services.projects.common import (
     normalize_project_kind,
     normalize_target_language,
 )
+from app.services.projects.path import (
+    build_path_progress,
+    enqueue_language_path_job,
+    parse_learning_path,
+    sort_list_titles,
+    up_next_chapter,
+)
 from app.services.projects.prompt_context import _stats_for_items
 
 
@@ -33,13 +40,17 @@ class ProjectsError(Exception):
         super().__init__(detail)
 
 
-def group_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
+def group_items(
+    items: list[ProjectItem],
+    *,
+    learning_path: list[str] | None = None,
+) -> list[ProjectListGroup]:
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
         lst = item.list_title.strip() or DEFAULT_LIST
         by_list.setdefault(lst, []).append(item)
     groups: list[ProjectListGroup] = []
-    for list_title in sorted(by_list.keys(), key=str.casefold):
+    for list_title in sort_list_titles(list(by_list.keys()), learning_path):
         groups.append(
             ProjectListGroup(
                 list_title=list_title,
@@ -145,6 +156,7 @@ async def list_projects_for_user(
                 "native_language": item.native_language,
                 "level": item.level,
                 "daily_goal": item.daily_goal,
+                "learning_path": parse_learning_path(item),
                 "archived": item.archived,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
@@ -203,6 +215,8 @@ async def create_learning_project(
         timezone_name=time_context_service.effective_timezone(user.timezone, None),
     )
     await home_service.invalidate_home_cache(user.id)
+    if normalized == "language":
+        await enqueue_language_path_job(user.id, project.id)
     return project
 
 
@@ -358,15 +372,20 @@ async def get_project_detail(
         ).items()
     }
     lists: list[Any] = []
+    path = parse_learning_path(item)
     if include_lists:
         lists = (
             group_trivia_items(project_items)
             if _is_trivia_project(item)
-            else group_items(project_items)
+            else group_items(project_items, learning_path=path)
         )
+    path_progress = build_path_progress(item, project_items) if not _is_trivia_project(item) else []
     return {
         **ProjectOut.model_validate(item).model_dump(),
         "kind": normalize_project_kind(item.kind),
+        "learning_path": path,
+        "path_progress": path_progress,
+        "up_next": up_next_chapter(item, project_items) if path_progress else None,
         "mastered_count": stats.mastered_count,
         "total_count": stats.total,
         "stats": stats,
