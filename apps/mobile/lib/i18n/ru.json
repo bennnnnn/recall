@@ -344,13 +344,9 @@
   "notifications.todo_reminder_body": "{{content}} — к {{time}}",
   "notifications.todo_reminder_title": "Напоминание",
   "onboarding.get_started": "Начать",
-  "onboarding.learn_body": "Английский, программирование и другое — с викторинами, отслеживающими прогресс.",
+  "onboarding.learn_body": "Языки и викторины — в вашем темпе.",
   "onboarding.learn_title": "Учиться",
-  "onboarding.organize_body": "Напоминания, календарь и предложения из почты — всё в одном месте.",
-  "onboarding.organize_title": "Будьте организованы",
-  "onboarding.remember_body": "Recall запоминает ваши цели и продолжает с того места, где вы остановились.",
-  "onboarding.remember_title": "Помнит вас",
-  "onboarding.subtitle": "Ваш личный ИИ для обучения и повседневной жизни.",
+  "onboarding.subtitle": "Учитесь, организуйтесь и общайтесь — с ИИ, который помнит вас.",
   "onboarding.welcome": "Добро пожаловать в Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -926,5 +922,9 @@
   "chat.math_keyboard_next_slot": "Next box",
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
-  "chat.math_keyboard_caret_right": "Move cursor right"
+  "chat.math_keyboard_caret_right": "Move cursor right",
+  "onboarding.chat_title": "Чат",
+  "onboarding.chat_body": "Спросите что угодно. Он помнит вас.",
+  "onboarding.lists_title": "Списки и напоминания",
+  "onboarding.lists_body": "Списки и сроки — календарь и почта, когда подключите."
 }

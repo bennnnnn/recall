@@ -344,13 +344,9 @@
   "notifications.todo_reminder_body": "{{content}} — saat {{time}}",
   "notifications.todo_reminder_title": "Hatırlatma",
   "onboarding.get_started": "Başla",
-  "onboarding.learn_body": "İngilizce, programlama ve daha fazlası — ilerlemeni takip eden quizlerle.",
+  "onboarding.learn_body": "Diller ve quizler, senin hızında.",
   "onboarding.learn_title": "Öğren",
-  "onboarding.organize_body": "Hatırlatıcılar, takvim ve e-posta önerileri — hepsi tek yerde.",
-  "onboarding.organize_title": "Düzenli kal",
-  "onboarding.remember_body": "Recall hedeflerini öğrenir ve kaldığın yerden devam eder.",
-  "onboarding.remember_title": "Seni hatırlar",
-  "onboarding.subtitle": "Öğrenme ve günlük yaşam için kişisel yapay zekân.",
+  "onboarding.subtitle": "Öğren, düzenle ve sohbet et — seni hatırlayan bir yapay zekâ ile.",
   "onboarding.welcome": "Recall'a hoş geldin",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -926,5 +922,9 @@
   "chat.math_keyboard_next_slot": "Next box",
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
-  "chat.math_keyboard_caret_right": "Move cursor right"
+  "chat.math_keyboard_caret_right": "Move cursor right",
+  "onboarding.chat_title": "Sohbet",
+  "onboarding.chat_body": "Ne istersen sor. Seni hatırlar.",
+  "onboarding.lists_title": "Listeler ve hatırlatıcılar",
+  "onboarding.lists_body": "Listeler ve saatler — bağladığında takvim ve e-posta."
 }

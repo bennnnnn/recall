@@ -344,13 +344,9 @@
   "notifications.todo_reminder_body": "{{content}} — በ {{time}}",
   "notifications.todo_reminder_title": "ማስታወሻ",
   "onboarding.get_started": "ይጀምሩ",
-  "onboarding.learn_body": "እንግሊዝኛ፣ ፕሮግራሚንግ እና ሌሎች — እድገትዎን የሚከታተሉ ጥያቄዎች ጋር።",
+  "onboarding.learn_body": "ቋንቋዎች እና ጥያቄዎች፣ በእርስዎ ፍጥነት።",
   "onboarding.learn_title": "መማር",
-  "onboarding.organize_body": "ማስታወሻዎች፣ የቀን መቁጠሪያ እና የኢሜይል ጥቆማዎች — ሁሉም በአንድ ቦታ።",
-  "onboarding.organize_title": "የተደራጁ ይሁኑ",
-  "onboarding.remember_body": "ሪኮል ግቦችዎን ይማራል እና ያቆሙበትን ቦታ ይቀጥላል።",
-  "onboarding.remember_title": "እርስዎን ያስታውሳል",
-  "onboarding.subtitle": "ለመማር እና ለዕለት ተዕለት ሕይወት የእርስዎ የግል AI።",
+  "onboarding.subtitle": "ይማሩ፣ ያደራጁ እና ይወያዩ — እርስዎን የሚያስታውስ AI ጋር።",
   "onboarding.welcome": "እንኳን ወደ ሪኮል መጡ",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -926,5 +922,9 @@
   "chat.math_keyboard_next_slot": "Next box",
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
-  "chat.math_keyboard_caret_right": "Move cursor right"
+  "chat.math_keyboard_caret_right": "Move cursor right",
+  "onboarding.chat_title": "ውይይት",
+  "onboarding.chat_body": "ማንኛውንም ይጠይቁ። እርስዎን ያስታውሳል።",
+  "onboarding.lists_title": "ዝርዝሮች እና ማስታወሻዎች",
+  "onboarding.lists_body": "ዝርዝሮች እና ቀናት — ካቀናበሩ የቀን መቁጠሪያ እና ኢሜይል።"
 }
