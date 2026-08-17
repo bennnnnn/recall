@@ -23,6 +23,8 @@ import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,
 } from "@/lib/streamUiTiming";
+import { collectPreviewFiles } from "@/lib/htmlPreviewBundle";
+import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
 import { useTheme } from "@/lib/theme";
 
 type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
@@ -120,6 +122,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
     return () => clearTimeout(id);
   }, [content, streaming]);
   const renderContent = streaming ? throttled : content;
+  const previewFiles = useMemo(() => collectPreviewFiles(content), [content]);
   const prepared = useMemo(() => {
     try {
       if (streaming) {
@@ -154,7 +157,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
         : null;
 
     return (
-      <>
+      <HtmlPreviewFilesProvider files={previewFiles}>
         {blocks.chunks.map((chunk, index) => (
           <MarkdownStreamChunk
             key={`chunk-${index}`}
@@ -187,17 +190,19 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
             {openRegion.text}
           </Markdown>
         ) : null}
-      </>
+      </HtmlPreviewFilesProvider>
     );
   }
 
   return (
-    <Markdown
-      style={mdStyles}
-      rules={rules as never}
-      markdownit={markdownItInstance}
-    >
-      {prepared}
-    </Markdown>
+    <HtmlPreviewFilesProvider files={previewFiles}>
+      <Markdown
+        style={mdStyles}
+        rules={rules as never}
+        markdownit={markdownItInstance}
+      >
+        {prepared}
+      </Markdown>
+    </HtmlPreviewFilesProvider>
   );
 }

@@ -539,7 +539,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
-| Platform | Web client; code execution beyond HTML sandbox; multi-file HTML preview; virus scan |
+| Platform | Web client; code execution beyond HTML sandbox; virus scan |
 | i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
 | Polish | App Store / Play / family plans |
 | Launch ops | Neon / Redis / R2 / Fly / EAS; landing page; on-device QA; prod R2 secrets |
@@ -607,7 +607,10 @@ Shipped after the Phase 1/2 code review (and follow-up PRs):
 
 Still open (non-blocking / larger effort):
 
-- 🔜 Multi-file HTML preview (deliberately deferred — single self-contained ` ```html ` fence)
+- ✅ **Multi-file HTML preview** — same-reply ` ```html ` + ` ```css ` +
+  ` ```javascript ` fences are inlined for the sandboxed Run preview (relative
+  names only; leftover CSS/JS appended). Single self-contained ` ```html ` still
+  works. No folders, no extra execution surface.
 - 🔜 Broader RTL coverage beyond the initial WebView / mount-queue suite
 - 🔜 Locale prose + legal page bodies (future; see owner-ops list above)
 
@@ -760,7 +763,7 @@ drawer FTS search ✅.
 
 ### Explicitly not v1
 Multi-user teams, collaborative editing, video generation, public unauthenticated share URLs,
-arbitrary user MCP servers, multi-file HTML preview, gamification (XP/badges beyond learning
+arbitrary user MCP servers, gamification (XP/badges beyond learning
 streaks). **OpenRouter / product aliases are the intended model setup** — not a gap.
 
 **Next (product):** none — tool loop, scanned-PDF OCR, and chat-history RAG are done.

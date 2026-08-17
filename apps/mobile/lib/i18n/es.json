@@ -357,6 +357,7 @@
   "preview.loading": "Loading preview…",
   "preview.open_in_browser": "Abrir en el navegador",
   "preview.preview_html": "Vista previa HTML",
+  "preview.preview_html_bundled": "Vista previa HTML con CSS/JS de esta respuesta",
   "preview.render_failed": "La vista previa no se pudo mostrar",
   "preview.run_tab": "Run",
   "preview.share": "Compartir",
