@@ -264,7 +264,21 @@ export function stripPlacesFence(content: string): string {
   return content.replace(PLACES_FENCE_RE, "").trimEnd();
 }
 
-/** Fix model output where markdown links use $url$ instead of (url). */
+/** Fix model output where markdown links use $url$ instead of (url).
+ * Only fires when the delimited content looks like a URL — otherwise adjacent
+ * inline math spans merge: `$x \in [0,2]$ \times $y \in [1,3]$` would turn
+ * `[0,2]$ \times $` into `[0,2]( \times )`, leaking the `$` delimiters and
+ * painting `0,2` as a blue link. */
 export function repairBrokenMarkdownLinks(content: string): string {
-  return content.replace(/\[([^\]\n]+)\]\$([^$\n]+?)\$/g, "[$1]($2)");
+  return content.replace(
+    /\[([^\]\n]+)\]\$([^$\n]+?)\$/g,
+    (full, label: string, url: string) =>
+      looksLikeUrl(url) ? `[${label}](${url})` : full,
+  );
+}
+
+function looksLikeUrl(s: string): boolean {
+  const t = s.trim();
+  if (!t) return false;
+  return /:\/\//.test(t) || /^www\./i.test(t) || /^\.{0,2}\//.test(t);
 }
