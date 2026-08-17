@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Composer √ bar detached once a digit was typed.** Symptom: empty `\sqrt{}`
+  looked fine; `\sqrt{8}` left a gap between the hook and the overbar. Cause:
+  `MathDraftPreview` used `alignItems: "center"` while the filled slot jumped
+  to `MathText` `lineHeight` 28, so the Unicode `√` dropped below the
+  `borderTop` vinculum. Also `\cdot` ate `\cdots` → `·s` in factorial steps.
+  Fix: `sqrtRow` `flex-start` (hook stays on the bar); replace `\cdots` /
+  `\ldots` / `\dots` before `\cdot`.
 - **CI `db_session` ERROR: Future attached to a different loop.** Symptom: `test_chats_db` (or any `*_db.py`) fails in fixture setup, not the test body. Cause: the process-wide async engine still holds asyncpg connections from TestClient/anyio or the previous pytest-asyncio function loop. Dispose-after-test is too late. Fix: `await engine.dispose(close=False)` at the **start** of `db_session` so setup never checks out a foreign-loop connection.
 - **Mic stop opened the drawer; New chat then focused the composer.** Parent
   `Gesture.Pan` used view-local `e.x` (~0 on a composer tap) so a mic press

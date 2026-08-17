@@ -88,6 +88,15 @@ describe("MathText", () => {
     expect(ne.queryByText(/\bne\b/)).toBeNull();
   });
 
+  it("does not turn \\cdots into a leftover s", async () => {
+    const { getByText, queryByText } = await render(
+      <MathText latex={String.raw`n \times (n-1) \times \cdots \times 1`} />,
+    );
+    expect(getByText(/⋯/)).toBeOnTheScreen();
+    expect(queryByText(/·s/)).toBeNull();
+    expect(queryByText(/\\cdots/)).toBeNull();
+  });
+
   it("renders a square root with a vinculum, not nth-root brackets", async () => {
     const { getByTestId, queryByText } = await render(
       <MathText latex={String.raw`9\sqrt{9}`} />,

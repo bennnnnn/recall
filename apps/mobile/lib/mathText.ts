@@ -78,7 +78,12 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm/g, "±"],
   [/\\mp/g, "∓"],
   [/\\times/g, "×"],
-  [/\\cdot/g, "·"],
+  // Longest-first: `\cdot` is a prefix of `\cdots`. Without these, a
+  // factorial step `$n \times (n-1) \times \cdots \times 1$` rendered as `·s`.
+  [/\\cdots(?![a-zA-Z])/g, "⋯"],
+  [/\\ldots(?![a-zA-Z])/g, "…"],
+  [/\\dots(?![a-zA-Z])/g, "…"],
+  [/\\cdot(?![a-zA-Z])/g, "·"],
   // Function composition (f ∘ g) — without this, "$ (f \circ g)(2) $" leaks
   // the literal backslash command in MathText / compact answer pills.
   [/\\circ(?![a-zA-Z])/g, "∘"],

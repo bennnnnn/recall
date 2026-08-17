@@ -53,6 +53,9 @@ describe("mathFenceRetag", () => {
   it("detects factorial definitions as math, not code", () => {
     expect(looksLikeLatexFence("0! = 1")).toBe(true);
     expect(looksLikeLatexFence("5! = 5 \\times 4 \\times 3 \\times 2 \\times 1")).toBe(true);
+    expect(looksLikeLatexFence(String.raw`n! = n \times (n-1) \times \cdots \times 1`)).toBe(
+      true,
+    );
   });
 
   it("BUG FIX regression: \\boxed{...} is detected as latex, not a plain code fence", () => {
