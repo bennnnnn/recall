@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
@@ -58,7 +58,7 @@ export const TodoRow = memo(function TodoRow({
         accessibilityRole="checkbox"
         accessibilityState={{ checked: todo.checked, disabled: busy }}
       >
-        <Ionicons
+        <Icon
           name={todo.checked ? "checkbox" : "square-outline"}
           size={22}
           color={todo.checked ? C.primary : C.textTertiary}
@@ -89,7 +89,7 @@ export const TodoRow = memo(function TodoRow({
           accessibilityRole="button"
           accessibilityLabel={t("todos.due_date_a11y")}
         >
-          <Ionicons
+          <Icon
             name={todo.due_at ? "calendar" : "calendar-outline"}
             size={18}
             color={todo.due_at ? C.primary : C.textTertiary}
@@ -103,7 +103,7 @@ export const TodoRow = memo(function TodoRow({
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >
-          <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
+          <Icon name="trash-outline" size={16} color={C.textTertiary} />
         </Pressable>
       ) : null}
     </View>
@@ -126,7 +126,7 @@ export const TodoRow = memo(function TodoRow({
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >
-          <Ionicons name="trash-outline" size={18} color={C.onPrimary} />
+          <Icon name="trash-outline" size={18} color={C.onPrimary} />
           <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
         </Pressable>
       )}

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -44,7 +44,7 @@ export function LearningDropdownRow({
         <Text style={s.value} numberOfLines={1}>
           {value}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={theme.textTertiary} />
+        <Icon name="chevron-down" size={16} color={theme.textTertiary} />
       </View>
     </Pressable>
   );

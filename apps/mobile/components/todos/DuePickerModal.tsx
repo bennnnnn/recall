@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
@@ -70,7 +70,7 @@ export function DuePickerModal({
       />
       {overlap ? (
         <View style={[s.overlapNote, s.pickerOverlapNote]}>
-          <Ionicons name="information-circle-outline" size={16} color={C.danger} />
+          <Icon name="information-circle-outline" size={16} color={C.danger} />
           <Text style={s.overlapNoteText}>
             {t("todos.overlap_inline", { title: overlap.content })}
           </Text>
