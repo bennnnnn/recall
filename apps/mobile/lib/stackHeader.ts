@@ -1,12 +1,12 @@
 import type { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 /** Shared stack header options — keeps back chevron and title styling consistent. */
 export function stackHeaderOptions(theme: Theme) {
   return {
     headerStyle: { backgroundColor: theme.bg },
     headerTitleStyle: {
-      fontWeight: "700" as const,
-      fontSize: 17,
+      ...Type.navTitle,
       color: theme.text,
     },
     headerShadowVisible: false,

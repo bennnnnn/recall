@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { TRIVIA_TOPICS, type TriviaTopicId } from "@/lib/triviaTopics";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -96,8 +97,7 @@ function makeStyles(theme: Theme) {
     headerTitle: {
       flex: 1,
       textAlign: "center",
-      fontSize: 17,
-      fontWeight: "700",
+      ...Type.navTitle,
       color: theme.text,
     },
     done: { fontSize: 16, fontWeight: "700", color: theme.primary },

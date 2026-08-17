@@ -83,8 +83,7 @@ function makeStyles(theme: Theme, compact: boolean) {
     },
     icon: { marginBottom: Space.xxs },
     title: {
-      fontSize: 17,
-      fontWeight: "700",
+      ...Type.navTitle,
       color: theme.text,
       textAlign: "center",
     },

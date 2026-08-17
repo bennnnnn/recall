@@ -134,7 +134,7 @@ export function makeTodosStyles(C: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: C.border,
     },
-    sheetTitle: { fontSize: 17, fontWeight: "700", color: C.text },
+    sheetTitle: { ...Type.navTitle, color: C.text },
     sheetCancel: { ...Type.body, color: C.textSecondary },
     sheetSave: { ...Type.body, fontWeight: "700", color: C.primary },
     sheetSaveDisabled: { opacity: 0.4 },

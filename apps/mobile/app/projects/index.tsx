@@ -548,8 +548,7 @@ function makeStyles(C: Theme) {
     modalHeaderTitle: {
       flex: 1,
       textAlign: "center",
-      ...Type.title,
-      fontSize: 17,
+      ...Type.navTitle,
       color: C.text,
     },
     modalContent: { padding: Space.md },

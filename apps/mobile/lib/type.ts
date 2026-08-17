@@ -33,6 +33,13 @@ export const Type = {
     fontWeight: "700",
     lineHeight: 26,
   },
+  /** Nav bar & sheet titles — the 17pt role the scale was missing (8+ sites
+   *  invented it as `...Type.title, fontSize: 17` or a bare 17/700). */
+  navTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    lineHeight: 22,
+  },
   /** Onboarding / marketing display */
   display: {
     fontSize: 28,

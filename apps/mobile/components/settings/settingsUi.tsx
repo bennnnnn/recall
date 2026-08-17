@@ -888,7 +888,7 @@ export function makeSettingsStyles(t: Theme) {
     mKeyboardAvoider: { flex: 1 },
     mOverlay: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", padding: Space.lg },
     mSheet: { backgroundColor: t.bg, borderRadius: Radius.sheet, padding: 20, gap: 14 },
-    mTitle: { ...Type.title, fontSize: 17, color: t.text },
+    mTitle: { ...Type.navTitle, color: t.text },
     mInput: {
       backgroundColor: t.surface,
       borderRadius: Radius.md,

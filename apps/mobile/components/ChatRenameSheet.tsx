@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -72,7 +73,7 @@ function makeStyles(C: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: C.border,
     },
-    title: { fontSize: 17, fontWeight: "700", color: C.text },
+    title: { ...Type.navTitle, color: C.text },
     cancelText: { fontSize: 16, color: C.textSecondary },
     saveText: { fontSize: 16, fontWeight: "700", color: C.primary },
     body: { padding: 16 },
