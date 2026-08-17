@@ -15,7 +15,16 @@ import { Theme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 function rowIconColor(theme: Theme, danger?: boolean) {
-  return danger ? theme.danger : theme.text;
+  if (danger) return theme.danger;
+  return theme.isDark ? theme.text : "#000000";
+}
+
+function filledIconName(
+  name: keyof typeof Ionicons.glyphMap,
+): keyof typeof Ionicons.glyphMap {
+  if (!name.endsWith("-outline")) return name;
+  const filled = name.slice(0, -"-outline".length) as keyof typeof Ionicons.glyphMap;
+  return Ionicons.glyphMap[filled] ? filled : name;
 }
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
@@ -59,7 +68,11 @@ function SettingsRowChrome({
   return (
     <>
       {icon ? (
-        <Ionicons name={icon} size={20} color={rowIconColor(theme, danger)} />
+        <Ionicons
+          name={filledIconName(icon)}
+          size={20}
+          color={rowIconColor(theme, danger)}
+        />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>
@@ -262,7 +275,7 @@ export function SettingsSwitchRow({
   return (
     <View style={styles.menuRow}>
       {icon ? (
-        <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
+        <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -316,7 +329,7 @@ export function InfoRow({
 }) {
   return (
     <View style={compact ? styles.menuRow : styles.row}>
-      <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
+      <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.meta}>{value}</Text>
@@ -380,7 +393,7 @@ export function IntegrationPanel({
   const showBody = !collapsible || expanded;
   const header = (
     <>
-      <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
+      <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
@@ -449,7 +462,7 @@ export function AccordionSection({
       <Text style={styles.sectionLabel}>{label}</Text>
       <View style={styles.group}>
         <Pressable style={styles.accordionHeader} onPress={onToggle}>
-          <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
+          <Ionicons name={filledIconName(icon)} size={20} color={rowIconColor(theme)} />
           <View style={styles.rowBody}>
             <Text style={styles.meta}>
               {count > 0 ? String(count) : emptyText}
@@ -539,7 +552,11 @@ export function NavRow({
       onPress={onPress}
       accessibilityRole="button"
     >
-      <Ionicons name={icon} size={20} color={rowIconColor(theme, danger)} />
+      <Ionicons
+        name={filledIconName(icon)}
+        size={20}
+        color={rowIconColor(theme, danger)}
+      />
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
