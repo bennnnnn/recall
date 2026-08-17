@@ -718,6 +718,8 @@
   "settings.export_failed": "ውሂብ ማስመጣት አልተቻለም። እንደገና ይሞክሩ።",
   "settings.export_large_message": "Your export is about {{size_mb}} MB. The share sheet may truncate very large exports. Continue anyway?",
   "settings.export_large_title": "Large export",
+  "settings.export_progress": "ውሂብህን በመላክ ላይ…",
+  "settings.export_progress_body": "ትንሽ ሊወስድ ይችላል። መተግበሪያውን አትዝጋ።",
   "settings.general": "General",
   "settings.gmail_connect": "Gmail ያገናኙ",
   "settings.gmail_connect_confirm": "Gmail ከRecall sign-in ጋር የተለየ ነው። inbox read-only access ትሰጣለህ።",

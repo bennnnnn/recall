@@ -211,7 +211,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Usage** — today's token meter.
 - ✅ **Sign out.**
 - ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
-  (with items) as JSON via the native share sheet (`GET /auth/me/export`).
+  (with items) as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
+  screen while the archive builds.
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
   then signs out.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
