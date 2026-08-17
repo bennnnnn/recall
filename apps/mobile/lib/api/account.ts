@@ -33,5 +33,5 @@ export const accountApi = {
   exportData: (token: string) => request<unknown>("/auth/me/export", token),
   exportDataText: (token: string) => fetchExportText(token),
   deleteAccount: (token: string) =>
-    request<void>("/auth/me", token, { method: "DELETE" }),
+    request<void>("/auth/me", token, { method: "DELETE" }, true, 120_000),
 };

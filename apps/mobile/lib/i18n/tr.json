@@ -709,6 +709,8 @@
   "settings.delete": "Hesabı sil",
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "Hesap silinemedi. Tekrar dene.",
+  "settings.delete_progress": "Hesabın siliniyor…",
+  "settings.delete_progress_body": "Bu biraz sürebilir. Uygulamayı kapatma.",
   "settings.email_label": "E-posta",
   "settings.email_reminders": "E-posta hatırlatmaları",
   "settings.export": "Verilerimi dışa aktar",
