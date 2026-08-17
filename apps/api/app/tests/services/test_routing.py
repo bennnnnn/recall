@@ -107,6 +107,29 @@ def test_weighted_reserve_tokens_applies_quota_multiplier() -> None:
     assert smart == 525
 
 
+def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
+    from unittest.mock import patch
+
+    from app.core.config import Settings
+    from app.services.chat.stream import prompt_weighted_reserve_tokens
+
+    settings = Settings()
+    messages = [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "hello"},
+    ]
+    with patch("app.services.chat.stream.estimate_tokens", return_value=40):
+        assert (
+            prompt_weighted_reserve_tokens(
+                messages,
+                model="free-chat",
+                settings=settings,
+                max_output=20,
+            )
+            == 100
+        )
+
+
 @pytest.mark.parametrize(
     "alias,content,expected",
     [

@@ -1,12 +1,13 @@
 """Per-chat Redis prepare/turn lock on stream_chat_response / regenerate."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
-from app.exceptions import ChatBusyError
+from app.exceptions import ChatBusyError, QuotaExceededError
 from app.services.chat import stream as stream_module
 from app.services.chat.stream_events import error_payload_for_exception
 
@@ -369,3 +370,122 @@ async def test_stream_edit_holds_chatprep_lock_across_delete_and_stream():
     delete_from.assert_awaited_once()
     assert held["lock"] == (f"chatprep:{chat_id}", "edit-tok")
     release.assert_awaited_once_with(redis, f"chatprep:{chat_id}", "edit-tok")
+
+
+@pytest.mark.asyncio
+async def test_turn_resources_refreshes_lock_while_held():
+    redis = AsyncMock()
+    refresh = AsyncMock()
+    release = AsyncMock()
+
+    with (
+        patch("app.services.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
+        patch("app.services.chat.stream.refresh_lock", refresh),
+        patch("app.services.chat.stream.release_lock", release),
+        patch.object(stream_module, "_CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.05),
+    ):
+        async with stream_module.turn_resources(redis, user_id=uuid4(), chat_id=uuid4()):
+            await asyncio.sleep(0.14)
+
+    assert refresh.await_count >= 2
+    release.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_turn_resources_borrowed_does_not_start_refresh():
+    redis = AsyncMock()
+    refresh = AsyncMock()
+    chat_id = uuid4()
+    borrowed = stream_module.TurnResources(
+        redis=redis,
+        user_id=uuid4(),
+        chat_id=chat_id,
+        lock_key=f"chatprep:{chat_id}",
+        lock_token="outer",
+        reserved_tokens=10,
+    )
+
+    with (
+        patch("app.services.chat.stream.refresh_lock", refresh),
+        patch.object(stream_module, "_CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.05),
+    ):
+        async with stream_module.turn_resources(
+            redis,
+            user_id=borrowed.user_id,
+            chat_id=chat_id,
+            borrowed=borrowed,
+        ):
+            await asyncio.sleep(0.12)
+
+    refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_top_up_reserve_for_prompt_adds_delta():
+    user = _user()
+    redis = AsyncMock()
+    res = stream_module.TurnResources(
+        redis=redis,
+        user_id=user.id,
+        chat_id=uuid4(),
+        lock_key="k",
+        lock_token="t",
+        reserved_tokens=10,
+    )
+    ctx = MagicMock()
+    ctx.prompt_messages = [{"role": "user", "content": "hello"}]
+    ctx.model = "free-chat"
+    ctx.max_output_tokens = 50
+    ctx.user = user
+    ctx.reserved_tokens = 10
+
+    with (
+        patch("app.services.chat.stream.prompt_weighted_reserve_tokens", return_value=40),
+        patch(
+            "app.services.chat.stream.quota_service.reserve_usage",
+            AsyncMock(return_value=True),
+        ) as reserve,
+    ):
+        await stream_module._top_up_reserve_for_prompt(
+            res, settings=Settings(), ctx=ctx, daily_limit=100
+        )
+
+    reserve.assert_awaited_once()
+    assert reserve.await_args.args[2] == 30
+    assert res.reserved_tokens == 40
+    assert ctx.reserved_tokens == 40
+
+
+@pytest.mark.asyncio
+async def test_top_up_reserve_for_prompt_raises_when_over_limit():
+    user = _user()
+    redis = AsyncMock()
+    res = stream_module.TurnResources(
+        redis=redis,
+        user_id=user.id,
+        chat_id=uuid4(),
+        lock_key="k",
+        lock_token="t",
+        reserved_tokens=10,
+    )
+    ctx = MagicMock()
+    ctx.prompt_messages = [{"role": "user", "content": "hello"}]
+    ctx.model = "free-chat"
+    ctx.max_output_tokens = 50
+    ctx.user = user
+    ctx.reserved_tokens = 10
+
+    with (
+        patch("app.services.chat.stream.prompt_weighted_reserve_tokens", return_value=40),
+        patch(
+            "app.services.chat.stream.quota_service.reserve_usage",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        with pytest.raises(QuotaExceededError):
+            await stream_module._top_up_reserve_for_prompt(
+                res, settings=Settings(), ctx=ctx, daily_limit=100
+            )
+
+    assert res.reserved_tokens == 10
+    assert ctx.reserved_tokens == 10
