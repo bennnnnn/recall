@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { tap } from "@/lib/haptics";
-import { filledIconName } from "@/lib/icons";
+import { filledIconName, NEW_CHAT_ICON } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -37,7 +37,7 @@ export function DrawerFooter({
         accessibilityLabel={t("drawer.new_chat")}
       >
         <Ionicons
-          name={filledIconName("pencil-outline")}
+          name={NEW_CHAT_ICON}
           size={18}
           color={theme.onPrimary}
         />
