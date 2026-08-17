@@ -12,6 +12,8 @@ from app.models.schemas.auth import (
     GoogleAuthRequest,
     LogoutRequest,
     RefreshRequest,
+    SettingsChangeOut,
+    SettingsConfirmOut,
     UserOut,
     UserUpdate,
 )
@@ -174,6 +176,8 @@ __all__ = [
     "ResponseTone",
     "SearchResultItem",
     "SearchResults",
+    "SettingsChangeOut",
+    "SettingsConfirmOut",
     "SpeechTranscriptionIn",
     "SpeechTranscriptionOut",
     "SpeechTtsIn",

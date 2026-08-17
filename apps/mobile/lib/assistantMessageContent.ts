@@ -1,5 +1,7 @@
 import type { CalendarProposal } from "@/lib/calendarProposal";
 import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calendarProposal";
+import type { SettingsProposal } from "@/lib/settingsProposal";
+import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/lib/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
@@ -60,6 +62,8 @@ export type AssistantMessageContent = {
   searchSources: SearchSource[];
   calendarProposals: CalendarProposal[];
   showCalendarProposals: boolean;
+  settingsProposals: SettingsProposal[];
+  showSettingsProposals: boolean;
   places: PlaceItem[];
   showPlaces: boolean;
   images: ParsedMessageImage[];
@@ -79,6 +83,7 @@ function buildMarkdownContent(options: {
   quizForStrip: ParsedVocabQuiz | null;
   showLiveClock: boolean;
   showCalendarProposals: boolean;
+  showSettingsProposals: boolean;
   showPlaces: boolean;
   places: PlaceItem[];
 }): string {
@@ -89,6 +94,7 @@ function buildMarkdownContent(options: {
     quizForStrip,
     showLiveClock,
     showCalendarProposals,
+    showSettingsProposals,
     showPlaces,
     places,
   } = options;
@@ -113,6 +119,7 @@ function buildMarkdownContent(options: {
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
   if (showCalendarProposals) text = stripCalendarProposalFences(text);
+  if (showSettingsProposals) text = stripSettingsProposalFences(text);
   if (showPlaces) text = stripPlacesContent(text, places);
   return text;
 }
@@ -177,6 +184,10 @@ export function deriveAssistantMessageContent(
     !isUser && hasContent && !layoutFrozen ? parseCalendarProposals(content) : [];
   const showCalendarProposals = calendarProposals.length > 0 && !layoutFrozen;
 
+  const settingsProposals =
+    !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
+  const showSettingsProposals = settingsProposals.length > 0 && !layoutFrozen;
+
   const places =
     !isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : [];
   const showPlaces = places.length > 0;
@@ -191,6 +202,7 @@ export function deriveAssistantMessageContent(
     quizForStrip,
     showLiveClock,
     showCalendarProposals,
+    showSettingsProposals,
     showPlaces,
     places,
   });
@@ -225,6 +237,8 @@ export function deriveAssistantMessageContent(
     searchSources,
     calendarProposals,
     showCalendarProposals,
+    settingsProposals,
+    showSettingsProposals,
     places,
     showPlaces,
     images: parsedImages.images,

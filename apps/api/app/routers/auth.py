@@ -28,6 +28,7 @@ from app.models.schemas import (
     GoogleAuthRequest,
     LogoutRequest,
     RefreshRequest,
+    SettingsConfirmOut,
     UserOut,
     UserUpdate,
 )
@@ -38,6 +39,7 @@ from app.services import google_integrations as google_integrations_service
 from app.services import home as home_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
+from app.services import settings_proposal as settings_proposal_service
 from app.services import subscription as subscription_service
 from app.services import tokens as tokens_service
 
@@ -243,6 +245,27 @@ async def update_me(
         await memory_service.invalidate_memory_block(user.id)
     await home_service.invalidate_home_cache(user.id)
     return UserOut.model_validate(updated)
+
+
+@router.post("/me/settings-proposals/{proposal_id}/confirm", response_model=SettingsConfirmOut)
+async def confirm_settings_proposal(
+    proposal_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings_dep),
+) -> SettingsConfirmOut:
+    try:
+        result = await settings_proposal_service.confirm_proposal(
+            session, redis, user, settings, proposal_id
+        )
+    except settings_proposal_service.SettingsProposalError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    return SettingsConfirmOut(
+        user=UserOut.model_validate(result["user"]),
+        appearance=result.get("appearance"),
+        applied=result["applied"],
+    )
 
 
 @router.post("/me/pro-dev", response_model=UserOut)

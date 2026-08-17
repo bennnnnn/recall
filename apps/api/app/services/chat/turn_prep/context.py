@@ -19,6 +19,7 @@ from app.services import calendar as calendar_service
 from app.services import email as email_service
 from app.services import plan as plan_service
 from app.services import profile as profile_service
+from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_builder import _augment_web_and_tools, build_prompt_messages
@@ -41,6 +42,7 @@ from app.services.chat.turn_prep.mode import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.math_tools import VerifiedMathBlock
+from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
 
 
@@ -325,6 +327,12 @@ async def build_stream_prompt_context(
             geo=geo,
             user_id=user.id,
         )
+        if instant_reply is None and not mode.minimal_vocab_answer and not mode.minimal_quiz:
+            settings_changes = extract_settings_changes(content)
+            if settings_changes:
+                instant_reply = await settings_proposal_service.materialize_settings_reply(
+                    redis, user, settings, settings_changes
+                )
 
         if _should_augment_web_and_tools(
             instant_reply=instant_reply,

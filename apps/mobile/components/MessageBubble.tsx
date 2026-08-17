@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
 
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
+import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { UserMessageContent } from "@/components/UserMessageContent";
@@ -369,6 +370,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     clockTimezone,
     calendarProposals,
     showCalendarProposals,
+    settingsProposals,
+    showSettingsProposals,
     places,
     showPlaces,
     images,
@@ -401,6 +404,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     !showVocabCard &&
     !showLiveClock &&
     !showCalendarProposals &&
+    !showSettingsProposals &&
     !showPlaces &&
     !interactiveQuiz;
 
@@ -499,6 +503,15 @@ export const MessageBubble = React.memo(function MessageBubble({
               ? calendarProposals.map((proposal, index) => (
                   <CalendarProposalCard
                     key={`${proposal.proposal_id ?? proposal.title}-${index}`}
+                    proposal={proposal}
+                    disabled={!isLastAssistant}
+                  />
+                ))
+              : null}
+            {showSettingsProposals
+              ? settingsProposals.map((proposal, index) => (
+                  <SettingsProposalCard
+                    key={`${proposal.proposal_id}-${index}`}
                     proposal={proposal}
                     disabled={!isLastAssistant}
                   />

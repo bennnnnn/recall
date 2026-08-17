@@ -163,4 +163,20 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.vocabCard?.definition).toBe("bubbly and lively");
     expect(result.vocabCard?.exampleSentence).toBeUndefined();
   });
+
+  it("strips settings_proposal fences and exposes the card payload", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: [
+        "I can switch that for you: Appearance → Dark.",
+        "```settings_proposal",
+        '{"proposal_id":"abc","changes":[{"field":"appearance","value":"dark","label":"Dark"}]}',
+        "```",
+      ].join("\n"),
+    });
+
+    expect(result.showSettingsProposals).toBe(true);
+    expect(result.settingsProposals[0]?.proposal_id).toBe("abc");
+    expect(result.markdownContent).toBe("I can switch that for you: Appearance → Dark.");
+  });
 });

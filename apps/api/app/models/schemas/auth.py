@@ -171,3 +171,15 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str | None = None
+
+
+class SettingsChangeOut(BaseModel):
+    field: str
+    value: str
+    label: str
+
+
+class SettingsConfirmOut(BaseModel):
+    user: UserOut
+    appearance: str | None = None
+    applied: list[SettingsChangeOut]
