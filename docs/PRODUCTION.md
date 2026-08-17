@@ -47,7 +47,8 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
 ## 4. Fly.io API
 
 - [ ] `fly launch` (or connect existing app to repo root; uses `apps/api/Dockerfile`)
-- [ ] Scale processes: `fly scale count app=1 worker=1`
+- [ ] Scale processes: `fly scale count app=1 worker=1` (worker is not
+      covered by `min_machines_running`; pin it or jobs stop silently)
 - [ ] Confirm worker health: `fly ssh console -C 'curl -sf http://127.0.0.1:8001/health/ready'`
   (or check worker logs show the jobs consumer started)
 - [ ] Set **all** secrets (enforced by `validate_production_settings`):
@@ -82,7 +83,8 @@ fly deploy
 curl -s https://<your-api>/health/ready
 ```
 
-- [ ] Health monitor on `GET /health/ready` (DB + Redis)
+- [ ] Health monitor: `GET /health` (liveness) and `GET /health/ready` (Postgres;
+      Redis may report `degraded` without 503)
 - [ ] RevenueCat webhook → `https://<api>/webhooks/revenuecat` with `Authorization` header
 
 ---

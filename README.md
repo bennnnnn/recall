@@ -111,7 +111,8 @@ host that keeps the process alive — not a serverless function platform. A Dock
    - `TAVILY_API_KEY=` (if web search is on)
 3. **Migrate + deploy:** `./scripts/deploy-api.sh` (or `fly deploy`) runs
    `alembic upgrade head` first (see `fly.toml`). Confirm the head (`0041`) is applied.
-4. **Health:** point your monitor at `GET /health/ready` (checks DB + Redis).
+4. **Health:** `GET /health` is liveness. `GET /health/ready` is Postgres
+   (Redis may be `degraded` without 503 — do not drain the fleet on an Upstash blip).
 5. **RevenueCat:** set the webhook URL to `https://<api>/webhooks/revenuecat`
    with the `Authorization` header = your `REVENUECAT_WEBHOOK_AUTH`.
 6. **Process split:** `fly.toml` runs migrations + uvicorn on the `app` process and

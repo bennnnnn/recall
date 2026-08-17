@@ -34,7 +34,29 @@ async def test_health_ready_ok():
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.get("/health/ready")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "redis": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_health_ready_ok_when_redis_degraded():
+    from unittest.mock import AsyncMock, patch
+
+    transport = ASGITransport(app=app)
+    with (
+        patch("app.routers.health.SessionLocal") as session_local,
+        patch("app.routers.health.get_redis_client") as get_redis,
+    ):
+        session = AsyncMock()
+        session.__aenter__ = AsyncMock(return_value=session)
+        session.__aexit__ = AsyncMock(return_value=None)
+        session.execute = AsyncMock()
+        session_local.return_value = session
+        get_redis.side_effect = RuntimeError("redis down")
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "redis": "degraded"}
 
 
 @pytest.mark.asyncio

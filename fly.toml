@@ -37,7 +37,16 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
     soft_limit = 150
 
 # WebSocket support is on by default for HTTP services on Fly.
-# Health checks hit /health/ready (DB + Redis).
+# Liveness: process up. Readiness: Postgres only (Redis blip must not drain
+# the fleet). Worker is not covered by min_machines_running — pin it:
+#   fly scale count worker=1
+[[http_service.checks]]
+  interval = "20s"
+  timeout = "5s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/health"
+
 [[http_service.checks]]
   interval = "20s"
   timeout = "5s"
@@ -55,6 +64,13 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   memory = "512mb"
   cpu_kind = "shared"
   cpus = 1
+  processes = ["worker"]
+
+# Worker is not an HTTP service, so min_machines_running does not apply.
+# Always restart a crashed worker; keep count at 1 after deploy
+# (`fly scale count worker=1`).
+[[restart]]
+  policy = "always"
   processes = ["worker"]
 
 # Worker health check: the worker exposes a tiny /health/ready on port 8001

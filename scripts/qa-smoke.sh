@@ -80,7 +80,7 @@ if [[ "$LIVE" -eq 1 ]]; then
   if curl -sf "$API_URL/health/ready" | rg -q '"status".*"ok"'; then
     echo "    OK"
   else
-    echo "    FAIL: GET /health/ready (is API up with DB + Redis?)"
+    echo "    FAIL: GET /health/ready (is API up with Postgres?)"
     fail=1
   fi
 fi
