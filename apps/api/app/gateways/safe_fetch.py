@@ -98,7 +98,7 @@ async def resolve_external_host(url: str) -> tuple[str, str]:
 
     public_ips: list[str] = []
     for _family, _type, _proto, _canon, sockaddr in infos:
-        ip_str = sockaddr[0]
+        ip_str = str(sockaddr[0])
         try:
             addr = ipaddress.ip_address(ip_str)
         except ValueError:
