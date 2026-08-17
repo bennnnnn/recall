@@ -21,21 +21,25 @@ export default function DataControlsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
-  const [deleting, setDeleting] = useState(false);
+  const [progress, setProgress] = useState<"idle" | "exporting" | "deleting">(
+    "idle",
+  );
+  const busy = progress !== "idle";
 
   useEffect(() => {
     navigation.setOptions({
-      gestureEnabled: !deleting,
-      headerLeft: deleting
+      gestureEnabled: !busy,
+      headerLeft: busy
         ? () => null
         : () => <StackBackButton fallback="/settings" />,
     });
-  }, [deleting, navigation]);
+  }, [busy, navigation]);
 
-  if (!token && !deleting) return <Redirect href="/login" />;
+  if (!token && progress !== "deleting") return <Redirect href="/login" />;
 
   const doExport = async () => {
-    if (!token) return;
+    if (!token || busy) return;
+    setProgress("exporting");
     try {
       const raw = await api.exportDataText(token);
       const payload = formatExportJsonForShare(raw);
@@ -45,11 +49,13 @@ export default function DataControlsScreen() {
       if (!message.toLowerCase().includes("cancel")) {
         Alert.alert(t("common.error"), t("settings.export_failed"));
       }
+    } finally {
+      setProgress("idle");
     }
   };
 
   const confirmDeleteAccount = () => {
-    if (!token || deleting) return;
+    if (!token || busy) return;
     Alert.alert(t("delete.title"), t("delete.message"), [
       { text: t("common.cancel"), style: "cancel" },
       {
@@ -63,7 +69,7 @@ export default function DataControlsScreen() {
   };
 
   const runDelete = async (accessToken: string) => {
-    setDeleting(true);
+    setProgress("deleting");
     setIgnoreUnauthorized(true);
     try {
       try {
@@ -77,12 +83,22 @@ export default function DataControlsScreen() {
       router.replace("/login");
     } catch {
       setIgnoreUnauthorized(false);
-      setDeleting(false);
+      setProgress("idle");
       Alert.alert(t("common.error"), t("settings.delete_failed"));
     }
   };
 
-  if (deleting) {
+  if (progress === "exporting") {
+    return (
+      <StateView
+        variant="loading"
+        title={t("settings.export_progress")}
+        message={t("settings.export_progress_body")}
+      />
+    );
+  }
+
+  if (progress === "deleting") {
     return (
       <StateView
         variant="loading"

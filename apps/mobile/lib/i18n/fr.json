@@ -718,6 +718,8 @@
   "settings.export_failed": "Impossible d'exporter vos données. Réessayez.",
   "settings.export_large_message": "Your export is about {{size_mb}} MB. The share sheet may truncate very large exports. Continue anyway?",
   "settings.export_large_title": "Large export",
+  "settings.export_progress": "Export des données…",
+  "settings.export_progress_body": "Cela peut prendre un moment. Ne fermez pas l'app.",
   "settings.general": "General",
   "settings.gmail_connect": "Connecter Gmail",
   "settings.gmail_connect_confirm": "Gmail est distinct de la connexion à Recall. Vous accorderez un accès en lecture seule à votre boîte de réception. Vous pouvez utiliser le même e-mail Google ou vous déconnecter à tout moment.",
