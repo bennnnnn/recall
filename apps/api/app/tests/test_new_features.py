@@ -57,6 +57,32 @@ def test_list_todos_returns_items():
     assert data[0]["content"] == "Buy milk"
 
 
+def test_list_todos_passes_pagination_and_clamps_limit():
+    """GET /todos exposes limit/offset (forward-compatible) and clamps the page
+    so a caller can't request an unbounded scan. Default is 1000, not 200, so a
+    heavy user no longer silently loses todos past the old cap."""
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch(
+        "app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])
+    ) as list_mock:
+        client = TestClient(app)
+        # explicit pagination is forwarded
+        client.get("/todos?limit=50&offset=10", headers={"Authorization": "Bearer tok"})
+        _args, kwargs = list_mock.call_args
+        assert kwargs["limit"] == 50
+        assert kwargs["offset"] == 10
+
+        # over-large limit is clamped to the max (1000); negative offset to 0
+        list_mock.reset_mock()
+        client.get("/todos?limit=99999&offset=-5", headers={"Authorization": "Bearer tok"})
+        _args, kwargs = list_mock.call_args
+        assert kwargs["limit"] == 1000
+        assert kwargs["offset"] == 0
+
+
 def test_create_todo():
     from fastapi.testclient import TestClient
 

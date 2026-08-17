@@ -22,8 +22,10 @@ class TodosError(Exception):
         super().__init__(detail)
 
 
-async def list_todos(session: AsyncSession, user: User) -> list[TodoItem]:
-    return await todos_repo.list_for_user(session, user.id)
+async def list_todos(
+    session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
+) -> list[TodoItem]:
+    return await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
 
 
 async def list_topics(session: AsyncSession, user: User) -> list[str]:

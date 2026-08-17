@@ -16,12 +16,23 @@ def _map_error(exc: todos_crud.TodosError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
+_MAX_TODOS_PAGE = 1000
+
+
 @router.get("", response_model=list[TodoOut])
 async def list_todos(
+    limit: int = _MAX_TODOS_PAGE,
+    offset: int = 0,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> list[TodoOut]:
-    items = await todos_crud.list_todos(session, user)
+    # Expose pagination (forward-compatible for the web client) and raise the
+    # default page from 200 to 1000 so a heavy user no longer silently loses
+    # todos past the cap. Clamp at the max so a caller can't request an
+    # unbounded scan.
+    limit = max(1, min(limit, _MAX_TODOS_PAGE))
+    offset = max(0, offset)
+    items = await todos_crud.list_todos(session, user, limit=limit, offset=offset)
     return [TodoOut.model_validate(item) for item in items]
 
 
