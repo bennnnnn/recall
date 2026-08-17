@@ -347,7 +347,6 @@
   "login.google_unavailable_title": "Use the Recall app",
   "login.highlight_learn": "Learn",
   "login.highlight_organize": "Organize",
-  "login.highlight_remember": "Remembers you",
   "login.or_dev": "or for local development",
   "login.privacy": "Privacy",
   "login.sign_in_failed": "Sign-in failed",
@@ -378,9 +377,9 @@
   "notifications.todo_reminder_body": "{{content}} — due at {{time}}",
   "notifications.todo_reminder_title": "Reminder",
   "onboarding.get_started": "Get started",
-  "onboarding.learn_body": "Languages and quizzes, at your pace.",
-  "onboarding.learn_title": "Learn",
-  "onboarding.subtitle": "Learn, organize, and chat — with an AI that remembers you.",
+  "onboarding.learn_body": "Study a language here. It follows the words you miss.",
+  "onboarding.learn_title": "Get better",
+  "onboarding.subtitle": "Your AI. It doesn't start over.",
   "onboarding.welcome": "Welcome to Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -933,8 +932,8 @@
   "memory.edit_title": "Edit memory",
   "memory.edit_hint": "Fix anything that’s wrong — Recall will use this going forward.",
   "memory.edit_failed": "Could not save memory. Try again.",
-  "onboarding.chat_title": "Chat",
-  "onboarding.chat_body": "Ask anything. It remembers you.",
-  "onboarding.lists_title": "Lists & Reminders",
-  "onboarding.lists_body": "Checklists and due times — calendar and email when you connect them."
+  "onboarding.chat_title": "Ask anything",
+  "onboarding.chat_body": "A hard question. A language. Homework. Same conversation.",
+  "onboarding.remember_title": "It keeps up",
+  "onboarding.remember_body": "Tomorrow it still knows what you're working on."
 }

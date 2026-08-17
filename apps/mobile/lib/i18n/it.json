@@ -315,7 +315,6 @@
   "login.google_unavailable_title": "Usa l'app Recall",
   "login.highlight_learn": "Impara",
   "login.highlight_organize": "Organizza",
-  "login.highlight_remember": "Ricorda di te",
   "login.or_dev": "o per lo sviluppo locale",
   "login.privacy": "Privacy",
   "login.sign_in_failed": "Accesso non riuscito",
@@ -346,9 +345,9 @@
   "notifications.todo_reminder_body": "{{content}} — scadenza alle {{time}}",
   "notifications.todo_reminder_title": "Promemoria",
   "onboarding.get_started": "Inizia",
-  "onboarding.learn_body": "Lingue e quiz, al tuo ritmo.",
-  "onboarding.learn_title": "Impara",
-  "onboarding.subtitle": "Impara, organizzati e chatta — con un'IA che si ricorda di te.",
+  "onboarding.learn_body": "Studia una lingua qui. Segue le parole che sbagli.",
+  "onboarding.learn_title": "Migliora",
+  "onboarding.subtitle": "La tua IA. Non ricomincia da zero.",
   "onboarding.welcome": "Benvenuto su Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -933,8 +932,8 @@
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
   "chat.math_keyboard_caret_right": "Move cursor right",
-  "onboarding.chat_title": "Chat",
-  "onboarding.chat_body": "Chiedi qualsiasi cosa. Si ricorda di te.",
-  "onboarding.lists_title": "Liste e promemoria",
-  "onboarding.lists_body": "Liste e scadenze — calendario ed e-mail quando li colleghi."
+  "onboarding.chat_title": "Chiedi qualsiasi cosa",
+  "onboarding.chat_body": "Una domanda difficile. Una lingua. I compiti. La stessa conversazione.",
+  "onboarding.remember_title": "Ti tiene il passo",
+  "onboarding.remember_body": "Domani sa ancora a cosa stai lavorando."
 }
