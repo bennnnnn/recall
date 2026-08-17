@@ -91,6 +91,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Image generation (Pro)** — Type an image request in the composer and send (e.g. "draw me a
   cat"); Pro users get daily-limited generations stored as chat attachments. No separate prompt
   sheet. Tap the result to view full-screen and save via the system share sheet.
+- 🔜 **Music generation** — same composer-send path as image gen (no prompt sheet): user asks
+  to generate a track, we generate a clip, store it as an audio attachment, and show a **compact
+  inline player** on the assistant message (play/pause + scrub + duration — not a full-screen
+  Now Playing UI). Pro + daily cap. Catalog alias + gateway (provider TBD); reuse
+  `expo-audio` / attachment URLs. Do not start until image-gen’s storage/cap path is the
+  template. Not TTS / not humming into the mic.
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
   display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
@@ -507,7 +513,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 |------|-----------------|
 | Auth | Email/password, magic links, multi-device session management |
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
-| Messaging | Reactions, read receipts; duplex / live voice |
+| Messaging | Reactions, read receipts; duplex / live voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache / prompt-budget UI; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
@@ -614,6 +620,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
+| Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over attachment corpora | ✅ Shipped (`attachment_rag`; flag on by default) |
 | Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |
 | Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
