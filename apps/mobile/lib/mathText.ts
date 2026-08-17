@@ -424,17 +424,6 @@ function preprocessLatex(latex: string): string {
   for (const [re, rep] of CMD_REPLACEMENTS) {
     s = s.replace(re, rep);
   }
-  // \overset{x}{base} / \underset{x}{base} / \stackrel{x}{base} stack x over
-  // or under base — native inline layout can't draw that, so unwrap to the
-  // base alone. Without this the generic \cmd handler kept the overset and
-  // left the base's braces visible ("a{=}" for \overset{a}{=}).
-  s = s.replace(/\\(?:overset|underset|stackrel)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
-  // \color{name}{base} / \textcolor{name}{base} — color has no plain-text
-  // meaning; unwrap to the base so the color name ("red") doesn't leak as
-  // literal text followed by bare braces.
-  s = s.replace(/\\(?:textcolor|color)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
-  // \pmod{x} → "(mod x)" (KaTeX renders parenthesized mod).
-  s = s.replace(/\\pmod\{([^{}]+)\}/g, "(mod $1)");
   // \sqrt{...} is handled by parseSqrt below (in the character-by-character
   // parser, not here) — a flat regex over `[^}]+` can't track nested braces,
   // so `\sqrt{\frac{M}{2}}` broke on the FIRST `}` (the one closing \frac's
@@ -460,6 +449,20 @@ function preprocessLatex(latex: string): string {
   // border) — unwrap to the inner content rather than leave the raw command
   // visible, matching \text/\mathrm's fallback above.
   s = s.replace(/\\boxed\{([^}]+)\}/g, "$1");
+  // \overset{x}{base} / \underset{x}{base} / \stackrel{x}{base} stack x over
+  // or under base — native inline layout can't draw that, so unwrap to the
+  // base alone. Runs AFTER \text/\mathrm unwrap so an overset arg written as
+  // \overset{\text{def}}{=} is flattened to \overset{def}{=} first, which the
+  // single-brace regex below can then match (otherwise the nested braces in
+  // \text{def} defeat `[^{}]+` and the overset never unwraps).
+  s = s.replace(/\\(?:overset|underset|stackrel)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
+  // \color{name}{base} / \textcolor{name}{base} — color has no plain-text
+  // meaning; unwrap to the base so the color name ("red") doesn't leak as
+  // literal text followed by bare braces.
+  s = s.replace(/\\(?:textcolor|color)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
+  // \pmod{x} → "(mod x)" (KaTeX renders parenthesized mod). Must run after
+  // \pm → ± (in CMD_REPLACEMENTS) so \pm's word boundary lets \pmod survive.
+  s = s.replace(/\\pmod\{([^{}]+)\}/g, "(mod $1)");
   // \overline{714285} etc. (repeating decimals, line segments, vectors, …)
   // had no entry anywhere in this table — they fell through to the generic
   // \cmd fallback below, which only consumes the command NAME, leaving the

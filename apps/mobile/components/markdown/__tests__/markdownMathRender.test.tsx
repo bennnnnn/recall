@@ -45,7 +45,7 @@ jest.mock("@/components/CodeBlock", () => {
 describe("MarkdownContent math rendering", () => {
   it("typesets inline math in a numbered step, not raw \\frac", async () => {
     const { getByTestId, queryByText } = await render(
-      <MarkdownContent content="1. So $m = \\frac{1}{2}$." />,
+      <MarkdownContent content={"1. So $m = \\frac{1}{2}$."} />,
     );
     expect(getByTestId("math-frac")).toBeOnTheScreen();
     expect(queryByText(/\\frac/)).toBeNull();

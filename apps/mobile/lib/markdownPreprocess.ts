@@ -673,6 +673,15 @@ function protectMathEscapes(content: string): string {
     /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g,
     (_full: string, dollarBody: string | undefined, parenBody: string | undefined) => {
       const body = (dollarBody ?? parenBody ?? "")
+        // Protect the LaTeX row separator "\\" (TWO backslashes) before the
+        // single-backslash rule below runs. markdown-it treats a trailing
+        // "\\" as a hard line break and silently drops both backslashes
+        // during inline tokenization, collapsing every row of an inline
+        // `\begin{matrix}…\\…\end{matrix}` into one run. split/join on the
+        // two-backslash literal is unambiguous — it never touches the single
+        // backslash of a command like "\frac".
+        .split("\\\\")
+        .join(`${PROTECTED_ESCAPE_MARKER}${PROTECTED_ESCAPE_MARKER}`)
         .replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)
         .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
         .replace(/\*/g, PROTECTED_MATH_STAR_MARKER);
