@@ -33,6 +33,8 @@ import {
   stripScripts,
 } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
+import { Space } from "@/lib/space";
+import { Radius } from "@/lib/radius";
 import { getPreviewWebView } from "@/lib/webView";
 
 class PreviewRenderBoundary extends Component<
@@ -361,12 +363,12 @@ const makeStyles = (theme: Theme) =>
     interactiveBanner: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      marginHorizontal: 16,
+      gap: Space.xs,
+      marginHorizontal: Space.md,
       marginTop: 10,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: theme.primaryLight,
     },
     interactiveBannerText: {
@@ -377,7 +379,7 @@ const makeStyles = (theme: Theme) =>
     },
     body: { flex: 1, minHeight: 0 },
     codeScroll: { flex: 1 },
-    codeScrollContent: { padding: 16, paddingBottom: 24 },
+    codeScrollContent: { padding: Space.md, paddingBottom: Space.lg },
     webviewContainer: {
       flex: 1,
       alignSelf: "stretch",
@@ -397,11 +399,11 @@ const makeStyles = (theme: Theme) =>
     emptyOverlay: {
       position: "absolute",
       zIndex: 2,
-      top: 16,
-      left: 16,
-      right: 16,
+      top: Space.md,
+      left: Space.md,
+      right: Space.md,
       padding: 14,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: theme.surfaceAlt,
     },
     emptyOverlayText: {
@@ -410,14 +412,14 @@ const makeStyles = (theme: Theme) =>
       color: theme.text,
     },
     scroll: { flex: 1 },
-    scrollContent: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 16 },
+    scrollContent: { paddingHorizontal: Space.md, paddingVertical: Space.md, paddingBottom: Space.md },
     base: { color: theme.text, fontSize: 16, lineHeight: 22 },
     toolbar: {
       flexDirection: "row",
       alignItems: "stretch",
       justifyContent: "space-around",
-      paddingHorizontal: 8,
-      paddingTop: 8,
+      paddingHorizontal: Space.xs,
+      paddingTop: Space.xs,
       paddingBottom: 10,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
@@ -428,7 +430,7 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
       paddingVertical: 10,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
     },
     toolbarItemActive: {
       backgroundColor: theme.primaryLight,
