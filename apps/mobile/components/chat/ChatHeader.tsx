@@ -12,6 +12,7 @@ import {
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
+import { NEW_CHAT_ICON } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -131,7 +132,7 @@ export const ChatHeader = memo(function ChatHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
               >
-                <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
+                <Ionicons name={NEW_CHAT_ICON} size={22} color={theme.text} />
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
