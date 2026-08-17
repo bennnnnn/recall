@@ -18,14 +18,14 @@ const FEATURES = [
     bodyKey: "onboarding.chat_body",
   },
   {
+    icon: "sparkles-outline",
+    titleKey: "onboarding.remember_title",
+    bodyKey: "onboarding.remember_body",
+  },
+  {
     icon: "school-outline",
     titleKey: "onboarding.learn_title",
     bodyKey: "onboarding.learn_body",
-  },
-  {
-    icon: "list-outline",
-    titleKey: "onboarding.lists_title",
-    bodyKey: "onboarding.lists_body",
   },
 ] as const;
 

@@ -315,7 +315,6 @@
   "login.google_unavailable_title": "የRecall app ይጠቀሙ",
   "login.highlight_learn": "መማር",
   "login.highlight_organize": "ማደራጀት",
-  "login.highlight_remember": "እርስዎን ይذكر",
   "login.or_dev": "ወይም ለمحلي development",
   "login.privacy": "ግላዊነት",
   "login.sign_in_failed": "መግባት አልተሳካም",
@@ -346,9 +345,9 @@
   "notifications.todo_reminder_body": "{{content}} — በ {{time}}",
   "notifications.todo_reminder_title": "ማስታወሻ",
   "onboarding.get_started": "ይጀምሩ",
-  "onboarding.learn_body": "ቋንቋዎች እና ጥያቄዎች፣ በእርስዎ ፍጥነት።",
-  "onboarding.learn_title": "መማር",
-  "onboarding.subtitle": "ይማሩ፣ ያደራጁ እና ይወያዩ — እርስዎን የሚያስታውስ AI ጋር።",
+  "onboarding.learn_body": "ቋንቋ እዚህ ይማሩ። ያመለጡዎትን ቃላት ይከተላል።",
+  "onboarding.learn_title": "ይሻሻሉ",
+  "onboarding.subtitle": "የእርስዎ AI። ከመጀመሪያ አይጀምርም።",
   "onboarding.welcome": "እንኳን ወደ ሪኮል መጡ",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -933,8 +932,8 @@
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
   "chat.math_keyboard_caret_right": "Move cursor right",
-  "onboarding.chat_title": "ውይይት",
-  "onboarding.chat_body": "ማንኛውንም ይጠይቁ። እርስዎን ያስታውሳል።",
-  "onboarding.lists_title": "ዝርዝሮች እና ማስታወሻዎች",
-  "onboarding.lists_body": "ዝርዝሮች እና ቀናት — ካቀናበሩ የቀን መቁጠሪያ እና ኢሜይል።"
+  "onboarding.chat_title": "ማንኛውንም ይጠይቁ",
+  "onboarding.chat_body": "ከባድ ጥያቄ። ቋንቋ። የቤት ስራ። አንድ ውይይት።",
+  "onboarding.remember_title": "ይከተላል",
+  "onboarding.remember_body": "ነገ ምን እየሰሩ እንደሆነ አሁንም ያውቃል።"
 }

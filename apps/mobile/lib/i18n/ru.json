@@ -315,7 +315,6 @@
   "login.google_unavailable_title": "Используйте приложение Recall",
   "login.highlight_learn": "Учиться",
   "login.highlight_organize": "Организовать",
-  "login.highlight_remember": "Помнит вас",
   "login.or_dev": "или для локальной разработки",
   "login.privacy": "Конфиденциальность",
   "login.sign_in_failed": "Не удалось войти",
@@ -346,9 +345,9 @@
   "notifications.todo_reminder_body": "{{content}} — к {{time}}",
   "notifications.todo_reminder_title": "Напоминание",
   "onboarding.get_started": "Начать",
-  "onboarding.learn_body": "Языки и викторины — в вашем темпе.",
-  "onboarding.learn_title": "Учиться",
-  "onboarding.subtitle": "Учитесь, организуйтесь и общайтесь — с ИИ, который помнит вас.",
+  "onboarding.learn_body": "Учите язык здесь. Оно следует за словами, которые вы упускаете.",
+  "onboarding.learn_title": "Становитесь лучше",
+  "onboarding.subtitle": "Ваш ИИ. Он не начинает с нуля.",
   "onboarding.welcome": "Добро пожаловать в Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -933,8 +932,8 @@
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
   "chat.math_keyboard_caret_right": "Move cursor right",
-  "onboarding.chat_title": "Чат",
-  "onboarding.chat_body": "Спросите что угодно. Он помнит вас.",
-  "onboarding.lists_title": "Списки и напоминания",
-  "onboarding.lists_body": "Списки и сроки — календарь и почта, когда подключите."
+  "onboarding.chat_title": "Спросите что угодно",
+  "onboarding.chat_body": "Сложный вопрос. Язык. Домашка. Один разговор.",
+  "onboarding.remember_title": "Он не отстаёт",
+  "onboarding.remember_body": "Завтра он всё ещё знает, над чем вы работаете."
 }

@@ -315,7 +315,6 @@
   "login.google_unavailable_title": "Recall uygulamasını kullanın",
   "login.highlight_learn": "Öğren",
   "login.highlight_organize": "Düzenle",
-  "login.highlight_remember": "Seni hatırlar",
   "login.or_dev": "veya yerel geliştirme için",
   "login.privacy": "Gizlilik",
   "login.sign_in_failed": "Giriş başarısız",
@@ -346,9 +345,9 @@
   "notifications.todo_reminder_body": "{{content}} — saat {{time}}",
   "notifications.todo_reminder_title": "Hatırlatma",
   "onboarding.get_started": "Başla",
-  "onboarding.learn_body": "Diller ve quizler, senin hızında.",
-  "onboarding.learn_title": "Öğren",
-  "onboarding.subtitle": "Öğren, düzenle ve sohbet et — seni hatırlayan bir yapay zekâ ile.",
+  "onboarding.learn_body": "Burada bir dil çalış. Kaçırdığın kelimeleri takip eder.",
+  "onboarding.learn_title": "İlerle",
+  "onboarding.subtitle": "Senin yapay zekân. Baştan başlamaz.",
   "onboarding.welcome": "Recall'a hoş geldin",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -933,8 +932,8 @@
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
   "chat.math_keyboard_caret_right": "Move cursor right",
-  "onboarding.chat_title": "Sohbet",
-  "onboarding.chat_body": "Ne istersen sor. Seni hatırlar.",
-  "onboarding.lists_title": "Listeler ve hatırlatıcılar",
-  "onboarding.lists_body": "Listeler ve saatler — bağladığında takvim ve e-posta."
+  "onboarding.chat_title": "Ne istersen sor",
+  "onboarding.chat_body": "Zor bir soru. Bir dil. Ödev. Aynı sohbet.",
+  "onboarding.remember_title": "Ayak uydurur",
+  "onboarding.remember_body": "Yarın hâlâ ne üzerinde çalıştığını bilir."
 }
