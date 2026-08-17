@@ -107,7 +107,6 @@ function makeStyles(theme: Theme) {
     badgeStar: { fontSize: 30, color: theme.onPrimary },
     title: {
       ...Type.display,
-      fontWeight: "800",
       color: theme.text,
       letterSpacing: -0.5,
     },

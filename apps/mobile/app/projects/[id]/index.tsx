@@ -468,7 +468,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 4,
     },
-    statValue: { ...Type.title, fontSize: 22, fontWeight: "800", color: theme.text },
+    statValue: { ...Type.title, fontSize: 22, fontWeight: "700", color: theme.text },
     statHighlight: { color: theme.primary },
     statLabel: { fontSize: 11, fontWeight: "600", color: theme.textSecondary, textAlign: "center" },
     listSection: {

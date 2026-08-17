@@ -47,7 +47,7 @@ export function makeConversationListStyles(theme: Theme) {
     logo: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     logoText: {
       fontSize: 20,
-      fontWeight: "800",
+      fontWeight: "700",
       color: theme.text,
       letterSpacing: -0.5,
     },

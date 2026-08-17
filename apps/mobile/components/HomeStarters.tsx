@@ -305,7 +305,7 @@ function makeStyles(t: Theme) {
     wrap: { width: "100%", paddingHorizontal: 20, gap: 12 },
     greeting: {
       fontSize: 26,
-      fontWeight: "800",
+      fontWeight: "700",
       color: t.text,
       textAlign: "center",
       letterSpacing: -0.5,
