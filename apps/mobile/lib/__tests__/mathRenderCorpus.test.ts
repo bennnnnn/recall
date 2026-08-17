@@ -110,3 +110,57 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
     expect(prepared).toContain("$$");
   });
 });
+
+describe("real-world inline math corpus (full pipeline, never raw \\cmd)", () => {
+  // Each entry is a sentence with one inline `$...$` span. After preprocess →
+  // markdown-it → splitInlineMath → native parse, the rendered plain text
+  // must contain NO leftover `\command` (the "raw LaTeX on screen" bug) and,
+  // where noted, must contain the expected glyph. These are the constructs
+  // that previously leaked and the common homework forms most likely to.
+  const corpus: Array<{ name: string; input: string; expect?: string }> = [
+    { name: "sized delimiters", input: "Group $\\bigl(x+1\\bigr)$ first." , expect: "(x+1)" },
+    { name: "sized brackets", input: "Use $\\Bigl[x+1\\Bigr]$ now." , expect: "[x+1]" },
+    { name: "big cup", input: "The union $\\bigcup_{i=1}^{n} A_i$ is finite.", expect: "∬" },
+    { name: "contour integral", input: "By $\\oint_C F\\,dr$ we get 0.", expect: "∮" },
+    { name: "double integral", input: "So $\\iint_D f\\,dA$ works.", expect: "∬" },
+    { name: "direct sum", input: "Note $\\oplus A$ is direct.", expect: "⊕" },
+    { name: "overset equals", input: "Then $a \\overset{\\text{def}}{=} b$.", expect: "=" },
+    { name: "stackrel", input: "And $x \\stackrel{!}{=} y$ here.", expect: "=" },
+    { name: "color unwrap", input: "Red $\\color{red}{x+1}$ shows.", expect: "x+1" },
+    { name: "textcolor unwrap", input: "Blue $\\textcolor{blue}{y}$ too.", expect: "y" },
+    { name: "therefore", input: "So $\\therefore x = 1$.", expect: "∴" },
+    { name: "because", input: "Since $\\because y = 0$.", expect: "∵" },
+    { name: "bmod", input: "Compute $a \\bmod b$ now.", expect: "mod" },
+    { name: "pmod", input: "Same $x \\pmod{7}$ here.", expect: "(mod 7)" },
+    { name: "smallmatrix", input: "Matrix $\\begin{smallmatrix}1&2\\\\3&4\\end{smallmatrix}$.", expect: "1, 2; 3, 4" },
+    { name: "Bmatrix", input: "Set $\\begin{Bmatrix}1&2\\\\3&4\\end{Bmatrix}$.", expect: "{1, 2; 3, 4}" },
+    { name: "array with colspec", input: "Tab $\\begin{array}{cc}1&2\\\\3&4\\end{array}$.", expect: "1 2;  3 4" },
+    { name: "substack", input: "Sum $\\sum_{\\substack{i=1\\\\i\\ne 2}}^{n} i$." , expect: ";" },
+    { name: "quadratic", input: "Roots $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$." },
+    { name: "sum identity", input: "Know $\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}$." },
+    { name: "definite integral", input: "So $\\int_0^1 x^2\\,dx = \\frac{1}{3}$." },
+    { name: "famous limit", input: "And $\\lim_{x\\to 0} \\frac{\\sin x}{x} = 1$." },
+    { name: "reals", input: "On $\\mathbb{R}$ it holds." , expect: "ℝ" },
+    { name: "epsilon delta", input: "For $\\forall \\epsilon > 0, \\exists \\delta > 0$." },
+    { name: "vector", input: "Let $\\vec{v} = \\langle 1,2,3\\rangle$." },
+    { name: "repeating decimal", input: "Note $\\overline{0.714285}$ repeats." },
+    { name: "cube root", input: "Since $\\sqrt[3]{8} = 2$." },
+    { name: "binom", input: "Use $\\binom{n}{k} = \\frac{n!}{k!(n-k)!}$." },
+    { name: "sized parens", input: "Wrap $\\left(\\frac{1}{2}\\right)$." },
+    { name: "interval", input: "On $x \\in [0,1]$ only." },
+  ];
+
+  for (const { name, input, expect: expected } of corpus) {
+    it(name, () => {
+      const spans = mathSpansAfterPreprocess(input);
+      expect(spans.length).toBeGreaterThanOrEqual(1);
+      for (const span of spans) {
+        const rendered = readableLatexFallback(span);
+        // The core invariant: no leftover `\command` paints as raw LaTeX.
+        expect(rendered).not.toMatch(BACKSLASH_CMD);
+        expect(rendered).not.toContain("\\begin");
+        if (expected) expect(rendered).toContain(expected);
+      }
+    });
+  }
+});
