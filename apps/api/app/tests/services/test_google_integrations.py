@@ -193,6 +193,10 @@ async def test_connect_calendar_rejects_missing_calendar_readonly_scope():
 
     with (
         patch(
+            "app.services.google_integrations.google_calendar_gateway.is_configured",
+            return_value=True,
+        ),
+        patch(
             "app.services.google_integrations.exchange_server_auth_code",
             AsyncMock(return_value=token_data),
         ),
@@ -238,6 +242,10 @@ async def test_connect_calendar_accepts_calendar_readonly_scope():
     }
 
     with (
+        patch(
+            "app.services.google_integrations.google_calendar_gateway.is_configured",
+            return_value=True,
+        ),
         patch(
             "app.services.google_integrations.exchange_server_auth_code",
             AsyncMock(return_value=token_data),
