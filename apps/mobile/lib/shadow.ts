@@ -62,3 +62,16 @@ export function shadowElevated(theme: Theme, level: ElevatedLevel): ViewStyle {
     elevation: 16,
   };
 }
+
+/** Branded colored glow — the one logo/card glow tinted with a theme color
+ *  (e.g. `theme.primary`). A named decision instead of an inline
+ *  `Platform.select` exception; matches the neutral helpers above. */
+export function shadowGlow(theme: Theme, color: string): ViewStyle {
+  return {
+    shadowColor: color,
+    shadowOpacity: theme.isDark ? 0.35 : 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  };
+}

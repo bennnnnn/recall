@@ -27,6 +27,7 @@ import { tap } from "@/lib/haptics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Space } from "@/lib/space";
+import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -330,15 +331,7 @@ function makeStyles(theme: Theme) {
     logoGlow: {
       borderRadius: 28,
       marginBottom: 20,
-      ...Platform.select({
-        ios: {
-          shadowColor: theme.primary,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: theme.isDark ? 0.35 : 0.28,
-          shadowRadius: 18,
-        },
-        android: { elevation: 8 },
-      }),
+      ...shadowGlow(theme, theme.primary),
     },
     logo: {
       width: 88,
