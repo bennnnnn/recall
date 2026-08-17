@@ -185,6 +185,8 @@
   "chat.status.composing_3": "Rédaction en cours…",
   "chat.status.image_gen": "Création de l'image",
   "chat.status.image_gen_1": "Ajout des détails…",
+  "chat.image_gen_canceled": "Génération d'image annulée",
+  "chat.image_gen_failed": "Impossible de créer l'image",
   "chat.status.loading_calendar": "Consultation de votre calendrier…",
   "chat.status.loading_calendar_1": "Chargement de votre agenda…",
   "chat.status.preparing": "Préparation…",

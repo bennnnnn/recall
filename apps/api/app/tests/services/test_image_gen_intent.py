@@ -14,6 +14,7 @@ from app.services.image_gen_intent import (
     ("text", "expected"),
     [
         ("Create a cat pic", "cat"),
+        ("create a cat image", "cat"),
         ("draw me a dog", "dog"),
         ("draw a dog", "dog"),
         ("generate image of sunset over mountains", "sunset over mountains"),
@@ -106,3 +107,17 @@ def test_image_gen_revision_context_finds_prior_subject() -> None:
     )
     assert last_only is True
     assert subject == "black cat"
+
+
+def test_image_gen_revision_context_reads_original_wording() -> None:
+    last_only, subject = image_gen_revision_context(
+        [
+            {"role": "user", "content": "create a cat image"},
+            {
+                "role": "assistant",
+                "content": "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+            },
+        ]
+    )
+    assert last_only is True
+    assert subject == "cat"

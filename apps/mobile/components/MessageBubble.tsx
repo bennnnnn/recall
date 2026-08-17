@@ -52,6 +52,7 @@ type Props = {
   highlighted?: boolean;
   isSending?: boolean;
   onQuizAnswer?: (letter: string) => void;
+  onRetryImageGen?: () => void;
 };
 
 async function copyText(text: string) {
@@ -319,6 +320,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   highlighted = false,
   isSending = false,
   onQuizAnswer,
+  onRetryImageGen,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -390,6 +392,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     (holdStreamLayout ? message.reasoning_preview?.trim() : "") ||
     "";
   const showReasoning = !isUser && reasoningText.length > 0;
+  const imageGenFailure = message.image_gen_failure;
   const showWaitingIndicator = shouldShowWaitingIndicator({ isStreaming, hasContent, showReasoning });
   const statusLabel = useRotatingStreamStatus(
     streamStatus,
@@ -455,7 +458,19 @@ export const MessageBubble = React.memo(function MessageBubble({
             enabled={!layoutFrozen && hasContent}
             collapsible={false}
           >
-            {showWaitingIndicator ? (
+            {imageGenFailure ? (
+              <View style={b.imageGenWaitingWrap}>
+                <ImageGenPlaceholder
+                  outcome={imageGenFailure}
+                  statusText={
+                    imageGenFailure === "canceled"
+                      ? t("chat.image_gen_canceled")
+                      : message.image_gen_error?.trim() || t("chat.image_gen_failed")
+                  }
+                  onRetry={onRetryImageGen}
+                />
+              </View>
+            ) : showWaitingIndicator ? (
               streamStatus === "image_gen" ? (
                 <View style={b.imageGenWaitingWrap}>
                   <ImageGenPlaceholder statusText={statusLabel} />
@@ -522,7 +537,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         </View>
       )}
 
-      {showActionSlot ? (
+      {showActionSlot && !imageGenFailure ? (
         <View style={b.actionRowSlot}>
           <AssistantActions
             messageId={message.id}

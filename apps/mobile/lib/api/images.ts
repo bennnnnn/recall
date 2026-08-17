@@ -9,7 +9,12 @@ export type ImageGenerateResult = {
 export const imagesApi = {
   generateImage: (
     token: string,
-    body: { chat_id: string; prompt: string; aspect_ratio?: string | null },
+    body: {
+      chat_id: string;
+      prompt: string;
+      user_message?: string | null;
+      aspect_ratio?: string | null;
+    },
     init?: RequestInit,
   ) =>
     request<ImageGenerateResult>(

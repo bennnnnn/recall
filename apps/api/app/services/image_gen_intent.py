@@ -399,11 +399,11 @@ _NON_REVISION = frozenset(
 
 
 def subject_from_image_gen_user_message(content: str) -> str | None:
-    """Subject from a prior ``Generate image: …`` user bubble, if any."""
+    """Subject from a prior image-gen user bubble (legacy prefix or natural wording)."""
     trimmed = content.strip()
-    if not trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
-        return None
-    return _clean_prompt(trimmed[len(_USER_MESSAGE_PREFIX) :])
+    if trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
+        return _clean_prompt(trimmed[len(_USER_MESSAGE_PREFIX) :])
+    return extract_image_gen_prompt(trimmed)
 
 
 def is_image_only_assistant_content(content: str) -> bool:

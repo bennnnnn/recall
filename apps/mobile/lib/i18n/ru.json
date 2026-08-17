@@ -185,6 +185,8 @@
   "chat.status.composing_3": "Печатаю ответ…",
   "chat.status.image_gen": "Создаю изображение",
   "chat.status.image_gen_1": "Прорисовываю детали…",
+  "chat.image_gen_canceled": "Создание изображения отменено",
+  "chat.image_gen_failed": "Не удалось создать изображение",
   "chat.status.loading_calendar": "Проверяю календарь…",
   "chat.status.loading_calendar_1": "Загружаю расписание…",
   "chat.status.preparing": "Подготовка…",

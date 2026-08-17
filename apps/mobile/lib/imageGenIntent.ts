@@ -6,19 +6,16 @@
 import { parseMessageImages } from "@/lib/messageAttachments";
 
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
+export const IMAGE_GEN_FAILED_ASSISTANT_ID = "image-gen-failed";
 export const IMAGE_GEN_USER_PREFIX = "Generate image: ";
 
-export function imageGenUserMessageContent(prompt: string): string {
-  return `${IMAGE_GEN_USER_PREFIX}${prompt}`;
-}
-
-/** Subject from a prior "Generate image: …" user bubble, if any. */
+/** Subject from a prior image-gen user bubble (legacy prefix or natural wording). */
 export function subjectFromImageGenUserMessage(content: string): string | null {
   const trimmed = content.trim();
-  if (!trimmed.toLowerCase().startsWith(IMAGE_GEN_USER_PREFIX.toLowerCase())) {
-    return null;
+  if (trimmed.toLowerCase().startsWith(IMAGE_GEN_USER_PREFIX.toLowerCase())) {
+    return cleanPrompt(trimmed.slice(IMAGE_GEN_USER_PREFIX.length));
   }
-  return cleanPrompt(trimmed.slice(IMAGE_GEN_USER_PREFIX.length));
+  return extractImageGenPrompt(trimmed);
 }
 
 /** True when the assistant bubble is only an `[Image: …]` marker (no prose). */
@@ -71,6 +68,7 @@ export function imageGenRevisionContext(
     if (
       row.id === "streaming" ||
       row.id === IMAGE_GEN_PENDING_ASSISTANT_ID ||
+      row.id === IMAGE_GEN_FAILED_ASSISTANT_ID ||
       row.id.startsWith("local-")
     ) {
       continue;

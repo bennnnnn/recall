@@ -128,6 +128,7 @@ class TitleGenerationResult(BaseModel):
 class ImageGenerateIn(BaseModel):
     chat_id: UUID
     prompt: str = Field(min_length=1, max_length=2000)
+    user_message: str | None = Field(default=None, max_length=2000)
     aspect_ratio: str | None = Field(default=None, max_length=16)
 
 
