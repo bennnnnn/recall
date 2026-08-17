@@ -25,7 +25,7 @@ import {
   translateScanRegion,
   type ScanRegion,
 } from "@/lib/mathScannerRegion";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
   visible: boolean;
@@ -237,7 +237,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         accessibilityRole="button"
         accessibilityLabel={t("common.close")}
       >
-        <Ionicons name="close" size={28} color="#fff" />
+          <Ionicons name="close" size={28} color={theme.onMedia} />
       </Pressable>
       <Pressable
         style={[s.resetBtn, { top: insets.top + 8 }]}
@@ -246,7 +246,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         accessibilityRole="button"
         accessibilityLabel={t("chat.math_scan_reset_a11y")}
       >
-        <Ionicons name="scan-outline" size={20} color="#fff" />
+        <Ionicons name="scan-outline" size={20} color={theme.onMedia} />
       </Pressable>
       <View style={[s.hintWrap, { top: insets.top + 56 }]}>
         <Text style={s.hint}>{t("chat.math_scan_hint")}</Text>
@@ -294,7 +294,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: {
       flex: 1,
-      backgroundColor: "#000",
+      backgroundColor: theme.mediaScrim,
     },
     // Camera + crop gesture sit in their own layer below the overlay controls.
     cameraLayer: {
@@ -316,7 +316,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.55)",
+      backgroundColor: withAlpha(theme.mediaScrim, 0.55),
     },
     resetBtn: {
       position: "absolute",
@@ -326,18 +326,18 @@ function makeStyles(theme: Theme) {
       borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.55)",
+      backgroundColor: withAlpha(theme.mediaScrim, 0.55),
     },
     maskLayer: {
       ...StyleSheet.absoluteFill,
     },
     mask: {
       position: "absolute",
-      backgroundColor: "rgba(0,0,0,0.7)",
+      backgroundColor: withAlpha(theme.mediaScrim, 0.7),
     },
     region: {
       position: "absolute",
-      borderColor: "rgba(255,255,255,0.9)",
+      borderColor: withAlpha(theme.onMedia, 0.9),
       borderWidth: StyleSheet.hairlineWidth,
       borderRadius: 10,
       backgroundColor: "transparent",
@@ -349,14 +349,14 @@ function makeStyles(theme: Theme) {
     hintWrap: {
       position: "absolute",
       alignSelf: "center",
-      backgroundColor: "rgba(0,0,0,0.55)",
+      backgroundColor: withAlpha(theme.mediaScrim, 0.55),
       borderRadius: 14,
       paddingHorizontal: 14,
       paddingVertical: 7,
       zIndex: 10,
     },
     hint: {
-      color: "#fff",
+      color: theme.onMedia,
       fontSize: 14,
       fontWeight: "600",
       textAlign: "center",
@@ -366,7 +366,7 @@ function makeStyles(theme: Theme) {
       bottom: 140,
       alignSelf: "center",
       color: theme.danger,
-      backgroundColor: "rgba(0,0,0,0.65)",
+      backgroundColor: withAlpha(theme.mediaScrim, 0.65),
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 8,
@@ -386,16 +386,16 @@ function makeStyles(theme: Theme) {
       height: 76,
       borderRadius: 38,
       borderWidth: 4,
-      borderColor: "#fff",
+      borderColor: theme.onMedia,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.18)",
+      backgroundColor: withAlpha(theme.onMedia, 0.18),
     },
     shutterInner: {
       width: 60,
       height: 60,
       borderRadius: 30,
-      backgroundColor: "#fff",
+      backgroundColor: theme.onMedia,
     },
     center: {
       flex: 1,
@@ -405,7 +405,7 @@ function makeStyles(theme: Theme) {
       gap: 16,
     },
     permissionText: {
-      color: "#fff",
+      color: theme.onMedia,
       fontSize: 16,
       textAlign: "center",
       lineHeight: 22,

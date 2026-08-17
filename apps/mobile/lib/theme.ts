@@ -66,6 +66,12 @@ export type Theme = {
   // Overlays
   scrim: string;
 
+  // Media surfaces (camera scanner, attachment viewer) — scheme-invariant.
+  // Camera chrome must not invert: white ink reads on a live camera feed in
+  // both light and dark, and the crop mask is always a dark overlay.
+  onMedia: string;
+  mediaScrim: string;
+
   // Brand identity colors (constant across schemes — logos never invert)
   brand: {
     twitter: string;
@@ -128,6 +134,9 @@ export const lightTheme: Theme = {
 
   scrim: "rgba(0,0,0,0.40)",
 
+  onMedia: "#FFFFFF",
+  mediaScrim: "#000000",
+
   brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
@@ -175,6 +184,9 @@ export const darkTheme: Theme = {
   codeLang: "#8E8E93",
 
   scrim: "rgba(0,0,0,0.60)",
+
+  onMedia: "#FFFFFF",
+  mediaScrim: "#000000",
 
   brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", apple: "#000000", appleInk: "#FFFFFF" },
 };
