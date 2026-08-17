@@ -140,6 +140,15 @@ async def connect_calendar(
     user: User,
     server_auth_code: str,
 ) -> CalendarConnectResult:
+    # Gate the whole connect path on the feature flag + client creds, mirroring
+    # Gmail's `exchange_gmail_auth_code` is_configured check. Without this, a
+    # deployment that disabled google_calendar_enabled still accepted connects
+    # and stored rows that every later fetch would reject — a connected-but-
+    # broken state with no in-app signal that the feature is off.
+    if not google_calendar_gateway.is_configured(settings):
+        raise GoogleConnectError(
+            "Calendar integration is not available. Contact support if this is unexpected."
+        )
     try:
         token_data = await exchange_server_auth_code(settings, server_auth_code)
     except GoogleCalendarError as exc:
