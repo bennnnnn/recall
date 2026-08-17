@@ -26,7 +26,7 @@ export function StackBackButton({ fallback = "/" }: Props) {
       accessibilityRole="button"
       accessibilityLabel={t("common.back")}
     >
-      <Ionicons name="chevron-back" size={24} color={theme.primary} />
+      <Ionicons name="chevron-back" size={24} color={theme.text} />
     </Pressable>
   );
 }

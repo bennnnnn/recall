@@ -14,19 +14,8 @@ import { Space } from "@/lib/space";
 import { Theme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-export type SettingsIconTone = "primary" | "accent" | "success" | "warning";
-
-function iconToneColors(theme: Theme, tone: SettingsIconTone) {
-  switch (tone) {
-    case "accent":
-      return { fg: theme.accent, bg: theme.accentLight };
-    case "success":
-      return { fg: theme.success, bg: theme.successLight };
-    case "warning":
-      return { fg: theme.warning, bg: withAlpha(theme.warning, 0.16) };
-    default:
-      return { fg: theme.primary, bg: theme.primaryLight };
-  }
+function rowIconColor(theme: Theme, danger?: boolean) {
+  return danger ? theme.danger : theme.text;
 }
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
@@ -50,7 +39,6 @@ export function SettingsGroup({
 
 function SettingsRowChrome({
   icon,
-  iconTone = "primary",
   title,
   subtitle,
   value,
@@ -60,7 +48,6 @@ function SettingsRowChrome({
   theme,
 }: {
   icon?: keyof typeof Ionicons.glyphMap;
-  iconTone?: SettingsIconTone;
   title: string;
   subtitle?: string;
   value?: string;
@@ -69,15 +56,10 @@ function SettingsRowChrome({
   styles: SettingsStyles;
   theme: Theme;
 }) {
-  const tone = danger
-    ? { fg: theme.danger, bg: theme.dangerLight }
-    : iconToneColors(theme, iconTone);
   return (
     <>
       {icon ? (
-        <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
-          <Ionicons name={icon} size={18} color={tone.fg} />
-        </View>
+        <Ionicons name={icon} size={20} color={rowIconColor(theme, danger)} />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>
@@ -108,7 +90,6 @@ export function SettingsLinkRow({
   subtitle,
   value,
   icon,
-  iconTone,
   danger,
   onPress,
   styles,
@@ -118,7 +99,6 @@ export function SettingsLinkRow({
   subtitle?: string;
   value?: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  iconTone?: SettingsIconTone;
   danger?: boolean;
   onPress: () => void;
   styles: SettingsStyles;
@@ -132,7 +112,6 @@ export function SettingsLinkRow({
     >
       <SettingsRowChrome
         icon={icon}
-        iconTone={iconTone}
         title={title}
         subtitle={subtitle}
         value={value}
@@ -150,7 +129,6 @@ export function SettingsValueRow({
   subtitle,
   value,
   icon,
-  iconTone,
   styles,
   theme,
 }: {
@@ -158,7 +136,6 @@ export function SettingsValueRow({
   subtitle?: string;
   value?: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  iconTone?: SettingsIconTone;
   styles: SettingsStyles;
   theme: Theme;
 }) {
@@ -166,7 +143,6 @@ export function SettingsValueRow({
     <View style={styles.menuRow} accessibilityRole="text">
       <SettingsRowChrome
         icon={icon}
-        iconTone={iconTone}
         title={title}
         subtitle={subtitle}
         value={value}
@@ -268,7 +244,6 @@ export function SettingsSwitchRow({
   title,
   subtitle,
   icon,
-  iconTone,
   value,
   disabled,
   onValueChange,
@@ -278,20 +253,16 @@ export function SettingsSwitchRow({
   title: string;
   subtitle?: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  iconTone?: SettingsIconTone;
   value: boolean;
   disabled?: boolean;
   onValueChange: (next: boolean) => void;
   styles: SettingsStyles;
   theme: Theme;
 }) {
-  const tone = iconToneColors(theme, iconTone ?? "primary");
   return (
     <View style={styles.menuRow}>
       {icon ? (
-        <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
-          <Ionicons name={icon} size={18} color={tone.fg} />
-        </View>
+        <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -343,12 +314,9 @@ export function InfoRow({
   styles: SettingsStyles;
   theme: Theme;
 }) {
-  const tone = iconToneColors(theme, "primary");
   return (
     <View style={compact ? styles.menuRow : styles.row}>
-      <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
-        <Ionicons name={icon} size={18} color={tone.fg} />
-      </View>
+      <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.meta}>{value}</Text>
@@ -410,12 +378,9 @@ export function IntegrationPanel({
   collapsible?: boolean;
 }) {
   const showBody = !collapsible || expanded;
-  const tone = iconToneColors(theme, "primary");
   const header = (
     <>
-      <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
-        <Ionicons name={icon} size={18} color={tone.fg} />
-      </View>
+      <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
@@ -484,7 +449,7 @@ export function AccordionSection({
       <Text style={styles.sectionLabel}>{label}</Text>
       <View style={styles.group}>
         <Pressable style={styles.accordionHeader} onPress={onToggle}>
-          <Ionicons name={icon} size={19} color={theme.primary} />
+          <Ionicons name={icon} size={20} color={rowIconColor(theme)} />
           <View style={styles.rowBody}>
             <Text style={styles.meta}>
               {count > 0 ? String(count) : emptyText}
@@ -574,18 +539,7 @@ export function NavRow({
       onPress={onPress}
       accessibilityRole="button"
     >
-      <View
-        style={[
-          styles.iconWell,
-          { backgroundColor: danger ? theme.dangerLight : theme.primaryLight },
-        ]}
-      >
-        <Ionicons
-          name={icon}
-          size={18}
-          color={danger ? theme.danger : theme.primary}
-        />
-      </View>
+      <Ionicons name={icon} size={20} color={rowIconColor(theme, danger)} />
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
@@ -667,14 +621,6 @@ export function makeSettingsStyles(t: Theme) {
     },
     planPillTextPro: { color: t.warning },
     accountPro: { color: t.warning },
-    iconWell: {
-      width: 32,
-      height: 32,
-      borderRadius: Radius.xs,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-
     section: { marginTop: Space.lg },
     sectionLabel: {
       ...Type.caption,
@@ -865,7 +811,7 @@ export function makeSettingsStyles(t: Theme) {
     },
     integrationBody: {
       marginTop: 4,
-      paddingLeft: 58,
+      paddingLeft: 46,
       paddingRight: 14,
       paddingBottom: 12,
       gap: 8,
@@ -930,7 +876,7 @@ export function makeSettingsStyles(t: Theme) {
       marginLeft: 14,
     },
     menuSeparatorWithIcon: {
-      marginLeft: 58,
+      marginLeft: 46,
     },
 
     mKeyboardAvoider: { flex: 1 },

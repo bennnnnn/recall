@@ -10,7 +10,7 @@ export function stackHeaderOptions(theme: Theme) {
       color: theme.text,
     },
     headerShadowVisible: false,
-    headerTintColor: theme.primary,
+    headerTintColor: theme.text,
     headerBackTitle: "",
     headerBackTitleVisible: false,
   } as const;
