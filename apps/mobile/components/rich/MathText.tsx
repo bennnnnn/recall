@@ -14,6 +14,9 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = {
   latex: string;
   textColor?: string;
+  /** Tight line box — for hosts that draw their own rule above the content
+   * (the composer radicand slot), where base leading pushes ink off the bar. */
+  compact?: boolean;
 };
 
 type Styles = ReturnType<typeof makeStyles>;
@@ -27,6 +30,10 @@ function isAtomicToken(plain: string): boolean {
 const FRAC_CHAR_PX = 9;
 const FRAC_PAD_PX = 14;
 const FRAC_STACK_HEIGHT = 40;
+/** Radical sign and radicand share this tight line box so the vinculum (drawn
+ * as the radicand's top border) lands on the √ hook. With the base 28px line
+ * box the bar floats in the leading, well above both the hook and the digits. */
+const SQRT_LINE_HEIGHT = 20;
 
 /** SpaceMono has no (or a broken) U+2260 — fallback looks like slashed ≡. */
 const MATH_OPERATOR_CHARS = new Set(
@@ -92,6 +99,19 @@ function hasTallMath(segments: MathSegment[]): boolean {
   return false;
 }
 
+type RenderCtx = {
+  styles: Styles;
+  /** Fraction-sized run — numerator/denominator content stays small. */
+  inFrac?: boolean;
+  /** Overrides the run style for the whole subtree (radicand line box). */
+  textStyle?: object;
+};
+
+function runStyle(ctx: RenderCtx): object {
+  if (ctx.textStyle) return ctx.textStyle;
+  return ctx.inFrac ? ctx.styles.fracPart : ctx.styles.base;
+}
+
 function renderFracSide(
   segments: MathSegment[],
   keyPrefix: string,
@@ -105,7 +125,7 @@ function renderFracSide(
     return (
       <View style={styles.fracSideRow}>
         {paren ? <Text style={styles.fracPart}>(</Text> : null}
-        {renderSegments(segments, keyPrefix, styles, true)}
+        {renderSegments(segments, keyPrefix, { styles, inFrac: true })}
         {paren ? <Text style={styles.fracPart}>)</Text> : null}
       </View>
     );
@@ -118,13 +138,38 @@ function renderFracSide(
   );
 }
 
+/**
+ * Radicand keeps the surrounding text size. Reusing the fraction-sized side
+ * renderer made `\sqrt{8}` read as a subscript, and its plain-text flattening
+ * leaked scripts as literal `8^3`. Nested stacks still take the flattened /
+ * View path — a View cannot live inside the Text that gives the tight box.
+ */
+function renderRadicand(
+  segments: MathSegment[],
+  keyPrefix: string,
+  ctx: RenderCtx,
+): ReactNode {
+  const { styles } = ctx;
+  const nested = segments.some((s) => s.type === "frac" || s.type === "sqrt");
+  if (ctx.inFrac || nested) {
+    return renderFracSide(segments, keyPrefix, styles, false);
+  }
+  return (
+    <Text style={styles.sqrtBody}>
+      {renderSegments(segments, keyPrefix, {
+        styles,
+        textStyle: styles.sqrtBody,
+      })}
+    </Text>
+  );
+}
+
 function renderSegments(
   segments: MathSegment[],
   keyPrefix: string,
-  styles: Styles,
-  inFrac = false,
-  _asBox = false,
+  ctx: RenderCtx,
 ): ReactNode[] {
+  const { styles, inFrac } = ctx;
   return segments.map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
     if (seg.type === "sup") {
@@ -174,26 +219,24 @@ function renderSegments(
           {seg.degree ? (
             <Text style={styles.sqrtIndex}>{seg.degree}</Text>
           ) : null}
-          <Text style={inFrac ? styles.fracPart : styles.base}>√</Text>
+          <Text style={inFrac ? styles.fracPart : styles.sqrtSign}>√</Text>
           <View style={styles.sqrtRadicand} testID="math-sqrt-radicand">
-            {renderFracSide(seg.body, `${key}-b`, styles, false)}
+            {renderRadicand(seg.body, `${key}-b`, ctx)}
           </View>
         </View>
       );
     }
-    return renderMathRun(
-      seg.value,
-      key,
-      inFrac ? styles.fracPart : styles.base,
-      styles.glyph,
-    );
+    return renderMathRun(seg.value, key, runStyle(ctx), styles.glyph);
   });
 }
 
 /** Inline math as native Text — must stay a Text node so it flows in paragraphs/lists. */
-export function MathText({ latex, textColor }: Props) {
+export function MathText({ latex, textColor, compact = false }: Props) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme, textColor), [theme, textColor]);
+  const styles = useMemo(
+    () => makeStyles(theme, textColor, compact),
+    [theme, textColor, compact],
+  );
   const segments = useMemo(
     () => parseSimpleLatex(fixImplicitExponents(latex.trim())),
     [latex],
@@ -213,25 +256,25 @@ export function MathText({ latex, textColor }: Props) {
         collapsable={false}
         style={[styles.tallRoot, size]}
       >
-        {renderSegments(segments, "m", styles, false, true)}
+        {renderSegments(segments, "m", { styles })}
       </View>
     );
   }
 
   return (
     <Text style={styles.base}>
-      {renderSegments(segments, "m", styles)}
+      {renderSegments(segments, "m", { styles })}
     </Text>
   );
 }
 
-const makeStyles = (theme: Theme, textColor?: string) => {
+const makeStyles = (theme: Theme, textColor?: string, compact = false) => {
   const color = textColor ?? theme.text;
   return StyleSheet.create({
     base: {
       fontFamily: CODE_FONT,
       fontSize: 16,
-      lineHeight: 28,
+      lineHeight: compact ? SQRT_LINE_HEIGHT : 28,
       color,
     },
     glyph: {
@@ -273,9 +316,12 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       color,
       textAlign: "center",
     },
+    // Tops share an edge: sign and radicand have the same line box, so the
+    // hook meets the bar. `flex-end` bottom-aligned a shorter radicand box and
+    // dropped it into subscript position.
     sqrtRow: {
       flexDirection: "row",
-      alignItems: "flex-end",
+      alignItems: "flex-start",
       marginHorizontal: 2,
     },
     sqrtAfterCoeff: {
@@ -287,7 +333,18 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       lineHeight: 12,
       color,
       marginRight: 1,
-      marginBottom: 10,
+    },
+    sqrtSign: {
+      fontFamily: CODE_FONT,
+      fontSize: 16,
+      lineHeight: SQRT_LINE_HEIGHT,
+      color,
+    },
+    sqrtBody: {
+      fontFamily: CODE_FONT,
+      fontSize: 16,
+      lineHeight: SQRT_LINE_HEIGHT,
+      color,
     },
     sqrtRadicand: {
       borderTopWidth: StyleSheet.hairlineWidth * 2,

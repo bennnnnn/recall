@@ -12,13 +12,21 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-- **Composer √ bar detached once a digit was typed.** Symptom: empty `\sqrt{}`
-  looked fine; `\sqrt{8}` left a gap between the hook and the overbar. Cause:
-  `MathDraftPreview` used `alignItems: "center"` while the filled slot jumped
-  to `MathText` `lineHeight` 28, so the Unicode `√` dropped below the
-  `borderTop` vinculum. Also `\cdot` ate `\cdots` → `·s` in factorial steps.
-  Fix: `sqrtRow` `flex-start` (hook stays on the bar); replace `\cdots` /
-  `\ldots` / `\dots` before `\cdot`.
+- **Radicals looked like `√` + subscript, and `\sqrt{8^3}` printed a caret.** The
+  radical is a row of `[√ Text][radicand View with borderTop]`, so it only holds
+  together when both sides share one line box and the bar sits on the ink. Three
+  causes stacked: (1) `MathText` fed the radicand to `renderFracSide`, i.e. 11px
+  fraction size, then `alignItems: "flex-end"` dropped that short box to the
+  baseline; (2) that same helper flattens with `segmentsToPlain`, which turns a
+  `sup` segment back into literal `^3`; (3) content kept the base `lineHeight`
+  28 while the sign was 20, so the border floated in the leading — 6px above
+  both the hook and the digits. Fix: `renderRadicand` renders real segments at
+  base size in a tight 20px box (`sqrtSign` / `sqrtBody`), `sqrtRow`
+  `flex-start`, nested frac/sqrt keep the flattened View path (a View cannot
+  live in that Text); `MathText compact` gives the composer slot the same box.
+  Fixing only the composer's `alignItems` (first attempt) left both bugs.
+  Related: `\cdot` ate `\cdots` → `·s`; replace `\cdots` / `\ldots` / `\dots`
+  before `\cdot`.
 - **CI `db_session` ERROR: Future attached to a different loop.** Symptom: `test_chats_db` (or any `*_db.py`) fails in fixture setup, not the test body. Cause: the process-wide async engine still holds asyncpg connections from TestClient/anyio or the previous pytest-asyncio function loop. Dispose-after-test is too late. Fix: `await engine.dispose(close=False)` at the **start** of `db_session` so setup never checks out a foreign-loop connection.
 - **Mic stop opened the drawer; New chat then focused the composer.** Parent
   `Gesture.Pan` used view-local `e.x` (~0 on a composer tap) so a mic press

@@ -173,6 +173,7 @@ function DraftPiece({
             caret={caret}
             testID="math-slot-sqrt"
             onMoveCaret={onMoveCaret}
+            compact
           />
         </View>
       </View>
@@ -234,12 +235,16 @@ function EditSlot({
   caret,
   testID,
   onMoveCaret,
+  compact = false,
 }: {
   text: string;
   group: LatexGroup;
   caret: number;
   testID: string;
   onMoveCaret?: (pos: number) => void;
+  /** Radicand slot: the bar is this slot's top border, so the content needs a
+   * tight line box or the digits hang well below it. */
+  compact?: boolean;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -271,7 +276,7 @@ function EditSlot({
       <View style={s.slotRow}>
         {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
         {inner ? (
-          <MathText latex={inner} textColor={theme.text} />
+          <MathText latex={inner} textColor={theme.text} compact={compact} />
         ) : active ? (
           <View style={s.placeholderActive}>
             <MathComposerCaret testID={`${testID}-caret`} />
