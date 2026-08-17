@@ -8,9 +8,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Icon } from "@/components/Icon";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
   SearchSource,
@@ -138,7 +138,7 @@ function SourceRow({
           </Text>
         ) : null}
       </View>
-      <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
+      <Icon name="open-outline" size={16} color={theme.textSecondary} />
     </Pressable>
   );
 }

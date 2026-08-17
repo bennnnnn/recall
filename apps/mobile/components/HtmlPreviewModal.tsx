@@ -17,10 +17,11 @@ import {
 } from "react-native";
 import RenderHtml from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
+import { type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
@@ -232,7 +233,7 @@ function ToolbarItem({
   theme,
   styles: s,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   label: string;
   onPress: () => void;
   active?: boolean;
@@ -248,7 +249,7 @@ function ToolbarItem({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
     >
-      <Ionicons
+      <Icon
         name={icon}
         size={24}
         color={active ? theme.primary : theme.textSecondary}
@@ -288,7 +289,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
       >
         {tab === "run" && interactive && !canUseNativeWebView ? (
           <View style={s.interactiveBanner}>
-            <Ionicons name="flash-outline" size={16} color={theme.primary} />
+            <Icon name="flash-outline" size={16} color={theme.primary} />
             <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
           </View>
         ) : null}

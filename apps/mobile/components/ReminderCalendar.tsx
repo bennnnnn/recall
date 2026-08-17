@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -75,7 +75,7 @@ export function ReminderCalendar({
           accessibilityRole="button"
           accessibilityLabel={t("calendar.prev_month")}
         >
-          <Ionicons name="chevron-back" size={20} color={theme.text} />
+          <Icon name="chevron-back" size={20} color={theme.text} />
         </Pressable>
         <Text style={s.monthLabel}>{monthLabel}</Text>
         <Pressable
@@ -84,7 +84,7 @@ export function ReminderCalendar({
           accessibilityRole="button"
           accessibilityLabel={t("calendar.next_month")}
         >
-          <Ionicons name="chevron-forward" size={20} color={theme.text} />
+          <Icon name="chevron-forward" size={20} color={theme.text} />
         </Pressable>
       </View>
 

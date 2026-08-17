@@ -1,14 +1,15 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
+import { type IoniconName } from "@/lib/icons";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type IconName = keyof typeof Ionicons.glyphMap;
+type IconName = IoniconName;
 
 type Props = {
   variant: "loading" | "error" | "empty";
@@ -49,7 +50,7 @@ export function StateView({
 
   return (
     <View style={s.wrap}>
-      <Ionicons
+      <Icon
         name={icon ?? defaultIcon}
         size={compact ? 32 : 48}
         color={theme.textTertiary}

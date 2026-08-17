@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
@@ -38,7 +38,7 @@ export function LinkPreviewCard({ url }: Props) {
   if (failed) {
     return (
       <Pressable style={s.wrap} onPress={open}>
-        <Ionicons name="link-outline" size={16} color={theme.primary} />
+        <Icon name="link-outline" size={16} color={theme.primary} />
         <Text style={s.url} numberOfLines={2}>
           {url}
         </Text>

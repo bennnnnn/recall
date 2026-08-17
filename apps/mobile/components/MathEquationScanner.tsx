@@ -10,12 +10,12 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
-import { Ionicons } from "@expo/vector-icons";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import type { PendingAttachment } from "@/lib/attachments";
 import {
   clampScanRegion,
@@ -237,7 +237,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         accessibilityRole="button"
         accessibilityLabel={t("common.close")}
       >
-          <Ionicons name="close" size={28} color={theme.onMedia} />
+          <Icon name="close" size={28} color={theme.onMedia} />
       </Pressable>
       <Pressable
         style={[s.resetBtn, { top: insets.top + 8 }]}
@@ -246,7 +246,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         accessibilityRole="button"
         accessibilityLabel={t("chat.math_scan_reset_a11y")}
       >
-        <Ionicons name="scan-outline" size={20} color={theme.onMedia} />
+        <Icon name="scan-outline" size={20} color={theme.onMedia} />
       </Pressable>
       <View style={[s.hintWrap, { top: insets.top + 56 }]}>
         <Text style={s.hint}>{t("chat.math_scan_hint")}</Text>
