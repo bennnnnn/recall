@@ -1,6 +1,6 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { MathConverterPad } from "@/components/chat/MathConverterPad";
@@ -117,7 +117,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           accessibilityLabel={t("chat.math_keyboard_caret_left")}
           testID="math-key-caret-left"
         >
-          <Ionicons name="chevron-back" size={18} color={theme.primary} />
+          <Icon name="chevron-back" size={18} color={theme.primary} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -129,7 +129,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           accessibilityLabel={t("chat.math_keyboard_caret_right")}
           testID="math-key-caret-right"
         >
-          <Ionicons name="chevron-forward" size={18} color={theme.primary} />
+          <Icon name="chevron-forward" size={18} color={theme.primary} />
         </Pressable>
         <Pressable
           onPress={onToggle}
@@ -289,7 +289,7 @@ function PadKey({
         theme={theme}
         accent
       >
-        <Ionicons name="backspace-outline" size={20} color={theme.text} />
+        <Icon name="backspace-outline" size={20} color={theme.text} />
       </KeyBtn>
     );
   }
