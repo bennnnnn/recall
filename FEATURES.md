@@ -279,6 +279,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
+- 🔜 **Flight-aware reminders** — parse confirmation mail (airline, flight number, departure)
+  into a suggested reminder (confirm before add, same as other Gmail suggestions). Later:
+  live status (delayed / cancelled / gate) from a flight API when the user asks. Not v1.
 
 ## 15. Code execution policy
 - ⚠️ **Sandboxed HTML/CSS/JS preview only** — `html` fences can be previewed/run in an isolated
@@ -325,6 +328,9 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 - ✅ **ICS invite parsing** — folded lines, `TZID` / all-day `VALUE=DATE`, location/description
   notes, cancelled events skipped (LLM fallback when no `.ics`).
 - 🔜 Richer sender templates, proactive chat nudges for email suggestions.
+- 🔜 **Flight confirmations** — extract airline + flight number + departure into the
+  suggested reminder (not a free-text “flight” title only). Live delay/cancel status is
+  a later flight-API step, not inbox guessing.
 
 **Privacy & UX** (unchanged intent)
 - Clear copy: what is read, how long it is kept, revoke = stop + delete tokens
@@ -490,7 +496,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
 | Messaging | Reactions, read receipts; duplex / live voice |
 | Models | User-tunable routing rules; response-cache / prompt-budget UI |
-| Todos | 1-hour-early email/push nudges beyond the local lead picker |
+| Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
 | Todos↔Learning | `project_id` on todo items exists in the API; mobile link/filter UI stays **off** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
