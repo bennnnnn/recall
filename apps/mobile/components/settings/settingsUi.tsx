@@ -223,14 +223,16 @@ export function SettingsInlinePicker({
           theme={theme}
         />
       </Pressable>
-      {expanded
-        ? options.map((option) => {
+      {expanded ? (
+        <View style={styles.inlineOptionWell}>
+          {options.map((option) => {
             const active = option.key === selectedKey;
             return (
               <Pressable
                 key={option.key}
                 style={({ pressed }) => [
                   styles.inlineOption,
+                  active && styles.inlineOptionActive,
                   pressed && styles.rowPressed,
                 ]}
                 disabled={disabled}
@@ -244,8 +246,8 @@ export function SettingsInlinePicker({
               >
                 <Text
                   style={[
-                    styles.pickerOptionText,
-                    active && styles.pickerOptionTextActive,
+                    styles.inlineOptionText,
+                    active && styles.inlineOptionTextActive,
                   ]}
                 >
                   {option.label}
@@ -255,8 +257,9 @@ export function SettingsInlinePicker({
                 ) : null}
               </Pressable>
             );
-          })
-        : null}
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -741,15 +744,32 @@ export function makeSettingsStyles(t: Theme) {
       letterSpacing: 0.6,
       marginBottom: 8,
     },
+    inlineOptionWell: {
+      marginHorizontal: 14,
+      marginBottom: 12,
+      backgroundColor: t.bg,
+      borderRadius: Radius.md,
+      overflow: "hidden",
+    },
     inlineOption: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: 12,
-      minHeight: 44,
-      paddingVertical: 11,
-      paddingRight: 14,
-      paddingLeft: 58,
+      minHeight: 40,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+    },
+    inlineOptionActive: { backgroundColor: t.primaryLight },
+    inlineOptionText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: "500",
+      color: t.text,
+    },
+    inlineOptionTextActive: {
+      fontWeight: "600",
+      color: t.primary,
     },
     pickerOption: {
       flexDirection: "row",
