@@ -25,8 +25,8 @@ from app.worker_health import create_worker_health_app
 
 
 async def _run_worker() -> None:
-    setup_logging()
     settings = get_settings()
+    setup_logging(json_output=settings.environment == "production")
     init_sentry(settings)
     validate_production_settings(settings)
     setup_mcp_adapters(settings)
