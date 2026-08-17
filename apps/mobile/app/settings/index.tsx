@@ -227,7 +227,6 @@ export default function SettingsScreen() {
           {isPro ? (
             <SettingsValueRow
               icon="diamond-outline"
-              iconTone="warning"
               title={t("settings.account_label")}
               value={accountLabel}
               styles={s}
@@ -236,7 +235,6 @@ export default function SettingsScreen() {
           ) : (
             <SettingsLinkRow
               icon="diamond-outline"
-              iconTone="warning"
               title={t("settings.account_label")}
               value={accountLabel}
               onPress={() => setUpgradeVisible(true)}
@@ -259,7 +257,6 @@ export default function SettingsScreen() {
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
             icon="color-palette-outline"
-            iconTone="accent"
             title={t("settings.personalization")}
             subtitle={t("settings.personalization_summary")}
             value={selectedLanguage.label}
@@ -270,7 +267,6 @@ export default function SettingsScreen() {
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
             icon="school-outline"
-            iconTone="success"
             title={t("settings.learning.title")}
             subtitle={t("settings.learning_summary")}
             onPress={() => router.push("/settings/learning")}
@@ -293,7 +289,6 @@ export default function SettingsScreen() {
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
             icon="notifications-outline"
-            iconTone="warning"
             title={t("settings.notifications")}
             subtitle={t("settings.notifications_summary")}
             value={user?.push_notifications_enabled ? t("settings.on") : t("settings.off")}
@@ -304,7 +299,6 @@ export default function SettingsScreen() {
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
             icon="link-outline"
-            iconTone="accent"
             title={t("settings.integrations")}
             subtitle={t("settings.integrations_manage")}
             value={integrationsValue}

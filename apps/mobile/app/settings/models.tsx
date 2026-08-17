@@ -99,7 +99,9 @@ export default function ModelsSettingsScreen() {
       >
         <SettingsGroup styles={s}>
           <SettingsSwitchRow
+            icon="flash-outline"
             title={t("settings.model_auto")}
+            subtitle={t("settings.model_auto_summary")}
             value={effectiveAuto}
             disabled={effectiveAuto && effectiveModels.size === 0}
             onValueChange={toggleAuto}
@@ -159,6 +161,7 @@ export default function ModelsSettingsScreen() {
 
         <SettingsGroup label={t("settings.tts")} styles={s}>
           <SettingsSwitchRow
+            icon="phone-portrait-outline"
             title={t("settings.tts_device")}
             subtitle={t("settings.tts_device_meta")}
             value={ttsModel === TTS_DEVICE_MODEL}
@@ -168,8 +171,9 @@ export default function ModelsSettingsScreen() {
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsSwitchRow
+            icon="volume-high-outline"
             title={t("settings.tts_gemini")}
             subtitle={t("settings.tts_gemini_meta")}
             value={ttsModel === TTS_QUALITY_MODEL}
@@ -179,8 +183,9 @@ export default function ModelsSettingsScreen() {
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsSwitchRow
+            icon="volume-medium-outline"
             title={t("settings.tts_kokoro")}
             subtitle={t("settings.tts_kokoro_meta")}
             value={ttsModel === TTS_FAST_MODEL}

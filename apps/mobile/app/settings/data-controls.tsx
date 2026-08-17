@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
 import { StateView } from "@/components/StateView";
-import { makeSettingsStyles, NavRow } from "@/components/settings/settingsUi";
+import {
+  makeSettingsStyles,
+  SettingsGroup,
+  SettingsLinkRow,
+} from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { isAccountDeleteComplete } from "@/lib/accountDelete";
 import { api } from "@/lib/api";
@@ -113,29 +117,27 @@ export default function DataControlsScreen() {
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
     >
-      <View style={s.menuStack}>
-        <View style={s.footerGroup}>
-          <NavRow
-            icon="download-outline"
-            title={t("settings.export")}
-            onPress={doExport}
-            compact
-            styles={s}
-            theme={theme}
-          />
-        </View>
-        <View style={s.footerGroup}>
-          <NavRow
-            icon="trash-outline"
-            title={t("settings.delete")}
-            onPress={confirmDeleteAccount}
-            danger
-            compact
-            styles={s}
-            theme={theme}
-          />
-        </View>
-      </View>
+      <SettingsGroup styles={s}>
+        <SettingsLinkRow
+          icon="download-outline"
+          title={t("settings.export")}
+          subtitle={t("settings.export_desc")}
+          onPress={() => void doExport()}
+          styles={s}
+          theme={theme}
+        />
+      </SettingsGroup>
+      <SettingsGroup styles={s}>
+        <SettingsLinkRow
+          icon="trash-outline"
+          title={t("settings.delete")}
+          subtitle={t("settings.delete_desc")}
+          danger
+          onPress={confirmDeleteAccount}
+          styles={s}
+          theme={theme}
+        />
+      </SettingsGroup>
     </ScrollView>
   );
 }

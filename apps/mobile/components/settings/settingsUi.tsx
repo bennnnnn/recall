@@ -69,16 +69,14 @@ function SettingsRowChrome({
   styles: SettingsStyles;
   theme: Theme;
 }) {
-  const tone = iconToneColors(theme, iconTone);
+  const tone = danger
+    ? { fg: theme.danger, bg: theme.dangerLight }
+    : iconToneColors(theme, iconTone);
   return (
     <>
       {icon ? (
         <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
-          <Ionicons
-            name={icon}
-            size={18}
-            color={danger ? theme.danger : tone.fg}
-          />
+          <Ionicons name={icon} size={18} color={tone.fg} />
         </View>
       ) : null}
       <View style={styles.rowBody}>
@@ -107,6 +105,7 @@ export function SettingsLinkRow({
   value,
   icon,
   iconTone,
+  danger,
   onPress,
   styles,
   theme,
@@ -116,6 +115,7 @@ export function SettingsLinkRow({
   value?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   iconTone?: SettingsIconTone;
+  danger?: boolean;
   onPress: () => void;
   styles: SettingsStyles;
   theme: Theme;
@@ -132,7 +132,8 @@ export function SettingsLinkRow({
         title={title}
         subtitle={subtitle}
         value={value}
-        showChevron
+        showChevron={!danger}
+        danger={danger}
         styles={styles}
         theme={theme}
       />
@@ -176,6 +177,8 @@ export function SettingsValueRow({
 export function SettingsSwitchRow({
   title,
   subtitle,
+  icon,
+  iconTone,
   value,
   disabled,
   onValueChange,
@@ -184,16 +187,24 @@ export function SettingsSwitchRow({
 }: {
   title: string;
   subtitle?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconTone?: SettingsIconTone;
   value: boolean;
   disabled?: boolean;
   onValueChange: (next: boolean) => void;
   styles: SettingsStyles;
   theme: Theme;
 }) {
+  const tone = iconToneColors(theme, iconTone ?? "primary");
   return (
     <View style={styles.menuRow}>
+      {icon ? (
+        <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
+          <Ionicons name={icon} size={18} color={tone.fg} />
+        </View>
+      ) : null}
       <View style={styles.rowBody}>
-        <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
+        <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
       </View>
       <Switch
@@ -242,9 +253,12 @@ export function InfoRow({
   styles: SettingsStyles;
   theme: Theme;
 }) {
+  const tone = iconToneColors(theme, "primary");
   return (
     <View style={compact ? styles.menuRow : styles.row}>
-      <Ionicons name={icon} size={19} color={theme.primary} />
+      <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
+        <Ionicons name={icon} size={18} color={tone.fg} />
+      </View>
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.meta}>{value}</Text>
@@ -280,6 +294,7 @@ export function Chip({
 export function IntegrationPanel({
   icon,
   title,
+  subtitle,
   summary,
   expanded,
   busy,
@@ -293,6 +308,7 @@ export function IntegrationPanel({
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
+  subtitle?: string;
   summary: string;
   expanded: boolean;
   busy: boolean;
@@ -304,24 +320,30 @@ export function IntegrationPanel({
   collapsible?: boolean;
 }) {
   const showBody = !collapsible || expanded;
+  const tone = iconToneColors(theme, "primary");
   const header = (
     <>
-      <Ionicons name={icon} size={19} color={theme.primary} />
+      <View style={[styles.iconWell, { backgroundColor: tone.bg }]}>
+        <Ionicons name={icon} size={18} color={tone.fg} />
+      </View>
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.meta} numberOfLines={1}>
+        {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
+      </View>
+      <View style={styles.linkTrailing}>
+        <Text style={styles.linkValue} numberOfLines={1}>
           {summary}
         </Text>
+        {busy ? (
+          <ActivityIndicator color={theme.primary} />
+        ) : collapsible ? (
+          <Ionicons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={theme.textTertiary}
+          />
+        ) : null}
       </View>
-      {busy ? (
-        <ActivityIndicator color={theme.primary} />
-      ) : collapsible ? (
-        <Ionicons
-          name={expanded ? "chevron-up" : "chevron-down"}
-          size={18}
-          color={theme.textTertiary}
-        />
-      ) : null}
     </>
   );
   return (
@@ -462,7 +484,18 @@ export function NavRow({
       onPress={onPress}
       accessibilityRole="button"
     >
-      <Ionicons name={icon} size={19} color={danger ? theme.danger : theme.primary} />
+      <View
+        style={[
+          styles.iconWell,
+          { backgroundColor: danger ? theme.dangerLight : theme.primaryLight },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={18}
+          color={danger ? theme.danger : theme.primary}
+        />
+      </View>
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
@@ -709,11 +742,15 @@ export function makeSettingsStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
-      minHeight: 36,
+      minHeight: 52,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
     },
     integrationBody: {
-      marginTop: 8,
-      paddingLeft: 31,
+      marginTop: 4,
+      paddingLeft: 58,
+      paddingRight: 14,
+      paddingBottom: 12,
       gap: 8,
     },
     integrationActions: {
