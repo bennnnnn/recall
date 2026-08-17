@@ -128,6 +128,67 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 
 ---
 
+## 10. Composer AI features
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 10.1 | Image generation (Pro) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap enforced (free blocked) |
+| 10.2 | Image gen intent detected from plain prompt (no attach-menu row) | ☐ | ☐ | Intent → `/images/generate`; no second modal |
+| 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; DuckDuckGo fallback if no Tavily key |
+| 10.4 | Math scanner — open, frame equation, resize (pinch), move (pan) | ☐ | ☐ | Dev build (camera). Close + cancel + reset work |
+| 10.5 | Math scanner — capture → LaTeX into composer | ☐ | ☐ | Recognized expression editable before send |
+
+---
+
+## 11. Chat-driven settings & suggestions
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 11.1 | Settings proposal card appears (e.g. "switch to dark mode") | ☐ | ☐ | Accept applies; reject dismisses |
+| 11.2 | Appearance change via chat (dark/light/system incl. "default") | ☐ | ☐ | "default" → system; no "could not update" error |
+| 11.3 | Suggestion chips load after a turn | ☐ | ☐ | Tappable follow-up prompts |
+| 11.4 | Custom instructions in Settings → Preferences applied to prompts | ☐ | ☐ | Verify via a prompt that reflects them |
+
+---
+
+## 12. Search & navigation
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 12.1 | Drawer search — full-text across chats/messages | ☐ | ☐ | Results show snippet + chat; tap opens chat |
+| 12.2 | Link preview card under a message with URL | ☐ | ☐ | Domain line + title; tap opens in browser |
+| 12.3 | Drawer open/close via edge pan + hamburger | ☐ | ☐ | No stray taps; mic press doesn't open drawer |
+| 12.4 | New chat from drawer FAB; first message creates the chat | ☐ | ☐ | No empty chat rows left behind |
+
+---
+
+## 13. Account, profile & data controls
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 13.1 | Onboarding completes and lands on chat | ☐ | ☐ | First-run only |
+| 13.2 | Edit profile fields (name, age, country, job) | ☐ | ☐ | Saves + reflects in Settings |
+| 13.3 | Data controls — export my data | ☐ | ☐ | Produces a downloadable archive |
+| 13.4 | Data controls — delete account | ☐ | ☐ | Confirms; clears sessions + data |
+| 13.5 | Sign out, then sign back in — state restores | ☐ | ☐ | Memories, chats, preferences persist |
+
+---
+
+## 14. Banned UX regressions (must NOT appear)
+
+These were explicitly removed. If any reappears, it's a regression.
+
+| # | Must NOT appear | iOS | Android | Notes |
+|---|----------------|-----|---------|-------|
+| 14.1 | "✨ Recalled N memories" chip on assistant messages | ☐ | ☐ | Backend may send `recalled`; UI must not surface |
+| 14.2 | Show more / Show less on assistant message bodies | ☐ | ☐ | Code-block fold is OK; assistant body stays unfolded |
+| 14.3 | `chat.model_fallback` / "switched to…" / "summarized" chips | ☐ | ☐ | Backend may send; UI must not surface |
+| 14.4 | Image-gen prompt sheet / attach-menu "Generate image" | ☐ | ☐ | Composer-only; no second intercept |
+| 14.5 | Project filter chips / "Link to project" on lists or reminders | ☐ | ☐ | Lists, Reminders, Learning stay separate |
+| 14.6 | Empty-state body / "Add" button duplicating the FAB | ☐ | ☐ | Learning + Lists empty: icon + title only |
+
+---
+
 ## Sign-off
 
 | Platform | Build profile | Tester | Date | Pass/Fail |
