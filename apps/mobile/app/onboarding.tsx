@@ -13,19 +13,19 @@ import { Theme, useTheme } from "@/lib/theme";
 
 const FEATURES = [
   {
+    icon: "chatbubble-ellipses-outline",
+    titleKey: "onboarding.chat_title",
+    bodyKey: "onboarding.chat_body",
+  },
+  {
     icon: "school-outline",
     titleKey: "onboarding.learn_title",
     bodyKey: "onboarding.learn_body",
   },
   {
-    icon: "calendar-outline",
-    titleKey: "onboarding.organize_title",
-    bodyKey: "onboarding.organize_body",
-  },
-  {
-    icon: "sparkles-outline",
-    titleKey: "onboarding.remember_title",
-    bodyKey: "onboarding.remember_body",
+    icon: "list-outline",
+    titleKey: "onboarding.lists_title",
+    bodyKey: "onboarding.lists_body",
   },
 ] as const;
 

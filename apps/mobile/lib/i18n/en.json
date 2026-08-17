@@ -376,13 +376,9 @@
   "notifications.todo_reminder_body": "{{content}} — due at {{time}}",
   "notifications.todo_reminder_title": "Reminder",
   "onboarding.get_started": "Get started",
-  "onboarding.learn_body": "English vocabulary and general knowledge — with quizzes that track your progress.",
+  "onboarding.learn_body": "Languages and quizzes, at your pace.",
   "onboarding.learn_title": "Learn",
-  "onboarding.organize_body": "Reminders, calendar, and email suggestions — all in one place.",
-  "onboarding.organize_title": "Stay organized",
-  "onboarding.remember_body": "Recall learns your goals and picks up where you left off.",
-  "onboarding.remember_title": "Remembers you",
-  "onboarding.subtitle": "Your personal AI for learning and daily life.",
+  "onboarding.subtitle": "Learn, organize, and chat — with an AI that remembers you.",
   "onboarding.welcome": "Welcome to Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -926,5 +922,9 @@
   "memory.edit_section_a11y": "Edit this memory section",
   "memory.edit_title": "Edit memory",
   "memory.edit_hint": "Fix anything that’s wrong — Recall will use this going forward.",
-  "memory.edit_failed": "Could not save memory. Try again."
+  "memory.edit_failed": "Could not save memory. Try again.",
+  "onboarding.chat_title": "Chat",
+  "onboarding.chat_body": "Ask anything. It remembers you.",
+  "onboarding.lists_title": "Lists & Reminders",
+  "onboarding.lists_body": "Checklists and due times — calendar and email when you connect them."
 }

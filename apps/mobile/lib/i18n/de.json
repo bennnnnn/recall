@@ -344,13 +344,9 @@
   "notifications.todo_reminder_body": "{{content}} — fällig um {{time}}",
   "notifications.todo_reminder_title": "Erinnerung",
   "onboarding.get_started": "Loslegen",
-  "onboarding.learn_body": "Englisch, Programmieren und mehr — mit Quizzen, die deinen Fortschritt verfolgen.",
+  "onboarding.learn_body": "Sprachen und Quiz — in deinem Tempo.",
   "onboarding.learn_title": "Lernen",
-  "onboarding.organize_body": "Erinnerungen, Kalender und E-Mail-Vorschläge — alles an einem Ort.",
-  "onboarding.organize_title": "Organisiert bleiben",
-  "onboarding.remember_body": "Recall lernt deine Ziele und macht dort weiter, wo du aufgehört hast.",
-  "onboarding.remember_title": "Erinnert sich",
-  "onboarding.subtitle": "Deine persönliche KI fürs Lernen und den Alltag.",
+  "onboarding.subtitle": "Lernen, organisieren und chatten — mit einer KI, die sich an dich erinnert.",
   "onboarding.welcome": "Willkommen bei Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
@@ -926,5 +922,9 @@
   "chat.math_keyboard_next_slot": "Next box",
   "chat.math_keyboard_prev_slot": "Previous box",
   "chat.math_keyboard_caret_left": "Move cursor left",
-  "chat.math_keyboard_caret_right": "Move cursor right"
+  "chat.math_keyboard_caret_right": "Move cursor right",
+  "onboarding.chat_title": "Chat",
+  "onboarding.chat_body": "Frag einfach. Es erinnert sich an dich.",
+  "onboarding.lists_title": "Listen & Erinnerungen",
+  "onboarding.lists_body": "Checklisten und Termine — Kalender und E-Mail, wenn du sie verbindest."
 }
