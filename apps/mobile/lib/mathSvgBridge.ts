@@ -11,7 +11,6 @@
  * resolve; until then `requestMathSvg` rejects so callers fall back.
  */
 
-import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 import { injectPreviewCsp, MATH_PREVIEW_CSP, inlineScript } from "@/lib/previewSandbox";
 
 /** Flip on-device to test the SVG-native path. Off by default. */
@@ -106,8 +105,11 @@ export function isMathSvgBridgeReady(): boolean {
   return ready;
 }
 
-/** Build the HTML for the single hidden host WebView. */
-export function buildMathSvgBridgeHtml(): string {
+/** Build the HTML for the single hidden host WebView. Lazy-loads the
+ *  ~2MB MathJax vendor only when actually called (flag on + bridge mounting),
+ * so it stays OUT of the main bundle's cold path. */
+export async function buildMathSvgBridgeHtml(): Promise<string> {
+  const { MATHJAX_TEX_SVG_JS } = await import("@/lib/vendor/mathjaxTexSvgJs");
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
