@@ -29,8 +29,39 @@ def test_validate_production_settings_ok():
             r2_secret_access_key="secret",
             r2_bucket="recall",
             daily_global_spend_usd=100.0,
+            process_role="api",
         )
     )
+
+
+def test_validate_production_settings_rejects_process_role_all():
+    # PROCESS_ROLE=all runs the worker inside the API process; in prod the
+    # worker is a separate Fly process, so "all" would double-process every
+    # job (duplicate titles, memory extraction, emails). Force the split.
+    base = dict(
+        environment="production",
+        dev_auth_enabled=False,
+        mock_llm_enabled=False,
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        google_client_id="client-id",
+        google_client_secret="secret",
+        cors_origins="https://app.recall.app",
+        openrouter_api_key="sk-or-xxx",
+        revenuecat_webhook_auth="whsec-xxx",
+        revenuecat_secret_key="sk_rc_xxx",
+        oauth_token_encryption_key=_VALID_FERNET_KEY,
+        storage_backend="r2",
+        r2_account_id="acct",
+        r2_access_key_id="key",
+        r2_secret_access_key="secret",
+        r2_bucket="recall",
+        daily_global_spend_usd=100.0,
+    )
+    with pytest.raises(RuntimeError, match="PROCESS_ROLE"):
+        validate_production_settings(Settings(**base, process_role="all"))
+    # 'api' and 'worker' are both accepted in production.
+    validate_production_settings(Settings(**base, process_role="api"))
+    validate_production_settings(Settings(**base, process_role="worker"))
 
 
 def test_default_trusted_proxy_cidrs_include_fly_6pn():

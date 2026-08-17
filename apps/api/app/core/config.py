@@ -443,6 +443,16 @@ def validate_production_settings(settings: Settings) -> None:
                 '(generate with: python -c "from cryptography.fernet import Fernet; '
                 f'print(Fernet.generate_key().decode())"): {exc}'
             )
+    # PROCESS_ROLE=all runs the job worker + schedulers inside the API
+    # process. In production the worker runs as a separate Fly process
+    # (worker_main.py); an API instance that also starts a consumer would
+    # join the same Redis Stream consumer group and double-process every
+    # job (duplicate titles, memory extraction, emails). Force the split.
+    if settings.process_role.strip().lower() not in ("api", "worker"):
+        errors.append(
+            "PROCESS_ROLE must be 'api' or 'worker' in production "
+            "(not 'all' — the worker runs as a separate process)"
+        )
     if settings.storage_backend.strip().lower() != "r2":
         errors.append("STORAGE_BACKEND must be r2 in production (local disk is ephemeral on Fly)")
     elif not all(
