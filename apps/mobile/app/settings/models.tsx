@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Switch, Text, View } from "react-native";
-import { Redirect } from "expo-router";
+import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -9,10 +9,18 @@ import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsSwitchRow,
+  SettingsValueRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { useTtsPreference } from "@/hooks/useTtsPreference";
+import { api, type Usage } from "@/lib/api";
+import {
+  formatTokenCount,
+  promptWindowMessages,
+  promptWindowTokens,
+  usageUsedTokens,
+} from "@/lib/quota";
 import { useTheme } from "@/lib/theme";
 import { TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 
@@ -43,9 +51,25 @@ export default function ModelsSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const [usage, setUsage] = useState<Usage | null>(null);
   // Local draft so the Switch doesn't snap back while Auth/Models context
   // catches up (and so a racing /auth/me echo can't flash the old value).
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
+
+  const refreshUsage = useCallback(async () => {
+    if (!token) return;
+    try {
+      setUsage(await api.todayUsage(token));
+    } catch {
+      // Keep the last successful read; defaults still render the window.
+    }
+  }, [token]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUsage();
+    }, [refreshUsage]),
+  );
 
   const effectiveAuto = draft?.auto ?? autoEnabled;
   const effectiveModels = draft?.models ?? modelEnabledSet;
@@ -97,6 +121,44 @@ export default function ModelsSettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
       >
+        <SettingsGroup label={t("settings.usage_group")} styles={s}>
+          <SettingsValueRow
+            icon="speedometer-outline"
+            title={t("settings.usage_today")}
+            value={
+              usage
+                ? t("settings.usage_today_value", {
+                    used: formatTokenCount(usageUsedTokens(usage)),
+                    limit: formatTokenCount(usage.daily_limit),
+                  })
+                : undefined
+            }
+            subtitle={
+              usage
+                ? t("settings.usage_today_split", {
+                    input: formatTokenCount(usage.input_tokens),
+                    output: formatTokenCount(usage.output_tokens),
+                  })
+                : undefined
+            }
+            styles={s}
+            theme={theme}
+          />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+          <SettingsValueRow
+            icon="layers-outline"
+            title={t("settings.prompt_window")}
+            value={t("settings.prompt_window_value", {
+              tokens: formatTokenCount(promptWindowTokens(usage)),
+            })}
+            subtitle={t("settings.prompt_window_summary", {
+              count: promptWindowMessages(usage),
+            })}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+
         <SettingsGroup styles={s}>
           <SettingsSwitchRow
             icon="flash-outline"

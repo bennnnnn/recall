@@ -750,6 +750,8 @@ def test_today_usage():
     assert "remaining" in data
     assert "used_tokens" in data
     assert data["remaining"] == data["daily_limit"] - data["used_tokens"]
+    assert data["context_token_budget"] == 6000
+    assert data["recent_message_window"] == 20
 
 
 def test_today_usage_falls_back_to_db_total_when_redis_flushed():

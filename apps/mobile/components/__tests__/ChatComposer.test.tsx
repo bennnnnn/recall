@@ -495,4 +495,16 @@ describe("ChatComposer math keyboard", () => {
       expect(queryByText("chat.math_paste_scan_hint")).toBeNull();
     });
   });
+
+  it("hides the draft token hint for a short message", async () => {
+    const { queryByTestId } = await render(<ChatComposer {...baseProps} input="hi" />);
+    expect(queryByTestId("composer-token-hint")).toBeNull();
+  });
+
+  it("shows the draft token hint when the estimate is large", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(400)} />,
+    );
+    expect(getByTestId("composer-token-hint")).toBeTruthy();
+  });
 });

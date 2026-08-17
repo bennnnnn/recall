@@ -185,7 +185,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Parallelized pre-stream reads** — memory, todos, projects, recent titles, and attachment
   RAG gather on separate short-lived sessions so the prompt path stays concurrent without
   sharing one `AsyncSession`.
-- 🔜 Response caching, prompt token budgeting UI.
+- ✅ **Prompt token budgeting UI** — Settings → Models shows today's used / daily
+  limit (input · output split) and the server prompt window
+  (`context_token_budget`, last `recent_message_window` messages). The composer
+  shows a local draft estimate when the text is large enough to matter.
+- 🔜 Response caching.
 
 ## 8. Titles / topics
 - ✅ **Auto title** — a concise title is generated after the first exchange (cheap model).
@@ -236,8 +240,6 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
-- 🔒 **"Recalled" chips** — backend may still stream `recalled` / memory hints; mobile must
-  **not** render a recalled chip (explicitly rejected — see `.cursor/rules/chat-ux-bans.mdc`).
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
@@ -510,7 +512,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
 - 🔜 **Web client** — same API; see [Web client](#web-client-planned) below.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
-  response caching / prompt-budget UI, duplex / live voice (later).
+  response caching, duplex / live voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 
@@ -521,7 +523,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Auth | Email/password, magic links, multi-device session management |
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
 | Messaging | Reactions, read receipts; duplex / live voice; music generation (composer send + compact inline player) |
-| Models | User-tunable routing rules; response-cache / prompt-budget UI; NL daily-goal setting |
+| Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |

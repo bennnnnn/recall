@@ -955,5 +955,13 @@
   "onboarding.chat_title": "Спросите что угодно",
   "onboarding.chat_body": "Сложный вопрос. Язык. Домашка. Один разговор.",
   "onboarding.remember_title": "Он не отстаёт",
-  "onboarding.remember_body": "Завтра он всё ещё знает, над чем вы работаете."
+  "onboarding.remember_body": "Завтра он всё ещё знает, над чем вы работаете.",
+  "chat.draft_tokens": "~{{count}} tokens",
+  "settings.prompt_window": "Prompt window",
+  "settings.prompt_window_summary": "Last {{count}} messages stay in the prompt",
+  "settings.prompt_window_value": "{{tokens}} tokens",
+  "settings.usage_group": "Usage",
+  "settings.usage_today": "Today",
+  "settings.usage_today_split": "{{input}} in · {{output}} out",
+  "settings.usage_today_value": "{{used}} / {{limit}}"
 }

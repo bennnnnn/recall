@@ -29,6 +29,7 @@ import {
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
+import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
 import { Radius } from "@/lib/radius";
@@ -41,6 +42,7 @@ export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
 const MATH_KEYBOARD_CHIP_HEIGHT = 36;
+export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
   if (!attachment) return 0;
@@ -128,10 +130,13 @@ export const ChatComposer = memo(function ChatComposer({
   const showMathPreview = draftShowsMathPreview(input);
   const showMathChip =
     !math.mathBarOpen && (mathContext || textLooksLikeMath(input));
+  const draftTokens = estimateTokens(input);
+  const showTokenHint = shouldShowDraftTokenHint(draftTokens);
   const mathChromeHeight =
     (math.mathBarOpen ? math.padHeight : showMathChip ? MATH_KEYBOARD_CHIP_HEIGHT : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
-    (scanHint ? 40 : 0);
+    (scanHint ? 40 : 0) +
+    (showTokenHint ? COMPOSER_TOKEN_HINT_HEIGHT : 0);
 
   useEffect(() => {
     onMathChromeHeightChange?.(visible ? mathChromeHeight : 0);
@@ -335,6 +340,15 @@ export const ChatComposer = memo(function ChatComposer({
                 )}
               </View>
             </View>
+            {showTokenHint ? (
+              <Text
+                style={s.tokenHint}
+                testID="composer-token-hint"
+                accessibilityRole="text"
+              >
+                {t("chat.draft_tokens", { count: draftTokens })}
+              </Text>
+            ) : null}
           </View>
           {math.mathBarOpen ? (
             <MathKeyboardBar
@@ -399,6 +413,12 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
       ...shadowRaised(theme),
+    },
+    tokenHint: {
+      marginTop: 4,
+      marginLeft: 40,
+      fontSize: 12,
+      color: theme.textTertiary,
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },

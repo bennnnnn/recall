@@ -138,6 +138,8 @@ async def today_usage(
         daily_limit=limit,
         used_tokens=used_tokens,
         remaining=remaining,
+        context_token_budget=settings.context_token_budget,
+        recent_message_window=settings.recent_message_window,
     )
 
 
