@@ -30,6 +30,16 @@ class TestNeedsSymbolic:
             "is 17 prime?",
             "determinant of [[1,2],[3,4]]",
             "plot (2, 3)",
+            # "find" + equation is a solve ask, not just "solve …".
+            "find x if 2x + 3 = 7",
+            "find the value of x in 2x = 10",
+            # "roots of" / "zeros of" + a digit polynomial → solve.
+            "roots of x^2 - 4",
+            "find the roots of x^3 - 1",
+            "zeros of x^2 - 9",
+            # "evaluate" + arithmetic expression.
+            "evaluate 2 + 3 * 4",
+            "evaluate sin(pi/2)",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -44,6 +54,13 @@ class TestNeedsSymbolic:
             "what is a trapezoid",  # bare shape name, no measures/draw cue
             "what is a cylinder",
             "see you later",
+            # "find" without an equation is plain prose.
+            "find the right moment to ask",
+            # "roots of" without a digit is English, not algebra.
+            "roots of the tree are deep",
+            # "evaluate" without an arithmetic operator is prose.
+            "evaluate this option carefully",
+            "evaluate the model on five examples",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):

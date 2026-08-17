@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable, Sequence
 from typing import Literal
 
@@ -693,12 +694,27 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
 )
 
 
+_ROOTS_RE = re.compile(r"\b(?:find(?:\s+the)?\s+)?(?:roots|zeros)\s+of\s+(.+)", re.IGNORECASE)
+
+
 def extract_math_intent(text: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     cleaned = mtm.prepare(text)
     if not cleaned:
         return None
+
+    # "roots of x^2 - 4" / "zeros of x^2 - 1" have no "=", so the equation
+    # extractor below would skip them. Rewrite to "solve <expr> = 0" so the
+    # existing equation path solves the polynomial. Only when the captured
+    # tail has a digit (a real polynomial) and no "=" of its own (otherwise
+    # the user already wrote "zeros of f(x) = x^2-4" and the equation
+    # extractor handles it directly).
+    roots_match = _ROOTS_RE.search(cleaned)
+    if roots_match:
+        tail = roots_match.group(1).strip()
+        if "=" not in tail and any(c.isdigit() for c in tail):
+            cleaned = f"solve {tail} = 0"
 
     for extractor in _INTENT_EXTRACTORS:
         intent = extractor(cleaned)

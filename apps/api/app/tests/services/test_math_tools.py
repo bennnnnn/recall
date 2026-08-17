@@ -42,6 +42,25 @@ def test_extract_equation_intent() -> None:
     assert intent.variable == "x"
 
 
+@pytest.mark.parametrize(
+    "text, expected_lhs",
+    [
+        ("roots of x^2 - 4", "x^2 - 4"),
+        ("find the roots of x^3 - 1", "x^3 - 1"),
+        ("zeros of x^2 - 9", "x^2 - 9"),
+    ],
+)
+def test_extract_roots_of_rewrites_to_equation(text: str, expected_lhs: str) -> None:
+    """'roots of <expr>' / 'zeros of <expr>' have no '=', so they used to
+    fall through every extractor and ship unverified. They now rewrite to
+    'solve <expr> = 0' and solve as a plain equation."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == expected_lhs
+    assert intent.rhs == "0"
+
+
 def test_extract_system_intent_for_multiple_equations() -> None:
     """BUG FIX (most severe correctness bug found in the audit): before this
     fix, a message with 2+ equations fell through to the single-equation

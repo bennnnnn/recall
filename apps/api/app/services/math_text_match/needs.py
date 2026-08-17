@@ -121,6 +121,25 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if "solve" in lower and has_equation(cleaned):
         return True
+    # "find x if 2x + 3 = 7" / "find the value of x in 2x = 10" — "find" + an
+    # equation is a solve ask just like "solve …". Without this, a bare
+    # "find x when 2x = 10" fell through (no "solve" keyword) and shipped
+    # unverified. Requires an equation so prose "find the right moment" is
+    # not pulled into SymPy.
+    if "find" in lower and has_equation(cleaned):
+        return True
+    # "roots of x^2 - 4" / "zeros of x^2 - 1" — a polynomial-roots ask with no
+    # "=". Require a digit so English "roots of the tree" / "zeros of the
+    # array" is not mistaken for algebra (the extractor rewrites these to
+    # "solve <expr> = 0" when it runs).
+    if ("roots of" in lower or "zeros of" in lower) and any(ch.isdigit() for ch in cleaned):
+        return True
+    if (
+        "evaluate" in lower
+        and any(ch.isdigit() for ch in cleaned)
+        and any(op in cleaned for op in ("+", "-", "*", "/", "^", "("))
+    ):
+        return True
     if stats_signal(cleaned) is not None:
         return True
     if combinatorics_signal(cleaned) is not None:
