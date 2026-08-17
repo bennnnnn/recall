@@ -709,6 +709,8 @@
   "settings.delete": "መለያ ሰርዝ",
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "መለያ መሰረዝ አልተቻለም። እንደገና ይሞክሩ።",
+  "settings.delete_progress": "Deleting your account…",
+  "settings.delete_progress_body": "This can take a moment. Don't close the app.",
   "settings.email_label": "ኢሜይል",
   "settings.email_reminders": "የኢሜይል ማስታወሻዎች",
   "settings.export": "ውሂቤን ላክ",

@@ -1,26 +1,41 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { StackBackButton } from "@/components/StackBackButton";
+import { StateView } from "@/components/StateView";
 import { makeSettingsStyles, NavRow } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAccountDeleteComplete } from "@/lib/accountDelete";
 import { api } from "@/lib/api";
 import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
 import { useTheme } from "@/lib/theme";
 
 export default function DataControlsScreen() {
-  const { token, signOut } = useAuth();
+  const { token, signOut, setIgnoreUnauthorized } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
+  const [deleting, setDeleting] = useState(false);
 
-  if (!token) return <Redirect href="/login" />;
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: !deleting,
+      headerLeft: deleting
+        ? () => null
+        : () => <StackBackButton fallback="/settings" />,
+    });
+  }, [deleting, navigation]);
+
+  if (!token && !deleting) return <Redirect href="/login" />;
 
   const doExport = async () => {
+    if (!token) return;
     try {
       const raw = await api.exportDataText(token);
       const payload = formatExportJsonForShare(raw);
@@ -34,23 +49,48 @@ export default function DataControlsScreen() {
   };
 
   const confirmDeleteAccount = () => {
+    if (!token || deleting) return;
     Alert.alert(t("delete.title"), t("delete.message"), [
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("common.delete"),
         style: "destructive",
-        onPress: async () => {
-          try {
-            await api.deleteAccount(token);
-            await signOut();
-            router.replace("/login");
-          } catch {
-            Alert.alert(t("common.error"), t("settings.delete_failed"));
-          }
+        onPress: () => {
+          void runDelete(token);
         },
       },
     ]);
   };
+
+  const runDelete = async (accessToken: string) => {
+    setDeleting(true);
+    setIgnoreUnauthorized(true);
+    try {
+      try {
+        await api.deleteAccount(accessToken);
+      } catch (error) {
+        if (!isAccountDeleteComplete(error)) {
+          throw error;
+        }
+      }
+      await signOut();
+      router.replace("/login");
+    } catch {
+      setIgnoreUnauthorized(false);
+      setDeleting(false);
+      Alert.alert(t("common.error"), t("settings.delete_failed"));
+    }
+  };
+
+  if (deleting) {
+    return (
+      <StateView
+        variant="loading"
+        title={t("settings.delete_progress")}
+        message={t("settings.delete_progress_body")}
+      />
+    );
+  }
 
   return (
     <ScrollView

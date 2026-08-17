@@ -48,6 +48,8 @@ type AuthContextValue = {
   mergeUser: (patch: Partial<User>) => void;
   onboarded: boolean;
   completeOnboarding: () => Promise<void>;
+  /** Pause 401→signOut (account wipe purges sessions before the DELETE finishes). */
+  setIgnoreUnauthorized: (value: boolean) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -83,6 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [onboarded, setOnboardedState] = useState(false);
   const signOutInFlightRef = useRef(false);
+  const ignoreUnauthorizedRef = useRef(false);
+
+  const setIgnoreUnauthorized = useCallback((value: boolean) => {
+    ignoreUnauthorizedRef.current = value;
+  }, []);
 
   const hydrate = useCallback(async () => {
     const [stored, onb, cachedUser] = await Promise.all([
@@ -252,6 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sign out automatically when any authenticated request returns 401.
   useEffect(() => {
     setUnauthorizedHandler(() => {
+      if (ignoreUnauthorizedRef.current) return;
       void signOut();
     });
     return () => setUnauthorizedHandler(null);
@@ -331,6 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mergeUser,
       onboarded,
       completeOnboarding,
+      setIgnoreUnauthorized,
     }),
     [
       user,
@@ -345,6 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mergeUser,
       onboarded,
       completeOnboarding,
+      setIgnoreUnauthorized,
     ],
   );
 

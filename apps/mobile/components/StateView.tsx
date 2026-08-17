@@ -38,6 +38,8 @@ export function StateView({
     return (
       <View style={s.wrap}>
         <ActivityIndicator size={compact ? "small" : "large"} color={theme.primary} />
+        {title ? <Text style={s.title}>{title}</Text> : null}
+        {message ? <Text style={s.message}>{message}</Text> : null}
       </View>
     );
   }

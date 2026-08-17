@@ -709,6 +709,8 @@
   "settings.delete": "Удалить аккаунт",
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "Не удалось удалить аккаунт. Попробуйте снова.",
+  "settings.delete_progress": "Удаляем аккаунт…",
+  "settings.delete_progress_body": "Это может занять минуту. Не закрывайте приложение.",
   "settings.email_label": "Email",
   "settings.email_reminders": "Напоминания по email",
   "settings.export": "Экспортировать мои данные",

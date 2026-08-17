@@ -709,6 +709,8 @@
   "settings.delete": "Konto löschen",
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "Konto konnte nicht gelöscht werden. Bitte erneut versuchen.",
+  "settings.delete_progress": "Konto wird gelöscht…",
+  "settings.delete_progress_body": "Das kann einen Moment dauern. App nicht schließen.",
   "settings.email_label": "E-Mail",
   "settings.email_reminders": "E-Mail-Erinnerungen",
   "settings.export": "Meine Daten exportieren",

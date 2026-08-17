@@ -741,6 +741,8 @@
   "settings.delete": "Delete account",
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "Could not delete your account. Try again.",
+  "settings.delete_progress": "Deleting your account…",
+  "settings.delete_progress_body": "This can take a moment. Don't close the app.",
   "settings.email_label": "Email",
   "settings.email_reminders": "Email reminders",
   "settings.export": "Export my data",
