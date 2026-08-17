@@ -346,3 +346,66 @@ describe("latexHasStackedFrac", () => {
     expect(latexHasStackedFrac("x + 1")).toBe(false);
   });
 });
+
+describe("BUG FIX regression: native inline parser leaks (raw LaTeX / bad format)", () => {
+  // Each of these used to leak the raw command word or bare braces in
+  // inline `$...$` math (native MathText, used for ALL inline math even
+  // in dev builds). KaTeX display math had a readable fallback, but inline
+  // did not — so the user saw "bigl(x+1bigr)", "a{=}", "red{x+1}", etc.
+  it("strips sized delimiters (\\bigl/\\bigr/\\Bigl/\\biggl…) keeping the delimiter", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bigl(x+1\bigr)`))).toBe("(x+1)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\Bigl[x+1\Bigr]`))).toBe("[x+1]");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\biggl\{1\biggr\}`))).toBe("{1}");
+  });
+
+  it("maps big operators to glyphs (\\bigcup/\\oint/\\iint/…)", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bigcup_{i=1}^{n} A_i`))).toContain("∬");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\oint_C F\,dr`))).toContain("∮");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\iint f`))).toContain("∬");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\iiint g`))).toContain("∭");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\oplus A`))).toBe("⊕ A");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\otimes B`))).toBe("⊗ B");
+  });
+
+  it("unwraps \\overset/\\underset/\\stackrel to the base (no bare braces)", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\overset{a}{=}`))).toBe("=");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\stackrel{a}{=}`))).toBe("=");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\underset{x}{\cup}`))).toBe("∪");
+  });
+
+  it("unwraps \\color/\\textcolor to the base (no color name leaked)", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\color{red}{x+1}`))).toBe("x+1");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\textcolor{blue}{y}`))).toBe("y");
+  });
+
+  it("renders logic symbols (\\therefore/\\because) and mod (\\bmod/\\pmod)", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\therefore x`))).toBe("∴ x");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\because y`))).toBe("∵ y");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \bmod b`))).toContain("mod");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\pmod{7}`))).toBe("(mod 7)");
+  });
+
+  it("expands smallmatrix / Bmatrix / array environments (no env name leaked)", () => {
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{smallmatrix}1&2\\3&4\end{smallmatrix}`)),
+    ).toBe("1, 2; 3, 4");
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{Bmatrix}1&2\\3&4\end{Bmatrix}`)),
+    ).toBe("{1, 2; 3, 4}");
+    // array strips its column spec ({cc}) — it must not leak as "{cc}".
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{array}{cc}1&2\\3&4\end{array}`)),
+    ).toBe("1 2;  3 4");
+  });
+
+  it("splits \\substack rows (no stray backslash from the row separator)", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\substack{a\\b}`))).toBe("a; b");
+  });
+
+  it("does not let \\pm eat the \\pmod prefix", () => {
+    // \pm → ± must not match inside \pmod (regression guard for the \pm
+    // word-boundary fix that lets \pmod reach its own rule).
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \pm y`))).toBe("x ± y");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\pmod{7}`))).toBe("(mod 7)");
+  });
+});
