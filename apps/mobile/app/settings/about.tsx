@@ -4,7 +4,12 @@ import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { InfoRow, makeSettingsStyles, NavRow } from "@/components/settings/settingsUi";
+import {
+  makeSettingsStyles,
+  SettingsGroup,
+  SettingsLinkRow,
+  SettingsValueRow,
+} from "@/components/settings/settingsUi";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { useTheme } from "@/lib/theme";
@@ -21,37 +26,34 @@ export default function AboutScreen() {
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
     >
-      <View style={s.menuStack}>
-        <View style={s.footerGroup}>
-          <NavRow
-            icon="shield-checkmark-outline"
-            title={t("privacy.title")}
-            onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
-            compact
-            styles={s}
-            theme={theme}
-          />
-          <View style={s.menuSeparator} />
-          <NavRow
-            icon="document-text-outline"
-            title={t("terms.title")}
-            onPress={() => void openAllowedUrl(getLegalTermsUrl())}
-            compact
-            styles={s}
-            theme={theme}
-          />
-        </View>
-        <View style={s.footerGroup}>
-          <InfoRow
-            icon="phone-portrait-outline"
-            title={t("settings.about_version")}
-            value={appVersion}
-            compact
-            styles={s}
-            theme={theme}
-          />
-        </View>
-      </View>
+      <SettingsGroup styles={s}>
+        <SettingsLinkRow
+          icon="shield-checkmark-outline"
+          title={t("privacy.title")}
+          subtitle={t("settings.privacy_summary")}
+          onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
+          styles={s}
+          theme={theme}
+        />
+        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <SettingsLinkRow
+          icon="document-text-outline"
+          title={t("terms.title")}
+          subtitle={t("settings.terms_summary")}
+          onPress={() => void openAllowedUrl(getLegalTermsUrl())}
+          styles={s}
+          theme={theme}
+        />
+      </SettingsGroup>
+      <SettingsGroup styles={s}>
+        <SettingsValueRow
+          icon="phone-portrait-outline"
+          title={t("settings.about_version")}
+          value={appVersion}
+          styles={s}
+          theme={theme}
+        />
+      </SettingsGroup>
     </ScrollView>
   );
 }

@@ -109,57 +109,72 @@ export default function PreferencesSettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
       >
-        <SettingsGroup styles={s}>
+        <SettingsGroup label={t("settings.appearance")} styles={s}>
           <SettingsLinkRow
+            icon="contrast-outline"
             title={t("settings.appearance")}
+            subtitle={t("settings.appearance_summary")}
             value={t(`settings.appearance_${appearancePreference}`)}
             onPress={() => setAppearancePickerOpen(true)}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.chat")} styles={s}>
           <SettingsLinkRow
+            icon="text-outline"
             title={t("settings.style")}
+            subtitle={t("settings.style_summary")}
             value={t(`settings.style_${selectedStyle}`)}
             onPress={() => setStylePickerOpen(true)}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="chatbubble-ellipses-outline"
             title={t("settings.tone")}
+            subtitle={t("settings.tone_hint")}
             value={t(`settings.tone_${selectedTone}`)}
             onPress={() => setTonePickerOpen(true)}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="globe-outline"
             title={t("settings.language")}
+            subtitle={t("settings.language_summary")}
             value={selectedLanguage.label}
             onPress={() => setLanguagePickerOpen(true)}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
-          <SettingsSwitchRow
-            title={t("settings.location")}
-            subtitle={locationSubtitle}
-            value={locationEnabled}
-            disabled={saving || !locationAvailable}
-            onValueChange={(enabled) => void handleLocationToggle(enabled)}
-            styles={s}
-            theme={theme}
-          />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="create-outline"
             title={t("settings.custom_instructions")}
+            subtitle={t("settings.custom_instructions_summary")}
             value={
               user?.custom_instructions?.trim()
                 ? t("settings.on")
                 : t("settings.custom_instructions_none")
             }
             onPress={openInstructions}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.location")} styles={s}>
+          <SettingsSwitchRow
+            icon="location-outline"
+            title={t("settings.location")}
+            subtitle={locationSubtitle}
+            value={locationEnabled}
+            disabled={saving || !locationAvailable}
+            onValueChange={(enabled) => void handleLocationToggle(enabled)}
             styles={s}
             theme={theme}
           />

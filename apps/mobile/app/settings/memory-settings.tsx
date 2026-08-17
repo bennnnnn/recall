@@ -46,7 +46,9 @@ export default function MemorySettingsScreen() {
     >
       <SettingsGroup styles={s}>
         <SettingsSwitchRow
+          icon="cube-outline"
           title={t("settings.memory")}
+          subtitle={t("settings.memory_desc")}
           value={user?.memory_enabled ?? true}
           disabled={saving}
           onValueChange={(v) => {
@@ -60,9 +62,11 @@ export default function MemorySettingsScreen() {
           styles={s}
           theme={theme}
         />
-        <View style={s.menuSeparator} />
+        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
         <SettingsLinkRow
+          icon="book-outline"
           title={t("settings.memory_view")}
+          subtitle={t("settings.memory_empty")}
           value={
             memCount > 0
               ? t("settings.memory_count", { count: memCount })

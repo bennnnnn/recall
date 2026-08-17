@@ -118,25 +118,33 @@ export default function NotificationsSettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
       >
-        <SettingsGroup styles={s}>
+        <SettingsGroup label={t("settings.notifications")} styles={s}>
           <SettingsSwitchRow
+            icon="notifications-outline"
             title={t("settings.push_notifications")}
+            subtitle={t("settings.push_notifications_desc")}
             value={user?.push_notifications_enabled ?? true}
             onValueChange={togglePush}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsSwitchRow
+            icon="mail-outline"
             title={t("settings.email_reminders")}
+            subtitle={t("settings.email_reminders_summary")}
             value={user?.email_reminders_enabled ?? false}
             onValueChange={(v) => void toggleEmailReminders(v)}
             styles={s}
             theme={theme}
           />
-          <View style={s.menuSeparator} />
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.reminders")} styles={s}>
           <SettingsLinkRow
+            icon="alarm-outline"
             title={t("settings.reminder_lead")}
+            subtitle={t("settings.reminder_lead_desc")}
             value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}
             onPress={() => setReminderLeadPickerOpen(true)}
             styles={s}

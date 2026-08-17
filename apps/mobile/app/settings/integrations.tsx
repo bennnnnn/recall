@@ -50,6 +50,7 @@ export default function IntegrationsSettingsScreen() {
         <IntegrationPanel
           icon="calendar-outline"
           title={t("settings.calendar_title")}
+          subtitle={t("settings.calendar_desc")}
           showDivider={false}
           collapsible={false}
           expanded
@@ -86,6 +87,7 @@ export default function IntegrationsSettingsScreen() {
         <IntegrationPanel
           icon="mail-outline"
           title={t("settings.gmail_title")}
+          subtitle={t("settings.gmail_desc")}
           showDivider={false}
           collapsible={false}
           expanded

@@ -190,6 +190,7 @@ export default function LearningSettingsScreen() {
                 styles={s}
               >
                 <SettingsLinkRow
+                  icon="school-outline"
                   title={t("settings.learning.level_label")}
                   value={levelLabel(languageProject.level)}
                   onPress={() =>
@@ -198,8 +199,9 @@ export default function LearningSettingsScreen() {
                   styles={s}
                   theme={theme}
                 />
-                <View style={s.menuSeparator} />
+                <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
                 <SettingsLinkRow
+                  icon="book-outline"
                   title={t("settings.learning.words_label")}
                   value={formatDailyGoalShort(resolveDailyGoal(languageProject.daily_goal))}
                   onPress={() =>
@@ -218,6 +220,7 @@ export default function LearningSettingsScreen() {
             {triviaProject ? (
               <SettingsGroup label={t("settings.learning.trivia_section")} styles={s}>
                 <SettingsLinkRow
+                  icon="speedometer-outline"
                   title={t("settings.learning.difficulty_label")}
                   value={triviaDifficultyLabel(triviaProject.level, t)}
                   onPress={() =>
@@ -226,8 +229,9 @@ export default function LearningSettingsScreen() {
                   styles={s}
                   theme={theme}
                 />
-                <View style={s.menuSeparator} />
+                <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
                 <SettingsLinkRow
+                  icon="help-circle-outline"
                   title={t("settings.learning.questions_label")}
                   value={formatDailyGoalShort(resolveDailyGoal(triviaProject.daily_goal))}
                   onPress={() =>
@@ -236,8 +240,9 @@ export default function LearningSettingsScreen() {
                   styles={s}
                   theme={theme}
                 />
-                <View style={s.menuSeparator} />
+                <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
                 <SettingsLinkRow
+                  icon="list-outline"
                   title={t("settings.learning.topics_label")}
                   value={t("projects.list.topics_value", {
                     count: parseTriviaTopics(triviaProject.description).length,
