@@ -4,9 +4,6 @@ import type { Theme } from "@/lib/theme";
 
 export type IoniconName = keyof typeof Ionicons.glyphMap;
 
-/** Square-and-pencil compose mark — used for every New chat control. */
-export const NEW_CHAT_ICON: IoniconName = "create-outline";
-
 /** Prefer the filled glyph so thin outline strokes don't read as gray. */
 export function filledIconName(name: IoniconName): IoniconName {
   if (!name.endsWith("-outline")) return name;

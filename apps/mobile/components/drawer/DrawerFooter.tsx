@@ -2,8 +2,9 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { NewChatIcon } from "@/components/NewChatIcon";
 import { tap } from "@/lib/haptics";
-import { filledIconName, NEW_CHAT_ICON } from "@/lib/icons";
+import { filledIconName } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -36,11 +37,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.new_chat")}
       >
-        <Ionicons
-          name={NEW_CHAT_ICON}
-          size={18}
-          color={theme.onPrimary}
-        />
+        <NewChatIcon size={18} color={theme.onPrimary} />
         <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
       </Pressable>
       <Pressable
