@@ -41,6 +41,7 @@ def _project(**kw):
     p.level = kw.get("level", "level1")
     p.daily_goal = kw.get("daily_goal", 10)
     p.daily_goal_history = kw.get("daily_goal_history", None)
+    p.learning_path = kw.get("learning_path", None)
     p.archived = False
     p.created_at = datetime(2024, 1, 1, tzinfo=UTC)
     p.updated_at = datetime(2024, 1, 1, tzinfo=UTC)
@@ -103,6 +104,7 @@ def test_create_project_maps_vocabulary_to_language():
             "app.repositories.projects.find_language_by_target",
             AsyncMock(return_value=None),
         ),
+        patch("app.services.projects.crud.enqueue_language_path_job", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(
@@ -156,6 +158,7 @@ def test_create_second_language_project_allowed():
             "app.repositories.projects.find_language_by_target",
             AsyncMock(return_value=None),
         ),
+        patch("app.services.projects.crud.enqueue_language_path_job", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(

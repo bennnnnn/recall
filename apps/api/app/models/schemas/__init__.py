@@ -81,6 +81,7 @@ from app.models.schemas.memory import (
 from app.models.schemas.projects import (
     DailyHistoryStatus,
     LanguageLevel,
+    PathChapterProgress,
     ProjectActionItem,
     ProjectCreate,
     ProjectDailyHistoryDay,
@@ -151,6 +152,7 @@ __all__ = [
     "MessagePageOut",
     "MessageRole",
     "ModelInfo",
+    "PathChapterProgress",
     "PinUpdate",
     "ProjectActionItem",
     "ProjectCreate",

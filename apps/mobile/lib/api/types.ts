@@ -96,6 +96,13 @@ export type ProjectKind = "language" | "vocabulary" | "trivia";
 export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
 export type VocabStatus = "new" | "learning" | "mastered";
 
+export type PathChapterProgress = {
+  title: string;
+  mastered: number;
+  total: number;
+  complete: boolean;
+};
+
 export type Project = {
   id: string;
   title: string;
@@ -108,6 +115,7 @@ export type Project = {
   archived: boolean;
   created_at: string;
   updated_at: string;
+  learning_path?: string[];
   /** Present on list responses for language/trivia projects. */
   stats?: ProjectStats;
 };
@@ -169,6 +177,8 @@ export type ProjectDetail = Project & {
   daily_items_by_date: Record<string, ProjectItem[]>;
   daily_missed_by_date?: Record<string, ProjectItem[]>;
   lists: ProjectListGroup[];
+  path_progress?: PathChapterProgress[];
+  up_next?: string | null;
 };
 
 export type SearchResult = {

@@ -20,6 +20,11 @@ from app.services.projects.common import (
     _trivia_daily_goal,
     language_display_name,
 )
+from app.services.projects.path import (
+    format_path_prompt_lines,
+    parse_learning_path,
+    sort_list_titles,
+)
 from app.services.projects.prompts import (
     TRIVIA_TUTOR_HINT,
     _language_tutor_hint,
@@ -74,6 +79,10 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
             f"{stats['added_this_week']} added this week, "
             f"{stats['due_for_review']} due for review"
         )
+        if _is_language_project(project):
+            path_lines = format_path_prompt_lines(project, project_items)
+            if path_lines:
+                lines.extend(path_lines)
         if not project_items:
             lines.append("- (no words yet)")
             continue
@@ -82,7 +91,8 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
             lst = item.list_title.strip() or DEFAULT_LIST
             by_list.setdefault(lst, []).append(item)
         if _is_language_project(project):
-            for list_title in sorted(by_list.keys(), key=str.casefold):
+            path = parse_learning_path(project)
+            for list_title in sort_list_titles(list(by_list.keys()), path):
                 lines.append(f"\n#### {list_title}")
                 for item in by_list[list_title]:
                     lines.append(_format_vocab_line(item))

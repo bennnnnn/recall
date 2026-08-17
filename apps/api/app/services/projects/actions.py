@@ -20,6 +20,7 @@ from app.services.projects.common import (
     _find_item_by_content,
     _find_language_project,
     _find_project,
+    _is_language_project,
     _is_trivia_project,
     _item_status,
     _list_key,
@@ -27,6 +28,11 @@ from app.services.projects.common import (
     _resolve_list_title,
     infer_target_language,
     normalize_project_kind,
+)
+from app.services.projects.path import (
+    append_chapter,
+    enqueue_language_path_job,
+    resolve_add_list_title,
 )
 from app.services.projects.quiz_grading import _failed_quiz_today, _recently_missed_quiz
 
@@ -121,8 +127,14 @@ async def _project_action_create_project(
         return 0
     applied = 1
     state.projects = await projects_repo.list_for_user(state.session, state.user_id, limit=200)
+    if kind == "language":
+        await enqueue_language_path_job(state.user_id, project.id)
     if action.content.strip():
-        list_title = action.list_title.strip() or DEFAULT_LIST
+        list_title = (
+            resolve_add_list_title(project, action.list_title, state.items)
+            if kind == "language"
+            else (action.list_title.strip() or DEFAULT_LIST)
+        )
         from app.services.projects.items import create_item
 
         new_item = await create_item(
@@ -178,7 +190,11 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
     if not matched:
         return 0
     project = matched
-    list_title = _resolve_list_title(project, action)
+    list_title = (
+        resolve_add_list_title(project, action.list_title, state.items)
+        if _is_language_project(project)
+        else _resolve_list_title(project, action)
+    )
     content = action.content.strip()
     if not content:
         return 0
@@ -211,6 +227,8 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
         commit=False,
     )
     state.items.append(new_item)
+    if _is_language_project(project):
+        append_chapter(project, list_title)
     return 1
 
 
@@ -223,7 +241,11 @@ async def _project_action_start_learning(
     if not matched:
         return 0
     project = matched
-    list_title = _resolve_list_title(project, action)
+    list_title = (
+        resolve_add_list_title(project, action.list_title, state.items)
+        if _is_language_project(project)
+        else _resolve_list_title(project, action)
+    )
     item = _find_item(state.items, project.id, list_title, action.content)
     if not item:
         item = _find_item_by_content(state.items, project.id, action.content)

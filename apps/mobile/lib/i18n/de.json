@@ -470,7 +470,7 @@
   "projects.journey_title": "Dein Lernweg",
   "projects.journey_topic_progress": "{{mastered}}/{{total}} gelernt",
   "projects.kind.general": "Allgemein",
-  "projects.kind.language": "Wortschatz",
+  "projects.kind.language": "Sprache",
   "projects.kind.learning": "Allgemeines Lernen",
   "projects.kind.math": "Mathe",
   "projects.kind.programming": "Programmieren",

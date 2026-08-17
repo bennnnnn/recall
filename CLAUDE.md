@@ -155,7 +155,7 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `todos`, `projects`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `todos`, `projects`, `language_path`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, Gmail periodic, attachment orphan reaper).
 

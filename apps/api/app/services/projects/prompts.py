@@ -8,15 +8,16 @@ from app.services.projects.common import language_display_name
 
 PROJECT_HINT = (
     "The user keeps **Learning** workspaces — only two kinds:\n"
-    "1) **Vocabulary** (`language`) — words, definitions, daily quiz. One project per "
-    "target language (en, es, fr, de, it, pt, ru, tr, am).\n"
+    "1) **Language** (`language`) — vocabulary path in a target language: ordered "
+    "chapters (decks), words, definitions, daily quiz. One project per target language "
+    "(en, es, fr, de, it, pt, ru, tr, am).\n"
     "2) **General knowledge** (`trivia`) — topic facts, daily quiz. One per user.\n"
     "Do NOT create learning topics for coding repos, apps to build, math courses, or other subjects.\n"
     "When they ask about learning topics, answer from the injected list below.\n"
     "Creating via chat — name → type (language|trivia) → target_language (ISO) → description → "
     "confirm. Changes sync after your reply; phrase as what you will set up, never claim a "
     "project was already created or updated in this turn.\n"
-    "At most ONE vocabulary project per target language and ONE trivia project per user. "
+    "At most ONE language project per target language and ONE trivia project per user. "
     "You MAY create a second language project when they want a different language "
     "(e.g. Spanish when they already have English). Use set_level on the existing project "
     "when skill in that language grows.\n"
@@ -146,7 +147,9 @@ def language_tutor_hint(target_language: str | None = "en") -> str:
         "Gibberish / unrelated text = wrong.\n"
         "Keep replies short. Prefer failed/learning words due for review, then new — never re-quiz "
         "✓ mastered as a 'freebie'.\n"
-        "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
+        "Use the **Today:** line in the project snapshot as the only progress counter.\n"
+        "When a **Learning path** is listed, teach the current chapter "
+        "('Teach and add new words in') and put new vocabulary in that chapter.\n\n"
         f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
     )
 
