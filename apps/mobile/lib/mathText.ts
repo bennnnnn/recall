@@ -75,7 +75,7 @@ export function latexHasNestedMathView(latex: string): boolean {
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
-  [/\\pm/g, "±"],
+  [/\\pm(?![a-zA-Z])/g, "±"],
   [/\\mp/g, "∓"],
   [/\\times/g, "×"],
   // Longest-first: `\cdot` is a prefix of `\cdots`. Without these, a
@@ -126,6 +126,35 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\sum/g, "Σ"],
   [/\\prod/g, "∏"],
   [/\\int/g, "∫"],
+  // Big operators — the "big" variants and the rest of the big-operator family.
+  // Without these, \bigcup_{i=1}^n / \oint_C / \iint leaked as the
+  // literal words "bigcup"/"oint"/"iint" in inline math.
+  [/\\bigcup/g, "∬"],
+  [/\\bigcap/g, "∩"],
+  [/\\bigvee/g, "∨"],
+  [/\\bigwedge/g, "∧"],
+  [/\\bigoplus/g, "⊕"],
+  [/\\bigotimes/g, "⊗"],
+  [/\\bigodot/g, "⊙"],
+  [/\\biguplus/g, "⊎"],
+  [/\\oint/g, "∮"],
+  [/\\iint/g, "∬"],
+  [/\\iiint/g, "∭"],
+  [/\\oiint/g, "∯"],
+  [/\\oiiint/g, "⨒"],
+  // Base operators not previously handled — leaked as literal names inline.
+  [/\\oplus/g, "⊕"],
+  [/\\otimes/g, "⊗"],
+  [/\\odot/g, "⊙"],
+  [/\\uplus/g, "⊎"],
+  [/\\amalg/g, "⨿"],
+  // Logic symbols — routine in derivations; leaked as the English words.
+  [/\\therefore/g, "∴"],
+  [/\\because/g, "∵"],
+  [/\\lnot/g, "¬"],
+  [/\\neg(?![a-zA-Z])/g, "¬"],
+  // \bmod renders as "mod" with math spacing; in plain text use a spaced "mod".
+  [/\\bmod(?![a-zA-Z])/g, " mod "],
   // Lowercase Greek letters — matches mathFenceRetag.ts's LATEX_CMD_RE list.
   // Only alpha/beta/gamma/theta/pi were handled here; the rest leaked as
   // raw "\delta"/"\sigma"/etc. backslash text once actually rendered.
@@ -173,7 +202,7 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\Leftrightarrow/g, "⇔"],
   [/\\implies/g, "⇒"],
   [/\\iff/g, "⇔"],
-  [/\\to/g, "→"],
+  [/\\to(?![a-zA-Z])/g, "→"],
   [/\\longmapsto/g, "⟼"],
   [/\\mapsto/g, "↦"],
   [/\\quad/g, "  "],
@@ -206,7 +235,7 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // Calculus / set-theory / relation symbols that previously showed raw.
   [/\\partial/g, "∂"],
   [/\\nabla/g, "∇"],
-  [/\\in/g, "∈"],
+  [/\\in(?![a-zA-Z])/g, "∈"],
   [/\\subset/g, "⊂"],
   [/\\subseteq/g, "⊆"],
   [/\\supset/g, "⊃"],
@@ -297,10 +326,12 @@ const ENV_BRACKETS: Record<string, [string, string]> = {
   bmatrix: ["[", "]"],
   vmatrix: ["|", "|"],
   Vmatrix: ["‖", "‖"],
+  smallmatrix: ["", ""],
+  Bmatrix: ["{", "}"],
 };
 
 const ENV_RE =
-  /\\begin\{(cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|array|aligned|align\*?|gathered|split|multline|eqnarray)\}([\s\S]*?)\\end\{\1\}/g;
+  /\\begin\{(cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|smallmatrix|Bmatrix|array|aligned|align\*?|gathered|split|multline|eqnarray)\}([\s\S]*?)\\end\{\1\}/g;
 
 /** Split a LaTeX environment body into rows ("\\" is the row separator) and
  * cells within a row ("&" is the column/alignment separator), trimming each. */
@@ -326,7 +357,16 @@ function splitEnvRows(body: string): string[][] {
  */
 function expandLatexEnvironments(latex: string): string {
   return latex.replace(ENV_RE, (_match, env: string, body: string) => {
-    const rows = splitEnvRows(body);
+    // \begin{array}{cc}… — the column spec ({cc}, {c|c}, …) is the first
+    // thing in the body and carries no plain-text meaning. Strip a leading
+    // braced group before splitting rows, otherwise it leaks as "{cc}" in
+    // the first cell.
+    let envBody = body;
+    if (env === "array" && envBody.trimStart().startsWith("{")) {
+      const group = readGroup(envBody, envBody.indexOf("{"));
+      if (group) envBody = envBody.slice(group.next);
+    }
+    const rows = splitEnvRows(envBody);
     if (!rows.length) return "";
     if (env === "cases") {
       // Piecewise: "expr & condition" per row → "expr if condition".
@@ -384,6 +424,17 @@ function preprocessLatex(latex: string): string {
   for (const [re, rep] of CMD_REPLACEMENTS) {
     s = s.replace(re, rep);
   }
+  // \overset{x}{base} / \underset{x}{base} / \stackrel{x}{base} stack x over
+  // or under base — native inline layout can't draw that, so unwrap to the
+  // base alone. Without this the generic \cmd handler kept the overset and
+  // left the base's braces visible ("a{=}" for \overset{a}{=}).
+  s = s.replace(/\\(?:overset|underset|stackrel)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
+  // \color{name}{base} / \textcolor{name}{base} — color has no plain-text
+  // meaning; unwrap to the base so the color name ("red") doesn't leak as
+  // literal text followed by bare braces.
+  s = s.replace(/\\(?:textcolor|color)\{[^{}]+\}\{([^{}]+)\}/g, "$1");
+  // \pmod{x} → "(mod x)" (KaTeX renders parenthesized mod).
+  s = s.replace(/\\pmod\{([^{}]+)\}/g, "(mod $1)");
   // \sqrt{...} is handled by parseSqrt below (in the character-by-character
   // parser, not here) — a flat regex over `[^}]+` can't track nested braces,
   // so `\sqrt{\frac{M}{2}}` broke on the FIRST `}` (the one closing \frac's
@@ -394,7 +445,17 @@ function preprocessLatex(latex: string): string {
   s = s.replace(/\\operatorname\{([^}]+)\}/g, "$1");
   s = s.replace(/\\overbrace\{([^}]+)\}/g, "$1");
   s = s.replace(/\\underbrace\{([^}]+)\}/g, "$1");
-  s = s.replace(/\\substack\{([^}]+)\}/g, "$1");
+  s = s.replace(/\\substack\{([^{}]+)\}/g, (_m, body: string) =>
+    // \substack{a\\b\\c} stacks rows (used under \sum/\prod). Native layout
+    // can't stack vertically, so join the rows with "; " — without this the
+    // bare unwrap left the "\\" row separator, which then leaked as a stray
+    // backslash ("\b") in the next cell.
+    body
+      .split("\\\\")
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .join("; "),
+  );
   // \boxed{...} has no plain-text equivalent (KaTeX/MathJax draw an actual
   // border) — unwrap to the inner content rather than leave the raw command
   // visible, matching \text/\mathrm's fallback above.
@@ -418,6 +479,15 @@ function preprocessLatex(latex: string): string {
   // `\left\langle … \right\rangle` doesn't leak a bare `\left`/`\right`.
   s = s.replace(/\\left(?=[⟨⌈⌊|‖])/g, "");
   s = s.replace(/\\right(?=[⟩⌉⌋|‖])/g, "");
+  // Sized delimiters \bigl( \bigr) \Bigl[ \biggl\{ … and the dot form
+  // \bigl. behave like \left/\right — they wrap the following delimiter
+  // (or "." for an invisible boundary). Strip the command word so the
+  // delimiter itself shows; without this the generic \cmd handler kept
+  // "bigl"/"bigr"/"Bigl" as literal text ("\bigl(x+1\bigr)" → "bigl(x+1bigr)").
+  // The big-operator words (\bigcup etc.) are already replaced above, so a
+  // trailing-letter guard isn't needed here — only \big*/\Big* sizing words
+  // remain at this point.
+  s = s.replace(/\\[Bb]ig(?:gl|gr|l|r|g)?\.?(?![a-zA-Z])/g, "");
   return s;
 }
 
