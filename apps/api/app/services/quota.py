@@ -274,14 +274,6 @@ async def get_image_upload_count(redis: Redis, user_id: UUID) -> int:
     return int(value or 0)
 
 
-async def record_image_upload(redis: Redis, user_id: UUID) -> int:
-    key = _daily_key("imgup", user_id)
-    new_total = await redis.incrby(key, 1)
-    if new_total == 1:
-        await redis.expire(key, _DAILY_TTL)
-    return new_total
-
-
 async def reserve_image_upload(redis: Redis, user_id: UUID, *, limit: int) -> bool:
     """Atomically reserve one image upload slot for today. Rolls back if over limit."""
     return await _reserve_daily_slot(redis, _daily_key("imgup", user_id), limit=limit)
