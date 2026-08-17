@@ -7,9 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-
-import { filledIconName, inkIconColor } from "@/lib/icons";
+import { Icon } from "@/components/Icon";
+import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, withAlpha } from "@/lib/theme";
@@ -44,7 +43,7 @@ function SettingsRowChrome({
   styles,
   theme,
 }: {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   title: string;
   subtitle?: string;
   value?: string;
@@ -56,11 +55,7 @@ function SettingsRowChrome({
   return (
     <>
       {icon ? (
-        <Ionicons
-          name={filledIconName(icon)}
-          size={20}
-          color={inkIconColor(theme, danger)}
-        />
+        <Icon name={icon} danger={danger} />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>
@@ -75,11 +70,7 @@ function SettingsRowChrome({
           </Text>
         ) : null}
         {chevron ? (
-          <Ionicons
-            name={`chevron-${chevron}`}
-            size={18}
-            color={theme.textTertiary}
-          />
+          <Icon name={`chevron-${chevron}`} size={18} color={theme.textTertiary} />
         ) : null}
       </View>
     </>
@@ -99,7 +90,7 @@ export function SettingsLinkRow({
   title: string;
   subtitle?: string;
   value?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   danger?: boolean;
   onPress: () => void;
   styles: SettingsStyles;
@@ -136,7 +127,7 @@ export function SettingsValueRow({
   title: string;
   subtitle?: string;
   value?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   styles: SettingsStyles;
   theme: Theme;
 }) {
@@ -168,7 +159,7 @@ export function SettingsInlinePicker({
   styles,
   theme,
 }: {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   title: string;
   subtitle?: string;
   value: string;
@@ -230,7 +221,7 @@ export function SettingsInlinePicker({
                   {option.label}
                 </Text>
                 {active ? (
-                  <Ionicons name="checkmark" size={18} color={theme.primary} />
+                  <Icon name="checkmark" size={18} color={theme.primary} />
                 ) : null}
               </Pressable>
             );
@@ -253,7 +244,7 @@ export function SettingsSwitchRow({
 }: {
   title: string;
   subtitle?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IoniconName;
   value: boolean;
   disabled?: boolean;
   onValueChange: (next: boolean) => void;
@@ -263,7 +254,7 @@ export function SettingsSwitchRow({
   return (
     <View style={styles.menuRow}>
       {icon ? (
-        <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
+        <Icon name={icon} />
       ) : null}
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -308,7 +299,7 @@ export function InfoRow({
   styles,
   theme,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   title: string;
   value: string;
   compact?: boolean;
@@ -317,7 +308,7 @@ export function InfoRow({
 }) {
   return (
     <View style={compact ? styles.menuRow : styles.row}>
-      <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
+      <Icon name={icon} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.meta}>{value}</Text>
@@ -365,7 +356,7 @@ export function IntegrationPanel({
   /** When false, body is always visible (no accordion chrome). */
   collapsible = true,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   title: string;
   subtitle?: string;
   summary: string;
@@ -381,7 +372,7 @@ export function IntegrationPanel({
   const showBody = !collapsible || expanded;
   const header = (
     <>
-      <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
+      <Icon name={icon} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
@@ -393,7 +384,7 @@ export function IntegrationPanel({
         {busy ? (
           <ActivityIndicator color={theme.primary} />
         ) : collapsible ? (
-          <Ionicons
+          <Icon
             name={expanded ? "chevron-up" : "chevron-down"}
             size={18}
             color={theme.textTertiary}
@@ -434,7 +425,7 @@ export function AccordionSection({
   theme,
 }: {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   count: number;
   expanded: boolean;
   onToggle: () => void;
@@ -450,13 +441,13 @@ export function AccordionSection({
       <Text style={styles.sectionLabel}>{label}</Text>
       <View style={styles.group}>
         <Pressable style={styles.accordionHeader} onPress={onToggle}>
-          <Ionicons name={filledIconName(icon)} size={20} color={inkIconColor(theme)} />
+          <Icon name={icon} />
           <View style={styles.rowBody}>
             <Text style={styles.meta}>
               {count > 0 ? String(count) : emptyText}
             </Text>
           </View>
-          <Ionicons
+          <Icon
             name={expanded ? "chevron-up" : "chevron-down"}
             size={18}
             color={theme.textTertiary}
@@ -472,7 +463,7 @@ export function AccordionSection({
             )}
             <Pressable style={styles.viewAllRow} onPress={onViewAll}>
               <Text style={styles.viewAllText}>{viewAllLabel}</Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.textTertiary} />
+              <Icon name="chevron-forward" size={16} color={theme.textTertiary} />
             </Pressable>
           </View>
         ) : null}
@@ -506,7 +497,7 @@ export function ItemRow({
           </Text>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={16} color={theme.textTertiary} />
+      <Icon name="chevron-forward" size={16} color={theme.textTertiary} />
     </Pressable>
   );
 }
@@ -521,7 +512,7 @@ export function NavRow({
   styles,
   theme,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IoniconName;
   title: string;
   meta?: string;
   onPress: () => void;
@@ -540,17 +531,13 @@ export function NavRow({
       onPress={onPress}
       accessibilityRole="button"
     >
-      <Ionicons
-        name={filledIconName(icon)}
-        size={20}
-        color={inkIconColor(theme, danger)}
-      />
+      <Icon name={icon} danger={danger} />
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
       </View>
       {!danger ? (
-        <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
+        <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
       ) : null}
     </Pressable>
   );

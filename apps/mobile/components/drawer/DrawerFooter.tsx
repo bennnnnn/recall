@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import { NewChatIcon } from "@/components/NewChatIcon";
 import { tap } from "@/lib/haptics";
-import { filledIconName } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -50,7 +49,7 @@ export function DrawerFooter({
         accessibilityLabel={t("settings.title")}
       >
         <Ionicons
-          name={filledIconName("settings-outline")}
+          name="settings-outline"
           size={22}
           color={theme.onPrimary}
         />

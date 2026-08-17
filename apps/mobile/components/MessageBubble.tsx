@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/Icon";
 import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
 
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
@@ -95,9 +95,9 @@ function UserActions({
         accessibilityRole="button"
         accessibilityLabel={t("common.copy")}
       >
-        <Ionicons
+        <Icon
           name={copied ? "checkmark-outline" : "copy-outline"}
-          size={19}
+          size={20}
           color={copied ? theme.primary : theme.textSecondary}
         />
       </Pressable>
@@ -112,7 +112,7 @@ function UserActions({
           accessibilityRole="button"
           accessibilityLabel={t("chat.edit_message_a11y")}
         >
-          <Ionicons name="pencil-outline" size={19} color={theme.textSecondary} />
+          <Icon name="pencil-outline" size={20} color={theme.textSecondary} />
         </Pressable>
       ) : null}
     </View>
@@ -222,9 +222,9 @@ function AssistantActions({
             accessibilityRole="button"
             accessibilityLabel={t("common.copy")}
           >
-            <Ionicons
+            <Icon
               name={copied ? "checkmark-outline" : "copy-outline"}
-              size={19}
+              size={20}
               color={copied ? theme.primary : theme.textSecondary}
             />
           </Pressable>
@@ -236,9 +236,9 @@ function AssistantActions({
             accessibilityRole="button"
             accessibilityLabel={t("chat.read_aloud_a11y")}
           >
-            <Ionicons
+            <Icon
               name={speaking ? "volume-high" : "volume-high-outline"}
-              size={19}
+              size={20}
               color={speaking ? theme.primary : theme.textSecondary}
             />
           </Pressable>
@@ -250,9 +250,9 @@ function AssistantActions({
             accessibilityRole="button"
             accessibilityLabel={t("chat.export_pdf_a11y")}
           >
-            <Ionicons
+            <Icon
               name={exporting ? "hourglass-outline" : "document-text-outline"}
-              size={19}
+              size={20}
               color={theme.textSecondary}
             />
           </Pressable>
@@ -265,9 +265,9 @@ function AssistantActions({
         accessibilityRole="button"
         accessibilityLabel={t("chat.thumbs_up_a11y")}
       >
-        <Ionicons
+        <Icon
           name={feedback === "up" ? "thumbs-up" : "thumbs-up-outline"}
-          size={19}
+          size={20}
           color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
@@ -278,9 +278,9 @@ function AssistantActions({
         accessibilityRole="button"
         accessibilityLabel={t("chat.thumbs_down_a11y")}
       >
-        <Ionicons
+        <Icon
           name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
-          size={19}
+          size={20}
           color={feedback === "down" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
@@ -295,7 +295,7 @@ function AssistantActions({
           accessibilityRole="button"
           accessibilityLabel={t("chat.regenerate_a11y")}
         >
-          <Ionicons name="refresh-outline" size={19} color={theme.textSecondary} />
+          <Icon name="refresh-outline" size={20} color={theme.textSecondary} />
         </Pressable>
       ) : null}
     </View>
