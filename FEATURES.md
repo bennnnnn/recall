@@ -284,7 +284,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   app.worker_main`); local/dev default `process_role=all` keeps a single process. Scale with
   `fly scale count app=1 worker=1`. Multi-instance worker fleets remain a later ops concern.
 - ✅ **Sentry** — optional DSN init on API + mobile (no-op when unset).
-- 🔜 Sentry/observability polish, structured request logging.
+- ✅ **Sentry / request logs** — `before_send` drops `WebSocketDisconnect` /
+  `ClientDisconnect`, strips request bodies and auth headers, tags `request_id`.
+  One structured access line per HTTP request (`event=http_request`; JSON in
+  production). Health probes and CORS preflight are skipped. No bodies or query
+  strings.
 
 ## 14. Todos & suggestions
 - ✅ **Todo lists** — named lists (topics) with a list-first UX: create a list title, then add items;
@@ -532,7 +536,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; multi-file HTML preview; virus scan |
 | i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
-| Polish | Sentry/logging polish; App Store / Play / family plans |
+| Polish | App Store / Play / family plans |
 | Launch ops | Neon / Redis / R2 / Fly / EAS; landing page; on-device QA; prod R2 secrets |
 
 ### Future — owner ops (was “Pre-deployment TODO”)

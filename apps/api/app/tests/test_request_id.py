@@ -1,9 +1,29 @@
 """Tests for RequestIdMiddleware and CORS allowlist in main.py."""
 
+import logging
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+
+
+@pytest.mark.asyncio
+async def test_access_log_emitted_for_legal_not_health(caplog):
+    """Structured access log fires for real routes; Fly probes stay quiet."""
+    caplog.set_level(logging.INFO, logger="app.http")
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.get("/health")
+        privacy = await client.get("/legal/privacy")
+    assert privacy.status_code == 200
+    records = [r for r in caplog.records if r.name == "app.http"]
+    assert records
+    assert all(getattr(r, "http_path", "") != "/health" for r in records)
+    logged = next(r for r in records if r.http_path == "/legal/privacy")
+    assert logged.http_method == "GET"
+    assert logged.http_status == 200
+    assert isinstance(logged.duration_ms, float)
 
 
 @pytest.mark.asyncio

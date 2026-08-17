@@ -51,8 +51,8 @@ _VALID_PROCESS_ROLES = frozenset({"all", "api", "worker"})
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    setup_logging()
     settings = get_settings()
+    setup_logging(json_output=settings.environment == "production")
     init_sentry(settings)
     validate_production_settings(settings)
     from app.gateways.mcp import setup_mcp_adapters
