@@ -25,7 +25,7 @@ function iconToneColors(theme: Theme, tone: SettingsIconTone) {
     case "warning":
       return { fg: theme.warning, bg: withAlpha(theme.warning, 0.16) };
     default:
-      return { fg: theme.primary, bg: theme.primaryLight };
+      return { fg: theme.text, bg: theme.surfaceAlt };
   }
 }
 
@@ -577,13 +577,13 @@ export function NavRow({
       <View
         style={[
           styles.iconWell,
-          { backgroundColor: danger ? theme.dangerLight : theme.primaryLight },
+          { backgroundColor: danger ? theme.dangerLight : theme.surfaceAlt },
         ]}
       >
         <Ionicons
           name={icon}
           size={18}
-          color={danger ? theme.danger : theme.primary}
+          color={danger ? theme.danger : theme.text}
         />
       </View>
       <View style={styles.rowBody}>
