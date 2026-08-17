@@ -85,9 +85,14 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     [applyPinchScale, beginPinch],
   );
 
+  // maxPointers(1) is the fix for "pinch moves instead of resizes": without
+  // it the Pan tracks the 2-finger pinch centroid and translates the region,
+  // so the user sees movement (not a resize). Restrict Pan to one finger so a
+  // 2-finger gesture goes to Pinch alone.
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
+        .maxPointers(1)
         .onBegin(() => {
           runOnJS(beginPan)();
         })
@@ -171,9 +176,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     setRegion(clampScanRegion(defaultScanRegion()));
   }, []);
 
-  if (!visible) return null;
-
-  const body = !permission ? (
+  const cameraLayer = !permission ? (
     <View style={s.center}>
       <ActivityIndicator color={theme.onPrimary} />
     </View>
@@ -218,8 +221,24 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           <View style={s.cornerBR} />
         </View>
       </GestureDetector>
-      <Text style={[s.hint, { top: insets.top + 56 }]}>{t("chat.math_scan_hint")}</Text>
-      {error ? <Text style={s.error}>{error}</Text> : null}
+    </>
+  );
+
+  // Overlay controls render AFTER the camera/gesture layer so they are above
+  // it in tree order (and have a higher zIndex). Earlier the close button was
+  // a sibling rendered BEFORE the CameraView (absoluteFill) — the camera layer
+  // could cover it and swallow taps.
+  const overlay = (
+    <>
+      <Pressable
+        style={[s.close, { top: insets.top + 8 }]}
+        onPress={onClose}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.close")}
+      >
+        <Ionicons name="close" size={28} color="#fff" />
+      </Pressable>
       <Pressable
         style={[s.resetBtn, { top: insets.top + 8 }]}
         onPress={resetRegion}
@@ -229,6 +248,10 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       >
         <Ionicons name="scan-outline" size={20} color="#fff" />
       </Pressable>
+      <View style={[s.hintWrap, { top: insets.top + 56 }]}>
+        <Text style={s.hint}>{t("chat.math_scan_hint")}</Text>
+      </View>
+      {error ? <Text style={s.error}>{error}</Text> : null}
       <View style={[s.controls, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
         <Pressable
           style={s.shutter}
@@ -247,19 +270,15 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     </>
   );
 
+  if (!visible) return null;
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <GestureHandlerRootView style={s.root}>
-        <Pressable
-          style={[s.close, { top: insets.top + 8 }]}
-          onPress={onClose}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.close")}
-        >
-          <Ionicons name="close" size={28} color="#fff" />
-        </Pressable>
-        {body}
+        <View style={s.cameraLayer}>{cameraLayer}</View>
+        <View style={s.overlayLayer} pointerEvents="box-none">
+          {overlay}
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -268,65 +287,79 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
 function makeStyles(theme: Theme) {
   const corner = {
     position: "absolute" as const,
-    width: 22,
-    height: 22,
-    borderColor: "#FFFFFF",
+    width: 24,
+    height: 24,
+    borderColor: theme.primary,
   };
   return StyleSheet.create({
     root: {
       flex: 1,
       backgroundColor: "#000",
     },
+    // Camera + crop gesture sit in their own layer below the overlay controls.
+    cameraLayer: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 1,
+    },
+    // Overlay (close, reset, hint, shutter) renders above the camera so taps
+    // always reach the buttons. pointerEvents="box-none" lets the crop
+    // gesture underneath keep receiving touches in the empty areas.
+    overlayLayer: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 30,
+    },
     close: {
       position: "absolute",
       left: 16,
-      zIndex: 20,
       width: 40,
       height: 40,
       borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.45)",
+      backgroundColor: "rgba(0,0,0,0.55)",
     },
     resetBtn: {
       position: "absolute",
       right: 16,
-      zIndex: 20,
       width: 40,
       height: 40,
       borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.45)",
+      backgroundColor: "rgba(0,0,0,0.55)",
     },
     maskLayer: {
       ...StyleSheet.absoluteFill,
     },
     mask: {
       position: "absolute",
-      backgroundColor: "rgba(0,0,0,0.55)",
+      backgroundColor: "rgba(0,0,0,0.7)",
     },
     region: {
       position: "absolute",
-      borderColor: "rgba(255,255,255,0.85)",
+      borderColor: "rgba(255,255,255,0.9)",
       borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 10,
       backgroundColor: "transparent",
     },
-    cornerTL: { ...corner, top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3 },
-    cornerTR: { ...corner, top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3 },
-    cornerBL: { ...corner, bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3 },
-    cornerBR: { ...corner, bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3 },
-    hint: {
+    cornerTL: { ...corner, top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 6 },
+    cornerTR: { ...corner, top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 6 },
+    cornerBL: { ...corner, bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 6 },
+    cornerBR: { ...corner, bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 6 },
+    hintWrap: {
       position: "absolute",
       alignSelf: "center",
+      backgroundColor: "rgba(0,0,0,0.55)",
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      zIndex: 10,
+    },
+    hint: {
       color: "#fff",
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: "600",
       textAlign: "center",
-      paddingHorizontal: 24,
-      textShadowColor: "rgba(0,0,0,0.6)",
-      textShadowRadius: 6,
-      zIndex: 10,
     },
     error: {
       position: "absolute",
@@ -349,19 +382,19 @@ function makeStyles(theme: Theme) {
       zIndex: 10,
     },
     shutter: {
-      width: 74,
-      height: 74,
-      borderRadius: 37,
+      width: 76,
+      height: 76,
+      borderRadius: 38,
       borderWidth: 4,
       borderColor: "#fff",
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(255,255,255,0.15)",
+      backgroundColor: "rgba(255,255,255,0.18)",
     },
     shutterInner: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
       backgroundColor: "#fff",
     },
     center: {
