@@ -26,7 +26,6 @@ type Props = {
   groups: ListGroup[];
   initialExpandedTopic?: string;
   togglingId: string | null;
-  projectTitleById?: Map<string, string>;
   onReorderGroups: (topics: string[]) => void;
   onReorderItems: (topic: string, ordered: Todo[]) => void;
   onToggle: (todo: Todo) => void;
@@ -39,7 +38,6 @@ export function ListGroupsView({
   groups,
   initialExpandedTopic,
   togglingId,
-  projectTitleById,
   onReorderGroups,
   onReorderItems,
   onToggle,
@@ -135,11 +133,6 @@ export function ListGroupsView({
                           busy={togglingId === todo.id}
                           dragging={itemActive}
                           onDrag={dragItem}
-                          projectTitle={
-                            todo.project_id && projectTitleById
-                              ? projectTitleById.get(todo.project_id) ?? null
-                              : null
-                          }
                           onToggle={() => onToggle(todo)}
                           onDelete={() => onDeleteItem(todo)}
                         />
@@ -192,11 +185,6 @@ export function ListGroupsView({
                         todo={todo}
                         variant="done"
                         busy={togglingId === todo.id}
-                        projectTitle={
-                          todo.project_id && projectTitleById
-                            ? projectTitleById.get(todo.project_id) ?? null
-                            : null
-                        }
                         onToggle={() => onToggle(todo)}
                         onDelete={() => onDeleteItem(todo)}
                       />
@@ -218,7 +206,6 @@ export function ListGroupsView({
       onDeleteList,
       onReorderItems,
       onToggle,
-      projectTitleById,
       s,
       togglingId,
       toggleCollapsed,
@@ -249,7 +236,6 @@ function ListItemRow({
   busy,
   dragging,
   onDrag,
-  projectTitle,
   onToggle,
   onDelete,
 }: {
@@ -258,7 +244,6 @@ function ListItemRow({
   busy?: boolean;
   dragging?: boolean;
   onDrag?: () => void;
-  projectTitle?: string | null;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -287,16 +272,9 @@ function ListItemRow({
           color={todo.checked ? C.primary : C.textTertiary}
         />
       </Pressable>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
-          {todo.content}
-        </Text>
-        {projectTitle ? (
-          <Text style={{ fontSize: 12, fontWeight: "500", color: C.textSecondary }} numberOfLines={1}>
-            {t("todos.project_linked", { title: projectTitle })}
-          </Text>
-        ) : null}
-      </View>
+      <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
+        {todo.content}
+      </Text>
       {variant === "done" ? (
         <Pressable
           onPress={onDelete}

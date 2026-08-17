@@ -91,7 +91,6 @@ export function makeTodosStyles(C: Theme) {
     },
     overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", lineHeight: 18, color: C.danger },
     pickerOverlapNote: { marginHorizontal: Space.md, marginBottom: Space.xs },
-    projectLinked: { fontSize: 12, fontWeight: "500", color: C.textSecondary },
     dueBtn: { padding: 2 },
     todoDone: {
       color: C.textTertiary,
