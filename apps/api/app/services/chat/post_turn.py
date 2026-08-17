@@ -343,7 +343,12 @@ async def enqueue_post_turn_jobs(
             )
         )
     if not spend_capped and ctx.prior_count % 10 == 0:
-        job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}, None))
+        # Dedupe by user: the handler reads recent activity at run time, so a
+        # coalesced run covers the latest state. Without a key, rapid turns at
+        # the % 10 boundary could stack duplicate suggestion jobs per user.
+        job_specs.append(
+            ("suggestions", {"user_id": str(ctx.user_id)}, f"suggestions:{ctx.user_id}")
+        )
     for attachment_id in ctx.indexable_attachment_ids if not spend_capped else []:
         job_specs.append(
             (
