@@ -86,6 +86,11 @@ describe("image revision follow-ups", () => {
     expect(subjectFromImageGenUserMessage("Generate image: black cat")).toBe("black cat");
   });
 
+  it("reads the subject from the user's original wording", () => {
+    expect(subjectFromImageGenUserMessage("create a cat image")).toBe("cat");
+    expect(subjectFromImageGenUserMessage("draw me a dog")).toBe("dog");
+  });
+
   it("detects image-only assistant content", () => {
     expect(
       isImageOnlyAssistantContent("[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"),
@@ -142,5 +147,22 @@ describe("image revision follow-ups", () => {
         },
       ]),
     ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "black cat" });
+  });
+
+  it("imageGenRevisionContext finds the subject from original wording", () => {
+    expect(
+      imageGenRevisionContext([
+        {
+          id: "u1",
+          role: "user",
+          content: "create a cat image",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+        },
+      ]),
+    ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "cat" });
   });
 });

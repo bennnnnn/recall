@@ -185,6 +185,8 @@
   "chat.status.composing_3": "Antwort wird getippt…",
   "chat.status.image_gen": "Bild wird erstellt",
   "chat.status.image_gen_1": "Details werden gemalt…",
+  "chat.image_gen_canceled": "Bilderzeugung abgebrochen",
+  "chat.image_gen_failed": "Bild konnte nicht erstellt werden",
   "chat.status.loading_calendar": "Kalender wird geprüft…",
   "chat.status.loading_calendar_1": "Terminplan wird geladen…",
   "chat.status.preparing": "Wird vorbereitet…",

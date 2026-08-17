@@ -66,6 +66,9 @@ export type Message = {
   renderKey?: string;
   /** Client-only: reasoning shown during stream, kept through layout settle to avoid list bounce. */
   reasoning_preview?: string;
+  /** Client-only: image generation stopped or failed (inline card + retry). */
+  image_gen_failure?: "canceled" | "failed";
+  image_gen_error?: string;
   created_at: string;
 };
 

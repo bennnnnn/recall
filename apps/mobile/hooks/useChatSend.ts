@@ -83,7 +83,7 @@ type Options = {
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
-  onGenerateImage?: (prompt: string) => void;
+  onGenerateImage?: (prompt: string, userMessage: string) => void;
   imageGenerating?: boolean;
 };
 
@@ -221,7 +221,7 @@ export function useChatSend({
           if (imageGenerating) return;
           setInput("");
           Keyboard.dismiss();
-          onGenerateImage(imagePrompt);
+          onGenerateImage(imagePrompt, text);
           return;
         }
       }

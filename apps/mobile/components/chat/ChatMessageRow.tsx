@@ -24,6 +24,7 @@ type Props = {
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
   onQuizAnswer?: (letter: string) => void;
+  onRetryImageGen?: () => void;
 };
 
 export const ChatMessageRow = memo(function ChatMessageRow({
@@ -40,6 +41,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onEdit,
   onFeedback,
   onQuizAnswer,
+  onRetryImageGen,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
   const isActiveQuiz = item.role === "assistant" && item.id === activeQuizMessageId;
@@ -58,7 +60,12 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       liveReasoning={undefined}
       streamStatus={undefined}
       isLastAssistant={isLastAssistant}
-      onRegenerate={isLastAssistant && !streamVisualActive ? handleRegenerate : undefined}
+      onRegenerate={
+        isLastAssistant && !streamVisualActive && !item.image_gen_failure
+          ? handleRegenerate
+          : undefined
+      }
+      onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
       onEdit={onEdit}
       canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
       onFeedback={onFeedback}

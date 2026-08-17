@@ -32,6 +32,7 @@ type Options = {
   onDismissSuggestion?: (id: string) => void;
   onQuizAnswer?: (letter: string) => void;
   imageGenerating?: boolean;
+  onRetryImageGen?: () => void;
 };
 
 export function useChatMessageList({
@@ -51,6 +52,7 @@ export function useChatMessageList({
   onDismissSuggestion,
   onQuizAnswer,
   imageGenerating = false,
+  onRetryImageGen,
 }: Options) {
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
@@ -102,6 +104,7 @@ export function useChatMessageList({
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
       onQuizAnswer,
+      onRetryImageGen,
     }),
     [
       lastAssistantId,
@@ -114,6 +117,7 @@ export function useChatMessageList({
       handleEditMessage,
       handleFeedback,
       onQuizAnswer,
+      onRetryImageGen,
     ],
   );
 

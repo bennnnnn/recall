@@ -23,6 +23,7 @@ type Props = {
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
   onQuizAnswer?: (letter: string) => void;
+  onRetryImageGen?: () => void;
 };
 
 export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({

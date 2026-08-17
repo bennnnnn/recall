@@ -114,8 +114,9 @@ async def generate_for_chat(
     Returns (user_message, assistant_message). Raises ImageGenerationError on
     expected failures; unexpected exceptions are re-raised after quota refund.
 
-    ``user_message_content`` overrides the default ``Generate image: …`` user
-    bubble (e.g. keep the composer's original \"Create cat\"). Set
+    ``user_message_content`` is the composer text shown in the user bubble
+    (e.g. \"create a cat image\"). Falls back to ``Generate image: …`` only
+    when the caller did not pass the original wording. Set
     ``create_user_message=False`` when regenerating — only a new assistant row
     is written.
 

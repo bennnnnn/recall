@@ -185,6 +185,8 @@
   "chat.status.composing_3": "Yanıt yazılıyor…",
   "chat.status.image_gen": "Görsel oluşturuluyor",
   "chat.status.image_gen_1": "Detaylar işleniyor…",
+  "chat.image_gen_canceled": "Görsel oluşturma iptal edildi",
+  "chat.image_gen_failed": "Görsel oluşturulamadı",
   "chat.status.loading_calendar": "Takvimin kontrol ediliyor…",
   "chat.status.loading_calendar_1": "Programın yükleniyor…",
   "chat.status.preparing": "Hazırlanıyor…",

@@ -199,6 +199,49 @@ def test_generate_image_success():
     gateway.delete_bytes.assert_not_called()
 
 
+def test_generate_image_passes_original_user_message():
+    user = _fake_user(plan="pro")
+    chat_id = uuid4()
+    app = _app_with_user(user)
+
+    user_msg = MagicMock(spec=Message)
+    user_msg.id = uuid4()
+    user_msg.role = "user"
+    user_msg.content = "create a cat image"
+    user_msg.model = None
+    user_msg.feedback = None
+    user_msg.created_at = datetime.now()
+
+    assistant_msg = MagicMock(spec=Message)
+    assistant_msg.id = uuid4()
+    assistant_msg.role = "assistant"
+    assistant_msg.content = "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+    assistant_msg.model = "image-gen-model"
+    assistant_msg.feedback = None
+    assistant_msg.created_at = datetime.now()
+
+    generate = AsyncMock(return_value=(user_msg, assistant_msg))
+    with patch(
+        "app.routers.images.image_generation_service.generate_for_chat",
+        generate,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/images/generate",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(chat_id),
+                "prompt": "cat",
+                "user_message": "create a cat image",
+            },
+        )
+
+    assert r.status_code == 200
+    assert r.json()["user_message"]["content"] == "create a cat image"
+    assert generate.await_args.kwargs["prompt"] == "cat"
+    assert generate.await_args.kwargs["user_message_content"] == "create a cat image"
+
+
 def test_generate_image_deletes_storage_when_persist_fails():
     """A write with no attachment row leaks forever — rollback the object."""
     user = _fake_user(plan="pro")

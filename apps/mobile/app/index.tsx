@@ -291,8 +291,8 @@ function ChatScreen() {
     isOffline,
     resolveQuizProjectId,
     imageGenerating: imageGen.generating,
-    onGenerateImage: (prompt) => {
-      void imageGen.submitPrompt(prompt);
+    onGenerateImage: (prompt, userMessage) => {
+      void imageGen.submitPrompt({ prompt, userMessage });
     },
   });
 
@@ -436,6 +436,7 @@ function ChatScreen() {
     onDismissSuggestion: dismissSuggestion,
     imageGenerating: imageGen.generating,
     onQuizAnswer,
+    onRetryImageGen: imageGen.retry,
   });
 
   const layout = useChatLayoutMetrics({
