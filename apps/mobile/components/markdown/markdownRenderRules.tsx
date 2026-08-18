@@ -139,9 +139,21 @@ function renderTextWithMath(
   // Text. Wrapping this run in another Text is what made neighboring
   // sentences paint on top of each other.
   if (parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))) {
+    // A trailing text part that is only a colon (e.g. "Use the product rule
+    // $\sqrt{ab}=\sqrt{a}\sqrt{b}$:") strands onto its own line here: the math
+    // is a nested View, so the ":" after it can't share its line box and
+    // renders as a random lone "two dots" between the rule and the next
+    // line. The colon is a "leads to the next line" marker that's redundant
+    // once the next line follows — drop it so it doesn't strand.
+    const trimmed = parts.filter((p, i) => {
+      if (p.type !== "text") return true;
+      // Only drop a trailing lone colon (the last part, possibly after a math View).
+      if (i !== parts.length - 1) return true;
+      return p.value.trim() !== ":";
+    });
     return (
       <Fragment key={node.key}>
-        {parts.map((part, i) =>
+        {trimmed.map((part, i) =>
           part.type === "math" ? (
             <MathText key={`${node.key}-m-${i}`} latex={part.value} />
           ) : (

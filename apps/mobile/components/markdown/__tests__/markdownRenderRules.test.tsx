@@ -86,4 +86,15 @@ describe("markdown render rules", () => {
       color: lightTheme.success,
     });
   });
+
+  it("drops a stranded trailing colon after a nested-View math formula", async () => {
+    // A line ending in "$...$:" with a sqrt (nested View) used to strand the
+    // trailing ":" onto its own line ("random two dots" between the rule and
+    // the next line). The colon is a redundant "leads to" marker once the
+    // next line follows — it must not render as a lone ":".
+    const { queryByText } = await render(
+      <MarkdownContent content={String.raw`Use the product rule $\sqrt{ab}=\sqrt{a}\sqrt{b}$:`} />,
+    );
+    expect(queryByText(/^:$/)).toBeNull();
+  });
 });
