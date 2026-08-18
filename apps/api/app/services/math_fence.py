@@ -290,7 +290,12 @@ def _graph_fence_body(spec: GraphBlockSpec) -> str:
     return f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
 
 
-def _replace_unclosed_graph_fence(content: str, canonical_fence: dict[str, object] | None) -> str:
+def _replace_unclosed_graph_fence(
+    content: str,
+    canonical_fence: dict[str, object] | None,
+    *,
+    densify: bool = True,
+) -> str:
     """Replace a ```graph fence the model left unclosed (truncated mid-JSON,
     usually because it stopped copying the verified points array at EOS).
 
@@ -298,6 +303,13 @@ def _replace_unclosed_graph_fence(content: str, canonical_fence: dict[str, objec
     and the raw half-pasted points array reaches the client (where it renders
     as "Could not render function graph."). When this turn has a verified
     canonical fence, swap the whole truncated tail for the complete fence.
+
+    With ``densify=True`` (the normal post-stream path) the canonical fence is
+    re-sampled so a sparse curve draws smoothly. With ``densify=False`` (the
+    timeout-fallback path) the canonical fence is substituted as-is — it is
+    already a complete, dense spec from the pre-stream SymPy solve, and
+    calling ``densify_sparse_graph`` here would re-enter SymPy on the timeout
+    path, defeating the point of failing closed.
     """
     m = re.search(r"```graph\s*\n(?![\s\S]*```)([\s\S]*)$", content)
     if m is None:
@@ -315,8 +327,23 @@ def _replace_unclosed_graph_fence(content: str, canonical_fence: dict[str, objec
         parsed = GraphBlockSpec.model_validate(canonical_fence)
     except (ValidationError, TypeError):
         return head + "\n*Could not render that diagram.*\n"
-    densified = densify_sparse_graph(parsed)
-    return head + "\n" + _graph_fence_body(densified) + "\n"
+    spec = densify_sparse_graph(parsed) if densify else parsed
+    return head + "\n" + _graph_fence_body(spec) + "\n"
+
+
+def replace_unclosed_graph_fence_safe(
+    content: str, canonical_fence: dict[str, object] | None
+) -> str:
+    """SymPy-free fallback for an unclosed ```graph fence.
+
+    Use on the ``validate_math_fences`` timeout path: the densify pass (which
+    runs SymPy) was killed, but a truncated graph fence the model left at EOS
+    still needs to be cleaned up so the client doesn't render a half-pasted
+    points array. Substitute the verified canonical fence as-is or strip to the
+    "Could not render that diagram." note. No SymPy, no sampling — safe to
+    run after a solve timeout.
+    """
+    return _replace_unclosed_graph_fence(content, canonical_fence, densify=False)
 
 
 def _replace_fence(

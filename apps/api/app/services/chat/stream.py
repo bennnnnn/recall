@@ -1008,8 +1008,25 @@ async def _enrich_final_content(
             )
         except TimeoutError:
             logger.warning("validate_math_fences timed out; keeping raw assistant text")
+            # Fail closed: validate_math_fences was killed before it could
+            # clean up an unclosed ```graph fence the model truncated at EOS.
+            # Strip/substitute it SymPy-free so the client doesn't render a
+            # half-pasted points array (the densify pass that would re-enter
+            # SymPy is intentionally skipped here).
+            canonical_fence = (
+                ctx.verified_math.canonical_fence if ctx.verified_math is not None else None
+            )
+            assistant_text = math_fence_service.replace_unclosed_graph_fence_safe(
+                assistant_text, canonical_fence
+            )
         except Exception:
             logger.exception("validate_math_fences failed; keeping raw assistant text")
+            canonical_fence = (
+                ctx.verified_math.canonical_fence if ctx.verified_math is not None else None
+            )
+            assistant_text = math_fence_service.replace_unclosed_graph_fence_safe(
+                assistant_text, canonical_fence
+            )
         from app.services.vocab_quiz import strip_vocab_session_metadata
 
         assistant_text = strip_vocab_session_metadata(assistant_text)
