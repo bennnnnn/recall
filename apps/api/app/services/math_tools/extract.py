@@ -430,6 +430,53 @@ def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
     return MathIntent(kind="graph_pair", expr=expr1, expr2=expr2, operation="graph")
 
 
+def _solve_for_y_as_function_of_x(expr: str) -> str | None:
+    """Turn an equation like ``x=2y`` into the function ``x/2`` (y = f(x)).
+
+    Returns the RHS as a SymPy-text string in terms of x, or None when the
+    equation can't be isolated to a single y = f(x) (e.g. no y, multiple
+    solutions, or y is not the dependent variable). ``y=x^2`` stays a plain
+    expression already; this only rewires equations that contain ``=``.
+    """
+    if "=" not in expr:
+        return None
+    from sympy import Eq, Symbol, solve, sstr
+    from sympy.core.relational import Relational
+
+    from app.services.math_service.parse import _parse_expression
+
+    lhs_str, _, rhs_str = expr.partition("=")
+    lhs_str, rhs_str = lhs_str.strip(), rhs_str.strip()
+    if not lhs_str or not rhs_str:
+        return None
+    # Only attempt when y is present (the dependent variable we solve for).
+    if "y" not in lhs_str and "y" not in rhs_str:
+        return None
+    try:
+        lhs = _parse_expression(lhs_str, ["x", "y"], real=True)
+        rhs = _parse_expression(rhs_str, ["x", "y"], real=True)
+    except Exception:
+        return None
+    if isinstance(lhs, Relational) or isinstance(rhs, Relational):
+        return None
+    y = Symbol("y", real=True)
+    try:
+        sols = solve(Eq(lhs, rhs), y, dict=True)
+    except Exception:
+        return None
+    if not sols or len(sols) != 1:
+        return None
+    sol = sols[0]
+    value = sol.get(y) if isinstance(sol, dict) else sol
+    if value is None:
+        return None
+    # Must be a function of x only (no free y left).
+    text = sstr(value).replace(" ", "")
+    if "y" in text:
+        return None
+    return text or None
+
+
 def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
@@ -441,17 +488,25 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     # both forms from it.
     stripped = _strip_trailing_filler(g_expr)
     expr_no_space = stripped.replace("^", "**").replace(" ", "")
-    # Prefer vertical for "graph x=4"
+    # Prefer vertical for "graph x=4": the ENTIRE RHS after "x=" must be a
+    # pure number — "x=2y" / "x=2*y" are functions (y = x/2), not vertical
+    # lines, so they must fall through to the solve-for-y path below.
     if expr_no_space.lower().startswith("x="):
-        num = mtm.number_after(expr_no_space, "x=")
-        if num is None:
-            try:
-                num = float(expr_no_space[2:])
-            except ValueError:
-                num = None
+        try:
+            num = float(expr_no_space[2:])
+        except ValueError:
+            num = None
         if num is not None:
             return MathIntent(kind="vertical", point_x=num, operation="graph")
     expr = stripped.replace("^", "**")
+    # An equation like "x=2y" is not a function expression — solve for y as
+    # y = f(x) (e.g. "x/2") so sample_function can plot it. Without this,
+    # sample_function gets an Equality and rejects it, so no verified graph
+    # is emitted and the model emits its own (often wrong) spec.
+    if "=" in expr:
+        solved = _solve_for_y_as_function_of_x(expr)
+        if solved is not None:
+            expr = solved
     return MathIntent(kind="graph", expr=expr, operation="graph")
 
 
