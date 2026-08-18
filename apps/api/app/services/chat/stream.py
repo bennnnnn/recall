@@ -989,6 +989,7 @@ async def _enrich_final_content(
         # (pre-stream solve already uses run_sympy the same way).
         from app.services.sympy_executor import run_sympy
 
+        pre_validation_text = assistant_text
         try:
             assistant_text = await run_sympy(
                 math_fence_service.validate_math_fences_worker,
@@ -1003,6 +1004,15 @@ async def _enrich_final_content(
         from app.services.vocab_quiz import strip_vocab_session_metadata
 
         assistant_text = strip_vocab_session_metadata(assistant_text)
+
+        # validate_math_fences may rewrite a ```graph fence the model emitted
+        # without points (e.g. "Graph x=2y" → model drops the 96-point array)
+        # by substituting the verified canonical fence. That corrected text is
+        # persisted to the DB below, but without final_content the client keeps
+        # the raw streamed draft and renders "Could not render function graph."
+        # Send the corrected text whenever validation actually changed it.
+        if result is not None and assistant_text != pre_validation_text:
+            result["final_content"] = assistant_text
 
         if ctx.search_sources:
             assistant_text = web_search_service.strip_sources_from_text(assistant_text)

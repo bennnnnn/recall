@@ -133,6 +133,36 @@ def test_corrects_graph_fence_to_canonical_points() -> None:
     assert data["points"] == points
 
 
+def test_corrects_points_less_function_fence_to_canonical() -> None:
+    """The model often emits a ```graph fence with type=function but DROPS the
+    points array (e.g. "Graph x=2y" → {"type":"function","expr":"x/2",...} with
+    no points). validate_math_fences must substitute the verified canonical
+    fence (with points) so the renderer has a curve to draw — and the rewritten
+    text differs from the streamed draft, which is what lets the stream set
+    final_content and the client re-render instead of showing
+    "Could not render function graph."."""
+    points = [[float(i) / 5, (float(i) / 5) / 2] for i in range(-50, 51)]
+    canonical = {
+        "type": "function",
+        "expr": "x/2",
+        "variable": "x",
+        "x_min": -10.0,
+        "x_max": 10.0,
+        "points": points,
+    }
+    content = (
+        '```graph\n{"type":"function","expr":"x/2","variable":"x",'
+        '"x_min":-10.0,"x_max":10.0,"title":"x = 2y"}\n```'
+    )
+
+    out = validate_math_fences(content, verified=_verified(canonical))
+
+    assert out != content  # rewritten → final_content would be set
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["points"] == points
+
+
 def test_leaves_fence_alone_when_kind_differs_from_canonical() -> None:
     """A canonical rectangle shouldn't overwrite an unrelated square fence."""
     canonical = {"type": "rectangle", "width": 8, "height": 5}
