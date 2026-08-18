@@ -967,6 +967,32 @@ async def test_graph_inequality_builds_number_line_fence() -> None:
 
 
 @pytest.mark.asyncio
+async def test_bare_inequality_builds_number_line_fence() -> None:
+    """BUG FIX regression: a bare inequality with no math keyword ("X>4")
+    used to fail needs_symbolic (the gate required a keyword), so the
+    inequality extractor never ran and the model emitted "Could not render
+    that diagram." with no verified fence. The gate now detects symbolic
+    comparators with a variable + number, and the inequality builder emits
+    a number_line canonical_fence so validate_math_fences can replace the
+    model's malformed graph attempt."""
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "X>4"}],
+        "X>4",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "number_line"
+    iv = verified.canonical_fence["intervals"][0]
+    assert iv["start"] == 4.0
+    assert iv["end"] is None
+    assert iv["start_inclusive"] is False
+    assert verified.canonical_answer is not None
+    assert "4" in verified.canonical_answer
+
+
+@pytest.mark.asyncio
 async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     """BUG FIX regression: a stray `min(..., 200)` silently capped every
     graph at 200 points regardless of math_graph_max_points, so raising

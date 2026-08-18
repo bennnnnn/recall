@@ -25,6 +25,7 @@ from app.services.math_text_match.scan import (
     has_draw_shape,
     has_equation,
     has_math_keyword,
+    inequality_signal,
     number_after,
     prepare,
 )
@@ -110,6 +111,12 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if graph_expr(cleaned) is not None:
         return True
     if vertical_line_x(cleaned) is not None:
+        return True
+    # 1-variable inequality on a number line ("x > 4", "1 < x < 5") — the
+    # inequality extractor already exists, but the gate used to require a
+    # math keyword, so bare "X>4" never reached it and the model emitted
+    # "Could not render that diagram." with no verified fence.
+    if inequality_signal(cleaned):
         return True
     if calc_op(cleaned) is not None:
         return True
