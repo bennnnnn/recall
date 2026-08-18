@@ -816,7 +816,17 @@ async def _run_tool_loop_path(
     should_cancel: Callable[[], bool] | None,
 ) -> None:
     """Run MCP tool rounds when enabled; may update ``ctx.verified_math``."""
-    if settings.mcp_tool_loop_enabled and not ctx.instant_reply and not ctx.lightweight_turn:
+    # Skip the tool loop when turn_prep's heuristic math already produced a
+    # verified block — the model just copies the canonical fence, so the
+    # loop's sympy/graph adapter is redundant. Running it anyway costs up to
+    # ``mcp_tool_loop_max_rounds`` (3) non-streaming OpenRouter round-trips
+    # (~24s) before the first token. Non-math turns still use the loop.
+    if (
+        settings.mcp_tool_loop_enabled
+        and not ctx.instant_reply
+        and not ctx.lightweight_turn
+        and ctx.verified_math is None
+    ):
         if await quota_service.global_spend_exceeded(redis, settings):
             logger.warning(
                 "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
