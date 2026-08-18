@@ -161,9 +161,17 @@ async def _classify_turn_mode(
             )
             if has_letter and has_fence:
                 minimal_quiz = True
-            elif not minimal_quiz and has_letter:
+            elif has_letter and not has_fence:
+                # Letter on an open-ended prompt: no choices to grade against,
+                # so QUIZ_ANSWER_HINT (which assumes a fence with choices) would
+                # mislead the model. Use the vocab-answer path —
+                # VOCAB_CHAT_ANSWER_HINT explicitly treats "random single
+                # letters" as wrong. (Line 150 already set minimal_quiz=True
+                # from is_vocab_quiz_answer; reset it here.)
+                minimal_quiz = False
                 minimal_vocab_answer = True
-            elif not minimal_quiz and not has_letter:
+            else:
+                # No letter → open-ended answer (sentence/definition).
                 minimal_vocab_answer = True
 
     lightweight = is_lightweight_chat_turn(content, active_vocab_turn=active_vocab_turn)

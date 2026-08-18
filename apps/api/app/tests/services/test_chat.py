@@ -1081,7 +1081,8 @@ async def test_classify_turn_mode_returns_quiz_assistant_row():
     quiz_msg.content = (
         '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
         '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
-        '{"letter":"B","text":"Pyramid"}]}\n```'
+        '{"letter":"B","text":"Pyramid"},{"letter":"C","text":"Hanging Gardens"},'
+        '{"letter":"D","text":"Lighthouse"}]}\n```'
     )
 
     with patch(
@@ -1126,6 +1127,67 @@ async def test_classify_turn_mode_open_ended_vocab_answer_flags_active_vocab_tur
     assert mode.active_vocab_turn is True
     assert mode.minimal_vocab_answer is True
     assert mode.minimal_quiz is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_letter_on_open_ended_prompt_uses_vocab_answer_path():
+    """A letter answer ("A") on an open-ended vocab prompt (no vocab_quiz
+    fence) must NOT be classified as ``minimal_quiz`` — QUIZ_ANSWER_HINT
+    assumes a fence with choices to grade against, which an open-ended prompt
+    lacks. Use the vocab-answer path (``minimal_vocab_answer``) instead:
+    VOCAB_CHAT_ANSWER_HINT explicitly treats "random single letters" as wrong.
+    R-API-013."""
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = uuid4()
+    chat.quiz_mode = None
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        "```vocab_card\n**ephemeral** — lasting a very short time.\n\n"
+        "Write your own sentence using *ephemeral*.\n```"
+    )
+
+    with patch(
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
+        AsyncMock(return_value=quiz_msg),
+    ):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "A")
+
+    assert mode.active_vocab_turn is True
+    assert mode.minimal_vocab_answer is True
+    assert mode.minimal_quiz is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_letter_on_mcq_fence_stays_minimal_quiz():
+    """A letter answer on an MCQ prompt (with vocab_quiz fence) must stay
+    ``minimal_quiz`` — QUIZ_ANSWER_HINT is correct here because the fence
+    has choices and a correct letter. R-API-013 regression guard."""
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = uuid4()
+    chat.quiz_mode = None
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
+        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
+        '{"letter":"B","text":"Pyramid"},{"letter":"C","text":"Hanging Gardens"},'
+        '{"letter":"D","text":"Lighthouse"}]}\n```'
+    )
+
+    with patch(
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
+        AsyncMock(return_value=quiz_msg),
+    ):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "A")
+
+    assert mode.minimal_quiz is True
+    assert mode.minimal_vocab_answer is False
+    assert mode.active_vocab_turn is True
 
 
 def test_should_augment_web_and_tools_skips_active_vocab_turn():
