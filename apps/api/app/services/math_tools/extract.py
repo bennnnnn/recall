@@ -477,12 +477,40 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     return text or None
 
 
+def _strip_math_delims_and_fix_superscripts(raw: str) -> str:
+    """Normalize a graph expression the composer/math keyboard may wrap in
+    inline-math delimiters or malformed superscripts.
+
+    The math keyboard wraps the typed expression in ``$...$``; ``graph_expr``
+    returns it verbatim, so without stripping, SymPy's safe-char gate rejects
+    ``$``/``{``/``}`` and the turn ships without a verified fence. The
+    keyboard also emits a base-less superscript chain for "x²" — ``^{x}^{2}``
+    — which we fold into ``x^{2}`` (first superscript's content becomes the
+    base of the second).
+
+        "$x^2$"          → "x^2"
+        "$^{x}^{2}$"      → "^{x}^{2}" → "x^{2}"
+    """
+    s = raw.strip()
+    # Strip one pair of inline-math delimiters ($...$) wrapping the expr.
+    if len(s) >= 2 and s.startswith("$") and s.endswith("$"):
+        s = s[1:-1].strip()
+    # Fold a base-less superscript chain: ^{a}^{b} → a^{b}.
+    s = re.sub(r"\^{([^{}]+)}\^{([^{}]+)}", r"\1^{\2}", s)
+    # Strip braces from any remaining single superscript: x^{2} → x^2.
+    # (The graph path converts ^ to ** next; leaving {2} would make SymPy's
+    # safe-char gate reject the expression.)
+    s = re.sub(r"\^{([^{}]+)}", r"^\1", s)
+    return s
+
+
 def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     g_expr = mtm.graph_expr(cleaned)
     if g_expr is None:
         return None
+    g_expr = _strip_math_delims_and_fix_superscripts(g_expr)
     # _strip_trailing_filler(g_expr) used to run twice (once for the x= vertical
     # check, once for the returned graph expr). Compute it once and derive
     # both forms from it.
