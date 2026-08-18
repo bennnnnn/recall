@@ -377,6 +377,30 @@ describe("graphBlock", () => {
     ]);
   });
 
+  it("infers type=vertical when 'type' is omitted (mistagged ```json fence)", () => {
+    // The model/backend sometimes emits the graph spec without a "type" field
+    // inside a ```json fence — without inference this rendered as raw JSON.
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        x_min: -1.0,
+        x_max: 9.0,
+        x: 4.0,
+        y_min: -10.0,
+        y_max: 10.0,
+        points: [
+          [4.0, -10.0],
+          [4.0, 10.0],
+        ],
+      }),
+    );
+    expect(spec?.type).toBe("vertical");
+    expect(spec?.x).toBe(4);
+    expect(spec?.points).toEqual([
+      [4, -10],
+      [4, 10],
+    ]);
+  });
+
   it("parses a number_line fence for x > 3", () => {
     const spec = parseGraphSpec(
       JSON.stringify({
