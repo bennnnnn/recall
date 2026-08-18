@@ -2,7 +2,6 @@
 
 import re
 
-from app.core.config import Settings
 from app.services.chat.prompt_constants.math import MATH_INTENT_HINT
 
 _COMPARISON_TURN = re.compile(
@@ -125,16 +124,8 @@ SHORT_RESPONSE_FORMAT_HINT = (
     "No pipe tables. No ```html / ```mermaid / ```chart unless the user explicitly requested a visual."
 )
 
-STYLE_OUTPUT_TOKEN_CAP = {
-    "short": 400,
-    "balanced": 1200,
-    "detailed": 2200,
-}
-
-
-def max_output_tokens_for_style(response_style: str, settings: Settings) -> int:
-    if response_style == "short":
-        return min(STYLE_OUTPUT_TOKEN_CAP["short"], settings.max_output_tokens)
-    if response_style == "detailed":
-        return max(settings.max_output_tokens, STYLE_OUTPUT_TOKEN_CAP["detailed"])
-    return settings.max_output_tokens
+# NOTE: response style (short/balanced/detailed) drives *brevity through the
+# prompt* via STYLE_HINTS above — it no longer caps output tokens. A single
+# high ceiling (settings.max_output_tokens) is the safety backstop; the daily
+# token quota is the real per-user cost guardrail. Capping by style truncated
+# large deliverables (HTML pages, graph JSON) mid-fence.

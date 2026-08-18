@@ -15,7 +15,6 @@ from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
     is_writing_deliverable_request,
-    max_output_tokens_for_style,
     needs_rich_context,
 )
 from app.services.chat.turn_prep import resolve_client_geo
@@ -1155,47 +1154,6 @@ def test_is_vocab_quiz_answer():
     assert is_vocab_quiz_answer("c.") is True
     assert is_vocab_quiz_answer("Is it a?") is True
     assert is_vocab_quiz_answer("hello") is False
-
-
-def test_max_output_tokens_for_style():
-    settings = Settings(max_output_tokens=1200)
-    assert max_output_tokens_for_style("short", settings) == 400
-    assert max_output_tokens_for_style("balanced", settings) == 1200
-    assert max_output_tokens_for_style("detailed", settings) == 2200
-    settings = Settings(max_output_tokens=1200)
-    assert max_output_tokens_for_style("short", settings) == 400
-    assert max_output_tokens_for_style("balanced", settings) == 1200
-    assert max_output_tokens_for_style("detailed", settings) == 2200
-
-
-def test_bump_max_out_for_verified_graph_overrides_short_cap():
-    """Regression: a 'short' user (400-token cap) truncated the verified 96-point
-    graph fence mid-points-array → 'Could not render function graph.' Math turns
-    with a verified graph fence override the short cap to balanced (1200) so the
-    model has room to copy the full canonical fence."""
-    from app.services.chat.turn_prep.context import bump_max_out_for_verified_graph
-    from app.services.math_tools import VerifiedMathBlock
-
-    settings = Settings(max_output_tokens=1200)
-    # short cap = 400; a verified function fence bumps to balanced (1200).
-    verified = VerifiedMathBlock(
-        text="", canonical_fence={"type": "function", "expr": "x**2", "points": [[-10, 100]]}
-    )
-    assert bump_max_out_for_verified_graph(400, verified, settings) == 1200
-    # balanced/detailed caps are already >= 1200 → unchanged.
-    assert bump_max_out_for_verified_graph(1200, verified, settings) == 1200
-    assert bump_max_out_for_verified_graph(2200, verified, settings) == 2200
-    # vertical / number_line graph fences also bump (small JSON, harmless).
-    for t in ("vertical", "number_line"):
-        v = VerifiedMathBlock(text="", canonical_fence={"type": t})
-        assert bump_max_out_for_verified_graph(400, v, settings) == 1200
-    # geometry / answer fences are small → no bump.
-    geo = VerifiedMathBlock(text="", canonical_fence={"type": "rectangle", "width": 8, "height": 5})
-    assert bump_max_out_for_verified_graph(400, geo, settings) == 400
-    ans = VerifiedMathBlock(text="", canonical_fence=None)
-    assert bump_max_out_for_verified_graph(400, ans, settings) == 400
-    # no verified math at all → no bump (chitchat stays short).
-    assert bump_max_out_for_verified_graph(400, None, settings) == 400
 
 
 @pytest.mark.asyncio
@@ -2465,16 +2423,6 @@ def test_format_user_name_only_block_missing_name():
     user.name = "   "
     block = format_user_name_only_block(user)
     assert "not on file" in block
-
-
-def test_max_output_tokens_for_style_short():
-    settings = Settings(max_output_tokens=500)
-    assert max_output_tokens_for_style("short", settings) == 400
-
-
-def test_max_output_tokens_for_style_detailed():
-    settings = Settings(max_output_tokens=500)
-    assert max_output_tokens_for_style("detailed", settings) == 2200
 
 
 @pytest.mark.asyncio
