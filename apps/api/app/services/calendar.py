@@ -96,10 +96,16 @@ def is_external_calendar_question(text: str) -> bool:
     return bool(_EXTERNAL_CALENDAR.search(cleaned))
 
 
+# Fallback schedule cues after the specific checks (day-planning, external
+# calendar, calendar-create, scheduled-event-time) have already run. Keep
+# this tight: bare "free" matched "free chat" / "free trial" / "feel free"
+# and bare "when am i" matched "when am I going to finish …" — both fired a
+# live Calendar API fetch for non-calendar turns. "am i free" and
+# "what am i doing" stay as explicit phrases; "free time" stays a phrase.
 _SCHEDULE_CONTEXT = re.compile(
     r"\b("
-    r"meeting|meetings|schedule|calendar|busy|free(?:\s+time)?|appointment|"
-    r"conflict|overlap|when am i|what am i doing|am i free"
+    r"meeting|meetings|schedule|calendar|busy|free\s+time|appointment|"
+    r"conflict|overlap|what am i doing|am i free"
     r")\b",
     re.IGNORECASE,
 )

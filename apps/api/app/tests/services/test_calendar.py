@@ -46,9 +46,15 @@ def test_format_not_connected_mentions_settings():
         ),
         ("Help me plan my day based on what you know about me.", True),
         ("What time is my flight", True),
+        ("do I have free time tomorrow", True),
         ("solve for the hypotenuse", False),
         ("best restaurants near me", False),
         ("what is photosynthesis", False),
+        # Tightened _SCHEDULE_CONTEXT: bare "free" and bare "when am i" used
+        # to fire a live Calendar API fetch for non-calendar turns.
+        ("feel free to ask anything", False),
+        ("is image gen a free feature", False),
+        ("when am I going to finish this project", False),
     ],
 )
 def test_should_inject_calendar_block(text, expected):
