@@ -113,6 +113,66 @@ def test_override_none_falls_back_to_resolve_user_model():
     assert resolved == plan_service.resolve_user_model(user, "hi", settings)
 
 
+def test_regenerate_auto_reuses_prior_assistant_model():
+    """auto + a prior smart-chat reply → regenerate reuses smart-chat, not re-route."""
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    # "debug this crash" auto-routes to smart-chat; regenerate should reuse it
+    # even though the picker sent "auto" (which would otherwise re-run routing).
+    resolved = plan_service.resolve_regenerate_model(
+        user, "auto", "debug this crash", "smart-chat", settings
+    )
+    assert resolved == "smart-chat"
+
+
+def test_regenerate_explicit_override_beats_prior_model():
+    """An explicit concrete pick wins over the prior assistant model."""
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_regenerate_model(
+        user, "free-chat", "debug this crash", "smart-chat", settings
+    )
+    assert resolved == "free-chat"
+
+
+def test_regenerate_auto_falls_back_when_prior_model_unavailable():
+    """If the prior model is no longer in the pool (e.g. downgrade), re-route."""
+    user = FakeUser()  # free plan — smart-chat not allowed
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_regenerate_model(user, "auto", "hi", "smart-chat", settings)
+    assert resolved != "smart-chat"
+    assert resolved in plan_service.free_pool(settings)
+
+
+def test_regenerate_auto_none_prior_falls_back_to_routing():
+    """No prior assistant model (e.g. first turn failed) → normal routing."""
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_regenerate_model(
+        user, "auto", "debug this crash", None, settings
+    )
+    assert resolved == plan_service.resolve_user_model(user, "debug this crash", settings)
+
+
+def test_regenerate_auto_prior_is_auto_falls_back_to_routing():
+    """If the stored prior model is itself "auto" (shouldn't happen), re-route."""
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_regenerate_model(
+        user, "auto", "debug this crash", "auto", settings
+    )
+    assert resolved == plan_service.resolve_user_model(user, "debug this crash", settings)
+
+
+def test_regenerate_ignores_pro_prior_model_on_free_plan():
+    """Free user can't reuse a pro-only prior model — falls back to free pool."""
+    user = FakeUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_regenerate_model(user, "auto", "hi", "smart-chat", settings)
+    assert resolved != "smart-chat"
+    assert resolved in plan_service.free_pool(settings)
+
+
 def test_chat_fallback_models_skips_primary_and_respects_pool():
     user = ProUser()
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")

@@ -107,6 +107,35 @@ def resolve_user_model_override(
     return resolve_user_model(user, content, settings)
 
 
+def resolve_regenerate_model(
+    user: User,
+    model_alias: str | None,
+    content: str,
+    prior_assistant_model: str | None,
+    settings: Settings,
+) -> str:
+    """Pick a model for a regenerate turn.
+
+    Honors an explicit concrete override (a per-message picker pick) just like
+    ``resolve_user_model_override``. When the picker is ``auto`` (or absent),
+    reuse the model that produced the prior assistant reply so "try again"
+    reproduces the same conditions instead of re-running the routing heuristic
+    — a borderline query that auto-routed to a smart model the first time would
+    otherwise re-route to a weaker model on regenerate. Falls back to routing
+    if the prior model is unknown or no longer in the user's allowed pool.
+    """
+    if model_alias and model_alias != AUTO_ALIAS:
+        if model_alias in allowed_model_ids(user, settings):
+            return model_alias
+    if (
+        prior_assistant_model
+        and prior_assistant_model != AUTO_ALIAS
+        and prior_assistant_model in allowed_model_ids(user, settings)
+    ):
+        return prior_assistant_model
+    return resolve_user_model(user, content, settings)
+
+
 def chat_fallback_models(
     user: User,
     settings: Settings,
