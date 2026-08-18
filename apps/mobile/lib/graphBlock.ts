@@ -154,13 +154,23 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const data = JSON.parse(raw.trim()) as unknown;
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
-    if (row.type === "vertical") {
+    // The backend/model sometimes omits "type" — infer it from the fields
+    // present so a mistagged ```json fence still renders instead of dumping
+    // raw JSON. intervals → number_line; a bare numeric `x` → vertical;
+    // an `expr` → function.
+    let type = typeof row.type === "string" ? row.type : undefined;
+    if (!type) {
+      if (Array.isArray(row.intervals)) type = "number_line";
+      else if (row.x != null && Number.isFinite(Number(row.x))) type = "vertical";
+      else if (row.expr != null) type = "function";
+    }
+    if (type === "vertical") {
       return parseVerticalGraph(row);
     }
-    if (row.type === "number_line") {
+    if (type === "number_line") {
       return parseNumberLineGraph(row);
     }
-    if (row.type !== "function") return null;
+    if (type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
     const points = parsePoints(row.points);
