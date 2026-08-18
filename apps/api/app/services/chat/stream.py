@@ -1062,7 +1062,14 @@ async def _enrich_final_content(
                     result["final_content"] = assistant_text
 
         if ctx.instant_reply and not usage:
-            usage["output"] = estimate_tokens(assistant_text)
+            # Instant replies are canned short-circuits (time/location/
+            # not-connected calendar/email) — no LLM was called, so there is no
+            # provider token cost to charge against daily quota. Seed 0/0 so
+            # finalize's adjust_usage(reserved, actual=0) refunds the full
+            # reservation instead of charging the canned reply's estimated
+            # tokens (a user could otherwise exhaust daily quota by asking
+            # "what time is it?" repeatedly).
+            usage["output"] = 0
             usage["input"] = 0
 
         if result is not None and not ctx.skip_memory_jobs:
