@@ -160,7 +160,12 @@ async def apply_deterministic_quiz_answer(
     if project is None:
         return None
 
-    is_trivia = _is_trivia_project(project) or quiz.quiz_type == "trivia"
+    # Project kind is authoritative — the quiz fence's quiz_type must not
+    # override it. A vocabulary project with a quiz_type:"trivia" fence is
+    # still a vocabulary project; grading it as trivia would write to the
+    # trivia ledger path and return trivia feedback, mismatching the
+    # project's learning format. R-API-014.
+    is_trivia = _is_trivia_project(project)
     if not quiz.correct:
         return None
     correct_letter = quiz.correct.upper()
