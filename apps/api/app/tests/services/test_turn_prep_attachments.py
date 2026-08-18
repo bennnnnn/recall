@@ -508,3 +508,113 @@ async def test_process_attachments_skips_verify_when_already_verified():
         )
 
     verify_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_image_only_does_not_flag_document():
+    """An image-only attachment must not force rich context — images use
+    vision injection (runs regardless of rich_context), and RAG is gated by
+    rich_context. Forcing rich for an image turn triggers status theater +
+    heavy prompt building for a plain vision QA turn."""
+    from datetime import UTC, datetime
+
+    from app.services.chat.turn_prep.attachments import _process_attachments
+
+    user_id = uuid4()
+    attachment_id = uuid4()
+    user = MagicMock()
+    user.id = user_id
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/photo.png"
+    row.size_bytes = 5
+    row.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
+
+    settings = Settings(attachments_enabled=True)
+    redis = AsyncMock()
+    session = AsyncMock()
+    gateway = MagicMock()
+
+    class SessionCM:
+        async def __aenter__(self):
+            return session
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    with (
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.services.attachment_content.format_attachment_lines",
+            AsyncMock(return_value=(["[Image: photo.png]"], True)),
+        ),
+    ):
+        result = await _process_attachments(
+            user_id=user_id,
+            user=user,
+            content="what's in this photo?",
+            attachment_ids=[attachment_id],
+            settings=settings,
+            redis=redis,
+            on_status=None,
+        )
+
+    assert result.has_image_attachment is True
+    assert result.has_document_attachment is False
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_document_flags_document():
+    """A document attachment flags has_document_attachment so the turn
+    forces rich context (doc RAG is gated by rich_context)."""
+    from datetime import UTC, datetime
+
+    from app.services.chat.turn_prep.attachments import _process_attachments
+
+    user_id = uuid4()
+    attachment_id = uuid4()
+    user = MagicMock()
+    user.id = user_id
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "text/plain"
+    row.storage_key = "user/notes.txt"
+    row.size_bytes = 5
+    row.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
+
+    settings = Settings(attachments_enabled=True)
+    redis = AsyncMock()
+    session = AsyncMock()
+    gateway = MagicMock()
+
+    class SessionCM:
+        async def __aenter__(self):
+            return session
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    with (
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.services.attachment_content.format_attachment_lines",
+            AsyncMock(return_value=(["[File: notes.txt]"], False)),
+        ),
+    ):
+        result = await _process_attachments(
+            user_id=user_id,
+            user=user,
+            content="summarize this",
+            attachment_ids=[attachment_id],
+            settings=settings,
+            redis=redis,
+            on_status=None,
+        )
+
+    assert result.has_image_attachment is False
+    assert result.has_document_attachment is True
