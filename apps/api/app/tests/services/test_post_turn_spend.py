@@ -101,11 +101,44 @@ async def test_tool_loop_path_skips_when_spend_capped():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
+    ctx.verified_math = None
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
     with (
         patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
+        patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            Settings(mcp_tool_loop_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    run.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_skips_when_heuristic_math_already_verified():
+    """Regression: PR #690 enabled the owned tool loop by default, which added
+    up to 3 non-streaming OpenRouter round-trips (~24s) before the first token
+    even when turn_prep's heuristic math already produced a verified fence.
+    The loop's sympy/graph adapter is redundant in that case — skip it so math
+    turns stay on the fast 1-call path. Non-math turns (verified_math is None)
+    still run the loop."""
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = MagicMock()  # heuristic already produced a verified block
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = []
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run,
     ):
         await _run_tool_loop_path(
