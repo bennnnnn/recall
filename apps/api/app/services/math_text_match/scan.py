@@ -99,6 +99,25 @@ def has_equation(text: str) -> bool:
     return bool(lhs and rhs and any(c.isalnum() for c in lhs) and any(c.isalnum() for c in rhs))
 
 
+def inequality_signal(cleaned: str) -> bool:
+    """A clear algebraic inequality: a symbolic comparator (``<``, ``>``, ``≤``,
+    ``≥``, ``<=``, ``>=``) with both a variable letter and a number nearby —
+    ``"x > 4"``, ``"2x < 10"``, ``"1 < x < 5"``.
+
+    Rejects prose (``"less than 5 minutes"`` — word, no symbol) and trivial
+    comparisons (``"5 < 10"`` — no variable letter). The window is small (12
+    chars each side) so a stray ``>`` in unrelated prose without a nearby digit
+    + letter doesn't trip.
+    """
+    for m in re.finditer(r"<=|>=|≤|≥|<|>", cleaned):
+        start = max(0, m.start() - 12)
+        end = min(len(cleaned), m.end() + 12)
+        window = cleaned[start:end]
+        if any(c.isalpha() for c in window) and any(c.isdigit() for c in window):
+            return True
+    return False
+
+
 def first_dim_pair(text: str) -> tuple[float, float, str] | None:
     # Collapse "8 x 5 cm" → "8x5cm" so separators are adjacent (no space pumps).
     compact = (

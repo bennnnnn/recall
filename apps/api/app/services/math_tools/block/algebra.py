@@ -13,6 +13,8 @@ from app.services import math_service
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _answer_canonical,
+    _diagram_block,
+    _fence,
     _finish_with_answer,
     _format_equation_answer,
     _format_system_answer,
@@ -74,6 +76,26 @@ def _verified_block_inequality(
         )
     lines.extend(result.steps)
     answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
+    # Reconstruct the inequality text ("x > 4" / "1 < x < 5") so the
+    # number-line builder can render the solution set as a diagram. The
+    # model often emits a malformed ```graph fence for the number line and
+    # validate_math_fences then shows "Could not render that diagram.";
+    # attaching the verified number_line as canonical_fence lets the
+    # post-stream rewriter replace that broken fence with the real one.
+    if intent.lower is not None and intent.comparator_upper is not None:
+        ineq_text = (
+            f"{intent.lower} {intent.comparator} {intent.lhs} "
+            f"{intent.comparator_upper} {intent.rhs}"
+        )
+    else:
+        ineq_text = f"{intent.lhs} {intent.comparator} {intent.rhs}"
+    line_spec = math_service.number_line_spec_from_expr(ineq_text[:max_len], intent.variable)
+    if line_spec is not None:
+        lines.append(
+            "Number-line diagram for the solution set — emit ONLY this fence "
+            "ONCE (the app renders it as an SVG):\n" + _fence("graph", line_spec)
+        )
+        return _diagram_block(lines, line_spec, answer)
     lines.append(
         "Formula shape: INLINE $...$ for the inequality and its solution "
         "set (never backticks around `$...$`). Do NOT recompute — copy the "

@@ -40,6 +40,13 @@ class TestNeedsSymbolic:
             # "evaluate" + arithmetic expression.
             "evaluate 2 + 3 * 4",
             "evaluate sin(pi/2)",
+            # 1-variable inequality without a math keyword — the gate used
+            # to require a keyword, so bare "X>4" never reached the
+            # inequality extractor and shipped without a verified fence.
+            "X>4",
+            "x > 4",
+            "1 < x < 5",
+            "2x - 1 > 5",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -61,6 +68,11 @@ class TestNeedsSymbolic:
             # "evaluate" without an arithmetic operator is prose.
             "evaluate this option carefully",
             "evaluate the model on five examples",
+            # Inequality signal rejects prose ("less than" — word, no symbol)
+            # and trivial comparisons ("5 < 10" — no variable letter).
+            "less than 5 minutes",
+            "5 < 10",
+            "see the file > readme",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):
