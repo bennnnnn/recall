@@ -49,6 +49,7 @@ from app.services.chat.post_turn import (
     seed_usage_from_db,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.services.chat.quality import detect_quality_issues
 from app.services.chat.turn_prep import (
     RegenerateBackup,
     StreamContext,
@@ -1141,6 +1142,11 @@ async def _register_and_enqueue_finalize(
     async def _run_jobs_after_db() -> None:
         try:
             await finalize_db_task
+            # Detect-only quality metric (R-API-001 v1): log quality issues
+            # (refusals, suspiciously short rich replies) without re-streaming
+            # or modifying the response. Runs in the background — never on
+            # the stream path — so it cannot delay `done` or block the user.
+            detect_quality_issues(ctx, assistant_text)
             await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Background job enqueue failed")
