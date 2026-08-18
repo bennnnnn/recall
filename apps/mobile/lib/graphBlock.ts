@@ -154,23 +154,13 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const data = JSON.parse(raw.trim()) as unknown;
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
-    // The backend/model sometimes omits "type" — infer it from the fields
-    // present so a mistagged ```json fence still renders instead of dumping
-    // raw JSON. intervals → number_line; a bare numeric `x` → vertical;
-    // an `expr` → function.
-    let type = typeof row.type === "string" ? row.type : undefined;
-    if (!type) {
-      if (Array.isArray(row.intervals)) type = "number_line";
-      else if (row.x != null && Number.isFinite(Number(row.x))) type = "vertical";
-      else if (row.expr != null) type = "function";
-    }
-    if (type === "vertical") {
+    if (row.type === "vertical") {
       return parseVerticalGraph(row);
     }
-    if (type === "number_line") {
+    if (row.type === "number_line") {
       return parseNumberLineGraph(row);
     }
-    if (type !== "function") return null;
+    if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
     const points = parsePoints(row.points);
@@ -330,9 +320,7 @@ export function formatInequalityExpr(expr: string): string {
 
 const AXIS_PAD_RATIO = 0.08;
 
-/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame.
- *  Rounds outwards to integers so axis labels are clean (-2, 10, 12) instead
- *  of the raw 8%-padded fractions (-1.8, 9.8, 11.6). */
+/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame. */
 export function expandBoundsForAxes(
   bounds: ReturnType<typeof graphBounds>,
 ): ReturnType<typeof graphBounds> {
@@ -344,10 +332,10 @@ export function expandBoundsForAxes(
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
   return {
-    xMin: Math.floor(xMin - xSpan * AXIS_PAD_RATIO),
-    xMax: Math.ceil(xMax + xSpan * AXIS_PAD_RATIO),
-    yMin: Math.floor(yMin - ySpan * AXIS_PAD_RATIO),
-    yMax: Math.ceil(yMax + ySpan * AXIS_PAD_RATIO),
+    xMin: xMin - xSpan * AXIS_PAD_RATIO,
+    xMax: xMax + xSpan * AXIS_PAD_RATIO,
+    yMin: yMin - ySpan * AXIS_PAD_RATIO,
+    yMax: yMax + ySpan * AXIS_PAD_RATIO,
   };
 }
 

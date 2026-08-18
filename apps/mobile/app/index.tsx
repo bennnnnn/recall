@@ -18,7 +18,6 @@ import {
   composerAttachmentExtra,
 } from "@/components/chat/ChatComposer";
 import { DrawerShell } from "@/components/DrawerShell";
-import { MathSvgBridgeHost } from "@/components/rich/MathSvgBridgeHost";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
@@ -561,9 +560,6 @@ export default function HomeScreen() {
     <DrawerShell>
       <ComposerDraftProvider>
         <ChatScreen />
-        {/* SPIKE: hidden shared WebView for SVG-native math. No-op while
-            MATH_SVG_NATIVE_ENABLED is false. Mount once at chat root. */}
-        <MathSvgBridgeHost />
       </ComposerDraftProvider>
     </DrawerShell>
   );

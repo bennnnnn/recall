@@ -1,6 +1,6 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import Markdown from "react-native-markdown-display";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -70,42 +70,18 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   );
 });
 
-/** A single pulsing bar for the diagram placeholder (RN Animated — no reanimated,
- *  so this stays safe inside MarkdownContent's broad test surface). */
-function ShimmerBar({ width, height, borderRadius = 3 }: { width: `${number}%` | number; height: number; borderRadius?: number }) {
-  const theme = useTheme();
-  const opacity = useRef(new Animated.Value(0.45)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.45, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-  return (
-    <Animated.View
-      style={{ width, height, borderRadius, backgroundColor: theme.border, opacity }}
-    />
-  );
-}
-
-/** Open ```geometry / ```graph — shimmer skeleton sized to match the real
- *  block (title + ~220px chart) so the layout doesn't jump when it renders. */
+/** Open ```geometry / ```graph — hold a quiet box, never dump JSON into CodeBlock. */
 const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlaceholder() {
+  const theme = useTheme();
   return (
-    <View style={styles.diagramPlaceholder}>
-      <ShimmerBar width="45%" height={15} borderRadius={4} />
-      <View style={styles.diagramCanvas}>
-        <View style={{ flex: 1, justifyContent: "center", gap: 14 }}>
-          <ShimmerBar width="100%" height={10} />
-          <ShimmerBar width="85%" height={10} />
-          <ShimmerBar width="70%" height={10} />
-        </View>
-      </View>
-    </View>
+    <View
+      style={{
+        marginVertical: 8,
+        minHeight: 96,
+        borderRadius: 10,
+        backgroundColor: theme.contentSurface,
+      }}
+    />
   );
 });
 
@@ -230,18 +206,3 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
     </HtmlPreviewFilesProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  diagramPlaceholder: {
-    marginVertical: 8,
-    alignItems: "center",
-    gap: 8,
-  },
-  diagramCanvas: {
-    width: "100%",
-    height: 220,
-    borderRadius: 10,
-    padding: 28,
-    backgroundColor: "transparent",
-  },
-});
