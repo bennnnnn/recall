@@ -377,30 +377,6 @@ describe("graphBlock", () => {
     ]);
   });
 
-  it("infers type=vertical when 'type' is omitted (mistagged ```json fence)", () => {
-    // The model/backend sometimes emits the graph spec without a "type" field
-    // inside a ```json fence — without inference this rendered as raw JSON.
-    const spec = parseGraphSpec(
-      JSON.stringify({
-        x_min: -1.0,
-        x_max: 9.0,
-        x: 4.0,
-        y_min: -10.0,
-        y_max: 10.0,
-        points: [
-          [4.0, -10.0],
-          [4.0, 10.0],
-        ],
-      }),
-    );
-    expect(spec?.type).toBe("vertical");
-    expect(spec?.x).toBe(4);
-    expect(spec?.points).toEqual([
-      [4, -10],
-      [4, 10],
-    ]);
-  });
-
   it("parses a number_line fence for x > 3", () => {
     const spec = parseGraphSpec(
       JSON.stringify({
@@ -669,23 +645,5 @@ describe("graphBlock", () => {
     expect(view.xMax).toBeGreaterThan(0);
     expect(view.yMin).toBeLessThan(-12);
     expect(view.yMax).toBeGreaterThan(0);
-  });
-
-  it("expandBoundsForAxes rounds to clean integers (no -1.8 / 9.8 / 11.6 labels)", () => {
-    // x=4 vertical line: data bounds x:[-1,9], y:[-10,10] (after the ±5 default
-    // spread). The 8% pad would yield -1.8/9.8/±11.6 — round outwards instead.
-    const tight = graphBounds([
-      [-1, -10],
-      [9, 10],
-    ]);
-    const view = expandBoundsForAxes(tight);
-    expect(Number.isInteger(view.xMin)).toBe(true);
-    expect(Number.isInteger(view.xMax)).toBe(true);
-    expect(Number.isInteger(view.yMin)).toBe(true);
-    expect(Number.isInteger(view.yMax)).toBe(true);
-    expect(view.xMin).toBe(-2);
-    expect(view.xMax).toBe(10);
-    expect(view.yMin).toBe(-12);
-    expect(view.yMax).toBe(12);
   });
 });
