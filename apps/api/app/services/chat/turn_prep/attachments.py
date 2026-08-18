@@ -37,6 +37,11 @@ class _AttachmentProcessResult:
     user_content: str
     content: str
     has_image_attachment: bool
+    # At least one non-image (document) attachment — these need RAG, which is
+    # gated by rich_context. Images use vision injection (runs regardless of
+    # rich_context), so an image-only turn must NOT force rich context (it
+    # would trigger status theater + heavy prompt building for a vision QA turn).
+    has_document_attachment: bool
     image_attachments: list[tuple[str, str]]
     image_math_extract: MathImageExtract | None
     gateway: Any | None
@@ -67,6 +72,7 @@ async def _process_attachments(
             user_content=user_content,
             content=content,
             has_image_attachment=False,
+            has_document_attachment=False,
             image_attachments=[],
             image_math_extract=None,
             gateway=None,
@@ -96,6 +102,7 @@ async def _process_attachments(
             user_content=user_content,
             content=content,
             has_image_attachment=False,
+            has_document_attachment=False,
             image_attachments=[],
             image_math_extract=None,
             gateway=None,
@@ -226,6 +233,10 @@ async def _process_attachments(
         user_content=user_content,
         content=content,
         has_image_attachment=has_image_attachment,
+        # A document attachment is any non-image row — images are not
+        # indexable (is_indexable_attachment excludes them) and use vision
+        # injection instead of RAG, so only documents force rich context.
+        has_document_attachment=len(attachment_rows) != len(image_attachments),
         image_attachments=image_attachments,
         image_math_extract=image_math_extract,
         gateway=gateway,
