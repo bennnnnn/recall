@@ -46,6 +46,27 @@ from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
 
 
+def bump_max_out_for_verified_graph(
+    max_out: int,
+    verified_math: VerifiedMathBlock | None,
+    settings: Settings,
+) -> int:
+    """Override the 'short' response-style cap when a verified graph fence
+    needs room for its ~96 sampled points (~800 tokens of JSON).
+
+    Without this, a 'short' user (400-token cap) truncates the fence
+    mid-points-array → 'Could not render function graph.' Geometry/answer
+    fences are small and don't need the bump.
+    """
+    if (
+        verified_math is not None
+        and verified_math.canonical_fence is not None
+        and verified_math.canonical_fence.get("type") in {"function", "vertical", "number_line"}
+    ):
+        return max(max_out, max_output_tokens_for_style("balanced", settings))
+    return max_out
+
+
 @dataclass
 class RegenerateBackup:
     content: str
@@ -416,6 +437,14 @@ async def build_stream_prompt_context(
             redis=redis,
             has_calendar_write=has_calendar_write,
         )
+
+    # A verified graph fence carries ~96 sampled points (~800 tokens of JSON).
+    # The "short" response style caps output at 400 tokens, which truncates the
+    # fence mid-points-array → "Could not render function graph." Math turns
+    # that produced a verified graph fence override the short cap so the model
+    # has room to copy the full canonical fence. (Geometry/answer fences are
+    # small; only graph fences with sampled points need the bump.)
+    max_out = bump_max_out_for_verified_graph(max_out, verified_math, settings)
 
     if timing is not None:
         timing.mark_prompt_ready()
