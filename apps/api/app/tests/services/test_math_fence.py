@@ -321,3 +321,35 @@ def test_validate_math_fences_caps_per_kind() -> None:
     out_graph = validate_math_fences(graphs)
     assert out_graph.count("Could not render that diagram") == _MAX_GRAPH_FENCES
     assert out_graph.count("```graph") == 1
+
+
+def test_converts_function_call_graph_text_to_fence() -> None:
+    """A weak model emitted a tool call as TEXT (!function_call:{...}) instead
+    of the structured tool_calls API, so the raw string reached the user.
+    validate_math_fences must sample the expr server-side and replace it with a
+    real ```graph fence (with points) so the renderer has a curve to draw."""
+    content = (
+        "Let me retry plotting x = 2y for you.\n\n"
+        '!function_call:{"id": "call_DDKdZyJUmQWPSJVPyQNm7OyN", '
+        '"call": "graph", "arguments": {"expr": "y=x/2", "variable": "x", '
+        '"title": "Graph of x = 2y", "x_min": -10.0, "x_max": 10.0, '
+        '"y_min": -5.0, "y_max": 5.0}}'
+    )
+
+    out = validate_math_fences(content)
+
+    assert "!function_call" not in out
+    assert "```graph" in out
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["type"] == "function"
+    assert data["expr"] == "x/2"
+    assert len(data["points"]) >= 48  # densified into a real curve
+
+
+def test_strips_non_graph_function_call_text() -> None:
+    """A non-graph !function_call blob must be stripped, not shown as raw text."""
+    content = '!function_call:{"call": "web_search", "arguments": {"query": "weather"}}'
+    out = validate_math_fences(content)
+    assert "!function_call" not in out
+    assert "web_search" not in out

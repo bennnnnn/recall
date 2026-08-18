@@ -350,9 +350,122 @@ def _replace_answer_fence(match: re.Match[str], answer_body: str | None) -> str:
     return f"```answer\n{answer_body}\n```"
 
 
+def _strip_y_equals(expr: str) -> str:
+    """``y = x/2`` → ``x/2`` so sample_function (which expects y=f(x)) can plot it."""
+    e = expr.strip()
+    low = e.lower()
+    if low.startswith("y="):
+        return e[2:].strip()
+    if low.startswith("y ="):
+        return e[3:].strip()
+    return e
+
+
+def _function_call_json_to_graph_fence(raw: str) -> str:
+    """Turn one ``!function_call:{...}`` JSON blob into a ```graph fence, or "".
+
+    Some models emit a tool call as text instead of via the structured
+    ``tool_calls`` API. For a ``graph`` call we sample the expr server-side
+    (reusing the same densify helper) so the renderer gets a real curve;
+    any other call (or a bad graph expr) is stripped so the raw
+    ``!function_call:...`` text never reaches the user.
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    call = str(data.get("call") or data.get("name") or "")
+    args = data.get("arguments")
+    if not isinstance(args, dict):
+        args = {}
+    if call != "graph":
+        return ""
+    expr = _strip_y_equals(str(args.get("expr") or ""))
+    if not expr:
+        return ""
+    variable = str(args.get("variable") or "x")
+    try:
+        x_min = float(args.get("x_min") or -10.0)
+        x_max = float(args.get("x_max") or 10.0)
+    except (TypeError, ValueError):
+        x_min, x_max = -10.0, 10.0
+    settings = get_settings()
+    sampled = _resample_curve(
+        expr,
+        variable,
+        x_min,
+        x_max,
+        settings.math_graph_max_points,
+        settings.math_max_expr_length,
+    )
+    if sampled is None:
+        return ""
+    points, segments, s_expr, s_var, s_xmin, s_xmax = sampled
+    spec = GraphBlockSpec(
+        expr=s_expr,
+        variable=s_var,
+        x_min=s_xmin,
+        x_max=s_xmax,
+        points=points,
+        segments=segments,
+    )
+    return _graph_fence_body(spec)
+
+
+def convert_function_call_text(content: str) -> str:
+    """Find ``!function_call:{...}`` blobs (balanced JSON, may span lines) and
+    replace each with a ```graph fence (for graph calls) or strip it."""
+    marker = "!function_call:"
+    out: list[str] = []
+    i = 0
+    while True:
+        idx = content.find(marker, i)
+        if idx == -1:
+            out.append(content[i:])
+            break
+        out.append(content[i:idx])
+        start = content.find("{", idx)
+        if start == -1:
+            i = len(content)
+            break
+        depth = 0
+        end = start
+        in_str = False
+        esc = False
+        for j in range(start, len(content)):
+            ch = content[j]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = j + 1
+                        break
+        raw = content[start:end]
+        out.append(_function_call_json_to_graph_fence(raw))
+        i = end
+    return "".join(out)
+
+
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
     canonical_fence = verified.canonical_fence if verified is not None else None
     answer_body = _canonical_answer_body(verified)
+    # Models sometimes emit a tool call as text (!function_call:{...}) instead
+    # of the structured tool_calls API — convert graph calls to real fences and
+    # strip the rest before fence validation runs.
+    content = convert_function_call_text(content)
     content = _ANSWER_FENCE.sub(
         lambda m: _replace_answer_fence(m, answer_body),
         content,
