@@ -3205,5 +3205,8 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
     assert isinstance(usage, dict)
     assert "input" in usage and "output" in usage
     assert "input_tokens" not in usage and "output_tokens" not in usage
+    # Instant replies skip the LLM entirely (canned time/location/not-connected
+    # answers) — no provider token cost, so quota is not charged: 0/0 seeds
+    # let finalize's adjust_usage refund the full reservation.
     assert usage["input"] == 0
-    assert usage["output"] >= 1
+    assert usage["output"] == 0
