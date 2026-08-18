@@ -36,6 +36,13 @@ else
   echo "    WARN: pnpm not found - skipping mobile checks"
 fi
 
+echo "==> Web: typecheck + lint"
+if command -v pnpm >/dev/null 2>&1; then
+  (cd "$ROOT/apps/web" && pnpm typecheck && pnpm lint) || fail=1
+else
+  echo "    WARN: pnpm not found - skipping web checks"
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "FAIL: gate is red - fix the above before committing"
   exit 1

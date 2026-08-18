@@ -1,0 +1,77 @@
+// Types copied from apps/mobile/lib/api/types.ts (slice 1 subset).
+// A shared packages/api-types is a later slice — copy for now so the web
+// client is standalone and the mobile network boundary stays untouched.
+
+export type User = {
+  id: string;
+  email: string;
+  name: string | null;
+  avatar_url: string | null;
+  default_model: string;
+  plan: "free" | "pro";
+  response_style: string;
+  response_tone: string;
+  memory_enabled: boolean;
+  locale: string;
+  timezone: string;
+  created_at: string;
+};
+
+export type Chat = {
+  id: string;
+  title: string | null;
+  model: string;
+  pinned: boolean;
+  archived?: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Feedback = "up" | "down" | null;
+
+export type Message = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  model: string | null;
+  feedback?: Feedback;
+  created_at: string;
+};
+
+export type MessagePage = {
+  messages: Message[];
+  has_more: boolean;
+};
+
+export type ChatList = {
+  pinned: Chat[];
+  today: Chat[];
+  yesterday: Chat[];
+  last_7_days: Chat[];
+  this_month: Chat[];
+  older: Chat[];
+  archived: Chat[];
+};
+
+export type AuthResult = {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+};
+
+// SSE / WS stream event types (shared shape — see apps/api/app/services/chat/
+// stream_events.py). The web client consumes these over SSE.
+export type StreamEvent =
+  | { type: "start" }
+  | { type: "token"; content: string }
+  | { type: "status"; phase: string; detail?: string }
+  | { type: "reasoning"; content: string }
+  | { type: "stream_end"; resolved_model?: string; fallback_used?: boolean }
+  | {
+      type: "done";
+      message_id?: string;
+      final_content?: string;
+      resolved_model?: string;
+      fallback_used?: boolean;
+    }
+  | { type: "error"; code?: string; message: string };
