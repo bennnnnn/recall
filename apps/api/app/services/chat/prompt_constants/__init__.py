@@ -10,9 +10,7 @@ from app.services.chat.prompt_constants.format import (
     RESPONSE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
-    STYLE_OUTPUT_TOKEN_CAP,
     is_comparison_question,
-    max_output_tokens_for_style,
 )
 from app.services.chat.prompt_constants.learning import (
     DAY_LEARNING_SNAPSHOT_HINT,
@@ -64,7 +62,6 @@ __all__ = [
     "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STYLE_HINTS",
-    "STYLE_OUTPUT_TOKEN_CAP",
     "VISUALIZATION_HINTS",
     "VOCAB_CHAT_ANSWER_HINT",
     "format_quiz_grading_hint",
@@ -72,6 +69,5 @@ __all__ = [
     "is_comparison_question",
     "is_lightweight_chat_turn",
     "is_writing_deliverable_request",
-    "max_output_tokens_for_style",
     "needs_rich_context",
 ]

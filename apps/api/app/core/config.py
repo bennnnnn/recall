@@ -209,7 +209,14 @@ class Settings(BaseSettings):
     # UTC-day OpenRouter spend ceiling (foreground + background). 0 = unlimited
     # (dev/tests). Production boot requires a positive value.
     daily_global_spend_usd: float = 0.0
-    max_output_tokens: int = 1200
+    # Hard ceiling on a single turn's output tokens. This is a safety backstop
+    # against runaway generation and cost, NOT a response-style throttle —
+    # brevity is driven by the STYLE_HINTS prompt guidance (short/balanced/
+    # detailed). Set high enough that real deliverables (HTML pages, graph
+    # JSON, long code) complete instead of truncating mid-fence. The daily
+    # token quota (above) is the real per-user cost guardrail. 8192 is safe
+    # across the catalog (DeepSeek/GLM/GPT/Gemini/Llama/Qwen all support >=8k).
+    max_output_tokens: int = 8192
     recent_message_window: int = 20  # hard cap on verbatim messages
 
     # Per-instance DB pool. Keep (db_pool_size + db_max_overflow) * INSTANCE_COUNT
