@@ -538,8 +538,8 @@ async def stream_regenerate_response(
             if last_user is None:
                 raise ChatNotFoundError("No user message to regenerate from.")
 
-            model = plan_service.resolve_user_model_override(
-                user, model_alias, last_user.content, settings
+            model = plan_service.resolve_regenerate_model(
+                user, model_alias, last_user.content, last.model, settings
             )
             user_message_content = last_user.content
             chat_project_id = chat.project_id
