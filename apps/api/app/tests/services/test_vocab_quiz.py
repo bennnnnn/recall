@@ -815,3 +815,68 @@ async def test_load_trivia_quiz_context_retries_question_not_topic():
     # Fence *example* omitted on wrong turns (the word vocab_quiz may still appear in the ban).
     assert "Colossus of Rhodes" not in block
     assert "What does it mean?" not in block
+
+
+@pytest.mark.asyncio
+async def test_apply_deterministic_quiz_answer_language_project_ignores_trivia_fence_type():
+    """A language project grading a quiz fence with quiz_type:"trivia" must
+    still grade as vocabulary — the project kind is authoritative, not the
+    fence's quiz_type. R-API-014: previously ``is_trivia = _is_trivia_project
+    or quiz.quiz_type == "trivia"`` let the fence override the project kind,
+    writing to the trivia ledger and returning trivia feedback for a vocab
+    project."""
+    from app.models.orm import Project
+
+    session = AsyncMock()
+    user_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    chat_id = uuid.uuid4()
+    project = Project(
+        id=project_id,
+        user_id=user_id,
+        title="Spanish vocab",
+        kind="language",
+        level="level1",
+        target_language="es",
+        daily_goal=5,
+    )
+
+    with (
+        patch(
+            "app.repositories.projects.get_by_id",
+            new=AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.projects.quiz_grading.create_item",
+            new=AsyncMock(),
+        ),
+        patch(
+            "app.services.projects.quiz_grading.apply_quiz_result",
+            new=AsyncMock(),
+        ),
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        grade = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=chat_id,
+            project_id=project_id,
+            assistant_content=TRIVIA_FENCE,
+            user_answer="A",
+        )
+
+    assert grade is not None
+    assert grade.is_correct is True
+    # Project kind (language) wins over fence quiz_type (trivia).
+    assert grade.quiz_type == "vocab"
