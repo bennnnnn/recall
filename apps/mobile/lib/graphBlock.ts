@@ -320,7 +320,9 @@ export function formatInequalityExpr(expr: string): string {
 
 const AXIS_PAD_RATIO = 0.08;
 
-/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame. */
+/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame.
+ *  Rounds outwards to integers so axis labels are clean (-2, 10, 12) instead
+ *  of the raw 8%-padded fractions (-1.8, 9.8, 11.6). */
 export function expandBoundsForAxes(
   bounds: ReturnType<typeof graphBounds>,
 ): ReturnType<typeof graphBounds> {
@@ -332,10 +334,10 @@ export function expandBoundsForAxes(
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
   return {
-    xMin: xMin - xSpan * AXIS_PAD_RATIO,
-    xMax: xMax + xSpan * AXIS_PAD_RATIO,
-    yMin: yMin - ySpan * AXIS_PAD_RATIO,
-    yMax: yMax + ySpan * AXIS_PAD_RATIO,
+    xMin: Math.floor(xMin - xSpan * AXIS_PAD_RATIO),
+    xMax: Math.ceil(xMax + xSpan * AXIS_PAD_RATIO),
+    yMin: Math.floor(yMin - ySpan * AXIS_PAD_RATIO),
+    yMax: Math.ceil(yMax + ySpan * AXIS_PAD_RATIO),
   };
 }
 

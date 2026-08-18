@@ -646,4 +646,22 @@ describe("graphBlock", () => {
     expect(view.yMin).toBeLessThan(-12);
     expect(view.yMax).toBeGreaterThan(0);
   });
+
+  it("expandBoundsForAxes rounds to clean integers (no -1.8 / 9.8 / 11.6 labels)", () => {
+    // x=4 vertical line: data bounds x:[-1,9], y:[-10,10] (after the ±5 default
+    // spread). The 8% pad would yield -1.8/9.8/±11.6 — round outwards instead.
+    const tight = graphBounds([
+      [-1, -10],
+      [9, 10],
+    ]);
+    const view = expandBoundsForAxes(tight);
+    expect(Number.isInteger(view.xMin)).toBe(true);
+    expect(Number.isInteger(view.xMax)).toBe(true);
+    expect(Number.isInteger(view.yMin)).toBe(true);
+    expect(Number.isInteger(view.yMax)).toBe(true);
+    expect(view.xMin).toBe(-2);
+    expect(view.xMax).toBe(10);
+    expect(view.yMin).toBe(-12);
+    expect(view.yMax).toBe(12);
+  });
 });
