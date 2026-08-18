@@ -506,6 +506,26 @@ def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: st
 @pytest.mark.parametrize(
     "text, expected_expr",
     [
+        ("graph x=2y", "x/2"),
+        ("plot x = 2*y", "x/2"),
+        ("graph x=-3y", "-x/3"),
+        ("graph 2x=y", "2*x"),
+    ],
+)
+def test_extract_graph_intent_solves_equation_for_y(text: str, expected_expr: str) -> None:
+    """BUG FIX regression: 'graph x=2y' is an equation, not a function
+    expression. sample_function used to receive 'x=2y' (an Equality) and
+    reject it, so no verified graph was emitted and the model emitted its
+    own (often wrong) spec. The extractor now solves for y as y = f(x)."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr == expected_expr
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr",
+    [
         ("differentiate x^2 please", "x^2"),
         ("integrate x^2 for me", "x^2"),
         ("simplify x^2 + 2x + x^2 now", "x^2 + 2x + x^2"),

@@ -172,4 +172,14 @@ def vertical_line_x(text: str) -> float | None:
         return None
     idx = lower.find("x=")
     m = _NUM.match(lower, idx + 2)
-    return float(m.group(0)) if m else None
+    if m is None:
+        return None
+    # "x=2y" / "x=2*y" are functions (y = x/2), not a vertical line at x=2 —
+    # _NUM grabs the leading "2" and ignores the trailing expression. Reject
+    # when the digit run is followed by a variable or expression char so it
+    # falls through to the function-graph extractor, which solves for y.
+    # A trailing period/comma (sentence boundary) or end-of-string is fine.
+    end = m.end()
+    if end < len(lower) and (lower[end].isalnum() or lower[end] in "*/^("):
+        return None
+    return float(m.group(0))
