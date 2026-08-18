@@ -23,10 +23,7 @@ from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_builder import _augment_web_and_tools, build_prompt_messages
-from app.services.chat.prompt_constants import (
-    is_lightweight_chat_turn,
-    max_output_tokens_for_style,
-)
+from app.services.chat.prompt_constants import is_lightweight_chat_turn
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.integrations import (
     _inject_integration_blocks,
@@ -44,27 +41,6 @@ from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.math_tools import VerifiedMathBlock
 from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
-
-
-def bump_max_out_for_verified_graph(
-    max_out: int,
-    verified_math: VerifiedMathBlock | None,
-    settings: Settings,
-) -> int:
-    """Override the 'short' response-style cap when a verified graph fence
-    needs room for its ~96 sampled points (~800 tokens of JSON).
-
-    Without this, a 'short' user (400-token cap) truncates the fence
-    mid-points-array → 'Could not render function graph.' Geometry/answer
-    fences are small and don't need the bump.
-    """
-    if (
-        verified_math is not None
-        and verified_math.canonical_fence is not None
-        and verified_math.canonical_fence.get("type") in {"function", "vertical", "number_line"}
-    ):
-        return max(max_out, max_output_tokens_for_style("balanced", settings))
-    return max_out
 
 
 @dataclass
@@ -370,11 +346,10 @@ async def build_stream_prompt_context(
                 _load_has_calendar_write(user.id),
             )
 
-        max_out = (
-            max_output_tokens_for_style("short", settings)
-            if mode.minimal_quiz or mode.lightweight
-            else max_output_tokens_for_style(user.response_style, settings)
-        )
+        # One high ceiling for every turn — brevity is driven by the
+        # STYLE_HINTS prompt guidance, not a hard token cap. Capping by style
+        # truncated large deliverables (HTML pages, graph JSON) mid-fence.
+        max_out = settings.max_output_tokens
         fallback_models = plan_service.chat_fallback_models(user, settings, model)
 
         await session.commit()
@@ -437,14 +412,6 @@ async def build_stream_prompt_context(
             redis=redis,
             has_calendar_write=has_calendar_write,
         )
-
-    # A verified graph fence carries ~96 sampled points (~800 tokens of JSON).
-    # The "short" response style caps output at 400 tokens, which truncates the
-    # fence mid-points-array → "Could not render function graph." Math turns
-    # that produced a verified graph fence override the short cap so the model
-    # has room to copy the full canonical fence. (Geometry/answer fences are
-    # small; only graph fences with sampled points need the bump.)
-    max_out = bump_max_out_for_verified_graph(max_out, verified_math, settings)
 
     if timing is not None:
         timing.mark_prompt_ready()

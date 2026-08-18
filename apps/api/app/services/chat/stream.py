@@ -49,7 +49,6 @@ from app.services.chat.post_turn import (
     seed_usage_from_db,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
-from app.services.chat.prompt_constants import max_output_tokens_for_style
 from app.services.chat.turn_prep import (
     RegenerateBackup,
     StreamContext,
@@ -449,7 +448,7 @@ async def stream_chat_response(
                 settings=settings,
                 daily_limit=daily_limit,
                 vision_extra=vision_extra,
-                max_output=max_output_tokens_for_style(user.response_style, settings),
+                max_output=settings.max_output_tokens,
                 seed=False,
             )
 
@@ -576,7 +575,7 @@ async def stream_regenerate_response(
             content=user_message_content,
             model=model,
             settings=settings,
-            max_output=max_output_tokens_for_style(user.response_style, settings),
+            max_output=settings.max_output_tokens,
             seed=True,
         )
         bundle = await build_stream_prompt_context(
@@ -695,7 +694,7 @@ async def stream_edit_response(
                 content=content,
                 model=model,
                 settings=settings,
-                max_output=max_output_tokens_for_style(user.response_style, settings),
+                max_output=settings.max_output_tokens,
                 seed=False,
             )
             # The quota is reserved above; if the delete/summary-reset throws
