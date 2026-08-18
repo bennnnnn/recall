@@ -490,6 +490,12 @@ def test_verified_percent_and_distance() -> None:
         ("graph x^2 for me", "x**2"),
         ("plot sin(x) and explain it", "sin(x)"),
         ("can you graph x^2 now", "x**2"),
+        # The composer/math keyboard wraps the expression in $...$ and can
+        # emit a base-less superscript chain for "x²" — without stripping
+        # the delimiters and folding ^{x}^{2} → x^{2} → x^2, SymPy's safe-char
+        # gate rejects $/{/} and the turn ships with no verified fence.
+        ("Graph $x^2$", "x**2"),
+        ("Graph $^{x}^{2}$", "x**2"),
     ],
 )
 def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
