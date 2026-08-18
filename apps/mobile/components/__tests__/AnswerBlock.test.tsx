@@ -55,6 +55,18 @@ describe("AnswerBlock", () => {
     expect(props.latex).toBe(latex);
   });
 
+  it("BUG FIX regression: a \\sqrt answer hosts MathText as a direct View (not clipped by a Text)", async () => {
+    // iOS clips a View nested inside a Text to the line box — the radicand's
+    // bottom (the digit under √) was cut off in this gray box. A sqrt must
+    // render inside the answerRow View, never wrapped in a Text.
+    const { getByTestId } = await render(
+      <AnswerBlock content={String.raw`2\sqrt{2}`} />,
+    );
+    expect(getByTestId("answer-row")).toBeOnTheScreen();
+    expect(getByTestId("math-sqrt-radicand")).toBeOnTheScreen();
+    expect(mockFormula).not.toHaveBeenCalled();
+  });
+
   it("uses KaTeX for heavy answers when only expo-dom WebView is available (Expo Go)", async () => {
     const latex = String.raw`\begin{matrix}a&b\\c&d\end{matrix}`;
     await render(<AnswerBlock content={latex} />);
