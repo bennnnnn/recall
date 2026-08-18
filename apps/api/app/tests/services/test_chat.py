@@ -1095,6 +1095,77 @@ async def test_classify_turn_mode_returns_quiz_assistant_row():
 
 
 @pytest.mark.asyncio
+async def test_classify_turn_mode_open_ended_vocab_answer_flags_active_vocab_turn():
+    """An open-ended vocab answer (sentence/definition, no letter) on a
+    project chat whose prior assistant was a vocab prompt must set
+    ``active_vocab_turn`` and ``minimal_vocab_answer`` — but NOT
+    ``minimal_quiz`` (no letter/fence). This is the gap R-API-012 closes:
+    without ``active_vocab_turn`` in the web-search/integration gates, such a
+    turn would fire Tavily + calendar/gmail context for a learning answer."""
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = uuid4()
+    chat.quiz_mode = None
+    # Prior assistant was an open-ended vocab prompt (vocab_card, no fence).
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        "```vocab_card\n**ephemeral** — lasting a very short time.\n\n"
+        "Write your own sentence using *ephemeral*.\n```"
+    )
+
+    with patch(
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
+        AsyncMock(return_value=quiz_msg),
+    ):
+        mode = await _classify_turn_mode(
+            AsyncMock(), chat, "the sunset was ephemeral but beautiful"
+        )
+
+    assert mode.active_vocab_turn is True
+    assert mode.minimal_vocab_answer is True
+    assert mode.minimal_quiz is False
+
+
+def test_should_augment_web_and_tools_skips_active_vocab_turn():
+    """``active_vocab_turn`` must suppress web/tools augmentation even when
+    the turn is not lightweight and not minimal_quiz (open-ended vocab
+    answer path). R-API-012."""
+    from app.services.chat.turn_prep.mode import _should_augment_web_and_tools
+
+    assert (
+        _should_augment_web_and_tools(
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            active_vocab_turn=True,
+            day_planning=False,
+            ambiguous_nearby=False,
+            is_external_calendar_question=False,
+            is_external_email_question=False,
+        )
+        is False
+    )
+    # Sanity: a normal rich turn still augments.
+    assert (
+        _should_augment_web_and_tools(
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            active_vocab_turn=False,
+            day_planning=False,
+            ambiguous_nearby=False,
+            is_external_calendar_question=False,
+            is_external_email_question=False,
+        )
+        is True
+    )
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_passes_client_timezone():
     user = MagicMock()
     user.name = "Dev User"

@@ -28,6 +28,7 @@ def _should_augment_web_and_tools(
     lightweight: bool,
     minimal_personal: bool,
     minimal_quiz: bool,
+    active_vocab_turn: bool,
     day_planning: bool,
     ambiguous_nearby: bool,
     is_external_calendar_question: bool,
@@ -37,12 +38,20 @@ def _should_augment_web_and_tools(
 
     Evaluated at both call sites (not cached) so mid-turn ``instant_reply``
     updates still suppress augmentation the same way as before.
+
+    Active vocab turns (an answer following an in-chat quiz/vocab prompt) are
+    learning turns: they need project context (rich_context stays on) but not
+    web search or calendar/gmail context. ``minimal_quiz`` covers the
+    letter-answer path; ``active_vocab_turn`` also covers the open-ended
+    answer path (``minimal_vocab_answer``), which sets neither
+    ``minimal_quiz`` nor ``lightweight``.
     """
     return (
         instant_reply is None
         and not lightweight
         and not minimal_personal
         and not minimal_quiz
+        and not active_vocab_turn
         and not day_planning
         and not ambiguous_nearby
         and not is_external_calendar_question

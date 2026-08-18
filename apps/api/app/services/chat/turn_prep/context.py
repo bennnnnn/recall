@@ -362,6 +362,7 @@ async def build_stream_prompt_context(
         lightweight=mode.lightweight,
         minimal_personal=mode.minimal_personal,
         minimal_quiz=mode.minimal_quiz,
+        active_vocab_turn=mode.active_vocab_turn,
         day_planning=mode.day_planning,
         ambiguous_nearby=geo.ambiguous_nearby,
         is_external_calendar_question=is_external_calendar,
@@ -371,6 +372,7 @@ async def build_stream_prompt_context(
         instant_reply is None
         and not mode.minimal_personal
         and not mode.minimal_quiz
+        and not mode.active_vocab_turn
         and not mode.lightweight
     )
 
