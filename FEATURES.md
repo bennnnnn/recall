@@ -521,7 +521,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Code execution** beyond sandboxed HTML/chart preview — later, not now. Keep the
   sandboxed WebView exception until then.
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
-- 🔜 **Web client** — same API; see [Web client](#web-client-planned) below.
+- 🔜 **Web client** — slice 1 shipped (login + chat stream); see [Web client](#web-client-planned) below.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, duplex / live voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
@@ -665,8 +665,17 @@ A future **web version that reuses this same API** — one backend, multiple cli
   Keep rich-block rendering behind components so only the renderer differs per platform.
 - 🔜 **Backend** — add the web origin(s) to `cors_origins` (CORS is locked down by env) and allow
   them on the WebSocket; no other backend change needed.
-- 🔜 **Approach to decide later** — react-native-web (reuse this Expo codebase) vs. a separate web
-  app (e.g. Next.js) sharing only the API + types. Same API either way.
+- ✅ **Approach decided** — separate Vite + React + TypeScript app at `apps/web` (not
+  react-native-web of `apps/mobile`). Expo's FlashList/Reanimated/SecureStore/`expo-audio`/
+  `react-native-webview` don't port to a browser without a multi-month effort.
+- ✅ **Slice 1 shipped** — login (Google Identity Services + dev), chat list (create/open),
+  chat view with SSE streaming (`start`/`token`/`status`/`stream_end`/`done`/`error`),
+  stop (abort), regenerate, plain markdown rendering (marked + DOMPurify; no KaTeX/Mermaid/
+  charts/HTML iframe yet). Tokens in `sessionStorage` (tab-scoped); 401 → refresh → retry.
+  CORS origin documented in `apps/api/.env.example`. Follows the mobile chat-ux-bans.
+- 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/Lists/
+  Learning/settings/attachments/image gen, `packages/api-types` extracted from
+  `lib/api/types.ts`, httpOnly refresh cookie + CSRF, Apple Sign-In on web, prod deploy.
 
 ---
 
