@@ -290,6 +290,35 @@ def _graph_fence_body(spec: GraphBlockSpec) -> str:
     return f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
 
 
+def _replace_unclosed_graph_fence(content: str, canonical_fence: dict[str, object] | None) -> str:
+    """Replace a ```graph fence the model left unclosed (truncated mid-JSON,
+    usually because it stopped copying the verified points array at EOS).
+
+    _GRAPH_FENCE requires a closing ```, so a truncated fence is never matched
+    and the raw half-pasted points array reaches the client (where it renders
+    as "Could not render function graph."). When this turn has a verified
+    canonical fence, swap the whole truncated tail for the complete fence.
+    """
+    m = re.search(r"```graph\s*\n(?![\s\S]*```)([\s\S]*)$", content)
+    if m is None:
+        return content
+    head = content[: m.start()]
+    if canonical_fence is None or canonical_fence.get("type") not in {
+        "function",
+        "vertical",
+        "number_line",
+    }:
+        # No verified fence — strip the truncated JSON so the user doesn't see
+        # a half-pasted points array.
+        return head + "\n*Could not render that diagram.*\n"
+    try:
+        parsed = GraphBlockSpec.model_validate(canonical_fence)
+    except (ValidationError, TypeError):
+        return head + "\n*Could not render that diagram.*\n"
+    densified = densify_sparse_graph(parsed)
+    return head + "\n" + _graph_fence_body(densified) + "\n"
+
+
 def _replace_fence(
     match: re.Match[str],
     label: str,
@@ -476,11 +505,17 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         content,
         count=_MAX_GEOMETRY_FENCES,
     )
-    return _GRAPH_FENCE.sub(
+    content = _GRAPH_FENCE.sub(
         lambda m: _replace_fence(m, "graph", canonical_fence),
         content,
         count=_MAX_GRAPH_FENCES,
     )
+    # A ```graph fence the model truncated mid-JSON (stopped copying the
+    # verified points at EOS) is left unclosed, so _GRAPH_FENCE never matches
+    # it. Swap the truncated tail for the verified canonical fence so the
+    # renderer gets a complete spec instead of "Could not render function graph."
+    content = _replace_unclosed_graph_fence(content, canonical_fence)
+    return content
 
 
 def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:

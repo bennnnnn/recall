@@ -65,6 +65,51 @@ def test_vertical_line_graph_fence_validates() -> None:
     assert validate_math_fences(content) == content
 
 
+def test_replaces_truncated_unclosed_graph_fence_with_canonical() -> None:
+    """Regression: a weak model often stops copying the verified points array
+    mid-way (EOS at ~30 of 96 points), leaving a ```graph fence with no closing
+    ```. _GRAPH_FENCE requires a closing fence, so the truncated JSON reached
+    the client and rendered as "Could not render function graph." When this
+    turn has a verified canonical fence, swap the truncated tail for the
+    complete fence."""
+    from app.core.config import get_settings
+    from app.services.math_tools.prompt import build_math_augmentation
+
+    settings = get_settings()
+    import asyncio
+
+    block, verified = asyncio.run(build_math_augmentation("Graph x^2", settings, needs_math=True))
+    assert verified is not None and verified.canonical_fence is not None
+    canonical = verified.canonical_fence
+    assert canonical["type"] == "function"
+    full_points = canonical["points"]
+    # Simulate the model truncating the fence mid-points-array (no closing ```).
+    truncated_json = json.dumps(canonical)
+    cut = truncated_json[: truncated_json.find(",[-3.") + 5]
+    content = "Here's the graph for $x^2$:\n\n```graph\n" + cut
+    out = validate_math_fences(content, verified=verified)
+    i = out.find("```graph\n")
+    assert i != -1, "graph fence missing from output"
+    j = out.find("\n```", i)
+    assert j != -1, "fence not closed"
+    out_json = out[i + 8 : j]
+    out_spec = json.loads(out_json)
+    assert out_spec["type"] == "function"
+    assert out_spec["expr"] == "x**2"
+    assert len(out_spec["points"]) == len(full_points)
+    assert "Could not render" not in out
+
+
+def test_truncated_unclosed_graph_fence_without_canonical_strips_json() -> None:
+    """With no verified canonical fence, a truncated unclosed ```graph fence is
+    stripped to 'Could not render that diagram.' rather than leaking the raw
+    half-pasted points array."""
+    content = "```graph\n" + '{"type":"function","expr":"x**2","points":[[-10,100],[-9,81'
+    out = validate_math_fences(content)
+    assert "Could not render that diagram" in out
+    assert "[-10,100" not in out
+
+
 def test_rewrites_unverified_inequality_step_to_number_line() -> None:
     content = (
         '```graph\n{"type":"function","expr":"x > 3","title":"x > 3 (number line)",'
