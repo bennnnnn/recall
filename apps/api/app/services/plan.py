@@ -88,6 +88,18 @@ def resolve_user_model(
     return routing.pick_cheapest_from_pool(pool, settings)
 
 
+def _override_pool(user: User, settings: Settings) -> set[str]:
+    """Models a per-message override may pick.
+
+    This is ``model_pool`` (plan + the user's ``enabled_models`` preference),
+    NOT ``allowed_model_ids`` (plan only): a model the user disabled in
+    Settings must not be reachable via a WS/HTTP override even if their plan
+    allows it. ``model_pool`` falls back to plan defaults when
+    ``enabled_models`` is None, so default users keep the full plan pool.
+    """
+    return set(model_pool(user, settings))
+
+
 def resolve_user_model_override(
     user: User,
     model_alias: str | None,
@@ -97,12 +109,13 @@ def resolve_user_model_override(
     """Pick a concrete model, honoring a per-message override when allowed.
 
     A per-chat/per-message picker passes ``model_alias`` over the WS. Use it
-    only if it's a concrete alias the user's plan allows; ``auto`` (or an
-    alias not in the user's allowed pool) falls back to the Settings-based
-    resolution so free users can't bypass plan gates.
+    only if it's a concrete alias the user has enabled (and their plan allows);
+    ``auto`` (or an alias not in the user's enabled pool) falls back to the
+    Settings-based resolution so free users can't bypass plan gates and a
+    disabled model can't be forced through the picker.
     """
     if model_alias and model_alias != AUTO_ALIAS:
-        if model_alias in allowed_model_ids(user, settings):
+        if model_alias in _override_pool(user, settings):
             return model_alias
     return resolve_user_model(user, content, settings)
 
@@ -122,15 +135,16 @@ def resolve_regenerate_model(
     reproduces the same conditions instead of re-running the routing heuristic
     — a borderline query that auto-routed to a smart model the first time would
     otherwise re-route to a weaker model on regenerate. Falls back to routing
-    if the prior model is unknown or no longer in the user's allowed pool.
+    if the prior model is unknown or no longer in the user's enabled pool.
     """
+    pool = _override_pool(user, settings)
     if model_alias and model_alias != AUTO_ALIAS:
-        if model_alias in allowed_model_ids(user, settings):
+        if model_alias in pool:
             return model_alias
     if (
         prior_assistant_model
         and prior_assistant_model != AUTO_ALIAS
-        and prior_assistant_model in allowed_model_ids(user, settings)
+        and prior_assistant_model in pool
     ):
         return prior_assistant_model
     return resolve_user_model(user, content, settings)

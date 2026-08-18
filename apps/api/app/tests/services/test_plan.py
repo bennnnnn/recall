@@ -113,6 +113,26 @@ def test_override_none_falls_back_to_resolve_user_model():
     assert resolved == plan_service.resolve_user_model(user, "hi", settings)
 
 
+def test_override_respects_disabled_in_enabled_models():
+    """A pro user who disabled smart-chat in Settings can't override to it."""
+    user = ProUser()
+    user.enabled_models = ["auto", "free-chat"]  # smart-chat disabled
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
+    # smart-chat is plan-allowed but not enabled → rejected → routes within pool.
+    assert resolved != "smart-chat"
+    assert resolved in plan_service.model_pool(user, settings)
+
+
+def test_override_allowed_when_enabled_models_is_none():
+    """Default user (enabled_models=None) keeps the full plan pool."""
+    user = ProUser()
+    user.enabled_models = None
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
+    assert resolved == "smart-chat"
+
+
 def test_regenerate_auto_reuses_prior_assistant_model():
     """auto + a prior smart-chat reply → regenerate reuses smart-chat, not re-route."""
     user = ProUser()
@@ -142,6 +162,18 @@ def test_regenerate_auto_falls_back_when_prior_model_unavailable():
     resolved = plan_service.resolve_regenerate_model(user, "auto", "hi", "smart-chat", settings)
     assert resolved != "smart-chat"
     assert resolved in plan_service.free_pool(settings)
+
+
+def test_regenerate_auto_falls_back_when_prior_model_disabled():
+    """Pro user disabled smart-chat after the first reply → regenerate re-routes."""
+    user = ProUser()
+    user.enabled_models = ["auto", "free-chat"]  # smart-chat disabled
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_regenerate_model(
+        user, "auto", "debug this crash", "smart-chat", settings
+    )
+    assert resolved != "smart-chat"
+    assert resolved in plan_service.model_pool(user, settings)
 
 
 def test_regenerate_auto_none_prior_falls_back_to_routing():
