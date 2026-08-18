@@ -2840,8 +2840,14 @@ async def test_regenerate_restores_assistant_when_stream_empty():
         )
         stack.enter_context(
             patch(
-                "app.services.chat.turn_prep.context._augment_web_and_tools",
-                AsyncMock(return_value=([{"role": "system", "content": "sys"}], [], None)),
+                "app.services.chat.turn_prep.context.fetch_web_and_tools",
+                AsyncMock(return_value=(None, None, [], None)),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.context.inject_web_and_tools",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
         stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
@@ -3036,7 +3042,7 @@ async def test_regenerate_passes_client_geo_to_web_search():
     fake_last_user = MagicMock()
     fake_last_user.content = "Best restaurants near me"
 
-    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], [], None))
+    fetch_web = AsyncMock(return_value=(None, None, [], None))
 
     async def empty_stream(**kwargs):
         if False:
@@ -3090,7 +3096,16 @@ async def test_regenerate_passes_client_geo_to_web_search():
             )
         )
         stack.enter_context(
-            patch("app.services.chat.turn_prep.context._augment_web_and_tools", augment)
+            patch(
+                "app.services.chat.turn_prep.context.fetch_web_and_tools",
+                fetch_web,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.context.inject_web_and_tools",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
         )
         stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
@@ -3127,10 +3142,10 @@ async def test_regenerate_passes_client_geo_to_web_search():
             ):
                 pass
 
-    augment.assert_awaited_once()
-    assert augment.await_args.kwargs["latitude"] == 37.77
-    assert augment.await_args.kwargs["longitude"] == -122.42
-    assert augment.await_args.kwargs["user_location"] == "San Francisco, CA"
+    fetch_web.assert_awaited_once()
+    assert fetch_web.await_args.kwargs["latitude"] == 37.77
+    assert fetch_web.await_args.kwargs["longitude"] == -122.42
+    assert fetch_web.await_args.kwargs["user_location"] == "San Francisco, CA"
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable
 from dataclasses import dataclass, field, replace
 from typing import Any
 from uuid import UUID
@@ -22,14 +23,18 @@ from app.services import profile as profile_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services import web_search as web_search_service
-from app.services.chat.prompt_builder import _augment_web_and_tools, build_prompt_messages
+from app.services.chat.prompt_builder import (
+    build_prompt_messages,
+    fetch_web_and_tools,
+    inject_web_and_tools,
+)
 from app.services.chat.prompt_constants import is_lightweight_chat_turn
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.integrations import (
-    _inject_integration_blocks,
-    _load_gmail_context_if_needed,
     _load_has_calendar_write,
     _load_prior_user_messages,
+    fetch_integration_blocks,
+    inject_integration_blocks,
 )
 from app.services.chat.turn_prep.mode import (
     _classify_turn_mode,
@@ -295,111 +300,134 @@ async def build_stream_prompt_context(
     if on_status is not None and mode.rich_context and not mode.lightweight:
         await on_status("preparing")
 
-    prompt_messages = await build_prompt_messages(
-        user,
-        chat.id,
-        settings,
-        summary=chat_summary,
-        chat=chat,
-        out=meta,
-        query_text=content,
-        minimal_personal_context=mode.minimal_personal,
-        minimal_quiz_context=mode.minimal_quiz,
-        minimal_vocab_answer_context=mode.minimal_vocab_answer,
-        lightweight=mode.lightweight,
-        rich_context=mode.rich_context,
-        quiz_grade=quiz_grade,
-        client_timezone=client_timezone,
-        prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
-        on_status=on_status,
-        omit_message_ids=omit_message_ids,
+    async def _resolve_instant_reply_task() -> str | None:
+        async with SessionLocal() as session:
+            reply = await _resolve_instant_reply(
+                session,
+                content,
+                local_tz=local_tz,
+                user_locale=user_locale,
+                geo=geo,
+                user_id=user.id,
+            )
+            if reply is None and not mode.minimal_vocab_answer and not mode.minimal_quiz:
+                settings_changes = extract_settings_changes(content)
+                if settings_changes:
+                    reply = await settings_proposal_service.materialize_settings_reply(
+                        redis, user, settings, settings_changes
+                    )
+            await session.commit()
+        return reply
+
+    # Phase A: build the prompt (memory/RAG embed) while resolving the
+    # instant-reply short-circuit (time/location/calendar/email checks).
+    # The two share no data -- overlap them so memory embed does not wait
+    # behind a fast DB classification, and the classifier does not wait
+    # behind a multi-second embedding round-trip.
+    prompt_messages, instant_reply = await asyncio.gather(
+        build_prompt_messages(
+            user,
+            chat.id,
+            settings,
+            summary=chat_summary,
+            chat=chat,
+            out=meta,
+            query_text=content,
+            minimal_personal_context=mode.minimal_personal,
+            minimal_quiz_context=mode.minimal_quiz,
+            minimal_vocab_answer_context=mode.minimal_vocab_answer,
+            lightweight=mode.lightweight,
+            rich_context=mode.rich_context,
+            quiz_grade=quiz_grade,
+            client_timezone=client_timezone,
+            prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
+            # Suppress the "remembering" chip here: memory recall now runs
+            # concurrently with the other fetches, so a per-phase chip would
+            # fire out of order. The user sees one "preparing" (emitted above)
+            # then the stream's "thinking"/"composing" — no staircase.
+            on_status=None,
+            omit_message_ids=omit_message_ids,
+        ),
+        _resolve_instant_reply_task(),
     )
 
-    async with SessionLocal() as session:
-        instant_reply = await _resolve_instant_reply(
-            session,
-            content,
-            local_tz=local_tz,
-            user_locale=user_locale,
-            geo=geo,
-            user_id=user.id,
-        )
-        if instant_reply is None and not mode.minimal_vocab_answer and not mode.minimal_quiz:
-            settings_changes = extract_settings_changes(content)
-            if settings_changes:
-                instant_reply = await settings_proposal_service.materialize_settings_reply(
-                    redis, user, settings, settings_changes
-                )
-
-        if _should_augment_web_and_tools(
-            instant_reply=instant_reply,
-            lightweight=mode.lightweight,
-            minimal_personal=mode.minimal_personal,
-            minimal_quiz=mode.minimal_quiz,
-            day_planning=mode.day_planning,
-            ambiguous_nearby=geo.ambiguous_nearby,
-            is_external_calendar_question=calendar_service.is_external_calendar_question(content),
-            is_external_email_question=email_service.is_external_email_question(content),
-        ):
-            prior_user_messages, has_calendar_write = await asyncio.gather(
-                _load_prior_user_messages(chat.id),
-                _load_has_calendar_write(user.id),
-            )
-
-        # One high ceiling for every turn — brevity is driven by the
-        # STYLE_HINTS prompt guidance, not a hard token cap. Capping by style
-        # truncated large deliverables (HTML pages, graph JSON) mid-fence.
-        max_out = settings.max_output_tokens
-        fallback_models = plan_service.chat_fallback_models(user, settings, model)
-
-        await session.commit()
-
-    # DB connection released before external integration / web search I/O.
+    # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
         instant_reply = web_search_service.format_location_not_set_answer()
 
-    gmail_context = await _load_gmail_context_if_needed(
-        content,
-        user,
-        redis,
-        settings,
-        instant_reply=instant_reply,
-        on_status=on_status,
-    )
-
-    local_places = geo.local_places
-    prompt_messages = await _inject_integration_blocks(
-        prompt_messages,
-        content,
-        user,
-        redis,
-        settings,
-        instant_reply=instant_reply,
-        lightweight=mode.lightweight,
-        minimal_personal=mode.minimal_personal,
-        minimal_quiz=mode.minimal_quiz,
-        day_reflection=mode.day_reflection,
-        has_calendar_write=has_calendar_write,
-        gmail_context=gmail_context,
-        on_status=on_status,
-    )
-
-    search_sources: list[WebSearchHit] = []
-    verified_math: VerifiedMathBlock | None = None
-    if _should_augment_web_and_tools(
+    is_external_calendar = calendar_service.is_external_calendar_question(content)
+    is_external_email = email_service.is_external_email_question(content)
+    augment = _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
         minimal_personal=mode.minimal_personal,
         minimal_quiz=mode.minimal_quiz,
         day_planning=mode.day_planning,
         ambiguous_nearby=geo.ambiguous_nearby,
-        is_external_calendar_question=calendar_service.is_external_calendar_question(content),
-        is_external_email_question=email_service.is_external_email_question(content),
-    ):
-        prompt_messages, search_sources, verified_math = await _augment_web_and_tools(
-            prompt_messages,
+        is_external_calendar_question=is_external_calendar,
+        is_external_email_question=is_external_email,
+    )
+    integration_gate = (
+        instant_reply is None
+        and not mode.minimal_personal
+        and not mode.minimal_quiz
+        and not mode.lightweight
+    )
+
+    # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
+    # prompt guidance, not a hard token cap. Capping by style truncated large
+    # deliverables (HTML pages, graph JSON) mid-fence.
+    max_out = settings.max_output_tokens
+    fallback_models = plan_service.chat_fallback_models(user, settings, model)
+
+    local_places = geo.local_places
+    search_sources: list[WebSearchHit] = []
+    verified_math: VerifiedMathBlock | None = None
+
+    # B2: prior user messages + calendar-write flag. Web search needs the
+    # prior messages; the integration fetch needs the calendar-write flag for
+    # the create-event hint. Both are cheap DB reads -- resolve them before the
+    # concurrent external fetches so all inputs are ready, then overlap the
+    # slow I/O (calendar/gmail API | Tavily/SymPy) below.
+    # (prior_user_messages / has_calendar_write are initialized above.)
+    if augment:
+        prior_user_messages, has_calendar_write = await asyncio.gather(
+            _load_prior_user_messages(chat.id),
+            _load_has_calendar_write(user.id),
+        )
+
+    # Phase B: gather the independent external fetches concurrently.
+    # Integration fetch (calendar/gmail/nudge) and web+tools fetch
+    # (Tavily/SymPy) share no data — run them together so the turn waits
+    # on max(calendar, web+math) instead of calendar + web+math serially.
+    integration_coro: Awaitable[list[str]] | None = None
+    if integration_gate:
+        integration_coro = fetch_integration_blocks(
+            content,
+            user,
+            redis,
+            settings,
+            instant_reply=instant_reply,
+            lightweight=mode.lightweight,
+            minimal_personal=mode.minimal_personal,
+            minimal_quiz=mode.minimal_quiz,
+            day_reflection=mode.day_reflection,
+            has_calendar_write=has_calendar_write,
+            gmail_context=None,
+            # Parallel fetch — suppress per-phase chips (loading_calendar /
+            # checking_inbox); they would fire out of order. One "preparing"
+            # already covers this region.
+            on_status=None,
+        )
+    web_coro: (
+        Awaitable[tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]]
+        | None
+    ) = None
+    if augment:
+        web_coro = fetch_web_and_tools(
             content,
             settings,
+            prompt_messages=prompt_messages,
             user_timezone=local_tz,
             user_location=geo.user_location,
             latitude=geo.client_lat,
@@ -407,9 +435,39 @@ async def build_stream_prompt_context(
             prior_user_messages=prior_user_messages,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
-            on_status=on_status,
+            # Parallel fetch — suppress calculating/searching chips.
+            on_status=None,
             user=user,
             redis=redis,
+        )
+
+    integration_blocks: list[str] = []
+    web_block: str | None = None
+    math_block: str | None = None
+    if integration_coro is not None and web_coro is not None:
+        (
+            integration_blocks,
+            (web_block, math_block, search_sources, verified_math),
+        ) = await asyncio.gather(integration_coro, web_coro)
+    elif integration_coro is not None:
+        integration_blocks = await integration_coro
+    elif web_coro is not None:
+        web_block, math_block, search_sources, verified_math = await web_coro
+
+    # Phase C: inject in the stable order (integration -> web -> math) so the
+    # final prompt is byte-identical to the prior serial pipeline.
+    prompt_messages = inject_integration_blocks(prompt_messages, integration_blocks)
+    if augment:
+        prompt_messages = await inject_web_and_tools(
+            prompt_messages,
+            web_block,
+            math_block,
+            settings,
+            user_content=content,
+            user_timezone=local_tz,
+            user_location=geo.user_location,
+            prior_user_messages=prior_user_messages,
+            on_status=None,
             has_calendar_write=has_calendar_write,
         )
 

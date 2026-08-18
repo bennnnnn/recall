@@ -109,8 +109,7 @@ async def _load_gmail_context_if_needed(
     )
 
 
-async def _inject_integration_blocks(
-    prompt_messages: list[dict[str, str]],
+async def fetch_integration_blocks(
     content: str,
     user: User,
     redis: Redis,
@@ -122,14 +121,18 @@ async def _inject_integration_blocks(
     minimal_quiz: bool,
     day_reflection: bool,
     has_calendar_write: bool,
-    gmail_context: tuple[str, list[Any], list[Any], str | None] | None,
-    on_status: StreamStatusFn | None,
-) -> list[dict[str, str]]:
-    """Load calendar/gmail blocks (best-effort) and append to the system message."""
-    if instant_reply is not None or minimal_personal or minimal_quiz or lightweight:
-        return prompt_messages
+    gmail_context: tuple[str, list[Any], list[Any], str | None] | None = None,
+    on_status: StreamStatusFn | None = None,
+) -> list[str]:
+    """Load + assemble calendar/gmail/nudge blocks. Does NOT mutate prompt_messages.
 
-    integration_blocks: list[str] = []
+    Folds in the external-email gmail prefetch (``_load_gmail_context_if_needed``)
+    so the inbox fetch runs concurrently with the calendar fetch below, instead
+    of serially before injection.
+    """
+    if instant_reply is not None or minimal_personal or minimal_quiz or lightweight:
+        return []
+
     load_calendar = calendar_service.should_inject_calendar_block(content)
     load_gmail = email_service.should_inject_gmail_block(content)
     calendar_block: str | None = None
@@ -192,6 +195,7 @@ async def _inject_integration_blocks(
             elif label == "email_nudge":
                 email_nudge = result
 
+    integration_blocks: list[str] = []
     if calendar_block:
         integration_blocks.append(wrap_untrusted("calendar", calendar_block))
     if gmail_block:
@@ -207,9 +211,51 @@ async def _inject_integration_blocks(
         and has_calendar_write
     ):
         integration_blocks.append(calendar_service.CALENDAR_WRITE_HINT)
+    return integration_blocks
+
+
+def inject_integration_blocks(
+    prompt_messages: list[dict[str, str]],
+    integration_blocks: list[str],
+) -> list[dict[str, str]]:
+    """Append assembled integration blocks to the system message in place."""
     if integration_blocks:
         prompt_messages[0] = {
             "role": "system",
             "content": f"{prompt_messages[0]['content']}\n\n" + "\n\n".join(integration_blocks),
         }
     return prompt_messages
+
+
+async def _inject_integration_blocks(
+    prompt_messages: list[dict[str, str]],
+    content: str,
+    user: User,
+    redis: Redis,
+    settings: Settings,
+    *,
+    instant_reply: str | None,
+    lightweight: bool,
+    minimal_personal: bool,
+    minimal_quiz: bool,
+    day_reflection: bool,
+    has_calendar_write: bool,
+    gmail_context: tuple[str, list[Any], list[Any], str | None] | None,
+    on_status: StreamStatusFn | None,
+) -> list[dict[str, str]]:
+    """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
+    blocks = await fetch_integration_blocks(
+        content,
+        user,
+        redis,
+        settings,
+        instant_reply=instant_reply,
+        lightweight=lightweight,
+        minimal_personal=minimal_personal,
+        minimal_quiz=minimal_quiz,
+        day_reflection=day_reflection,
+        has_calendar_write=has_calendar_write,
+        gmail_context=gmail_context,
+        on_status=on_status,
+    )
+    return inject_integration_blocks(prompt_messages, blocks)

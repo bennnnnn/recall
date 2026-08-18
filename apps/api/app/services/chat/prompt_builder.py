@@ -136,11 +136,11 @@ def format_user_name_only_block(user: User) -> str:
     return f"User's first name (for a 'who am I' reply — use this name only): {first}"
 
 
-async def _augment_web_and_tools(
-    prompt_messages: list[dict[str, str]],
+async def fetch_web_and_tools(
     user_content: str,
     settings: Settings,
     *,
+    prompt_messages: list[dict[str, str]],
     user_timezone: str | None = None,
     user_location: str | None = None,
     latitude: float | None = None,
@@ -151,19 +151,13 @@ async def _augment_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-    has_calendar_write: bool = False,
-) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedMathBlock | None]:
-    """Web search always uses the full direct path; MCP handles calendar hints.
+) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]:
+    """Fetch web-search and SymPy augmentation blocks WITHOUT mutating prompt_messages.
 
-    Web search (network) and SymPy (subprocess) are independent — gather both
-    against the same base messages, then inject blocks in the historical order
-    web → MCP calendar → math so prompt shape stays stable.
+    Web search (network) and SymPy (subprocess) are independent — gather both.
+    Returns ``(web_block, math_block, search_sources, verified_math)``; injection
+    is a separate step so this fetch can run concurrently with integration fetches.
     """
-    # Tool loop can still call web_search / sympy mid-turn. Heuristic
-    # pre-fetch stays so homework and first-turn search do not wait on a
-    # tool call. Legacy mcp_tools_enabled calendar hints are skipped when
-    # the loop is on (see chat_tools.augment_prompt_with_mcp_tools).
-
     # Compute the math-intent signal ONCE: it gates the "calculating" status
     # below AND build_math_augmentation's own needs_symbolic_math check, so
     # passing it through avoids re-scanning the same message twice per turn
@@ -196,7 +190,26 @@ async def _augment_web_and_tools(
             needs_math=needs_math,
         ),
     )
+    return web_block, math_block, search_sources, verified_math
 
+
+async def inject_web_and_tools(
+    prompt_messages: list[dict[str, str]],
+    web_block: str | None,
+    math_block: str | None,
+    settings: Settings,
+    *,
+    user_content: str,
+    user_timezone: str | None = None,
+    user_location: str | None = None,
+    prior_user_messages: list[str] | None = None,
+    on_status: StreamStatusFn | None = None,
+    has_calendar_write: bool = False,
+) -> list[dict[str, str]]:
+    """Inject web → MCP calendar → math blocks in the historical order.
+
+    Mutation order is what keeps prompt shape stable; fetch order is irrelevant.
+    """
     updated = prompt_messages
     if web_block:
         updated = inject_before_last_user(updated, web_block)
@@ -215,6 +228,54 @@ async def _augment_web_and_tools(
 
     if math_block:
         updated = inject_before_last_user(updated, math_block)
+    return updated
+
+
+async def _augment_web_and_tools(
+    prompt_messages: list[dict[str, str]],
+    user_content: str,
+    settings: Settings,
+    *,
+    user_timezone: str | None = None,
+    user_location: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    prior_user_messages: list[str] | None = None,
+    has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
+    on_status: StreamStatusFn | None = None,
+    user: User | None = None,
+    redis: Redis | None = None,
+    has_calendar_write: bool = False,
+) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedMathBlock | None]:
+    """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
+    web_block, math_block, search_sources, verified_math = await fetch_web_and_tools(
+        user_content,
+        settings,
+        prompt_messages=prompt_messages,
+        user_timezone=user_timezone,
+        user_location=user_location,
+        latitude=latitude,
+        longitude=longitude,
+        prior_user_messages=prior_user_messages,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+        on_status=on_status,
+        user=user,
+        redis=redis,
+    )
+    updated = await inject_web_and_tools(
+        prompt_messages,
+        web_block,
+        math_block,
+        settings,
+        user_content=user_content,
+        user_timezone=user_timezone,
+        user_location=user_location,
+        prior_user_messages=prior_user_messages,
+        on_status=on_status,
+        has_calendar_write=has_calendar_write,
+    )
     return updated, search_sources, verified_math
 
 
