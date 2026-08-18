@@ -28,6 +28,17 @@ from app.services.routing import resolve_alias, route_chat_model
         ("optimize this query", "smart-chat"),
         ("trade-off between latency and throughput", "smart-chat"),
         ("what is the complexity of this", "smart-chat"),
+        # Comparison cues → smart-chat (previously classifier-only web search
+        # with no model upgrade; a weak model answered "X vs Y" questions).
+        ("kenya vs ethiopia", "smart-chat"),
+        ("react versus vue for a production app", "smart-chat"),
+        # Bare coding asks without a fence → smart-chat (previously stayed
+        # free-chat because there was no ``` fence and no smart keyword).
+        ("write a function to merge two sorted lists", "smart-chat"),
+        ("write a script that backs up my db", "smart-chat"),
+        ("implement a rate limiter in python", "smart-chat"),
+        ("code a rest api for todos", "smart-chat"),
+        ("solve this leetcode problem", "smart-chat"),
         # Long message (>=800 chars → smart-chat)
         ("a" * 801, "smart-chat"),
         ("a" * 799, "free-chat"),

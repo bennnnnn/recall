@@ -14,7 +14,9 @@ import re
 from app.core.config import Settings
 from app.services import model_catalog
 
-# Hard triggers only — broad words like "why/explain/compare" route too often to R1.
+# Hard triggers only — broad words like "why/explain" route too often to the
+# strong model. "compare" alone is too broad (it fires on "compare these two
+# files"), so comparison routing uses the explicit "X vs Y" / "versus" cues.
 _SMART_TRIGGERS = (
     "prove ",
     "derive ",
@@ -32,6 +34,25 @@ _SMART_TRIGGERS = (
     "big-o",
     "time complexity",
     "space complexity",
+    # Comparison cues — "X vs Y" / "X versus Y" are genuinely hard and were
+    # previously classifier-only web-search triggers with no model upgrade, so
+    # a weak model answered a comparison with no SymPy/search help.
+    " vs ",
+    " versus ",
+    # Bare coding asks without a code fence — "write a function/script/…"
+    # stayed on the fast model because there was no ``` fence and no smart
+    # keyword, so a hard coding question got a weak answer.
+    "write a function",
+    "write a script",
+    "write a program",
+    "write a method",
+    "write a class",
+    "write a regex",
+    "write a snippet",
+    "implement a",
+    "implement the",
+    "code a",
+    "leetcode",
 )
 
 _LONG_MESSAGE_CHARS = 800
