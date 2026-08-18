@@ -110,6 +110,54 @@ def test_truncated_unclosed_graph_fence_without_canonical_strips_json() -> None:
     assert "[-10,100" not in out
 
 
+def test_replace_unclosed_graph_fence_safe_substitutes_canonical_without_sympy() -> None:
+    """Timeout-fallback path: substitute a verified canonical fence SymPy-free
+    (no densify) so a truncated graph fence doesn't leak raw JSON to the client
+    when validate_math_fences was killed by the solve timeout."""
+    from app.services.math_fence import replace_unclosed_graph_fence_safe
+
+    canonical_points: list[list[float]] = [[-10.0, 100.0], [0.0, 0.0], [10.0, 100.0]]
+    canonical: dict[str, object] = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -10.0,
+        "x_max": 10.0,
+        "points": canonical_points,
+    }
+    truncated = "```graph\n" + json.dumps(canonical)[: json.dumps(canonical).find(",[0.0") + 5]
+    out = replace_unclosed_graph_fence_safe(truncated, canonical)
+    assert "Could not render" not in out
+    i = out.find("```graph\n")
+    assert i != -1
+    j = out.find("\n```", i)
+    assert j != -1, "safe fallback must close the fence"
+    spec = json.loads(out[i + 8 : j])
+    assert spec["type"] == "function"
+    assert spec["expr"] == "x**2"
+    # Canonical fence substituted as-is (no densify re-sample).
+    out_points: list = spec["points"]
+    assert len(out_points) == len(canonical_points)
+
+
+def test_replace_unclosed_graph_fence_safe_strips_when_no_canonical() -> None:
+    """No verified canonical fence → strip the truncated tail to the error note."""
+    from app.services.math_fence import replace_unclosed_graph_fence_safe
+
+    content = "```graph\n" + '{"type":"function","expr":"x**2","points":[[-10,100],[-9,81'
+    out = replace_unclosed_graph_fence_safe(content, None)
+    assert "Could not render that diagram" in out
+    assert "[-10,100" not in out
+
+
+def test_replace_unclosed_graph_fence_safe_noop_when_no_unclosed_fence() -> None:
+    """No unclosed fence → return content unchanged (no SymPy, no rewrite)."""
+    from app.services.math_fence import replace_unclosed_graph_fence_safe
+
+    content = "Just prose, no graph fence at all."
+    assert replace_unclosed_graph_fence_safe(content, None) == content
+
+
 def test_rewrites_unverified_inequality_step_to_number_line() -> None:
     content = (
         '```graph\n{"type":"function","expr":"x > 3","title":"x > 3 (number line)",'
