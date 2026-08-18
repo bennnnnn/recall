@@ -32,6 +32,8 @@ from app.services.chat.turn_prep.integrations import (
     _load_has_calendar_write,
     _load_prior_user_messages,
     _timed_integration_load,
+    fetch_integration_blocks,
+    inject_integration_blocks,
 )
 from app.services.chat.turn_prep.mode import (
     _classify_turn_mode,
@@ -70,6 +72,8 @@ __all__ = [
     "_timed_integration_load",
     "build_stream_prompt_context",
     "count_image_attachments",
+    "fetch_integration_blocks",
+    "inject_integration_blocks",
     "prepare_chat_turn",
     "resolve_client_geo",
     "stream_context_from_bundle",
