@@ -46,6 +46,7 @@ from app.services.chat.turn_prep.mode import (
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
+from app.services.html_preview_intent import is_html_preview_request
 from app.services.math_tools import VerifiedMathBlock
 from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
@@ -69,6 +70,26 @@ def bump_max_out_for_verified_graph(
         and verified_math.canonical_fence.get("type") in {"function", "vertical", "number_line"}
     ):
         return max(max_out, max_output_tokens_for_style("balanced", settings))
+    return max_out
+
+
+def bump_max_out_for_html_preview(
+    max_out: int,
+    content: str,
+    settings: Settings,
+) -> int:
+    """Override the 'short'/'balanced' cap when the user asks for an HTML preview.
+
+    A self-contained ```html landing page / dashboard / form easily runs
+    1500-2500+ tokens; the 'short' cap (400) and even 'balanced' (1200)
+    truncate it mid-CSS, leaving a blank or broken preview (the model stops
+    before the closing ``` fence). Bump to the 'detailed' cap so the model
+    has room to finish the complete fence. Intent is detected up front from
+    the user message (no verified block exists for free-form HTML, unlike
+    the math graph path), so this runs before the LLM call.
+    """
+    if is_html_preview_request(content):
+        return max(max_out, max_output_tokens_for_style("detailed", settings))
     return max_out
 
 
@@ -403,6 +424,12 @@ async def build_stream_prompt_context(
         if mode.minimal_quiz or mode.lightweight
         else max_output_tokens_for_style(user.response_style, settings)
     )
+    # HTML preview turns need room to finish a large ```html fence; the short
+    # (400) / balanced (1200) cap truncates it mid-CSS. Bump up front from the
+    # user message (no verified block exists for free-form HTML). Lightweight
+    # / minimal-quiz turns never produce HTML previews, so the gate above
+    # already capped them and this is a no-op there.
+    max_out = bump_max_out_for_html_preview(max_out, content, settings)
     fallback_models = plan_service.chat_fallback_models(user, settings, model)
 
     local_places = geo.local_places
