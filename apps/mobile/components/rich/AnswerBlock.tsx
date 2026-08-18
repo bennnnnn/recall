@@ -6,7 +6,7 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
-import { readableLatexFallback } from "@/lib/mathText";
+import { latexHasNestedMathView, readableLatexFallback } from "@/lib/mathText";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
@@ -44,6 +44,13 @@ export function AnswerBlock({ content }: Props) {
   const hasInlineMath = parts.some((p) => p.type === "math");
   const preview = getPreviewWebView();
   const useKatex = answerNeedsKatex(text) && supportsInlineHtmlMathWebView(preview?.mode);
+  // A nested math View (stacked frac / sqrt) must be a direct child of the box,
+  // NOT wrapped in a Text. iOS clips a View nested inside a Text to the line
+  // box — which cut the radicand's bottom (the digit under √ lost its baseline)
+  // in this gray answer box. Mirrors markdownRenderRules' nested-View guard.
+  const hasNestedView = hasInlineMath
+    ? parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))
+    : latexHasNestedMathView(text);
 
   return (
     <View
@@ -60,6 +67,22 @@ export function AnswerBlock({ content }: Props) {
             textColor={theme.text}
             bgColor={theme.surfaceAlt}
           />
+        ) : hasNestedView ? (
+          <View style={s.answerRow} testID="answer-row">
+            {hasInlineMath
+              ? parts.map((part, i) =>
+                  part.type === "math" ? (
+                    <MathText key={i} latex={part.value} textColor={theme.text} />
+                  ) : (
+                    <Text key={i} style={s.answer} selectable>
+                      {part.value}
+                    </Text>
+                  ),
+                )
+              : (
+                <MathText latex={text} textColor={theme.text} />
+              )}
+          </View>
         ) : hasInlineMath ? (
           <Text style={s.answer} selectable>
             {parts.map((part, i) =>
@@ -107,6 +130,14 @@ const makeStyles = (t: Theme) =>
       alignSelf: "stretch",
       alignItems: "stretch",
       paddingHorizontal: 10,
+    },
+    // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
+    // clip it to a Text line box. Centers the run like the `answer` Text would.
+    answerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      flexWrap: "wrap",
     },
     answer: {
       fontSize: 20,
