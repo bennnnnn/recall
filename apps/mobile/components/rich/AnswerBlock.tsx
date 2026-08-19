@@ -52,6 +52,17 @@ export function AnswerBlock({ content }: Props) {
     ? parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))
     : latexHasNestedMathView(text);
 
+  // Drop a trailing lone ":" when nested math Views are present — the colon
+  // can't share the math View's line box and strands as a lone "two dots".
+  // Mirrors markdownRenderRules' trailing-colon drop (MO-020).
+  const trimmedParts = hasNestedView && hasInlineMath
+    ? parts.filter((p, i) => {
+        if (p.type !== "text") return true;
+        if (i !== parts.length - 1) return true;
+        return p.value.trim() !== ":";
+      })
+    : parts;
+
   return (
     <View
       style={s.row}
@@ -70,7 +81,7 @@ export function AnswerBlock({ content }: Props) {
         ) : hasNestedView ? (
           <View style={s.answerRow} testID="answer-row">
             {hasInlineMath
-              ? parts.map((part, i) =>
+              ? trimmedParts.map((part, i) =>
                   part.type === "math" ? (
                     <MathText key={i} latex={part.value} textColor={theme.text} />
                   ) : (

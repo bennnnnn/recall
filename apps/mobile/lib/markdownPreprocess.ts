@@ -667,7 +667,17 @@ export function mergeStrandedColons(content: string): string {
     if (trimmed === ":" || trimmed === ";") {
       if (out.length > 0) {
         const prev = out[out.length - 1]!;
-        out[out.length - 1] = prev.replace(/\s*$/, "") + trimmed;
+        const prevTrimmed = prev.trim();
+        // Don't glue punctuation onto a fence closer, table row, or heading.
+        if (
+          prevTrimmed.startsWith("```") ||
+          prevTrimmed.startsWith("|") ||
+          /^#{1,6}\s/.test(prevTrimmed)
+        ) {
+          out.push(line);
+        } else {
+          out[out.length - 1] = prev.replace(/\s*$/, "") + trimmed;
+        }
       } else {
         out.push(line);
       }

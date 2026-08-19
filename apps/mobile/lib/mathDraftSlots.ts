@@ -224,7 +224,11 @@ function collapseEmptyMath(
   text: string,
   caret: number,
 ): { text: string; selection: TextSelection } {
-  let next = text.replace(/\$\$/g, "");
+  // Only strip $ delimiters when the math span is truly empty (no content between pairs).
+  // Don't globally remove $$ — it would corrupt $$display math$$ with content.
+  const stripped = text.replace(/\$\$/g, "");
+  const hasNonMathContent = stripped.trim().length > 0;
+  let next = hasNonMathContent ? text : stripped;
   if (next === "$") next = "";
   const pos = Math.max(0, Math.min(caret, next.length));
   return commitBackspace({ text: next, selection: { start: pos, end: pos } });

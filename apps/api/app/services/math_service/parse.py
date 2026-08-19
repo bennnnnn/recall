@@ -14,6 +14,7 @@ from sympy.parsing.sympy_parser import (
     standard_transformations,
 )
 
+from app.core.config import get_settings
 from app.models.math_schemas import EquationInput
 
 logger = logging.getLogger(__name__)
@@ -339,7 +340,7 @@ def _parse_expression(
     real: bool = False,
 ):
     normalized = _normalize_expr(expr)
-    if len(normalized) > 512:
+    if len(normalized) > get_settings().math_max_expr_length:
         raise MathServiceError("Expression too long")
     _reject_unsafe_expr(normalized)
     local_dict = dict(_LOCALS)
