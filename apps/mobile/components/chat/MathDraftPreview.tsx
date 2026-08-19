@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { textLooksLikeMath } from "@/lib/mathComposerIntent";
 import {
   caretAfterExpression,
   caretBeforeExpression,
@@ -16,7 +17,30 @@ import { Theme, useTheme } from "@/lib/theme";
 
 export const MATH_DRAFT_PREVIEW_HEIGHT = 48;
 
+/**
+ * True when the composer draft should show the live math preview.
+ * Shows when the input contains `$` (explicit math delimiters) OR when it
+ * looks like math content (LaTeX commands, math symbols, bare equations)
+ * even without `$` — so typing `√9` or `x^2 = 4` shows the preview without
+ * requiring the user to manually wrap in `$...$`.
+ *
+ * Note: `UserMessageContent` uses its own check (only `$`) for sent messages;
+ * this broader check is for the live composer draft only.
+ */
 export function draftShowsMathPreview(input: string): boolean {
+  const s = input.trim();
+  if (s.length === 0) return false;
+  if (input.includes("$")) return true;
+  return textLooksLikeMath(input);
+}
+
+/**
+ * True when a *sent* user message should render via `MathDraftPreview`.
+ * Unlike the composer, sent messages only use the preview when the user
+ * explicitly wrapped math in `$...$` — bare equations in sent messages
+ * render through the normal markdown path (which handles implicit math).
+ */
+export function sentMessageShowsMathPreview(input: string): boolean {
   return input.includes("$") && input.trim().length > 0;
 }
 
@@ -36,10 +60,16 @@ export const MathDraftPreview = memo(function MathDraftPreview({
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const nodes = useMemo(() => findDraftNodes(input), [input]);
-  const parts = useMemo(() => splitInlineMath(input), [input]);
-  const before = caretBeforeExpression(input);
-  const after = caretAfterExpression(input);
+  // When the input looks like math but has no `$` delimiters (e.g. "√9" or
+  // "x^2 = 4"), wrap it so findDraftNodes/splitInlineMath treat it as math.
+  const mathInput = useMemo(
+    () => (input.includes("$") ? input : `$${input}$`),
+    [input],
+  );
+  const nodes = useMemo(() => findDraftNodes(mathInput), [mathInput]);
+  const parts = useMemo(() => splitInlineMath(mathInput), [mathInput]);
+  const before = caretBeforeExpression(mathInput);
+  const after = caretAfterExpression(mathInput);
   const tall = parts.some((p) => p.type === "math" && latexNeedsTallLine(p.value));
   if (!draftShowsMathPreview(input)) return null;
   const liveCaret = showCaret && caret >= 0;
@@ -60,7 +90,7 @@ export const MathDraftPreview = memo(function MathDraftPreview({
         <DraftPiece
           key={`${node.kind}-${node.start}-${i}`}
           node={node}
-          input={input}
+          input={mathInput}
           caret={liveCaret ? caret : -1}
           before={before}
           after={after}

@@ -121,4 +121,21 @@ describe("UserMessageContent math/markdown rendering", () => {
 
     expect(getByText("What time is it in Tokyo?")).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: sent bare equation does not use math draft preview (only $-delimited)", async () => {
+    // Sent messages with bare equations (no $) should NOT render via
+    // MathDraftPreview — they go through the normal markdown path.
+    // Only $-delimited math uses the draft preview for sent messages.
+    const { queryByTestId } = await render(
+      <UserMessageContent message={userMessage("x^2 = 4")} />,
+    );
+    expect(queryByTestId("math-draft-preview")).toBeNull();
+  });
+
+  it("BUG FIX regression: sent $-delimited math still uses draft preview", async () => {
+    const { getByTestId } = await render(
+      <UserMessageContent message={userMessage("$x^2 = 4$")} />,
+    );
+    expect(getByTestId("math-draft-preview")).toBeOnTheScreen();
+  });
 });

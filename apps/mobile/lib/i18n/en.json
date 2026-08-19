@@ -37,6 +37,7 @@
   "chat.math_keyboard_abc": "ABC",
   "chat.math_keyboard_a11y": "Math keyboard",
   "chat.math_keyboard_backspace": "Delete",
+  "chat.math_keyboard_paste": "Paste",
   "chat.math_keyboard_caret_left": "Move cursor left",
   "chat.math_keyboard_caret_right": "Move cursor right",
   "chat.math_keyboard_done": "Done",

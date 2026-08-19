@@ -149,6 +149,21 @@ export function useMathKeyboardInsert(options: {
     pinSelection(result.selection);
   }, [pinSelection, selection, setInput]);
 
+  const pasteText = useCallback(
+    async (text: string) => {
+      if (!text) return;
+      const sel = pinRef.current ?? selection;
+      const before = textRef.current.slice(0, sel.start);
+      const after = textRef.current.slice(sel.end);
+      const next = before + text + after;
+      const caret = sel.start + text.length;
+      textRef.current = next;
+      setInput(next);
+      pinSelection({ start: caret, end: caret });
+    },
+    [pinSelection, selection, setInput],
+  );
+
   const moveCaret = useCallback(
     (pos: number) => {
       const next = Math.max(0, Math.min(pos, textRef.current.length));
@@ -186,6 +201,7 @@ export function useMathKeyboardInsert(options: {
     onChangeText,
     insertSymbol,
     backspace,
+    pasteText,
     nextSlot,
     prevSlot,
     stepCaret,

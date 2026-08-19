@@ -7,7 +7,7 @@ import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import {
-  draftShowsMathPreview,
+  sentMessageShowsMathPreview,
   MathDraftPreview,
 } from "@/components/chat/MathDraftPreview";
 import { Message } from "@/lib/api";
@@ -115,7 +115,7 @@ export function UserMessageContent({ message }: Props) {
 }
 
 function UserBubbleBody({ content }: { content: string }) {
-  if (draftShowsMathPreview(content)) {
+  if (sentMessageShowsMathPreview(content)) {
     return <MathDraftPreview input={content} showCaret={false} />;
   }
   return <MarkdownContent content={content} />;
