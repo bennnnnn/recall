@@ -2,7 +2,84 @@
 
 from __future__ import annotations
 
+import math
+import re
+
 from app.services.math_text_match.scan import _BARE_COORD, _NUM
+
+
+def _parse_bound(token: str) -> float | None:
+    """Parse a graph-domain bound: a plain number, ``pi``, ``-pi``, or ``N*pi``
+    (``2pi`` / ``2*pi`` / ``0.5pi``). Returns None for anything unparseable so
+    the caller falls back to the default window rather than mis-sampling."""
+    t = token.strip().lower().replace(" ", "")
+    if not t:
+        return None
+    neg = t.startswith("-")
+    if neg:
+        t = t[1:]
+    if t == "pi":
+        val = math.pi
+    elif t.endswith("pi"):
+        coeff = t[:-2].rstrip("*")
+        if coeff == "":
+            return None
+        try:
+            val = float(coeff) * math.pi
+        except ValueError:
+            return None
+    else:
+        try:
+            val = float(t)
+        except ValueError:
+            return None
+    return -val if neg else val
+
+
+# "from <lo> to <hi>" / "between <lo> and <hi>" / "on [<lo>, <hi>]" — the
+# domain the user wants plotted. Bounds may be plain numbers or pi multiples
+# (``pi``, ``2pi``, ``-pi``). Each pattern captures the two bound tokens.
+_DOMAIN_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\bfrom\s+(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s+to\s+"
+        r"(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bbetween\s+(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s+and\s+"
+        r"(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bon\s*\[\s*(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s*,\s*"
+        r"(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s*\]",
+        re.IGNORECASE,
+    ),
+)
+
+
+def graph_domain(expr: str) -> tuple[float, float, str] | None:
+    """Extract a user-named plotting domain from a graph expression.
+
+    Returns ``(lo, hi, expr_without_domain)`` when a domain clause is found,
+    else None. The domain clause is stripped from the returned expression so
+    SymPy never sees ``"from 0 to 100"`` as part of the formula. The LAST
+    match wins (a leading "from … to …" describing something else is rare,
+    but the trailing domain is what the user intends as the window).
+    """
+    last: tuple[int, int, str, str] | None = None  # (start, end, lo_tok, hi_tok)
+    for pat in _DOMAIN_PATTERNS:
+        for m in pat.finditer(expr):
+            if last is None or m.start() >= last[0]:
+                last = (m.start(), m.end(), m.group(1), m.group(2))
+    if last is None:
+        return None
+    lo = _parse_bound(last[2])
+    hi = _parse_bound(last[3])
+    if lo is None or hi is None or lo >= hi:
+        return None
+    cleaned = (expr[: last[0]] + expr[last[1] :]).strip()
+    return lo, hi, cleaned
 
 
 def _parse_xy_pair(token: str) -> tuple[float, float] | None:

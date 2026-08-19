@@ -983,6 +983,55 @@ async def test_augment_prompt_injects_graph_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_graph_uses_user_named_domain() -> None:
+    """BUG FIX: 'graph y=x^2 from 0 to 100' used to sample on the [-10, 10]
+    default window. Now the user-named domain drives the verified sample so
+    the rendered curve spans the requested range."""
+    settings = Settings(math_tools_enabled=True)
+    text = "graph y = x^2 from 0 to 100"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    pts = verified.canonical_fence["points"]
+    xs = [p[0] for p in pts]
+    assert min(xs) >= 0
+    assert max(xs) <= 100
+
+
+@pytest.mark.parametrize(
+    "expr, expected_lo, expected_hi, expected_clean",
+    [
+        ("y=x^2 from 0 to 100", 0.0, 100.0, "y=x^2"),
+        ("x^2 between -2 and 3", -2.0, 3.0, "x^2"),
+        ("sin(x) on [-5, 5]", -5.0, 5.0, "sin(x)"),
+        ("y=x^2 from -pi to pi", -3.14159265, 3.14159265, "y=x^2"),
+        ("y=x^2 from 0 to 2pi", 0.0, 6.2831853, "y=x^2"),
+    ],
+)
+def test_graph_domain_parses_user_window(
+    expr: str, expected_lo: float, expected_hi: float, expected_clean: str
+) -> None:
+    from app.services import math_text_match as mtm
+
+    out = mtm.graph_domain(expr)
+    assert out is not None
+    lo, hi, cleaned = out
+    assert abs(lo - expected_lo) < 1e-4
+    assert abs(hi - expected_hi) < 1e-4
+    assert cleaned == expected_clean
+
+
+def test_graph_domain_none_when_no_clause() -> None:
+    from app.services import math_text_match as mtm
+
+    assert mtm.graph_domain("y = x^2") is None
+    # Reversed bounds are invalid — fall back to default rather than misplot.
+    assert mtm.graph_domain("y=x^2 from 100 to 0") is None
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_injects_unit_circle_relation_graph() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "graph x^2 + y^2 = 1"
