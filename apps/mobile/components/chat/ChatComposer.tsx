@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import Animated, { type AnimatedStyle } from "react-native-reanimated";
+import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -361,6 +362,11 @@ export const ChatComposer = memo(function ChatComposer({
               onStop={onStop}
               streaming={streaming}
               onBackspace={math.backspace}
+              onPaste={() => {
+                void Clipboard.getStringAsync().then((text) => {
+                  if (text) void math.pasteText(text);
+                });
+              }}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}
               onNextSlot={math.nextSlot}

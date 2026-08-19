@@ -28,6 +28,7 @@ type Props = {
   onStop: () => void;
   streaming: boolean;
   onBackspace: () => void;
+  onPaste: () => void;
   onNextSlot: () => void;
   onPrevSlot: () => void;
   onStepCaret: (dir: -1 | 1) => void;
@@ -48,6 +49,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   onStop,
   streaming,
   onBackspace,
+  onPaste,
   onNextSlot,
   onPrevSlot,
   onStepCaret,
@@ -130,6 +132,18 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           testID="math-key-caret-right"
         >
           <Icon name="chevron-forward" size={18} color={theme.primary} />
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            buzz();
+            onPaste();
+          }}
+          style={({ pressed }) => [s.caretBtn, pressed && s.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.math_keyboard_paste")}
+          testID="math-keyboard-paste"
+        >
+          <Icon name="clipboard-outline" size={18} color={theme.primary} />
         </Pressable>
         <Pressable
           onPress={onToggle}
