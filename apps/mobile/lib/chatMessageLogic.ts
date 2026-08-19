@@ -1,6 +1,11 @@
 import { Message } from "@/lib/api";
 import { isRenderableVocabQuiz, parseVocabQuiz } from "@/lib/parseVocabQuiz";
 
+/** A user message that looks like a quiz letter answer (A–D, case-insensitive). */
+function isQuizAnswer(content: string): boolean {
+  return /^[a-dA-D]\s*[.!)]?\s*$/.test(content.trim());
+}
+
 export const SENDING_LABEL_DELAY_MS = 400;
 
 export function isLocalPendingMessageId(id: string): boolean {
@@ -33,6 +38,17 @@ export function findActiveQuizMessageId(messages: Message[]): string | null {
     const message = messages[i];
     if (message.role !== "assistant") continue;
     if (isRenderableVocabQuiz(parseVocabQuiz(message.content))) {
+      // Skip re-emitted fences in hint-only replies: if the preceding user
+      // message is a quiz answer (letter A–D or matching choice text), this
+      // assistant message is a hint-only reply that re-emitted the fence —
+      // the original quiz (earlier in the list) is the one to grade against.
+      // (LANG-STATE-001)
+      if (i > 0) {
+        const prev = messages[i - 1];
+        if (prev.role === "user" && isQuizAnswer(prev.content)) {
+          continue;
+        }
+      }
       return message.id;
     }
   }
