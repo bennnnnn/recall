@@ -53,6 +53,12 @@ export function findStableMarkdownPrefixLen(content: string): number {
 
 function hasUnclosedStreamingStructure(text: string): boolean {
   if (countOccurrences(text, "$$") % 2 !== 0) return true;
+  // Odd total `$` (after removing `$$` pairs) means an unclosed `$...$`
+  // inline-math span — without this, a prefix cut mid-`$x^2 +` would be
+  // treated as stable and preprocessed with a dangling `$`.
+  const totalDollar = countOccurrences(text, "$");
+  const blockDollarPairs = countOccurrences(text, "$$");
+  if ((totalDollar - 2 * blockDollarPairs) % 2 !== 0) return true;
   if (countFenceMarkers(text) % 2 !== 0) return true;
   // \[...\] is the other block-math delimiter preprocessMarkdown converts
   // (BLOCK_MATH_BRACKET_RE, alongside $$...$$) — without tracking it here
@@ -60,6 +66,8 @@ function hasUnclosedStreamingStructure(text: string): boolean {
   // preprocessed while still open, leaving a raw dangling "\[" visible until
   // the closing \] finally arrives.
   if (countOccurrences(text, "\\[") !== countOccurrences(text, "\\]")) return true;
+  // \(...\) inline math — same risk as $...$ above.
+  if (countOccurrences(text, "\\(") !== countOccurrences(text, "\\)")) return true;
   if (endsWithOpenCallout(text)) return true;
   return false;
 }
@@ -111,6 +119,10 @@ export type StableScanState = {
   dollarOpen: boolean;
   /** Running count of `\[` minus `\]` seen so far (nonzero = inside \[...\] block math). */
   bracketDepth: number;
+  /** Parity of single-`$` (not part of `$$`) occurrences seen so far (true = inside `$...$` inline math). */
+  inlineDollarOpen: boolean;
+  /** Running count of `\(` minus `\)` seen so far (nonzero = inside \(...\) inline math). */
+  parenDepth: number;
   /** Whether an unclosed `> [!type]` callout chain reaches `scannedLen`. */
   calloutOpen: boolean;
   /** Largest confirmed-stable prefix length found up to `scannedLen`. */
@@ -167,6 +179,8 @@ function scanStableMarkdownPrefix(
   let fenceOpen = false;
   let dollarOpen = false;
   let bracketDepth = 0;
+  let inlineDollarOpen = false;
+  let parenDepth = 0;
   let calloutOpen = false;
   let stableEnd = 0;
   let pos = 0;
@@ -176,6 +190,8 @@ function scanStableMarkdownPrefix(
     fenceOpen = prevState.fenceOpen;
     dollarOpen = prevState.dollarOpen;
     bracketDepth = prevState.bracketDepth;
+    inlineDollarOpen = prevState.inlineDollarOpen;
+    parenDepth = prevState.parenDepth;
     calloutOpen = prevState.calloutOpen;
     stableEnd = prevState.stableEnd;
   }
@@ -191,8 +207,14 @@ function scanStableMarkdownPrefix(
     // scanner from treating its body as stable (otherwise the streaming
     // preprocessor would cut mid-fence and render a half-open fence).
     if (line.startsWith("```") || line.startsWith("~~~")) fenceOpen = !fenceOpen;
-    if (countOccurrences(line, "$$") % 2 !== 0) dollarOpen = !dollarOpen;
+    const blockDollarCount = countOccurrences(line, "$$");
+    if (blockDollarCount % 2 !== 0) dollarOpen = !dollarOpen;
+    // Track single-`$` inline math: total `$` minus the ones consumed by `$$` pairs.
+    const totalDollar = countOccurrences(line, "$");
+    const inlineDollarCount = totalDollar - 2 * blockDollarCount;
+    if (inlineDollarCount % 2 !== 0) inlineDollarOpen = !inlineDollarOpen;
     bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
+    parenDepth += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
     // A callout chain continues as long as each new line still starts with
     // ">" (matching the original regex's permissive continuation pattern);
     // otherwise it only (re)starts on a proper `> [!type]` marker line — and
@@ -204,12 +226,28 @@ function scanStableMarkdownPrefix(
       : !isAbsoluteFirstLine && CALLOUT_MARKER_LINE_RE.test(line);
 
     pos = nl + 1;
-    if (!fenceOpen && !dollarOpen && bracketDepth === 0 && !calloutOpen) {
+    if (
+      !fenceOpen &&
+      !dollarOpen &&
+      bracketDepth === 0 &&
+      !inlineDollarOpen &&
+      parenDepth === 0 &&
+      !calloutOpen
+    ) {
       stableEnd = pos;
     }
   }
 
-  return { scannedLen: end0, fenceOpen, dollarOpen, bracketDepth, calloutOpen, stableEnd };
+  return {
+    scannedLen: end0,
+    fenceOpen,
+    dollarOpen,
+    bracketDepth,
+    inlineDollarOpen,
+    parenDepth,
+    calloutOpen,
+    stableEnd,
+  };
 }
 
 /**
@@ -220,6 +258,7 @@ function scanStableMarkdownPrefix(
 export function preprocessMarkdownForStream(
   content: string,
   cache: StreamingPreprocessCache | null,
+  mathFormat?: (expr: string) => string,
 ): { prepared: string; cache: StreamingPreprocessCache } {
   const scanState = scanStableMarkdownPrefix(content, cache?.scanState ?? null);
   const stableLen = scanState.stableEnd;
@@ -232,7 +271,7 @@ export function preprocessMarkdownForStream(
   }
 
   if (stableLen === content.length) {
-    const prepared = preprocessMarkdown(content);
+    const prepared = preprocessMarkdown(content, mathFormat);
     return {
       prepared,
       cache: { rawStableLen: stableLen, preparedStable: prepared, scanState },
@@ -246,7 +285,7 @@ export function preprocessMarkdownForStream(
     cache.rawStableLen !== stableLen ||
     content.slice(0, cache.rawStableLen) !== stableRaw
   ) {
-    preparedStable = preprocessMarkdown(stableRaw);
+    preparedStable = preprocessMarkdown(stableRaw, mathFormat);
   }
 
   const tail = content.slice(stableLen);

@@ -153,6 +153,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
         const { prepared: streamed, cache } = preprocessMarkdownForStream(
           renderContent,
           streamPreprocessRef.current,
+          mathFormat,
         );
         streamPreprocessRef.current = cache;
         return streamed;
@@ -161,7 +162,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
     } catch {
       return renderContent;
     }
-  }, [renderContent, streaming]);
+  }, [renderContent, streaming, mathFormat]);
 
   if (streaming) {
     // Settling only happens inside the prepared-stable prefix, whose
