@@ -36,7 +36,7 @@ const FENCED_TABLE_RE =
   /```(?:markdown|md|table|text)?\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
 const FENCE_BLOCK_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
-const LIFT_MATH_FENCE_LANG = /^(math|latex|tex|answer)$/i;
+const LIFT_MATH_FENCE_LANG = /^(math|latex|tex|answer|graph|geometry)$/i;
 
 /**
  * The model glues a fence opener to the end of a sentence
