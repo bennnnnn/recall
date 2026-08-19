@@ -18,6 +18,10 @@ class HomeStarter(BaseModel):
     text: str = Field(min_length=1, max_length=200)
     prompt: str = Field(min_length=1, max_length=2000)
     kind: Literal["time", "memory", "chat", "general", "todo", "project"] = "general"
+    # When set, tapping this starter should open the existing chat (instead
+    # of creating a new one) so the prior conversation context is loaded.
+    # Used by the "Pick up where we left off" chat starter.
+    chat_id: UUID | None = None
 
 
 class HomeProjectHighlight(BaseModel):

@@ -377,6 +377,7 @@ async def test_build_home_highlight_skips_duplicate_starters():
     user = _user()
     project = _project()
     chat = MagicMock()
+    chat.id = uuid4()
     chat.title = "English vocabulary practice"
     memory = MagicMock()
     memory.type = "project"
@@ -626,6 +627,7 @@ async def test_build_home_ignores_legacy_non_daily_projects():
     user = _user()
     project = _general_project(title="TypeScript · Programming")
     chat = MagicMock()
+    chat.id = uuid4()
     chat.title = "TypeScript chapter 1"
     memory = MagicMock()
     memory.type = "project"
@@ -700,6 +702,7 @@ async def test_build_home_with_chat_history_keeps_time_starters():
     session = AsyncMock()
     user = _user()
     chat = MagicMock()
+    chat.id = uuid4()
     chat.title = "Yesterday's notes"
 
     with (
@@ -799,12 +802,14 @@ async def test_build_home_hides_practice_english_without_language_project():
 
 
 def test_chat_starter_uses_friendly_label():
-    match = home_service._chat_starter(["Binalfew Software Engineer Context"])
+    chat_id = uuid4()
+    match = home_service._chat_starter([("Binalfew Software Engineer Context", chat_id)])
     assert match is not None
     starter, title = match
     assert starter.text == "Pick up where we left off"
     assert "Software Engineer" in starter.prompt
     assert title == "Binalfew Software Engineer Context"
+    assert starter.chat_id == chat_id
 
 
 def test_texts_overlap_matches_project_and_chat():
@@ -817,7 +822,7 @@ def test_texts_overlap_matches_project_and_chat():
 
 def test_chat_starter_skips_project_overlap():
     match = home_service._chat_starter(
-        ["General knowledge practice"],
+        [("General knowledge practice", uuid4())],
         skip_overlapping=["General knowledge"],
     )
     assert match is None

@@ -47,7 +47,7 @@ export type ChatScreenBodyProps = {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onSelectStarter: (prompt: string) => void;
+  onSelectStarter: (prompt: string, chatId?: string) => void;
   listHeader: ReactElement | null;
   showScrollToBottom: boolean;
   scrollAwayCount: number;

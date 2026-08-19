@@ -20,7 +20,7 @@ import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 type Props = {
-  onSelect: (prompt: string) => void;
+  onSelect: (prompt: string, chatId?: string) => void;
 };
 
 function starterIcon(kind: HomeStarter["kind"]): IoniconName {
@@ -120,7 +120,7 @@ function UrgentTodoSection({
 }: {
   label: string;
   todos: HomeUrgentTodo[];
-  onSelect: (prompt: string) => void;
+  onSelect: (prompt: string, chatId?: string) => void;
   onDismiss?: (todoId: string) => void;
   styles: ReturnType<typeof makeStyles>;
   theme: Theme;
@@ -274,7 +274,7 @@ export function HomeStarters({ onSelect }: Props) {
                 style={s.chip}
                 onPress={() => {
                   tap();
-                  onSelect(starter.prompt);
+                  onSelect(starter.prompt, starter.chat_id);
                 }}
                 onLongPress={() => {
                   selection();
