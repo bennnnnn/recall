@@ -56,4 +56,23 @@ describe("MathBlock", () => {
     expect(getByText("n! = n × (n-1)!")).toBeOnTheScreen();
     expect(queryByText(String.raw`n! = n $\times$ (n-1)!`)).toBeNull();
   });
+
+  it("BUG FIX regression: nested \\frac/\\sqrt renders via a View, not clipped inside a Text", async () => {
+    // A stacked frac/sqrt is a nested View. iOS clips a View nested inside a
+    // Text to the line box — the radicand's bottom was cut off in the
+    // no-WebView fallback. MathBlock must render MathText directly in a View
+    // (testID="math-block-nested") when latexHasNestedMathView is true.
+    const { getByTestId } = await render(
+      <MathBlock latex={String.raw`\frac{1}{2} + \sqrt{4}`} />,
+    );
+    expect(getByTestId("math-block-nested")).toBeOnTheScreen();
+  });
+
+  it("non-nested math still renders via the Text path (no nested View guard)", async () => {
+    const { queryByTestId, getByText } = await render(
+      <MathBlock latex="x + 1 = 2" />,
+    );
+    expect(queryByTestId("math-block-nested")).toBeNull();
+    expect(getByText("x + 1 = 2")).toBeOnTheScreen();
+  });
 });

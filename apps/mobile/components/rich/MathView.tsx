@@ -5,7 +5,7 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
-import { MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
+import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { useTheme } from "@/lib/theme";
 
@@ -56,6 +56,11 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   }
 
   // No WebView — native MathText can still outgrow the bubble; allow pan.
+  // A nested math View (stacked frac / sqrt) must be a direct child of the box
+  // View, NOT wrapped in a Text — iOS clips a View nested inside a Text to the
+  // line box, which cut the radicand's bottom in this fallback box. Mirrors
+  // AnswerBlock.tsx's hasNestedView guard.
+  const hasNestedView = latexHasNestedMathView(trimmed);
   return (
     <View style={[styles.wrap, styles.fallbackBox]}>
       <ScrollView
@@ -64,9 +69,15 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
         showsHorizontalScrollIndicator
         contentContainerStyle={styles.lineScroll}
       >
-        <Text style={styles.line} selectable>
-          <MathText latex={trimmed} textColor={theme.text} />
-        </Text>
+        {hasNestedView ? (
+          <View style={styles.nestedRow} testID="math-block-nested">
+            <MathText latex={trimmed} textColor={theme.text} />
+          </View>
+        ) : (
+          <Text style={styles.line} selectable>
+            <MathText latex={trimmed} textColor={theme.text} />
+          </Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -90,5 +101,13 @@ const styles = StyleSheet.create({
   line: {
     textAlign: "center",
     lineHeight: MATH_TALL_LINE_HEIGHT,
+  },
+  // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
+  // clip it to a Text line box. Centers the run like the `line` Text would.
+  nestedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
   },
 });
