@@ -54,6 +54,33 @@ describe("chatMessageLogic", () => {
     expect(findActiveQuizMessageId(messages)).toBe("q1");
   });
 
+  it("findActiveQuizMessageId skips re-emitted fence in hint-only reply (LANG-STATE-001)", () => {
+    const quiz = [
+      "```vocab_quiz",
+      JSON.stringify({
+        quiz_type: "vocab",
+        word: "serendipity",
+        question: "What word means a happy coincidence?",
+        correct: "A",
+        choices: [
+          { letter: "A", text: "serendipity" },
+          { letter: "B", text: "ephemeral" },
+          { letter: "C", text: "ubiquitous" },
+          { letter: "D", text: "candid" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+    // Model re-emits the same fence despite "do NOT redisplay" instruction
+    const messages = [
+      { id: "q1", role: "assistant", content: quiz },
+      { id: "u1", role: "user", content: "B" },
+      { id: "h1", role: "assistant", content: quiz }, // re-emitted fence
+    ] as Message[];
+
+    expect(findActiveQuizMessageId(messages)).toBe("q1");
+  });
+
   it("findActiveQuizMessageId accepts markdown A–D without a fence", () => {
     const markdownQuiz = [
       "**ephemeral**",

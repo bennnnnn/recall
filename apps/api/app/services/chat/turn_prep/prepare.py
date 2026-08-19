@@ -64,10 +64,20 @@ async def _grade_quiz_answer(
             )
             if is_letter_answer and prior_assistant is not None:
                 try:
+                    from app.services.chat.quiz_messages import (
+                        count_quiz_letter_answers_since,
+                        find_original_quiz_fence_created_at,
+                    )
+
+                    original_after = await find_original_quiz_fence_created_at(
+                        session,
+                        chat_id,
+                        prior_assistant=prior_assistant,
+                    )
                     attempt = await count_quiz_letter_answers_since(
                         session,
                         chat_id,
-                        after=prior_assistant.created_at,
+                        after=original_after,
                         choices=quiz_choices,
                     )
                     quiz_grade = await projects_service.apply_deterministic_quiz_answer(
