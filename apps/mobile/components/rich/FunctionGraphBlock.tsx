@@ -6,6 +6,7 @@ import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 import { InequalityRegionChart } from "@/components/rich/InequalityRegionChart";
 import {
   expandBoundsForAxes,
+  formatAxisNumber,
   formatGraphExpr,
   formatInequalityExpr,
   graphBounds,
@@ -24,10 +25,6 @@ const CHART_HEIGHT = 220;
 // meaningful and should each be visible as a marker; a dense function
 // sample (up to 300 points) is a curve, not a set of markers to dot.
 const MAX_MARKED_POINTS = 20;
-
-function formatAxisNumber(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
 
 export function FunctionGraphBlock({ content }: Props) {
   const theme = useTheme();
@@ -221,11 +218,20 @@ export function FunctionGraphBlock({ content }: Props) {
           fontSize={11}
           textAnchor="end"
         >
-          {spec.variable}
+          {spec.variable ?? "x"}
+        </SvgText>
+        <SvgText
+          x={yAxisX}
+          y={pad - 2}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="middle"
+        >
+          y
         </SvgText>
         <SvgText
           x={Math.max(4, yAxisX - 4)}
-          y={pad + 4}
+          y={pad + 16}
           fill={theme.textSecondary}
           fontSize={11}
           textAnchor="end"
