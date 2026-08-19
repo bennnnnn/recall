@@ -336,10 +336,19 @@ function makeSharedRules(
         return <LinkPreviewCard key={node.key} url={url} />;
       }
       if (inTableCell(parent)) {
+        // Table cell paragraphs need the same mathRunLineHeight treatment as
+        // body paragraphs — without it, a stacked \frac / \sqrt View inside
+        // the cell's Text gets clipped to the cell's default lineHeight.
+        const cellRaw = astText(node);
+        const cellRunHeight = mathRunLineHeight(cellRaw);
         return (
           <Text
             key={node.key}
-            style={[mdTable.cellText, inTableHeader(parent) && mdTable.headerText]}
+            style={[
+              mdTable.cellText,
+              inTableHeader(parent) && mdTable.headerText,
+              cellRunHeight != null && { lineHeight: cellRunHeight },
+            ]}
             selectable
           >
             {children}
