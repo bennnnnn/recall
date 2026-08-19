@@ -22,6 +22,7 @@ import {
 } from "@/lib/geometryBlock";
 import {
   expandBoundsForAxes,
+  formatAxisNumber,
   formatGraphExpr,
   formatInequalityExpr,
   graphBounds,
@@ -645,5 +646,27 @@ describe("graphBlock", () => {
     expect(view.xMax).toBeGreaterThan(0);
     expect(view.yMin).toBeLessThan(-12);
     expect(view.yMax).toBeGreaterThan(0);
+    expect(Number.isInteger(view.xMin)).toBe(true);
+    expect(Number.isInteger(view.xMax)).toBe(true);
+    expect(Number.isInteger(view.yMin)).toBe(true);
+    expect(Number.isInteger(view.yMax)).toBe(true);
+  });
+
+  it("expandBoundsForAxes snaps padded edges to whole numbers", () => {
+    // y = x + 2 on [-10, 10] used to label -11.6 / 11.6 / 13.6 / -9.6.
+    const view = expandBoundsForAxes({
+      xMin: -10,
+      xMax: 10,
+      yMin: -8,
+      yMax: 12,
+    });
+    expect(view).toEqual({ xMin: -12, xMax: 12, yMin: -10, yMax: 14 });
+  });
+
+  it("formatAxisNumber is always a whole number", () => {
+    expect(formatAxisNumber(-11.6)).toBe("-12");
+    expect(formatAxisNumber(13.6)).toBe("14");
+    expect(formatAxisNumber(10)).toBe("10");
+    expect(formatAxisNumber(-0)).toBe("0");
   });
 });

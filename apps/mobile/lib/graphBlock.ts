@@ -320,7 +320,11 @@ export function formatInequalityExpr(expr: string): string {
 
 const AXIS_PAD_RATIO = 0.08;
 
-/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame. */
+/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame.
+
+Whole-number edges: the 8% pad used to leak into labels as ``-11.6`` /
+``13.6``. Snap out to integers so school graphs show ``-12`` / ``14``.
+ */
 export function expandBoundsForAxes(
   bounds: ReturnType<typeof graphBounds>,
 ): ReturnType<typeof graphBounds> {
@@ -331,12 +335,19 @@ export function expandBoundsForAxes(
   if (yMax < 0) yMax = 0;
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
-  return {
-    xMin: xMin - xSpan * AXIS_PAD_RATIO,
-    xMax: xMax + xSpan * AXIS_PAD_RATIO,
-    yMin: yMin - ySpan * AXIS_PAD_RATIO,
-    yMax: yMax + ySpan * AXIS_PAD_RATIO,
-  };
+  xMin = Math.floor(xMin - xSpan * AXIS_PAD_RATIO);
+  xMax = Math.ceil(xMax + xSpan * AXIS_PAD_RATIO);
+  yMin = Math.floor(yMin - ySpan * AXIS_PAD_RATIO);
+  yMax = Math.ceil(yMax + ySpan * AXIS_PAD_RATIO);
+  if (xMin >= xMax) xMax = xMin + 1;
+  if (yMin >= yMax) yMax = yMin + 1;
+  return { xMin, xMax, yMin, yMax };
+}
+
+/** Axis tick label — always a whole number (no ``-11.6``). */
+export function formatAxisNumber(n: number): string {
+  const rounded = Math.round(n);
+  return Object.is(rounded, -0) ? "0" : String(rounded);
 }
 
 /** Turn SymPy/Python ``3*x**2 - 12`` into a readable ``3x² - 12``. */
