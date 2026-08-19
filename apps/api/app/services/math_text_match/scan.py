@@ -99,6 +99,24 @@ def has_equation(text: str) -> bool:
     return bool(lhs and rhs and any(c.isalnum() for c in lhs) and any(c.isalnum() for c in rhs))
 
 
+# A standalone single-letter variable (not part of a longer word) is a strong
+# algebraic signal. "2x+3=7" → 'x' qualifies; "the meeting = 3pm" has no such
+# letter (every letter sits inside a multi-letter word), so prose with an '='
+# is not pulled into SymPy.
+_STANDALONE_VAR_RE = re.compile(r"(?<![a-zA-Z])[a-zA-Z](?![a-zA-Z])")
+
+
+def has_algebraic_equation(text: str) -> bool:
+    """An equation that contains a standalone single-letter variable.
+
+    Used to trigger SymPy for bare ``2x+3=7`` (no "solve"/"find" keyword)
+    without dragging in prose that happens to contain an ``=``.
+    """
+    if not has_equation(text):
+        return False
+    return _STANDALONE_VAR_RE.search(text) is not None
+
+
 def inequality_signal(cleaned: str) -> bool:
     """A clear algebraic inequality: a symbolic comparator (``<``, ``>``, ``≤``,
     ``≥``, ``<=``, ``>=``) with both a variable letter and a number nearby —

@@ -22,6 +22,7 @@ from app.services.math_text_match.graph import (
 )
 from app.services.math_text_match.scan import (
     first_dim_pair,
+    has_algebraic_equation,
     has_draw_shape,
     has_equation,
     has_math_keyword,
@@ -87,6 +88,13 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if has_image_attachment and has_math_keyword(lower):
         return True
     if has_equation(cleaned) and has_math_keyword(lower):
+        return True
+    # Bare algebraic equation with no verb — "2x+3=7" / "y=x^2". The
+    # equation extractor already handles these, but the gate used to require
+    # a math keyword too, so a bare equation shipped unverified (or the model
+    # emitted its own wrong spec). has_algebraic_equation requires a standalone
+    # single-letter variable so prose with an '=' ("meeting = 3pm") is excluded.
+    if has_algebraic_equation(cleaned):
         return True
     if first_dim_pair(cleaned) is not None:
         return True
