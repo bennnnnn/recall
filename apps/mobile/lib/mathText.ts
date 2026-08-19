@@ -129,7 +129,7 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // Big operators — the "big" variants and the rest of the big-operator family.
   // Without these, \bigcup_{i=1}^n / \oint_C / \iint leaked as the
   // literal words "bigcup"/"oint"/"iint" in inline math.
-  [/\\bigcup/g, "∬"],
+  [/\\bigcup/g, "∪"],
   [/\\bigcap/g, "∩"],
   [/\\bigvee/g, "∨"],
   [/\\bigwedge/g, "∧"],
@@ -236,6 +236,7 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\partial/g, "∂"],
   [/\\nabla/g, "∇"],
   [/\\in(?![a-zA-Z])/g, "∈"],
+  [/\\notin(?![a-zA-Z])/g, "∉"],
   [/\\subset/g, "⊂"],
   [/\\subseteq/g, "⊆"],
   [/\\supset/g, "⊃"],
@@ -246,6 +247,7 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\exists/g, "∃"],
   [/\\emptyset/g, "∅"],
   [/\\angle/g, "∠"],
+  [/\\degree(?![a-zA-Z])/g, "°"],
   [/\\perp/g, "⊥"],
   [/\\parallel/g, "∥"],
   // Angle brackets for vectors / inner products — homework dumps

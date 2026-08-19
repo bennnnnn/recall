@@ -137,6 +137,27 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(String.raw`P \land Q`)).toBe(true);
   });
 
+  it("BUG FIX regression: detects set-theory / relation commands (\\mathbb, \\cup, \\in, \\notin, …)", () => {
+    // These were missing from LATEX_CMD_RE, so a fence body like
+    // "\mathbb{R}" or "x \in A \cup B" (no "=" for the algebra fallback)
+    // fell through to a plain code block instead of typeset math.
+    expect(looksLikeLatexFence(String.raw`\mathbb{R}`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`x \in A \cup B`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`x \notin A`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`A \subset B \supset C`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`x \approx y \equiv z`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`\forall x \exists y`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`x \propto y`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`\angle ABC = 90\degree`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`\operatorname{sgn}(x)`)).toBe(true);
+  });
+
+  it("BUG FIX regression: retags an untagged \\mathbb{R} fence to math", () => {
+    const input = "```\n\\mathbb{R}\n```";
+    const out = retagMathAndDiagramFences(input);
+    expect(out).toContain("```math");
+  });
+
   it("BUG FIX regression: spacing-only arithmetic (\\;) is math, not a Copy code box", () => {
     // Live chicken-word-problem screenshot: the model put
     // `20 \;- \; 10 \;=\; 10` in an untagged ``` fence. LATEX_CMD_RE has no
