@@ -510,6 +510,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             {interactiveQuiz && !isStreaming ? (
               <VocabQuizChoices
                 choices={interactiveQuiz.choices}
+                correctLetter={interactiveQuiz.correct}
                 disabled={!onQuizAnswer || Boolean(isGenerating)}
                 onSelect={(letter) => onQuizAnswer?.(letter)}
               />
