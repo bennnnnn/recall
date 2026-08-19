@@ -966,5 +966,11 @@
   "settings.usage_group": "Usage",
   "settings.usage_today": "Today",
   "settings.usage_today_split": "{{input}} in · {{output}} out",
-  "settings.usage_today_value": "{{used}} / {{limit}}"
+  "settings.usage_today_value": "{{used}} / {{limit}}",
+  "projects.level.beginner": "Anfänger",
+  "projects.level.elementary": "Grundlagen",
+  "projects.level.intermediate": "Mittelstufe",
+  "projects.level.upper_intermediate": "Obere Mittelstufe",
+  "projects.level.advanced": "Fortgeschritten",
+  "projects.level.fluent": "Fließend"
 }
