@@ -221,6 +221,84 @@ async def test_apply_deterministic_verifier_agreement_persists():
 
 
 @pytest.mark.asyncio
+async def test_apply_deterministic_records_wrong_attempt_without_sm2():
+    """LANG-TEACH-011: Wrong answers on tries 1-2 should still record the
+    attempt (increment quiz_attempts, set last_incorrect_at, log miss event)
+    so missed_today counts them toward the daily goal — but without SM-2
+    scheduling (ease_factor/interval/due_at unchanged)."""
+    from app.models.orm import Project, ProjectItem
+
+    session = AsyncMock()
+    user_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    project = Project(
+        id=project_id,
+        user_id=user_id,
+        title="English",
+        kind="language",
+        level="level2",
+        target_language="en",
+    )
+    existing = ProjectItem(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        project_id=project_id,
+        content="apple",
+        list_title="General",
+        status="learning",
+        quiz_attempts=0,
+        quiz_correct=0,
+        review_count=0,
+        ease_factor=2.5,
+        interval_days=0,
+    )
+    session.add = AsyncMock()
+    session.flush = AsyncMock()
+    session.refresh = AsyncMock()
+    session.execute = AsyncMock()
+
+    with (
+        patch(
+            "app.repositories.projects.get_by_id",
+            new=AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[existing]),
+        ),
+        patch(
+            "app.services.projects.quiz_grading.apply_quiz_result",
+            new=AsyncMock(),
+        ) as apply_mock,
+        patch(
+            "app.repositories.project_items.record_quiz_attempt",
+            new=AsyncMock(),
+        ) as record_mock,
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        grade = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=uuid.uuid4(),
+            project_id=project_id,
+            assistant_content=VOCAB_FENCE,
+            user_answer="B",
+            attempt=1,  # try 1 of 3 — not exhausted
+        )
+
+    assert grade is not None
+    assert grade.is_correct is False
+    assert grade.tries_exhausted is False
+    # SM-2 scheduling should NOT run (not exhausted)
+    apply_mock.assert_not_awaited()
+    # But the attempt should be recorded (increment + last_incorrect_at + miss event)
+    record_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_new_vocab_quiz_word_lands_in_current_path_chapter():
     from app.models.orm import Project
 
