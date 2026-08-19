@@ -14,6 +14,13 @@ type Props = {
    * assistant row, so this row doesn't re-render when a turn starts/ends.
    */
   streamVisualActive: boolean;
+  /**
+   * Global stream state (streaming || finalizing). Only passed as `true` for
+   * the active quiz row so quiz chips can be disabled during any in-flight
+   * turn without re-rendering the entire list. Stable `false` for all other
+   * rows. (LANG-UI-001)
+   */
+  chatStreamActive: boolean;
   lastAssistantId: string | null;
   activeQuizMessageId: string | null;
   selectedModel: string;
@@ -31,6 +38,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   item,
   priorUserText,
   streamVisualActive,
+  chatStreamActive,
   lastAssistantId,
   activeQuizMessageId,
   selectedModel,
@@ -72,7 +80,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
-      onQuizAnswer={isActiveQuiz && !streamVisualActive ? onQuizAnswer : undefined}
+      onQuizAnswer={isActiveQuiz && !chatStreamActive ? onQuizAnswer : undefined}
     />
   );
 });

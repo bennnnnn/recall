@@ -150,11 +150,16 @@ export function useChatMessageList({
         streaming,
         finalizing,
       );
+      const isActiveQuizRow =
+        item.role === "assistant" && item.id === activeQuizMessageId;
       const row = (
         <ChatMessageRow
           item={item}
           priorUserText={priorUserText}
           streamVisualActive={streamVisualActive}
+          chatStreamActive={
+            isActiveQuizRow ? isChatStreamActive(streaming, finalizing) : false
+          }
           {...sharedRowProps}
         />
       );
