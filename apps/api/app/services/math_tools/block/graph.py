@@ -91,8 +91,9 @@ def _verified_block_graph(
         lines.append(
             f"Shaded region for {line_spec.expr} on the coordinate plane: "
             "dashed vertical boundary = endpoint not included, solid = included. "
-            "Shade the solution set. This is NOT y=f(x) — do not plot a 0/1 step "
-            "or a 1D number line."
+            "Shade the solution set. This is a one-variable inequality rendered "
+            'as a number line (type "number_line") — shade the solution '
+            "interval, do not plot a y=f(x) curve."
         )
         lines.append(
             "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "

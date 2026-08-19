@@ -1138,7 +1138,9 @@ async def test_graph_inequality_builds_number_line_fence() -> None:
     assert iv["start"] == 3.0
     assert iv["end"] is None
     assert iv["start_inclusive"] is False
-    assert "0/1" in verified.text
+    # The prompt describes the number-line rendering (no longer says "NOT a
+    # 1D number line" — that contradicted the emitted type:"number_line").
+    assert "number line" in verified.text.lower()
 
 
 @pytest.mark.asyncio

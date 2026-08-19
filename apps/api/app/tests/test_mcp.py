@@ -393,10 +393,15 @@ async def test_sympy_adapter_inequality_includes_canonical_fence():
         }
     )
     assert result.data is not None
+    # BUG FIX: the MCP inequality path used to attach only an ```answer
+    # canonical fence and no graph, so the solution set was never rendered
+    # as an SVG. Now a one-variable inequality attaches the verified
+    # number_line graph fence as canonical (the answer still ships in the
+    # content text).
     fence = result.data["canonical_fence"]
-    assert fence["type"] == "answer"
-    assert fence["content"]
+    assert fence["type"] == "number_line"
     assert "```answer" in result.content
+    assert "```graph" in result.content
 
 
 @pytest.mark.asyncio
