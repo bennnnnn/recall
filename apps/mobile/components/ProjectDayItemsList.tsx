@@ -11,7 +11,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
 
 export type ProjectStudyAction = {
   label: string;
