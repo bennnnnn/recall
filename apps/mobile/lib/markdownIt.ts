@@ -1,10 +1,15 @@
 import MarkdownIt from "markdown-it";
 import taskLists from "markdown-it-task-lists";
 
-export const markdownItInstance = MarkdownIt({
+// `tables` is a valid markdown-it option (GFM tables) but is missing from
+// @types/markdown-it's Options interface, so cast the config to bypass it.
+const mdOptions = {
   typographer: true,
   linkify: true,
-}).use(taskLists, {
+  tables: true,
+} as unknown as ConstructorParameters<typeof MarkdownIt>[0];
+
+export const markdownItInstance = MarkdownIt(mdOptions).use(taskLists, {
   enabled: true,
   label: true,
 });

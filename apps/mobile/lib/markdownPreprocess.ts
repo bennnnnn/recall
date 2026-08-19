@@ -338,7 +338,7 @@ function isSeparatorRow(line: string): boolean {
 function toStrictPipeRow(line: string): string {
   const t = line.trim();
   if (isPipeRow(t)) return t;
-  let parts = t.split("|").map((c) => c.trim());
+  let parts = splitPipesOutsideMath(t).map((c) => c.trim());
   if (parts[0] === "") parts = parts.slice(1);
   if (parts[parts.length - 1] === "") parts = parts.slice(0, -1);
   return `| ${parts.join(" | ")} |`;
@@ -346,15 +346,14 @@ function toStrictPipeRow(line: string): string {
 
 function separatorForHeader(headerLine: string): string {
   const strict = toStrictPipeRow(headerLine);
-  const cols = strict.split("|").filter((c) => c.trim().length > 0);
+  const cols = splitPipesOutsideMath(strict).filter((c) => c.trim().length > 0);
   return `|${cols.map(() => " --- ").join("|")}|`;
 }
 
 function isGhostTableRow(line: string): boolean {
   if (!isTableRow(line)) return false;
   const strict = toStrictPipeRow(line);
-  const cells = strict
-    .split("|")
+  const cells = splitPipesOutsideMath(strict)
     .map((c) => c.trim())
     .filter((c) => c.length > 0);
   return cells.length > 0 && cells.every((c) => /^[-–—_]+$/.test(c));
