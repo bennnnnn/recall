@@ -614,6 +614,27 @@ export function layoutCheckVerificationLines(content: string): string {
   return out.split("\n").map(splitPackedCheckLine).join("\n");
 }
 
+/**
+ * A line that is just ":" (a stranded colon) renders as a lone "two dots"
+ * on its own line — the model put it on a separate line after a bold step
+ * header (``**Multiply**\n:\n$3 \times 2 = 6$``). Merge it onto the previous
+ * line so it renders inline (``**Multiply**:``) instead of stranded.
+ */
+export function mergeStrandedColons(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    if (line.trim() === ":" && out.length > 0) {
+      const prev = out[out.length - 1]!;
+      out[out.length - 1] = prev.replace(/\s*$/, "") + ":";
+    } else {
+      out.push(line);
+    }
+  }
+  return out.join("\n");
+}
+
 function splitPackedCheckLine(line: string): string {
   const colon = indexOfCheckLabelColon(line);
   if (colon < 0) return line;
@@ -873,6 +894,7 @@ export function preprocessMarkdown(
 
   out = protectMathEscapes(out);
   out = layoutCheckVerificationLines(out);
+  out = mergeStrandedColons(out);
   out = breakAttachedMathFences(out);
   out = liftMathFencesOutOfLists(out);
   out = inlineShortMathFences(out);
