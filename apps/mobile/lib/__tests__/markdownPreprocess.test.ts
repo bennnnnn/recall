@@ -1,4 +1,4 @@
-import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks } from "@/lib/markdownPreprocess";
+import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks, mergeStrandedColons } from "@/lib/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
@@ -129,6 +129,40 @@ $)
     const out = preprocessMarkdown("**Final Answer:** $x = 2 or x = -2$");
     expect(out).toContain("**Final Answer:**");
     expect(out).toContain("$x = 2 or x = -2$");
+  });
+
+  it("mergeStrandedColons: merges a lone colon line onto the previous line", () => {
+    // The model puts ":" on its own line after a bold step header, which
+    // renders as a stranded "two dots" between the header and the math.
+    expect(
+      mergeStrandedColons("2. **Multiply**\n:\n   $3 \\times 2 = 6$"),
+    ).toBe("2. **Multiply**:\n   $3 \\times 2 = 6$");
+  });
+
+  it("mergeStrandedColons: ignores lines that are not just a colon", () => {
+    expect(mergeStrandedColons("Hello\n: world")).toBe("Hello\n: world");
+    expect(mergeStrandedColons("**Step**\nSome text\n:")).toBe(
+      "**Step**\nSome text:",
+    );
+  });
+
+  it("mergeStrandedColons: does not merge a colon as the first line", () => {
+    expect(mergeStrandedColons(":\nHello")).toBe(":\nHello");
+  });
+
+  it("preprocessMarkdown merges stranded colons in a numbered list", () => {
+    const input = `1. **Substitute** $n = 3$: $3! = 3 \\times 2 \\times 1$
+2. **Multiply**
+:
+   $3 \\times 2 = 6$
+3. **Final step**
+:
+   $6 \\times 1 = 6$`;
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("**Multiply**:");
+    expect(out).toContain("**Final step**:");
+    // No stranded colon lines remain
+    expect(out).not.toMatch(/\n:\n/);
   });
 
   it("keeps a short ```math fence inside a numbered solution step intact", () => {
