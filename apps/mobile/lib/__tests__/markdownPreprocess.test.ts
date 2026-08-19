@@ -280,6 +280,39 @@ represents`;
     expect(preprocessMarkdown(input)).toContain("`npm install`");
   });
 
+  it("BUG FIX regression: ```graph glued to a sentence is a real fence, not raw JSON", () => {
+    // The model puts ```graph on the same line as the preceding text
+    // ("Here's the graph of y = x + 2: ```graph") — CommonMark only
+    // recognizes a fence at the start of a line, so without breaking
+    // it onto its own line the JSON body renders as a code block instead
+    // of routing to FunctionGraphBlock. LIFT_MATH_FENCE_LANG now includes
+    // graph|geometry, not just math|latex|tex|answer.
+    const input =
+      "Here's the graph of y = x + 2: ```graph\n" +
+      '{"type":"function","expr":"x + 2","variable":"x","x_min":-10.0,"x_max":10.0,"points":[[-10.0,-8.0],[10.0,12.0]]}\n' +
+      "```";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/2: ```graph/);
+    expect(out).toContain("Here's the graph of y = x + 2:");
+    const tokens = markdownItInstance.parse(out, {});
+    const fences = tokens.filter((t) => t.type === "fence");
+    expect(fences.length).toBeGreaterThanOrEqual(1);
+    expect(fences.some((t) => t.info?.trim() === "graph")).toBe(true);
+  });
+
+  it("BUG FIX regression: ```geometry glued to a sentence is a real fence", () => {
+    const input =
+      "Here's the diagram: ```geometry\n" +
+      '{"type":"triangle","vertices":[[0,0],[4,0],[2,3]]}\n' +
+      "```";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/diagram: ```geometry/);
+    expect(out).toContain("Here's the diagram:");
+    const tokens = markdownItInstance.parse(out, {});
+    const fences = tokens.filter((t) => t.type === "fence");
+    expect(fences.some((t) => t.info?.trim() === "geometry")).toBe(true);
+  });
+
   it("BUG FIX regression: does not unwrap a math fence just because its content starts with a dollar sign", () => {
     // The price-tier-corruption check matched any body starting with "$",
     // not just the specific "$)" artifact left on its own line by a botched
