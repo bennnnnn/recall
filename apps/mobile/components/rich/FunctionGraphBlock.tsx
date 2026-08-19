@@ -3,7 +3,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
-import { InequalityRegionChart } from "@/components/rich/InequalityRegionChart";
+import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import {
   expandBoundsForAxes,
   formatAxisNumber,
@@ -20,6 +20,7 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = { content: string };
 
 const CHART_HEIGHT = 220;
+const NUMBER_LINE_HEIGHT = 80;
 
 // A handful of explicit points ("plot (2,3) and (5,1)") are individually
 // meaningful and should each be visible as a marker; a dense function
@@ -50,10 +51,10 @@ export function FunctionGraphBlock({ content }: Props) {
         <Text style={styles.title}>
           {formatInequalityExpr(formatGraphExpr(spec.title ?? spec.expr))}
         </Text>
-        <InequalityRegionChart
+        <NumberLineChart
           spec={spec}
           width={chartWidth}
-          height={CHART_HEIGHT}
+          height={NUMBER_LINE_HEIGHT}
           color={theme.primary}
           axisColor={theme.border}
           labelColor={theme.textSecondary}

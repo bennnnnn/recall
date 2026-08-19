@@ -80,7 +80,7 @@ describe("FunctionGraphBlock", () => {
     expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
   });
 
-  it("shades the half-plane for x > 3 on xy axes, not y = x > 3", async () => {
+  it("renders x > 3 as a 1D number line, not a 2D half-plane", async () => {
     const content = JSON.stringify({
       type: "number_line",
       expr: "x > 3",
@@ -94,7 +94,9 @@ describe("FunctionGraphBlock", () => {
     expect(queryByText("y = x > 3")).toBeNull();
     const tree = JSON.stringify(toJSON());
     expect(tree).toContain("RNSVGSvgView");
-    expect(tree).toContain("RNSVGRect");
+    // A number line has a ray arrow (Polygon), not a shaded Rect half-plane.
+    expect(tree).toContain("RNSVGPath");
+    expect(tree).not.toContain("RNSVGRect");
   });
 
   it("renders two curves with a legend when expr2/points2 are present", async () => {
