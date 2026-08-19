@@ -62,7 +62,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
         # Keep the fence's correct=A — verified_correct_letter can call the
-        # (mock) LLM; disagreement must abstain rather than rewrite the key.
+        # (mock) LLM; disagreement is advisory only and does not block persist.
         patch(
             "app.services.vocab_quiz.verified_correct_letter",
             new=AsyncMock(return_value=None),
@@ -86,8 +86,13 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
 
 
 @pytest.mark.asyncio
-async def test_apply_deterministic_verifier_disagreement_skips_persist():
-    """A second-opinion mismatch must not override the card or write SM-2."""
+async def test_apply_deterministic_verifier_disagreement_still_persists():
+    """A second-opinion mismatch is advisory only — always persist on the fence key.
+
+    The verifier was added to catch bad cards, not to override the user-visible
+    answer key. Abstaining drops progress (LANG-GRAD-001/002) with no recovery
+    path. The grade returned to the model still uses quiz.correct.
+    """
     from app.models.orm import Project, ProjectItem
 
     session = AsyncMock()
@@ -146,7 +151,9 @@ async def test_apply_deterministic_verifier_disagreement_skips_persist():
     assert grade is not None
     assert grade.is_correct is True
     assert grade.correct_letter == "A"
-    apply_mock.assert_not_awaited()
+    # Verifier disagreement is advisory — still persist on the fence key.
+    apply_mock.assert_awaited_once()
+    assert apply_mock.await_args.kwargs["is_correct"] is True
 
 
 @pytest.mark.asyncio

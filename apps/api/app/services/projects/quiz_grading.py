@@ -185,12 +185,23 @@ async def apply_deterministic_quiz_answer(
     # Persist correct immediately; persist misses only after 3 wrong tries.
     should_persist = is_correct or tries_exhausted
     if should_persist:
+        # Advisory verifier: log disagreement but always persist on the
+        # fence key. The verifier was added to catch bad cards, not to
+        # override the user-visible answer key. Abstaining drops progress
+        # (LANG-GRAD-001/002) and blocks the background sync fallback
+        # (LANG-POST-001) with no recovery path. The grade returned to the
+        # model always uses quiz.correct so the hint matches the card.
         verified = await vocab_quiz_service.verified_correct_letter(quiz)
         if verified is not None and verified != correct_letter:
-            # Disagreement abstains: skip the ledger write rather than stamp
-            # SM-2 from an uncertain card. The grade returned to the model
-            # still uses quiz.correct so the hint matches the card the user saw.
-            should_persist = False
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "quiz verifier disagrees with fence key: "
+                "question=%r fence=%r verifier=%r — persisting on fence key",
+                quiz.question or quiz.word,
+                correct_letter,
+                verified,
+            )
 
     if is_trivia:
         topic = quiz.word.strip()
