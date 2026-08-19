@@ -316,6 +316,24 @@ async def load_project_quiz_context(
         f"{_level_guidance(level)}",
         follow,
     ]
+    # LANG-TEACH-007/008: tell the model which language to teach and which
+    # language the user speaks natively so explanations and examples use
+    # the right contrast language.
+    target_lang = getattr(project, "target_language", None) or "en"
+    native_lang = getattr(project, "native_language", None)
+    if native_lang:
+        lines.append(
+            f"The user is a {language_display_name(native_lang)} speaker learning "
+            f"{language_display_name(target_lang)}. "
+            "Give brief explanations in the user's native language when helpful, "
+            f"but teach words, examples, and quizzes in {language_display_name(target_lang)}."
+        )
+    else:
+        lines.append(
+            f"Teach {language_display_name(target_lang)} vocabulary. "
+            "Use the target language for words, examples, and quizzes; "
+            "use English for brief explanations when the user's level needs it."
+        )
     if not retry_same:
         lines.extend(
             [

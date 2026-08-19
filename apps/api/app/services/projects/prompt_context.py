@@ -66,6 +66,23 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
                 f"{name} skill: {guidance}\n"
                 f"Daily goal: {_language_daily_goal(project)} new words per session\n"
             )
+            # LANG-TEACH-007/008: tell the model which language to teach and
+            # which language the user speaks natively so explanations use
+            # the right contrast language.
+            native_lang = getattr(project, "native_language", None)
+            if native_lang:
+                skill_line += (
+                    f"The user is a {language_display_name(native_lang)} speaker "
+                    f"learning {name}. Give brief explanations in the user's "
+                    f"native language when helpful, but teach words, examples, "
+                    f"and quizzes in {name}.\n"
+                )
+            else:
+                skill_line += (
+                    f"Teach {name} vocabulary. Use {name} for words, examples, "
+                    f"and quizzes; use English for brief explanations when the "
+                    f"user's level needs it.\n"
+                )
         elif _is_trivia_project(project):
             skill_line = (
                 f"Daily quiz goal: {_trivia_daily_goal(project)} correct answers per session\n"
