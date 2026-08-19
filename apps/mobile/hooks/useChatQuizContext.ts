@@ -30,10 +30,12 @@ export function useChatQuizContext({ projects, draftProjectIdRef }: Params) {
       return findTriviaProject(projects)?.id ?? null;
     }
     if (quizVariant === "vocab") {
-      return findLanguageProject(projects, "en")?.id ?? null;
+      // LANG-UI-003: use the active quiz language, not a hardcoded "en" —
+      // users learning Spanish, French, etc. would never match an English project.
+      return findLanguageProject(projects, quizLanguage)?.id ?? null;
     }
     return null;
-  }, [projects, quizVariant, draftProjectIdRef]);
+  }, [projects, quizVariant, quizLanguage, draftProjectIdRef]);
 
   return {
     quizLanguage,
