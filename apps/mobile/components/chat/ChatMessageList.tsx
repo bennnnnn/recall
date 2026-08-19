@@ -27,7 +27,7 @@ type Props = {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onSelectStarter: (prompt: string) => void;
+  onSelectStarter: (prompt: string, chatId?: string) => void;
   header?: ReactElement | null;
   hideHomeStarters?: boolean;
   listFooter?: ReactElement | null;

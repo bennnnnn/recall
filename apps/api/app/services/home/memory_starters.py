@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from app.models.orm import Memory, User
 from app.models.schemas import HomeProjectHighlight, HomeStarter, HomeUrgentTodo
@@ -122,12 +123,20 @@ def continuity_anchors(
 
 
 def chat_starter(
-    recent_titles: list[str],
+    recent_chats: list[tuple[str, UUID]],
     *,
     skip_overlapping: list[str] | None = None,
 ) -> tuple[HomeStarter, str] | None:
+    """Build the "Pick up where we left off" starter from the most recent chat.
+
+    ``recent_chats`` is a list of ``(title, chat_id)`` pairs ordered most-
+    recent first. The starter carries the ``chat_id`` so the mobile client
+    can open the original chat (with its prior message history) instead of
+    creating a new empty chat — otherwise the assistant has no context for
+    the "continue" prompt and tells the user it doesn't remember the topic.
+    """
     skip = skip_overlapping or []
-    for title in recent_titles:
+    for title, chat_id in recent_chats:
         clean = (title or "").strip()
         if not clean or clean.lower() in BORING_CHAT_TITLES:
             continue
@@ -140,6 +149,7 @@ def chat_starter(
                 text="Pick up where we left off",
                 prompt=f"Let's continue our conversation about {clean}.",
                 kind="chat",
+                chat_id=chat_id,
             ),
             clean,
         )

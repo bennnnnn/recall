@@ -111,10 +111,10 @@ async def build_home_screen(
         async with SessionLocal() as s:
             return list(await memory_service.load_relevant_memories(s, user, settings))
 
-    async def load_recent_titles() -> list[str]:
+    async def load_recent_titles() -> list[tuple[str, UUID]]:
         async with SessionLocal() as s:
             recent = await chats_repo.list_for_user(s, user.id, limit=5)
-            return [c.title or "" for c in recent]
+            return [(c.title or "", c.id) for c in recent]
 
     async def load_project_content() -> ProjectHomeContent:
         return await load_project_home_content(session, user.id, home_tz=home_tz)
@@ -143,9 +143,9 @@ async def build_home_screen(
     )
 
     memories: list[Memory] = []
-    recent_titles: list[str] = []
+    recent_chats: list[tuple[str, UUID]] = []
     if project_content.highlight is None:
-        memories, recent_titles = await asyncio.gather(
+        memories, recent_chats = await asyncio.gather(
             load_memories(),
             load_recent_titles(),
         )
@@ -196,7 +196,7 @@ async def build_home_screen(
     is_cold_home = (
         project_highlight is None
         and not project_chips
-        and not recent_titles
+        and not recent_chats
         and home_memory is None
         and not urgent_todos
         and not integration_chips
@@ -226,7 +226,7 @@ async def build_home_screen(
         *(title for title, _kind in completed_daily),
     ]
     chat_match = (
-        None if project_highlight else chat_starter(recent_titles, skip_overlapping=chat_skip)
+        None if project_highlight else chat_starter(recent_chats, skip_overlapping=chat_skip)
     )
     if chat_match:
         add(chat_match[0])

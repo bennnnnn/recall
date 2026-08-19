@@ -1,4 +1,13 @@
-import { useMemo, useState, useCallback, type MutableRefObject, type ReactElement, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+  type MutableRefObject,
+  type ReactElement,
+  type RefObject,
+} from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { type AnimatedStyle } from "react-native-reanimated";
@@ -193,12 +202,31 @@ export function useChatScreenBodyProps({
   const onLoadOlder = useCallback(() => {
     void loadOlderMessages();
   }, [loadOlderMessages]);
+  // "Pick up where we left off" starter carries the source chat_id so we open
+  // the original conversation (with its message history) instead of creating
+  // a new empty chat — otherwise the assistant has no context and tells the
+  // user it doesn't remember the topic.
+  const pendingStarterRef = useRef<{ chatId: string; prompt: string } | null>(null);
   const onSelectStarter = useCallback(
-    (prompt: string) => {
-      void handleSend(prompt);
+    (prompt: string, chatId?: string) => {
+      if (chatId) {
+        pendingStarterRef.current = { chatId, prompt };
+        router.setParams({ chatId });
+      } else {
+        void handleSend(prompt);
+      }
     },
-    [handleSend],
+    [handleSend, router],
   );
+  // Fire the pending prompt once the target chat finishes loading.
+  useEffect(() => {
+    const pending = pendingStarterRef.current;
+    if (!pending || chatLoading) return;
+    if (routeChatId === pending.chatId) {
+      pendingStarterRef.current = null;
+      void handleSend(pending.prompt);
+    }
+  }, [routeChatId, chatLoading, handleSend]);
   const onSend = useCallback(
     (text?: string) => {
       void handleSend(text);

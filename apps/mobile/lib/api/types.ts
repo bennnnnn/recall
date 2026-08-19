@@ -215,6 +215,7 @@ export type HomeStarter = {
   text: string;
   prompt: string;
   kind: "time" | "memory" | "chat" | "general" | "todo" | "project";
+  chat_id?: string;
 };
 
 export type HomeProjectHighlight = {
