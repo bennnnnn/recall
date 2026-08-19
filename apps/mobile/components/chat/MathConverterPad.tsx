@@ -87,6 +87,7 @@ export const MathConverterPad = memo(function MathConverterPad({
           </Text>
           <UnitChip
             symbol={from?.symbol ?? ""}
+            label={from?.prompt}
             testID="math-converter-from-unit"
             onPress={() => setPickerFor("from")}
             theme={theme}
@@ -115,6 +116,7 @@ export const MathConverterPad = memo(function MathConverterPad({
           </Text>
           <UnitChip
             symbol={to?.symbol ?? ""}
+            label={to?.prompt}
             testID="math-converter-to-unit"
             onPress={() => setPickerFor("to")}
             theme={theme}
@@ -138,7 +140,7 @@ export const MathConverterPad = memo(function MathConverterPad({
               ) : (
                 <Key
                   key={cell}
-                  label={cell === "back" ? "⌫" : cell === "AC" ? t("chat.math_converter_clear") : cell}
+                  label={cell === "back" ? t("chat.math_keyboard_backspace") : cell === "AC" ? t("chat.math_converter_clear") : cell}
                   testID={`math-converter-${cell === "back" ? "back" : cell === "." ? "dot" : cell}`}
                   onPress={() => typeKey(cell)}
                   theme={theme}
@@ -170,11 +172,13 @@ const CONVERTER_PAD = [
 
 function UnitChip({
   symbol,
+  label,
   testID,
   onPress,
   theme,
 }: {
   symbol: string;
+  label?: string;
   testID: string;
   onPress: () => void;
   theme: Theme;
@@ -184,6 +188,8 @@ function UnitChip({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [s.unitBtn, pressed && s.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label ?? symbol}
       testID={testID}
     >
       <Text style={s.unitBtnLabel}>{symbol}</Text>
