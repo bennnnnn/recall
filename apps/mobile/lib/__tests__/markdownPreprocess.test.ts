@@ -546,6 +546,27 @@ Bob | 88`;
     expect(normalizeMarkdownTables(input)).toBe(input);
     expect(preprocessMarkdown(input)).not.toMatch(/---/);
   });
+
+  it("BUG FIX regression: toStrictPipeRow respects math pipes inside cells", () => {
+    const input = `Name | Value
+$|x|$ | 5
+$|a+b|$ | 10`;
+    const out = normalizeMarkdownTables(input);
+    expect(out).toContain("| $|x|$ | 5 |");
+    expect(out).toContain("| $|a+b|$ | 10 |");
+    expect(out).toMatch(/\|\s*---\s*\|/);
+  });
+
+  it("BUG FIX regression: separator row count matches columns with math pipes", () => {
+    const input = `A | $|x|$ | C
+1 | 2 | 3`;
+    const out = normalizeMarkdownTables(input);
+    const lines = out.split("\n");
+    const sep = lines.find((l) => l.match(/^\|.*---.*\|$/));
+    expect(sep).toBeTruthy();
+    const sepCells = sep!.split("|").filter((c) => c.trim().length > 0);
+    expect(sepCells.length).toBe(3);
+  });
 });
 
 describe("vega retag (linear)", () => {
@@ -600,5 +621,30 @@ describe("isPipeTable", () => {
 
   it("returns false for plain prose", () => {
     expect(isPipeTable("Just a paragraph with | pipes | inline.")).toBe(false);
+  });
+});
+
+describe("GFM table parsing (markdownItInstance)", () => {
+  it("BUG FIX regression: markdownItInstance parses GFM tables (tables: true)", () => {
+    const src = `| Name | Value |
+| --- | --- |
+| foo | 1 |`;
+    const tokens = markdownItInstance.parse(src, {});
+    const types = tokens.map((t) => t.type);
+    expect(types).toContain("table_open");
+    expect(types).toContain("thead_open");
+    expect(types).toContain("tr_open");
+    expect(types).toContain("th_open");
+    expect(types).toContain("tbody_open");
+    expect(types).toContain("td_open");
+  });
+
+  it("BUG FIX regression: markdownItInstance parses loose pipe tables after preprocessing", () => {
+    const raw = `Name | Value
+foo | 1`;
+    const prepared = preprocessMarkdown(raw);
+    const tokens = markdownItInstance.parse(prepared, {});
+    const types = tokens.map((t) => t.type);
+    expect(types).toContain("table_open");
   });
 });
