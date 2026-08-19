@@ -1190,6 +1190,65 @@ async def test_load_project_quiz_context_retries_same_word_on_wrong():
 
 
 @pytest.mark.asyncio
+async def test_load_project_quiz_context_includes_failed_review_nudges():
+    """LANG-FLOW-004: answer turns must inject failed-review nudges, not just
+    session start. After the first correct answer, due failed items from prior
+    days should still be nudged so the model doesn't skip them for new words."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.services.vocab_quiz import QuizAnswerGrade
+
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+
+    # A failed item from a prior day (due for review)
+    failed_item = _item("serendipity", project_id)
+    failed_item.status = "learning"
+    failed_item.last_incorrect_at = datetime.now(UTC) - timedelta(days=2)
+    failed_item.due_at = datetime.now(UTC) - timedelta(days=1)  # overdue
+
+    # A new item
+    new_item = _item("ephemeral", project_id)
+    new_item.status = "new"
+
+    with (
+        patch.object(
+            projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[failed_item, new_item]),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        block = await projects_service.load_project_quiz_context(
+            session,
+            user_id,
+            project_id,
+            Settings(),
+            quiz_grade=QuizAnswerGrade(
+                is_correct=True,
+                user_letter="A",
+                correct_letter="A",
+                word="apple",
+            ),
+        )
+
+    assert "Failed and due for review" in block
+    assert "serendipity" in block
+
+
+@pytest.mark.asyncio
 async def test_mock_project_actions_masters_on_quiz_answer():
     from app.gateways import mock_llm
 
