@@ -935,6 +935,11 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
     assert "Web search results" not in system
     assert "Google Calendar" not in system
     assert "Known facts about the user" not in system
+    # MATH-BE-034: quiz turns skipped the math guardrails entirely, so any
+    # math in a quiz explanation rendered as raw ```latex/```copy. The
+    # compact math safety hint now ships on quiz/vocab turns too.
+    assert "```answer" in system
+    assert "```latex" in system
 
 
 @pytest.mark.asyncio

@@ -510,7 +510,12 @@ def _style_format_hints(
             ]
         )
     else:
+        # Day-plan turns used to get only RESPONSE_FORMAT_HINT, so a math
+        # question that landed in day-plan mode lost every guardrail against
+        # raw ```latex/```copy fences. Keep the compact math safety hint so
+        # any math in a day-plan turn still renders correctly.
         parts.append(RESPONSE_FORMAT_HINT)
+        parts.append(SHORT_MATH_SAFETY_HINT)
     # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
     if query_text and is_comparison_question(query_text):
         parts.append(COMPARISON_FORMAT_HINT)
@@ -676,6 +681,11 @@ async def build_prompt_messages(
     if lightweight:
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)
         system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
+        # Lightweight/chit-chat turns skipped the math guardrails entirely,
+        # so a math question mis-classified as lightweight lost the rules
+        # that keep math from rendering as raw ```latex/```copy. Keep the
+        # compact safety hint on every turn.
+        system_parts.append(SHORT_MATH_SAFETY_HINT)
     elif not minimal_quiz_context and not minimal_vocab_answer_context:
         system_parts.extend(
             _style_format_hints(
@@ -685,6 +695,11 @@ async def build_prompt_messages(
                 minimal_personal_context=minimal_personal_context,
             )
         )
+    else:
+        # Quiz / vocab answer turns skipped _style_format_hints entirely, so
+        # any math in a quiz explanation rendered as raw LaTeX. Keep the
+        # compact math safety hint so verified/inline math still renders.
+        system_parts.append(SHORT_MATH_SAFETY_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
     if not slim_context:
         ci = getattr(user, "custom_instructions", None)
