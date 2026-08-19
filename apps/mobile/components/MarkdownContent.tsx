@@ -63,12 +63,36 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   if (!trimmed) {
     return <View style={{ height: 8 }} />;
   }
+  // A \begin{matrix}/\begin{cases}/\begin{aligned} environment that hasn't
+  // closed yet renders as a broken partial via MathText (the ENV_RE in
+  // mathText.ts requires both \begin and \end), then snaps to the correct
+  // layout when \end{…} arrives — a visible blank-then-jump. Hold a quiet
+  // box until the environment closes, matching StreamingDiagramPlaceholder.
+  if (hasUnclosedMathEnv(trimmed)) {
+    return (
+      <View
+        style={{
+          marginVertical: 8,
+          minHeight: 48,
+          borderRadius: 10,
+          backgroundColor: theme.contentSurface,
+        }}
+      />
+    );
+  }
   return (
     <View style={{ marginVertical: 4 }}>
       <MathText latex={trimmed} textColor={theme.text} />
     </View>
   );
 });
+
+/** True when the body has a \begin{…} without a matching \end{…}. */
+function hasUnclosedMathEnv(s: string): boolean {
+  const begins = (s.match(/\\begin\{[\w*]+\}/g) ?? []).length;
+  const ends = (s.match(/\\end\{[\w*]+\}/g) ?? []).length;
+  return begins > ends;
+}
 
 /** Open ```geometry / ```graph — hold a quiet box, never dump JSON into CodeBlock. */
 const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlaceholder() {

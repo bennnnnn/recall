@@ -64,7 +64,14 @@ export function looksLikeMathFenceBody(content: string): boolean {
   if (LATEX_SPACING_RE.test(s) && /=/.test(s) && /[\d]/.test(s)) return true;
 
   const lines = s.split("\n").filter((line) => line.trim());
-  if (lines.length > 4) return false;
+  // A multi-step derivation written as bare algebra (one equation per line,
+  // no LaTeX commands) routinely runs 5+ lines — e.g. a 5-step solve or a
+  // system of 3 equations. The old cap of 4 rejected those and fell through
+  // to a plain code block. Raise the cap to 12 for the algebra-only path;
+  // the LATEX_CMD_RE check above already handles command-bearing bodies of
+  // any length, so this only affects the weaker "every line is bare algebra"
+  // heuristic, where 12 is still a reasonable safety net against prose.
+  if (lines.length > 12) return false;
 
   if (lines.every((line) => looksLikeAlgebraLine(line.trim()))) {
     return lines.some((line) => /=/.test(line));

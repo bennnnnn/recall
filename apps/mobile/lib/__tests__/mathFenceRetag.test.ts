@@ -113,6 +113,27 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(body)).toBe(true);
   });
 
+  it("BUG FIX regression: detects a long bare-algebra derivation (5+ lines, no LaTeX commands)", () => {
+    // A 5-step solve written as plain algebra (one equation per line, no
+    // \times/\frac/\begin) used to hit the >4-line cap and fall through to
+    // a plain code block. The cap is now 12 for the algebra-only path.
+    const body5 = [
+      "2x + 3 = 11",
+      "2x = 11 - 3",
+      "2x = 8",
+      "x = 8/2",
+      "x = 4",
+    ].join("\n");
+    expect(looksLikeLatexFence(body5)).toBe(true);
+
+    // A system of 3 equations (3 lines) always worked; still does.
+    expect(looksLikeLatexFence("x + y = 5\nx - y = 1\n2x = 6")).toBe(true);
+
+    // 13+ lines of bare algebra still falls through (prose safety net).
+    const long = Array.from({ length: 13 }, (_, i) => `x${i} = ${i}`).join("\n");
+    expect(looksLikeLatexFence(long)).toBe(false);
+  });
+
   it("BUG FIX regression: detects \\pi as a LaTeX command", () => {
     // \pi was missing from LATEX_CMD_RE entirely — one of the most common
     // LaTeX commands — so a formula like the circle area general form
