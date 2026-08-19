@@ -50,7 +50,7 @@ import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
   const { token, user, updateUser } = useAuth();
-  const { projects } = useProjects();
+  const { projects, refresh: refreshProjects } = useProjects();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
@@ -413,9 +413,12 @@ function ChatScreen() {
       // to the cache's 20s TTL. Bust it so the next detail fetch is fresh.
       const quizProjectId = resolveQuizProjectId();
       if (quizProjectId) invalidateProjectDetail(quizProjectId);
+      // LANG-FLOW-011: also force-refresh the projects list so the Learning tab
+      // card shows the updated Today count immediately (not after 20s stale gate).
+      void refreshProjects({ silent: true, force: true });
       void handleSend(letter);
     },
-    [handleSend, resolveQuizProjectId],
+    [handleSend, resolveQuizProjectId, refreshProjects],
   );
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
