@@ -24,6 +24,73 @@ from app.services.math_tools.school import SCHOOL_EXTRACTORS
 logger = logging.getLogger(__name__)
 
 
+# "solve for y", "find y", "find the value of y", "solve y in …" — the user
+# names the variable to isolate. Without this, _extract_equation_intent
+# fell back to guess_variables(...)[0] (alphabetical first), so "Solve for
+# y: x+y=5" solved for x and returned the wrong answer in the verified card.
+# The captured letter must not be part of a longer word (lookahead rejects
+# "find the roots" → 't' of "the"), and we only honor it when the letter
+# actually appears in the equation.
+_SOLVE_FOR_VAR_RE = re.compile(
+    r"(?:solve\s+for|find|solve)\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
+    re.IGNORECASE,
+)
+
+# English lead-in words the equation parser leaves in the LHS ("for y in
+# x+y" stays as-is). Strip them before guessing variables so they don't
+# crowd out the real single-letter variable. Only multi-letter words are
+# stripped — single letters are never removed (they may be variables).
+_LEADIN_WORDS = frozenset(
+    {
+        "solve",
+        "for",
+        "find",
+        "the",
+        "value",
+        "of",
+        "in",
+        "when",
+        "given",
+        "if",
+        "such",
+        "that",
+        "where",
+        "with",
+        "please",
+        "let",
+        "us",
+        "determine",
+        "calculate",
+        "compute",
+        "get",
+        "isolate",
+        "express",
+        "what",
+        "is",
+        "are",
+        "does",
+        "can",
+        "you",
+        "show",
+        "tell",
+    }
+)
+
+
+def _requested_variable(cleaned: str, equation_text: str) -> str | None:
+    """Return the variable the user explicitly asked to solve for, or None."""
+    m = _SOLVE_FOR_VAR_RE.search(cleaned)
+    if m is None:
+        return None
+    var = m.group(1)
+    tokens = re.findall(r"[a-zA-Z]+", equation_text)
+    kept = [t for t in tokens if t.lower() not in _LEADIN_WORDS]
+    letters = {c for t in kept for c in t if c.isalpha()}
+    letters.discard("e")
+    letters.discard("E")
+    return var if var in letters else None
+
+
 def _wants_geometry_angles(lower: str) -> bool:
     return any(w in lower for w in ("angle", "angles", "degree", "degrees"))
 
@@ -701,12 +768,14 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
         return None
     lhs, rhs = eq_pairs[0]
     variables = math_service.guess_variables(lhs + rhs)
+    requested = _requested_variable(cleaned, lhs + rhs)
+    variable = requested or (variables[0] if variables else "x")
     return MathIntent(
         kind="equation",
         lhs=lhs,
         rhs=rhs,
         operation="solve",
-        variable=variables[0] if variables else "x",
+        variable=variable,
     )
 
 
@@ -718,6 +787,8 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
     if compound is not None:
         low, low_op, mid, high_op, high = compound
         variables = math_service.guess_variables(f"{low} {mid} {high}")
+        requested = _requested_variable(cleaned, f"{low} {mid} {high}")
+        variable = requested or (variables[0] if variables else "x")
         return MathIntent(
             kind="inequality",
             lower=low,
@@ -726,20 +797,22 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
             comparator=low_op,
             comparator_upper=high_op,
             operation="solve",
-            variable=variables[0] if variables else "x",
+            variable=variable,
         )
     ineq = math_service.try_extract_inequality_from_text(cleaned)
     if not ineq:
         return None
     lhs, rhs, comparator = ineq
     variables = math_service.guess_variables(lhs + rhs)
+    requested = _requested_variable(cleaned, lhs + rhs)
+    variable = requested or (variables[0] if variables else "x")
     return MathIntent(
         kind="inequality",
         lhs=lhs,
         rhs=rhs,
         comparator=comparator,
         operation="solve",
-        variable=variables[0] if variables else "x",
+        variable=variable,
     )
 
 

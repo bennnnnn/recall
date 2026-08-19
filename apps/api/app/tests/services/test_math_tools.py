@@ -43,6 +43,60 @@ def test_extract_equation_intent() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, expected_var",
+    [
+        ("Solve for y: x+y=5", "y"),
+        ("solve for y in x+y=5", "y"),
+        ("find y if x+y=5", "y"),
+        ("find the value of y in 2y = 10", "y"),
+        ("Solve for x: x+y=5", "x"),
+    ],
+)
+def test_extract_equation_respects_solve_for_variable(text: str, expected_var: str) -> None:
+    """BUG FIX: 'Solve for y: x+y=5' used to solve for x (alphabetical first
+    of guess_variables) and return the wrong answer in the verified card. The
+    extractor now parses the explicit 'solve for <var>' / 'find <var>' cue."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == expected_var
+
+
+def test_extract_equation_solve_for_unknown_variable_falls_back() -> None:
+    """'solve for z' where z is not in the equation must not solve for z —
+    fall back to the guessed variable rather than producing an empty solve."""
+    intent = math_tools.extract_math_intent("Solve for z: x + 2 = 5")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == "x"
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("2x+3=7", True),
+        ("y=x^2", True),
+        ("a+b=10", True),
+        ("the meeting = 3pm", False),
+        ("What's the weather?", False),
+    ],
+)
+def test_needs_symbolic_math_bare_equation(text: str, expected: bool) -> None:
+    """Bare algebraic equations (no 'solve'/'find' keyword) now trigger SymPy.
+    Prose with an '=' but no standalone single-letter variable does not."""
+    assert math_tools.needs_symbolic_math(text) is expected
+
+
+def test_extract_bare_equation_intent() -> None:
+    intent = math_tools.extract_math_intent("2x+3=7")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "2x+3"
+    assert intent.rhs == "7"
+    assert intent.variable == "x"
+
+
+@pytest.mark.parametrize(
     "text, expected_lhs",
     [
         ("roots of x^2 - 4", "x^2 - 4"),
