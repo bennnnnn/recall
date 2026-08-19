@@ -1142,6 +1142,46 @@ async def test_load_project_quiz_context():
 
 
 @pytest.mark.asyncio
+async def test_load_project_quiz_context_includes_native_and_target_language():
+    """LANG-TEACH-007/008: tutor prompt must tell the model which language to
+    teach and which language the user speaks natively so explanations use
+    the right contrast language."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+    project.target_language = "es"
+    project.native_language = "am"
+    item = _item("hola", project_id)
+
+    with (
+        patch.object(
+            projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[item]),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        block = await projects_service.load_project_quiz_context(
+            session, user_id, project_id, Settings()
+        )
+
+    assert "Amharic" in block
+    assert "Spanish" in block
+    assert "Amharic speaker learning Spanish" in block
+
+
+@pytest.mark.asyncio
 async def test_load_project_quiz_context_retries_same_word_on_wrong():
     from app.services.vocab_quiz import QuizAnswerGrade
 
