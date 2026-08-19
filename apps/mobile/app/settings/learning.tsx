@@ -20,7 +20,7 @@ import {
   formatDailyGoalShort,
   resolveDailyGoal,
 } from "@/lib/dailyGoals";
-import { isLanguageProject, levelLabel, levelPickerOptions } from "@/lib/languageLevels";
+import { isLanguageProject, levelLabelT, levelPickerOptions } from "@/lib/languageLevels";
 import { invalidateProjectDetail } from "@/lib/projectDetailCache";
 import { languageLabel } from "@/lib/i18n/languages";
 import { languageProjectTitle } from "@/lib/projectCreateFlow";
@@ -169,8 +169,8 @@ export default function LearningSettingsScreen() {
                 <SettingsInlinePicker
                   icon="school-outline"
                   title={t("settings.learning.level_label")}
-                  value={levelLabel(languageProject.level)}
-                  options={levelPickerOptions()}
+                  value={levelLabelT(languageProject.level, t)}
+                  options={levelPickerOptions(t)}
                   selectedKey={languageProject.level}
                   expanded={openPicker === `${languageProject.id}-level`}
                   disabled={saving}

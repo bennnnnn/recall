@@ -966,5 +966,11 @@
   "settings.usage_group": "Usage",
   "settings.usage_today": "Today",
   "settings.usage_today_split": "{{input}} in · {{output}} out",
-  "settings.usage_today_value": "{{used}} / {{limit}}"
+  "settings.usage_today_value": "{{used}} / {{limit}}",
+  "projects.level.beginner": "መነሻ",
+  "projects.level.elementary": "መሠረት",
+  "projects.level.intermediate": "መካከለኛ",
+  "projects.level.upper_intermediate": "ከፍተኛ መካከለኛ",
+  "projects.level.advanced": "የላቀ",
+  "projects.level.fluent": "ባለሙድ"
 }

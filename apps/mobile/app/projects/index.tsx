@@ -36,7 +36,7 @@ import {
   type VocabDailyGoal,
 } from "@/lib/dailyGoals";
 import { LANGUAGES } from "@/lib/i18n/languages";
-import { isLanguageProject, LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
+import { isLanguageProject, LANGUAGE_LEVELS, levelLabelT } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
@@ -350,7 +350,7 @@ export default function ProjectsScreen() {
             options={LANGUAGE_LEVELS.map((item) => ({
               key: item,
               value: item,
-              label: levelLabel(item),
+              label: levelLabelT(item, t),
             }))}
             isSelected={(value) => value === level}
             onSelect={setLevel}
@@ -469,7 +469,7 @@ export default function ProjectsScreen() {
             const isTrivia = isTriviaProject(project.kind);
             const levelValue = isTrivia
               ? triviaDifficultyLabel(project.level, t)
-              : levelLabel(project.level);
+              : levelLabelT(project.level, t);
             const dailyValue = formatDailyGoalShort(resolveDailyGoal(project.daily_goal));
             const topicIds = parseTriviaTopics(project.description);
             const topicsChip = isTrivia ? formatTriviaTopicsChip(topicIds, t) : undefined;
