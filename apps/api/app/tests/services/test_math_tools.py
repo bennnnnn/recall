@@ -877,6 +877,78 @@ async def test_augment_prompt_injects_circle_geometry_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_circle_circumference_answer_not_area() -> None:
+    """BUG FIX: 'circumference of circle r=4' used to return the area
+    (≈50.27) as the verified final answer because the canonical answer was
+    unconditionally the area. Now an explicit circumference request yields
+    the circumference (≈25.13)."""
+    settings = Settings(math_tools_enabled=True)
+    messages = [{"role": "user", "content": "circumference of circle radius 4"}]
+    out, verified = await math_tools.augment_prompt_messages(
+        messages,
+        "circumference of circle radius 4",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    assert abs(float(verified.canonical_answer) - 25.13) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_augment_circle_area_answer_when_only_area_requested() -> None:
+    """'area of circle r=4' (no circumference) still returns the area as the
+    verified final answer — the circumference fix must not regress the
+    default area path."""
+    settings = Settings(math_tools_enabled=True)
+    messages = [{"role": "user", "content": "area of circle radius 4"}]
+    out, verified = await math_tools.augment_prompt_messages(
+        messages,
+        "area of circle radius 4",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    assert abs(float(verified.canonical_answer) - 50.27) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_augment_stats_sample_stdev_uses_sample_divisor() -> None:
+    """BUG FIX: 'sample standard deviation of {1,2,3,4,5}' used to return the
+    population stdev because the only 'stdev' op mapped to population_stdev.
+    Now 'sample …' maps to the (n-1) sample stdev."""
+    import statistics as _stats
+
+    settings = Settings(math_tools_enabled=True)
+    data = [1, 2, 3, 4, 5]
+    content = "sample standard deviation of 1, 2, 3, 4, 5"
+    messages = [{"role": "user", "content": content}]
+    out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    expected = f"{_stats.stdev(data):.4f}"
+    assert verified.canonical_answer == expected
+    # Sanity: sample stdev must differ from population stdev here.
+    assert expected != f"{_stats.pstdev(data):.4f}"
+
+
+@pytest.mark.asyncio
+async def test_augment_stats_population_stdev_still_default() -> None:
+    """Bare 'standard deviation of …' (no sample/population qualifier) keeps
+    the historical population-stdev default — the sample fix must not change
+    the default interpretation."""
+    import statistics as _stats
+
+    settings = Settings(math_tools_enabled=True)
+    data = [1, 2, 3, 4, 5]
+    content = "standard deviation of 1, 2, 3, 4, 5"
+    messages = [{"role": "user", "content": content}]
+    out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    assert verified.canonical_answer == f"{_stats.pstdev(data):.4f}"
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_injects_single_point_graph_block() -> None:
     """BUG FIX regression: a bare "(2,3)" reply (e.g. answering "what
     point?") had no augmentation at all, so the model was free to invent

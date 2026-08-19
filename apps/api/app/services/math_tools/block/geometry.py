@@ -184,7 +184,16 @@ def _verified_block_circle(
         f"{_fence('geometry', circle_spec)}"
     )
     lines.append("Do NOT recompute diameter, area, or circumference.")
-    return _diagram_block(lines, circle_spec, f"{circle_geo.area:.2f}")
+    # The verified final answer must match what the user asked for —
+    # "circumference of circle r=4" used to return the area (≈50.27)
+    # because the canonical answer was unconditionally the area. Honor an
+    # explicit circumference request; fall back to area (the default
+    # illustration) when only area or nothing specific was asked.
+    if intent.wants_circumference:
+        answer = f"{circle_geo.circumference:.2f}"
+    else:
+        answer = f"{circle_geo.area:.2f}"
+    return _diagram_block(lines, circle_spec, answer)
 
 
 def _verified_block_triangle(
