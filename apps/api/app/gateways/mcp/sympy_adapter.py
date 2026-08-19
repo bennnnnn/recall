@@ -183,14 +183,32 @@ class SympyAdapter:
         if result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
-        return ToolResult(
-            name=self.name,
-            content=(
-                "\n".join(result.steps) + "\nEnd with this final-answer fence (copy verbatim):\n"
-                f"```answer\n{answer}\n```"
-            ),
-            data=_fence_data(math_tools._answer_canonical(answer)),
+        content = (
+            "\n".join(result.steps) + "\nEnd with this final-answer fence (copy verbatim):\n"
+            f"```answer\n{answer}\n```"
         )
+        data = _fence_data(math_tools._answer_canonical(answer))
+        # Attach the verified number-line diagram — same invariant the
+        # heuristic _verified_block_inequality enforces. Without this the
+        # MCP inequality path returned only an ```answer fence, so the app
+        # never rendered the solution set as an SVG and the model's own
+        # (often malformed) ```graph fence shipped as-is.
+        lhs = str(args.get("lhs") or "")
+        rhs = str(args.get("rhs") or "")
+        ineq_text = f"{lhs} {comparator} {rhs}"
+        line_spec = await self._run_off_loop(
+            math_service.number_line_spec_from_expr, ineq_text, variable
+        )
+        if line_spec is not None:
+            fence = line_spec.model_dump()
+            fence_json = json.dumps(fence, separators=(",", ":"))
+            content += (
+                "\nNumber-line diagram for the solution set — emit ONLY this fence "
+                "ONCE (the app renders it as an SVG):\n"
+                f"```graph\n{fence_json}\n```"
+            )
+            data = _fence_data(fence)
+        return ToolResult(name=self.name, content=content, data=data)
 
     async def _action_system(self, args: dict[str, Any]) -> ToolResult:
         equations = [(str(lhs), str(rhs)) for lhs, rhs in (args.get("equations") or [])]
