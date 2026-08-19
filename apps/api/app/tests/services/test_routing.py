@@ -50,6 +50,16 @@ from app.services.routing import resolve_alias, route_chat_model
         ("check this out:\n```\nprint(1)\n```", "smart-chat"),
         ("run this:\n```bash\necho hi\n```", "smart-chat"),
         ("what's wrong here:\n```html\n<div></div>\n```", "smart-chat"),
+        # Math / structured turns → smart-chat (a weak model on a math ask
+        # produced wrong worked steps even with SymPy-verified fences).
+        ("solve 2x + 3 = 7", "smart-chat"),
+        ("graph y = x^2", "smart-chat"),
+        ("2x+3=7", "smart-chat"),
+        ("find the area of a circle radius 4", "smart-chat"),
+        ("integrate x^2 from 0 to 1", "smart-chat"),
+        ("standard deviation of 1, 2, 3, 4, 5", "smart-chat"),
+        # Plain prose with no math cue stays free-chat.
+        ("what's for dinner tonight", "free-chat"),
     ],
 )
 def test_route_chat_model(content: str, expected: str) -> None:

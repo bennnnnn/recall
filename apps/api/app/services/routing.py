@@ -84,6 +84,16 @@ def route_chat_model(content: str) -> str:
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
+    # Math / structured turns (equations, graphs, geometry, calculus, stats,
+    # …) route to the smart model up front. A weak model on a math ask used to
+    # produce wrong worked steps even with SymPy-verified fences injected, so
+    # the verified answer and the prose disagreed. needs_symbolic is the same
+    # gate the math pipeline uses, so routing and augmentation agree on what
+    # "a math turn" is. Lazy import keeps routing import-time cheap.
+    from app.services.math_text_match import needs_symbolic
+
+    if needs_symbolic(content):
+        return smart
     return fast
 
 
