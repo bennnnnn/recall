@@ -37,12 +37,58 @@ def _frozen_datetime_cls(moment: datetime) -> type[datetime]:
 
 
 @pytest.mark.asyncio
+async def test_apply_quiz_result_mcq_correct_does_not_master_new_item(monkeypatch):
+    """LANG-TEACH-003: MCQ recognition shouldn't single-shot promote to 'mastered'.
+    Only open-ended production (teach→use / use→define) mastery via the
+    background `master` action sets 'mastered'. MCQ correct on a new/learning
+    item → 'learning'. MCQ correct on an already-mastered item reinforces it."""
+    day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
+    item = _item(status="new", created_at=day1)
+    fake_session = AsyncMock()
+
+    async def _persist(session, item, **kwargs):
+        from app.repositories.project_items import _sync_mastered_fields
+
+        _sync_mastered_fields(
+            item,
+            kwargs["new_status"],
+            prior_status=kwargs["prior_status"],
+            now=kwargs["now"],
+        )
+        item.last_reviewed_at = kwargs["now"]
+        item.review_count = kwargs["review_count"]
+        item.ease_factor = kwargs["ease_factor"]
+        item.interval_days = kwargs["interval_days"]
+        item.due_at = kwargs["due_at"]
+        return item
+
+    monkeypatch.setattr(quiz_grading.project_items_repo, "apply_quiz_result", _persist)
+    monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day1))
+
+    # MCQ correct on a new item → learning, not mastered
+    await quiz_grading.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
+    assert item.status == "learning"
+
+    # MCQ correct on an already-mastered item → stays mastered (reinforcement)
+    item.status = "mastered"
+    item.mastered = True
+    item.mastered_at = day1
+    await quiz_grading.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
+    assert item.status == "mastered"
+
+
+@pytest.mark.asyncio
 async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
     monkeypatch,
 ):
     """BUG FIX (was silent): mastered_at only backfilled when None, so an item mastered
     on Day 1, demoted by a later miss, then re-mastered on Day 10 kept mastered_at
-    stuck at Day 1 — mastered_today/streaks/daily history all missed the remastery."""
+    stuck at Day 1 — mastered_today/streaks/daily history all missed the remastery.
+
+    Note: MCQ correct no longer sets 'mastered' (LANG-TEACH-003). Initial mastery
+    and remastery are simulated by directly setting status='mastered' (as the
+    background `master` action would), then testing that _sync_mastered_fields
+    refreshes mastered_at on remaster."""
     day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
     demotion_day = day1 + timedelta(days=5)
     day10 = datetime(2026, 1, 10, 15, tzinfo=UTC)
@@ -70,19 +116,26 @@ async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
 
     monkeypatch.setattr(quiz_grading.project_items_repo, "apply_quiz_result", _persist)
 
+    # Simulate initial mastery via background `master` action (open-ended success)
     monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day1))
-    await quiz_grading.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
-    assert item.status == "mastered"
+    from app.repositories.project_items import _sync_mastered_fields
+
+    _sync_mastered_fields(item, "mastered", prior_status="new", now=day1)
+    item.status = "mastered"
+    item.mastered = True
     assert item.mastered_at == day1
 
+    # Demotion via MCQ wrong
     monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(demotion_day))
     await quiz_grading.apply_quiz_result(fake_session, item, is_correct=False, commit=False)
     assert item.status == "learning"
     assert item.mastered_at == day1
 
+    # Remastery via background `master` action (open-ended success)
     monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day10))
-    await quiz_grading.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
-    assert item.status == "mastered"
+    _sync_mastered_fields(item, "mastered", prior_status="learning", now=day10)
+    item.status = "mastered"
+    item.mastered = True
     assert item.mastered_at == day10
 
     from app.services import daily_learning

@@ -40,7 +40,14 @@ async def apply_quiz_result(
     now = datetime.now(UTC)
     prior_status = _item_status_label(item)
     if is_correct:
-        new_status = "mastered"
+        # MCQ recognition shouldn't single-shot promote to "mastered" —
+        # only open-ended production (teach→use / use→define) mastery via
+        # the background `master` action sets "mastered". MCQ correct on an
+        # already-mastered word reinforces it (stays mastered). (LANG-TEACH-003)
+        if prior_status == "mastered":
+            new_status = "mastered"
+        else:
+            new_status = "learning"
     elif prior_status == "mastered":
         new_status = "learning"
     elif prior_status == "new":

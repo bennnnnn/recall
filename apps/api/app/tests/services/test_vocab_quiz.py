@@ -146,6 +146,46 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
     list_for_user.assert_not_awaited()
 
 
+def test_format_quiz_grading_hint_wrong_nonexhausted_omits_correct_letter():
+    """LANG-PROMPT-001: On wrong tries 1-2, the authoritative grading block must
+    NOT include the correct letter — the follow-up says 'do NOT reveal' but
+    including the letter in the same system prompt leaks it to the model."""
+    from app.services.chat.prompt_constants import format_quiz_grading_hint
+
+    hint = format_quiz_grading_hint(
+        is_correct=False,
+        user_letter="B",
+        correct_letter="A",
+        word="serendipity",
+        quiz_type="vocab",
+        question="What word means a happy coincidence?",
+        attempt=1,
+        tries_exhausted=False,
+    )
+    assert "WRONG" in hint
+    assert "Correct answer: A" not in hint
+    assert "do NOT reveal" in hint or "do NOT" in hint
+
+
+def test_format_quiz_grading_hint_wrong_exhausted_includes_correct_letter():
+    """On exhausted wrong (3rd try), the correct letter IS included — the
+    model needs it to reveal the answer."""
+    from app.services.chat.prompt_constants import format_quiz_grading_hint
+
+    hint = format_quiz_grading_hint(
+        is_correct=False,
+        user_letter="D",
+        correct_letter="A",
+        word="Thirty Years' War",
+        quiz_type="trivia",
+        question="Which war ended with the Treaty of Westphalia in 1648?",
+        attempt=3,
+        tries_exhausted=True,
+    )
+    assert "FAILED" in hint
+    assert "Correct answer: A" in hint
+
+
 def test_format_quiz_grading_hint_exhausted_moves_on():
     from app.services.chat.prompt_constants import format_quiz_grading_hint
 

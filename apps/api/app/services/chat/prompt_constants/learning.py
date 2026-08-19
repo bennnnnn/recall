@@ -136,6 +136,16 @@ def format_quiz_grading_hint(
             )
         verdict = "WRONG"
     subject = f'option {user_letter} ("{word}")' if is_trivia else f'"{word}"'
+    # For WRONG non-exhausted attempts (tries 1-2), omit the correct letter from
+    # the authoritative block — the follow-up already says "do NOT reveal," but
+    # including the letter in the same system prompt leaks it to the model.
+    # (LANG-PROMPT-001)
+    if verdict == "WRONG" and not tries_exhausted:
+        return (
+            f"**Automated grading (authoritative — your feedback MUST match this):** "
+            f"For {subject}, user answered {user_letter}. "
+            f"Result: {verdict}. {follow_up}"
+        )
     return (
         f"**Automated grading (authoritative — your feedback MUST match this):** "
         f"For {subject}, user answered {user_letter}. Correct answer: {correct_letter}. "
