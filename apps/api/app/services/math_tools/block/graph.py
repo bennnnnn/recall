@@ -102,12 +102,18 @@ def _verified_block_graph(
         )
         return _diagram_block(lines, line_spec)
 
+    # Use the user-named domain ("from 0 to 100") when present, else the
+    # [-10, 10] default. Without this the verified block always sampled the
+    # default window even when the user asked for a specific range, so the
+    # model emitted its own (often wrong) spec.
+    x_min = intent.graph_x_min if intent.graph_x_min is not None else -10
+    x_max = intent.graph_x_max if intent.graph_x_max is not None else 10
     sample = math_service.sample_function(
         GraphSampleInput(
             expr=intent.expr[: settings.math_max_expr_length],
             variable=intent.variable,
-            x_min=-10,
-            x_max=10,
+            x_min=x_min,
+            x_max=x_max,
             n=settings.math_graph_max_points,
         )
     )
@@ -146,12 +152,14 @@ def _verified_block_graph_pair(
 ) -> VerifiedMathBlock | None:
     if not (intent.expr and intent.expr2):
         return None
+    x_min = intent.graph_x_min if intent.graph_x_min is not None else -10
+    x_max = intent.graph_x_max if intent.graph_x_max is not None else 10
     sample1 = math_service.sample_function(
         GraphSampleInput(
             expr=intent.expr[: settings.math_max_expr_length],
             variable=intent.variable,
-            x_min=-10,
-            x_max=10,
+            x_min=x_min,
+            x_max=x_max,
             n=settings.math_graph_max_points,
         )
     )
@@ -159,8 +167,8 @@ def _verified_block_graph_pair(
         GraphSampleInput(
             expr=intent.expr2[: settings.math_max_expr_length],
             variable=intent.variable,
-            x_min=-10,
-            x_max=10,
+            x_min=x_min,
+            x_max=x_max,
             n=settings.math_graph_max_points,
         )
     )

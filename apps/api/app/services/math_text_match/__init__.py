@@ -34,6 +34,7 @@ from app.services.math_text_match.graph import (
 )
 from app.services.math_text_match.graph import (
     bare_coord,
+    graph_domain,
     graph_expr,
     graph_expr_pair,
     plot_point,
@@ -73,6 +74,7 @@ __all__ = [
     "first_dim_pair",
     "first_dim_triple",
     "geometry_deferred_for_algebra",
+    "graph_domain",
     "graph_expr",
     "graph_expr_pair",
     "has_draw_shape",

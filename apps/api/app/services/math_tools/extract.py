@@ -490,11 +490,26 @@ def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
     if pair is None:
         return None
     first, second = pair
+    # A trailing domain ("graph y=x^2 and y=2x from 0 to 100") lands on the
+    # second expression after the " and " split. Peel it off and apply the
+    # window to both curves so they share one x-range for comparison.
+    domain = mtm.graph_domain(second)
+    x_min: float | None = None
+    x_max: float | None = None
+    if domain is not None:
+        x_min, x_max, second = domain
     expr1 = _strip_trailing_filler(first).replace("^", "**")
     expr2 = _strip_trailing_filler(second).replace("^", "**")
     if not expr1 or not expr2:
         return None
-    return MathIntent(kind="graph_pair", expr=expr1, expr2=expr2, operation="graph")
+    return MathIntent(
+        kind="graph_pair",
+        expr=expr1,
+        expr2=expr2,
+        operation="graph",
+        graph_x_min=x_min,
+        graph_x_max=x_max,
+    )
 
 
 def _solve_for_y_as_function_of_x(expr: str) -> str | None:
@@ -582,6 +597,15 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     # check, once for the returned graph expr). Compute it once and derive
     # both forms from it.
     stripped = _strip_trailing_filler(g_expr)
+    # A user-named domain ("from 0 to 100") must be peeled off the expression
+    # before SymPy sees it, and applied to the sample window. Without this,
+    # "graph y=x^2 from 0 to 100" sampled on the [-10, 10] default and the
+    # model often emitted its own (wrong) spec for the requested range.
+    domain = mtm.graph_domain(stripped)
+    x_min: float | None = None
+    x_max: float | None = None
+    if domain is not None:
+        x_min, x_max, stripped = domain
     expr_no_space = stripped.replace("^", "**").replace(" ", "")
     # Prefer vertical for "graph x=4": the ENTIRE RHS after "x=" must be a
     # pure number — "x=2y" / "x=2*y" are functions (y = x/2), not vertical
@@ -602,7 +626,9 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
         solved = _solve_for_y_as_function_of_x(expr)
         if solved is not None:
             expr = solved
-    return MathIntent(kind="graph", expr=expr, operation="graph")
+    return MathIntent(
+        kind="graph", expr=expr, operation="graph", graph_x_min=x_min, graph_x_max=x_max
+    )
 
 
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:

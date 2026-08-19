@@ -137,6 +137,11 @@ class MathIntent(BaseModel):
     # Second function for a "graph y=x^2 and y=2x" comparison plot — `expr`/
     # `variable` above hold the first curve, unchanged for every other kind.
     expr2: str | None = None
+    # Graph domain the user named ("graph y=x^2 from 0 to 100"). When set, the
+    # verified graph block samples on this x-range instead of the [-10, 10]
+    # default. None means "use the default window".
+    graph_x_min: float | None = None
+    graph_x_max: float | None = None
     # 3D solids — volume / surface area. Reuses width/height/side/radius;
     # depth is the third prism (or rectangular-pyramid) edge.
     solid_shape: (
