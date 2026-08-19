@@ -13,6 +13,15 @@ describe("textLooksLikeMath", () => {
     expect(textLooksLikeMath("what's the weather")).toBe(false);
     expect(textLooksLikeMath("I'm going later")).toBe(false);
   });
+
+  it("BUG FIX regression: MATH_ASK words without math signal do not trigger (KB-039)", () => {
+    // "solve" in prose without any math signal (digits, =, operators) should not trigger.
+    expect(textLooksLikeMath("solve this mystery")).toBe(false);
+    expect(textLooksLikeMath("what's the equation for happiness")).toBe(false);
+    // But "solve" with a math signal should still trigger.
+    expect(textLooksLikeMath("solve 2x + 3 = 7")).toBe(true);
+    expect(textLooksLikeMath("factor x^2 - 1")).toBe(true);
+  });
 });
 
 describe("messagesLookLikeMath", () => {

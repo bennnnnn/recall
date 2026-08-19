@@ -84,7 +84,7 @@ function estimateMathTextSize(segments: MathSegment[]): { width: number; height:
       height = Math.max(height, box.height);
     } else if (seg.type === "sqrt") {
       width += 14 + (seg.degree ? 10 : 0) + segmentsToPlain(seg.body).length * FRAC_CHAR_PX;
-      height = Math.max(height, 28);
+      height = Math.max(height, SQRT_LINE_HEIGHT);
     } else {
       width += Math.max(seg.value.length, 1) * FRAC_CHAR_PX;
     }

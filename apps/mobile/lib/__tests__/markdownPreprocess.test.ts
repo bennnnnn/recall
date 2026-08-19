@@ -159,6 +159,15 @@ $)
     expect(mergeStrandedColons(";\nHello")).toBe(";\nHello");
   });
 
+  it("BUG FIX regression: mergeStrandedColons does not glue colon onto fence closer or table row (PRE-009)", () => {
+    // Fence closer — colon should stay on its own line.
+    expect(mergeStrandedColons("```math\n1+1\n```\n:")).toBe("```math\n1+1\n```\n:");
+    // Table row — colon should stay on its own line.
+    expect(mergeStrandedColons("| a | b |\n:")).toBe("| a | b |\n:");
+    // Heading — colon should stay on its own line.
+    expect(mergeStrandedColons("# Heading\n:")).toBe("# Heading\n:");
+  });
+
   it("preprocessMarkdown merges stranded colons in a numbered list", () => {
     const input = `1. **Substitute** $n = 3$: $3! = 3 \\times 2 \\times 1$
 2. **Multiply**

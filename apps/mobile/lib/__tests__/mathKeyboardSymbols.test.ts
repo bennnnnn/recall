@@ -73,9 +73,9 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("", { start: 0, end: 0 }, nth).text).toBe("$\\sqrt[]{}$");
   });
 
-  it("n! attaches to a number, or inserts n on an empty draft", () => {
+  it("n! attaches to a number, or inserts an empty slot on an empty draft", () => {
     const fact = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "fact")!;
-    expect(spliceMathInsert("", { start: 0, end: 0 }, fact).text).toBe("$n!$");
+    expect(spliceMathInsert("", { start: 0, end: 0 }, fact).text).toBe("${}!$");
     expect(spliceMathInsert("$5$", { start: 2, end: 2 }, fact).text).toBe("$5!$");
   });
 

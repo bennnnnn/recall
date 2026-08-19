@@ -281,13 +281,13 @@ function lastNonSpaceChar(text: string, pos: number): string {
   return text[k] ?? "";
 }
 
-/** n!: attach `!` to an existing base, otherwise insert `n`. */
+/** n!: attach `!` to an existing base, otherwise insert `{}!` with cursor in the slot. */
 function factAttachInsert(text: string, start: number): { insert: string; cursorOffset: number } {
   const prev = lastNonSpaceChar(text, start);
   if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
     return { insert: "!", cursorOffset: 1 };
   }
-  return { insert: "n!", cursorOffset: 2 };
+  return { insert: "{}!", cursorOffset: 1 };
 }
 
 /** xⁿ / xₙ: attach the script to an existing base, otherwise insert `x`. */

@@ -96,4 +96,14 @@ describe("spliceMathBackspace", () => {
     expect(result.text).not.toMatch(/\\(cos|sin|sqrt|frac)\b/);
     expect(result.text).not.toMatch(/[{}]/);
   });
+
+  it("BUG FIX regression: collapseEmptyMath does not corrupt $$display math$$ with content (KB-040)", () => {
+    // Backspace inside display math should NOT strip the $$ delimiters when
+    // there's content between them. Position 3 (^) deleted → "$$x2$$" (still has $$).
+    const text = "$$x^2$$";
+    const result = spliceMathBackspace(text, { start: 4, end: 4 });
+    expect(result.text).toBe("$$x2$$");
+    // The $$ delimiters are preserved because there's still content inside.
+    expect(result.text).toContain("$$");
+  });
 });
