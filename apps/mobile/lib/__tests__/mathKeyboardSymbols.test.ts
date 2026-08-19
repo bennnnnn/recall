@@ -13,6 +13,8 @@ import {
   prevEditSlotCaret,
   spliceBackspace,
   spliceMathInsert,
+  SYMBOL_A11Y,
+  symbolA11yLabel,
 } from "@/lib/mathKeyboardSymbols";
 
 describe("spliceMathInsert", () => {
@@ -306,6 +308,41 @@ describe("MATH_NUMPAD_ROWS", () => {
     expect(padIds).toContain("var-z");
     expect(padIds).toContain("var-n");
     expect(padIds).toContain("var-t");
+  });
+});
+
+describe("symbolA11yLabel (KB-005)", () => {
+  it("returns a descriptive label for known symbol IDs", () => {
+    const frac = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "frac")!;
+    expect(symbolA11yLabel(frac)).toBe("Fraction");
+    const sqrt = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "sqrt")!;
+    expect(symbolA11yLabel(sqrt)).toBe("Square root");
+    const leq = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "leq")!;
+    expect(symbolA11yLabel(leq)).toBe("Less than or equal");
+  });
+
+  it("falls back to the visual label for unknown IDs", () => {
+    const fake = { id: "custom", label: "★", insert: "★", cursorOffset: 1, group: "basics" as const };
+    expect(symbolA11yLabel(fake)).toBe("★");
+  });
+
+  it("covers every symbol in MATH_KEYBOARD_SYMBOLS and MATH_NUMPAD_ROWS", () => {
+    const allIds = new Set<string>();
+    for (const s of MATH_KEYBOARD_SYMBOLS) allIds.add(s.id);
+    for (const row of MATH_NUMPAD_ROWS) {
+      for (const cell of row) {
+        if (cell.kind === "insert") allIds.add(cell.spec.id);
+      }
+    }
+    const missing = [...allIds].filter((id) => !SYMBOL_A11Y[id]);
+    // Digits 0-9 and basic operators on the numpad are self-descriptive labels.
+    const allowedMissing = new Set([
+      "digit-0", "digit-1", "digit-2", "digit-3", "digit-4",
+      "digit-5", "digit-6", "digit-7", "digit-8", "digit-9",
+      "plus", "minus", "times", "div", "eq", "parens",
+    ]);
+    const trulyMissing = missing.filter((id) => !allowedMissing.has(id));
+    expect(trulyMissing).toEqual([]);
   });
 });
 

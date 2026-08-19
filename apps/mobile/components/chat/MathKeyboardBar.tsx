@@ -10,6 +10,7 @@ import {
   MATH_NUMPAD_ROWS,
   mathGroupCanToggleDigits,
   mathGroupShowsNumpad,
+  symbolA11yLabel,
   symbolsInGroup,
   type MathKeyboardGroup,
   type MathKeyboardSymbol,
@@ -174,6 +175,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
                   buzz();
                   onInsert(spec);
                 }}
+                accessibilityLabel={symbolA11yLabel(spec)}
                 theme={theme}
               />
             ))}
@@ -374,6 +376,7 @@ function PadKey({
         buzz();
         onInsert(cell.spec);
       }}
+      accessibilityLabel={symbolA11yLabel(cell.spec)}
       theme={theme}
     />
   );
