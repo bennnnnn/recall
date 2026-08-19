@@ -150,6 +150,15 @@ $)
     expect(mergeStrandedColons(":\nHello")).toBe(":\nHello");
   });
 
+  it("BUG FIX regression: mergeStrandedColons also merges stranded semicolons", () => {
+    expect(mergeStrandedColons("**Step**\n;\n   $x = 5$")).toBe(
+      "**Step**;\n   $x = 5$",
+    );
+    expect(mergeStrandedColons("Label\n;")).toBe("Label;");
+    // Semicolon as first line is not merged
+    expect(mergeStrandedColons(";\nHello")).toBe(";\nHello");
+  });
+
   it("preprocessMarkdown merges stranded colons in a numbered list", () => {
     const input = `1. **Substitute** $n = 3$: $3! = 3 \\times 2 \\times 1$
 2. **Multiply**
@@ -189,6 +198,52 @@ x = 0
     expect(out).toContain("2. Simplify the left side:");
     expect(out).toContain("3. Subtract 5 from both sides to isolate x:");
     expect(out).toContain("4. Final result:");
+  });
+
+  it("BUG FIX regression: inline math fence tail does not absorb list items or headings", () => {
+    // After inlining a short ```math fence, the code merges a following
+    // line starting with ?!,.;: — but must NOT absorb headings, list
+    // items, images, table rows, or blockquotes.
+    const input = `\`\`\`math
+x = 5
+\`\`\`
+
+# Next Section`;
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("# Next Section");
+
+    const input2 = `\`\`\`math
+x = 5
+\`\`\`
+
+- A list item`;
+    const out2 = preprocessMarkdown(input2);
+    expect(out2).toContain("- A list item");
+
+    const input3 = `\`\`\`math
+x = 5
+\`\`\`
+
+![image](url.png)`;
+    const out3 = preprocessMarkdown(input3);
+    expect(out3).toContain("![image](url.png)");
+  });
+
+  it("BUG FIX regression: liftMathFencesOutOfLists strips body indent to match column-0 opener", () => {
+    // A math fence inside a numbered list has its opener lifted to column 0,
+    // but body lines used to keep their list indent (4+ spaces), causing
+    // CommonMark to treat them as indented code blocks with visible backticks.
+    const input = `1. Step:
+
+   \`\`\`math
+   x = 5
+   \`\`\`
+
+2. Next`;
+    const out = preprocessMarkdown(input);
+    // The math fence should be at column 0 with body at column 0 too
+    expect(out).toContain("```math\nx = 5\n```");
+    expect(out).not.toMatch(/```math\n\s+x = 5/);
   });
 
   it("keeps 2 + Y / Y in the sentence instead of a math card", () => {

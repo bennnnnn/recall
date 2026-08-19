@@ -187,6 +187,13 @@ export function liftMathFencesOutOfLists(content: string): string {
       inFence = null;
       continue;
     }
+    // When the fence opener was lifted to column 0, strip the original list
+    // indent from body lines too — otherwise CommonMark treats 4+ space-
+    // indented body lines as indented code blocks, not fence content.
+    if (inFence === "math") {
+      out.push(trimmed);
+      continue;
+    }
     out.push(line);
   }
   return out.join("\n");
@@ -250,7 +257,7 @@ export function inlineShortMathFences(content: string): string {
     appendInlineMath(out, stripRedundantDollarWrap(raw));
     i = j + 1;
     while (i < lines.length && lines[i]!.trim() === "") i += 1;
-    if (i < lines.length && /^[?!,.;:]/.test(lines[i]!.trim())) {
+    if (i < lines.length && isSafeInlineMathTail(lines[i]!.trim())) {
       const tail = lines[i]!.trim();
       const last = out[out.length - 1] ?? "";
       out[out.length - 1] = last + (last.endsWith(" ") ? "" : " ") + tail;
@@ -258,6 +265,23 @@ export function inlineShortMathFences(content: string): string {
     }
   }
   return out.join("\n");
+}
+
+/**
+ * A line that is safe to merge onto the preceding inlined math fence —
+ * starts with a punctuation character that continues the sentence (`?`, `!`,
+ * `,`, `.`, `;`, `:`) but is NOT a structural markdown element (heading,
+ * list item, image, table row, or blockquote).
+ */
+function isSafeInlineMathTail(t: string): boolean {
+  if (!/^[?!,.;:]/.test(t)) return false;
+  if (/^#{1,6}\s/.test(t)) return false; // heading
+  if (/^[-*+]\s/.test(t)) return false; // unordered list item
+  if (/^\d+\.\s/.test(t)) return false; // ordered list item
+  if (/^!\[/.test(t)) return false; // image
+  if (/^\|/.test(t)) return false; // table row
+  if (/^>\s?/.test(t)) return false; // blockquote / callout
+  return true;
 }
 
 function isPipeRow(line: string): boolean {
@@ -630,15 +654,23 @@ export function layoutCheckVerificationLines(content: string): string {
  * on its own line — the model put it on a separate line after a bold step
  * header (``**Multiply**\n:\n$3 \times 2 = 6$``). Merge it onto the previous
  * line so it renders inline (``**Multiply**:``) instead of stranded.
+ *
+ * Also handles stranded `;` (same pattern — the model puts the semicolon
+ * on its own line after a step header or label).
  */
 export function mergeStrandedColons(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i]!;
-    if (line.trim() === ":" && out.length > 0) {
-      const prev = out[out.length - 1]!;
-      out[out.length - 1] = prev.replace(/\s*$/, "") + ":";
+    const trimmed = line.trim();
+    if (trimmed === ":" || trimmed === ";") {
+      if (out.length > 0) {
+        const prev = out[out.length - 1]!;
+        out[out.length - 1] = prev.replace(/\s*$/, "") + trimmed;
+      } else {
+        out.push(line);
+      }
     } else {
       out.push(line);
     }
