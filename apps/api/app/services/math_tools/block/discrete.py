@@ -53,7 +53,13 @@ def _verified_block_calculus(
             "asserting a solution."
         )
         return VerifiedMathBlock(text="\n".join(lines))
-    lines.append(f"Result: {out.latex}")
+    # Verified worked steps (differentiation): copy these verbatim instead of
+    # inventing a derivation — the model's self-derived steps were often wrong
+    # even with a verified final answer.
+    if out.steps:
+        lines.extend(out.steps)
+    else:
+        lines.append(f"Result: {out.latex}")
     return _finish_with_answer(lines, out.latex)
 
 

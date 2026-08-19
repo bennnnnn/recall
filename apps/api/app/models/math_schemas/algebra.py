@@ -220,6 +220,10 @@ class MathExprResult(BaseModel):
     # return a literal unevaluated Integral(...) rather than raising) — the
     # verified block must not assert an unsolved expression as a fact.
     solved: bool = True
+    # Verified worked steps (rule name + per-term derivative) so the model
+    # can copy them instead of inventing its own derivation. Empty for
+    # operations where SymPy doesn't expose intermediate steps.
+    steps: list[str] = Field(default_factory=list)
 
 
 class MathLimitResult(BaseModel):
