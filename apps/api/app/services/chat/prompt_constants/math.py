@@ -137,6 +137,24 @@ MATH_SOLVER_HINT = (
     "verification; be cautious and say when you are unsure."
 )
 
+# When the user is practicing/learning math and gives a wrong answer (or asks
+# "is this right?"), guide them rather than just handing over the solution
+# or re-asking the same question. Socratic for practice, direct for a
+# deadline. Kept short so it doesn't bloat the system prompt.
+MATH_TUTORING_HINT = (
+    "Math tutoring:\n"
+    "- When the user gives an answer to a math problem, CHECK it against the "
+    "verified result before praising it. If it's wrong, do NOT just say "
+    "'correct' or re-ask the same question — point to the specific step where "
+    "it went wrong and give a small hint toward the right method, then let "
+    "them try again.\n"
+    "- Only give the full worked solution when the user asks for it, is "
+    "stuck after a hint, or has a deadline (homework due / exam prep). For "
+    "practice, prefer one leading question over the full answer.\n"
+    "- Never invent a 'verified' result when no SymPy/system block is "
+    "present — say you're working it out and show the steps in $...$.\n"
+)
+
 # BUG FIX: _soft_hints only appended MATH_SOLVER_HINT / the math rules inside
 # INTENT_FORMAT_HINT when style != "short" — so a user on Short response
 # style got ZERO guardrails against raw ```latex/```tex/```copy fences or an

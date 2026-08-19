@@ -7,6 +7,7 @@ from typing import Any, Literal
 from sympy import (
     Eq,
     Integral,
+    Mul,
     Sum,
     Symbol,
     diff,
@@ -340,11 +341,74 @@ def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
     return MathExprResult(result=str(result), latex=latex(result))
 
 
+def _term_derivative_step(term: Any, sym: Any) -> str:
+    """One verified worked line for the derivative of a single term, naming
+    the rule by structure. The derivative itself is always SymPy-computed so
+    the shown value is verified; the rule label is a best-effort classification
+    (power/constant-multiple/product/quotient/chain) so the model can copy a
+    real derivation instead of inventing one."""
+    deriv = diff(term, sym)
+    lhs = f"\\frac{{d}}{{d{latex(sym)}}}\\left[{latex(term)}\\right]"
+    # Constant: no occurrence of the differentiation variable.
+    if not term.free_symbols & {sym}:
+        return f"Constant rule: ${lhs} = 0$"
+    # Power rule: x or x^n with base == sym.
+    if term == sym:
+        return f"Power rule: ${lhs} = {latex(deriv)}$"
+    if getattr(term, "is_Pow", False) and term.base == sym:
+        return (
+            f"Power rule: ${lhs} = {latex(term.exp)} \\cdot "
+            f"{latex(sym)}^{{{latex(term.exp - 1)}}} = {latex(deriv)}$"
+        )
+    # Product / quotient / constant-multiple.
+    if getattr(term, "is_Mul", False):
+        dep = [f for f in term.args if f.free_symbols & {sym}]
+        if len(dep) == 1:
+            const = [f for f in term.args if not (f.free_symbols & {sym})]
+            return (
+                f"Constant multiple: ${lhs} = {latex(Mul(*const) if const else 1)} \\cdot "
+                f"\\frac{{d}}{{d{latex(sym)}}}\\left[{latex(dep[0])}\\right] = {latex(deriv)}$"
+            )
+        return f"Product rule: ${lhs} = {latex(deriv)}$"
+    if getattr(term, "is_Pow", False) and term.base != sym:
+        # e.g. e^x, 2^x, sin(x)^2 — chain rule territory.
+        return f"Chain rule: ${lhs} = {latex(deriv)}$"
+    # Anything else with a function of sym (sin, cos, exp, log, …) → chain rule.
+    return f"Chain rule: ${lhs} = {latex(deriv)}$"
+
+
+def _differentiation_steps(parsed: Any, sym: Any, result_latex: str) -> list[str]:
+    """Verified step-by-step derivation for a single-variable derivative.
+
+    Sums are split by the sum rule (linearity); each term gets a rule-named
+    line with its SymPy-computed derivative; the final result line closes.
+    """
+    steps: list[str] = []
+    if getattr(parsed, "is_Add", False):
+        steps.append(
+            f"Sum rule (linearity): $\\frac{{d}}{{d{latex(sym)}}}\\left[{latex(parsed)}\\right] "
+            f"= \\sum \\frac{{d}}{{d{latex(sym)}}}\\left[\\text{{each term}}\\right]$"
+        )
+        for term in parsed.args:
+            steps.append(_term_derivative_step(term, sym))
+    else:
+        steps.append(_term_derivative_step(parsed, sym))
+    steps.append(
+        f"Result: $\\frac{{d}}{{d{latex(sym)}}}\\left[{latex(parsed)}\\right] = {result_latex}$"
+    )
+    return steps
+
+
 def differentiate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
     result = diff(parsed, sym)
-    return MathExprResult(result=str(result), latex=latex(result))
+    result_latex = latex(result)
+    return MathExprResult(
+        result=str(result),
+        latex=result_latex,
+        steps=_differentiation_steps(parsed, sym, result_latex),
+    )
 
 
 def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:

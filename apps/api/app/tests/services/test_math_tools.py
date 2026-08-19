@@ -762,6 +762,39 @@ async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_prompt_calculus_includes_derivation_steps() -> None:
+    """BUG FIX (MATH-BE-026): differentiation used to ship only the final
+    result with no worked derivation, so the model invented its own (often
+    wrong) steps. Now SymPy-verified per-term derivation steps (rule-named)
+    are injected for the model to copy verbatim."""
+    settings = Settings(math_tools_enabled=True)
+    text = "differentiate x^3 + 2x"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    # Sum rule line + per-term power-rule lines + result line.
+    assert "Sum rule" in verified.text
+    assert "Power rule" in verified.text
+    assert "Result:" in verified.text
+
+
+def test_differentiate_expression_steps_name_rules() -> None:
+    """Unit-level check: the differentiation steps name the rule applied to
+    each term and carry the SymPy-verified derivative."""
+    from app.services import math_service
+
+    out = math_service.differentiate_expression("x^3 + 5", "x")
+    assert out.solved
+    assert any("Sum rule" in s for s in out.steps)
+    assert any("Power rule" in s and "3" in s for s in out.steps)
+    assert any("Constant rule" in s for s in out.steps)
+    assert out.steps[-1].startswith("Result:")
+    # The verified derivative of x^3 + 5 is 3*x^2.
+    assert "3" in out.result and "x" in out.result
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_unsolved_integral_has_no_answer_fence() -> None:
     settings = Settings(math_tools_enabled=True)
     _out, verified = await math_tools.augment_prompt_messages(

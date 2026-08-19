@@ -38,6 +38,7 @@ from app.services.chat.prompt_constants import (
     INTENT_FORMAT_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_SOLVER_HINT,
+    MATH_TUTORING_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
     QUIZ_RECENT_MESSAGE_LIMIT,
@@ -500,7 +501,13 @@ def _style_format_hints(
         parts.append(SHORT_MATH_SAFETY_HINT)
     elif not is_day_plan:
         parts.extend(
-            [INTENT_FORMAT_HINT, MATH_SOLVER_HINT, RESPONSE_FORMAT_HINT, VISUALIZATION_HINTS]
+            [
+                INTENT_FORMAT_HINT,
+                MATH_SOLVER_HINT,
+                MATH_TUTORING_HINT,
+                RESPONSE_FORMAT_HINT,
+                VISUALIZATION_HINTS,
+            ]
         )
     else:
         parts.append(RESPONSE_FORMAT_HINT)

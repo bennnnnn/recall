@@ -38,6 +38,16 @@ def test_balanced_style_keeps_full_math_solver_hint():
     assert SHORT_MATH_SAFETY_HINT not in parts
 
 
+def test_balanced_style_includes_math_tutoring_hint():
+    """BUG FIX (MATH-E2E-004): the model used to just re-ask or hand over the
+    answer when a user gave a wrong math answer. The tutoring hint now tells
+    it to point to the wrong step and give a small hint first."""
+    parts = _hints("balanced")
+    joined = "\n".join(parts)
+    assert "Math tutoring" in joined
+    assert "wrong" in joined.lower()
+
+
 def test_integration_hints_wraps_todos_section():
     from app.core.config import Settings
     from app.services.chat.prompt_builder import _integration_hints

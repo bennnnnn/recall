@@ -22,6 +22,7 @@ from app.services.chat.prompt_constants.learning import (
 from app.services.chat.prompt_constants.math import (
     MATH_INTENT_HINT,
     MATH_SOLVER_HINT,
+    MATH_TUTORING_HINT,
     SHORT_MATH_SAFETY_HINT,
 )
 from app.services.chat.prompt_constants.privacy import (
@@ -55,6 +56,7 @@ __all__ = [
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
     "MATH_SOLVER_HINT",
+    "MATH_TUTORING_HINT",
     "PRIVACY_HINT",
     "QUIZ_ANSWER_HINT",
     "QUIZ_RECENT_MESSAGE_LIMIT",
