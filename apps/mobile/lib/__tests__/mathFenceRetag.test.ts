@@ -179,6 +179,29 @@ describe("mathFenceRetag", () => {
     expect(out).toContain("```math");
   });
 
+  it("BUG FIX regression: does not retag a nested fence inside another fence's body", () => {
+    // A ```markdown fence containing a ```latex example inside its body —
+    // the old regex approach would match the inner ```latex and retag it,
+    // breaking the outer ```markdown fence. The line-by-line scanner tracks
+    // fence depth and only retags top-level fences.
+    const input = "```markdown\nText\n```latex\nx^2\n```\nMore\n```";
+    const out = retagMathAndDiagramFences(input);
+    // The outer fence stays ```markdown (not retagged).
+    expect(out).toContain("```markdown");
+    // The inner ```latex is NOT retagged to ```math (it's inside the body).
+    expect(out).not.toContain("```math\nx^2");
+  });
+
+  it("BUG FIX regression: preserves vega-lite fence (hyphenated lang)", () => {
+    // The takeLang function in breakAttachedMathFences used to only read
+    // [a-zA-Z], so "vega-lite" was split into lang "vega" + body "-lite".
+    // Now it reads [a-zA-Z-] so the full "vega-lite" lang is preserved.
+    const input = "```vega-lite\n{\"a\":1}\n```";
+    const out = retagMathAndDiagramFences(input);
+    expect(out).toContain("```vega-lite");
+    expect(out).not.toMatch(/```vega\n-lite/);
+  });
+
   it("BUG FIX regression: spacing-only arithmetic (\\;) is math, not a Copy code box", () => {
     // Live chicken-word-problem screenshot: the model put
     // `20 \;- \; 10 \;=\; 10` in an untagged ``` fence. LATEX_CMD_RE has no

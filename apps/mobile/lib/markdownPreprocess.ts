@@ -36,13 +36,15 @@ const FENCED_TABLE_RE =
   /```(?:markdown|md|table|text)?\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
 const FENCE_BLOCK_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
+/** Math/answer/graph/geometry fences that should be lifted out of list items. */
 const LIFT_MATH_FENCE_LANG = /^(math|latex|tex|answer|graph|geometry)$/i;
 
 /**
  * The model glues a fence opener to the end of a sentence
- * (`Multiply both sides by r: ```math`). CommonMark only recognizes a fence
- * at the start of a line, so the backticks and the LaTeX body paint as
- * prose. Pull those openers onto their own line before markdown-it runs.
+ * (`Multiply both sides by r: ```math` or `Here's the code: ```python`).
+ * CommonMark only recognizes a fence at the start of a line, so the
+ * backticks and the body paint as prose. Pull those openers onto their own
+ * line before markdown-it runs. Handles ALL fence langs, not just math ones.
  */
 export function breakAttachedMathFences(content: string): string {
   const lines = content.split("\n");
@@ -55,9 +57,19 @@ export function breakAttachedMathFences(content: string): string {
 
   const takeLang = (afterTicks: string): { lang: string; rest: string } | null => {
     let i = 0;
-    while (i < afterTicks.length && /[a-zA-Z]/.test(afterTicks[i]!)) i += 1;
+    // Read letters AND hyphens — fence langs like "vega-lite" and
+    // "callout-note" contain hyphens. Without this, "vega-lite" was split
+    // into lang "vega" + body "-lite", breaking the fence.
+    while (i < afterTicks.length && /[a-zA-Z-]/.test(afterTicks[i]!)) i += 1;
     const lang = afterTicks.slice(0, i);
-    if (!LIFT_MATH_FENCE_LANG.test(lang)) return null;
+    // Accept any recognized fence lang: structured (math, graph, geometry,
+    // mermaid, …), answer, or explicit code (python, javascript, …). This
+    // lifts glued fence openers for ALL langs, not just math ones — the
+    // model also glues code fences to prose ("Here's the code: ```python").
+    const l = lang.toLowerCase();
+    if (!isStructuredFenceLang(l) && !isAnswerLang(l) && !isExplicitCodeLang(l)) {
+      return null;
+    }
     return { lang, rest: afterTicks.slice(i).trim() };
   };
 
@@ -891,6 +903,11 @@ export function preprocessMarkdown(
   out = retagMathAndDiagramFences(out);
 
   out = unwrapNonCodeFences(out);
+
+  out = protectMathEscapes(out);
+  out = layoutCheckVerificationLines(out);
+  out = mergeStrandedColons(out);
+  out = breakAttachedMathFences(out);
 
   out = protectMathEscapes(out);
   out = layoutCheckVerificationLines(out);
