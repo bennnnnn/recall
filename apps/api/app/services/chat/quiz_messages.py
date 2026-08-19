@@ -15,7 +15,7 @@ async def get_last_quiz_assistant(
     session: AsyncSession,
     chat_id: UUID,
     *,
-    lookback: int = 12,
+    lookback: int = 20,
 ) -> Message | None:
     """Most recent assistant message that is still an active learning/quiz prompt.
 
@@ -56,7 +56,7 @@ async def find_original_quiz_fence_created_at(
     chat_id: UUID,
     *,
     prior_assistant: Message,
-    lookback: int = 12,
+    lookback: int = 20,
 ) -> datetime:
     """Find the ``created_at`` of the ORIGINAL quiz fence for the same word.
 

@@ -140,7 +140,12 @@ def _trivia_daily_goal(project: Project) -> int:
     goal = getattr(project, "daily_goal", None)
     if isinstance(goal, int) and goal >= 1:
         return goal
-    return DEFAULT_DAILY_VOCAB_GOAL
+    # Use the trivia-specific default so a future change to
+    # DEFAULT_DAILY_VOCAB_GOAL doesn't silently change the trivia goal
+    # (LANG-PROMPT-005).
+    from app.services.daily_learning import DEFAULT_DAILY_TRIVIA_GOAL
+
+    return DEFAULT_DAILY_TRIVIA_GOAL
 
 
 def _normalize(text: str) -> str:
