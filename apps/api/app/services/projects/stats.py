@@ -80,10 +80,14 @@ async def count_stats(
     *,
     timezone_name: str = "UTC",
 ) -> dict[str, int]:
-    items = await project_items_repo.list_for_user(
-        session, user_id, project_id=project_id, limit=5000
+    """Per-project stats via SQL aggregates — no item loading, no truncation.
+
+    (LANG-FLOW-002) Replaces the load-all-then-count pattern that capped at
+    5k items and silently under-counted large decks.
+    """
+    return await project_items_repo.count_stats_sql(
+        session, project_id, user_id, timezone_name=timezone_name
     )
-    return stats_from_items(items, timezone_name=timezone_name)
 
 
 async def count_stats_by_project(
@@ -92,14 +96,11 @@ async def count_stats_by_project(
     *,
     timezone_by_project: dict[UUID, str] | None = None,
 ) -> dict[UUID, dict[str, int]]:
-    if not project_ids:
-        return {}
-    items = await project_items_repo.list_for_projects(session, project_ids)
-    by_project: dict[UUID, list[ProjectItem]] = {pid: [] for pid in project_ids}
-    for item in items:
-        by_project.setdefault(item.project_id, []).append(item)
-    tz_by_project = timezone_by_project or {}
-    return {
-        pid: stats_from_items(pid_items, timezone_name=tz_by_project.get(pid, "UTC"))
-        for pid, pid_items in by_project.items()
-    }
+    """Per-project stats via SQL — no global cap, no truncation.
+
+    (LANG-FLOW-001) Replaces the batched load-all pattern that capped at 20k
+    across all projects with no per-project window.
+    """
+    return await project_items_repo.count_stats_by_project_sql(
+        session, project_ids, timezone_by_project=timezone_by_project
+    )
