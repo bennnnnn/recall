@@ -920,3 +920,99 @@ async def test_apply_deterministic_quiz_answer_language_project_ignores_trivia_f
     assert grade.is_correct is True
     # Project kind (language) wins over fence quiz_type (trivia).
     assert grade.quiz_type == "vocab"
+
+
+# --- LANG-GRAD-004 / LANG-BE-008: ambiguous full-text MCQ answer matching ---
+
+
+def _vocab_choices() -> tuple[tuple[str, str], ...]:
+    return (
+        ("A", "serendipity"),
+        ("B", "ephemeral"),
+        ("C", "ubiquitous"),
+        ("D", "candid"),
+    )
+
+
+def test_match_choice_letter_exact_full_text():
+    """Typing the full choice text maps to its letter (LANG-GRAD-004)."""
+    choices = _vocab_choices()
+    assert vocab_quiz_service.match_choice_letter("serendipity", choices) == "A"
+    assert vocab_quiz_service.match_choice_letter("ephemeral", choices) == "B"
+
+
+def test_match_choice_letter_exact_preferred_over_substring():
+    """When one choice is a substring of another, exact match wins (LANG-GRAD-004)."""
+    choices = (
+        ("A", "cat"),
+        ("B", "category"),
+        ("C", "dog"),
+        ("D", "fish"),
+    )
+    # "cat" exactly matches A even though it's a substring of B
+    assert vocab_quiz_service.match_choice_letter("cat", choices) == "A"
+
+
+def test_match_choice_letter_ambiguous_substring_returns_none():
+    """Ambiguous substring matches (no exact) return None (LANG-GRAD-004)."""
+    choices = (
+        ("A", "a cat"),
+        ("B", "the cat"),
+        ("C", "dog"),
+        ("D", "fish"),
+    )
+    # "cat" is a substring of both A and B — ambiguous
+    assert vocab_quiz_service.match_choice_letter("cat", choices) is None
+
+
+def test_match_choice_letter_strips_punctuation():
+    """Punctuation in user text is normalized away before matching."""
+    choices = _vocab_choices()
+    assert vocab_quiz_service.match_choice_letter("Serendipity!", choices) == "A"
+    assert vocab_quiz_service.match_choice_letter("serendipity.", choices) == "A"
+
+
+# --- LANG-BE-013: parse_vocab_quiz fence shape validation aligned with mobile ---
+
+
+def test_parse_vocab_quiz_rejects_four_raw_but_three_valid():
+    """A 4-item fence with an invalid letter (E) must be rejected to match
+    the mobile parser (isRenderableVocabQuiz requires exactly 4 valid)."""
+    fence = (
+        "```vocab_quiz\n"
+        '{"word":"cat","correct":"A",'
+        '"choices":['
+        '{"letter":"A","text":"x"},{"letter":"B","text":"y"},'
+        '{"letter":"C","text":"z"},{"letter":"E","text":"w"}'
+        "]}\n"
+        "```"
+    )
+    assert vocab_quiz_service.parse_vocab_quiz(fence) is None
+
+
+def test_parse_vocab_quiz_rejects_correct_letter_not_in_choices():
+    """If correct=D but no valid D choice exists, the fence is invalid."""
+    fence = (
+        "```vocab_quiz\n"
+        '{"word":"cat","correct":"D",'
+        '"choices":['
+        '{"letter":"A","text":"x"},{"letter":"B","text":"y"},'
+        '{"letter":"C","text":"z"},{"letter":"D","text":""}'
+        "]}\n"
+        "```"
+    )
+    assert vocab_quiz_service.parse_vocab_quiz(fence) is None
+
+
+def test_parse_vocab_quiz_rejects_duplicate_letters():
+    """Duplicate letters (A, A, C, D) produce only 3 unique pairs → reject."""
+    fence = (
+        "```vocab_quiz\n"
+        '{"word":"cat","correct":"A",'
+        '"choices":['
+        '{"letter":"A","text":"x"},{"letter":"A","text":"y"},'
+        '{"letter":"C","text":"z"},{"letter":"D","text":"w"}'
+        "]}\n"
+        "```"
+    )
+    assert vocab_quiz_service.parse_vocab_quiz(fence) is None
