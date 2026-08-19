@@ -22,6 +22,27 @@ def _hints(style: str) -> list[str]:
     )
 
 
+def _day_plan_hints() -> list[str]:
+    return _style_format_hints(
+        query_text="plan my day",
+        style="balanced",
+        is_day_plan=True,
+        minimal_personal_context=False,
+    )
+
+
+def test_day_plan_keeps_math_safety_guardrails():
+    """BUG FIX (MATH-BE-033): day-plan turns used to get only
+    RESPONSE_FORMAT_HINT, so a math question that landed in day-plan mode
+    lost every guardrail against raw ```latex/```copy fences. The compact
+    math safety hint now ships on day-plan turns too."""
+    parts = _day_plan_hints()
+    assert SHORT_MATH_SAFETY_HINT in parts
+    joined = "\n".join(parts)
+    assert "```answer" in joined
+    assert "```latex" in joined
+
+
 def test_short_style_still_includes_math_safety_guardrails():
     parts = _hints("short")
     assert SHORT_MATH_SAFETY_HINT in parts
