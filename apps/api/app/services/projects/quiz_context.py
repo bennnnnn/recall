@@ -349,6 +349,12 @@ async def load_project_quiz_context(
         )
     if retry_same or tries_exhausted:
         lines.extend(_format_missed_quiz_lines(items))
+    if not retry_same:
+        # LANG-FLOW-004: inject failed-review nudges on answer turns too, not
+        # just session start. After the first answer, due failed items from
+        # prior days would be skipped in favor of new words until the user
+        # starts a fresh project chat.
+        lines.extend(_format_failed_review_lines(items))
     return "\n".join(lines)
 
 
