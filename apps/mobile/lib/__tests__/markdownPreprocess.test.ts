@@ -264,6 +264,17 @@ represents`;
     expect(asText).not.toContain("\\frac");
   });
 
+  it("BUG FIX regression: lifts glued code fence openers for all langs, not just math", () => {
+    // The model also glues code fence openers to prose
+    // ("Here's the code: ```python print('hello')```"). The old
+    // breakAttachedMathFences only handled math/latex/tex/answer/graph/
+    // geometry langs; now it handles all recognized fence langs.
+    const out = breakAttachedMathFences("Here's the code: ```python print('hello')```");
+    expect(out).not.toMatch(/code: ```python/);
+    expect(out).toContain("Here's the code:");
+    expect(out).toContain("```python");
+  });
+
   it("BUG FIX regression: does not leave a stray backtick on a check-sum line", () => {
     // Live: "✅ Check sum: 2 + 8 + 32 = 42`" — leftover markdown tick.
     const input = "✅ Check sum: `2 + 8 + 32 = 42`\n✅ Check sum: 2 + 8 + 32 = 42`";
