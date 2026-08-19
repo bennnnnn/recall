@@ -513,7 +513,7 @@ async def list_by_activity_date(
         )
         .order_by(ProjectItem.mastered_at.desc().nullslast(), ProjectItem.created_at.desc())
         .offset(max(offset, 0))
-        .limit(min(limit, 100))
+        .limit(min(limit, 200))
     )
     return list((await session.execute(stmt)).scalars().all())
 
@@ -564,7 +564,7 @@ async def list_missed_by_activity_date(
             ProjectItem.created_at.desc(),
         )
         .offset(max(offset, 0))
-        .limit(min(limit, 100))
+        .limit(min(limit, 200))
     )
     return list((await session.execute(stmt)).scalars().all())
 
