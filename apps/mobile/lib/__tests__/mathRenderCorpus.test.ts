@@ -120,7 +120,7 @@ describe("real-world inline math corpus (full pipeline, never raw \\cmd)", () =>
   const corpus: Array<{ name: string; input: string; expect?: string }> = [
     { name: "sized delimiters", input: "Group $\\bigl(x+1\\bigr)$ first." , expect: "(x+1)" },
     { name: "sized brackets", input: "Use $\\Bigl[x+1\\Bigr]$ now." , expect: "[x+1]" },
-    { name: "big cup", input: "The union $\\bigcup_{i=1}^{n} A_i$ is finite.", expect: "∬" },
+    { name: "big cup", input: "The union $\\bigcup_{i=1}^{n} A_i$ is finite.", expect: "∪" },
     { name: "contour integral", input: "By $\\oint_C F\\,dr$ we get 0.", expect: "∮" },
     { name: "double integral", input: "So $\\iint_D f\\,dA$ works.", expect: "∬" },
     { name: "direct sum", input: "Note $\\oplus A$ is direct.", expect: "⊕" },

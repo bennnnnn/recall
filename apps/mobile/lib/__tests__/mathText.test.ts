@@ -359,12 +359,18 @@ describe("BUG FIX regression: native inline parser leaks (raw LaTeX / bad format
   });
 
   it("maps big operators to glyphs (\\bigcup/\\oint/\\iint/…)", () => {
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bigcup_{i=1}^{n} A_i`))).toContain("∬");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bigcup_{i=1}^{n} A_i`))).toContain("∪");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\oint_C F\,dr`))).toContain("∮");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\iint f`))).toContain("∬");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\iiint g`))).toContain("∭");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\oplus A`))).toBe("⊕ A");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\otimes B`))).toBe("⊗ B");
+  });
+
+  it("maps set-theory / relation glyphs (\\notin, \\degree, …)", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \notin A`))).toContain("∉");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`90\degree`))).toContain("°");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bigcup_{i=1}^{n} A_i`))).toContain("∪");
   });
 
   it("unwraps \\overset/\\underset/\\stackrel to the base (no bare braces)", () => {
