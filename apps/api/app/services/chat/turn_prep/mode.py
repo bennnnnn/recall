@@ -146,7 +146,10 @@ async def _classify_turn_mode(
     if quiz_assistant is not None:
         parsed_quiz = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content)
         quiz_choices = parsed_quiz.choices if parsed_quiz is not None else None
-        # Same predicate as ``_should_minimal_quiz_context``.
+
+    # Gate minimal_quiz on a linked project — without a project the answer
+    # cannot be graded, so quiz prompt context would mislead the model.
+    if chat.project_id is not None and quiz_assistant is not None:
         minimal_quiz = vocab_quiz_service.is_vocab_quiz_answer(content, choices=quiz_choices)
 
     if getattr(chat, "quiz_mode", None) == "exam":

@@ -1105,6 +1105,25 @@ def test_looks_like_vocab_question():
     assert projects_service.looks_like_vocab_question(sentence) is True
 
 
+def test_looks_like_vocab_question_false_positive_bold_label():
+    """Bold label + distant question mark must NOT match (LANG-PROMPT-002)."""
+    # A regular assistant reply with a bold section header and a question
+    # much later — should not be treated as a vocab question.
+    prose = (
+        "**Important note:** Here is a detailed explanation of the topic "
+        "with several paragraphs of context. The user asked about history "
+        "and I want to provide a thorough answer. Let me continue with "
+        "more details. Did you understand?"
+    )
+    assert projects_service.looks_like_vocab_question(prose) is False
+
+
+def test_looks_like_vocab_question_bold_word_near_question():
+    """Bold vocab word followed closely by a question mark should match."""
+    content = "**serendipity**\nWhat does this word mean?"
+    assert projects_service.looks_like_vocab_question(content) is True
+
+
 @pytest.mark.asyncio
 async def test_load_project_quiz_context():
     session = AsyncMock()

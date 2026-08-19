@@ -400,6 +400,13 @@ def looks_like_vocab_question(content: str) -> bool:
     tail = content.strip()[-1200:]
     if _VOCAB_QUESTION_MARKERS.search(tail):
         return True
-    if re.search(r"\*\*[^*\n]{2,40}\*\*", tail) and "?" in tail[-400:]:
-        return True
+    # Fallback: a short bold word (1-3 words, like a vocabulary term) followed
+    # by a question on the same or next line. Avoids false positives from
+    # regular prose with a bold label and a distant question mark.
+    bold_match = re.search(r"\*\*([A-Za-z][A-Za-z'\s-]{1,40})\*\*", tail)
+    if bold_match:
+        after_bold = tail[bold_match.end() :]
+        # Question mark must be within 200 chars after the bold word.
+        if "?" in after_bold[:200]:
+            return True
     return False
