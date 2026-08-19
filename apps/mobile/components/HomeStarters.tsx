@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ import { type IoniconName } from "@/lib/icons";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
+import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { learningProgressColors } from "@/lib/homeLearningCard";
 import { selection, tap } from "@/lib/haptics";
@@ -192,12 +193,15 @@ export function HomeStarters({ onSelect }: Props) {
     todos,
     loading: todosLoading,
     remindersReady,
-    seenReminderIds,
+    homeNudgeDismissed,
+    homeOverduePresented,
     dismissReminderNudge,
+    markHomeOverduePresented,
   } = useTodos();
   const [dismissedStarterKeys, setDismissedStarterKeys] = useState<Set<string>>(
     () => new Set(),
   );
+  const sessionOverdueRef = useRef<Set<string>>(new Set());
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
   // Never block first paint on /home — local greeting + starters, then hydrate.
   const display = screen ?? instantHomePlaceholder();
@@ -219,15 +223,38 @@ export function HomeStarters({ onSelect }: Props) {
   };
 
   const urgentTodos = useMemo(() => {
-    // Wait until todos + seen-state are in sync. Silent refreshes used to paint
-    // red urgent cards for a frame before seenReminderIds caught up.
+    // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
+    // red urgent cards for a frame before persisted dismissals caught up.
     if (todosLoading || !remindersReady) return [];
-    return listHomeUrgentTodos(todos, undefined, leadMinutes).filter(
-      (todo) => !seenReminderIds.has(todo.id),
+    const urgent = listHomeUrgentTodos(todos, undefined, leadMinutes);
+    return filterHomeNudgeTodos(
+      urgent,
+      {
+        dismissed: homeNudgeDismissed,
+        overduePresented: homeOverduePresented,
+      },
+      sessionOverdueRef.current,
     );
-  }, [todos, todosLoading, remindersReady, seenReminderIds, leadMinutes]);
+  }, [
+    todos,
+    todosLoading,
+    remindersReady,
+    homeNudgeDismissed,
+    homeOverduePresented,
+    leadMinutes,
+  ]);
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
+  const overdueIdsKey = urgentGroups.overdue.map((todo) => todo.id).join(",");
+
+  useEffect(() => {
+    if (!overdueIdsKey) return;
+    const ids = overdueIdsKey.split(",");
+    const unseen = ids.filter((id) => !homeOverduePresented.has(id));
+    for (const id of ids) sessionOverdueRef.current.add(id);
+    if (unseen.length === 0) return;
+    void markHomeOverduePresented(unseen);
+  }, [overdueIdsKey, homeOverduePresented, markHomeOverduePresented]);
 
   const chips = display.starters
     .filter((starter) => starter.kind !== "todo")
@@ -259,6 +286,7 @@ export function HomeStarters({ onSelect }: Props) {
           label={t("chat.home.due_soon")}
           todos={urgentGroups.dueSoon}
           onSelect={onSelect}
+          onDismiss={(id) => void dismissReminderNudge(id)}
           styles={s}
           theme={theme}
         />
