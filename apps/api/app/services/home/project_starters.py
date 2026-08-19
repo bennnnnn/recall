@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -44,6 +45,7 @@ def project_highlight(
     *,
     home_tz: ZoneInfo,
     project_items: list | None = None,
+    miss_events_by_item: dict[Any, list[datetime]] | None = None,
 ) -> HomeProjectHighlight | None:
     if not is_daily_home_project(project):
         return None
@@ -76,6 +78,7 @@ def project_highlight(
                 project_items or [],
                 timezone_name=str(home_tz.key),
             ),
+            miss_events_by_item=miss_events_by_item,
         )
         if project_items
         else None,
@@ -150,11 +153,16 @@ async def load_project_home_content(
             if cue is None:
                 continue
             project_items = items_by_project.get(candidate.id, [])
+            # Load miss events so daily history attributes misses to every day
+            # they occurred on, including items later mastered (LANG-BE-005/007).
+            item_ids = [it.id for it in project_items if hasattr(it, "id")]
+            miss_events = await project_items_repo.list_miss_events_for_items(session, item_ids)
             highlight = project_highlight(
                 candidate,
                 stats,
                 home_tz=home_tz,
                 project_items=project_items,
+                miss_events_by_item=miss_events,
             )
             if highlight is not None:
                 # Project chip starters were removed — highlight card is the only
