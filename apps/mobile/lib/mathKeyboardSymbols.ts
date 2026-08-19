@@ -41,6 +41,8 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "leq", label: "≤", insert: "\\leq ", group: "basics" }),
   key({ id: "geq", label: "≥", insert: "\\geq ", group: "basics" }),
   key({ id: "neq", label: "≠", insert: "\\neq ", group: "basics" }),
+  key({ id: "lt", label: "<", insert: "<", group: "basics" }),
+  key({ id: "gt", label: ">", insert: ">", group: "basics" }),
   key({ id: "times", label: "×", insert: "\\times ", group: "pad" }),
   key({ id: "div", label: "÷", insert: "\\div ", group: "pad" }),
   key({ id: "plus", label: "+", insert: "+", group: "pad" }),
@@ -140,6 +142,9 @@ export const MATH_PAD_KEYS: readonly MathKeyboardSymbol[] = [
   key({ id: "comma", label: ",", insert: ",", group: "pad" }),
   key({ id: "var-x", label: "𝑥", insert: "x", group: "pad" }),
   key({ id: "var-y", label: "𝑦", insert: "y", group: "pad" }),
+  key({ id: "var-z", label: "𝑧", insert: "z", group: "pad" }),
+  key({ id: "var-n", label: "𝑛", insert: "n", group: "pad" }),
+  key({ id: "var-t", label: "𝑡", insert: "t", group: "pad" }),
 ];
 
 export function symbolsInGroup(group: MathKeyboardGroup): MathKeyboardSymbol[] {
@@ -501,6 +506,9 @@ export const MATH_NUMPAD_ROWS: PadCell[][] = [
     { kind: "insert", spec: padSpec("comma") },
     { kind: "insert", spec: padSpec("var-x") },
     { kind: "insert", spec: padSpec("var-y") },
+    { kind: "insert", spec: padSpec("var-z") },
+    { kind: "insert", spec: padSpec("var-n") },
+    { kind: "insert", spec: padSpec("var-t") },
     { kind: "insert", spec: padSpec("eq") },
   ],
 ];

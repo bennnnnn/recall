@@ -104,6 +104,8 @@ describe("key insert matches the button", () => {
     ["leq", "\\leq "],
     ["geq", "\\geq "],
     ["neq", "\\neq "],
+    ["lt", "<"],
+    ["gt", ">"],
     ["times", "\\times "],
     ["div", "\\div "],
     ["plus", "+"],
@@ -292,6 +294,18 @@ describe("MATH_NUMPAD_ROWS", () => {
     expect(ids).toContain("var-y");
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(true);
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "slot-nav")).toBe(true);
+  });
+
+  it("BUG FIX regression: includes <, >, and extra variables (z, n, t)", () => {
+    const allSymbols = MATH_KEYBOARD_SYMBOLS.map((s) => s.id);
+    expect(allSymbols).toContain("lt");
+    expect(allSymbols).toContain("gt");
+    const padIds = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
+      c.kind === "insert" ? [c.spec.id] : [],
+    );
+    expect(padIds).toContain("var-z");
+    expect(padIds).toContain("var-n");
+    expect(padIds).toContain("var-t");
   });
 });
 
