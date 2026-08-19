@@ -206,6 +206,12 @@ async def prepare_chat_turn(
     )
     if quiz_grade is not None:
         await _invalidate_home_for_user(user.id)
+    elif chat_project_id is not None and is_letter_answer and turn_mode.quiz_assistant is not None:
+        # LANG-CACHE-001: even when deterministic grading returned None (e.g.
+        # open-ended vocab answer, missing fence, or no project match), the
+        # background project sync may still record mastery/learning. Invalidate
+        # home cache now so the next home fetch is fresh after the turn.
+        await _invalidate_home_for_user(user.id)
 
     bundle = await build_stream_prompt_context(
         user_id,

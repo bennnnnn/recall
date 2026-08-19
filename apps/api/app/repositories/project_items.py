@@ -658,6 +658,36 @@ async def apply_quiz_result(
     return item
 
 
+async def record_quiz_attempt(
+    session: AsyncSession,
+    item: ProjectItem,
+    *,
+    now: datetime | None = None,
+    commit: bool = False,
+) -> None:
+    """Record a wrong attempt without SM-2 scheduling (tries 1-2).
+
+    Increments ``quiz_attempts``, sets ``last_incorrect_at``, and logs a
+    ``QuizMissEvent`` — but does NOT update ease_factor / interval / due_at.
+    This lets ``missed_today`` count all wrong answers toward the daily goal,
+    not just exhausted ones. (LANG-TEACH-011)
+    """
+    if now is None:
+        now = datetime.now(UTC)
+    item.last_incorrect_at = now
+    session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
+    await session.execute(
+        sql_update(ProjectItem)
+        .where(ProjectItem.id == item.id)
+        .values(quiz_attempts=ProjectItem.quiz_attempts + 1, last_incorrect_at=now)
+    )
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    await session.refresh(item, attribute_names=["quiz_attempts"])
+
+
 async def update(
     session: AsyncSession, item: ProjectItem, *, commit: bool = True, **fields: Any
 ) -> ProjectItem:

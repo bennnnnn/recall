@@ -232,6 +232,12 @@ async def apply_deterministic_quiz_answer(
                 is_correct=is_correct,
                 definition=(correct_text or "").strip() or None,
             )
+        elif existing is not None and not is_correct:
+            # Record the wrong attempt (tries 1-2) without SM-2 scheduling so
+            # missed_today counts it toward the daily goal. (LANG-TEACH-011)
+            await project_items_repo.record_quiz_attempt(
+                session, existing, now=datetime.now(UTC), commit=False
+            )
         return vocab_quiz_service.QuizAnswerGrade(
             is_correct=is_correct,
             user_letter=letter,
@@ -270,6 +276,12 @@ async def apply_deterministic_quiz_answer(
             content=word,
             list_title=list_title,
             is_correct=is_correct,
+        )
+    elif existing is not None and not is_correct:
+        # Record the wrong attempt (tries 1-2) without SM-2 scheduling so
+        # missed_today counts it toward the daily goal. (LANG-TEACH-011)
+        await project_items_repo.record_quiz_attempt(
+            session, existing, now=datetime.now(UTC), commit=False
         )
     return vocab_quiz_service.QuizAnswerGrade(
         is_correct=is_correct,
