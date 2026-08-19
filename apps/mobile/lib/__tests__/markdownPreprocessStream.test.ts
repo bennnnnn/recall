@@ -187,4 +187,49 @@ describe("markdownPreprocessStream", () => {
     expect(findStableMarkdownPrefixLen(content)).toBe(content.length);
     simulateStreamingAndCrossCheck(content, 6);
   });
+
+  it("BUG FIX regression: excludes an unclosed $...$ inline-math span from the stable prefix", () => {
+    // Without tracking single-`$` parity, a prefix cut mid-`$x^2 +` would
+    // be treated as stable and preprocessed with a dangling `$`.
+    const input = "The answer is $x^2 + \n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(0);
+  });
+
+  it("BUG FIX regression: includes a closed $...$ inline-math span in the stable prefix", () => {
+    const input = "The answer is $x^2$ and more.\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+  });
+
+  it("BUG FIX regression: excludes an unclosed \\(...\\) inline-math span from the stable prefix", () => {
+    const input = "The answer is \\(x^2 + \n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(0);
+  });
+
+  it("BUG FIX regression: includes a closed \\(...\\) inline-math span in the stable prefix", () => {
+    const input = "The answer is \\(x^2\\) and more.\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+  });
+
+  it("agrees with the reference implementation while streaming inline $...$ and \\(...\\) math", () => {
+    const content =
+      "Intro\n\n" +
+      "The value of $x$ is 5.\n\n" +
+      "And \\(y = 2x\\) too.\n\n" +
+      "After.\n";
+    simulateStreamingAndCrossCheck(content, 3);
+    simulateStreamingAndCrossCheck(content, 11);
+  });
+
+  it("BUG FIX regression: mathFormat is applied during streaming", () => {
+    // preprocessMarkdownForStream must forward mathFormat to preprocessMarkdown
+    // for the stable prefix — previously it was only applied on the non-streaming path.
+    // Use a bare equation (implicit math) so normalizeImplicitMath wraps it via format.
+    const content = "x^2 = 4\n";
+    const formatFn = (expr: string) => `\\boxed{${expr}}`;
+    const result = preprocessMarkdownForStream(content, null, formatFn);
+    expect(result.prepared).toContain("\\boxed{x^2 = 4}");
+    // Without mathFormat, the default fixImplicitExponents would produce $x^2 = 4$.
+    const noFormat = preprocessMarkdownForStream(content, null);
+    expect(noFormat.prepared).not.toContain("\\boxed");
+  });
 });
