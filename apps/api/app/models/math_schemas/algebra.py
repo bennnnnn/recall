@@ -31,7 +31,9 @@ class SystemOfEquationsInput(BaseModel):
 
 _VALID_INEQUALITY_COMPARATORS = frozenset({"<", ">", "<=", ">="})
 _VALID_CAMERA_CALC_OPS = frozenset({"simplify", "differentiate", "integrate", "factor", "expand"})
-_VALID_CAMERA_STATS_OPS = frozenset({"mean", "median", "mode", "variance", "stdev"})
+_VALID_CAMERA_STATS_OPS = frozenset(
+    {"mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance"}
+)
 
 
 class MathImageExtract(BaseModel):

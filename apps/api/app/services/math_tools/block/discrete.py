@@ -121,8 +121,12 @@ def _verified_block_statistics(
         answer = result.labels["mode"]
     elif intent.stats_op == "stdev":
         answer = result.labels["population_stdev"]
+    elif intent.stats_op == "sample_stdev":
+        answer = result.labels.get("sample_stdev", "n/a")
     elif intent.stats_op == "variance":
         answer = f"{result.variance_population:g}"
+    elif intent.stats_op == "sample_variance":
+        answer = f"{result.variance_sample:g}" if result.variance_sample is not None else "n/a"
     else:
         answer = result.labels["mean"]
     return _finish_with_answer(

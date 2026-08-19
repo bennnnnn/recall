@@ -105,8 +105,13 @@ class MathIntent(BaseModel):
     # Same idea for circles: only annotate diameter/circumference when asked.
     wants_diameter: bool = False
     wants_circumference: bool = False
-    # Statistics — a raw data list (mean/median/mode/stdev/variance).
-    stats_op: Literal["mean", "median", "mode", "variance", "stdev"] | None = None
+    # Statistics — a raw data list (mean/median/mode/stdev/variance). The
+    # sample_* variants use the (n-1) divisor; the bare "stdev"/"variance"
+    # ops use the population divisor (the historical default).
+    stats_op: (
+        Literal["mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance"]
+        | None
+    ) = None
     stats_numbers: list[float] | None = None
     # Combinatorics — factorial (k unused) / combinations / permutations.
     combo_op: Literal["factorial", "combinations", "permutations"] | None = None

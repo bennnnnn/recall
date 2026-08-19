@@ -282,6 +282,18 @@ class TestStatsSignal:
         op, _ = mtm.stats_signal("standard deviation of 10, 20, 30")
         assert op == "stdev"
 
+    def test_stats_signal_sample_standard_deviation(self):
+        op, _ = mtm.stats_signal("sample standard deviation of 10, 20, 30")
+        assert op == "sample_stdev"
+
+    def test_stats_signal_population_standard_deviation(self):
+        op, _ = mtm.stats_signal("population standard deviation of 10, 20, 30")
+        assert op == "stdev"
+
+    def test_stats_signal_sample_variance(self):
+        op, _ = mtm.stats_signal("sample variance of 10, 20, 30")
+        assert op == "sample_variance"
+
     def test_stats_signal_requires_two_plus_numbers(self):
         # "what do you mean by X" — no data list → no match.
         assert mtm.stats_signal("what do you mean by that") is None

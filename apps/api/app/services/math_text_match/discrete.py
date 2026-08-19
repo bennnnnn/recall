@@ -8,8 +8,19 @@ from app.services.math_text_match.scan import _NUM
 from app.services.math_text_match.types import CombinatoricsOp, MatrixOp, NumberTheoryOp, StatsOp
 
 # Longest/most-specific phrase first so e.g. "standard deviation" is found
-# before a later, coincidental bare "deviation" would matter.
+# before a later, coincidental bare "deviation" would matter. "sample …"
+# and "population …" qualifiers must be matched before the bare forms so
+# "sample standard deviation" is not swallowed by the plain "standard
+# deviation" entry (which defaults to the population statistic).
 _STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
+    ("sample standard deviation", "sample_stdev"),
+    ("sample std dev", "sample_stdev"),
+    ("sample stdev", "sample_stdev"),
+    ("sample variance", "sample_variance"),
+    ("population standard deviation", "stdev"),
+    ("population std dev", "stdev"),
+    ("population stdev", "stdev"),
+    ("population variance", "variance"),
     ("standard deviation", "stdev"),
     ("std dev", "stdev"),
     ("stdev", "stdev"),
