@@ -199,6 +199,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           /* best-effort */
         }
+        try {
+          const { clearHomeNudgeState } = await import("@/lib/homeReminderNudges");
+          await clearHomeNudgeState(userId);
+        } catch {
+          /* best-effort */
+        }
       }
       try {
         const { clearAllCachedChatMessages } = await import("@/lib/chatMessageCache");
