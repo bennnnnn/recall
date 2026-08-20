@@ -346,6 +346,7 @@ async def _load_context_blocks(
                 settings,
                 query_text=query_text,
                 chat_project_id=chat.project_id if chat is not None else None,
+                exclude_sensitive=True,
             )
 
     async def _todos_section() -> str | None:

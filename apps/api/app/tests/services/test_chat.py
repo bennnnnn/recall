@@ -255,6 +255,29 @@ def test_format_hints_discourage_tables_for_how_tos():
         assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
 
 
+def test_format_hints_include_rich_fence_guidance():
+    """The model must be told about callouts, steps, and details fences so
+    output is visually clear and attractive — the renderers exist in the app
+    but were never mentioned in the prompt."""
+    from app.services.chat.prompt_constants import (
+        INTENT_FORMAT_HINT,
+        RESPONSE_FORMAT_HINT,
+    )
+
+    # Callout fences
+    assert "```tip" in INTENT_FORMAT_HINT
+    assert "```warning" in INTENT_FORMAT_HINT
+    # Steps fence for procedures
+    assert "```steps" in INTENT_FORMAT_HINT
+    # Collapsible details
+    assert "```details" in INTENT_FORMAT_HINT
+    # Comparison fence for pros/cons
+    assert "```comparison" in INTENT_FORMAT_HINT
+    # Visual polish guidance in RESPONSE_FORMAT_HINT
+    assert "visually clear" in RESPONSE_FORMAT_HINT.lower()
+    assert "callout" in RESPONSE_FORMAT_HINT.lower() or "```tip" in RESPONSE_FORMAT_HINT
+
+
 def test_math_formula_shape_rule_is_unified():
     """Global hints and math-solver hints must agree: inline $ for steps,
     ```math only for standalone display — not contradictory guidance."""

@@ -433,7 +433,7 @@ function makeSharedRules(
     ) => (
       <Text
         key={node.key}
-        style={[styles.strong, inTableCell(parent) && mdTable.headerText]}
+        style={[styles.strong, inTableHeader(parent) && mdTable.headerText]}
         selectable
       >
         {children}
