@@ -107,8 +107,8 @@ async def test_refresh_session_maps_redis_outage_to_503():
 @pytest.mark.asyncio
 async def test_logout_maps_redis_outage_to_503():
     settings = Settings(jwt_secret="test-secret-32-chars-long-enough!!")
-    credentials = MagicMock()
-    credentials.credentials = "atok"
+    request = MagicMock()
+    request.headers = {"authorization": "Bearer atok"}
     with patch(
         "app.routers.auth.tokens_service.revoke_access_token",
         AsyncMock(side_effect=RedisUnavailableError()),
@@ -116,7 +116,7 @@ async def test_logout_maps_redis_outage_to_503():
         with pytest.raises(HTTPException) as exc:
             await auth_router.logout(
                 LogoutRequest(refresh_token="rtok"),
-                credentials=credentials,
+                request=request,
                 settings=settings,
                 redis=AsyncMock(),
             )

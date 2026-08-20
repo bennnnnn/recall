@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.core.config import Settings
+from app.core.validation import normalize_display_name
 from app.gateways.apple_auth import verify_apple_id_token
 from app.gateways.google_auth import GoogleAuthError, verify_google_id_token
 from app.models.orm import User
@@ -93,6 +94,8 @@ async def login_with_apple(
     *,
     name: str | None = None,
 ) -> AuthResponse:
+    # L1: validate the client-supplied display name (trim, collapse, length)
+    name = normalize_display_name(name)
     payload = await verify_apple_id_token(id_token, settings)
     apple_sub = payload["sub"]
     email = payload.get("email")

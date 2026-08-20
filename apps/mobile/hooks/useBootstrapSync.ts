@@ -26,7 +26,11 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
                 : updated,
             );
           })
-          .catch(() => {});
+          .catch((error: unknown) => {
+            // L5: log so a misconfigured backend / network issue isn't silent —
+            // the user's prompts will use the stale tz until the next sync.
+            console.warn("[bootstrap] timezone sync failed", error);
+          });
       }
     });
   }, [token, user?.id, user?.timezone, setUser]);
@@ -45,7 +49,10 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
                 : updated,
             );
           })
-          .catch(() => {});
+          .catch((error: unknown) => {
+            // L5: log so location sync failures aren't silent.
+            console.warn("[bootstrap] location sync failed", error);
+          });
       }
     });
   }, [token, user?.id, user?.location, user?.location_enabled, setUser]);
@@ -113,7 +120,18 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
         // fine.
         cleanup =
           (await registerPlanChangeListener(() => {
-            void api.syncSubscription(token).then(setUser).catch(() => {});
+            // M3: merge only the plan field — setUser replaces the entire
+            // user object and bypasses the generation guard in updateUser,
+            // so a slow sync can overwrite an in-flight profile patch (e.g.
+            // timezone toggle snaps back).
+            void api
+              .syncSubscription(token)
+              .then((updated) => {
+                setUser((prev) =>
+                  prev ? { ...prev, plan: updated.plan } : updated,
+                );
+              })
+              .catch(() => {});
           })) ?? undefined;
         if (cancelled) {
           cleanup?.();

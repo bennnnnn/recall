@@ -55,7 +55,11 @@ const DEFAULT_USER_FIELDS: Omit<User, keyof CachedUser> = {
  * re-fetched fields. The result is replaced by the real ``api.me()`` response
  * within a second or two of cold start. */
 export function mergeCachedUser(cached: CachedUser): User {
-  return { ...DEFAULT_USER_FIELDS, ...cached };
+  // M4: never trust a cached plan — default to "free" so a lapsed Pro
+  // subscription doesn't flash Pro UI (upgrade sheet hidden, wrong quota
+  // copy) before /auth/me confirms. The server upgrades after the
+  // background fetch lands.
+  return { ...DEFAULT_USER_FIELDS, ...cached, plan: "free" };
 }
 
 /** Last-known user display fields, used to paint the app instantly on cold

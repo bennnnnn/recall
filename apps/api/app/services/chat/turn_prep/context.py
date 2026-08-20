@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -46,6 +47,8 @@ from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.math_tools import VerifiedMathBlock
 from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -380,7 +383,20 @@ async def build_stream_prompt_context(
     # prompt guidance, not a hard token cap. Capping by style truncated large
     # deliverables (HTML pages, graph JSON) mid-fence.
     max_out = settings.max_output_tokens
-    fallback_models = plan_service.chat_fallback_models(user, settings, model)
+    # M6: filter out unhealthy models from the fallback pool so we don't
+    # repeatedly hit a degraded provider. Best-effort — if health read
+    # fails (Redis down), treat all as healthy (fail open).
+    unhealthy: set[str] = set()
+    try:
+        from app.services import model_health as model_health_service
+
+        for mid in plan_service.model_pool(user, settings):
+            snap = await model_health_service.get_health(redis, mid)
+            if not snap.healthy:
+                unhealthy.add(mid)
+    except Exception:
+        logger.debug("model health read failed during fallback selection", exc_info=True)
+    fallback_models = plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
 
     local_places = geo.local_places
     search_sources: list[WebSearchHit] = []

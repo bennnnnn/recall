@@ -30,14 +30,31 @@ _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 
 
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
-    """Best-effort: re-seed the Redis daily usage counter from the DB total."""
+    """Re-seed the Redis daily usage counter from the DB total.
+
+    Also heals Redis/DB drift — if Redis holds a stale value lower than the DB
+    total (repeated adjust_usage failures, partial outages), raise Redis to
+    max(redis, db_total) so quota enforcement is correct.
+
+    M9: errors are logged at warning (not debug) — a failed seed after Redis
+    eviction means the turn proceeds with Redis at 0 despite prior usage in
+    the DB, allowing the user to exceed daily limits. The caller may still
+    proceed (best-effort), but this should be visible in logs.
+    """
     try:
-        if await quota_service.has_daily_usage_key(redis, str(user_id)):
-            return
         db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
+        if await quota_service.has_daily_usage_key(redis, str(user_id)):
+            # Key exists — but it may be stale (lower than DB). Heal drift.
+            await quota_service.heal_usage_drift(redis, str(user_id), db_total)
+            return
         await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
     except Exception:
-        logger.debug("Usage DB-seed skipped (best-effort)", exc_info=True)
+        logger.warning(
+            "Usage DB-seed failed user_id=%s — quota enforcement may start "
+            "from 0 if Redis was evicted",
+            user_id,
+            exc_info=True,
+        )
 
 
 async def restore_regenerate_backup(
@@ -198,15 +215,30 @@ async def finalize_stream_turn_db(
             quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
         )
         try:
-            await quota_service.adjust_usage(
-                redis,
-                str(ctx.user_id),
-                ctx.reserved_tokens,
-                weighted_total,
-                daily_limit=daily_limit,
-            )
+            # H2: retry adjust_usage with short backoff so a transient Redis
+            # blip doesn't leave the reservation inflated (user loses quota
+            # on subsequent turns). On persistent failure, the next turn's
+            # heal_usage_drift will correct the drift from the DB total.
+            for _attempt in range(3):
+                try:
+                    await quota_service.adjust_usage(
+                        redis,
+                        str(ctx.user_id),
+                        ctx.reserved_tokens,
+                        weighted_total,
+                        daily_limit=daily_limit,
+                    )
+                    break
+                except Exception:
+                    if _attempt == 2:
+                        raise
+                    await asyncio.sleep(0.1 * (_attempt + 1))
         except Exception:
-            logger.exception("adjust_usage failed after successful finalize commit; not refunding")
+            logger.warning(
+                "adjust_usage failed after finalize commit; Redis may be inflated "
+                "— heal_usage_drift on next turn will correct from DB total",
+                exc_info=True,
+            )
         if est_cost:
             try:
                 await quota_service.record_global_spend(redis, est_cost)

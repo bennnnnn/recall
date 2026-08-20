@@ -113,6 +113,11 @@ def resolve_user_model_override(
     ``auto`` (or an alias not in the user's enabled pool) falls back to the
     Settings-based resolution so free users can't bypass plan gates and a
     disabled model can't be forced through the picker.
+
+    L8: non-selectable aliases (not in ``_override_pool``) silently fall back
+    to ``resolve_user_model`` rather than 400 — this is intentional: the
+    mobile picker only sends selectable aliases, so an unknown value means
+    a stale client / older app version, and failing would break their chat.
     """
     if model_alias and model_alias != AUTO_ALIAS:
         if model_alias in _override_pool(user, settings):
@@ -156,27 +161,31 @@ def chat_fallback_models(
     primary: str,
     *,
     max_fallbacks: int = 2,
+    unhealthy: set[str] | None = None,
 ) -> list[str]:
-    """Other models in the user's pool to try when the primary provider is down."""
+    """Other models in the user's pool to try when the primary provider is down.
+
+    ``unhealthy`` is a set of model aliases with poor health (high error rate
+    or latency). When provided, unhealthy models are skipped so the fallback
+    doesn't repeatedly hit a degraded provider.
+    """
     if max_fallbacks <= 0:
         return []
 
+    skip = unhealthy or set()
     allowed = allowed_model_ids(user, settings)
     candidates: list[str] = []
 
-    fb = settings.memory_fallback_model_alias.strip()
-    if (
-        fb
-        and fb != primary
-        and fb in allowed
-        and model_catalog.is_available(model_catalog.get(fb), settings)
-    ):
-        candidates.append(fb)
-
+    # M11: memory_fallback_model_alias is for background jobs (memory/todo/
+    # project extraction), not chat — it's non-selectable and never in
+    # ``allowed``, so the check below was always false. Removed it so the
+    # chat fallback pool is just the cheapest healthy selectable models.
     for model_id in model_pool(user, settings):
         if model_id == primary or model_id in candidates:
             continue
         if model_id not in allowed:
+            continue
+        if model_id in skip:
             continue
         if model_catalog.is_available(model_catalog.get(model_id), settings):
             candidates.append(model_id)

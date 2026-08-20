@@ -99,6 +99,20 @@ export async function hasActiveProEntitlement(): Promise<boolean> {
 }
 
 /**
+ * L4: log out RevenueCat so the next user doesn't inherit the prior user's
+ * entitlements / customer info. No-op when Purchases isn't configured.
+ */
+export async function signOutRevenueCat(): Promise<void> {
+  const mod = await loadPurchases();
+  if (!mod) return;
+  try {
+    await mod.default.logOut();
+  } catch {
+    // best-effort — local token clear is what matters
+  }
+}
+
+/**
  * Register a listener that fires when the Pro entitlement state changes.
  * RevenueCat calls customerInfoUpdateListener on purchase/restore/expiry and
  * on app foreground; we de-dupe to only invoke `onChange` when the active

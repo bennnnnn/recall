@@ -12,6 +12,9 @@ export const QUOTA_NUDGE_THRESHOLD_PCT = 80;
 let dismissedDate: string | null = null;
 
 function today(): string {
+  // L7: use UTC (toISOString) to match the server's UTC-day quota reset.
+  // A local-date slice would dismiss the nudge across a midnight boundary
+  // that the server hasn't crossed yet.
   return new Date().toISOString().slice(0, 10);
 }
 

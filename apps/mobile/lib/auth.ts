@@ -78,3 +78,15 @@ export async function setOnboarded(): Promise<void> {
     // persisted in memory only
   }
 }
+
+/** L3: reset the onboarding flag so a different user signing in on the same
+ * device still sees the intro. Onboarding is device-local by design; clearing
+ * on signOut keeps it per-account in effect. */
+export async function clearOnboarded(): Promise<void> {
+  _memOnboarded = false;
+  try {
+    await SecureStore.deleteItemAsync(ONBOARDED_KEY);
+  } catch {
+    // best-effort
+  }
+}

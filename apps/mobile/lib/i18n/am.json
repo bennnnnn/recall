@@ -968,7 +968,7 @@
   "settings.prompt_window_value": "{{tokens}} tokens",
   "settings.usage_group": "Usage",
   "settings.usage_today": "Today",
-  "settings.usage_today_split": "{{input}} in · {{output}} out",
+  "settings.usage_today_split": "{{input}} in · {{output}} out (weighted)",
   "settings.usage_today_value": "{{used}} / {{limit}}",
   "projects.level.beginner": "መነሻ",
   "projects.level.elementary": "መሠረት",

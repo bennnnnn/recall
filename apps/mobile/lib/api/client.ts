@@ -1,10 +1,10 @@
 import { getApiUrl } from "@/lib/config";
 import { getRefreshToken, setTokenPair } from "@/lib/auth";
 
-import type { AuthResult } from "@/lib/api/types";
+import type { AuthResult, User } from "@/lib/api/types";
 
 let onUnauthorized: (() => void) | null = null;
-let onTokenRefresh: ((accessToken: string) => void) | null = null;
+let onTokenRefresh: ((accessToken: string, user?: User) => void) | null = null;
 
 export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
@@ -15,7 +15,9 @@ export function notifyUnauthorized(): void {
   onUnauthorized?.();
 }
 
-export function setTokenRefreshHandler(fn: ((accessToken: string) => void) | null): void {
+export function setTokenRefreshHandler(
+  fn: ((accessToken: string, user?: User) => void) | null,
+): void {
   onTokenRefresh = fn;
 }
 
@@ -59,7 +61,9 @@ export async function refreshAccessToken(): Promise<string | null> {
       if (!response.ok) return null;
       const data = (await response.json()) as AuthResult;
       await setTokenPair(data.access_token, data.refresh_token);
-      onTokenRefresh?.(data.access_token);
+      // L2: pass the user payload too so AuthContext can merge plan/profile
+      // changes (e.g. webhook downgrade) without waiting for /auth/me.
+      onTokenRefresh?.(data.access_token, data.user);
       return data.access_token;
     } catch {
       return null;
@@ -76,7 +80,9 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 export async function logoutSession(token: string, refreshToken: string | null): Promise<void> {
   try {
-    await fetch(apiUrl("/auth/logout"), {
+    // L6: use fetchWithTimeout so a hung backend doesn't wedge the sign-out
+    // flow (the user is already clearing the local token regardless).
+    await fetchWithTimeout(apiUrl("/auth/logout"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

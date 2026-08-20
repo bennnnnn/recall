@@ -170,6 +170,9 @@ async def reset_today_usage(
     if not settings.dev_auth_enabled:
         raise ChatsError("Not found", status_code=404)
     await quota_service.reset_daily_usage(redis, str(user.id))
+    # L9: also clear the DB row so today_usage (called next) returns 0 —
+    # otherwise the UI still shows the DB-recorded total after reset.
+    await usage_repo.reset_for_date(session, user.id, utc_today())
     return await today_usage(session, redis, settings, user)
 
 

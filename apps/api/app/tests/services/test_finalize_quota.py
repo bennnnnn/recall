@@ -75,7 +75,8 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
         )
 
     session.commit.assert_awaited()
-    adjust.assert_awaited_once()
+    # H2: adjust_usage retries 3 times on failure before giving up.
+    assert adjust.await_count == 3
     refund.assert_not_awaited()
 
 

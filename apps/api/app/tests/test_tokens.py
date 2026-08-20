@@ -157,11 +157,11 @@ async def test_logout_without_refresh_purges_all_sessions(fake_redis):
     access, refresh1 = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
     _a2, refresh2 = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
 
-    credentials = MagicMock()
-    credentials.credentials = access
+    request = MagicMock()
+    request.headers = {"authorization": f"Bearer {access}"}
     await auth_router.logout(
         LogoutRequest(refresh_token=None),
-        credentials=credentials,
+        request=request,
         settings=settings,
         redis=fake_redis,
     )
@@ -190,13 +190,13 @@ async def test_purge_user_sessions_kills_all_refresh_tokens(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_purge_user_sessions_never_raises_on_redis_failure():
-    """Redis must never block account deletion — a Redis outage during
-    `DELETE /auth/me` must not turn a 204 into a 500."""
+async def test_purge_user_sessions_raises_on_redis_failure():
+    """M1: Redis outage during account delete must fail (503), not silently
+    succeed — otherwise live sessions can call the API until JWT expiry."""
     settings = Settings(jwt_secret="x" * 32)
     user_id = uuid4()
     redis = AsyncMock()
     redis.smembers = AsyncMock(side_effect=RuntimeError("redis down"))
 
-    # Should not raise.
-    await tokens_service.purge_user_sessions(redis, user_id, settings)
+    with pytest.raises(RuntimeError, match="redis down"):
+        await tokens_service.purge_user_sessions(redis, user_id, settings)
