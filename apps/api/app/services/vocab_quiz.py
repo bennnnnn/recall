@@ -63,21 +63,34 @@ def _normalize_choice_text(text: str) -> str:
 
 
 def match_choice_letter(user_text: str, choices: tuple[tuple[str, str], ...]) -> str | None:
-    """Map free-text like 'a typical example' to its A-D letter when unique."""
+    """Map free-text like 'a typical example' to its A-D letter when unambiguous.
+
+    Prefers exact normalized matches. Falls back to substring containment
+    only when no exact match exists, and only if the substring match is unique.
+    """
     needle = _normalize_choice_text(user_text)
     if not needle or len(needle) > 80:
         return None
-    hits: list[str] = []
+
+    exact_hits: list[str] = []
+    substr_hits: list[str] = []
     for letter, text in choices:
         choice = _normalize_choice_text(text)
         if not choice:
             continue
-        if needle == choice or needle in choice or choice in needle:
-            hits.append(letter)
-    # Prefer exact / unique matches only — ambiguous substrings are ignored.
-    unique = list(dict.fromkeys(hits))
-    if len(unique) == 1:
-        return unique[0]
+        if needle == choice:
+            exact_hits.append(letter)
+        elif needle in choice or choice in needle:
+            substr_hits.append(letter)
+
+    exact_unique = list(dict.fromkeys(exact_hits))
+    if len(exact_unique) == 1:
+        return exact_unique[0]
+
+    substr_unique = list(dict.fromkeys(substr_hits))
+    if not exact_unique and len(substr_unique) == 1:
+        return substr_unique[0]
+
     return None
 
 
@@ -189,6 +202,22 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         choice_pairs.append((letter, text))
         if letter == correct:
             correct_text = text
+
+    # Require exactly 4 valid (letter, text) pairs to match the mobile parser
+    # (parseVocabQuiz.ts isRenderableVocabQuiz rejects != 4). Without this,
+    # the backend accepts a 4-item fence with an invalid "E" choice that the
+    # mobile refuses to render, leaving the user stuck on an un-answerable card.
+    if len(choice_pairs) != 4:
+        return None
+
+    # The 4 choices must have unique letters (no duplicates).
+    letters = [pair[0] for pair in choice_pairs]
+    if len(set(letters)) != 4:
+        return None
+
+    # The correct letter must be among the valid choices.
+    if correct_text is None:
+        return None
 
     return ParsedVocabQuiz(
         word=word or (question or "")[:80],
