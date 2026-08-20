@@ -1047,3 +1047,62 @@ def test_list_attachments_empty():
     assert r.status_code == 200
     assert r.json()["items"] == []
     assert r.json()["has_more"] is False
+
+
+def test_put_upload_empty_body_purges_row_and_refunds_quota():
+    """An empty PUT body must purge the DB row and refund image quota —
+    previously it returned 400 without cleanup, leaving an orphaned row until
+    the 24h reaper and consuming a daily image slot forever."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.message_id = None
+    row.content_type = "image/png"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    row.size_bytes = 128
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.delete_bytes = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            AsyncMock(),
+        ) as refund_mock,
+        patch(
+            "app.repositories.attachments.delete_rows",
+            AsyncMock(return_value=1),
+        ) as delete_rows,
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=b"",
+        )
+
+    assert r.status_code == 400
+    assert "size" in r.json()["detail"].lower()
+    gateway.delete_bytes.assert_awaited_once()
+    delete_rows.assert_awaited_once()
+    refund_mock.assert_awaited_once()
+
+
+def test_presign_rejects_legacy_doc():
+    """Legacy .doc (application/msword) must be rejected at presign — it has
+    no pure-Python parser, so allowing it produces unusable uploads with no RAG."""
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    r = client.post(
+        "/attachments/presign",
+        headers={"Authorization": "Bearer tok"},
+        json={"content_type": "application/msword", "size_bytes": 100},
+    )
+    assert r.status_code == 400

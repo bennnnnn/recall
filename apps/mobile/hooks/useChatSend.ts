@@ -230,10 +230,11 @@ export function useChatSend({
       if (!authToken) return;
 
       const attached = pendingAttachment;
-      // Leave the composer immediately — upload happens before the network
-      // send, but the user should see the bubble, not a spinning preview.
+      // Clear the text input immediately so the composer is ready for the next
+      // message, but keep the attachment preview visible during upload — the
+      // `attachBusy` state drives a spinner on the preview so the user sees
+      // progress instead of the preview vanishing before upload starts.
       setInput("");
-      setPendingAttachment(null);
       Keyboard.dismiss();
 
       let attachmentIds: string[] | undefined;
@@ -253,6 +254,9 @@ export function useChatSend({
           return;
         }
         setAttachBusy(false);
+        setPendingAttachment(null);
+      } else {
+        setPendingAttachment(null);
       }
 
       let clientGeo: ClientGeo | null = null;

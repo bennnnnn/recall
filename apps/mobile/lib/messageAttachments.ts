@@ -150,3 +150,19 @@ export function guessFileNameFromCaption(caption: string, fallback = "document.p
   if (/\.[a-z0-9]{2,5}$/i.test(trimmed) && !trimmed.includes("\n")) return trimmed;
   return fallback;
 }
+
+const FILE_TYPE_LABELS: Record<string, string> = {
+  "text/plain": "Text file",
+  "text/markdown": "Markdown file",
+  "text/csv": "CSV file",
+  "application/json": "JSON file",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+};
+
+export function fileLabelFromContentType(
+  contentType: string | null | undefined,
+  fallback = "File",
+): string {
+  const base = (contentType ?? "").split(";")[0].trim().toLowerCase();
+  return FILE_TYPE_LABELS[base] ?? fallback;
+}

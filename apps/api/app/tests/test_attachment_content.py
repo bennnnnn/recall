@@ -27,6 +27,18 @@ def test_allowed_content_types_include_images_and_documents():
     assert "image/heic" not in ALLOWED_CONTENT_TYPES
     assert "application/pdf" in ALLOWED_CONTENT_TYPES
     assert "text/plain" in ALLOWED_CONTENT_TYPES
+    # Legacy .doc rejected at presign — no pure-Python parser, so allowing it
+    # produces unusable uploads with no RAG.
+    assert "application/msword" not in ALLOWED_CONTENT_TYPES
+
+
+def test_extract_text_from_bytes_respects_max_chars():
+    """The max_chars parameter caps extracted text — the indexing path uses a
+    higher cap than the inline excerpt path."""
+    long_text = "x" * 5000
+    result = extract_text_from_bytes("text/plain", long_text.encode(), max_chars=100)
+    assert result is not None
+    assert len(result) == 100
 
 
 def test_normalize_content_type():
@@ -158,7 +170,7 @@ async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
     caller_thread = threading.current_thread()
     seen_thread: dict[str, threading.Thread] = {}
 
-    def spy(content_type: str, data: bytes) -> str | None:
+    def spy(content_type: str, data: bytes, **kwargs: object) -> str | None:
         seen_thread["thread"] = threading.current_thread()
         return "extracted"
 
@@ -174,7 +186,7 @@ async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
 async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
     import time
 
-    def slow_extract(content_type: str, data: bytes) -> str | None:
+    def slow_extract(content_type: str, data: bytes, **kwargs: object) -> str | None:
         time.sleep(0.5)
         return "should never be returned"
 

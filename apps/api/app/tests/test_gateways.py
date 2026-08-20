@@ -952,3 +952,18 @@ async def test_embed_text_returns_none_on_timeout():
     with patch("app.gateways.embedding_gateway.aembedding", _hang):
         result = await embedding_gateway.embed_text(settings, "hello")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_embed_text_mock_mode_pads_to_embedding_dim():
+    """Mock mode must return a vector padded to EMBEDDING_DIM (1536) so it lands
+    in the pgvector `embedding` column — otherwise has_chunks_for_chat /
+    search_semantic (which require embedding IS NOT NULL) never fire in
+    dev/mock mode and the full RAG pipeline can't be exercised end-to-end."""
+    from app.gateways import embedding_gateway
+    from app.repositories.attachment_chunks import EMBEDDING_DIM
+
+    settings = Settings(mock_llm_enabled=True)
+    result = await embedding_gateway.embed_text(settings, "hello")
+    assert result is not None
+    assert len(result) == EMBEDDING_DIM

@@ -18,7 +18,13 @@ from app.gateways.storage_gateway import StorageGateway
 logger = logging.getLogger(__name__)
 
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
+# Inline excerpt cap — keeps the user-message attachment excerpt small so it
+# doesn't bloat the prompt with a full document dump.
 MAX_EXTRACT_CHARS = 12_000
+# Indexing cap — the background indexing path chunks the whole document for
+# pgvector RAG, so it can extract far more than the inline excerpt. Capped to
+# avoid runaway memory on adversarially large text payloads.
+MAX_INDEX_EXTRACT_CHARS = 50_000
 
 IMAGE_CONTENT_TYPES = frozenset(
     {
@@ -38,7 +44,9 @@ DOCUMENT_CONTENT_TYPES = frozenset(
         "text/markdown",
         "text/csv",
         "application/json",
-        "application/msword",
+        # Legacy .doc (application/msword) intentionally excluded — no pure-Python
+        # parser can read it, so uploads succeed but RAG silently fails. Reject
+        # at presign with a clear error so users convert to .docx instead.
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     }
 )
@@ -168,12 +176,17 @@ _DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessi
 EXTRACTABLE_CONTENT_TYPES = _TEXTISH_TYPES | {"application/pdf", _DOCX_CONTENT_TYPE}
 
 
-def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
+def extract_text_from_bytes(
+    content_type: str,
+    data: bytes,
+    *,
+    max_chars: int = MAX_EXTRACT_CHARS,
+) -> str | None:
     """Sync, CPU-bound parsing — call via extract_text_from_bytes_async on
     any code path that isn't already off the event loop."""
     if content_type in _TEXTISH_TYPES:
         text = data.decode("utf-8", errors="replace").strip()
-        return text[:MAX_EXTRACT_CHARS] if text else None
+        return text[:max_chars] if text else None
 
     if content_type == "application/pdf":
         try:
@@ -186,7 +199,7 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
                 if page_text:
                     parts.append(page_text.strip())
             joined = "\n\n".join(parts).strip()
-            return joined[:MAX_EXTRACT_CHARS] if joined else None
+            return joined[:max_chars] if joined else None
         except Exception:
             logger.debug("PDF text extraction failed", exc_info=True)
             return None
@@ -205,7 +218,7 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
                         if cell.text.strip():
                             parts.append(cell.text.strip())
             joined = "\n".join(parts).strip()
-            return joined[:MAX_EXTRACT_CHARS] if joined else None
+            return joined[:max_chars] if joined else None
         except Exception:
             logger.debug("DOCX text extraction failed", exc_info=True)
             return None
@@ -220,6 +233,8 @@ async def extract_text_from_bytes_async(
     content_type: str,
     data: bytes,
     settings: Settings,
+    *,
+    max_chars: int = MAX_EXTRACT_CHARS,
 ) -> str | None:
     """Offload the sync, CPU-bound parse to a worker thread with a timeout,
     so a large or adversarially crafted PDF/DOCX can't block the event loop —
@@ -232,7 +247,9 @@ async def extract_text_from_bytes_async(
     timed_out = False
     try:
         async with asyncio.timeout(settings.attachment_extract_timeout_seconds):
-            text = await asyncio.to_thread(extract_text_from_bytes, content_type, data)
+            text = await asyncio.to_thread(
+                extract_text_from_bytes, content_type, data, max_chars=max_chars
+            )
     except TimeoutError:
         logger.warning("Attachment text extraction timed out for content_type=%s", content_type)
         timed_out = True

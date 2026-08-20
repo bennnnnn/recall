@@ -30,8 +30,15 @@ def _embed_cache_key(user_id: UUID, query: str) -> str:
 
 async def embed_text(settings: Settings, text: str) -> list[float] | None:
     if mock_llm.should_mock_llm(settings):
-        # Deterministic tiny vector for tests
-        return [0.1] * 8
+        # Deterministic tiny vector padded to the pgvector column dimension so
+        # dev/mock mode exercises the full RAG pipeline (has_chunks_for_chat /
+        # search_semantic require embedding IS NOT NULL). Zero-fill keeps the
+        # signal in the first 8 dims; the rest are zero so cosine similarity is
+        # driven by the meaningful dims only.
+        from app.repositories.attachment_chunks import EMBEDDING_DIM
+
+        seed = [0.1] * 8
+        return seed + [0.0] * (EMBEDDING_DIM - len(seed))
 
     route = get_model("embedding-model")
     api_key = getattr(settings, route.api_key_field, "")

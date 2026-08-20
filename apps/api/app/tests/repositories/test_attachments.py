@@ -136,3 +136,33 @@ async def test_list_for_gallery_all_no_filters(fake_session):
 
     assert result == rows
     assert has_more is False
+
+
+@pytest.mark.asyncio
+async def test_list_for_gallery_excludes_unverified(fake_session):
+    """The gallery query must filter out unverified attachments (verified_at
+    IS NULL) — pending/failed rows produce broken download URLs."""
+    from sqlalchemy.dialects import postgresql
+
+    from app.repositories.attachments import list_for_gallery
+
+    rows = [MagicMock()]
+    captured: dict = {}
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows))),
+        scalars_=MagicMock(),
+    )
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        return MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+        )
+
+    fake_session.execute = _capture
+    await list_for_gallery(fake_session, uuid4(), limit=30, offset=0)
+
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    sql = str(compiled)
+    assert "verified_at" in sql
+    assert "IS NOT NULL" in sql.upper() or "is not" in sql.lower()

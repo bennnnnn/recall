@@ -12,6 +12,7 @@ import {
 } from "@/components/chat/MathDraftPreview";
 import { Message } from "@/lib/api";
 import {
+  fileLabelFromContentType,
   guessFileNameFromCaption,
   isPdfContentType,
   parseUserMessageContent,
@@ -48,6 +49,10 @@ export function UserMessageContent({ message }: Props) {
   const pdfFileName =
     message.local_file_name ??
     guessFileNameFromCaption(parsed.caption, "document.pdf");
+  const nonPdfFile = parsed.files.find((file) => !isPdfContentType(file.contentType));
+  const nonPdfFileLabel =
+    message.local_file_name ??
+    fileLabelFromContentType(nonPdfFile?.contentType, t("chat.attached_file"));
   const showCaption =
     parsed.caption.length > 0 &&
     !(showPdf && (parsed.caption === pdfFileName || parsed.caption.endsWith(".pdf")));
@@ -95,10 +100,10 @@ export function UserMessageContent({ message }: Props) {
         <CollapsibleMessageBody collapsible={collapseText} fadeColor={C.userBubble}>
           <View style={[s.textBubble, hasImages && s.textBubbleBelowImage]}>
             {parsed.hasFileAttachment && !showPdf ? (
-              <View style={s.fileChip}>
+              <View style={s.fileChip} accessibilityLabel={nonPdfFileLabel}>
                 <Icon name="document-outline" size={16} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>
-                  {t("chat.attached_file")}
+                  {nonPdfFileLabel}
                 </Text>
               </View>
             ) : null}

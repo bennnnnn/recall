@@ -141,7 +141,10 @@ async def list_for_gallery(
 
     Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
     """
-    stmt = select(Attachment).where(Attachment.user_id == user_id)
+    stmt = select(Attachment).where(
+        Attachment.user_id == user_id,
+        Attachment.verified_at.is_not(None),
+    )
     if category == "images":
         stmt = stmt.where(Attachment.content_type.like("image/%"))
     elif category == "files":
