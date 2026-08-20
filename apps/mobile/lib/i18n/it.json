@@ -978,5 +978,6 @@
   "gallery.empty": "Nessuna immagine",
   "gallery.filter.all": "Tutte",
   "gallery.filter.generated": "Generate",
-  "gallery.filter.uploaded": "Caricate"
+  "gallery.filter.uploaded": "Caricate",
+  "gallery.new": "Nuovo"
 }

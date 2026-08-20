@@ -978,5 +978,6 @@
   "gallery.empty": "Nenhuma imagem ainda",
   "gallery.filter.all": "Tudo",
   "gallery.filter.generated": "Geradas",
-  "gallery.filter.uploaded": "Enviadas"
+  "gallery.filter.uploaded": "Enviadas",
+  "gallery.new": "Novo"
 }

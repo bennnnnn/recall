@@ -978,5 +978,6 @@
   "gallery.empty": "No images yet",
   "gallery.filter.all": "All",
   "gallery.filter.generated": "Generated",
-  "gallery.filter.uploaded": "Uploaded"
+  "gallery.filter.uploaded": "Uploaded",
+  "gallery.new": "New"
 }
