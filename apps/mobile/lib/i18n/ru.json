@@ -977,7 +977,7 @@
   "gallery.title": "Галерея",
   "gallery.empty": "Изображений пока нет",
   "gallery.filter.all": "Все",
-  "gallery.new": "Новый",
   "gallery.filter.images": "Изображения",
-  "gallery.filter.files": "Файлы"
+  "gallery.filter.files": "Файлы",
+  "gallery.search_placeholder": "Поиск изображений и файлов..."
 }

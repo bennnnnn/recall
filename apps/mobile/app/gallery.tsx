@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useRouter, useFocusEffect, useNavigation } from "expo-router";
+import { useFocusEffect, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -43,7 +43,6 @@ export default function GalleryScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const router = useRouter();
 
   const [filter, setFilter] = useState<Filter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,40 +173,23 @@ export default function GalleryScreen() {
 
   return (
     <View style={s.root}>
-      {/* Header — matches the Library design */}
+      {/* Header: title on its own line, search bar below, then tabs + view toggle */}
       <View style={[s.header, { paddingTop: insets.top + Space.sm }]}>
-        {/* Row 1: title + search + New button */}
-        <View style={s.headerRow}>
-          <Text style={s.title}>{t("gallery.title")}</Text>
-          <View style={s.headerRight}>
-            <View style={s.searchBar}>
-              <Icon name="search-outline" size={16} color={C.textTertiary} />
-              <TextInput
-                style={s.searchInput}
-                placeholder={t("search.placeholder")}
-                placeholderTextColor={C.textTertiary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCorrect={false}
-                returnKeyType="search"
-              />
-            </View>
-            <Pressable
-              style={s.newBtn}
-              onPress={() => {
-                tap();
-                router.replace("/");
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={t("gallery.new")}
-            >
-              <Text style={s.newBtnText}>{t("gallery.new")}</Text>
-              <Icon name="chevron-down" size={14} color="#fff" />
-            </Pressable>
-          </View>
+        <Text style={s.title}>{t("gallery.title")}</Text>
+
+        <View style={s.searchBar}>
+          <Icon name="search-outline" size={16} color={C.textTertiary} />
+          <TextInput
+            style={s.searchInput}
+            placeholder={t("gallery.search_placeholder")}
+            placeholderTextColor={C.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
         </View>
 
-        {/* Row 2: tabs + view toggle */}
         <View style={s.subRow}>
           <View style={s.tabs}>
             {filters.map((f) => {
@@ -325,56 +307,31 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.md,
       paddingBottom: Space.sm,
     },
-    headerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: Space.sm,
-    },
     title: {
       fontSize: 28,
       fontWeight: "800",
       lineHeight: 34,
       color: C.text,
-    },
-    headerRight: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      flexShrink: 1,
+      marginBottom: Space.sm,
     },
     searchBar: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      flex: 1,
-      height: 36,
-      paddingHorizontal: 12,
+      height: 40,
+      paddingHorizontal: 14,
       borderRadius: 20,
       borderWidth: 1,
       borderColor: C.border,
       backgroundColor: C.surface,
+      marginBottom: Space.sm,
     },
     searchInput: {
       flex: 1,
       ...Type.body,
-      fontSize: 14,
+      fontSize: 15,
       padding: 0,
       color: C.text,
-    },
-    newBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      height: 36,
-      paddingHorizontal: 16,
-      borderRadius: 20,
-      backgroundColor: C.text,
-    },
-    newBtnText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: C.bg,
     },
     subRow: {
       flexDirection: "row",

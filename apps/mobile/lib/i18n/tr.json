@@ -977,7 +977,7 @@
   "gallery.title": "Galeri",
   "gallery.empty": "Henüz görsel yok",
   "gallery.filter.all": "Tümü",
-  "gallery.new": "Yeni",
   "gallery.filter.images": "Görseller",
-  "gallery.filter.files": "Dosyalar"
+  "gallery.filter.files": "Dosyalar",
+  "gallery.search_placeholder": "Görsel ve dosya ara..."
 }
