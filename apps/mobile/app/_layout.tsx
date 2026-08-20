@@ -84,6 +84,17 @@ function RootNavigator() {
           name="projects"
           options={{ ...stackPushTransition(), headerShown: false }}
         />
+        <Stack.Screen
+          name="gallery"
+          options={{
+            ...stackUtilityTransition(),
+            ...header,
+            headerShown: true,
+            title: t("gallery.title"),
+            headerBackVisible: false,
+            headerLeft: () => <StackBackButton />,
+          }}
+        />
       </Stack>
     </>
   );
