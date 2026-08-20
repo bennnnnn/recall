@@ -137,6 +137,12 @@ async def _persist_quiz_outcome(
     elif answer and not (item.definition or "").strip():
         # Backfill answer on older trivia rows that only stored the question.
         item.definition = answer
+    # Lock the item row so concurrent quiz submits can't both read the same
+    # SM-2 fields and clobber each other's updates (LANG-BE-011).
+    if existing is not None:
+        locked = await project_items_repo.lock_for_update(session, item.id)
+        if locked is not None:
+            item = locked
     await apply_quiz_result(session, item, is_correct=is_correct, commit=False)
 
 

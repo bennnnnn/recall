@@ -108,6 +108,20 @@ async def test_get_by_id_returns_item(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_lock_for_update_returns_item(fake_session):
+    """lock_for_update should query with FOR UPDATE and return the item (LANG-BE-011)."""
+    mock_item = _item()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_item
+    fake_session.execute.return_value = mock_result
+
+    result = await repo.lock_for_update(fake_session, uuid4())
+
+    assert result is mock_item
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_count_for_project_returns_scalar_count(fake_session):
     mock_result = MagicMock()
     mock_result.scalar_one.return_value = 42

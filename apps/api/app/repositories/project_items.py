@@ -224,6 +224,18 @@ async def get_by_id(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def lock_for_update(session: AsyncSession, item_id: UUID) -> ProjectItem | None:
+    """Lock an item row for the duration of this transaction.
+
+    Prevents concurrent quiz submits from both reading the same SM-2 fields
+    (ease_factor, interval_days, review_count) and clobbering each other's
+    updates. Call before apply_quiz_result so the read-modify-write cycle is
+    serialized (LANG-BE-011).
+    """
+    stmt = select(ProjectItem).where(ProjectItem.id == item_id).with_for_update()
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
 async def count_for_project(session: AsyncSession, project_id: UUID, user_id: UUID) -> int:
     """Cheap COUNT(*) for the per-project item cap — avoids loading rows just
     to size-check (unlike count_stats, which loads up to 5000 rows)."""
