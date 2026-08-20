@@ -171,6 +171,11 @@ export function ConversationList(_props: unknown) {
     router.push("/projects");
   }, [router]);
 
+  const openGallery = useCallback(() => {
+    closeDrawer();
+    router.push("/gallery");
+  }, [router]);
+
   const onShowRowMenu = useCallback(
     (chat: Chat) => {
       tap();
@@ -358,6 +363,7 @@ export function ConversationList(_props: unknown) {
         onProjects={openProjects}
         onLists={openLists}
         onReminders={openReminders}
+        onGallery={openGallery}
       />
 
       {selectionMode ? (

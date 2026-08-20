@@ -930,3 +930,120 @@ def test_cancel_still_allowed_when_attachments_disabled():
         )
 
     assert r.status_code == 204
+
+
+# --- GET /attachments (gallery list) ---
+
+
+def _attachment_row(
+    *,
+    attachment_id=None,
+    content_type="image/png",
+    size_bytes=1024,
+    source="generated",
+    storage_key="user/key",
+    created_at=None,
+):
+    row = MagicMock()
+    row.id = attachment_id or uuid4()
+    row.content_type = content_type
+    row.size_bytes = size_bytes
+    row.source = source
+    row.storage_key = storage_key
+    row.created_at = created_at or datetime(2026, 1, 1, 12, 0, 0)
+    row.verified_at = datetime(2026, 1, 1, 12, 0, 0)
+    return row
+
+
+def test_list_attachments_returns_images():
+    """GET /attachments returns image attachments with download URLs."""
+    user = _fake_user()
+    row1 = _attachment_row(source="generated")
+    row2 = _attachment_row(source="upload")
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(side_effect=["url1", "url2"])
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.list_images_for_user",
+            AsyncMock(return_value=([row1, row2], False)),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["items"]) == 2
+    assert body["has_more"] is False
+    assert body["items"][0]["source"] == "generated"
+    assert body["items"][0]["download_url"] == "url1"
+    assert body["items"][1]["source"] == "upload"
+
+
+def test_list_attachments_source_filter():
+    """GET /attachments?source=generated filters to generated images only."""
+    user = _fake_user()
+    row = _attachment_row(source="generated")
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(return_value="url1")
+
+    mock_list = AsyncMock(return_value=([row], False))
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.list_images_for_user",
+            mock_list,
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get(
+            "/attachments?source=generated",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    assert len(r.json()["items"]) == 1
+    _, kwargs = mock_list.call_args
+    assert kwargs.get("source") == "generated"
+
+
+def test_list_attachments_local_backend():
+    """Local storage backend returns /attachments/{id}/file as download_url."""
+    user = _fake_user()
+    row = _attachment_row()
+    gateway = MagicMock(spec=LocalStorageGateway)
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.list_images_for_user",
+            AsyncMock(return_value=([row], False)),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    assert r.json()["items"][0]["download_url"] == f"/attachments/{row.id}/file"
+
+
+def test_list_attachments_empty():
+    """GET /attachments returns empty list when user has no images."""
+    user = _fake_user()
+    gateway = MagicMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.list_images_for_user",
+            AsyncMock(return_value=([], False)),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    assert r.json()["items"] == []
+    assert r.json()["has_more"] is False

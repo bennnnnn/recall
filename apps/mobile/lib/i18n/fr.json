@@ -277,6 +277,7 @@
   "drawer.reminders": "Rappels",
   "drawer.select": "Sélectionner",
   "drawer.select_all": "Tout sélectionner",
+  "drawer.gallery": "Galerie",
   "drawer.selected_count": "{{count}} sélectionnés",
   "drawer.settings": "Paramètres",
   "drawer.this_month": "Ce mois",
@@ -972,5 +973,10 @@
   "projects.level.intermediate": "Intermédiaire",
   "projects.level.upper_intermediate": "Intermédiaire supérieur",
   "projects.level.advanced": "Avancé",
-  "projects.level.fluent": "Courant"
+  "projects.level.fluent": "Courant",
+  "gallery.title": "Galerie",
+  "gallery.empty": "Aucune image",
+  "gallery.filter.all": "Tout",
+  "gallery.filter.generated": "Générées",
+  "gallery.filter.uploaded": "Importées"
 }

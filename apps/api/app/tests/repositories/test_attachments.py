@@ -81,3 +81,39 @@ async def test_link_message_sets_message_id(fake_session):
 
     assert linked.message_id == message_id
     fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_images_for_user_returns_rows_and_has_more(fake_session):
+    from app.repositories.attachments import list_images_for_user
+
+    rows = [MagicMock(), MagicMock(), MagicMock()]
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+    )
+
+    result, has_more = await list_images_for_user(
+        fake_session, uuid4(), source="generated", limit=3, offset=0
+    )
+
+    assert result == rows
+    assert has_more is True
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_images_for_user_no_source_filter(fake_session):
+    """When source is None or not in (upload, generated), no source filter is applied."""
+    from app.repositories.attachments import list_images_for_user
+
+    rows = [MagicMock()]
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+    )
+
+    result, has_more = await list_images_for_user(
+        fake_session, uuid4(), source=None, limit=30, offset=0
+    )
+
+    assert result == rows
+    assert has_more is False

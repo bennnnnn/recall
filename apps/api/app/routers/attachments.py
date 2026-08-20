@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +10,13 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
 from app.models.orm import User
-from app.models.schemas import AttachmentOut, AttachmentPresignIn, AttachmentPresignOut
+from app.models.schemas import (
+    AttachmentListItemOut,
+    AttachmentListOut,
+    AttachmentOut,
+    AttachmentPresignIn,
+    AttachmentPresignOut,
+)
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
 from app.services.attachment_content import (
@@ -65,6 +71,40 @@ async def _reject_unverified_upload(
         if is_image_content_type(content_type):
             await quota_service.refund_image_upload(get_redis_client(), user.id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+
+
+@router.get("", response_model=AttachmentListOut)
+async def list_attachments(
+    source: str | None = Query(default=None, pattern="^(upload|generated)$"),
+    limit: int = Query(default=30, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> AttachmentListOut:
+    """List the user's image attachments (uploaded and generated) with pagination."""
+    rows, has_more = await attachments_repo.list_images_for_user(
+        session, user.id, source=source, limit=limit, offset=offset
+    )
+    gateway = get_storage_gateway(settings)
+    items: list[AttachmentListItemOut] = []
+    for row in rows:
+        if isinstance(gateway, LocalStorageGateway):
+            url = f"/attachments/{row.id}/file"
+        else:
+            url = await gateway.presign_download(row.storage_key)
+        items.append(
+            AttachmentListItemOut(
+                id=row.id,
+                content_type=row.content_type,
+                size_bytes=row.size_bytes,
+                download_url=url,
+                source=row.source,
+                created_at=row.created_at,
+                chat_id=None,
+            )
+        )
+    return AttachmentListOut(items=items, has_more=has_more)
 
 
 @router.post(

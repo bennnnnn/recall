@@ -277,6 +277,7 @@
   "drawer.reminders": "ማስታወሻዎች",
   "drawer.select": "ምረጥ",
   "drawer.select_all": "ሁሉንም ምረጥ",
+  "drawer.gallery": "ማዕከለ-ስዕሎች",
   "drawer.selected_count": "{{count}} ተመርጧል",
   "drawer.settings": "ቅንብሮች",
   "drawer.this_month": "This month",
@@ -972,5 +973,10 @@
   "projects.level.intermediate": "መካከለኛ",
   "projects.level.upper_intermediate": "ከፍተኛ መካከለኛ",
   "projects.level.advanced": "የላቀ",
-  "projects.level.fluent": "ባለሙድ"
+  "projects.level.fluent": "ባለሙድ",
+  "gallery.title": "ማዕከለ-ስዕሎች",
+  "gallery.empty": "እስካሁን ምንም ምስል የለም",
+  "gallery.filter.all": "ሁሉም",
+  "gallery.filter.generated": "የተፈጠሩ",
+  "gallery.filter.uploaded": "የተስቀሉ"
 }

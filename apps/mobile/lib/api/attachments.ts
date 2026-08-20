@@ -44,4 +44,33 @@ export const attachmentsApi = {
       download_url: string;
       created_at: string;
     }>(`/attachments/${attachmentId}/url`, token),
+  listAttachments: (
+    token: string,
+    params: { source?: "upload" | "generated"; limit?: number; offset?: number } = {},
+  ) => {
+    const search = new URLSearchParams();
+    if (params.source) search.set("source", params.source);
+    if (params.limit !== undefined) search.set("limit", String(params.limit));
+    if (params.offset !== undefined) search.set("offset", String(params.offset));
+    const qs = search.toString();
+    return request<AttachmentListResponse>(
+      qs ? `/attachments?${qs}` : "/attachments",
+      token,
+    );
+  },
+};
+
+export type AttachmentListItem = {
+  id: string;
+  content_type: string;
+  size_bytes: number;
+  download_url: string;
+  source: "upload" | "generated";
+  created_at: string;
+  chat_id?: string | null;
+};
+
+export type AttachmentListResponse = {
+  items: AttachmentListItem[];
+  has_more: boolean;
 };

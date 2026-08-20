@@ -311,6 +311,7 @@
   "drawer.reminders": "Reminders",
   "drawer.select": "Select",
   "drawer.select_all": "Select all",
+  "drawer.gallery": "Gallery",
   "drawer.selected_count": "{{count}} selected",
   "drawer.settings": "Settings",
   "drawer.this_month": "This month",
@@ -972,5 +973,10 @@
   "onboarding.chat_title": "Ask anything",
   "onboarding.chat_body": "A hard question. A language. Homework. Same conversation.",
   "onboarding.remember_title": "It keeps up",
-  "onboarding.remember_body": "Tomorrow it still knows what you're working on."
+  "onboarding.remember_body": "Tomorrow it still knows what you're working on.",
+  "gallery.title": "Gallery",
+  "gallery.empty": "No images yet",
+  "gallery.filter.all": "All",
+  "gallery.filter.generated": "Generated",
+  "gallery.filter.uploaded": "Uploaded"
 }
