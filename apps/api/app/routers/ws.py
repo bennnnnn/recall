@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator, Callable
+from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
@@ -96,6 +97,7 @@ async def _stream_over_ws(
     result: dict[str, Any],
 ) -> None:
     async def run_stream() -> None:
+        sent_tokens = 0
         try:
             async for token_text in stream:
                 if cancel_event.is_set():
@@ -103,6 +105,7 @@ async def _stream_over_ws(
                 if not await _safe_send_json(websocket, build_token_event(token_text)):
                     cancel_event.set()
                     break
+                sent_tokens += 1
         except asyncio.CancelledError:
             # Task cancel interrupts an in-flight LiteLLM wait; still fall
             # through to stream_end/done so the client gets a clean stop.
@@ -113,6 +116,22 @@ async def _stream_over_ws(
             await _safe_send_json(websocket, error_payload_for_exception(exc))
             return
 
+        # M12: if the user cancelled before any token was streamed (hard
+        # cancel at the very start), skip stream_end + done entirely — an
+        # empty done with no content is misleading and the client already
+        # dropped the turn locally. SSE already returns early on cancel;
+        # this symmetrizes the WS path. Partial tokens (sent_tokens > 0)
+        # still get stream_end + done so the client can swap the streamed-*
+        # id for the persisted message_id.
+        if cancel_event.is_set() and sent_tokens == 0:
+            # Still let the finalize task run so any reserved quota is
+            # refunded, but don't send events the client doesn't expect.
+            finalize_db_task = pop_finalize_tasks(result)
+            if finalize_db_task is not None:
+                with suppress(Exception):
+                    await await_finalize_commit(finalize_db_task)
+            return
+
         if not await _safe_send_json(websocket, build_stream_end_payload(result)):
             return
 
@@ -121,12 +140,22 @@ async def _stream_over_ws(
         # already flushed (stream_end above), so only the final `done` event
         # waits on the commit — streaming latency is unchanged. If the commit
         # FAILED we send an error instead of a ghost `done` with a fake id.
+        # On TIMEOUT we send `done` without `message_id` (persisting: true) so
+        # the client keeps the local bubble and refetches instead of trusting
+        # a row that may never persist if the shielded task later fails.
         finalize_db_task = pop_finalize_tasks(result)
-        if not await await_finalize_commit(finalize_db_task):
+        commit_status = await await_finalize_commit(finalize_db_task)
+        if commit_status == "failed":
             await _safe_send_json(
                 websocket,
                 {"type": "error", "message": "Failed to save the response. Please retry."},
             )
+            return
+        if commit_status == "timeout":
+            done_payload = build_done_payload(result)
+            done_payload.pop("message_id", None)
+            done_payload["persisting"] = True
+            await _safe_send_json(websocket, done_payload)
             return
 
         await _safe_send_json(websocket, build_done_payload(result))

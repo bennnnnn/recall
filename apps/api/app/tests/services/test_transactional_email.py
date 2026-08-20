@@ -416,8 +416,9 @@ async def test_handle_transactional_email_receipt_dispatches():
 
 
 @pytest.mark.asyncio
-async def test_handle_transactional_email_unknown_kind_does_nothing():
+async def test_handle_transactional_email_unknown_kind_discards():
     from app.background import handlers as job_handlers
+    from app.core.jobs import JobDiscardError
 
     uid = uuid4()
     user = _user()
@@ -435,16 +436,18 @@ async def test_handle_transactional_email_unknown_kind_does_nothing():
         patch.object(tx_email, "send_welcome", AsyncMock()) as send_w,
         patch.object(tx_email, "send_purchase_receipt", AsyncMock()) as send_r,
     ):
-        await job_handlers._handle_transactional_email(
-            Settings(), {"kind": "bogus", "user_id": str(uid)}
-        )
+        with pytest.raises(JobDiscardError):
+            await job_handlers._handle_transactional_email(
+                Settings(), {"kind": "bogus", "user_id": str(uid)}
+            )
     send_w.assert_not_awaited()
     send_r.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_handle_transactional_email_missing_user_is_noop():
+async def test_handle_transactional_email_missing_user_discards():
     from app.background import handlers as job_handlers
+    from app.core.jobs import JobDiscardError
 
     class FakeSession:
         async def __aenter__(self):
@@ -458,9 +461,10 @@ async def test_handle_transactional_email_missing_user_is_noop():
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
         patch.object(tx_email, "send_welcome", AsyncMock()) as send,
     ):
-        await job_handlers._handle_transactional_email(
-            Settings(), {"kind": "welcome", "user_id": str(uuid4())}
-        )
+        with pytest.raises(JobDiscardError):
+            await job_handlers._handle_transactional_email(
+                Settings(), {"kind": "welcome", "user_id": str(uuid4())}
+            )
     send.assert_not_awaited()
 
 

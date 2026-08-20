@@ -164,4 +164,4 @@ async def consolidate_user_memory_sections(
             await release_memory_write_lock(user_id, lock_token)
     except Exception:
         logger.exception("Memory consolidation failed for user_id=%s", user_id)
-        return False
+        raise

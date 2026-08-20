@@ -165,21 +165,23 @@ async def finalize_stream_turn_db(
 
             await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
 
-            try:
-                await usage_repo.add_tokens(
-                    session,
-                    ctx.user_id,
-                    utc_today(),
-                    # Weighted so the daily aggregate matches Redis units and
-                    # re-seeds correctly after an eviction (see header comment).
-                    input_tokens=weighted_input,
-                    output_tokens=weighted_output,
-                    # Cost is raw-token based; 0 when catalog prices are missing.
-                    est_cost_usd=est_cost if est_cost is not None else 0.0,
-                    commit=False,
-                )
-            except Exception:
-                logger.exception("Failed to record usage tokens")
+            # Usage write is NOT swallowed: if the daily aggregate misses this
+            # turn, a later Redis eviction re-seeds from the DB total and the
+            # user gets free quota. Let the exception propagate so the outer
+            # except refunds the reservation and the commit below never runs
+            # (the message insert rolls back with the usage row).
+            await usage_repo.add_tokens(
+                session,
+                ctx.user_id,
+                utc_today(),
+                # Weighted so the daily aggregate matches Redis units and
+                # re-seeds correctly after an eviction (see header comment).
+                input_tokens=weighted_input,
+                output_tokens=weighted_output,
+                # Cost is raw-token based; 0 when catalog prices are missing.
+                est_cost_usd=est_cost if est_cost is not None else 0.0,
+                commit=False,
+            )
 
             # Single commit for message + chat touch + usage (was 3 Neon
             # round-trips per turn). Refresh the message so its server-side

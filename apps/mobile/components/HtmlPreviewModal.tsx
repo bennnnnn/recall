@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -37,6 +38,9 @@ import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import { getPreviewWebView } from "@/lib/webView";
+
+const EMPTY_CHECK_SCRIPT =
+  "<script>(function(){function chk(){var b=document.body;if(!b)return;var txt=(b.innerText||'').trim();var imgs=b.querySelectorAll('img,svg,canvas,video,iframe').length;var els=b.querySelectorAll('div,section,main,article,p,span,ul,ol,table,pre,code,h1,h2,h3,h4,h5,h6').length;if(!txt&&!imgs&&els<=1){try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({kind:'preview-empty'}));}catch(e){}}}if(document.readyState==='complete'){chk();}else{window.addEventListener('load',function(){setTimeout(chk,300);});}})();</script>";
 
 class PreviewRenderBoundary extends Component<
   {
@@ -144,16 +148,20 @@ function LiveWebPreview({
 }) {
   const { t } = useTranslation();
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [empty, setEmpty] = useState(false);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
   const fullHtml = useMemo(
-    () => prepareHtmlRunDocument(wrapFullDocument(html, theme)),
+    () => prepareHtmlRunDocument(wrapFullDocument(html, theme)) + EMPTY_CHECK_SCRIPT,
     [html, theme],
   );
   const source = useMemo(() => ({ html: fullHtml }), [fullHtml]);
 
   useEffect(() => {
     setLoadError(null);
+    setLoading(true);
+    setEmpty(false);
   }, [html]);
 
   const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
@@ -171,6 +179,17 @@ function LiveWebPreview({
         <View style={s.emptyOverlay} pointerEvents="none">
           <Text style={s.emptyOverlayText}>{loadError}</Text>
         </View>
+      ) : empty ? (
+        <View style={s.emptyOverlay} pointerEvents="none">
+          <Text style={s.emptyOverlayText}>{t("preview.empty_sandbox")}</Text>
+        </View>
+      ) : loading ? (
+        <View style={s.emptyOverlay} pointerEvents="none">
+          <ActivityIndicator color={theme.primary} />
+          <Text style={[s.emptyOverlayText, { marginTop: 8 }]}>
+            {t("preview.loading")}
+          </Text>
+        </View>
       ) : null}
       <WebView
         source={source}
@@ -183,9 +202,19 @@ function LiveWebPreview({
         mixedContentMode="always"
         setSupportMultipleWindows={false}
         nestedScrollEnabled
+        onLoadStart={() => setLoading(true)}
+        onLoadEnd={() => setLoading(false)}
+        onMessage={(e: { nativeEvent?: { data?: string } }) => {
+          try {
+            const data = JSON.parse(e.nativeEvent?.data ?? "{}");
+            if (data && data.kind === "preview-empty") setEmpty(true);
+          } catch {
+            /* ignore non-JSON messages */
+          }
+        }}
         onError={(e: { nativeEvent?: { description?: string } }) => {
           const detail = e.nativeEvent?.description?.trim();
-          if (detail) setLoadError(detail);
+          setLoadError(detail || t("preview.load_error"));
         }}
       />
     </View>

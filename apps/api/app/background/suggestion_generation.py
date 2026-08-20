@@ -159,3 +159,4 @@ async def generate_suggestions(
             await _apply_suggestion_result(session, user_id, new_items)
     except Exception:
         logger.exception("Failed to generate suggestions for user %s", user_id)
+        raise

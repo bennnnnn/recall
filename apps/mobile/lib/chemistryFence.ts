@@ -43,9 +43,14 @@ export function parseChemistryFence(content: string): ChemistryFence | null {
     return { smiles: raw, caption: caption || null };
   }
 
-  // Last resort: first line even if charset is unusual (drawer will reject).
+  // Last resort: first line only if it still looks SMILES-ish (no spaces,
+  // no prose, at least one bond/bracket/atom token). The drawer will reject
+  // truly invalid SMILES, but we avoid surfacing English prose as a molecule.
   const fallback = lines[0].replace(/^smiles:\s*/i, "").trim();
   if (!fallback || fallback.length > MAX_SMILES_LENGTH) return null;
+  if (/\s/.test(fallback)) return null;
+  if (/[A-Z][a-z]/.test(fallback) && !/[\[\]\(\)=#\\/.]/.test(fallback)) return null;
+  if (!SMILES_LINE.test(fallback)) return null;
   return { smiles: fallback, caption: null };
 }
 

@@ -109,9 +109,10 @@ async def delete_chat(
     chat_id: UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
 ) -> None:
     try:
-        await chats_service.delete_chat(session, user, chat_id)
+        await chats_service.delete_chat(session, user, chat_id, settings=settings)
     except chats_service.ChatsError as exc:
         raise _map_error(exc) from exc
 

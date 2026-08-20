@@ -160,20 +160,30 @@ async def turn_resources(
         raise
     finally:
         refresh_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        # M13: the refresh loop may have raised (lock lost / Redis error).
+        # Suppress that here — the stream path's own refresh raises and
+        # propagates as the turn's error. The loop failure during pre-stream
+        # (turn_prep) is informational; re-raising from ``finally`` would
+        # mask the original exception from the ``try`` block.
+        with contextlib.suppress(asyncio.CancelledError, ChatServiceError, Exception):
             await refresh_task
         await release_lock(redis, lock_key, lock_token)
 
 
 async def _chatprep_refresh_loop(redis: Redis, lock_key: str, lock_token: str) -> None:
-    """Keep the prepare lock alive through prompt gather and the tool loop."""
+    """Keep the prepare lock alive through prompt gather and the tool loop.
+
+    M13: a failed refresh (Redis error or lock lost) raises instead of
+    silently continuing — without the lock, a concurrent turn can acquire
+    it and both turns write to the same chat, corrupting state. The caller's
+    ``finally`` suppresses this since the stream path has its own refresh.
+    """
     try:
         while True:
             await asyncio.sleep(_CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
-            try:
-                await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
-            except Exception:
-                logger.debug("chatprep lock refresh failed", exc_info=True)
+            ok = await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
+            if not ok:
+                raise ChatServiceError("Chat prepare lock lost during turn")
     except asyncio.CancelledError:
         return
 
@@ -188,10 +198,12 @@ async def _yield_with_chatprep_refresh(
     async for token in tokens:
         now = time.monotonic()
         if now - last_refresh >= _CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
-            try:
-                await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
-            except Exception:
-                logger.debug("chatprep lock refresh failed", exc_info=True)
+            # M13: treat refresh failure as fatal — the lock is lost and a
+            # concurrent turn may be running. Stop streaming rather than
+            # continuing without exclusive access to the chat.
+            ok = await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
+            if not ok:
+                raise ChatServiceError("Chat prepare lock lost during stream")
             last_refresh = now
         yield token
 
@@ -1160,6 +1172,47 @@ async def _register_and_enqueue_finalize(
         result["_finalize_db_task"] = finalize_db_task
 
 
+async def _finalize_terminal_image_turn(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    result: dict[str, Any] | None,
+) -> None:
+    """Slim finalize for an MCP tool-loop terminal image (H3).
+
+    The image-gen adapter already persisted the assistant ``[Image: …]`` row
+    inside the tool loop, so there is no new message to insert and no provider
+    usage to reconcile. But skipping ``_register_and_enqueue_finalize`` here
+    meant the chat got no title, no memory extract, no compression, and no
+    message index — every other turn's post-turn work was silently dropped.
+
+    This touches the chat and enqueues post-turn jobs (best-effort background)
+    so a terminal-image turn behaves like a normal turn for side effects. No
+    finalize task is registered (the row is already committed), so the next
+    turn does not wait on a phantom pending finalize.
+    """
+    try:
+        ctx.assistant_message_id = UUID(ctx.terminal_image_message_id)
+    except (ValueError, TypeError):
+        logger.warning("terminal_image_message_id not a UUID: %r", ctx.terminal_image_message_id)
+    assistant_text = ctx.terminal_image_content or ""
+
+    async def _slim_finalize() -> None:
+        try:
+            async with SessionLocal() as session:
+                await chats_repo.touch_by_id(session, ctx.chat_id, commit=True)
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+        except Exception:
+            logger.exception("Slim finalize for terminal image failed")
+
+    task = create_background_task(_slim_finalize(), name="finalize_terminal_image")
+    task.add_done_callback(
+        lambda t: _log_background_task_failure(t, "Terminal-image finalize failed")
+    )
+    if result is not None:
+        result["_finalize_task"] = task
+
+
 async def stream_and_finalize(
     redis: Redis,
     settings: Settings,
@@ -1212,6 +1265,13 @@ async def stream_and_finalize(
                         await quota_service.refund_usage(
                             redis, str(ctx.user_id), ctx.reserved_tokens
                         )
+                    # H3: the image row is already persisted, but without a slim
+                    # finalize the chat gets no title, no memory extract, no
+                    # compression, no message index — every other turn's post-turn
+                    # work was skipped. Run a slim finalize (touch + post-turn jobs)
+                    # in the background so this terminal-image turn behaves like a
+                    # normal turn for side effects.
+                    await _finalize_terminal_image_turn(redis, settings, ctx, result)
                     return
 
                 if (

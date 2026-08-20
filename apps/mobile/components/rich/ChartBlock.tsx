@@ -4,7 +4,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/components/Icon";
@@ -27,10 +27,21 @@ import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
 type Props = { content: string };
 
 const PREVIEW_HEIGHT = 350;
+const CHART_WEBVIEW_WIDTH = 720;
+
+type ChartErrorMessage = { kind: "chart-error"; message?: string };
+
+function isChartErrorMessage(data: unknown): data is ChartErrorMessage {
+  return typeof data === "object" && data !== null && (data as { kind?: string }).kind === "chart-error";
+}
 
 /** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via vendored, inlined Vega-Embed. */
 function buildVegaHtml(spec: string, theme: Theme): string {
   const safeSpec = escapeForInlineJsTemplate(spec);
+  const vegaTheme = theme.isDark ? "dark" : "vox";
+  const axisColor = theme.isDark ? theme.border : "#888";
+  const textColor = theme.isDark ? theme.text : "#333";
+  const gridColor = theme.isDark ? theme.border : "#eee";
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,20 +62,32 @@ function buildVegaHtml(spec: string, theme: Theme): string {
 <div id="error"></div>
 <script>
   const spec = \`${safeSpec}\`;
+  function reportError(msg) {
+    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chart-error', message: msg })); } catch (e) {}
+    var el = document.getElementById('error');
+    el.textContent = 'Chart error: ' + msg;
+    el.style.display = 'block';
+  }
   try {
     const parsed = JSON.parse(spec);
+    const themedConfig = {
+      background: ${JSON.stringify(theme.bg)},
+      axis: { domainColor: ${JSON.stringify(axisColor)}, labelColor: ${JSON.stringify(textColor)}, titleColor: ${JSON.stringify(textColor)}, tickColor: ${JSON.stringify(axisColor)}, gridColor: ${JSON.stringify(gridColor)} },
+      legend: { labelColor: ${JSON.stringify(textColor)}, titleColor: ${JSON.stringify(textColor)} },
+      title: { color: ${JSON.stringify(textColor)} },
+      view: { stroke: ${JSON.stringify(axisColor)} },
+    };
+    parsed.config = Object.assign({}, themedConfig, parsed.config || {});
     vegaEmbed('#chart', parsed, {
       actions: false,
       renderer: 'svg',
-      width: 'container',
+      width: ${CHART_WEBVIEW_WIDTH - 16},
       height: ${PREVIEW_HEIGHT - 24},
-    }).catch(function(err) {
-      document.getElementById('error').textContent = 'Chart error: ' + err.message;
-      document.getElementById('error').style.display = 'block';
-    });
+      theme: ${JSON.stringify(vegaTheme)},
+      config: themedConfig,
+    }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
   } catch (e) {
-    document.getElementById('error').textContent = 'Invalid spec: ' + e.message;
-    document.getElementById('error').style.display = 'block';
+    reportError(e && e.message ? e.message : String(e));
   }
 </script>
 </body>
@@ -77,6 +100,7 @@ export function ChartBlock({ content }: Props) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [expanded, setExpanded] = useState(false);
   const [showSource, setShowSource] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   const vegaHtml = useMemo(() => buildVegaHtml(content, theme), [content, theme]);
   const source = useMemo(() => ({ html: vegaHtml }), [vegaHtml]);
@@ -87,6 +111,15 @@ export function ChartBlock({ content }: Props) {
     Boolean(WebView) && canRenderInlineChart,
   );
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(vegaHtml);
+
+  const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data ?? "{}");
+      if (isChartErrorMessage(data)) setRenderError(data.message ?? t("rich.chart_error"));
+    } catch {
+      setRenderError(t("rich.chart_error"));
+    }
+  }, [t]);
 
   const handleOpenVegaEditor = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -106,20 +139,36 @@ export function ChartBlock({ content }: Props) {
       </View>
 
       <View style={[s.previewBox, expanded && s.previewBoxExpanded]}>
-        {WebView && canRenderInlineChart ? (
+        {renderError ? (
+          <View style={s.previewPlaceholder}>
+            <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+            <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
+              {renderError}
+            </Text>
+          </View>
+        ) : WebView && canRenderInlineChart ? (
           canMount ? (
-            <WebView
-              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={source}
-              style={{
-                height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
-              }}
-              scrollEnabled={false}
-              javaScriptEnabled
-              domStorageEnabled={false}
-              onLoadEnd={onLoaded}
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              contentContainerStyle={s.chartScrollContent}
+              style={s.chartScroll}
+            >
+              <WebView
+                originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
+                source={source}
+                style={{
+                  height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
+                  width: CHART_WEBVIEW_WIDTH,
+                }}
+                scrollEnabled={false}
+                javaScriptEnabled
+                domStorageEnabled={false}
+                onLoadEnd={onLoaded}
+                onMessage={handleWebViewMessage}
+                onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+              />
+            </ScrollView>
           ) : (
             <View style={s.previewPlaceholder}>
               <ActivityIndicator color={theme.primary} />
@@ -213,6 +262,8 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     previewBoxExpanded: {},
+    chartScroll: { backgroundColor: t.bg },
+    chartScrollContent: { flexGrow: 1, alignItems: "center" },
     previewPlaceholder: {
       height: PREVIEW_HEIGHT,
       alignItems: "center",

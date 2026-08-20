@@ -480,8 +480,8 @@ class SympyAdapter:
             return ToolResult(
                 name=self.name,
                 content=(
-                    f"Shaded region for {line_spec.expr} on the coordinate plane "
-                    "(dashed boundary = not included).\n"
+                    f"Shaded region for {line_spec.expr} on the number line "
+                    "(open circle = not included).\n"
                     "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
                     f"```graph\n{fence_json}\n```"
                 ),

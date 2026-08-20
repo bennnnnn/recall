@@ -17,6 +17,7 @@ type Props = {
   color: string;
   axisColor: string;
   labelColor: string;
+  surfaceColor: string;
 };
 
 const PAD = 28;
@@ -134,6 +135,7 @@ function endpointMarker(
   width: number,
   y: number,
   color: string,
+  surfaceColor: string,
   key: string,
 ) {
   const cx = valueToPx(value, bounds, width);
@@ -146,7 +148,7 @@ function endpointMarker(
       cx={cx}
       cy={y}
       r={5}
-      fill="white"
+      fill={surfaceColor}
       stroke={color}
       strokeWidth={2.5}
     />
@@ -160,6 +162,7 @@ export function NumberLineChart({
   color,
   axisColor,
   labelColor,
+  surfaceColor,
 }: Props) {
   const intervals = spec.intervals ?? [];
   const xBounds = numberLineBounds(intervals);
@@ -238,6 +241,7 @@ export function NumberLineChart({
               width,
               y,
               color,
+              surfaceColor,
               `m-s-${i}`,
             ),
           );
@@ -251,6 +255,7 @@ export function NumberLineChart({
               width,
               y,
               color,
+              surfaceColor,
               `m-e-${i}`,
             ),
           );

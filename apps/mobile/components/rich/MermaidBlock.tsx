@@ -49,13 +49,16 @@ function buildMermaidHtml(source: string, theme: Theme): string {
 <div id="err"></div>
 <script>
   const src = \`${safeSpec}\`;
+  function reportError(msg) {
+    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'mermaid-error', message: msg })); } catch (e) {}
+    var el = document.getElementById('err');
+    el.textContent = 'Diagram error: ' + msg;
+    el.style.display = 'block';
+  }
   const el = document.getElementById('diagram');
   el.textContent = src;
   mermaid.initialize({ startOnLoad: false, theme: '${mermaidTheme}', securityLevel: 'strict' });
-  mermaid.run({ nodes: [el] }).catch(function(err) {
-    document.getElementById('err').textContent = 'Diagram error: ' + err.message;
-    document.getElementById('err').style.display = 'block';
-  });
+  mermaid.run({ nodes: [el] }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
 </script>
 </body>
 </html>`);
@@ -66,6 +69,8 @@ export function MermaidBlock({ content }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [showSource, setShowSource] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   const mermaidHtml = useMemo(() => buildMermaidHtml(content.trim(), theme), [content, theme]);
   const source = useMemo(() => ({ html: mermaidHtml }), [mermaidHtml]);
@@ -74,6 +79,15 @@ export function MermaidBlock({ content }: Props) {
   const canRenderInline = previewWebView?.mode === "rnc";
   const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(mermaidHtml);
+
+  const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data ?? "{}");
+      if (data && data.kind === "mermaid-error") setRenderError(data.message ?? t("rich.mermaid_error"));
+    } catch {
+      setRenderError(t("rich.mermaid_error"));
+    }
+  }, [t]);
 
   const handleOpenLiveEditor = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -92,13 +106,20 @@ export function MermaidBlock({ content }: Props) {
         </Pressable>
       </View>
 
-      {showSource ? (
+      {renderError ? (
+        <View style={s.previewBox}>
+          <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+          <Text style={[s.previewText, { color: theme.danger }]}>
+            {renderError}
+          </Text>
+        </View>
+      ) : showSource ? (
         <View style={s.previewBox}>
           <Text style={s.previewText}>{content.trim()}</Text>
         </View>
       ) : canRenderInline && WebView ? (
         canMount ? (
-          <View style={s.webWrap}>
+          <View style={[s.webWrap, expanded && s.webWrapExpanded]}>
             <WebView
               originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
               source={source}
@@ -107,6 +128,7 @@ export function MermaidBlock({ content }: Props) {
               javaScriptEnabled
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
+              onMessage={handleWebViewMessage}
               onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
             />
           </View>
@@ -126,6 +148,20 @@ export function MermaidBlock({ content }: Props) {
 
       <View style={s.actions}>
         <CopyButton text={content} variant="action" />
+        <Pressable
+          style={s.actionBtn}
+          onPress={() => setExpanded((v) => !v)}
+          hitSlop={8}
+        >
+          <Icon
+            name={expanded ? "contract-outline" : "expand-outline"}
+            size={18}
+            color={theme.textSecondary}
+          />
+          <Text style={s.actionLabel}>
+            {expanded ? t("rich.collapse") : t("rich.expand")}
+          </Text>
+        </Pressable>
         <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
           <Icon name="open-outline" size={18} color={theme.onPrimary} />
           <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
@@ -159,6 +195,7 @@ function makeStyles(t: Theme) {
     headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     toggleSource: { fontSize: 13, fontWeight: "600", color: t.primary },
     webWrap: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
+    webWrapExpanded: { height: PREVIEW_HEIGHT * 2 },
     webview: { flex: 1, backgroundColor: "transparent" },
     loadingWrap: {
       height: PREVIEW_HEIGHT,
@@ -175,14 +212,26 @@ function makeStyles(t: Theme) {
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
     fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
-    actions: { flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+    actions: { flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 10, flexWrap: "wrap" },
+    actionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: t.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+    },
+    actionLabel: { fontSize: 14, fontWeight: "600", color: t.textSecondary },
     openBtn: {
-      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
       paddingVertical: 10,
+      paddingHorizontal: 16,
       borderRadius: 10,
       backgroundColor: t.primary,
     },

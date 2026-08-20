@@ -137,7 +137,7 @@ def test_router_delete_chat_204():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.services.chats.chats_repo.delete_by_id", AsyncMock(return_value=True)):
+    with patch("app.services.chats.delete_chat", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
@@ -150,10 +150,43 @@ def test_router_delete_chat_404():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.services.chats.chats_repo.delete_by_id", AsyncMock(return_value=False)):
+    with patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_chat_purges_attachments_before_delete():
+    """H1: chat delete must purge attachment rows + storage, not just cascade messages."""
+    from app.models.orm import User
+    from app.services import chats as chats_service
+
+    user = MagicMock(spec=User)
+    user.id = uuid4()
+    chat = MagicMock()
+    chat.id = uuid4()
+    session = AsyncMock()
+    settings = Settings()
+    msg_ids = [uuid4(), uuid4()]
+
+    with (
+        patch.object(chats_service.chats_repo, "get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.repositories.messages.list_ids_for_chat",
+            AsyncMock(return_value=msg_ids),
+        ) as list_ids_mock,
+        patch(
+            "app.services.attachment_lifecycle.purge_attachments_for_messages",
+            AsyncMock(),
+        ) as purge_mock,
+    ):
+        await chats_service.delete_chat(session, user, chat.id, settings=settings)
+
+    list_ids_mock.assert_awaited_once_with(session, chat.id)
+    purge_mock.assert_awaited_once_with(session, settings, msg_ids)
+    session.delete.assert_called_once_with(chat)
+    session.commit.assert_awaited_once()
 
 
 # ── messages.count_for_chat — SQL scalar path ─────────────────────────────────

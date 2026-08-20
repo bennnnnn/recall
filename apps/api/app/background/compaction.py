@@ -103,5 +103,6 @@ async def compress_chat_history(
             await session.commit()
     except Exception:
         logger.exception("History compression failed for chat_id=%s", chat_id)
+        raise
     finally:
         await release_lock(redis, lock_key, token)

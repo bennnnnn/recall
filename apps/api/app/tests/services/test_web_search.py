@@ -293,7 +293,7 @@ def test_strip_sources_from_text_removes_fence_and_bare_json():
 
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_results_before_user():
-    settings = Settings(mock_llm_enabled=True, tavily_api_key="")
+    settings = Settings(mock_llm_enabled=True, tavily_api_key="", mcp_tool_loop_enabled=False)
     messages = [
         {"role": "system", "content": "base"},
         {"role": "user", "content": "old"},
@@ -321,7 +321,7 @@ async def test_augment_prompt_injects_results_before_user():
 
 @pytest.mark.asyncio
 async def test_augment_prompt_emits_searching_status_with_query_detail():
-    settings = Settings(mock_llm_enabled=True, tavily_api_key="")
+    settings = Settings(mock_llm_enabled=True, tavily_api_key="", mcp_tool_loop_enabled=False)
     messages = [
         {"role": "user", "content": "search the web for latest AI news"},
     ]
@@ -356,7 +356,9 @@ async def test_augment_prompt_emits_searching_status_with_query_detail():
 
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_empty_block_when_no_hits():
-    settings = Settings(mock_llm_enabled=False, web_search_fallback_enabled=False)
+    settings = Settings(
+        mock_llm_enabled=False, web_search_fallback_enabled=False, mcp_tool_loop_enabled=False
+    )
     messages = [
         {"role": "system", "content": "base"},
         {"role": "user", "content": "what's happening in the world today"},
@@ -378,7 +380,7 @@ async def test_augment_prompt_injects_empty_block_when_no_hits():
 
 @pytest.mark.asyncio
 async def test_augment_prompt_follow_up_look_it_up(fake_redis):
-    settings = Settings()
+    settings = Settings(mcp_tool_loop_enabled=False)
     messages = [
         {"role": "system", "content": "base"},
         {"role": "user", "content": "Show me yesterdays game"},
@@ -862,6 +864,7 @@ async def test_augment_prompt_classifier_routes_factual_lookup(fake_redis):
         mock_llm_enabled=True,
         openrouter_api_key="",
         web_search_classifier_enabled=True,
+        mcp_tool_loop_enabled=False,
     )
     messages = [
         {"role": "system", "content": "base"},
@@ -894,6 +897,7 @@ async def test_augment_uses_classifier_query_when_present(fake_redis):
         mock_llm_enabled=True,
         openrouter_api_key="",
         web_search_classifier_enabled=True,
+        mcp_tool_loop_enabled=False,
     )
     messages = [
         {"role": "system", "content": "base"},

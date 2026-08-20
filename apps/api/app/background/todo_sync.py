@@ -23,3 +23,4 @@ async def sync_todos_from_chat(
         )
     except Exception:
         logger.exception("Todo sync job failed for user_id=%s", user_id)
+        raise

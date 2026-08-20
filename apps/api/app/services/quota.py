@@ -196,7 +196,17 @@ async def reserve_usage(
         if new_total == requested:
             await redis.expire(key, _DAILY_TTL)
         if new_total > daily_limit:
-            await redis.incrby(key, -requested)
+            # Roll back the over-limit reservation. If this incrby fails
+            # (Redis blip after the first succeeded), the user would be
+            # permanently charged for a turn that was rejected — retry once
+            # so the charge doesn't stick.
+            try:
+                await redis.incrby(key, -requested)
+            except RedisError:
+                logger.warning(
+                    "Quota over-limit rollback failed; retrying user_id=%s", user_id, exc_info=True
+                )
+                await redis.incrby(key, -requested)
             return False
         return True
     except RedisError as exc:

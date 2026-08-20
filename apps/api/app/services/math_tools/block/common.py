@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -13,11 +13,18 @@ class VerifiedMathBlock:
     the model to reuse verbatim — canonical_fence lets a post-stream check
     correct the model's actual output rather than only trusting compliance.
     Geometry/graph turns keep the diagram JSON on canonical_fence and the
-    numeric final on canonical_answer so ```answer can be rewritten too."""
+    numeric final on canonical_answer so ```answer can be rewritten too.
+
+    ``canonical_fences`` collects fences across multiple tool-loop rounds
+    (e.g. a geometry fence from round 1 and a graph fence from round 2) so
+    ``validate_math_fences`` can match each by type instead of only using
+    the last round's fence. ``canonical_fence`` stays the primary/first for
+    backward compatibility."""
 
     text: str
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
+    canonical_fences: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _fence(kind: str, spec: Any) -> str:

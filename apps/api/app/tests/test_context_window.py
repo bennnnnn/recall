@@ -67,8 +67,21 @@ def test_compute_history_split():
 
 def test_should_run_compression_batch():
     split = compute_history_split(60, [_M("x")] * 40, budget=6000, max_count=40)
+    # summarized_count = 20; pending = 20 - 0 = 20 >= batch(10) → run
     assert should_run_compression(split, already_summarized=0, batch=10) is True
-    assert should_run_compression(split, already_summarized=15, batch=10) is False
+    # pending = 20 - 18 = 2 < urgent_min_pending(3) → wait (small gap amortizes)
+    assert should_run_compression(split, already_summarized=18, batch=10) is False
+
+
+def test_should_run_compression_urgent_without_token_pressure():
+    """H5: a gap >= urgent_min_pending must compress even without token
+    pressure — otherwise the middle-history hole drops messages that are
+    neither in the summary nor in the recent window."""
+    msgs = [_M("x")] * 40
+    split = compute_history_split(60, msgs, budget=6000, max_count=40)
+    assert split.token_pressure is False
+    assert split.summarized_count > 0
+    assert should_run_compression(split, already_summarized=0, batch=10, urgent_min_pending=3)
 
 
 def test_should_run_compression_urgent_under_token_pressure():
@@ -77,6 +90,17 @@ def test_should_run_compression_urgent_under_token_pressure():
     assert split.token_pressure is True
     assert split.summarized_count > 0
     assert should_run_compression(split, already_summarized=0, batch=10, urgent_min_pending=3)
+
+
+def test_should_run_compression_small_gap_waits():
+    """A 1-2 message gap is too small to justify an LLM summarization call;
+    wait for it to grow to urgent_min_pending."""
+    split = compute_history_split(60, [_M("x")] * 40, budget=6000, max_count=40)
+    # summarized_count = 60 - 40 = 20; already = 18 → pending = 2
+    assert (
+        should_run_compression(split, already_summarized=18, batch=10, urgent_min_pending=3)
+        is False
+    )
 
 
 def test_trim_and_cap_summary():

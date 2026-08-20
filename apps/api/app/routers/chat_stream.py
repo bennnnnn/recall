@@ -157,8 +157,15 @@ async def _stream_tokens_sse(
 
         yield _sse(build_stream_end_payload(result))
         finalize_db_task = pop_finalize_tasks(result)
-        if not await await_finalize_commit(finalize_db_task):
+        commit_status = await await_finalize_commit(finalize_db_task)
+        if commit_status == "failed":
             yield _sse({"type": "error", "message": "Failed to save the response. Please retry."})
+            return
+        if commit_status == "timeout":
+            done_payload = build_done_payload(result)
+            done_payload.pop("message_id", None)
+            done_payload["persisting"] = True
+            yield _sse(done_payload)
             return
 
         yield _sse(build_done_payload(result))
@@ -175,6 +182,17 @@ async def _stream_tokens_sse(
             producer.cancel()
             with suppress(asyncio.CancelledError):
                 await producer
+        # M10: if the SSE transport failed mid-stream (client disconnect,
+        # proxy drop) the success-path finalize await above never ran, so
+        # the background DB commit that persists the partial assistant
+        # message would be orphaned and the user's partial reply lost.
+        # Await it here too (bounded) so partial tokens are saved even
+        # when the transport breaks. The shield inside await_finalize_commit
+        # means this never cancels the commit task on timeout.
+        finalize_db_task = pop_finalize_tasks(result)
+        if finalize_db_task is not None:
+            with suppress(Exception):
+                await await_finalize_commit(finalize_db_task)
         if not disconnect_watcher.done():
             disconnect_watcher.cancel()
             with suppress(asyncio.CancelledError):

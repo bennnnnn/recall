@@ -217,33 +217,31 @@ async def _handle_gmail_sync(settings: Settings, payload: dict[str, Any]) -> Non
 
 
 async def _handle_transactional_email(settings: Settings, payload: dict[str, Any]) -> None:
-    """Best-effort outbound email (welcome / receipts). Never raises into chat."""
+    """Best-effort outbound email (welcome / receipts). Re-raises transient
+    failures so the worker retry loop can retry; user-not-found is a permanent
+    discard (JobDiscardError → DLQ, no retry)."""
     from app.repositories import users as users_repo
 
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, UUID(payload["user_id"]))
     if user is None:
         logger.warning("transactional_email: user not found id=%s", payload.get("user_id"))
-        return
+        raise JobDiscardError(f"transactional_email: user not found id={payload.get('user_id')}")
     kind = payload.get("kind")
-    try:
-        if kind == "welcome":
-            await transactional_email_service.send_welcome(settings, user)
-        elif kind == "receipt":
-            await transactional_email_service.send_purchase_receipt(
-                settings,
-                user,
-                event_type=str(payload.get("event_type") or ""),
-                store=payload.get("store"),
-                product_id=payload.get("product_id"),
-                expiration=payload.get("expiration"),
-            )
-        else:
-            logger.warning("transactional_email: unknown kind=%s", kind)
-    except Exception:
-        logger.exception(
-            "transactional_email job failed kind=%s user=%s", kind, payload.get("user_id")
+    if kind == "welcome":
+        await transactional_email_service.send_welcome(settings, user)
+    elif kind == "receipt":
+        await transactional_email_service.send_purchase_receipt(
+            settings,
+            user,
+            event_type=str(payload.get("event_type") or ""),
+            store=payload.get("store"),
+            product_id=payload.get("product_id"),
+            expiration=payload.get("expiration"),
         )
+    else:
+        logger.warning("transactional_email: unknown kind=%s", kind)
+        raise JobDiscardError(f"transactional_email: unknown kind={kind!r}")
 
 
 async def _handle_attachment_index(settings: Settings, payload: dict[str, Any]) -> None:

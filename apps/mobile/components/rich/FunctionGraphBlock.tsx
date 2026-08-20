@@ -58,6 +58,7 @@ export function FunctionGraphBlock({ content }: Props) {
           color={theme.primary}
           axisColor={theme.border}
           labelColor={theme.textSecondary}
+          surfaceColor={theme.bg}
         />
       </View>
     );

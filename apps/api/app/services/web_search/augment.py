@@ -50,6 +50,14 @@ async def build_search_augmentation(
     Safe to run concurrently with other augment builders that share the same
     base prompt — the caller injects returned blocks after gather.
     """
+    # When the owned MCP tool loop is enabled, its web_search adapter decides
+    # whether to search and runs Tavily itself. Running the heuristic search
+    # here too would double the Tavily calls (and the LLM classifier round
+    # trip) for every search-worthy turn. Skip the pre-stream heuristic and
+    # let the tool loop own web search; math augmentation still runs below.
+    if settings.mcp_tool_loop_enabled:
+        return None, []
+
     prior_user = prior_user_messages
     if prior_user is None:
         prior_user = _prior_user_messages(messages or [], user_content)

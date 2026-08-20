@@ -111,10 +111,28 @@ async def archive_chat(session: AsyncSession, user: User, chat_id: UUID, *, arch
     return await chats_repo.set_archived(session, chat, archived)
 
 
-async def delete_chat(session: AsyncSession, user: User, chat_id: UUID) -> None:
-    deleted = await chats_repo.delete_by_id(session, chat_id, user.id)
-    if not deleted:
+async def delete_chat(
+    session: AsyncSession,
+    user: User,
+    chat_id: UUID,
+    *,
+    settings: Settings,
+) -> None:
+    chat = await chats_repo.get_by_id(session, chat_id, user.id)
+    if chat is None:
         raise ChatsError("Chat not found", status_code=404)
+
+    # Purge attachment rows + storage bytes before the chat cascade removes the
+    # message rows (attachments.message_id FK is SET NULL, so without this the
+    # rows + R2 bytes survive and linger in the gallery until the orphan reaper).
+    from app.repositories import messages as messages_repo
+    from app.services import attachment_lifecycle as attachment_lc
+
+    message_ids = await messages_repo.list_ids_for_chat(session, chat_id)
+    if message_ids:
+        await attachment_lc.purge_attachments_for_messages(session, settings, message_ids)
+    await session.delete(chat)
+    await session.commit()
 
 
 async def today_usage(

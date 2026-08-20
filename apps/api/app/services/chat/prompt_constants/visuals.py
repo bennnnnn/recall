@@ -27,9 +27,19 @@ VISUALIZATION_HINTS = (
     "appended. Do not invent other files or a build step.\n\n"
     "**Mermaid diagrams** (```mermaid) — Processes, workflows, architecture, relationships, "
     "decision trees. Prefer over bullet lists when showing connections. Not for molecules.\n\n"
-    "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends.\n\n"
+    "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends. "
+    'Always include `"$schema": "https://vega.github.io/schema/vega-lite/v5.json"` '
+    "as the first key so the renderer picks Vega-Lite. Prefer Vega-Lite over Vega. "
+    "Example:\n"
+    "```chart\n"
+    '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",'
+    '"description":"A simple bar chart","data":{"values":['
+    '{"a":"A","b":28},{"a":"B","b":55},{"a":"C","b":43}]},'
+    '"mark":"bar","encoding":{"x":{"field":"a","type":"nominal"},'
+    '"y":{"field":"b","type":"quantitative"}}}\n'
+    "```\n\n"
     "**Chemistry** (```smiles / ```chemistry) — Plain SMILES for molecular structures "
-    "(e.g. O=O, N#N, CCO). One molecule per fence; optional caption above the SMILES. "
+    "(e.g. O=O, N#N, CCO, O=C=O for CO₂). One molecule per fence; optional caption above the SMILES. "
     "Never `$O=O$` / ```math for structures — always the SMILES card.\n\n"
     "**Geometry** (```geometry) — JSON spec for rectangles/squares/triangles/circles "
     "with labels, diagonals, area. School shapes only — not molecules. Use only "
