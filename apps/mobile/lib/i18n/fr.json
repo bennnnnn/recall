@@ -977,7 +977,7 @@
   "gallery.title": "Galerie",
   "gallery.empty": "Aucune image",
   "gallery.filter.all": "Tout",
-  "gallery.new": "Nouveau",
   "gallery.filter.images": "Images",
-  "gallery.filter.files": "Fichiers"
+  "gallery.filter.files": "Fichiers",
+  "gallery.search_placeholder": "Rechercher images et fichiers..."
 }

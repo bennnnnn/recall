@@ -977,7 +977,7 @@
   "gallery.title": "ማዕከለ-ስዕሎች",
   "gallery.empty": "እስካሁን ምንም ምስል የለም",
   "gallery.filter.all": "ሁሉም",
-  "gallery.new": "አዲስ",
   "gallery.filter.images": "ምስሎች",
-  "gallery.filter.files": "ፋይሎች"
+  "gallery.filter.files": "ፋይሎች",
+  "gallery.search_placeholder": "ምስሎችን እና ፋይሎችን ይፈልጉ..."
 }
