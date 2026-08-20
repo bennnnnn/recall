@@ -965,7 +965,7 @@ def test_list_attachments_returns_images():
 
     with (
         patch(
-            "app.routers.attachments.attachments_repo.list_images_for_user",
+            "app.routers.attachments.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([row1, row2], False)),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
@@ -982,31 +982,31 @@ def test_list_attachments_returns_images():
     assert body["items"][1]["source"] == "upload"
 
 
-def test_list_attachments_source_filter():
-    """GET /attachments?source=generated filters to generated images only."""
+def test_list_attachments_category_filter():
+    """GET /attachments?category=files filters to non-image attachments."""
     user = _fake_user()
-    row = _attachment_row(source="generated")
+    row = _attachment_row(content_type="application/pdf", source="upload")
     gateway = MagicMock()
     gateway.presign_download = AsyncMock(return_value="url1")
 
     mock_list = AsyncMock(return_value=([row], False))
     with (
         patch(
-            "app.routers.attachments.attachments_repo.list_images_for_user",
+            "app.routers.attachments.attachments_repo.list_for_gallery",
             mock_list,
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get(
-            "/attachments?source=generated",
+            "/attachments?category=files",
             headers={"Authorization": "Bearer tok"},
         )
 
     assert r.status_code == 200
     assert len(r.json()["items"]) == 1
     _, kwargs = mock_list.call_args
-    assert kwargs.get("source") == "generated"
+    assert kwargs.get("category") == "files"
 
 
 def test_list_attachments_local_backend():
@@ -1017,7 +1017,7 @@ def test_list_attachments_local_backend():
 
     with (
         patch(
-            "app.routers.attachments.attachments_repo.list_images_for_user",
+            "app.routers.attachments.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([row], False)),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
@@ -1036,7 +1036,7 @@ def test_list_attachments_empty():
 
     with (
         patch(
-            "app.routers.attachments.attachments_repo.list_images_for_user",
+            "app.routers.attachments.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([], False)),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),

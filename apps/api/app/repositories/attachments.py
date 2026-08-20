@@ -122,24 +122,30 @@ async def list_for_user(
     return list(result.scalars().all())
 
 
-async def list_images_for_user(
+async def list_for_gallery(
     session: AsyncSession,
     user_id: UUID,
     *,
+    category: str | None = None,
     source: str | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> tuple[list[Attachment], bool]:
-    """Paginated image attachments for the gallery.
+    """Paginated attachments for the gallery.
 
-    Returns ``(rows, has_more)``. Filters to ``content_type LIKE 'image/%'``
-    so non-image documents are excluded. Optional ``source`` filter narrows
-    to ``'upload'`` or ``'generated'``.
+    Returns ``(rows, has_more)``. ``category`` narrows by content family:
+
+    * ``"images"`` — ``content_type LIKE 'image/%'``
+    * ``"files"``  — ``content_type NOT LIKE 'image/%'``
+    * ``None``     — all attachments
+
+    Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
     """
-    stmt = select(Attachment).where(
-        Attachment.user_id == user_id,
-        Attachment.content_type.like("image/%"),
-    )
+    stmt = select(Attachment).where(Attachment.user_id == user_id)
+    if category == "images":
+        stmt = stmt.where(Attachment.content_type.like("image/%"))
+    elif category == "files":
+        stmt = stmt.where(Attachment.content_type.notlike("image/%"))
     if source in ("upload", "generated"):
         stmt = stmt.where(Attachment.source == source)
     stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())

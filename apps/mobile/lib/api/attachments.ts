@@ -46,10 +46,10 @@ export const attachmentsApi = {
     }>(`/attachments/${attachmentId}/url`, token),
   listAttachments: (
     token: string,
-    params: { source?: "upload" | "generated"; limit?: number; offset?: number } = {},
+    params: { category?: "images" | "files"; limit?: number; offset?: number } = {},
   ) => {
     const search = new URLSearchParams();
-    if (params.source) search.set("source", params.source);
+    if (params.category) search.set("category", params.category);
     if (params.limit !== undefined) search.set("limit", String(params.limit));
     if (params.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();
