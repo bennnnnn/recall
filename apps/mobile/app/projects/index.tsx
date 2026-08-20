@@ -86,7 +86,10 @@ export default function ProjectsScreen() {
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
   const { refresh: refreshHome } = useHome();
-  const visibleProjects = projects;
+  const visibleProjects = useMemo(
+    () => projects.filter((p) => !p.archived),
+    [projects],
+  );
   const showAddLearning = useMemo(
     () => canAddLearningProject(projects),
     [projects],
