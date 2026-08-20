@@ -387,14 +387,14 @@ def count_missed_by_date(
     timezone_name: str,
     miss_events_by_item: dict[Any, list[datetime]] | None = None,
 ) -> dict[date, int]:
-    """Open misses per local day (excludes items later mastered).
+    """Open misses per local day.
 
-    BUG FIX (was silent): this used to key off the single mutable
-    last_incorrect_at column, so a later miss on the same item silently
-    erased which day an earlier miss was attributed to and a past day's
-    history could change after the fact. Pass `miss_events_by_item` (from
-    QuizMissEvent, an append-only log) to attribute misses to every day they
-    actually happened on; omitted, falls back to the legacy single-column read.
+    When ``miss_events_by_item`` is provided (from QuizMissEvent), misses are
+    attributed to every day they actually happened on. For items that were
+    eventually mastered, only events before the mastery date are counted so
+    past misses don't disappear from history after eventual mastery
+    (LANG-BE-007). Without the event log, falls back to the legacy
+    single-column ``last_incorrect_at`` read (open items only).
     """
     try:
         tz = ZoneInfo(timezone_name)
@@ -406,6 +406,21 @@ def count_missed_by_date(
             "mastered" if getattr(item, "mastered", False) else "new"
         )
         if status == "mastered":
+            # Include pre-mastery miss events so history doesn't lose them
+            # after eventual mastery (LANG-BE-007). Only applies when the
+            # event log is available — legacy fallback stays open-only.
+            if miss_events_by_item is None:
+                continue
+            mastered_at = getattr(item, "mastered_at", None)
+            item_id = getattr(item, "id", None)
+            events = miss_events_by_item.get(item_id) if item_id is not None else None
+            if not events:
+                continue
+            for occurred_at in events:
+                if mastered_at is not None and _as_utc(occurred_at) >= _as_utc(mastered_at):
+                    continue
+                day = _as_utc(occurred_at).astimezone(tz).date()
+                counts[day] = counts.get(day, 0) + 1
             continue
         for day in _miss_local_dates(item, tz, miss_events_by_item):
             counts[day] = counts.get(day, 0) + 1

@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
-from uuid import uuid4
+from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from app.services.daily_learning import (
@@ -24,8 +24,10 @@ def _item(
     created_at: datetime,
     mastered_at: datetime | None = None,
     mastered: bool = False,
+    id: UUID | None = None,
 ):
     return SimpleNamespace(
+        id=id,
         status=status,
         mastered=mastered,
         created_at=created_at,
@@ -518,3 +520,64 @@ def test_build_daily_history_marks_exact_prior_day_complete_without_logged_chang
     assert saturday_row["daily_goal"] == 5
     assert saturday_row["goal_met"] is True
     assert saturday_row["status"] == "complete"
+
+
+# --- LANG-BE-005/007: miss-event log in daily history ---
+
+
+def test_count_missed_by_date_includes_mastered_item_pre_mastery_events():
+    """Misses for items later mastered should still appear in history for
+    days before the mastery date (LANG-BE-007)."""
+    item_id = uuid4()
+    miss_day = datetime(2026, 1, 10, 12, tzinfo=UTC)
+    mastered_day = datetime(2026, 1, 12, 12, tzinfo=UTC)
+    item = _item(
+        id=item_id,
+        status="mastered",
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        mastered_at=mastered_day,
+        mastered=True,
+    )
+    miss_events = {item_id: [miss_day, mastered_day]}
+    counts = count_missed_by_date(
+        [item],
+        timezone_name="UTC",
+        miss_events_by_item=miss_events,
+    )
+    # Only the pre-mastery miss should be counted
+    assert counts.get(miss_day.date()) == 1
+    # The mastery-day event should NOT be counted
+    assert counts.get(mastered_day.date()) is None
+
+
+def test_count_missed_by_date_excludes_mastered_without_event_log():
+    """Without miss_events_by_item, mastered items are excluded entirely
+    (legacy fallback behavior)."""
+    item = _item(
+        status="mastered",
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        mastered_at=datetime(2026, 1, 12, 12, tzinfo=UTC),
+        mastered=True,
+    )
+    counts = count_missed_by_date([item], timezone_name="UTC")
+    assert counts == {}
+
+
+def test_count_missed_by_date_open_item_all_events_counted():
+    """For still-open items, every miss event day is counted."""
+    item_id = uuid4()
+    day1 = datetime(2026, 1, 10, 12, tzinfo=UTC)
+    day2 = datetime(2026, 1, 11, 12, tzinfo=UTC)
+    item = _item(
+        id=item_id,
+        status="learning",
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    miss_events = {item_id: [day1, day2]}
+    counts = count_missed_by_date(
+        [item],
+        timezone_name="UTC",
+        miss_events_by_item=miss_events,
+    )
+    assert counts.get(day1.date()) == 1
+    assert counts.get(day2.date()) == 1
