@@ -978,5 +978,6 @@
   "gallery.empty": "Henüz görsel yok",
   "gallery.filter.all": "Tümü",
   "gallery.filter.generated": "Oluşturulan",
-  "gallery.filter.uploaded": "Yüklenen"
+  "gallery.filter.uploaded": "Yüklenen",
+  "gallery.new": "Yeni"
 }

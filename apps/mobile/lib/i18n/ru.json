@@ -978,5 +978,6 @@
   "gallery.empty": "Изображений пока нет",
   "gallery.filter.all": "Все",
   "gallery.filter.generated": "Созданные",
-  "gallery.filter.uploaded": "Загруженные"
+  "gallery.filter.uploaded": "Загруженные",
+  "gallery.new": "Новый"
 }
