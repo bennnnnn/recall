@@ -2,7 +2,7 @@
  * Chemistry structure — SMILES rendered via vendored SmilesDrawer in a
  * sandboxed WebView (same offline/CSP pattern as Mermaid).
  */
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
@@ -49,15 +49,17 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
     "  var smiles = `" +
     safeSmiles +
     "`;\n" +
-    "  var err = document.getElementById('err');\n" +
-    "  var root = document.getElementById('molecule');\n" +
-    "  function fail(msg) {\n" +
+    "  function reportError(msg) {\n" +
+    "    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chemistry-error', message: msg })); } catch (e) {}\n" +
+    "    var err = document.getElementById('err');\n" +
     "    root.style.display = 'none';\n" +
     "    err.textContent = msg;\n" +
     "    err.style.display = 'block';\n" +
     "  }\n" +
+    "  var err = document.getElementById('err');\n" +
+    "  var root = document.getElementById('molecule');\n" +
     "  if (!SmilesDrawer || typeof SmilesDrawer.SvgDrawer !== 'function' || typeof SmilesDrawer.parse !== 'function') {\n" +
-    "    fail('Chemistry renderer unavailable.');\n" +
+    "    reportError('Chemistry renderer unavailable.');\n" +
     "    return;\n" +
     "  }\n" +
     "  var drawer = new SmilesDrawer.SvgDrawer({ width: " +
@@ -81,8 +83,8 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
     "    try { drawer.draw(tree, root, '" +
     themeName +
     "'); }\n" +
-    "    catch (e) { fail('Could not render that structure.'); }\n" +
-    "  }, function() { fail('Could not render that structure.'); });\n" +
+    "    catch (e) { reportError('Could not render that structure.'); }\n" +
+    "  }, function() { reportError('Could not render that structure.'); });\n" +
     "})();\n";
   return injectPreviewCsp(
     "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
@@ -112,6 +114,7 @@ export function ChemistryBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   const parsed = useMemo(() => parseChemistryFence(content), [content]);
   const smiles = parsed?.smiles ?? "";
@@ -127,6 +130,15 @@ export function ChemistryBlock({ content }: Props) {
   const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
   const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
+
+  const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data ?? "{}");
+      if (data && data.kind === "chemistry-error") setRenderError(data.message ?? t("rich.chemistry_invalid"));
+    } catch {
+      setRenderError(t("rich.chemistry_invalid"));
+    }
+  }, [t]);
 
   if (!parsed) {
     return (
@@ -159,7 +171,14 @@ export function ChemistryBlock({ content }: Props) {
         </View>
       ) : null}
 
-      {canRenderInline && WebView ? (
+      {renderError ? (
+        <View style={s.previewBox}>
+          <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+          <Text style={[s.previewText, { color: theme.danger }]}>
+            {renderError}
+          </Text>
+        </View>
+      ) : canRenderInline && WebView ? (
         canMount ? (
           <View style={s.webWrap}>
             <WebView
@@ -170,6 +189,7 @@ export function ChemistryBlock({ content }: Props) {
               javaScriptEnabled
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
+              onMessage={handleWebViewMessage}
               onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
             />
           </View>

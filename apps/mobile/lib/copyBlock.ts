@@ -341,7 +341,14 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   const id = fenceIdForLang(lang);
   if (id === "answer") return "answer";
   if (id === "math") return "math";
-  if (id === "geometry" || id === "graph") return "diagram";
+  if (
+    id === "geometry" ||
+    id === "graph" ||
+    id === "chart" ||
+    id === "mermaid" ||
+    id === "chemistry"
+  )
+    return "diagram";
   if (isExplicitCodeLang(lang)) return "code";
   if (looksLikeMathAnswer(body)) return "answer";
   if (body.trim() && looksLikeMathFenceBody(body)) return "math";
