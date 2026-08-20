@@ -27,6 +27,7 @@ type Props = {
   onProjects: () => void;
   onLists: () => void;
   onReminders: () => void;
+  onGallery: () => void;
 };
 
 export function DrawerHeader({
@@ -48,6 +49,7 @@ export function DrawerHeader({
   onProjects,
   onLists,
   onReminders,
+  onGallery,
 }: Props) {
   const { t } = useTranslation();
 
@@ -140,6 +142,7 @@ export function DrawerHeader({
         onProjects={onProjects}
         onLists={onLists}
         onReminders={onReminders}
+        onGallery={onGallery}
       />
     </View>
   );

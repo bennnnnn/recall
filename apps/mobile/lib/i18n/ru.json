@@ -277,6 +277,7 @@
   "drawer.reminders": "Напоминания",
   "drawer.select": "Выбрать",
   "drawer.select_all": "Выбрать все",
+  "drawer.gallery": "Галерея",
   "drawer.selected_count": "Выбрано: {{count}}",
   "drawer.settings": "Настройки",
   "drawer.this_month": "В этом месяце",
@@ -972,5 +973,10 @@
   "projects.level.intermediate": "Средний",
   "projects.level.upper_intermediate": "Средне-продвинутый",
   "projects.level.advanced": "Продвинутый",
-  "projects.level.fluent": "Свободный"
+  "projects.level.fluent": "Свободный",
+  "gallery.title": "Галерея",
+  "gallery.empty": "Изображений пока нет",
+  "gallery.filter.all": "Все",
+  "gallery.filter.generated": "Созданные",
+  "gallery.filter.uploaded": "Загруженные"
 }

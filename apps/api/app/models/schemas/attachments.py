@@ -23,3 +23,18 @@ class AttachmentOut(BaseModel):
     size_bytes: int
     download_url: str
     created_at: datetime
+
+
+class AttachmentListItemOut(BaseModel):
+    id: UUID
+    content_type: str
+    size_bytes: int
+    download_url: str
+    source: str
+    created_at: datetime
+    chat_id: UUID | None = None
+
+
+class AttachmentListOut(BaseModel):
+    items: list[AttachmentListItemOut]
+    has_more: bool = False

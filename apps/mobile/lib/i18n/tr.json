@@ -277,6 +277,7 @@
   "drawer.reminders": "Hatırlatmalar",
   "drawer.select": "Seç",
   "drawer.select_all": "Tümünü seç",
+  "drawer.gallery": "Galeri",
   "drawer.selected_count": "{{count}} seçildi",
   "drawer.settings": "Ayarlar",
   "drawer.this_month": "Bu ay",
@@ -972,5 +973,10 @@
   "projects.level.intermediate": "Orta",
   "projects.level.upper_intermediate": "Üst orta",
   "projects.level.advanced": "İleri",
-  "projects.level.fluent": "Akıcı"
+  "projects.level.fluent": "Akıcı",
+  "gallery.title": "Galeri",
+  "gallery.empty": "Henüz görsel yok",
+  "gallery.filter.all": "Tümü",
+  "gallery.filter.generated": "Oluşturulan",
+  "gallery.filter.uploaded": "Yüklenen"
 }

@@ -122,6 +122,34 @@ async def list_for_user(
     return list(result.scalars().all())
 
 
+async def list_images_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    source: str | None = None,
+    limit: int = 30,
+    offset: int = 0,
+) -> tuple[list[Attachment], bool]:
+    """Paginated image attachments for the gallery.
+
+    Returns ``(rows, has_more)``. Filters to ``content_type LIKE 'image/%'``
+    so non-image documents are excluded. Optional ``source`` filter narrows
+    to ``'upload'`` or ``'generated'``.
+    """
+    stmt = select(Attachment).where(
+        Attachment.user_id == user_id,
+        Attachment.content_type.like("image/%"),
+    )
+    if source in ("upload", "generated"):
+        stmt = stmt.where(Attachment.source == source)
+    stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())
+    stmt = stmt.offset(max(offset, 0)).limit(max(limit, 1))
+    result = await session.execute(stmt)
+    rows = list(result.scalars().all())
+    has_more = len(rows) >= limit
+    return rows, has_more
+
+
 async def list_orphans(
     session: AsyncSession,
     *,

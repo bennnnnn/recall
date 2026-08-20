@@ -9,6 +9,10 @@ import { projectsApi } from "@/lib/api/projects";
 import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
+export type {
+  AttachmentListItem,
+  AttachmentListResponse,
+} from "@/lib/api/attachments";
 export {
   loginWithApple,
   loginWithDev,

@@ -1,6 +1,8 @@
 """Pydantic API schemas. Prefer `from app.models.schemas import X`."""
 
 from app.models.schemas.attachments import (
+    AttachmentListItemOut,
+    AttachmentListOut,
     AttachmentOut,
     AttachmentPresignIn,
     AttachmentPresignOut,
@@ -112,6 +114,8 @@ from app.models.schemas.todos import (
 __all__ = [
     "AppleAuthRequest",
     "ArchiveUpdate",
+    "AttachmentListItemOut",
+    "AttachmentListOut",
     "AttachmentOut",
     "AttachmentPresignIn",
     "AttachmentPresignOut",

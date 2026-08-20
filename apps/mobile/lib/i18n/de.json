@@ -277,6 +277,7 @@
   "drawer.reminders": "Erinnerungen",
   "drawer.select": "Auswählen",
   "drawer.select_all": "Alle auswählen",
+  "drawer.gallery": "Galerie",
   "drawer.selected_count": "{{count}} ausgewählt",
   "drawer.settings": "Einstellungen",
   "drawer.this_month": "Diesen Monat",
@@ -972,5 +973,10 @@
   "projects.level.intermediate": "Mittelstufe",
   "projects.level.upper_intermediate": "Obere Mittelstufe",
   "projects.level.advanced": "Fortgeschritten",
-  "projects.level.fluent": "Fließend"
+  "projects.level.fluent": "Fließend",
+  "gallery.title": "Galerie",
+  "gallery.empty": "Noch keine Bilder",
+  "gallery.filter.all": "Alle",
+  "gallery.filter.generated": "Erzeugt",
+  "gallery.filter.uploaded": "Hochgeladen"
 }

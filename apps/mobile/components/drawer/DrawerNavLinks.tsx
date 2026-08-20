@@ -16,6 +16,7 @@ type Props = {
   onProjects: () => void;
   onLists: () => void;
   onReminders: () => void;
+  onGallery: () => void;
 };
 
 export function DrawerNavLinks({
@@ -26,6 +27,7 @@ export function DrawerNavLinks({
   onProjects,
   onLists,
   onReminders,
+  onGallery,
 }: Props) {
   const { t } = useTranslation();
 
@@ -79,6 +81,20 @@ export function DrawerNavLinks({
           ) : null}
         </View>
         <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+      </Pressable>
+
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onGallery();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("drawer.gallery")}
+      >
+        <Icon name="images-outline" size={18} />
+        <Text style={s.todosLinkText}>{t("drawer.gallery")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
     </View>
