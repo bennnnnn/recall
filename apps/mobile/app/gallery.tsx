@@ -1,14 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useFocusEffect } from "expo-router";
-import { useNavigation } from "expo-router";
+import { useFocusEffect, useNavigation } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { GalleryThumbnail } from "@/components/GalleryThumbnail";
-import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +27,7 @@ type Filter = "all" | "generated" | "upload";
 
 const PAGE_SIZE = 30;
 const NUM_COLUMNS = 3;
+const THUMB_SIZE = 112;
 
 export default function GalleryScreen() {
   const { token } = useAuth();
@@ -78,8 +84,8 @@ export default function GalleryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      navigation.setOptions({ title: t("gallery.title") });
-    }, [navigation, t]),
+      navigation.setOptions({ title: "" });
+    }, [navigation]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -123,24 +129,30 @@ export default function GalleryScreen() {
 
   return (
     <View style={s.root}>
-      <View style={[s.tabs, { marginTop: insets.top }]}>
-        {filters.map((f) => {
-          const active = f.key === filter;
-          return (
-            <Pressable
-              key={f.key}
-              style={[s.tab, active && s.tabActive]}
-              onPress={() => {
-                tap();
-                setFilter(f.key);
-              }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[s.tabText, active && s.tabTextActive]}>{f.label}</Text>
-            </Pressable>
-          );
-        })}
+      {/* Header: large title + filter tabs — matches the Library design */}
+      <View style={[s.header, { paddingTop: insets.top + Space.sm }]}>
+        <Text style={s.title}>{t("gallery.title")}</Text>
+        <View style={s.tabs}>
+          {filters.map((f) => {
+            const active = f.key === filter;
+            return (
+              <Pressable
+                key={f.key}
+                style={[s.tab, active && s.tabActive]}
+                onPress={() => {
+                  tap();
+                  setFilter(f.key);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[s.tabText, active && s.tabTextActive]}>
+                  {f.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {loading && items.length === 0 && !error ? (
@@ -196,23 +208,29 @@ export default function GalleryScreen() {
   );
 }
 
-const THUMB_SIZE = 108;
-
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
+    header: {
+      paddingHorizontal: Space.md,
+      paddingBottom: Space.sm,
+    },
+    title: {
+      ...Type.display,
+      fontSize: 28,
+      fontWeight: "800",
+      lineHeight: 34,
+      color: C.text,
+      marginBottom: Space.sm,
+    },
     tabs: {
       flexDirection: "row",
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
       gap: Space.xs,
     },
     tab: {
       paddingVertical: 7,
-      paddingHorizontal: 14,
+      paddingHorizontal: 16,
       borderRadius: 20,
-      alignItems: "center",
-      justifyContent: "center",
     },
     tabActive: {
       backgroundColor: C.surfaceAlt,
@@ -226,8 +244,14 @@ function makeStyles(C: Theme) {
       color: C.text,
       fontWeight: "600",
     },
-    content: { padding: Space.md, paddingBottom: 96 },
+    content: {
+      padding: Space.md,
+      paddingBottom: 96,
+    },
     gridGap: { height: Space.sm },
-    footer: { paddingVertical: Space.md, alignItems: "center" },
+    footer: {
+      paddingVertical: Space.md,
+      alignItems: "center",
+    },
   });
 }
