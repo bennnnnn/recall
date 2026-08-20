@@ -53,6 +53,7 @@ type Options = {
 export type ImageGenSubmit = {
   prompt: string;
   userMessage: string;
+  aspectRatio?: string | null;
 };
 
 /** Pro image generation from composer text — no confirmation sheet. */
@@ -127,7 +128,7 @@ export function useImageGeneration({
       const userContent = imageGenUserBubble(input.userMessage, prompt);
       if (!prompt || !userContent) return;
 
-      lastSubmitRef.current = { prompt, userMessage: userContent };
+      lastSubmitRef.current = { prompt, userMessage: userContent, aspectRatio: input.aspectRatio };
       generatingRef.current = true;
       setGenerating(true);
       const abort = new AbortController();
@@ -191,6 +192,7 @@ export function useImageGeneration({
             chat_id: activeChatId,
             prompt,
             user_message: userContent,
+            aspect_ratio: input.aspectRatio ?? null,
           },
           { signal: abort.signal },
         );
