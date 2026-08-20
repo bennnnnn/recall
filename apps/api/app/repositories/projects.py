@@ -133,11 +133,20 @@ async def create(
     return project
 
 
-async def update(session: AsyncSession, project: Project, **fields: object) -> Project:
+async def update(
+    session: AsyncSession,
+    project: Project,
+    *,
+    commit: bool = True,
+    **fields: object,
+) -> Project:
     for key, value in fields.items():
         setattr(project, key, value)
-    await session.commit()
-    await session.refresh(project)
+    if commit:
+        await session.commit()
+        await session.refresh(project)
+    else:
+        await session.flush()
     return project
 
 

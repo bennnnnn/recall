@@ -173,7 +173,7 @@ async def _project_action_set_description(
     if not matched:
         return 0
     desc = (action.description or "").strip() or None
-    await projects_repo.update(state.session, matched, description=desc)
+    await projects_repo.update(state.session, matched, commit=False, description=desc)
     return 1
 
 
@@ -181,7 +181,7 @@ async def _project_action_set_level(state: _ProjectApplyState, action: ProjectAc
     matched = _find_project(state.projects, action.project_title)
     if not matched or not action.level:
         return 0
-    await projects_repo.update(state.session, matched, level=action.level)
+    await projects_repo.update(state.session, matched, commit=False, level=action.level)
     return 1
 
 
