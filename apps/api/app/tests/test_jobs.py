@@ -752,3 +752,27 @@ async def test_process_entries_releases_dedupe_after_permanent_failure(fake_redi
         await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert await fake_redis.get(jobs.job_done_key("welcome:user-1")) is None
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
+
+
+@pytest.mark.asyncio
+async def test_process_entries_claims_with_short_ttl_then_extends_on_success(fake_redis):
+    """M2: dedupe claim uses a short TTL so a crash mid-handler lets the
+    reclaim re-run; on success the TTL is extended to the full window."""
+    calls = {"n": 0}
+
+    async def handler(_settings, _payload):
+        calls["n"] += 1
+
+    jobs.register("dedupe-ttl-job", handler)
+    await jobs._ensure_group(fake_redis)
+    fields = {
+        "type": "dedupe-ttl-job",
+        "payload": "{}",
+        "dedupe_key": "ttl:test",
+    }
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert calls["n"] == 1
+    ttl = await fake_redis.ttl(jobs.job_done_key("ttl:test"))
+    # Extended to the full 24h window on success.
+    assert ttl > jobs._JOB_DONE_CLAIM_TTL_SECONDS

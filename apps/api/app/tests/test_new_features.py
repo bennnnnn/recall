@@ -1025,8 +1025,10 @@ async def test_generate_suggestions_handles_exceptions():
             AsyncMock(side_effect=RuntimeError("DB down")),
         ),
     ):
-        await generate_suggestions(settings, uid)
-    # Should not raise — exceptions are caught and logged.
+        # H4: handlers re-raise transient errors so the worker retry loop
+        # can retry instead of swallowing them as silent success.
+        with pytest.raises(RuntimeError, match="DB down"):
+            await generate_suggestions(settings, uid)
 
 
 @pytest.mark.asyncio

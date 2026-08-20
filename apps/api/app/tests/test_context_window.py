@@ -97,9 +97,10 @@ def test_should_run_compression_small_gap_waits():
     wait for it to grow to urgent_min_pending."""
     split = compute_history_split(60, [_M("x")] * 40, budget=6000, max_count=40)
     # summarized_count = 60 - 40 = 20; already = 18 → pending = 2
-    assert should_run_compression(
-        split, already_summarized=18, batch=10, urgent_min_pending=3
-    ) is False
+    assert (
+        should_run_compression(split, already_summarized=18, batch=10, urgent_min_pending=3)
+        is False
+    )
 
 
 def test_trim_and_cap_summary():

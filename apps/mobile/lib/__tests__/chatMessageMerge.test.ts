@@ -93,4 +93,74 @@ describe("mergeLocalAttachmentUris", () => {
     expect(merged[0].local_file_name).toBe("notes.pdf");
     expect(merged[0].local_file_content_type).toBe("application/pdf");
   });
+
+  it("M11: preserves streamed-* assistant when server list has no assistant row", () => {
+    const previous: Message[] = [
+      {
+        id: "u1",
+        role: "user",
+        content: "hi",
+        model: null,
+        created_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "streamed-100",
+        role: "assistant",
+        content: "Hello!",
+        model: "free-chat",
+        created_at: "2026-01-01T00:00:01Z",
+      },
+    ];
+    const incoming: Message[] = [
+      {
+        id: "u1",
+        role: "user",
+        content: "hi",
+        model: null,
+        created_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    const merged = mergeLocalAttachmentUris(previous, incoming);
+    expect(merged).toHaveLength(2);
+    expect(merged[1].id).toBe("streamed-100");
+    expect(merged[1].content).toBe("Hello!");
+  });
+
+  it("M11: drops streamed-* assistant when server list has a persisted assistant", () => {
+    const previous: Message[] = [
+      {
+        id: "u1",
+        role: "user",
+        content: "hi",
+        model: null,
+        created_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "streamed-100",
+        role: "assistant",
+        content: "Hello!",
+        model: "free-chat",
+        created_at: "2026-01-01T00:00:01Z",
+      },
+    ];
+    const incoming: Message[] = [
+      {
+        id: "u1",
+        role: "user",
+        content: "hi",
+        model: null,
+        created_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        role: "assistant",
+        content: "Hello!",
+        model: "free-chat",
+        created_at: "2026-01-01T00:00:01Z",
+      },
+    ];
+    const merged = mergeLocalAttachmentUris(previous, incoming);
+    expect(merged).toHaveLength(2);
+    expect(merged[1].id).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  });
 });

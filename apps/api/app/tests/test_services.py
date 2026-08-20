@@ -331,8 +331,12 @@ async def test_extract_and_store_swallows_exception():
             AsyncMock(return_value=[]),
         ),
     ):
-        # must not raise
-        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+        # H4: handlers re-raise transient errors so the worker retry loop
+        # can retry instead of swallowing them as silent success.
+        with pytest.raises(RuntimeError, match="boom"):
+            await extract_and_store_memories(
+                settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
+            )
 
 
 @pytest.mark.asyncio

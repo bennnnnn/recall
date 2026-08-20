@@ -38,7 +38,7 @@ export function mergeLocalAttachmentUris(
     }
   }
 
-  return incoming.map((msg) => {
+  const merged = incoming.map((msg) => {
     const prior = byId.get(msg.id);
     let local_image_uri = msg.local_image_uri ?? prior?.local_image_uri ?? null;
     let local_file_uri = msg.local_file_uri ?? prior?.local_file_uri ?? null;
@@ -82,4 +82,24 @@ export function mergeLocalAttachmentUris(
       local_file_content_type,
     };
   });
+
+  // M11: preserve streamed-* assistant messages that haven't been persisted
+  // yet. After a stream ends with `persisting: true` (finalize still running
+  // or timed out), the local list holds a `streamed-<ts>` assistant bubble
+  // but the server hasn't persisted the row. A foreground refetch would
+  // silently drop the partial reply. Keep any streamed-* assistant message
+  // from `previous` that has no server counterpart in `incoming` — the
+  // server list's last assistant message (if any) means the row landed and
+  // the streamed id was already replaced.
+  const hasServerAssistant = incoming.some((m) => m.role === "assistant");
+  if (!hasServerAssistant) {
+    const streamed = previous.filter(
+      (m) => m.role === "assistant" && typeof m.id === "string" && m.id.startsWith("streamed-"),
+    );
+    if (streamed.length > 0) {
+      merged.push(...streamed);
+    }
+  }
+
+  return merged;
 }

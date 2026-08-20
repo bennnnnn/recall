@@ -91,28 +91,41 @@ def _validate_geometry(raw: str) -> bool:
         return False
 
 
-def _canonical_replacement(raw: str, canonical_fence: dict[str, object] | None) -> str | None:
+def _canonical_replacement(
+    raw: str,
+    canonical_fence: dict[str, object] | None,
+    canonical_fences: list[dict[str, object]] | None = None,
+) -> str | None:
     """If a canonical fence exists for this turn and the model's fence is the
     same kind, return the canonical JSON to substitute in — the model's own
-    numbers are never trusted once we have the real computed values."""
-    if canonical_fence is None:
-        return None
+    numbers are never trusted once we have the real computed values.
+
+    ``canonical_fences`` (from multiple tool-loop rounds) is matched by type
+    so a geometry fence from round 1 isn't lost when round 2 produced a graph
+    fence. Falls back to the single ``canonical_fence`` for backward compat.
+    """
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
         return None
     if not isinstance(data, dict):
         return None
-    if data.get("type") == canonical_fence.get("type"):
-        return json.dumps(canonical_fence, separators=(",", ":"))
+    fences = canonical_fences or ([canonical_fence] if canonical_fence is not None else [])
+    if not fences:
+        return None
+    data_type = data.get("type")
+    for fence in fences:
+        if data_type == fence.get("type"):
+            return json.dumps(fence, separators=(",", ":"))
     # Model often emits a y=f(x) step for "graph x > 3"; replace any graph
     # fence with the verified number line.
-    if canonical_fence.get("type") == "number_line" and data.get("type") in {
-        "function",
-        "vertical",
-        "number_line",
-    }:
-        return json.dumps(canonical_fence, separators=(",", ":"))
+    for fence in fences:
+        if fence.get("type") == "number_line" and data_type in {
+            "function",
+            "vertical",
+            "number_line",
+        }:
+            return json.dumps(fence, separators=(",", ":"))
     return None
 
 
@@ -350,9 +363,10 @@ def _replace_fence(
     match: re.Match[str],
     label: str,
     canonical_fence: dict[str, object] | None,
+    canonical_fences: list[dict[str, object]] | None = None,
 ) -> str:
     raw = match.group(1).strip()
-    corrected = _canonical_replacement(raw, canonical_fence)
+    corrected = _canonical_replacement(raw, canonical_fence, canonical_fences)
     if corrected is not None:
         if label != "graph":
             return f"```{label}\n{corrected}\n```"
@@ -517,6 +531,7 @@ def convert_function_call_text(content: str) -> str:
 
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
     canonical_fence = verified.canonical_fence if verified is not None else None
+    canonical_fences = verified.canonical_fences if verified is not None else []
     answer_body = _canonical_answer_body(verified)
     # Models sometimes emit a tool call as text (!function_call:{...}) instead
     # of the structured tool_calls API — convert graph calls to real fences and
@@ -528,12 +543,12 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         count=_MAX_ANSWER_FENCES,
     )
     content = _GEOMETRY_FENCE.sub(
-        lambda m: _replace_fence(m, "geometry", canonical_fence),
+        lambda m: _replace_fence(m, "geometry", canonical_fence, canonical_fences),
         content,
         count=_MAX_GEOMETRY_FENCES,
     )
     content = _GRAPH_FENCE.sub(
-        lambda m: _replace_fence(m, "graph", canonical_fence),
+        lambda m: _replace_fence(m, "graph", canonical_fence, canonical_fences),
         content,
         count=_MAX_GRAPH_FENCES,
     )

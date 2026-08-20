@@ -158,7 +158,9 @@ async def _run_tool_rounds_bound(
 ) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None, TerminalImageResult | None]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
-    last_canonical: dict[str, Any] | None = None
+    # Collect canonical fences across rounds keyed by type so a geometry
+    # fence from round 1 isn't lost when round 2 produces a graph fence.
+    canonical_by_type: dict[str, dict[str, Any]] = {}
     terminal_image: TerminalImageResult | None = None
 
     for _ in range(max_rounds):
@@ -205,7 +207,10 @@ async def _run_tool_rounds_bound(
             content = result.content if result else f"Unknown tool: {name}"
             fence = _canonical_from_tool_result(result) if result else None
             if fence is not None:
-                last_canonical = fence
+                # Merge by type so earlier rounds' fences survive later ones.
+                fence_type = str(fence.get("type") or "")
+                if fence_type:
+                    canonical_by_type[fence_type] = fence
             image = _terminal_image_from_tool_result(result) if result else None
             if image is not None:
                 terminal_image = image
@@ -231,9 +236,15 @@ async def _run_tool_rounds_bound(
         logger.info("Tool loop cancelled mid-round; trimming unanswered tool_calls turn")
         working = working[:cut]
 
+    all_fences = list(canonical_by_type.values())
+    primary = all_fences[0] if all_fences else None
     verified = (
-        VerifiedMathBlock(text="", canonical_fence=last_canonical)
-        if last_canonical is not None
+        VerifiedMathBlock(
+            text="",
+            canonical_fence=primary,
+            canonical_fences=all_fences,
+        )
+        if all_fences
         else None
     )
     return working, verified, terminal_image

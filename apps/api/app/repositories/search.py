@@ -57,6 +57,7 @@ async def search_conversations(
         func.coalesce(Chat.updated_at, Chat.created_at).label("created_at"),
     ).where(
         Chat.user_id == user_id,
+        Chat.archived.is_(False),
         Chat.title.isnot(None),
         Chat.title != "",
         title_match,
@@ -73,7 +74,7 @@ async def search_conversations(
             Message.created_at.label("created_at"),
         )
         .join(Chat, Message.chat_id == Chat.id)
-        .where(*msg_where)
+        .where(Chat.archived.is_(False), *msg_where)
     )
     combined = union_all(msg_stmt, title_stmt).subquery("search_hits")
     count_stmt = select(func.count()).select_from(combined)

@@ -41,7 +41,6 @@ from app.services.chat.prompt_constants import (
     MATH_TUTORING_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
-    QUIZ_RECENT_MESSAGE_LIMIT,
     RESPONSE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
@@ -570,10 +569,6 @@ def _integration_hints(
         parts.append(projects_service.PROJECT_HINT)
     if projects_block:
         parts.append(projects_block)
-    if summary:
-        parts.append(
-            wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{summary}")
-        )
     if chat_history_rag_block:
         parts.append(chat_history_rag_block)
     return parts
@@ -604,11 +599,11 @@ async def build_prompt_messages(
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather.
     """
-    recent_limit = (
-        QUIZ_RECENT_MESSAGE_LIMIT
-        if minimal_quiz_context or minimal_vocab_answer_context
-        else settings.recent_message_window
-    )
+    # M9: quiz/vocab turns used a smaller recent window (12) than compaction
+    # (20), so messages 13-20 were neither in the quiz prompt's recent window
+    # nor in the summary — dropped entirely on long quiz threads. Align the
+    # quiz limit with the compaction window so the boundary agrees.
+    recent_limit = settings.recent_message_window
     # Opt-in rich context: casual chat skips memory embed / todos / projects.
     # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
@@ -639,7 +634,17 @@ async def build_prompt_messages(
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
     chat_history_rag_block = ""
-    if not slim_context and settings.chat_history_rag_enabled and query_text and query_text.strip():
+    # M9: enable chat-history RAG for quiz/vocab turns too — grading a quiz
+    # answer may need the original quiz context from older messages that
+    # fell out of the recent window. ``lightweight`` and ``not rich_context``
+    # stay excluded (ultra-brief / casual turns don't need RAG).
+    quiz_rag_eligible = minimal_quiz_context or minimal_vocab_answer_context
+    if (
+        (not slim_context or quiz_rag_eligible)
+        and settings.chat_history_rag_enabled
+        and query_text
+        and query_text.strip()
+    ):
         from app.services import chat_history_rag as chat_history_rag_service
 
         exclude = {m.id for m in recent}
@@ -717,6 +722,15 @@ async def build_prompt_messages(
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
+    # M8: inject the rolling summary even on the slim path. A slim long thread
+    # (lightweight / not rich_context) still drops everything older than the
+    # recent window from the prompt — without the summary the model loses all
+    # context from earlier in the conversation. The summary is already
+    # computed and is just a string, so including it is free.
+    if summary:
+        system_parts.append(
+            wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{summary}")
+        )
     if not slim_context:
         system_parts.extend(
             _integration_hints(

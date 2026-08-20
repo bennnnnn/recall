@@ -35,10 +35,18 @@ _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
 # Idempotency: SET NX before dispatch so reclaim/duplicate enqueue cannot
-# double-apply side effects (duplicate todos, welcome emails, …). Released on
-# permanent failure so a later re-enqueue can retry; success keeps the key.
+# double-apply side effects (duplicate todos, welcome emails, …). The claim
+# uses a SHORT TTL (a few multiples of the reclaim idle window) so a worker
+# that crashes mid-handler doesn't pin the dedupe key for 24h — the short
+# TTL expires and the reclaim re-runs the job. On success the TTL is extended
+# to the full _JOB_DONE_TTL_SECONDS so a later duplicate enqueue skips.
 _JOB_DONE_PREFIX = "jobdone:"
 _JOB_DONE_TTL_SECONDS = 86_400
+# Short enough that a crashed worker's claim expires before the reclaim picks
+# up the entry (reclaim idle is _CLAIM_IDLE_MS); long enough to cover a normal
+# handler run (LLM round-trip, gmail batch) without a slow handler false-
+# positively expiring and letting a duplicate double-run.
+_JOB_DONE_CLAIM_TTL_SECONDS = 300
 
 
 class JobDiscardError(Exception):
@@ -223,15 +231,21 @@ async def _move_to_dlq(
         _capture_sentry_exception("dlq_write_failed")
 
 
-async def _claim_dedupe(redis: Redis, dedupe_key: str | None) -> bool:
-    """Return True if this worker should run the job (or there is no dedupe)."""
+async def _claim_dedupe(
+    redis: Redis, dedupe_key: str | None, *, ttl: int = _JOB_DONE_CLAIM_TTL_SECONDS
+) -> bool:
+    """Return True if this worker should run the job (or there is no dedupe).
+
+    Uses a short TTL so a worker that crashes mid-handler doesn't pin the
+    key for 24h — the claim expires and the reclaim re-runs the job.
+    """
     if not dedupe_key:
         return True
     try:
         claimed = await redis.set(
             job_done_key(dedupe_key),
             "1",
-            ex=_JOB_DONE_TTL_SECONDS,
+            ex=ttl,
             nx=True,
         )
     except Exception:
@@ -239,6 +253,16 @@ async def _claim_dedupe(redis: Redis, dedupe_key: str | None) -> bool:
         logger.debug("job dedupe claim failed key=%s", dedupe_key, exc_info=True)
         return True
     return bool(claimed)
+
+
+async def _extend_dedupe(redis: Redis, dedupe_key: str | None) -> None:
+    """Extend a successful claim to the full TTL so later duplicates skip."""
+    if not dedupe_key:
+        return
+    try:
+        await redis.expire(job_done_key(dedupe_key), _JOB_DONE_TTL_SECONDS)
+    except Exception:
+        logger.debug("job dedupe extend failed key=%s", dedupe_key, exc_info=True)
 
 
 async def _release_dedupe(redis: Redis, dedupe_key: str | None) -> None:
@@ -277,6 +301,10 @@ async def _process_one_entry(
             _touch_heartbeat()
             try:
                 await _dispatch(settings, fields)
+                # Success — extend the short claim to the full TTL so a later
+                # duplicate enqueue skips. (Crash before this line leaves the
+                # short claim to expire, so the reclaim re-runs.)
+                await _extend_dedupe(redis, dedupe_key)
                 break
             except JobDiscardError as exc:
                 logger.warning("Discarding job id=%s: %s", entry_id, exc)

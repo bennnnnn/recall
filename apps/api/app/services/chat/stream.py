@@ -160,20 +160,30 @@ async def turn_resources(
         raise
     finally:
         refresh_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        # M13: the refresh loop may have raised (lock lost / Redis error).
+        # Suppress that here — the stream path's own refresh raises and
+        # propagates as the turn's error. The loop failure during pre-stream
+        # (turn_prep) is informational; re-raising from ``finally`` would
+        # mask the original exception from the ``try`` block.
+        with contextlib.suppress(asyncio.CancelledError, ChatServiceError, Exception):
             await refresh_task
         await release_lock(redis, lock_key, lock_token)
 
 
 async def _chatprep_refresh_loop(redis: Redis, lock_key: str, lock_token: str) -> None:
-    """Keep the prepare lock alive through prompt gather and the tool loop."""
+    """Keep the prepare lock alive through prompt gather and the tool loop.
+
+    M13: a failed refresh (Redis error or lock lost) raises instead of
+    silently continuing — without the lock, a concurrent turn can acquire
+    it and both turns write to the same chat, corrupting state. The caller's
+    ``finally`` suppresses this since the stream path has its own refresh.
+    """
     try:
         while True:
             await asyncio.sleep(_CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS)
-            try:
-                await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
-            except Exception:
-                logger.debug("chatprep lock refresh failed", exc_info=True)
+            ok = await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
+            if not ok:
+                raise ChatServiceError("Chat prepare lock lost during turn")
     except asyncio.CancelledError:
         return
 
@@ -188,10 +198,12 @@ async def _yield_with_chatprep_refresh(
     async for token in tokens:
         now = time.monotonic()
         if now - last_refresh >= _CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
-            try:
-                await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
-            except Exception:
-                logger.debug("chatprep lock refresh failed", exc_info=True)
+            # M13: treat refresh failure as fatal — the lock is lost and a
+            # concurrent turn may be running. Stop streaming rather than
+            # continuing without exclusive access to the chat.
+            ok = await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
+            if not ok:
+                raise ChatServiceError("Chat prepare lock lost during stream")
             last_refresh = now
         yield token
 
