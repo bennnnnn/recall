@@ -46,6 +46,7 @@ import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { invalidateProjectDetail } from "@/lib/projectDetailCache";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { subjectFromImageGenUserMessage } from "@/lib/imageGenIntent";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -291,7 +292,7 @@ function ChatScreen() {
     resolveQuizProjectId,
     imageGenerating: imageGen.generating,
     onGenerateImage: (prompt, userMessage) => {
-      void imageGen.submitPrompt({ prompt, userMessage });
+      void imageGen.submitPrompt({ prompt, userMessage, aspectRatio: null });
     },
   });
 
@@ -384,6 +385,18 @@ function ChatScreen() {
     user,
     updateUser,
     regenerateResponse,
+    regenerateImage: useCallback(
+      (lastUserContent: string) => {
+        const prompt = subjectFromImageGenUserMessage(lastUserContent);
+        if (!prompt) return;
+        void imageGen.submitPrompt({
+          prompt,
+          userMessage: lastUserContent,
+          aspectRatio: null,
+        });
+      },
+      [imageGen],
+    ),
   });
 
   const displayMessages = messages;
