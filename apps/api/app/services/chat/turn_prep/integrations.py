@@ -39,6 +39,7 @@ async def _load_calendar_prompt_block(
     settings: Settings,
     *,
     cache_only: bool,
+    client_timezone: str | None = None,
 ) -> str | None:
     async with SessionLocal() as session:
         return await calendar_service.load_calendar_for_prompt(
@@ -47,6 +48,7 @@ async def _load_calendar_prompt_block(
             user,
             settings,
             cache_only=cache_only,
+            client_timezone=client_timezone,
         )
 
 
@@ -123,6 +125,7 @@ async def fetch_integration_blocks(
     has_calendar_write: bool,
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None = None,
     on_status: StreamStatusFn | None = None,
+    client_timezone: str | None = None,
 ) -> list[str]:
     """Load + assemble calendar/gmail/nudge blocks. Does NOT mutate prompt_messages.
 
@@ -152,6 +155,7 @@ async def fetch_integration_blocks(
                         redis,
                         settings,
                         cache_only=day_reflection,
+                        client_timezone=client_timezone,
                     ),
                 ),
             )
@@ -242,6 +246,7 @@ async def _inject_integration_blocks(
     has_calendar_write: bool,
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None,
     on_status: StreamStatusFn | None,
+    client_timezone: str | None = None,
 ) -> list[dict[str, str]]:
     """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
     blocks = await fetch_integration_blocks(
@@ -257,5 +262,6 @@ async def _inject_integration_blocks(
         has_calendar_write=has_calendar_write,
         gmail_context=gmail_context,
         on_status=on_status,
+        client_timezone=client_timezone,
     )
     return inject_integration_blocks(prompt_messages, blocks)

@@ -354,6 +354,7 @@ async def load_calendar_for_prompt(
     settings: Settings,
     *,
     cache_only: bool = False,
+    client_timezone: str | None = None,
 ) -> str | None:
     if not google_calendar_gateway.is_configured(settings):
         return None
@@ -361,15 +362,16 @@ async def load_calendar_for_prompt(
         # Inject an explicit not-connected status so day-planning (and similar)
         # cannot narrate a misleading "empty / clean slate" calendar.
         return format_not_connected_calendar_block()
+    tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     cached = await _load_cached_events(redis, user.id)
     if cached is not None:
-        return format_calendar_block(cached, user.timezone, settings.calendar_prompt_days)
+        return format_calendar_block(cached, tz, settings.calendar_prompt_days)
     if cache_only:
         return None
     result = await _fetch_upcoming_events(session, redis, user, settings, report_errors=True)
     if result.load_error:
         return format_calendar_load_error_block()
-    block = format_calendar_block(result.events, user.timezone, settings.calendar_prompt_days)
+    block = format_calendar_block(result.events, tz, settings.calendar_prompt_days)
     if result.failed_calendars:
         block += (
             f"\n(Note: {result.failed_calendars} of the user's calendars couldn't be loaded "

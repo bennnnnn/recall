@@ -420,6 +420,7 @@ async def build_stream_prompt_context(
             # checking_inbox); they would fire out of order. One "preparing"
             # already covers this region.
             on_status=None,
+            client_timezone=client_timezone,
         )
     web_coro: (
         Awaitable[tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]]

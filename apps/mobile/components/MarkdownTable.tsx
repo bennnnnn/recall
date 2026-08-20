@@ -1,5 +1,6 @@
 import {
   Children,
+  ReactElement,
   ReactNode,
   cloneElement,
   createContext,
@@ -17,6 +18,8 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 
 type CellProps = { isLast?: boolean };
+
+type RowProps = CellProps & { zebra?: boolean };
 
 type TableLayout = {
   columnWidth: number;
@@ -36,6 +39,17 @@ function mapCells(children: ReactNode) {
   return cells.map((child, index) => {
     if (!isValidElement<CellProps>(child)) return child;
     return cloneElement(child, { isLast: index === cells.length - 1 });
+  });
+}
+
+function mapRows(children: ReactNode) {
+  const rows = Children.toArray(children);
+  return rows.map((child, index) => {
+    if (!isValidElement<RowProps>(child)) return child;
+    return cloneElement(child as ReactElement<RowProps>, {
+      isLast: index === rows.length - 1,
+      zebra: index % 2 === 1,
+    });
   });
 }
 
@@ -60,7 +74,7 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
       key={nodeKey}
       style={[s.table, scrollable && { width: columnWidth * colCount }]}
     >
-      {children}
+      {mapRows(children)}
     </View>
   );
 
@@ -85,14 +99,21 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
 export function MarkdownTableRow({
   nodeKey,
   children,
+  isLast = false,
+  zebra = false,
 }: {
   nodeKey: string;
   children: ReactNode;
+  isLast?: boolean;
+  zebra?: boolean;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View key={nodeKey} style={s.row}>
+    <View
+      key={nodeKey}
+      style={[s.row, zebra && s.rowZebra, isLast && s.rowLast]}
+    >
       {mapCells(children)}
     </View>
   );
@@ -159,8 +180,14 @@ function makeStyles(theme: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
     },
+    rowZebra: {
+      backgroundColor: theme.surfaceAlt,
+    },
+    rowLast: {
+      borderBottomWidth: 0,
+    },
     cell: {
-      backgroundColor: theme.surface,
+      backgroundColor: "transparent",
       minWidth: 0,
     },
     cellFlex: {
