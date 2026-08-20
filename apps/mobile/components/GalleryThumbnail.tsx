@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 
 import { Icon } from "@/components/Icon";
@@ -15,12 +15,15 @@ type Props = {
   size?: number;
 };
 
+const LOAD_TIMEOUT_MS = 10_000;
+
 function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const token = useAuthToken();
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // downloadUrl may be a relative "/attachments/{id}/file" (local backend) or
   // an absolute presigned R2 URL. Relative paths need the API base + auth.
@@ -31,12 +34,25 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
       : downloadUrl
     : `${getApiUrl()}/attachments/${attachmentId}/file`;
 
-  const source =
-    token && isRelative
-      ? { uri, headers: { Authorization: `Bearer ${token}` } }
-      : { uri };
+  // Always add auth for local API URLs — the /file endpoint requires a Bearer token.
+  const needsAuth = isRelative || !downloadUrl;
+  const source = token && needsAuth
+    ? { uri, headers: { Authorization: `Bearer ${token}` } }
+    : { uri };
 
   const dimension = { width: size, height: size };
+
+  // Fallback: if onLoad doesn't fire within the timeout, mark as failed.
+  // React Native's Image doesn't always call onError for corrupt/missing data.
+  useEffect(() => {
+    if (failed || loaded) return;
+    timerRef.current = setTimeout(() => {
+      setFailed(true);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [failed, loaded]);
 
   return (
     <View style={[s.wrap, dimension]}>
@@ -53,7 +69,7 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
           ) : null}
           <Image
             source={source}
-            style={dimension}
+            style={[dimension, s.image]}
             resizeMode="cover"
             onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}
@@ -71,6 +87,9 @@ function makeStyles(C: Theme) {
     wrap: {
       borderRadius: 10,
       overflow: "hidden",
+      backgroundColor: C.surface,
+    },
+    image: {
       backgroundColor: C.surface,
     },
     loading: {
