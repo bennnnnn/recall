@@ -977,7 +977,7 @@
   "gallery.title": "Galeri",
   "gallery.empty": "Henüz görsel yok",
   "gallery.filter.all": "Tümü",
-  "gallery.filter.generated": "Oluşturulan",
-  "gallery.filter.uploaded": "Yüklenen",
-  "gallery.new": "Yeni"
+  "gallery.new": "Yeni",
+  "gallery.filter.images": "Görseller",
+  "gallery.filter.files": "Dosyalar"
 }

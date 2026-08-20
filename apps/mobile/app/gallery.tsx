@@ -25,12 +25,16 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type Filter = "all" | "generated" | "upload";
+type Filter = "all" | "images" | "files";
 type ViewMode = "grid" | "list";
 
 const PAGE_SIZE = 30;
 const NUM_COLUMNS = 3;
 const THUMB_SIZE = 112;
+
+function isImageType(contentType: string): boolean {
+  return contentType.startsWith("image/");
+}
 
 export default function GalleryScreen() {
   const { token } = useAuth();
@@ -64,7 +68,7 @@ export default function GalleryScreen() {
       try {
         const offset = reset ? 0 : offsetRef.current;
         const res = await api.listAttachments(token, {
-          source: filter === "all" ? undefined : filter,
+          category: filter === "all" ? undefined : filter,
           limit: PAGE_SIZE,
           offset,
         });
@@ -107,8 +111,8 @@ export default function GalleryScreen() {
 
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: t("gallery.filter.all") },
-    { key: "generated", label: t("gallery.filter.generated") },
-    { key: "upload", label: t("gallery.filter.uploaded") },
+    { key: "images", label: t("gallery.filter.images") },
+    { key: "files", label: t("gallery.filter.files") },
   ];
 
   // Client-side search filter on the loaded items
@@ -127,23 +131,45 @@ export default function GalleryScreen() {
     viewerIndex != null ? filteredItems[viewerIndex] ?? null : null;
 
   const renderItem = useCallback(
-    ({ item, index }: { item: AttachmentListItem; index: number }) => (
-      <Pressable
-        onPress={() => {
-          tap();
-          setViewerIndex(index);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={t("chat.image_view_a11y")}
-      >
-        <GalleryThumbnail
-          attachmentId={item.id}
-          downloadUrl={item.download_url}
-          size={THUMB_SIZE}
-        />
-      </Pressable>
-    ),
-    [t],
+    ({ item, index }: { item: AttachmentListItem; index: number }) => {
+      if (isImageType(item.content_type)) {
+        return (
+          <Pressable
+            onPress={() => {
+              tap();
+              setViewerIndex(index);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.image_view_a11y")}
+          >
+            <GalleryThumbnail
+              attachmentId={item.id}
+              downloadUrl={item.download_url}
+              size={THUMB_SIZE}
+            />
+          </Pressable>
+        );
+      }
+      // File/document tile
+      return (
+        <Pressable
+          onPress={() => {
+            tap();
+            setViewerIndex(index);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.image_view_a11y")}
+        >
+          <View style={s.fileTile}>
+            <Icon name="document-outline" size={32} color={C.textTertiary} />
+            <Text style={s.fileLabel} numberOfLines={1}>
+              {item.content_type.split("/").pop() ?? "file"}
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [t, s, C],
   );
 
   return (
@@ -399,6 +425,21 @@ function makeStyles(C: Theme) {
     footer: {
       paddingVertical: Space.md,
       alignItems: "center",
+    },
+    fileTile: {
+      width: THUMB_SIZE,
+      height: THUMB_SIZE,
+      borderRadius: 10,
+      backgroundColor: C.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    fileLabel: {
+      ...Type.label,
+      fontSize: 11,
+      color: C.textTertiary,
+      textTransform: "uppercase",
     },
   });
 }

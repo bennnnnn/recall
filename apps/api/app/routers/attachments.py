@@ -75,6 +75,7 @@ async def _reject_unverified_upload(
 
 @router.get("", response_model=AttachmentListOut)
 async def list_attachments(
+    category: str | None = Query(default=None, pattern="^(images|files)$"),
     source: str | None = Query(default=None, pattern="^(upload|generated)$"),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -82,9 +83,13 @@ async def list_attachments(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> AttachmentListOut:
-    """List the user's image attachments (uploaded and generated) with pagination."""
-    rows, has_more = await attachments_repo.list_images_for_user(
-        session, user.id, source=source, limit=limit, offset=offset
+    """List the user's attachments with pagination.
+
+    ``category`` narrows by content family: ``images`` (image/*) or ``files``
+    (non-image). Omit it to list everything.
+    """
+    rows, has_more = await attachments_repo.list_for_gallery(
+        session, user.id, category=category, source=source, limit=limit, offset=offset
     )
     gateway = get_storage_gateway(settings)
     items: list[AttachmentListItemOut] = []

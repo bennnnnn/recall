@@ -84,16 +84,16 @@ async def test_link_message_sets_message_id(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_list_images_for_user_returns_rows_and_has_more(fake_session):
-    from app.repositories.attachments import list_images_for_user
+async def test_list_for_gallery_images_returns_rows_and_has_more(fake_session):
+    from app.repositories.attachments import list_for_gallery
 
     rows = [MagicMock(), MagicMock(), MagicMock()]
     fake_session.execute.return_value = MagicMock(
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
     )
 
-    result, has_more = await list_images_for_user(
-        fake_session, uuid4(), source="generated", limit=3, offset=0
+    result, has_more = await list_for_gallery(
+        fake_session, uuid4(), category="images", source="generated", limit=3, offset=0
     )
 
     assert result == rows
@@ -102,16 +102,35 @@ async def test_list_images_for_user_returns_rows_and_has_more(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_list_images_for_user_no_source_filter(fake_session):
-    """When source is None or not in (upload, generated), no source filter is applied."""
-    from app.repositories.attachments import list_images_for_user
+async def test_list_for_gallery_files_category(fake_session):
+    """category='files' excludes image content types."""
+    from app.repositories.attachments import list_for_gallery
 
     rows = [MagicMock()]
     fake_session.execute.return_value = MagicMock(
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
     )
 
-    result, has_more = await list_images_for_user(
+    result, has_more = await list_for_gallery(
+        fake_session, uuid4(), category="files", limit=30, offset=0
+    )
+
+    assert result == rows
+    assert has_more is False
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_for_gallery_all_no_filters(fake_session):
+    """When category and source are None, no content/source filters are applied."""
+    from app.repositories.attachments import list_for_gallery
+
+    rows = [MagicMock()]
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+    )
+
+    result, has_more = await list_for_gallery(
         fake_session, uuid4(), source=None, limit=30, offset=0
     )
 

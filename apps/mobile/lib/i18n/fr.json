@@ -977,7 +977,7 @@
   "gallery.title": "Galerie",
   "gallery.empty": "Aucune image",
   "gallery.filter.all": "Tout",
-  "gallery.filter.generated": "Générées",
-  "gallery.filter.uploaded": "Importées",
-  "gallery.new": "Nouveau"
+  "gallery.new": "Nouveau",
+  "gallery.filter.images": "Images",
+  "gallery.filter.files": "Fichiers"
 }
