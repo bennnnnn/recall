@@ -837,6 +837,51 @@ def test_ws_done_sends_error_when_finalize_fails():
             assert "Failed to save" in msg["message"]
 
 
+def test_ws_done_sends_persisting_when_finalize_times_out():
+    """H2: on finalize TIMEOUT, send `done` without message_id + persisting: true
+    so the client keeps the local bubble and refetches instead of trusting a
+    row that may never persist if the shielded task later fails."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = str(uuid4())
+    gate = asyncio.Event()
+
+    async def fake_stream(*args, result=None, **kwargs):
+        yield "Hello"
+        if result is not None:
+            result["message_id"] = message_id
+            result["resolved_model"] = "free-chat"
+
+            async def slow_finalize():
+                await gate.wait()
+
+            result["_finalize_db_task"] = asyncio.create_task(slow_finalize())
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+        patch("app.services.chat.stream_events.DONE_COMMIT_WAIT_SECONDS", 0.05),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            msg = ws.receive_json()
+            assert msg["type"] == "done"
+            assert "message_id" not in msg
+            assert msg.get("persisting") is True
+            gate.set()
+
+
 def test_ws_status_event_carries_detail():
     """Status events forward the optional activity detail (e.g. the web-search
     query) so the client can render a specific label."""

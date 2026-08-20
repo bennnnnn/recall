@@ -23,3 +23,4 @@ async def sync_projects_from_chat(
         )
     except Exception:
         logger.exception("Project sync job failed for user_id=%s", user_id)
+        raise

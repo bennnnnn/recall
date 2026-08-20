@@ -1160,6 +1160,47 @@ async def _register_and_enqueue_finalize(
         result["_finalize_db_task"] = finalize_db_task
 
 
+async def _finalize_terminal_image_turn(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    result: dict[str, Any] | None,
+) -> None:
+    """Slim finalize for an MCP tool-loop terminal image (H3).
+
+    The image-gen adapter already persisted the assistant ``[Image: …]`` row
+    inside the tool loop, so there is no new message to insert and no provider
+    usage to reconcile. But skipping ``_register_and_enqueue_finalize`` here
+    meant the chat got no title, no memory extract, no compression, and no
+    message index — every other turn's post-turn work was silently dropped.
+
+    This touches the chat and enqueues post-turn jobs (best-effort background)
+    so a terminal-image turn behaves like a normal turn for side effects. No
+    finalize task is registered (the row is already committed), so the next
+    turn does not wait on a phantom pending finalize.
+    """
+    try:
+        ctx.assistant_message_id = UUID(ctx.terminal_image_message_id)
+    except (ValueError, TypeError):
+        logger.warning("terminal_image_message_id not a UUID: %r", ctx.terminal_image_message_id)
+    assistant_text = ctx.terminal_image_content or ""
+
+    async def _slim_finalize() -> None:
+        try:
+            async with SessionLocal() as session:
+                await chats_repo.touch_by_id(session, ctx.chat_id, commit=True)
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+        except Exception:
+            logger.exception("Slim finalize for terminal image failed")
+
+    task = create_background_task(_slim_finalize(), name="finalize_terminal_image")
+    task.add_done_callback(
+        lambda t: _log_background_task_failure(t, "Terminal-image finalize failed")
+    )
+    if result is not None:
+        result["_finalize_task"] = task
+
+
 async def stream_and_finalize(
     redis: Redis,
     settings: Settings,
@@ -1212,6 +1253,13 @@ async def stream_and_finalize(
                         await quota_service.refund_usage(
                             redis, str(ctx.user_id), ctx.reserved_tokens
                         )
+                    # H3: the image row is already persisted, but without a slim
+                    # finalize the chat gets no title, no memory extract, no
+                    # compression, no message index — every other turn's post-turn
+                    # work was skipped. Run a slim finalize (touch + post-turn jobs)
+                    # in the background so this terminal-image turn behaves like a
+                    # normal turn for side effects.
+                    await _finalize_terminal_image_turn(redis, settings, ctx, result)
                     return
 
                 if (

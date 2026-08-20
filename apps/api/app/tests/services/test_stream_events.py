@@ -17,9 +17,9 @@ async def test_await_finalize_commit_timeout_does_not_cancel_task(monkeypatch: p
 
     task = asyncio.create_task(slow_finalize())
     monkeypatch.setattr(stream_events, "DONE_COMMIT_WAIT_SECONDS", 0.05)
-    ok = await stream_events.await_finalize_commit(task)
+    status = await stream_events.await_finalize_commit(task)
 
-    assert ok is True
+    assert status == "timeout"
     assert not task.done()
 
     gate.set()
@@ -34,5 +34,21 @@ async def test_await_finalize_commit_returns_false_on_failure():
         raise RuntimeError("commit failed")
 
     task = asyncio.create_task(boom())
-    ok = await stream_events.await_finalize_commit(task)
-    assert ok is False
+    status = await stream_events.await_finalize_commit(task)
+    assert status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_await_finalize_commit_returns_committed_on_success():
+    async def ok_finalize() -> None:
+        return None
+
+    task = asyncio.create_task(ok_finalize())
+    status = await stream_events.await_finalize_commit(task)
+    assert status == "committed"
+
+
+@pytest.mark.asyncio
+async def test_await_finalize_commit_returns_committed_when_no_task():
+    status = await stream_events.await_finalize_commit(None)
+    assert status == "committed"

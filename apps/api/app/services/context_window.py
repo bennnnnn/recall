@@ -123,13 +123,21 @@ def should_run_compression(
     *,
     urgent_min_pending: int = 3,
 ) -> bool:
-    """Whether the background job should fold more messages into the summary."""
+    """Whether the background job should fold more messages into the summary.
+
+    The gap between ``already_summarized`` and ``split.summarized_count`` is
+    dropped from the prompt entirely — those messages are older than the
+    recent window and not yet in the summary. Run compaction whenever that
+    gap reaches ``urgent_min_pending`` (not only under token pressure) so the
+    hole never grows past a few messages. The larger ``batch`` threshold
+    amortizes LLM cost on long, low-pressure threads.
+    """
     pending = split.summarized_count - already_summarized
     if pending <= 0:
         return False
     if pending >= batch:
         return True
-    if split.token_pressure and pending >= urgent_min_pending:
+    if pending >= urgent_min_pending:
         return True
     return False
 

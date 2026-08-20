@@ -108,4 +108,4 @@ async def extract_and_store_memories(
         return None
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)
-        return None
+        raise

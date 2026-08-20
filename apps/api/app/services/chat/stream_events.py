@@ -84,35 +84,41 @@ def pop_finalize_tasks(result: dict[str, Any]) -> asyncio.Task[None] | None:
     return finalize_db_task
 
 
-async def await_finalize_commit(finalize_db_task: asyncio.Task[None] | None) -> bool:
+async def await_finalize_commit(
+    finalize_db_task: asyncio.Task[None] | None,
+) -> str:
     """Wait (bounded) for the turn's DB commit before sending ``done``.
 
-    Returns True when the commit landed, there was no task, or the wait timed
-    out while the commit is still running under ``asyncio.shield`` (``done`` is
-    then sent best-effort; the finalize registry still guards the next turn).
-    Returns False only when the finalize task actually FAILED, so the caller
-    sends an error instead of a ghost ``done`` carrying a message_id for a row
-    that never persisted.
+    Returns:
+      - ``"committed"`` when the commit landed (or there was no task).
+      - ``"timeout"`` when the wait timed out while the commit is still
+        running under ``asyncio.shield``. The caller should send ``done``
+        WITHOUT ``message_id`` (and with ``persisting: true``) so the client
+        keeps the local bubble and refetches instead of trusting a row that
+        may never persist.
+      - ``"failed"`` when the finalize task actually raised, so the caller
+        sends an error instead of a ghost ``done`` carrying a ``message_id``
+        for a row that never persisted.
 
     The wait must use ``shield``: bare ``wait_for`` cancels the finalize task
     on timeout, which rolls back the assistant insert and strands reserved
     quota while the client still receives ``done``.
     """
     if finalize_db_task is None:
-        return True
+        return "committed"
     try:
         await asyncio.wait_for(asyncio.shield(finalize_db_task), DONE_COMMIT_WAIT_SECONDS)
-        return True
+        return "committed"
     except TimeoutError:
         logger.warning(
-            "Finalize commit still running after %ss; sending done best-effort "
-            "(commit continues under shield)",
+            "Finalize commit still running after %ss; sending done without "
+            "message_id (commit continues under shield)",
             DONE_COMMIT_WAIT_SECONDS,
         )
-        return True
+        return "timeout"
     except Exception:
         logger.exception("Finalize commit failed before done")
-        return False
+        return "failed"
 
 
 def build_done_payload(result: dict[str, Any]) -> dict[str, Any]:

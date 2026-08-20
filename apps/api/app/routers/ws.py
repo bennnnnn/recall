@@ -121,12 +121,22 @@ async def _stream_over_ws(
         # already flushed (stream_end above), so only the final `done` event
         # waits on the commit — streaming latency is unchanged. If the commit
         # FAILED we send an error instead of a ghost `done` with a fake id.
+        # On TIMEOUT we send `done` without `message_id` (persisting: true) so
+        # the client keeps the local bubble and refetches instead of trusting
+        # a row that may never persist if the shielded task later fails.
         finalize_db_task = pop_finalize_tasks(result)
-        if not await await_finalize_commit(finalize_db_task):
+        commit_status = await await_finalize_commit(finalize_db_task)
+        if commit_status == "failed":
             await _safe_send_json(
                 websocket,
                 {"type": "error", "message": "Failed to save the response. Please retry."},
             )
+            return
+        if commit_status == "timeout":
+            done_payload = build_done_payload(result)
+            done_payload.pop("message_id", None)
+            done_payload["persisting"] = True
+            await _safe_send_json(websocket, done_payload)
             return
 
         await _safe_send_json(websocket, build_done_payload(result))

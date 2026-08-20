@@ -166,6 +166,12 @@ async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
     return result.scalar_one_or_none()
 
 
+async def list_ids_for_chat(session: AsyncSession, chat_id: UUID) -> list[UUID]:
+    """All message IDs for a chat — used to purge attachments before chat delete."""
+    result = await session.execute(select(Message.id).where(Message.chat_id == chat_id))
+    return list(result.scalars().all())
+
+
 async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
