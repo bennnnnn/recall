@@ -18,6 +18,7 @@ from app.models.orm import Chat, User
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import calendar as calendar_service
+from app.services import chemistry_context as chemistry_context_service
 from app.services import email as email_service
 from app.services import plan as plan_service
 from app.services import profile as profile_service
@@ -442,6 +443,7 @@ async def build_stream_prompt_context(
         Awaitable[tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]]
         | None
     ) = None
+    chem_coro: Awaitable[str | None] | None = None
     if augment:
         web_coro = fetch_web_and_tools(
             content,
@@ -459,19 +461,28 @@ async def build_stream_prompt_context(
             user=user,
             redis=redis,
         )
+        chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
 
     integration_blocks: list[str] = []
     web_block: str | None = None
     math_block: str | None = None
+    chem_block: str | None = None
     if integration_coro is not None and web_coro is not None:
+        # chem_coro is set alongside web_coro (both gated on augment).
+        assert chem_coro is not None
         (
             integration_blocks,
             (web_block, math_block, search_sources, verified_math),
-        ) = await asyncio.gather(integration_coro, web_coro)
+            chem_block,
+        ) = await asyncio.gather(integration_coro, web_coro, chem_coro)
     elif integration_coro is not None:
         integration_blocks = await integration_coro
+        if chem_coro is not None:
+            chem_block = await chem_coro
     elif web_coro is not None:
         web_block, math_block, search_sources, verified_math = await web_coro
+        if chem_coro is not None:
+            chem_block = await chem_coro
 
     # Phase C: inject in the stable order (integration -> web -> math) so the
     # final prompt is byte-identical to the prior serial pipeline.
@@ -489,6 +500,12 @@ async def build_stream_prompt_context(
             on_status=None,
             has_calendar_write=has_calendar_write,
         )
+
+    # Chemistry context (PubChem compound lookup) — injected after math
+    # so the model has verified SMILES + properties when it emits a
+    # ```smiles fence.
+    if chem_block:
+        prompt_messages.append({"role": "system", "content": chem_block})
 
     if timing is not None:
         timing.mark_prompt_ready()

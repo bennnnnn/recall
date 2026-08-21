@@ -60,3 +60,21 @@ def test_enrich_smiles_with_comment_lines() -> None:
     content = "```smiles\n# This is ethanol\nCCO\n```"
     result = chemistry_fence.enrich_chemistry_fences(content)
     assert "```smiles" in result
+
+
+def test_enrich_generates_molecule3d_fence() -> None:
+    """Valid SMILES should also produce a ```molecule3d fence with 3D SDF."""
+    content = "```smiles\nCCO\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    assert "```smiles" in result
+    assert "```molecule3d" in result
+    assert "M  END" in result  # SDF block present
+
+
+def test_enrich_molecule3d_includes_formula_title() -> None:
+    """The molecule3d fence should include the molecular formula as title."""
+    content = "```smiles\nCCO\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    assert "```molecule3d" in result
+    # Ethanol formula is C2H6O
+    assert "C2H6O" in result

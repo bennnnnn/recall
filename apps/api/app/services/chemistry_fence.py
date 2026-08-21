@@ -44,7 +44,8 @@ def _extract_smiles_from_fence(body: str) -> str | None:
 def enrich_chemistry_fences(content: str) -> str:
     """Validate and enrich all ```smiles fences in the content.
 
-    - Valid SMILES: replace with canonical SMILES (RDKit-normalized).
+    - Valid SMILES: replace with canonical SMILES (RDKit-normalized) and
+      append a ```molecule3d fence with a 3D SDF for interactive viewing.
     - Invalid SMILES: strip the fence entirely (the renderer would show
       a broken card).
 
@@ -79,8 +80,23 @@ def enrich_chemistry_fences(content: str) -> str:
         caption_lines = lines[:-1] if len(lines) > 1 else []
         caption = "\n".join(caption_lines).strip()
         if caption:
-            return f"```smiles\n{caption}\n{props.smiles}\n```"
-        return f"```smiles\n{props.smiles}\n```"
+            smiles_fence = f"```smiles\n{caption}\n{props.smiles}\n```"
+        else:
+            smiles_fence = f"```smiles\n{props.smiles}\n```"
+
+        # Generate a 3D SDF for the molecule3d fence (best-effort —
+        # skip if 3D embedding fails for complex molecules).
+        mol3d_fence = ""
+        try:
+            coords = chemistry_service.generate_3d_coordinates(props.smiles)
+            if coords.sdf:
+                # Use the molecular formula as the title line.
+                title = props.formula or caption or "Molecule"
+                mol3d_fence = f"\n```molecule3d\n{title}\n{coords.sdf}\n```"
+        except Exception:
+            logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
+
+        return smiles_fence + mol3d_fence
 
     return _SMILES_FENCE_RE.sub(_replace, content)
 
