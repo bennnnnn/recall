@@ -652,6 +652,7 @@
   "rich.math_dev_build": "Используйте dev-сборку для отрисованной математики.",
   "rich.math_preview": "Предпросмотр {{engine}}",
   "rich.chemistry_dev_build": "Соберите приложение, чтобы видеть структуры.",
+  "rich.chemistry_3d_dev_build": "3D-просмотр молекул требует dev-сборки.",
   "rich.chemistry_invalid": "Не удалось отобразить эту структуру.",
   "rich.chemistry_structure": "Молекула",
   "rich.mermaid_dev_build": "Соберите приложение для предпросмотра диаграмм.",

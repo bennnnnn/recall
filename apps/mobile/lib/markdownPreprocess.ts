@@ -57,10 +57,10 @@ export function breakAttachedMathFences(content: string): string {
 
   const takeLang = (afterTicks: string): { lang: string; rest: string } | null => {
     let i = 0;
-    // Read letters AND hyphens — fence langs like "vega-lite" and
-    // "callout-note" contain hyphens. Without this, "vega-lite" was split
-    // into lang "vega" + body "-lite", breaking the fence.
-    while (i < afterTicks.length && /[a-zA-Z-]/.test(afterTicks[i]!)) i += 1;
+    // Read letters, digits, and hyphens — fence langs like "vega-lite",
+    // "callout-note", and "molecule3d" contain hyphens/digits. Without
+    // digits, "molecule3d" was split into lang "molecule" + body "3d".
+    while (i < afterTicks.length && /[\w-]/.test(afterTicks[i]!)) i += 1;
     const lang = afterTicks.slice(0, i);
     // Accept any recognized fence lang: structured (math, graph, geometry,
     // mermaid, …), answer, or explicit code (python, javascript, …). This

@@ -10,7 +10,6 @@ import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseMolecule3DFence } from "@/lib/molecule3dFence";
-import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { THREE_D_MOL_MIN_JS } from "@/lib/vendor/threeDMolMinJs";
@@ -163,7 +162,7 @@ export function Molecule3DBlock({ content }: Props) {
       {renderError ? (
         <View style={s.previewBox}>
           <Icon name="alert-circle-outline" size={20} color={theme.danger} />
-          <Text style={[s.previewText, { color: theme.danger }]}>
+          <Text style={[s.fallbackHint, { color: theme.danger }]}>
             {renderError}
           </Text>
         </View>
@@ -189,8 +188,11 @@ export function Molecule3DBlock({ content }: Props) {
         )
       ) : (
         <View style={s.previewBox}>
-          <Text style={s.previewText}>{sdf.slice(0, 200)}{sdf.length > 200 ? "..." : ""}</Text>
-          <Text style={s.fallbackHint}>{t("rich.chemistry_dev_build")}</Text>
+          <Icon name="flask-outline" size={28} color={theme.textTertiary} />
+          <Text style={s.fallbackHint}>
+            {caption ? `${caption}\n` : ""}
+            {t("rich.chemistry_3d_dev_build")}
+          </Text>
         </View>
       )}
 
@@ -255,13 +257,14 @@ function makeStyles(t: Theme) {
     },
     previewBox: {
       paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingVertical: 24,
       backgroundColor: t.contentSurface,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
+      alignItems: "center",
+      gap: 8,
     },
-    previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
+    fallbackHint: { fontSize: 13, color: t.textTertiary, textAlign: "center" },
     actions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
     styleRow: { flexDirection: "row", gap: 6 },
     styleBtn: {

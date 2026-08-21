@@ -323,4 +323,19 @@ describe("renderFence edge cases", () => {
     expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
     expect(queryByText("Copy")).toBeNull();
   });
+
+  it("routes an explicit ```molecule3d fence to Molecule3DBlock (not CodeBlock)", async () => {
+    // The fence lang "molecule3d" contains a digit — takeLang used to
+    // only read [a-zA-Z-], splitting it into "molecule" + "3d". The
+    // fence then fell through to a plain CodeBlock instead of the 3D
+    // molecule viewer.
+    const sdf = `O2\n     RDKit          3D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.5705    0.0000    0.0000 O   0  0  0  0  0  0\n   -0.5705    0.0000    0.0000 O   0  0  0  0  0  0\n  1  2  2  0\nM  END`;
+    const { getByText, queryByText } = await render(
+      <>{renderFence(node(sdf, "molecule3d"))}</>,
+    );
+    // Molecule3DBlock header label is "rich.chemistry_structure".
+    expect(getByText("rich.chemistry_structure")).toBeTruthy();
+    // Must NOT fall through to a CodeBlock with "molecule3d" badge.
+    expect(queryByText("molecule3d")).toBeNull();
+  });
 });
