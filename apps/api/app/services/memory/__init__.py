@@ -1,15 +1,23 @@
-import asyncio
-import hashlib
-import logging
-from typing import cast
+"""Compatibility barrel for the memory service.
+
+Stateful behavior lives in focused cache, lock, retrieval, and CRUD modules.
+Wrappers deliberately pass this module as the seam provider so existing
+``app.services.memory.*`` monkeypatches continue to affect collaborators.
+"""
+
+import sys
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.background_tasks import create_background_task
+from app.core.background_tasks import create_background_task as create_background_task
 from app.core.config import Settings
-from app.core.redis import get_redis_client
+from app.core.redis import get_redis_client as get_redis_client
 from app.models.orm import Memory, User
+from app.services.memory import cache as _cache
+from app.services.memory import crud as _crud
+from app.services.memory import locks as _locks
+from app.services.memory import retrieval as _retrieval
 from app.services.memory.consolidation import (
     accept_memory_section_rewrite as accept_memory_section_rewrite,
 )
@@ -77,35 +85,13 @@ from app.services.memory.text import (
     strip_memory_as_of as strip_memory_as_of,
 )
 
-logger = logging.getLogger(__name__)
 
-# Pure text + consolidation-policy helpers live in the sibling modules imported
-# above, and are re-exported so every existing `from app.services.memory import
-# ...` and `memory_service.<name>` call site is unchanged.
-#
-# The stateful core (selection, semantic search, Redis caching, write locks,
-# CRUD) deliberately stays in this module: tests patch nine of its symbols at
-# `app.services.memory.*` — including internal collaborators like
-# `_semantic_memories_from_vec`, `get_redis_client` and `create_background_task`
-# — and relocating them would break those seams for no behavioural gain.
+def _seams():
+    return sys.modules[__name__]
 
 
 def _memory_query_cache_key(user_id: UUID, generation: bytes | str | None, query_text: str) -> str:
-    # BUG FIX (was a race): the generation is folded into the key itself,
-    # not just checked-then-compared before a separate write. A write
-    # started under an old generation lands under that generation's own key
-    # namespace, which no reader will ever look up again once the
-    # generation bumps — so a slow write racing a concurrent
-    # invalidate_memory_block() can no longer resurrect stale content
-    # under the current generation, regardless of write/invalidate timing.
-    digest = hashlib.sha256(query_text.strip().lower().encode()).hexdigest()[:32]
-    if generation is None:
-        gen_tag = "0"
-    elif isinstance(generation, bytes):
-        gen_tag = generation.decode()
-    else:
-        gen_tag = generation
-    return f"memquery:{user_id}:{gen_tag}:{digest}"
+    return _cache.memory_query_cache_key(user_id, generation, query_text)
 
 
 def _memory_query_scoped_key(
@@ -116,20 +102,29 @@ def _memory_query_scoped_key(
     omit_project_memory: bool,
     exclude_sensitive: bool,
 ) -> str:
-    scope = "p" if omit_project_memory else "g"
-    sens = "x" if exclude_sensitive else "a"
-    return f"{_memory_query_cache_key(user_id, generation, query_text)}:{scope}:{sens}"
+    return _cache.memory_query_scoped_key(
+        user_id,
+        generation,
+        query_text,
+        omit_project_memory=omit_project_memory,
+        exclude_sensitive=exclude_sensitive,
+    )
+
+
+def _memory_block_key(user_id: UUID) -> str:
+    return _cache.memory_block_key(user_id)
+
+
+def _memory_generation_key(user_id: UUID) -> str:
+    return _cache.memory_generation_key(user_id)
 
 
 async def _write_query_block_cache(cache_key: str, block: str, settings: Settings) -> None:
-    try:
-        await get_redis_client().set(
-            cache_key,
-            block,
-            ex=max(30, settings.memory_query_cache_ttl),
-        )
-    except Exception:
-        logger.debug("Memory query cache write failed", exc_info=True)
+    await _cache.write_query_block_cache(_seams(), cache_key, block, settings)
+
+
+async def invalidate_memory_block(user_id: UUID) -> None:
+    await _cache.invalidate_memory_block(_seams(), user_id)
 
 
 async def _semantic_memories_from_vec(
@@ -140,19 +135,13 @@ async def _semantic_memories_from_vec(
     *,
     omit_project_memory: bool = False,
 ) -> list[Memory]:
-    from app.repositories import memories as memories_repo
-
-    all_memories = await memories_repo.list_for_user(session, user.id)
-    semantic = select_memories_semantic(
-        all_memories,
-        query_vec,
+    return await _retrieval.semantic_memories_from_vec(
+        _seams(),
+        session,
+        user,
         settings,
+        query_vec,
         omit_project_memory=omit_project_memory,
-    )
-    if semantic:
-        return semantic
-    return select_memories_for_prompt(
-        all_memories, settings, omit_project_memory=omit_project_memory
     )
 
 
@@ -164,98 +153,16 @@ async def load_relevant_memories(
     query_text: str | None = None,
     query_vec: list[float] | None = None,
     omit_project_memory: bool = False,
-) -> list:
-    if not user.memory_enabled:
-        return []
-    from app.repositories import memories as memories_repo
-
-    # BUG FIX: this used to let a DB exception (transient Neon/pgvector
-    # failure) propagate straight out of build_prompt_messages's
-    # asyncio.gather(...), failing the ENTIRE chat turn over a memory lookup
-    # — every Redis call in this file already degrades to a safe default on
-    # failure; retrieval on the chat hot path must do the same rather than
-    # block streaming (the same "never block the chat request path" spirit
-    # as Golden Rule 4's best-effort extraction jobs).
-    try:
-        if query_vec is not None:
-            return await _semantic_memories_from_vec(
-                session,
-                user,
-                settings,
-                query_vec,
-                omit_project_memory=omit_project_memory,
-            )
-
-        all_memories = await memories_repo.list_for_user(session, user.id)
-        return select_memories_for_prompt(
-            all_memories, settings, omit_project_memory=omit_project_memory
-        )
-    except Exception:
-        logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
-        return []
-
-
-async def _warm_semantic_memory_cache(
-    settings: Settings,
-    user_id: UUID,
-    query_text: str,
-    *,
-    omit_project_memory: bool = False,
-) -> None:
-    """Best-effort: embed query + cache semantic block for the next turn."""
-    from app.core.db import SessionLocal
-    from app.gateways import embedding_gateway
-    from app.repositories import users as users_repo
-
-    cleaned = query_text.strip()
-    if not cleaned:
-        return
-    try:
-        query_vec = await embedding_gateway.get_or_embed_query(settings, user_id, cleaned)
-        if not query_vec:
-            return
-        redis = get_redis_client()
-        gen_before = await redis.get(_memory_generation_key(user_id))
-
-        async with SessionLocal() as session:
-            user = await users_repo.get_by_id(session, user_id)
-            if user is None or not user.memory_enabled:
-                return
-            block = await _semantic_block_from_vec(
-                session,
-                user,
-                settings,
-                query_vec,
-                omit_project_memory=omit_project_memory,
-                exclude_sensitive=False,
-            )
-            # Optimization only, not a correctness guard (see
-            # _memory_query_cache_key): skip the write outright if we
-            # already know the generation moved on, since it would land
-            # under a now-unreachable key anyway.
-            gen_after = await redis.get(_memory_generation_key(user_id))
-            if gen_before != gen_after:
-                return
-            query_key = _memory_query_scoped_key(
-                user_id,
-                gen_before,
-                cleaned,
-                omit_project_memory=omit_project_memory,
-                exclude_sensitive=False,
-            )
-            await _write_query_block_cache(query_key, block, settings)
-    except Exception:
-        logger.debug("Background semantic memory warm failed", exc_info=True)
-
-
-def _filter_surface_memories(
-    memories: list[Memory],
-    *,
-    exclude_sensitive: bool,
 ) -> list[Memory]:
-    if not exclude_sensitive:
-        return memories
-    return [memory for memory in memories if not is_sensitive_memory_text(memory.text)]
+    return await _retrieval.load_relevant_memories(
+        _seams(),
+        session,
+        user,
+        settings,
+        query_text=query_text,
+        query_vec=query_vec,
+        omit_project_memory=omit_project_memory,
+    )
 
 
 async def _semantic_block_from_vec(
@@ -267,15 +174,31 @@ async def _semantic_block_from_vec(
     omit_project_memory: bool,
     exclude_sensitive: bool,
 ) -> str:
-    memories = await load_relevant_memories(
+    return await _retrieval.semantic_block_from_vec(
+        _seams(),
         session,
         user,
         settings,
-        query_vec=query_vec,
+        query_vec,
+        omit_project_memory=omit_project_memory,
+        exclude_sensitive=exclude_sensitive,
+    )
+
+
+async def _warm_semantic_memory_cache(
+    settings: Settings,
+    user_id: UUID,
+    query_text: str,
+    *,
+    omit_project_memory: bool = False,
+) -> None:
+    await _retrieval.warm_semantic_memory_cache(
+        _seams(),
+        settings,
+        user_id,
+        query_text,
         omit_project_memory=omit_project_memory,
     )
-    memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
-    return format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
 
 
 async def get_memory_block(
@@ -287,199 +210,30 @@ async def get_memory_block(
     chat_project_id: UUID | None = None,
     exclude_sensitive: bool = False,
 ) -> str:
-    """Formatted memory block for the prompt, cached in Redis per user."""
-    if not user.memory_enabled:
-        return ""
-
-    omit_project_memory = chat_project_id is not None
-    max_chars = settings.memory_inject_max_chars
-    key = _memory_block_key(user.id)
-    if query_text and settings.semantic_memory_enabled:
-        q = query_text.strip()
-        redis = get_redis_client()
-        try:
-            generation = await redis.get(_memory_generation_key(user.id))
-        except Exception:
-            logger.debug("Memory generation read failed", exc_info=True)
-            generation = None
-        # Fold project-chat / sensitive-surface scoping into the cache key.
-        query_key = _memory_query_scoped_key(
-            user.id,
-            generation,
-            q,
-            omit_project_memory=omit_project_memory,
-            exclude_sensitive=exclude_sensitive,
-        )
-        try:
-            cached = await redis.get(query_key)
-            if cached is not None:
-                return cast(str, cached)
-        except Exception:
-            logger.debug("Memory query cache read failed", exc_info=True)
-
-        from app.gateways import embedding_gateway
-
-        query_vec = await embedding_gateway.get_or_embed_query(
-            settings,
-            user.id,
-            q,
-            embed_timeout=settings.memory_query_embed_timeout_seconds,
-        )
-
-        if query_vec is not None:
-            block = await _semantic_block_from_vec(
-                session,
-                user,
-                settings,
-                query_vec,
-                omit_project_memory=omit_project_memory,
-                exclude_sensitive=exclude_sensitive,
-            )
-            await _write_query_block_cache(query_key, block, settings)
-            return block
-
-        # Cache miss — always-inject types now; warm semantic cache in background.
-        memories = await load_relevant_memories(
-            session,
-            user,
-            settings,
-            omit_project_memory=omit_project_memory,
-        )
-        memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
-        block = format_memory_block(memories, max_chars=max_chars)
-        await _write_query_block_cache(query_key, block, settings)
-        # BUG FIX: asyncio.create_task alone only keeps a task alive via the
-        # caller's local reference, which goes out of scope right after this
-        # function returns — per asyncio's own docs, an unreferenced task is
-        # eligible for GC before it completes. create_background_task holds
-        # a strong reference in a module-level set until the task finishes
-        # (same pattern already used correctly in chat/stream.py).
-        warm_task = create_background_task(
-            _warm_semantic_memory_cache(
-                settings,
-                user.id,
-                q,
-                omit_project_memory=omit_project_memory,
-            ),
-            name="warm_semantic_memory_cache",
-        )
-        warm_task.add_done_callback(
-            lambda t: logger.debug("Semantic memory warm failed", exc_info=t.exception())
-            if not t.cancelled() and t.exception()
-            else None
-        )
-        return block
-
-    redis = get_redis_client()
-    parts = [key]
-    if omit_project_memory:
-        parts.append("p")
-    if exclude_sensitive:
-        parts.append("x")
-    cache_key = ":".join(parts)
-    try:
-        cached = await redis.get(cache_key)
-        if cached is not None:
-            return cast(str, cached)
-    except Exception:
-        logger.debug("Memory block cache read failed", exc_info=True)
-
-    memories = await load_relevant_memories(
+    return await _retrieval.get_memory_block(
+        _seams(),
         session,
         user,
         settings,
-        omit_project_memory=omit_project_memory,
+        query_text=query_text,
+        chat_project_id=chat_project_id,
+        exclude_sensitive=exclude_sensitive,
     )
-    memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
-    block = format_memory_block(memories, max_chars=max_chars)
-    try:
-        await redis.set(cache_key, block, ex=settings.memory_cache_ttl)
-    except Exception:
-        logger.debug("Memory block cache write failed", exc_info=True)
-    return block
-
-
-def _memory_block_key(user_id: UUID) -> str:
-    return f"memblock:{user_id}"
-
-
-def _memory_generation_key(user_id: UUID) -> str:
-    return f"memgen:{user_id}"
-
-
-async def invalidate_memory_block(user_id: UUID) -> None:
-    """Bump the generation and drop the four memblock keys.
-
-    Query-cache entries are not SCAN-deleted: the generation is folded into
-    ``memquery:`` keys, so INCR already makes them unreachable, and they
-    expire via ``memory_query_cache_ttl``. Embed cache is query-text-keyed
-    and is intentionally kept — a memory write does not stale a query's
-    embedding.
-    """
-    try:
-        redis = get_redis_client()
-        await redis.incr(_memory_generation_key(user_id))
-        block_key = _memory_block_key(user_id)
-        await redis.delete(
-            block_key,
-            f"{block_key}:p",
-            f"{block_key}:x",
-            f"{block_key}:p:x",
-        )
-    except Exception:
-        logger.debug("Memory block cache invalidation failed", exc_info=True)
-
-
-# Covers one LLM round-trip + optional fallback retry (each up to ~60s) with
-# headroom. Consolidation merges sections in parallel so the hold stays one
-# round-trip, not 5x sequential. Crash safety net only — normal release uses
-# token compare-and-delete.
-_MEMORY_WRITE_LOCK_TTL = 150
 
 
 def _memory_write_lock_key(user_id: UUID) -> str:
-    return f"memwrite:{user_id}"
+    return _locks.memory_write_lock_key(user_id)
 
 
 async def acquire_memory_write_lock(user_id: UUID) -> str | None:
-    """Serializes extraction/consolidation's read-modify-write section for one
-    user — without this, two overlapping jobs (extraction from one chat racing
-    consolidation, or two extractions from two chats) can both read the same
-    prior section text and the later commit silently discards the earlier
-    one's write. Best-effort like the jobs that call it: on a Redis error,
-    fail closed (treat as not acquired) rather than proceed unprotected.
-
-    Returns the lock token on success (pass to ``release_memory_write_lock``).
-    """
-    from app.core.redis_lock import acquire_lock
-
-    try:
-        redis = get_redis_client()
-        return await acquire_lock(redis, _memory_write_lock_key(user_id), _MEMORY_WRITE_LOCK_TTL)
-    except Exception:
-        logger.debug("Memory write lock acquire failed", exc_info=True)
-        return None
+    return await _locks.acquire_memory_write_lock(_seams(), user_id)
 
 
 async def release_memory_write_lock(user_id: UUID, token: str | None) -> None:
-    """Release only if ``token`` still owns the key (stale holders cannot DEL)."""
-    if not token:
-        return
-    from app.core.redis_lock import release_lock
-
-    try:
-        redis = get_redis_client()
-        await release_lock(redis, _memory_write_lock_key(user_id), token)
-    except Exception:
-        logger.debug("Memory write lock release failed", exc_info=True)
+    await _locks.release_memory_write_lock(_seams(), user_id, token)
 
 
 class MemoryWriteLockBusyError(Exception):
-    """A user-initiated memory delete couldn't get the write lock after
-    retrying — extraction/consolidation is actively mid-rewrite for this
-    user right now. Callers should surface this as "try again shortly"
-    rather than a plain failure."""
-
     def __init__(self, user_id: UUID) -> None:
         super().__init__(f"Memory write lock busy for user_id={user_id}")
         self.user_id = user_id
@@ -489,26 +243,8 @@ class MemoryEmptyTextError(Exception):
     """Edited memory text normalized to empty."""
 
 
-# Background jobs just skip a run when the lock is held (best-effort, next
-# scheduled pass will catch up). A user tapping delete shouldn't silently
-# no-op for the same reason — without this, a delete racing a same-second
-# extraction/consolidation read-modify-write could have its result silently
-# overwritten by the other side's stale-snapshot commit. Retry briefly first
-# (typical hold time is one LLM round trip + a DB write, well under a
-# second), then surface MemoryWriteLockBusyError so the caller can ask the
-# user to retry instead of guessing.
-_DELETE_LOCK_RETRY_ATTEMPTS = 4
-_DELETE_LOCK_RETRY_DELAY_SECONDS = 0.15
-
-
 async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> str:
-    for attempt in range(_DELETE_LOCK_RETRY_ATTEMPTS):
-        token = await acquire_memory_write_lock(user_id)
-        if token:
-            return token
-        if attempt < _DELETE_LOCK_RETRY_ATTEMPTS - 1:
-            await asyncio.sleep(_DELETE_LOCK_RETRY_DELAY_SECONDS)
-    raise MemoryWriteLockBusyError(user_id)
+    return await _locks.acquire_memory_write_lock_or_raise(_seams(), user_id)
 
 
 async def delete_memory_fact(
@@ -520,76 +256,15 @@ async def delete_memory_fact(
     *,
     expected_text: str | None = None,
 ) -> bool:
-    from app.gateways import embedding_gateway
-    from app.repositories import memories as memories_repo
-
-    # Same lock extraction/consolidation use for their read-modify-write
-    # section — without it, one of those jobs reading this row's prior text
-    # concurrently with this delete can commit a merge computed from the
-    # stale pre-delete text afterward, silently resurrecting what the user
-    # just removed.
-    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
-    try:
-        memory = await memories_repo.get_by_id(session, user_id, memory_id)
-        if memory is None:
-            return False
-        facts = split_memory_facts(memory.text)
-        # BUG FIX (was silent): the client computes fact_index from its own local
-        # copy of memory.text, but a background extraction/consolidation job can
-        # rewrite this section between when the client loaded it and when the
-        # user taps delete — the index can then point at a different fact than
-        # the one the user saw, silently deleting the wrong one with no error.
-        # When the caller supplies the fact text it actually showed the user,
-        # prefer locating that exact fact by content; only fall back to the raw
-        # index when no expected_text was given (older clients) or the client's
-        # index still happens to be one of the (possibly duplicate) matches. If
-        # the expected fact isn't present at all anymore, refuse rather than
-        # guess — the client should refresh and let the user retry.
-        target_index = fact_index
-        if expected_text is not None:
-            normalized_expected = normalize_memory_text(expected_text).lower()
-            matches = [
-                i
-                for i, fact in enumerate(facts)
-                if normalize_memory_text(fact).lower() == normalized_expected
-            ]
-            if not matches:
-                return False
-            target_index = fact_index if fact_index in matches else matches[0]
-        if target_index < 0 or target_index >= len(facts):
-            return False
-        facts.pop(target_index)
-        if not facts:
-            deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
-            if deleted:
-                await invalidate_memory_block(user_id)
-            return deleted
-        new_text = join_memory_facts(facts)
-        # Re-embed so semantic recall doesn't rank on the stale pre-delete vector.
-        # In dev/mock mode (no embedding key) embed_text returns None and we fall
-        # back to a text-only update so the feature still works.
-        try:
-            new_vec = await embedding_gateway.embed_text(settings, new_text)
-        except Exception:
-            logger.debug("Memory re-embed on fact delete failed", exc_info=True)
-            new_vec = None
-        if new_vec is not None:
-            updated = await memories_repo.update_text_and_embedding(
-                session,
-                user_id,
-                memory_id,
-                new_text,
-                new_vec,
-                embedding_gateway.serialize_embedding(new_vec),
-            )
-        else:
-            updated = await memories_repo.update_text(session, user_id, memory_id, new_text)
-        if updated is not None:
-            await invalidate_memory_block(user_id)
-            return True
-        return False
-    finally:
-        await release_memory_write_lock(user_id, lock_token)
+    return await _crud.delete_memory_fact(
+        _seams(),
+        session,
+        settings,
+        user_id,
+        memory_id,
+        fact_index,
+        expected_text=expected_text,
+    )
 
 
 async def update_memory(
@@ -599,65 +274,12 @@ async def update_memory(
     memory_id: UUID,
     text: str,
 ) -> Memory | None:
-    """Replace a memory section's text, re-embed, and invalidate caches."""
-    from app.gateways import embedding_gateway
-    from app.repositories import memories as memories_repo
-
-    clean = normalize_memory_text(text)
-    if not clean:
-        raise MemoryEmptyTextError()
-    stamped = stamp_memory_as_of(clean)
-
-    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
-    try:
-        memory = await memories_repo.get_by_id(session, user_id, memory_id)
-        if memory is None:
-            return None
-        try:
-            new_vec = await embedding_gateway.embed_text(settings, stamped)
-        except Exception:
-            logger.debug("Memory re-embed on edit failed", exc_info=True)
-            new_vec = None
-        if new_vec is not None:
-            updated = await memories_repo.update_text_and_embedding(
-                session,
-                user_id,
-                memory_id,
-                stamped,
-                new_vec,
-                embedding_gateway.serialize_embedding(new_vec),
-                embedding_text_hash=embedding_text_hash(stamped),
-            )
-        else:
-            updated = await memories_repo.update_text(session, user_id, memory_id, stamped)
-        if updated is not None:
-            await invalidate_memory_block(user_id)
-        return updated
-    finally:
-        await release_memory_write_lock(user_id, lock_token)
+    return await _crud.update_memory(_seams(), session, settings, user_id, memory_id, text)
 
 
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
-    from app.repositories import memories as memories_repo
-
-    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
-    try:
-        deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
-        if deleted:
-            await invalidate_memory_block(user_id)
-        return deleted
-    finally:
-        await release_memory_write_lock(user_id, lock_token)
+    return await _crud.delete_memory(_seams(), session, user_id, memory_id)
 
 
 async def delete_memory_section(session: AsyncSession, user_id: UUID, memory_type: str) -> bool:
-    from app.repositories import memories as memories_repo
-
-    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
-    try:
-        removed = await memories_repo.delete_by_type(session, user_id, memory_type)
-        if removed:
-            await invalidate_memory_block(user_id)
-        return removed > 0
-    finally:
-        await release_memory_write_lock(user_id, lock_token)
+    return await _crud.delete_memory_section(_seams(), session, user_id, memory_type)
