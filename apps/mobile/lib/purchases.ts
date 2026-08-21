@@ -31,6 +31,15 @@ export function isPurchasesConfigured(): boolean {
   return revenueCatApiKey() != null;
 }
 
+export function isPurchaseCancelled(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "userCancelled" in error &&
+      error.userCancelled === true,
+  );
+}
+
 async function loadPurchases(): Promise<PurchasesModule | null> {
   if (purchasesModule !== undefined) return purchasesModule;
   if (!isPurchasesConfigured()) {

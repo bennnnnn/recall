@@ -9,6 +9,9 @@ def test_privacy_policy_html() -> None:
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "Privacy Policy" in response.text
+    assert "Google or Apple Sign-In" in response.text
+    assert "export_limits" in response.text
+    assert "do not retain your data" not in response.text
     assert response.headers.get("cache-control") == "public, max-age=3600"
 
 
@@ -17,3 +20,4 @@ def test_terms_of_service_html() -> None:
     response = client.get("/legal/terms")
     assert response.status_code == 200
     assert "Terms of Service" in response.text
+    assert "Google or Apple" in response.text

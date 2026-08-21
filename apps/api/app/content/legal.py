@@ -13,7 +13,7 @@ PRIVACY_POLICY_MD = """# Privacy Policy
 
 ## What We Collect
 
-- **Account information**: Your name and email address from Google Sign-In.
+- **Account information**: Your name and email address from Google or Apple Sign-In.
 - **Conversations**: Messages you send and responses from the AI.
 - **Learned facts**: Information Recall extracts to personalize your experience (preferences, projects, facts you share).
 - **Usage data**: Token counts for daily quota tracking and a limited set of product events such as paywall views, purchase outcomes, and notification permission results. Product events do not include prompts, message text, search queries, or attachment names.
@@ -31,11 +31,11 @@ Your account data, conversations, memories, and limited product-event metadata a
 
 ## AI Processing
 
-Messages are sent to AI providers (via LiteLLM) to generate responses. These providers do not retain your data and process it only to generate the current response.
+Messages and limited relevant context are sent through our model gateway to configured AI providers to generate responses. Provider processing is governed by their privacy terms and our configured data controls.
 
 ## Your Rights
 
-- **Export**: Download all your data (chats, messages, memories) as JSON at any time from Settings.
+- **Export**: Download a portable JSON copy of your account data from Settings. The file includes an `export_limits` object describing operational limits.
 - **Delete account**: Permanently delete your account and all associated data from Settings. This is irreversible.
 - **Delete memories**: Remove individual learned facts from the Memory screen.
 
@@ -49,11 +49,11 @@ We may update this policy. Check this page for the latest version.
 
 ## Contact
 
-If you have questions about this policy or your data, reach out through the app or your account provider."""
+If you have questions about this policy or your data, use the support link on Recall's app-store listing."""
 
 TERMS_OF_SERVICE_MD = """# Terms of Service
 
-**Last updated: June 2026**
+**Last updated: August 2026**
 
 ## Using Recall
 
@@ -63,7 +63,7 @@ TERMS_OF_SERVICE_MD = """# Terms of Service
 
 ## Your Account
 
-- You sign in with Google. Keep your Google account secure — you are responsible for activity under it.
+- You sign in with Google or Apple. Keep that account secure — you are responsible for activity under it.
 - You can export or delete your account and data at any time from Settings.
 
 ## AI Responses

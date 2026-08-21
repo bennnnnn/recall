@@ -915,6 +915,7 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "No se encontró suscripción activa para esta cuenta.",
   "upgrade.subscribe": "Hazte Pro — {{price}}/mes",
+  "upgrade.subscription_terms": "La suscripción se renueva automáticamente cada mes, salvo que la canceles en tu cuenta de App Store o Google Play.",
   "upgrade.title": "Pásate a Pro",
   "chat.status.image_gen_2": "Casi listo…",
   "common.saved": "Guardado",

@@ -915,6 +915,7 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
+  "upgrade.subscription_terms": "A assinatura é renovada automaticamente todos os meses, a menos que seja cancelada na sua conta da App Store ou do Google Play.",
   "upgrade.title": "Assinar o Pro",
   "chat.status.image_gen_2": "Quase pronto…",
   "common.saved": "Salvo",
