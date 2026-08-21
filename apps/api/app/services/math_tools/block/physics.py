@@ -7,8 +7,11 @@ optional trajectory graph fence the model reuses verbatim.
 
 from __future__ import annotations
 
+import logging
+
 from app.core.config import Settings
 from app.models.math_schemas import MathIntent
+from app.services.math_service import MathServiceError
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
@@ -16,6 +19,8 @@ from app.services.math_tools.block.common import (
     _finish_with_answer,
 )
 from app.services.physics_solver import PhysicsResult, solve_physics
+
+logger = logging.getLogger(__name__)
 
 
 def _build_physics_block(
@@ -25,7 +30,21 @@ def _build_physics_block(
     result: PhysicsResult | None = None
     try:
         result = solve_physics(intent)
+    except MathServiceError as exc:
+        logger.info(
+            "physics verification skipped kind=%s op=%s reason=%s",
+            intent.kind,
+            intent.physics_op,
+            exc,
+        )
+        return None
     except Exception:
+        logger.warning(
+            "physics verification failed kind=%s op=%s",
+            intent.kind,
+            intent.physics_op,
+            exc_info=True,
+        )
         return None
 
     # Append the verified answer to the hint lines.

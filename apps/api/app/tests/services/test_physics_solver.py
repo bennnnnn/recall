@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 import math
 
+import pytest
+
+from app.core.config import Settings
 from app.models.math_schemas import MathIntent
 from app.services import physics_solver
 from app.services.math_service import MathServiceError
+from app.services.math_tools.block import physics as physics_block
 
 # ---------------------------------------------------------------------------
 # Kinematics
@@ -253,3 +258,48 @@ def test_solve_physics_unknown_kind_raises() -> None:
         raise AssertionError("should have raised")
     except MathServiceError:
         pass
+
+
+def test_physics_block_logs_expected_solver_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="position",
+        physics_params={"h0": 20.0},
+        operation="solve",
+    )
+
+    def reject(_intent: MathIntent):
+        raise MathServiceError("position requires a time t")
+
+    monkeypatch.setattr(physics_block, "solve_physics", reject)
+    with caplog.at_level(logging.INFO, logger=physics_block.__name__):
+        block = physics_block._build_physics_block(intent, Settings(), [])
+
+    assert block is None
+    assert "physics verification skipped" in caplog.text
+    assert "position requires a time t" in caplog.text
+
+
+def test_physics_block_logs_unexpected_solver_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    intent = MathIntent(
+        kind="force",
+        physics_op="net_force",
+        physics_params={"F": 20.0, "m": 5.0},
+        operation="solve",
+    )
+
+    def fail(_intent: MathIntent):
+        raise RuntimeError("unexpected")
+
+    monkeypatch.setattr(physics_block, "solve_physics", fail)
+    with caplog.at_level(logging.WARNING, logger=physics_block.__name__):
+        block = physics_block._build_physics_block(intent, Settings(), [])
+
+    assert block is None
+    assert "physics verification failed" in caplog.text

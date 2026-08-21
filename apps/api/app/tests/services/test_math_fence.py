@@ -2,7 +2,8 @@
 
 import json
 
-from app.services.math_fence import validate_math_fences
+from app.models.math_schemas import GraphBlockSpec
+from app.services.math_fence import densify_sparse_graph, validate_math_fences
 
 
 def test_validates_geometry_fence() -> None:
@@ -252,6 +253,18 @@ def test_corrects_trajectory_fence_to_canonical_points() -> None:
     assert data["points"] == points
     assert data["title"] == "Height vs. Time"
     assert data["trajectory_type"] == "position_vs_time"
+
+
+def test_densify_leaves_sparse_trajectory_points_unchanged() -> None:
+    spec = GraphBlockSpec(
+        type="trajectory",
+        expr="h(t) = 20 - 0.5*9.81*t^2",
+        variable="t",
+        points=[[0.0, 20.0], [1.0, 15.095], [2.0, 0.38]],
+        trajectory_type="position_vs_time",
+    )
+
+    assert densify_sparse_graph(spec) is spec
 
 
 def test_corrects_points_less_function_fence_to_canonical() -> None:

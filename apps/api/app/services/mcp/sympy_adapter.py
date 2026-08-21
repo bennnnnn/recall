@@ -51,7 +51,8 @@ class SympyAdapter:
             "Symbolic math: solve equations / systems / inequalities, simplify, "
             "differentiate, integrate (optional lower/upper for definite), factor, "
             "expand, limits, series, Newton's method, rectangle/square/circle "
-            "geometry, and graphs (optional second curve via expr2)."
+            "geometry, graphs (optional second curve via expr2), and verified "
+            "kinematics/projectile/F=ma/scalar-energy word problems."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:

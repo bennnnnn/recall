@@ -229,7 +229,7 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     when curve 1 was already dense left a sparse ``points2`` as a jagged
     polyline, and densifying curve 1 preserved but never resampled curve 2.
     """
-    if spec.type in {"vertical", "number_line"} or _is_point_marker(spec):
+    if spec.type in {"vertical", "number_line", "trajectory"} or _is_point_marker(spec):
         return spec
 
     var2 = (spec.variable2 or spec.variable).strip() or "x"
@@ -288,7 +288,7 @@ def _rewrite_inequality_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     The model (and an older sample_function path) plotted inequalities as a
     0/1 step. School graphs of ``x > 3`` are a number line, not a Heaviside.
     """
-    if spec.type in {"number_line", "vertical"}:
+    if spec.type in {"number_line", "vertical", "trajectory"}:
         return spec
     line = math_service.number_line_spec_from_expr(spec.expr, spec.variable)
     if line is None:
@@ -332,6 +332,7 @@ def _replace_unclosed_graph_fence(
         "function",
         "vertical",
         "number_line",
+        "trajectory",
     }:
         # No verified fence — strip the truncated JSON so the user doesn't see
         # a half-pasted points array.
