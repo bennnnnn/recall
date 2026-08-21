@@ -7,33 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
-from app.core.redis import get_redis_client
-from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
 from app.models.orm import User
 from app.models.schemas import (
-    AttachmentListItemOut,
     AttachmentListOut,
     AttachmentOut,
     AttachmentPresignIn,
     AttachmentPresignOut,
 )
-from app.repositories import attachments as attachments_repo
-from app.services import quota as quota_service
-from app.services.attachment_content import (
-    MAX_ATTACHMENT_SIZE,
-    bytes_match_claimed,
-    ensure_verified_or_purge,
-    is_image_content_type,
-    purge_invalid_upload,
-)
+from app.services import attachment_workflow
 from app.services.attachment_upload import AttachmentUploadError, create_presigned_upload
 from app.services.attachment_upload import (
     cancel_pending_upload as cancel_pending_upload_service,
 )
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
-
-MAX_SIZE = MAX_ATTACHMENT_SIZE
 
 
 async def require_attachments_enabled(
@@ -49,28 +36,8 @@ async def require_attachments_enabled(
         )
 
 
-async def _reject_unverified_upload(
-    *,
-    gateway,
-    session: AsyncSession,
-    user: User,
-    attachment_id: UUID,
-    content_type: str,
-    storage_key: str,
-    declared_size: int | None = None,
-) -> None:
-    error = await ensure_verified_or_purge(
-        gateway,
-        session,
-        attachment_id=attachment_id,
-        content_type=content_type,
-        storage_key=storage_key,
-        declared_size=declared_size,
-    )
-    if error:
-        if is_image_content_type(content_type):
-            await quota_service.refund_image_upload(get_redis_client(), user.id)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+def _workflow_http_error(exc: attachment_workflow.AttachmentWorkflowError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 @router.get("", response_model=AttachmentListOut)
@@ -88,28 +55,15 @@ async def list_attachments(
     ``category`` narrows by content family: ``images`` (image/*) or ``files``
     (non-image). Omit it to list everything.
     """
-    rows, has_more = await attachments_repo.list_for_gallery(
-        session, user.id, category=category, source=source, limit=limit, offset=offset
+    return await attachment_workflow.list_attachments(
+        session,
+        settings,
+        user,
+        category=category,
+        source=source,
+        limit=limit,
+        offset=offset,
     )
-    gateway = get_storage_gateway(settings)
-    items: list[AttachmentListItemOut] = []
-    for row in rows:
-        if isinstance(gateway, LocalStorageGateway):
-            url = f"/attachments/{row.id}/file"
-        else:
-            url = await gateway.presign_download(row.storage_key)
-        items.append(
-            AttachmentListItemOut(
-                id=row.id,
-                content_type=row.content_type,
-                size_bytes=row.size_bytes,
-                download_url=url,
-                source=row.source,
-                created_at=row.created_at,
-                chat_id=None,
-            )
-        )
-    return AttachmentListOut(items=items, has_more=has_more)
 
 
 @router.post(
@@ -147,59 +101,17 @@ async def upload_attachment_bytes(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    gateway = get_storage_gateway(settings)
-    if not isinstance(gateway, LocalStorageGateway):
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Use presigned upload"
-        )
-    if row.message_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Attachment is already linked to a message",
-        )
-
     data = await request.body()
-    if not data or len(data) > MAX_SIZE:
-        await purge_invalid_upload(
-            gateway, session, attachment_id=row.id, storage_key=row.storage_key
+    try:
+        await attachment_workflow.store_local_upload(
+            session,
+            settings,
+            user,
+            attachment_id,
+            data,
         )
-        if is_image_content_type(row.content_type):
-            await quota_service.refund_image_upload(get_redis_client(), user.id)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload size")
-    # Enforce the declared size: the client told us the size at presign time,
-    # and the DB row records it. A mismatch means the upload is not what was
-    # reserved (truncated or extended), and serving it back with the row's
-    # metadata would be wrong.
-    if len(data) != row.size_bytes:
-        await purge_invalid_upload(
-            gateway, session, attachment_id=row.id, storage_key=row.storage_key
-        )
-        if is_image_content_type(row.content_type):
-            await quota_service.refund_image_upload(get_redis_client(), user.id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded size does not match the declared size",
-        )
-    # Verify the actual bytes match the declared content type so a presigned
-    # "image/png" can't be used to store a non-image blob that later gets served
-    # back with the wrong Content-Type.
-    if not bytes_match_claimed(row.content_type, data):
-        await purge_invalid_upload(
-            gateway, session, attachment_id=row.id, storage_key=row.storage_key
-        )
-        if is_image_content_type(row.content_type):
-            await quota_service.refund_image_upload(get_redis_client(), user.id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded bytes do not match the declared content type",
-        )
-
-    await gateway.write_bytes(row.storage_key, data)
-    await attachments_repo.mark_verified(session, row.id)
+    except attachment_workflow.AttachmentWorkflowError as exc:
+        raise _workflow_http_error(exc) from exc
 
 
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -233,24 +145,15 @@ async def confirm_upload(
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
     """Verify bytes stored at presigned URL match the declared content type."""
-    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-    gateway = get_storage_gateway(settings)
-    if isinstance(gateway, LocalStorageGateway):
-        # Dev/local uploads are validated on PUT /upload.
-        return
-
-    await _reject_unverified_upload(
-        gateway=gateway,
-        session=session,
-        user=user,
-        attachment_id=attachment_id,
-        content_type=row.content_type,
-        storage_key=row.storage_key,
-        declared_size=row.size_bytes,
-    )
+    try:
+        await attachment_workflow.confirm_upload(
+            session,
+            settings,
+            user,
+            attachment_id,
+        )
+    except attachment_workflow.AttachmentWorkflowError as exc:
+        raise _workflow_http_error(exc) from exc
 
 
 @router.get("/{attachment_id}/file", response_model=None)
@@ -260,37 +163,25 @@ async def serve_attachment_file(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> FileResponse | RedirectResponse:
-    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    gateway = get_storage_gateway(settings)
-    if row.verified_at is None:
-        await _reject_unverified_upload(
-            gateway=gateway,
-            session=session,
-            user=user,
-            attachment_id=attachment_id,
-            content_type=row.content_type,
-            storage_key=row.storage_key,
-            declared_size=row.size_bytes,
+    try:
+        access = await attachment_workflow.get_file_access(
+            session,
+            settings,
+            user,
+            attachment_id,
         )
-    if isinstance(gateway, LocalStorageGateway):
-        path = gateway.resolve_local_path(row.storage_key)
-        if path is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File missing")
+    except attachment_workflow.AttachmentWorkflowError as exc:
+        raise _workflow_http_error(exc) from exc
+    if access.local_path is not None:
         return FileResponse(
-            path,
-            media_type=row.content_type,
+            access.local_path,
+            media_type=access.content_type,
             headers={"X-Content-Type-Options": "nosniff"},
         )
-    # R2/S3: redirect to a short-lived presigned GET so the client fetches the
-    # blob directly from object storage. Keeps the mobile's existing /file call
-    # working for both backends. nosniff is set on the redirect as
-    # defense-in-depth; the R2 bucket should also be configured to set it on
-    # object responses.
-    download_url = await gateway.presign_download(row.storage_key)
+    if access.redirect_url is None:
+        raise RuntimeError("Attachment access result has no target")
     return RedirectResponse(
-        url=download_url,
+        url=access.redirect_url,
         status_code=status.HTTP_302_FOUND,
         headers={"X-Content-Type-Options": "nosniff"},
     )
@@ -303,28 +194,12 @@ async def download_url(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> AttachmentOut:
-    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    gateway = get_storage_gateway(settings)
-    if row.verified_at is None:
-        await _reject_unverified_upload(
-            gateway=gateway,
-            session=session,
-            user=user,
-            attachment_id=attachment_id,
-            content_type=row.content_type,
-            storage_key=row.storage_key,
-            declared_size=row.size_bytes,
+    try:
+        return await attachment_workflow.get_download(
+            session,
+            settings,
+            user,
+            attachment_id,
         )
-    if isinstance(gateway, LocalStorageGateway):
-        url = f"/attachments/{attachment_id}/file"
-    else:
-        url = await gateway.presign_download(row.storage_key)
-    return AttachmentOut(
-        id=row.id,
-        content_type=row.content_type,
-        size_bytes=row.size_bytes,
-        download_url=url,
-        created_at=row.created_at,
-    )
+    except attachment_workflow.AttachmentWorkflowError as exc:
+        raise _workflow_http_error(exc) from exc

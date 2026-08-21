@@ -92,7 +92,7 @@ def test_me_patch_updates_user():
     app = _app_with_user(user)
 
     with patch(
-        "app.routers.auth.users_repo.update",
+        "app.services.account_lifecycle.users_repo.update",
         AsyncMock(return_value=user),
     ):
         client = TestClient(app)
@@ -111,9 +111,9 @@ def test_me_patch_invalidates_memory_cache_on_toggle():
     invalidate_mock = AsyncMock()
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(return_value=user)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.routers.auth.memory_service.invalidate_memory_block",
+            "app.services.account_lifecycle.memory_service.invalidate_memory_block",
             invalidate_mock,
         ),
     ):
@@ -134,9 +134,9 @@ def test_me_patch_invalidates_home_cache():
     invalidate_mock = AsyncMock()
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(return_value=user)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.routers.auth.home_service.invalidate_home_cache",
+            "app.services.account_lifecycle.home_service.invalidate_home_cache",
             invalidate_mock,
         ),
     ):
@@ -158,9 +158,9 @@ def test_me_patch_skips_memory_invalidation_when_unchanged():
     invalidate_mock = AsyncMock()
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(return_value=user)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.routers.auth.memory_service.invalidate_memory_block",
+            "app.services.account_lifecycle.memory_service.invalidate_memory_block",
             invalidate_mock,
         ),
     ):
@@ -196,7 +196,7 @@ def test_me_patch_persists_custom_instructions_and_blank_clears():
         return user
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         # The global REST rate limiter reads the real Redis; disable it so this
         # test is deterministic regardless of local Redis state.
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -212,7 +212,7 @@ def test_me_patch_persists_custom_instructions_and_blank_clears():
 
     # An empty/whitespace value normalizes to None (clears the field).
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         r2 = client.patch(
@@ -234,7 +234,7 @@ def test_me_patch_accepts_supported_locale_and_normalizes():
         return user
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
@@ -253,7 +253,7 @@ def test_me_patch_rejects_unsupported_locale():
     app = _app_with_user(user)
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock()) as update,
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock()) as update,
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
@@ -279,7 +279,7 @@ def test_me_patch_treats_empty_locale_as_noop():
         return user
 
     with (
-        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
@@ -788,7 +788,10 @@ def test_today_usage_falls_back_to_db_total_when_redis_flushed():
 def test_list_memories_empty():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.memories.memories_repo.list_for_user", AsyncMock(return_value=[])):
+    with patch(
+        "app.services.memory.enqueue_policy.memories_repo.list_for_user",
+        AsyncMock(return_value=[]),
+    ):
         client = TestClient(app)
         r = client.get("/memories", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -799,7 +802,10 @@ def test_consolidate_memories_skipped_when_memory_disabled():
     user = _fake_user()
     user.memory_enabled = False
     app = _app_with_user(user)
-    with patch("app.routers.memories.memories_repo.list_for_user", AsyncMock()) as list_mock:
+    with patch(
+        "app.services.memory.enqueue_policy.memories_repo.list_for_user",
+        AsyncMock(),
+    ) as list_mock:
         client = TestClient(app)
         r = client.post("/memories/consolidate", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 202
@@ -831,12 +837,12 @@ def test_list_memories_skips_consolidation_scan_when_already_locked():
     with (
         patch("app.routers.memories.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.memories.memories_repo.list_for_user",
+            "app.services.memory.enqueue_policy.memories_repo.list_for_user",
             AsyncMock(side_effect=lambda *a, **kw: [_messy_memory()]),
         ),
-        patch("app.routers.memories.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.services.memory.enqueue_policy.jobs.enqueue", AsyncMock()) as enqueue_job,
         patch(
-            "app.routers.memories.memory_service.sections_need_consolidation",
+            "app.services.memory.enqueue_policy.memory_service.sections_need_consolidation",
             wraps=lambda sections: True,
         ) as scan_mock,
     ):

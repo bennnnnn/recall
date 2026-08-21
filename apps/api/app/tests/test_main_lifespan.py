@@ -23,38 +23,22 @@ def _lifespan_patches(
     mock_settings: MagicMock | None = None,
     start_push: AsyncMock | None = None,
 ) -> AsyncMock:
-    """Shared mocks for lifespan tests (avoids Python's nested-block limit)."""
-    stack.enter_context(patch("app.main.setup_logging"))
-    stack.enter_context(patch("app.main.init_sentry"))
-    stack.enter_context(patch("app.main.validate_production_settings"))
-    stack.enter_context(patch("app.services.mcp.setup_mcp_adapters"))
+    """Patch the shared process bootstrap at the lifespan seam."""
     if mock_settings is not None:
         stack.enter_context(patch("app.main.get_settings", return_value=mock_settings))
     worker = start_worker if start_worker is not None else AsyncMock()
-    stack.enter_context(patch("app.main.jobs.start_worker", worker))
-    stack.enter_context(patch("app.main.jobs.stop_worker", AsyncMock()))
-    push = start_push if start_push is not None else AsyncMock()
-    stack.enter_context(patch("app.main.push_scheduler.start_push_scheduler", push))
-    stack.enter_context(patch("app.main.push_scheduler.stop_push_scheduler", AsyncMock()))
-    stack.enter_context(
-        patch("app.main.email_reminder_scheduler.start_email_reminder_scheduler", AsyncMock())
-    )
-    stack.enter_context(
-        patch("app.main.email_reminder_scheduler.stop_email_reminder_scheduler", AsyncMock())
-    )
-    stack.enter_context(
-        patch("app.main.gmail_periodic_sync.start_gmail_periodic_scheduler", AsyncMock())
-    )
-    stack.enter_context(
-        patch("app.main.gmail_periodic_sync.stop_gmail_periodic_scheduler", AsyncMock())
-    )
-    stack.enter_context(patch("app.main.attachment_orphan_reaper.start_orphan_reaper", AsyncMock()))
-    stack.enter_context(patch("app.main.attachment_orphan_reaper.stop_orphan_reaper", AsyncMock()))
-    stack.enter_context(patch("app.main.warmup_db_pool", AsyncMock()))
-    stack.enter_context(patch("app.main.drain_background_tasks", AsyncMock()))
-    stack.enter_context(patch("app.main.aclose_pooled_clients", AsyncMock()))
-    stack.enter_context(patch("app.main.engine", mock_engine))
-    stack.enter_context(patch("app.main.get_redis_client", return_value=mock_redis))
+    stack.enter_context(patch("app.main.process_bootstrap.initialize_process", AsyncMock()))
+    stack.enter_context(patch("app.main.process_bootstrap.start_worker_runtime", worker))
+    stack.enter_context(patch("app.main.process_bootstrap.shutdown_process", AsyncMock()))
+    if mock_settings is not None:
+        role = mock_settings.process_role
+        if role in {"all", "api", "worker"}:
+            stack.enter_context(
+                patch(
+                    "app.main.process_bootstrap.validate_process_role",
+                    return_value=role,
+                )
+            )
     return worker
 
 
