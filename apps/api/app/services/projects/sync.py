@@ -137,7 +137,6 @@ async def _run_extracted_project_actions(
 
     async with SessionLocal() as session:
         loaded = await _load_project_sync_snapshot(session, user_id, settings)
-        await session.commit()
 
     try:
         result = await extract_project_actions(
@@ -156,7 +155,6 @@ async def _run_extracted_project_actions(
             chat_id=chat_id,
             result=result,
         )
-        await session.commit()
     return result
 
 

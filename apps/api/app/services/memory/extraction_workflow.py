@@ -61,7 +61,6 @@ async def extract_and_store_memories(
         try:
             async with SessionLocal() as session:
                 snapshot = await _load_memory_extraction_snapshot(session, user_id)
-                await session.commit()
             if not snapshot.memory_enabled:
                 return None
 

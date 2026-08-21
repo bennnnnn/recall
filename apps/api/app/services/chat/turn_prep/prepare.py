@@ -89,7 +89,6 @@ async def _grade_quiz_answer(
                         user_answer=content,
                         attempt=max(1, attempt),
                     )
-                    await session.commit()
                     if quiz_grade is None:
                         logger.warning(
                             "Quiz answer not recorded (no gradeable fence) user_id=%s chat_id=%s",
@@ -97,7 +96,6 @@ async def _grade_quiz_answer(
                             chat_id,
                         )
                 except Exception:
-                    await session.rollback()
                     logger.exception(
                         "Failed to record quiz answer for user_id=%s chat_id=%s",
                         user.id,

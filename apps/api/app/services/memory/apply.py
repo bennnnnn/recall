@@ -49,21 +49,30 @@ async def apply_memory_section_rows(
     # later pass, not just the one where the text changed.
     embed_needed: list[tuple[UUID, str]] = []
     async with session_factory() as session:
-        await memories.upsert_sections(session, user_id=user_id, items=rows)
-        updated = await memories.list_for_user(session, user_id)
-        for memory in updated:
-            # Re-embed if EITHER vector representation is missing — the DB
-            # semantic search filters on the `embedding` (pgvector) column,
-            # while the in-memory fallback reads `embedding_json`, so both
-            # must be populated.
-            needs_embed = (
-                memory.embedding is None
-                or memory.embedding_json is None
-                or memory.embedding_text_hash != embedding_text_hash(memory.text)
+        try:
+            await memories.upsert_sections(
+                session,
+                user_id=user_id,
+                items=rows,
+                commit=False,
             )
-            if needs_embed:
-                embed_needed.append((memory.id, memory.text))
-        await session.commit()
+            updated = await memories.list_for_user(session, user_id)
+            for memory in updated:
+                # Re-embed if EITHER vector representation is missing — the DB
+                # semantic search filters on the `embedding` (pgvector) column,
+                # while the in-memory fallback reads `embedding_json`, so both
+                # must be populated.
+                needs_embed = (
+                    memory.embedding is None
+                    or memory.embedding_json is None
+                    or memory.embedding_text_hash != embedding_text_hash(memory.text)
+                )
+                if needs_embed:
+                    embed_needed.append((memory.id, memory.text))
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
     if not embed_needed:
         await _invalidate_memory_caches(user_id)
@@ -90,14 +99,18 @@ async def apply_memory_section_rows(
     # Phase 3 — write vectors in a fresh short-lived session.
     if to_write:
         async with session_factory() as session:
-            for memory_id, vec, vec_json, text_hash in to_write:
-                row = await session.get(Memory, memory_id)
-                if row is None:
-                    continue
-                row.embedding = vec
-                row.embedding_json = vec_json
-                row.embedding_text_hash = text_hash
-            await session.commit()
+            try:
+                for memory_id, vec, vec_json, text_hash in to_write:
+                    row = await session.get(Memory, memory_id)
+                    if row is None:
+                        continue
+                    row.embedding = vec
+                    row.embedding_json = vec_json
+                    row.embedding_text_hash = text_hash
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
 
     await _invalidate_memory_caches(user_id)
 

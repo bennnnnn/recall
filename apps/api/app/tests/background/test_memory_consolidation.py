@@ -631,7 +631,7 @@ async def test_consolidate_releases_db_before_llm():
 
     assert changed is False
     assert db_open_during_merge == [False]
-    assert session.commit.await_count == 1
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

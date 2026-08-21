@@ -81,6 +81,7 @@ async def upsert_sections(
     *,
     user_id: UUID,
     items: list[tuple[str, str, float, UUID | None]],
+    commit: bool = True,
 ) -> None:
     """Upsert one summary paragraph per memory type (profile, preference, …).
 
@@ -126,28 +127,49 @@ async def upsert_sections(
         },
     )
     await session.execute(stmt)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
 
 
-async def delete_by_type(session: AsyncSession, user_id: UUID, memory_type: str) -> int:
+async def delete_by_type(
+    session: AsyncSession,
+    user_id: UUID,
+    memory_type: str,
+    *,
+    commit: bool = True,
+) -> int:
     result = cast(
         CursorResult[Any],
         await session.execute(
             delete(Memory).where(Memory.user_id == user_id, Memory.type == memory_type)
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return int(result.rowcount or 0)
 
 
-async def delete_by_id(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
+async def delete_by_id(
+    session: AsyncSession,
+    user_id: UUID,
+    memory_id: UUID,
+    *,
+    commit: bool = True,
+) -> bool:
     result = cast(
         CursorResult[Any],
         await session.execute(
             delete(Memory).where(Memory.id == memory_id, Memory.user_id == user_id)
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return result.rowcount > 0
 
 
@@ -163,13 +185,18 @@ async def update_text(
     user_id: UUID,
     memory_id: UUID,
     text: str,
+    *,
+    commit: bool = True,
 ) -> Memory | None:
     memory = await get_by_id(session, user_id, memory_id)
     if memory is None:
         return None
     memory.text = text.strip()
-    await session.commit()
-    await session.refresh(memory)
+    if commit:
+        await session.commit()
+        await session.refresh(memory)
+    else:
+        await session.flush()
     return memory
 
 
@@ -182,6 +209,7 @@ async def update_text_and_embedding(
     embedding_json: str,
     *,
     embedding_text_hash: str | None = None,
+    commit: bool = True,
 ) -> Memory | None:
     """Update text and its embedding together so semantic recall doesn't rank
     on a stale vector after a fact delete/edit."""
@@ -193,6 +221,9 @@ async def update_text_and_embedding(
     memory.embedding_json = embedding_json
     if embedding_text_hash is not None:
         memory.embedding_text_hash = embedding_text_hash
-    await session.commit()
-    await session.refresh(memory)
+    if commit:
+        await session.commit()
+        await session.refresh(memory)
+    else:
+        await session.flush()
     return memory

@@ -84,6 +84,22 @@ app/
   tests/               # ~39k
 ```
 
+### Transaction ownership
+
+- Services own multi-step database units. They call repository writes with
+  `commit=False`, commit once after every write succeeds, and roll back the
+  service-owned transaction on failure.
+- Repository write functions keep `commit=True` only as a compatibility default
+  for standalone single-operation callers. With `commit=False`, they may flush
+  to materialize IDs or constraints but must not commit or roll back.
+- Cache invalidation, job enqueue, and other external side effects happen after
+  the owning service commits. Slow provider calls should run outside an open DB
+  transaction; a workflow may therefore use separate short transaction phases
+  (for example, memory text then embedding writes).
+- A caller that explicitly passes `commit=False` to a composable service owns
+  both the eventual commit and rollback. Do not add a generic unit-of-work layer
+  unless repeated concrete workflows require more than these boundaries.
+
 **Streaming:** WebSocket (`routers/ws.py`) preferred (stop-generation); SSE fallback (`routers/chat_stream.py`). Both share `chat/stream_events.py` for `done` / `error` payloads. A cancel message aborts the active LLM task.
 
 **Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with stateless JWT (Bearer) auth, so a future **web client reuses the same API**. Keep `apps/mobile/lib/api.ts` the **barrel** over `lib/api/*.ts` (single network boundary). Rich-block rendering should stay swappable; only platform bits differ per client.

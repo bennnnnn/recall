@@ -29,6 +29,7 @@ async def apply_action_batch(
     on_error: Callable[[TAction], None] | None = None,
     log_summary: Callable[[int], None] | None = None,
     invalidate_home: Callable[[], Awaitable[None]] | None = None,
+    raise_on_error: bool = False,
 ) -> int:
     """Run ``handlers`` over ``actions`` against a preloaded ``state``.
 
@@ -50,6 +51,8 @@ async def apply_action_batch(
                 on_error(prepared)
             else:
                 logger.exception("Failed action %s", action_name(prepared))
+            if raise_on_error:
+                raise
     if applied > 0:
         if log_summary is not None:
             log_summary(applied)

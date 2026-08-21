@@ -146,7 +146,7 @@ async def _persist_quiz_outcome(
     await apply_quiz_result(session, item, is_correct=is_correct, commit=False)
 
 
-async def apply_deterministic_quiz_answer(
+async def _apply_deterministic_quiz_answer(
     session: AsyncSession,
     *,
     user_id: UUID,
@@ -299,3 +299,40 @@ async def apply_deterministic_quiz_answer(
         attempt=try_number,
         tries_exhausted=tries_exhausted,
     )
+
+
+async def apply_deterministic_quiz_answer(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    project_id: UUID | None,
+    assistant_content: str,
+    user_answer: str,
+    attempt: int = 1,
+    commit: bool = True,
+) -> QuizAnswerGrade | None:
+    """Grade one answer within a single explicit transaction boundary.
+
+    Repository writes inside the grading workflow always use ``commit=False``.
+    The default preserves the standalone service behavior by committing once;
+    callers composing a larger unit may pass ``commit=False`` and then own both
+    commit and rollback.
+    """
+    try:
+        grade = await _apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=chat_id,
+            project_id=project_id,
+            assistant_content=assistant_content,
+            user_answer=user_answer,
+            attempt=attempt,
+        )
+        if commit:
+            await session.commit()
+        return grade
+    except Exception:
+        if commit:
+            await session.rollback()
+        raise

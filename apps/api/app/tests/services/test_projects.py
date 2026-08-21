@@ -345,6 +345,55 @@ async def test_apply_project_actions_create_and_add():
     assert applied == 2
     create_mock.assert_awaited_once()
     add_mock.assert_awaited_once()
+    assert create_mock.await_args.kwargs["commit"] is False
+    assert add_mock.await_args.kwargs["commit"] is False
+    session.commit.assert_awaited_once()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_rolls_back_whole_batch_on_late_failure():
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    update = AsyncMock(side_effect=[project, RuntimeError("second write failed")])
+
+    with (
+        patch.object(projects_repo, "list_for_user", AsyncMock(return_value=[project])),
+        patch.object(
+            project_items_repo,
+            "list_recent_for_projects",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(projects_repo, "update", update),
+        patch(
+            "app.services.projects.common._invalidate_home_for_user",
+            AsyncMock(),
+        ) as invalidate,
+    ):
+        with pytest.raises(RuntimeError, match="second write failed"):
+            await projects_service.apply_project_actions(
+                session,
+                user_id=user_id,
+                actions=[
+                    ProjectActionItem(
+                        action="set_description",
+                        project_title="English",
+                        description="First",
+                    ),
+                    ProjectActionItem(
+                        action="set_description",
+                        project_title="English",
+                        description="Second",
+                    ),
+                ],
+            )
+
+    assert update.await_count == 2
+    assert all(call.kwargs["commit"] is False for call in update.await_args_list)
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+    invalidate.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -2109,7 +2158,7 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
         )
 
     assert db_open_during_extract == [False]
-    assert session.commit.await_count == 2
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

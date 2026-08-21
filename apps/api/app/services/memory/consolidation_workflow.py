@@ -112,7 +112,6 @@ async def consolidate_user_memory_sections(
         try:
             async with SessionLocal() as session:
                 snapshot = await _load_consolidation_snapshot(session, user_id)
-                await session.commit()
             if snapshot is None:
                 return False
 
