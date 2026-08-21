@@ -607,6 +607,18 @@ async def build_prompt_messages(
     # Opt-in rich context: casual chat skips memory embed / todos / projects.
     # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
+    # If this chat has indexed attachment chunks, force rich context so a
+    # casual follow-up ("what's on page 10?") still retrieves RAG chunks.
+    # Without this, a lightweight query after uploading a PDF skips RAG
+    # entirely and the user gets no document context on follow-ups.
+    if not rich_context and settings.attachment_rag_enabled:
+        from app.repositories import attachment_chunks as chunks_repo
+
+        try:
+            async with SessionLocal() as s:
+                rich_context = await chunks_repo.has_chunks_for_chat(s, user.id, chat_id)
+        except Exception:
+            logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
     slim_context = (
         minimal_personal_context
         or minimal_quiz_context

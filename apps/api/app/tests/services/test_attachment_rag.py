@@ -215,3 +215,183 @@ async def test_index_attachment_uses_short_lived_sessions():
     assert open_count == 2
     assert max_live == 1
     replace_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_index_attachment_raises_on_storage_read_failure():
+    """A failed R2 read is a transient error — index_attachment must raise so
+    the worker retries, not silently return 0 (which the dedupe key would
+    block from re-enqueue for 24h)."""
+    from app.services.attachment_rag import AttachmentIndexError
+
+    settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/doc"
+    row.content_type = "text/plain"
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b""),  # empty = read failure
+        ),
+    ):
+        with pytest.raises(AttachmentIndexError):
+            await index_attachment(
+                settings,
+                user_id=row.user_id,
+                attachment_id=row.id,
+                chat_id=uuid4(),
+            )
+
+
+@pytest.mark.asyncio
+async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail():
+    """When some chunks embed and some fail, store only the successful ones.
+    When ALL fail, raise so the worker retries instead of storing dead rows."""
+    from app.services.attachment_rag import AttachmentIndexError
+
+    settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/doc"
+    row.content_type = "text/plain"
+
+    # Two chunks: first embeds, second fails (None)
+    embed_results = iter([[0.1] * 1536, None])
+
+    async def _embed(_settings, _text):
+        return next(embed_results)
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"chunk one. chunk two."),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
+            AsyncMock(return_value="chunk one. chunk two."),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            _embed,
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            AsyncMock(),
+        ) as replace_mock,
+    ):
+        count = await index_attachment(
+            settings,
+            user_id=row.user_id,
+            attachment_id=row.id,
+            chat_id=uuid4(),
+        )
+
+    # Only the successful chunk is stored
+    assert count == 1
+    stored_chunks = replace_mock.call_args.kwargs["chunks"]
+    assert len(stored_chunks) == 1
+    assert stored_chunks[0][2] is not None
+
+    # Now test all-fail → raises
+    embed_results_all_fail = iter([None, None])
+
+    async def _embed_all_fail(_settings, _text):
+        return next(embed_results_all_fail)
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"chunk one. chunk two."),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
+            AsyncMock(return_value="chunk one. chunk two."),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            _embed_all_fail,
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            AsyncMock(),
+        ),
+    ):
+        with pytest.raises(AttachmentIndexError):
+            await index_attachment(
+                settings,
+                user_id=row.user_id,
+                attachment_id=row.id,
+                chat_id=uuid4(),
+            )
+
+
+@pytest.mark.asyncio
+async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
+    """The indexing path must use MAX_INDEX_EXTRACT_CHARS (50k), not the inline
+    excerpt cap (12k), so the full document is chunked for RAG."""
+    settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/doc"
+    row.content_type = "text/plain"
+
+    captured: dict = {}
+
+    async def _extract(_ct, _data, _settings, *, max_chars=12000):
+        captured["max_chars"] = max_chars
+        return "text content"
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"text content"),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
+            _extract,
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1] * 1536),
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            AsyncMock(),
+        ),
+    ):
+        await index_attachment(
+            settings,
+            user_id=row.user_id,
+            attachment_id=row.id,
+            chat_id=uuid4(),
+        )
+
+    from app.services.attachment_content import MAX_INDEX_EXTRACT_CHARS
+
+    assert captured["max_chars"] == MAX_INDEX_EXTRACT_CHARS
+    assert MAX_INDEX_EXTRACT_CHARS > 12000

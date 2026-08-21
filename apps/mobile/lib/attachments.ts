@@ -1,5 +1,6 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { getInfoAsync } from "expo-file-system/legacy";
 
 import { api } from "@/lib/api";
@@ -21,7 +22,6 @@ const DOCUMENT_MIME_TYPES = [
   "text/markdown",
   "text/csv",
   "application/json",
-  "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
@@ -86,14 +86,34 @@ function isHeicContentType(contentType: string): boolean {
   return contentType === "image/heic" || contentType === "image/heif";
 }
 
-function assetToPending(
+async function convertHeicToJpeg(uri: string): Promise<{ uri: string; fileName: string }> {
+  const result = await ImageManipulator.manipulateAsync(
+    uri,
+    [],
+    { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
+  );
+  const baseName = uri.split("/").pop()?.split("?")[0] ?? "image";
+  const stem = baseName.replace(/\.(heic|heif)$/i, "");
+  return { uri: result.uri, fileName: `${stem}-${Date.now()}.jpg` };
+}
+
+async function assetToPending(
   uri: string,
   contentType: string,
   fileName: string,
-): PendingAttachment {
+): Promise<PendingAttachment> {
   const normalizedType = normalizeContentType(contentType, uri);
   if (isHeicContentType(normalizedType)) {
-    throw new HeicUnsupportedError();
+    // Auto-convert HEIC/HEIF to JPEG — most iPhone photos are HEIC by default,
+    // and rejecting them created a poor UX. expo-image-manipulator is already
+    // a dependency (used by the math scanner).
+    const converted = await convertHeicToJpeg(uri);
+    return {
+      localUri: converted.uri,
+      contentType: "image/jpeg",
+      fileName: converted.fileName,
+      kind: "image",
+    };
   }
   return {
     localUri: uri,
@@ -145,7 +165,7 @@ export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> 
     if (result.canceled || !result.assets[0]) return null;
 
     const asset = result.assets[0];
-    return assetToPending(
+    return await assetToPending(
       asset.uri,
       asset.mimeType ?? "image/jpeg",
       asset.fileName ?? `photo-${Date.now()}.jpg`,
@@ -169,7 +189,7 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
     if (result.canceled || !result.assets[0]) return null;
 
     const asset = result.assets[0];
-    return assetToPending(
+    return await assetToPending(
       asset.uri,
       asset.mimeType ?? "image/jpeg",
       asset.fileName ?? `camera-${Date.now()}.jpg`,
@@ -190,7 +210,7 @@ export async function pickDocument(): Promise<PendingAttachment | null> {
 
     const asset = result.assets[0];
     const contentType = asset.mimeType ?? "application/octet-stream";
-    return assetToPending(
+    return await assetToPending(
       asset.uri,
       contentType,
       asset.name ?? `file-${Date.now()}`,
@@ -233,6 +253,13 @@ export async function uploadChatAttachment(
     const headers: Record<string, string> = {
       "Content-Type": pending.contentType,
     };
+    // Prefer server-returned presign headers for R2 uploads — any future
+    // server-side normalization (e.g. Content-Type casing) the client doesn't
+    // mirror would cause an R2 signature mismatch. Fall back to the
+    // client-derived headers only when the server omits them.
+    if (presign.headers) {
+      Object.assign(headers, presign.headers);
+    }
     if (presign.api_upload || uploadUrl.startsWith(getApiUrl())) {
       headers.Authorization = `Bearer ${token}`;
     }

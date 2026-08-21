@@ -69,6 +69,15 @@ async def _embed_pieces(
     return list(await asyncio.gather(*(_one(i, piece) for i, piece in enumerate(pieces))))
 
 
+class AttachmentIndexError(Exception):
+    """Raised when attachment indexing fails transiently (R2 read, extraction, embedding).
+
+    Distinguished from a legitimate "nothing to index" (image file, empty doc)
+    which returns 0. A raised exception lets the worker retry (3 attempts)
+    instead of the dedupe key blocking re-enqueue for 24h.
+    """
+
+
 async def index_attachment(
     settings: Settings,
     *,
@@ -81,6 +90,10 @@ async def index_attachment(
     Short-lived sessions around the row load and ``replace_chunks`` only — the
     download / extract / embed pipeline runs with no pool checkout held, same
     discipline as ``retrieve_for_prompt``.
+
+    Raises :class:`AttachmentIndexError` for transient failures (R2 read,
+    extraction timeout, all-embeddings-failed) so the worker retries instead of
+    silently succeeding and blocking re-indexing via the dedupe key.
     """
     if not settings.attachment_rag_enabled:
         return 0
@@ -97,12 +110,17 @@ async def index_attachment(
     gateway = get_storage_gateway(settings)
     data = await attachment_content_service.read_attachment_bytes(gateway, storage_key)
     if not data:
-        return 0
+        raise AttachmentIndexError(f"Failed to read attachment bytes for {attachment_id}")
 
     text = await attachment_content_service.extract_text_from_bytes_async(
-        content_type, data, settings
+        content_type,
+        data,
+        settings,
+        max_chars=attachment_content_service.MAX_INDEX_EXTRACT_CHARS,
     )
     if not text:
+        # Legitimate "no text" — scanned PDF with no OCR, or genuinely empty doc.
+        # Not a transient failure; don't raise.
         return 0
 
     pieces = chunk_text(
@@ -115,15 +133,34 @@ async def index_attachment(
 
     embedded = await _embed_pieces(settings, pieces)
 
+    # Filter out chunks with null embeddings. If ALL failed, raise so the
+    # worker retries — storing all-null chunks creates dead rows that
+    # has_chunks_for_chat won't find (it requires embedding IS NOT NULL).
+    successful: list[tuple[int, str, list[float] | None]] = [
+        (idx, piece, vec) for idx, piece, vec in embedded if vec is not None
+    ]
+    failed_count = len(embedded) - len(successful)
+    if failed_count > 0:
+        logger.warning(
+            "Attachment %s: %d/%d chunk embeddings failed",
+            attachment_id,
+            failed_count,
+            len(embedded),
+        )
+    if not successful:
+        raise AttachmentIndexError(
+            f"All {len(embedded)} chunk embeddings failed for {attachment_id}"
+        )
+
     async with SessionLocal() as session:
         await chunks_repo.replace_chunks(
             session,
             user_id=owner_id,
             attachment_id=row_id,
             chat_id=chat_id,
-            chunks=embedded,
+            chunks=successful,
         )
-    return len(embedded)
+    return len(successful)
 
 
 async def retrieve_for_prompt(

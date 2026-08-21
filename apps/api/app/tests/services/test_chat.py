@@ -864,6 +864,59 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks():
+    """A casual follow-up after uploading a PDF may not trigger needs_rich_context,
+    but if the chat has indexed attachment chunks, RAG retrieval must still run
+    so document follow-ups get context. The prompt builder forces rich_context
+    when has_chunks_for_chat is True."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.location_enabled = False
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = None
+
+    rag_block = "ATTACHED DOCUMENT CONTEXT"
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.repositories.attachment_chunks.has_chunks_for_chat",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.attachment_rag.retrieve_for_prompt",
+            AsyncMock(return_value=rag_block),
+        ) as rag_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=True),
+            query_text="what's on page 10?",
+            rich_context=False,  # would normally skip RAG, but chunks exist
+        )
+
+    system = messages[0]["content"]
+    assert rag_block in system
+    rag_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_day_planning_injects_daily_learning():
     user = MagicMock()
     user.id = uuid4()

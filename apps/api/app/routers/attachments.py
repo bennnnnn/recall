@@ -164,6 +164,11 @@ async def upload_attachment_bytes(
 
     data = await request.body()
     if not data or len(data) > MAX_SIZE:
+        await purge_invalid_upload(
+            gateway, session, attachment_id=row.id, storage_key=row.storage_key
+        )
+        if is_image_content_type(row.content_type):
+            await quota_service.refund_image_upload(get_redis_client(), user.id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload size")
     # Enforce the declared size: the client told us the size at presign time,
     # and the DB row records it. A mismatch means the upload is not what was

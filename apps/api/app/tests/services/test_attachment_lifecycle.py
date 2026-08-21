@@ -168,11 +168,11 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
 
 @pytest.mark.asyncio
 async def test_reap_orphan_attachments_skips_rows_linked_after_list():
-    """Storage bytes are deleted BEFORE the DB unlink check (storage-first), so
-    even if a row gets linked between list and delete, its bytes were already
-    reaped — the DB row just isn't removed (the link wins). This is the safer
-    ordering: a failed storage delete leaves a retriable DB row instead of an
-    unrecoverable orphaned R2 object."""
+    """DB-first: the DB unlink check (delete_unlinked_returning) runs BEFORE
+    storage deletion, so a row linked between list and delete is NOT reaped
+    and its bytes are NOT touched — preserving the linked attachment's
+    content. Previously storage was deleted first, which could leave a linked
+    attachment with missing file content."""
     settings = Settings()
     orphan_id = uuid4()
     orphan = MagicMock()
@@ -199,15 +199,15 @@ async def test_reap_orphan_attachments_skips_rows_linked_after_list():
 
     assert deleted == 0
     delete_unlinked.assert_awaited_once()
-    # Storage-first: bytes are reaped regardless of the post-list link state.
-    gateway.delete_bytes.assert_awaited_once_with("user/file")
+    # DB-first: bytes are NOT deleted when the row was linked after list time.
+    gateway.delete_bytes.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_reap_orphan_attachments_deletes_bytes_before_db_rows():
-    """The reaper must delete storage bytes BEFORE DB rows so a storage-delete
-    failure (or crash mid-loop) leaves a retriable DB row, not an orphaned R2
-    object the reaper can no longer discover."""
+async def test_reap_orphan_attachments_deletes_db_rows_before_bytes():
+    """DB-first: the reaper deletes DB rows (via delete_unlinked_returning)
+    BEFORE storage bytes, so a row linked between list and delete time is
+    preserved. Storage deletion only runs for rows confirmed still unlinked."""
     settings = Settings()
     orphan = MagicMock()
     orphan.id = uuid4()
@@ -241,7 +241,7 @@ async def test_reap_orphan_attachments_deletes_bytes_before_db_rows():
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     assert deleted == 1
-    assert call_order == ["bytes", "db"]
+    assert call_order == ["db", "bytes"]
 
 
 @pytest.mark.asyncio
@@ -460,9 +460,10 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
 
 
 @pytest.mark.asyncio
-async def test_reap_orphan_attachments_skips_failed_key_and_continues():
-    """One persistently-failing storage key must not abort the batch or
-    delete that row — the next reap retries it. Successful keys still go."""
+async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
+    """DB-first: a failed storage delete (for a row already removed from DB)
+    is logged and skipped — it does not abort the batch. The DB row is already
+    gone; the orphaned R2 object is covered by the bucket lifecycle policy."""
     settings = Settings()
     ok = MagicMock()
     ok.id = uuid4()
@@ -479,11 +480,10 @@ async def test_reap_orphan_attachments_skips_failed_key_and_continues():
 
     gateway = MagicMock()
     gateway.delete_bytes = delete_bytes
-    deleted_ids: list[list] = []
 
     async def delete_unlinked(_session, ids):
-        deleted_ids.append(list(ids))
-        return ["user/ok"]
+        # Both rows confirmed still unlinked at delete time.
+        return ["user/ok", "user/bad"]
 
     with (
         patch(
@@ -501,5 +501,5 @@ async def test_reap_orphan_attachments_skips_failed_key_and_continues():
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
-    assert deleted == 1
-    assert deleted_ids == [[ok.id]]
+    # Both rows were removed from the DB; the bad storage delete is best-effort.
+    assert deleted == 2

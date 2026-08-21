@@ -101,10 +101,11 @@ async def purge_attachments_for_user(
 async def reap_orphan_attachments(settings: Settings) -> int:
     """Delete bytes + rows for attachments never linked to a message past the grace window.
 
-    Storage bytes are deleted BEFORE DB rows: if the storage delete fails (or
-    the process crashes mid-loop), the DB rows remain and the next reap retries.
-    The old order (rows first, then bytes) left orphaned R2 objects with no DB
-    row — unrecoverable, since the reaper discovers orphans via the DB.
+    Uses a DB-first-then-storage order: the DB unlink check
+    (``delete_unlinked_returning``) runs BEFORE storage deletion, so an
+    attachment linked between list and delete time is NOT reaped (its row
+    survives, its bytes are not touched). Previously storage was deleted
+    first, which could leave a linked attachment with missing file content.
 
     Image uploads that are reaped also get their daily image-upload slot
     refunded — without this, an abandoned presign (never sent/confirmed)
@@ -119,37 +120,34 @@ async def reap_orphan_attachments(settings: Settings) -> int:
         )
     if not orphans:
         return 0
-    # Gather with return_exceptions so one bad key is logged and skipped
-    # rather than aborting the batch. Only delete rows whose byte delete
-    # succeeded — a failed key keeps its row for the next reap.
-    failed_keys = set(
-        await delete_storage_keys(settings, [row.storage_key for row in orphans if row.storage_key])
-    )
-    ids_to_delete = [
-        row.id for row in orphans if not row.storage_key or row.storage_key not in failed_keys
-    ]
+
+    # DB-first: delete rows that are still unlinked. This returns the storage
+    # keys of rows actually removed — a row linked between list and delete
+    # is NOT removed and its bytes are preserved.
+    ids_to_delete = [row.id for row in orphans]
     async with SessionLocal() as session:
-        removed = await attachments_repo.delete_unlinked_returning(session, ids_to_delete)
-    # Refund the daily image slot for each reaped image. Uploads refund imgup;
-    # generated images refund imggen. Map storage_key -> orphan row so we only
-    # refund for rows that were actually removed (a row linked between list and
-    # delete is NOT reaped and keeps its slot).
-    if removed:
-        removed_set = set(removed)
+        removed_keys = await attachments_repo.delete_unlinked_returning(session, ids_to_delete)
+    if not removed_keys:
+        return 0
+
+    # Storage cleanup for confirmed-removed rows only.
+    removed_set = set(removed_keys)
+    rows_to_refund = [row for row in orphans if row.storage_key in removed_set]
+    await delete_storage_keys(settings, removed_keys)
+
+    # Refund the daily image slot for each reaped image.
+    if rows_to_refund:
         redis = get_redis_client()
-        for row in orphans:
-            if row.storage_key in removed_set and is_image_content_type(row.content_type):
+        for row in rows_to_refund:
+            if is_image_content_type(row.content_type):
                 try:
                     if getattr(row, "source", "upload") == "generated":
                         await quota_service.refund_image_generation(redis, row.user_id)
                     else:
                         await quota_service.refund_image_upload(redis, row.user_id)
                 except Exception:
-                    # Best-effort: a Redis hiccup here must not prevent the
-                    # reaper from completing -- the slot is daily-scoped and
-                    # resets at midnight anyway.
                     logger.debug(
                         "Image quota refund failed for user %s", row.user_id, exc_info=True
                     )
-    logger.info("Reaped %d orphan attachment(s)", len(removed))
-    return len(removed)
+    logger.info("Reaped %d orphan attachment(s)", len(removed_keys))
+    return len(removed_keys)
