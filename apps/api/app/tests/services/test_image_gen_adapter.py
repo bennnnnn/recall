@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.gateways.mcp.image_gen_adapter import ImageGenAdapter, bind_image_gen_context
 from app.services.image_generation import ImageGenerationError
+from app.services.mcp.image_gen_adapter import ImageGenAdapter, bind_image_gen_context
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -31,7 +31,7 @@ async def test_invoke_rejects_non_pro():
     with (
         bind_image_gen_context(user=user, redis=MagicMock(), chat_id=uuid4()),
         patch(
-            "app.gateways.mcp.image_gen_adapter.plan_service.is_pro",
+            "app.services.mcp.image_gen_adapter.plan_service.is_pro",
             return_value=False,
         ),
     ):
@@ -52,11 +52,11 @@ async def test_invoke_persists_and_returns_terminal_marker():
     with (
         bind_image_gen_context(user=user, redis=MagicMock(), chat_id=chat_id),
         patch(
-            "app.gateways.mcp.image_gen_adapter.plan_service.is_pro",
+            "app.services.mcp.image_gen_adapter.plan_service.is_pro",
             return_value=True,
         ),
         patch(
-            "app.gateways.mcp.image_gen_adapter.image_generation_service.generate_for_chat",
+            "app.services.mcp.image_gen_adapter.image_generation_service.generate_for_chat",
             generate,
         ),
     ):
@@ -80,11 +80,11 @@ async def test_invoke_surfaces_generation_error():
     with (
         bind_image_gen_context(user=user, redis=MagicMock(), chat_id=uuid4()),
         patch(
-            "app.gateways.mcp.image_gen_adapter.plan_service.is_pro",
+            "app.services.mcp.image_gen_adapter.plan_service.is_pro",
             return_value=True,
         ),
         patch(
-            "app.gateways.mcp.image_gen_adapter.image_generation_service.generate_for_chat",
+            "app.services.mcp.image_gen_adapter.image_generation_service.generate_for_chat",
             AsyncMock(side_effect=ImageGenerationError("quota", status_code=429)),
         ),
     ):

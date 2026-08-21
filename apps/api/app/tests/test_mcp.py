@@ -7,10 +7,10 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.gateways.mcp import setup_mcp_adapters
 from app.gateways.mcp.registry import get
-from app.gateways.mcp.sympy_adapter import SympyAdapter
-from app.gateways.mcp.web_search_adapter import WebSearchAdapter
+from app.services.mcp import setup_mcp_adapters
+from app.services.mcp.sympy_adapter import SympyAdapter
+from app.services.mcp.web_search_adapter import WebSearchAdapter
 
 
 @pytest.mark.asyncio
@@ -23,8 +23,8 @@ async def test_web_search_adapter_missing_query():
 @pytest.mark.asyncio
 async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_redis):
     """Model-initiated web_search must go through search_cache (Tavily quota)."""
-    from app.gateways.mcp.web_search_adapter import bind_search_quota_context
     from app.gateways.web_search_gateway import WebSearchHit
+    from app.services.mcp.web_search_adapter import bind_search_quota_context
 
     user = MagicMock()
     user.id = uuid4()
@@ -33,7 +33,7 @@ async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_red
 
     with (
         patch(
-            "app.gateways.mcp.web_search_adapter.run_cached_search",
+            "app.services.mcp.web_search_adapter.run_cached_search",
             AsyncMock(return_value=([hit], ["q"])),
         ) as cached,
         bind_search_quota_context(user=user, redis=fake_redis),
@@ -53,7 +53,7 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
     with (
         patch(
-            "app.gateways.mcp.web_search_adapter.run_cached_search",
+            "app.services.mcp.web_search_adapter.run_cached_search",
             AsyncMock(return_value=([], ["q"])),
         ),
         patch("app.gateways.web_search_gateway.search_web", AsyncMock()) as direct,
@@ -237,7 +237,7 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
         raise AssertionError("should have been cancelled by the timeout")
 
     with patch(
-        "app.gateways.mcp.sympy_adapter.math_service.simplify_expression", side_effect=_hang
+        "app.services.mcp.sympy_adapter.math_service.simplify_expression", side_effect=_hang
     ):
         result = await asyncio.wait_for(
             adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"}),
@@ -282,7 +282,7 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(
         time.sleep(1)
         raise AssertionError("should have been cancelled by the timeout")
 
-    with patch("app.gateways.mcp.sympy_adapter.math_service.solve_equation", side_effect=_hang):
+    with patch("app.services.mcp.sympy_adapter.math_service.solve_equation", side_effect=_hang):
         result = await asyncio.wait_for(
             adapter.invoke({"action": "solve", "lhs": "x", "rhs": "0", "variables": ["x"]}),
             timeout=5,

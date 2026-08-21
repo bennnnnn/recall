@@ -26,12 +26,12 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.mcp import registry as mcp_registry
-from app.gateways.mcp.image_gen_adapter import bind_image_gen_context
-from app.gateways.mcp.web_search_adapter import bind_search_quota_context
 from app.models.orm import User
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math_tools import VerifiedMathBlock
+from app.services.mcp.image_gen_adapter import bind_image_gen_context
+from app.services.mcp.web_search_adapter import bind_search_quota_context
 
 logger = logging.getLogger(__name__)
 

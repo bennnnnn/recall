@@ -7,6 +7,7 @@ from sqlalchemy import update as sql_update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.learning_policy import start_of_today_utc
 from app.models.orm import ProjectItem, QuizMissEvent
 
 DEFAULT_LIST = "General"
@@ -293,8 +294,6 @@ async def count_stats_sql(
     Replaces the load-all-then-count pattern that capped at 5k (detail) or 20k
     (batched) and silently under-counted large decks. (LANG-FLOW-001/002)
     """
-    from app.services.daily_learning import start_of_today_utc
-
     if now is None:
         now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
@@ -401,8 +400,6 @@ async def count_stats_sql_for_project(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Per-project stats without a user_id filter (projects are single-user)."""
-    from app.services.daily_learning import start_of_today_utc
-
     if now is None:
         now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)

@@ -8,9 +8,9 @@ import logging
 
 import httpx
 
+from app.core.attachment_limits import MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
 from app.gateways import safe_fetch
-from app.services.attachment_content import MAX_ATTACHMENT_SIZE
 
 logger = logging.getLogger(__name__)
 

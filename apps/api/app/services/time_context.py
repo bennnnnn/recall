@@ -4,10 +4,10 @@ import re
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from app.core.timezone import DEFAULT_TIMEZONE, resolve_timezone
 from app.services.text_normalize import collapse_ws
 
-DEFAULT_TIMEZONE = "UTC"
-
+__all__ = ["DEFAULT_TIMEZONE", "resolve_timezone"]
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
 _TIME_QUESTION = re.compile(
@@ -104,16 +104,6 @@ def _fold_location_ask(text: str) -> str:
                 out.append(ch)
                 prev = ch
     return "".join(out)
-
-
-def resolve_timezone(tz: str | None) -> ZoneInfo:
-    try:
-        if not isinstance(tz, str):
-            return ZoneInfo(DEFAULT_TIMEZONE)
-        return ZoneInfo(tz.strip() or DEFAULT_TIMEZONE)
-    except (ZoneInfoNotFoundError, ValueError):
-        # ValueError: non-normalized keys (and some mock strings in tests).
-        return ZoneInfo(DEFAULT_TIMEZONE)
 
 
 def effective_timezone(profile_tz: str | None, client_tz: str | None = None) -> str:

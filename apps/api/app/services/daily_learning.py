@@ -6,8 +6,23 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-DEFAULT_DAILY_VOCAB_GOAL = 10
-DEFAULT_DAILY_TRIVIA_GOAL = 10
+from app.core.learning_policy import (
+    DEFAULT_DAILY_TRIVIA_GOAL,
+    DEFAULT_DAILY_VOCAB_GOAL,
+    day_bounds_utc,
+    resolve_daily_goal,
+)
+from app.core.learning_policy import (
+    start_of_today_utc as _start_of_today_utc,
+)
+
+__all__ = [
+    "DEFAULT_DAILY_TRIVIA_GOAL",
+    "DEFAULT_DAILY_VOCAB_GOAL",
+    "day_bounds_utc",
+    "resolve_daily_goal",
+    "start_of_today_utc",
+]
 
 HomeDailyCue = Literal[
     "start",
@@ -24,24 +39,8 @@ HomeVocabCue = HomeDailyCue
 
 
 def start_of_today_utc(timezone_name: str) -> datetime:
-    try:
-        tz = ZoneInfo(timezone_name)
-    except Exception:
-        tz = ZoneInfo("UTC")
-    local_now = datetime.now(tz)
-    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    return local_midnight.astimezone(UTC)
-
-
-def day_bounds_utc(activity_date: date, timezone_name: str) -> tuple[datetime, datetime]:
-    """Return [start, end) UTC bounds for one local calendar day."""
-    try:
-        tz = ZoneInfo(timezone_name)
-    except Exception:
-        tz = ZoneInfo("UTC")
-    local_start = datetime.combine(activity_date, datetime.min.time(), tzinfo=tz)
-    local_end = local_start + timedelta(days=1)
-    return local_start.astimezone(UTC), local_end.astimezone(UTC)
+    """Compatibility wrapper that keeps the service clock patchable in tests."""
+    return _start_of_today_utc(timezone_name, now=datetime.now(UTC))
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -94,16 +93,6 @@ def count_today_vocab_stats(
 def completed_today_count(mastered_today: int, missed_today: int) -> int:
     """Questions finished toward the daily goal (correct + open misses)."""
     return max(0, int(mastered_today) + int(missed_today))
-
-
-def resolve_daily_goal(project: object) -> int:
-    goal = getattr(project, "daily_goal", None)
-    if isinstance(goal, int) and goal >= 1:
-        return goal
-    kind = getattr(project, "kind", None)
-    if kind == "trivia":
-        return DEFAULT_DAILY_TRIVIA_GOAL
-    return DEFAULT_DAILY_VOCAB_GOAL
 
 
 def resolve_daily_vocab_goal(project: object) -> int:

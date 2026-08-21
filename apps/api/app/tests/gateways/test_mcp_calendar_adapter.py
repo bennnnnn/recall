@@ -1,6 +1,6 @@
 import pytest
 
-from app.gateways.mcp.calendar_adapter import CalendarAdapter
+from app.services.mcp.calendar_adapter import CalendarAdapter
 
 
 @pytest.mark.asyncio

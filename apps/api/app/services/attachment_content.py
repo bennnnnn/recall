@@ -12,12 +12,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
 from app.gateways.storage_gateway import StorageGateway
 
 logger = logging.getLogger(__name__)
 
-MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024
 # Inline excerpt cap — keeps the user-message attachment excerpt small so it
 # doesn't bloat the prompt with a full document dump.
 MAX_EXTRACT_CHARS = 12_000

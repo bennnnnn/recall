@@ -27,7 +27,7 @@ def _lifespan_patches(
     stack.enter_context(patch("app.main.setup_logging"))
     stack.enter_context(patch("app.main.init_sentry"))
     stack.enter_context(patch("app.main.validate_production_settings"))
-    stack.enter_context(patch("app.gateways.mcp.setup_mcp_adapters"))
+    stack.enter_context(patch("app.services.mcp.setup_mcp_adapters"))
     if mock_settings is not None:
         stack.enter_context(patch("app.main.get_settings", return_value=mock_settings))
     worker = start_worker if start_worker is not None else AsyncMock()

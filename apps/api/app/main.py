@@ -55,7 +55,7 @@ async def lifespan(_: FastAPI):
     setup_logging(json_output=settings.environment == "production")
     init_sentry(settings)
     validate_production_settings(settings)
-    from app.gateways.mcp import setup_mcp_adapters
+    from app.services.mcp import setup_mcp_adapters
 
     setup_mcp_adapters(settings)
     await warmup_db_pool()

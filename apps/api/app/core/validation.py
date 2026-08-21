@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-# Keep in sync with app.services.model_catalog.CATALOG ids (asserted in tests).
+# Keep in sync with app.models.model_catalog.CATALOG ids (asserted in tests).
 KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
     {
         "free-chat",

@@ -13,7 +13,7 @@ from litellm import aembedding
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import mock_llm
-from app.services.model_catalog import get as get_model
+from app.models.model_catalog import get as get_model
 
 logger = logging.getLogger(__name__)
 
