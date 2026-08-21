@@ -110,7 +110,8 @@ host that keeps the process alive — not a serverless function platform. A Dock
      `R2_SECRET_ACCESS_KEY` · `R2_BUCKET`
    - `TAVILY_API_KEY=` (if web search is on)
 3. **Migrate + deploy:** `./scripts/deploy-api.sh` (or `fly deploy`) runs
-   `alembic upgrade head` first (see `fly.toml`). Confirm the head (`0041`) is applied.
+   `alembic upgrade head` first (see `fly.toml`). Confirm `uv run alembic current`
+   matches `uv run alembic heads`.
 4. **Health:** `GET /health` is liveness. `GET /health/ready` is Postgres
    (Redis may be `degraded` without 503 — do not drain the fleet on an Upstash blip).
 5. **RevenueCat:** set the webhook URL to `https://<api>/webhooks/revenuecat`

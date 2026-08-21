@@ -10,12 +10,13 @@ Step-by-step guide to provision production infrastructure. Pair with [`README.md
 - [ ] Enable `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
 - [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`
 - [ ] Run migrations: `cd apps/api && uv run alembic upgrade head`
-- [ ] Confirm head matches `uv run alembic heads` (currently
-  `0061_usage_daily_est_cost_usd`)
+- [ ] Confirm `uv run alembic current` matches `uv run alembic heads`
 
 ```bash
-cd apps/api && uv run alembic current
-# Expected: 0061_usage_daily_est_cost_usd (head)
+cd apps/api
+uv run alembic heads
+uv run alembic current
+# The same single revision should be shown by both commands.
 ```
 
 ---
@@ -41,6 +42,10 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
   - `R2_SECRET_ACCESS_KEY`
   - `R2_BUCKET`
 - [ ] Smoke-test: upload image in app → confirm object in R2 → download in chat
+
+Native iOS/Android uploads are not subject to browser CORS. Before enabling the
+planned web client, add an R2 bucket CORS policy that allows `PUT`/`GET` from the
+exact production web origin and only the headers used by presigned uploads.
 
 ---
 
@@ -95,6 +100,10 @@ curl -s https://<your-api>/health/ready
 - [ ] Set `EXPO_PUBLIC_API_URL=https://<api-host>`
 - [ ] Set Google client IDs (iOS + web) in EAS secrets
 - [ ] Set RevenueCat API keys per platform
+- [ ] Register the EAS **production** Android signing certificate SHA-1 with the
+      Android OAuth client in Google Cloud (the debug SHA-1 is not sufficient)
+- [ ] Release builds pass the config guard for API URL, EAS project ID, Google
+      client IDs, and the platform's RevenueCat SDK key
 - [ ] Build:
   ```bash
   cd apps/mobile
@@ -103,6 +112,7 @@ curl -s https://<your-api>/health/ready
   ```
 - [ ] Submit to App Store / Play Console
 - [ ] On-device QA per [`docs/QA_MATRIX.md`](QA_MATRIX.md)
+- [ ] Review [`docs/ROLLBACK.md`](ROLLBACK.md) before the first store submission
 
 ---
 
@@ -198,7 +208,7 @@ These cannot be finished in a PR. Track them in the app under Lists → **Launch
 (created for the local Dev User), or follow [`docs/PRODUCTION.md`](./docs/PRODUCTION.md).
 
 1. Install `flyctl` + `fly auth login`
-2. Confirm Neon `DATABASE_URL` + migrations at head (`0061_usage_daily_est_cost_usd`)
+2. Confirm Neon `DATABASE_URL` + `uv run alembic current` matches `uv run alembic heads`
 3. Confirm Upstash `REDIS_URL` (`rediss://`) from the Fly region
 4. Cloudflare R2 bucket + Fly secrets: `STORAGE_BACKEND=r2` + `R2_*`
 5. Remaining Fly secrets (JWT, OpenRouter, Google, CORS, OAuth encryption key, RevenueCat,
