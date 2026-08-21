@@ -139,6 +139,26 @@ describe("FunctionGraphBlock", () => {
     expect(queryByText(/y = 2x/)).toBeNull();
   });
 
+  it("renders a verified trajectory as an SVG curve", async () => {
+    const content = JSON.stringify({
+      type: "trajectory",
+      expr: "h(t) = 20 - 0.5*9.81*t^2",
+      title: "Height vs. Time",
+      x_label: "Time (s)",
+      y_label: "Height (m)",
+      trajectory_type: "position_vs_time",
+      points: [
+        [0, 20],
+        [1, 15.095],
+        [2, 0.38],
+      ],
+    });
+    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+
+    expect(getByText("Height vs. Time")).toBeOnTheScreen();
+    expect(JSON.stringify(toJSON())).toContain("RNSVGPath");
+  });
+
   it("formats a backend-supplied SymPy title", async () => {
     const content = JSON.stringify({
       type: "function",
