@@ -1749,6 +1749,27 @@ wheels = [
 ]
 
 [[package]]
+name = "rdkit"
+version = "2024.9.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/b4/54a543114b58bfbb0f659d30c7902d10e7fa908544691455b36e0783fa77/rdkit-2024.9.6-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:f57a2ad6ceff54917586f47a01ecbe43bbdf4a6f00defd746b500228752ccf84", size = 30035515, upload-time = "2025-03-12T10:35:27.512Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/5a/83deae41ff455e417f67e91393d3fae9f604e15fc633544412fa16d9bcc6/rdkit-2024.9.6-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:4f3931ff192aeee29ce41cf7c30650883fc10f1504af2a9dcc67d8554a0779d3", size = 27760806, upload-time = "2025-03-12T10:35:31.794Z" },
+    { url = "https://files.pythonhosted.org/packages/95/41/c52930491f52d7bdb50e297d5064fdc959a82adea9f735a9ab7c412ac874/rdkit-2024.9.6-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:97661c84a9dc10797d197db1024757676e0ca29a306d5eec289bbfdf4c53c80c", size = 33414832, upload-time = "2025-03-12T10:35:36.122Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/f1/2f978f26b2c58716e70ca1e442e51c260b43e55c2eb64bd2ad76584b60da/rdkit-2024.9.6-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:82e91020e700979f6fc94a4722b47d770912d54cd9accb1c85961c57550cb945", size = 34276560, upload-time = "2025-03-12T10:35:40.561Z" },
+    { url = "https://files.pythonhosted.org/packages/36/a7/738b3eb302b95ece0efea4d9b9c90d8dd7bb9ef529a56ee3bbbcfd239cde/rdkit-2024.9.6-cp312-cp312-win_amd64.whl", hash = "sha256:995df4e0b09a866fc628b6c9f1c10dca32726964ff1c7506cbf7975af0a9ba60", size = 22487552, upload-time = "2025-03-12T10:35:44.277Z" },
+    { url = "https://files.pythonhosted.org/packages/07/be/e0fb0bf1301ce3add94a248a24b29c7784b7d504de4776554fafe3372c54/rdkit-2024.9.6-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:5001786e1f06749fa4cf7d6a9d23b36afc6d9b028d500777a3861c8a4d91238b", size = 30034429, upload-time = "2025-03-12T10:35:47.789Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/0e/918410c8975cb365ad51d3e487965c3c5ccfc3dea5715c81f0e89339cec0/rdkit-2024.9.6-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:b2578458414600beb3a5691fc900e0640da3c571b30ed3dc76381cfe5caadc9e", size = 27759699, upload-time = "2025-03-12T10:35:52.004Z" },
+    { url = "https://files.pythonhosted.org/packages/41/ee/9758cbcde26bacb820579ecbfbd3069ab8bd10b55e08f6731c208ce2eb3f/rdkit-2024.9.6-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:4fbf4d680a1070a15f6d9c7cf93218bed87c7110e4e7a467d1b449e430e20ff5", size = 33413200, upload-time = "2025-03-12T10:35:56.306Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/f9/6e5b8f6445450a3b01e28915f749f9d644a8b855f6e7b26c09f193b1978d/rdkit-2024.9.6-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:4b0efe61d9eee664dc19203478e3312e596be0d200c3bbd4ef1b584aef7146d3", size = 34275798, upload-time = "2025-03-12T10:36:00.826Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/9b/3c32fd6dbb1210a8e9dc83feee82778c8bf2ad483c9e8394138c25789110/rdkit-2024.9.6-cp313-cp313-win_amd64.whl", hash = "sha256:6c740c543b55f99d8d3bdea92c68617ef5669bcf2cc1652752a65f156f26dbc0", size = 22486705, upload-time = "2025-03-12T10:36:05.44Z" },
+]
+
+[[package]]
 name = "recall-api"
 version = "0.1.0"
 source = { editable = "." }
@@ -1772,6 +1793,7 @@ dependencies = [
     { name = "pypdfium2" },
     { name = "python-docx" },
     { name = "python-multipart" },
+    { name = "rdkit" },
     { name = "redis" },
     { name = "sentry-sdk", extra = ["fastapi"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -1812,6 +1834,7 @@ requires-dist = [
     { name = "pypdfium2", specifier = ">=4.30.0,<5" },
     { name = "python-docx", specifier = ">=1.1.0,<1.3" },
     { name = "python-multipart", specifier = ">=0.0.20,<0.0.33" },
+    { name = "rdkit", specifier = ">=2024.3.6,<2025" },
     { name = "redis", specifier = ">=5.2.0,<8.1" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.66.0,<2.67" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.52,<2.1" },
