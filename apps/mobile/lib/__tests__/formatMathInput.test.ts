@@ -1,4 +1,4 @@
-import { formatMathExpr, formatMathMessage } from "@/lib/formatMathInput";
+import { formatMathExpr, formatMathMessage } from "@/lib/math/formatMathInput";
 
 describe("formatMathExpr", () => {
   describe("power", () => {

@@ -5,14 +5,14 @@ import { useTranslation } from "react-i18next";
 
 import { dayKeyForDue, defaultDueDate } from "@/components/todos/todoHelpers";
 import { api, Todo } from "@/lib/api";
-import { toDueAtIso } from "@/lib/dueDate";
+import { toDueAtIso } from "@/lib/todos/dueDate";
 import { isDefaultListTopic, mergeGroupOrder } from "@/lib/listGroups";
 import { markReminderIdsSeen } from "@/lib/reminderSeen";
 import {
   cancelTodoReminder,
   ensureNotificationPermission,
   syncTodoReminders,
-} from "@/lib/todoReminders";
+} from "@/lib/todos/todoReminders";
 import { DEFAULT_TOPIC, normalizeTopic } from "@/lib/todoTopics";
 
 type Params = {

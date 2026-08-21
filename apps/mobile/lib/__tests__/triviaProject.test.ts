@@ -1,5 +1,5 @@
-import { encodeTriviaTopics, parseTriviaTopics, triviaTopicLabel } from "@/lib/triviaTopics";
-import { findTriviaProject } from "@/lib/triviaProject";
+import { encodeTriviaTopics, parseTriviaTopics, triviaTopicLabel } from "@/lib/projects/triviaTopics";
+import { findTriviaProject } from "@/lib/projects/triviaProject";
 import type { Project } from "@/lib/api";
 
 const t = (key: string) => key;

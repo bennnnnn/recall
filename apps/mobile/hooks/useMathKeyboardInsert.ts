@@ -5,7 +5,7 @@ import {
   type TextInputSelectionChangeEventData,
 } from "react-native";
 
-import { clipboardIsImageOnly } from "@/lib/mathClipboard";
+import { clipboardIsImageOnly } from "@/lib/math/mathClipboard";
 import {
   autoAdvanceFracDen,
   caretForInsert,
@@ -18,7 +18,7 @@ import {
   type MathKeyboardSymbol,
   type TextSelection,
 } from "@/lib/mathKeyboardSymbols";
-import { applyPinnedTextChange } from "@/lib/mathComposerChange";
+import { applyPinnedTextChange } from "@/lib/math/mathComposerChange";
 import { applyComposerTextChange, extractInsertedDelta } from "@/lib/mathPasteNormalize";
 import { spliceMathBackspace, stepMathCaret } from "@/lib/mathDraftSlots";
 

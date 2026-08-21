@@ -1,7 +1,7 @@
 import {
   MESSAGE_FOLD_MAX_HEIGHT,
   shouldCollapseMessage,
-} from "@/lib/messageFold";
+} from "@/lib/markdown/messageFold";
 
 describe("messageFold", () => {
   it("exports ~320px fold threshold", () => {

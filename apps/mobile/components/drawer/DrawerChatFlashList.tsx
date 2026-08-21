@@ -21,7 +21,7 @@ import {
   isCollapsibleChatSection,
   PINNED_CHAT_SECTION,
   type ChatListSectionKey,
-} from "@/lib/chatListSections";
+} from "@/lib/chat/chatListSections";
 import { isChatTitleGenerating } from "@/lib/drawer";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";

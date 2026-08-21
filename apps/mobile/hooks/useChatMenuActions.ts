@@ -6,7 +6,7 @@ import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { type IoniconName } from "@/lib/icons";
-import { sanitizeManualChatTitle } from "@/lib/chatTitle";
+import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
 import { shareConversation } from "@/lib/share";
 
 type Params = {

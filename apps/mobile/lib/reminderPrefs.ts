@@ -12,7 +12,7 @@ import {
   normalizeReminderLeadMinutes,
   REMINDER_LEAD_OPTIONS,
   type ReminderLeadMinutes,
-} from "@/lib/reminderTiming";
+} from "@/lib/todos/reminderTiming";
 
 export {
   DEFAULT_REMINDER_LEAD_MINUTES,

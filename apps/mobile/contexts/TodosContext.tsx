@@ -14,11 +14,12 @@ import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type Todo } from "@/lib/api";
-import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
+import { StaleResourceCache } from "@/lib/cache/staleResource";
+import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 import {
   countUnseenUrgentReminders,
   listUrgentReminderIds,
-} from "@/lib/reminderBadge";
+} from "@/lib/todos/reminderBadge";
 import {
   loadHomeNudgeState,
   markHomeOverduePresented as persistHomeOverduePresented,
@@ -31,7 +32,7 @@ import {
   pruneSeenReminderIds,
   saveSeenReminderIds,
 } from "@/lib/reminderSeen";
-import { syncTodoReminders } from "@/lib/todoReminders";
+import { syncTodoReminders } from "@/lib/todos/todoReminders";
 
 type TodosContextValue = {
   todos: Todo[];
@@ -70,9 +71,10 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const [homeOverduePresented, setHomeOverduePresented] = useState<Set<string>>(
     () => new Set(),
   );
-  const inflightRef = useRef<Promise<void> | null>(null);
+  const resourceRef = useRef(
+    new StaleResourceCache<string, Todo[]>(CONTEXT_REFRESH_STALE_MS),
+  );
   const todosRef = useRef(todos);
-  const lastFetchedRef = useRef(0);
   todosRef.current = todos;
 
   const applyBadge = useCallback(
@@ -119,18 +121,14 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         setSeenReminderIds(new Set());
         setHomeNudgeDismissed(new Set());
         setHomeOverduePresented(new Set());
-        lastFetchedRef.current = 0;
+        resourceRef.current.clear();
         return;
       }
       if (
         !opts?.force &&
         todosRef.current.length > 0 &&
-        Date.now() - lastFetchedRef.current < CONTEXT_REFRESH_STALE_MS
+        resourceRef.current.isFresh(token)
       ) {
-        return;
-      }
-      if (inflightRef.current) {
-        await inflightRef.current;
         return;
       }
       if (!opts?.silent) {
@@ -138,34 +136,27 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       }
       setError(false);
 
-      const task = (async () => {
-        // Only blank urgents on a cold load — silent refresh keeps the last
-        // good list until the new one arrives (avoids mid-refresh flicker).
-        const hadTodos = todosRef.current.length > 0;
-        if (!hadTodos) {
-          setRemindersReady(false);
-        }
-        try {
-          const items = await api.listTodos(token);
-          setTodos(items);
-          await applyBadge(items);
-          void syncTodoReminders(items);
-          lastFetchedRef.current = Date.now();
-        } catch {
-          setError(true);
-        } finally {
-          if (!opts?.silent) {
-            setLoading(false);
-          }
-          setRemindersReady(true);
-        }
-      })();
-
-      inflightRef.current = task;
+      // Only blank urgents on a cold load — silent refresh keeps the last
+      // good list until the new one arrives (avoids mid-refresh flicker).
+      const hadTodos = todosRef.current.length > 0;
+      if (!hadTodos) setRemindersReady(false);
       try {
-        await task;
+        const items = await resourceRef.current.fetch(
+          token,
+          async () => {
+            const next = await api.listTodos(token);
+            await applyBadge(next);
+            void syncTodoReminders(next);
+            return next;
+          },
+          { force: opts?.force || !hadTodos },
+        );
+          setTodos(items);
+      } catch {
+        setError(true);
       } finally {
-        inflightRef.current = null;
+        if (!opts?.silent) setLoading(false);
+        setRemindersReady(true);
       }
     },
     [applyBadge, token],

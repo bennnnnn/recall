@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 
 import type { HomeUrgentTodo, Todo } from "@/lib/api";
-import { describeDueAt } from "@/lib/dueDate";
+import { describeDueAt } from "@/lib/todos/dueDate";
 
 /**
  * Default urgent window when no user lead preference is supplied. Mirrors the

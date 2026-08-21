@@ -5,7 +5,7 @@ import {
   emptyChatList,
   isCollapsibleChatSection,
   PINNED_CHAT_SECTION,
-} from "@/lib/chatListSections";
+} from "@/lib/chat/chatListSections";
 
 describe("chatListSections", () => {
   it("emptyChatList has all buckets", () => {

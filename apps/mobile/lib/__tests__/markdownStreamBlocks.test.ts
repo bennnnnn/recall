@@ -2,7 +2,7 @@ import {
   advanceStreamBlocks,
   emptyStreamBlocksState,
   MIN_SETTLED_CHUNK_CHARS,
-} from "@/lib/markdownStreamBlocks";
+} from "@/lib/markdown/markdownStreamBlocks";
 
 const PARA = (label: string) =>
   `${label} ${"lorem ipsum dolor sit amet ".repeat(16).trim()}`;

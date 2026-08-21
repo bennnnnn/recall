@@ -17,7 +17,7 @@ import {
   isPdfContentType,
   parseUserMessageContent,
 } from "@/lib/messageAttachments";
-import { shouldCollapseMessage } from "@/lib/messageFold";
+import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
 import { isVocabQuizAnswer, parseQuizAnswerLetter } from "@/lib/parseVocabQuiz";
 import { Theme, useTheme } from "@/lib/theme";
 

@@ -4,9 +4,9 @@
  * painted as raw LaTeX in chat.
  */
 import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdown, splitInlineMath } from "@/lib/markdownPreprocess";
+import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { readableLatexFallback, segmentsToPlain, parseSimpleLatex } from "@/lib/mathText";
-import { findStableMarkdownPrefixLen, preprocessMarkdownForStream } from "@/lib/markdownPreprocessStream";
+import { findStableMarkdownPrefixLen, preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
 
 const BACKSLASH_CMD = /\\[a-zA-Z]+/;
 

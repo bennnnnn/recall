@@ -1,5 +1,5 @@
 import type { Todo } from "@/lib/api";
-import { localDateKey } from "@/lib/reminderCalendar";
+import { localDateKey } from "@/lib/todos/reminderCalendar";
 
 export function sortOpen(items: Todo[]): Todo[] {
   return [...items].sort((a, b) => {

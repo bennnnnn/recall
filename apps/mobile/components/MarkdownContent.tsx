@@ -8,15 +8,15 @@ import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { MathText } from "@/components/rich/MathText";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdown } from "@/lib/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
 import {
   preprocessMarkdownForStream,
   type StreamingPreprocessCache,
-} from "@/lib/markdownPreprocessStream";
+} from "@/lib/markdown/markdownPreprocessStream";
 import {
   advanceStreamBlocks,
   type StreamBlocksState,
-} from "@/lib/markdownStreamBlocks";
+} from "@/lib/markdown/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import { classifyOpenFencePreview } from "@/lib/copyBlock";
 import {

@@ -31,7 +31,7 @@ import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
-import { textLooksLikeMath } from "@/lib/mathComposerIntent";
+import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";

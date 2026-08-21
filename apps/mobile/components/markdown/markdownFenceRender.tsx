@@ -4,7 +4,7 @@ import { CopyBlock } from "@/components/CopyBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MathBlock } from "@/components/rich/MathView";
-import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
+import { looksLikeLatexFence } from "@/lib/math/mathFenceRetag";
 import {
   renderCopyStyleBlock,
   renderRichFence,

@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { GoogleCalendarEvent } from "@/lib/api";
-import { formatCalendarEventTime } from "@/lib/reminderCalendar";
+import { formatCalendarEventTime } from "@/lib/todos/reminderCalendar";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {

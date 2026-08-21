@@ -4,7 +4,7 @@ import {
   formatDailyGoalShort,
   resolveDailyGoal,
   VOCAB_DAILY_GOALS,
-} from "@/lib/dailyGoals";
+} from "@/lib/projects/dailyGoals";
 
 describe("dailyGoals", () => {
   const t = (key: string, options?: { count: number }) =>

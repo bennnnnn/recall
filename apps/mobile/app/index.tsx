@@ -44,7 +44,7 @@ import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
-import { invalidateProjectDetail } from "@/lib/projectDetailCache";
+import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { subjectFromImageGenUserMessage } from "@/lib/imageGenIntent";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";

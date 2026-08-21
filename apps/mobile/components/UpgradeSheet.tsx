@@ -5,8 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { AppSheet } from "@/components/AppSheet";
 import { Button } from "@/components/Button";
-import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { useSubscriptionActions } from "@/hooks/useSubscriptionActions";
 import { type IoniconName } from "@/lib/icons";
 import {
   getMonthlyProPackage,
@@ -28,7 +27,7 @@ export function UpgradeSheet({ visible, onClose }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const { token, refreshUser } = useAuth();
+  const { token, syncSubscription, devUpgrade } = useSubscriptionActions();
   const [pkg, setPkg] = useState<ProPurchasePackage | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -56,17 +55,14 @@ export function UpgradeSheet({ visible, onClose }: Props) {
 
   const syncAfterStore = async () => {
     if (!token) return;
-    await api.syncSubscription(token);
-    await refreshUser();
+    await syncSubscription();
     onClose();
   };
 
   const tryDevUpgrade = async () => {
     if (!token) return;
     try {
-      await api.devUpgradePro(token);
-      await refreshUser();
-      onClose();
+      if (await devUpgrade()) onClose();
     } catch {
       /* dev endpoint unavailable in production */
     }

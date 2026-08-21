@@ -4,7 +4,7 @@
  * `apps/api/app/services/math_service/parse.py`.
  */
 
-import { formatMathExpr } from "@/lib/formatMathInput";
+import { formatMathExpr } from "@/lib/math/formatMathInput";
 import { isMathLike } from "@/lib/normalizeImplicitMath";
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 

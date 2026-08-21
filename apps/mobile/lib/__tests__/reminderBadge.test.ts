@@ -3,7 +3,7 @@ import {
   countUrgentReminders,
   countUnseenUrgentReminders,
   listUrgentReminders,
-} from "@/lib/reminderBadge";
+} from "@/lib/todos/reminderBadge";
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {

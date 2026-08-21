@@ -1,5 +1,5 @@
 import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
-import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/mathFenceRetag";
+import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/mathFenceRetag";
 
 const COPY_BLOCK_RE =
   /```(?:copy|text|message|email|sms|reply)\n([\s\S]*?)```/i;

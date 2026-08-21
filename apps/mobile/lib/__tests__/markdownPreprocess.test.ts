@@ -1,4 +1,4 @@
-import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks, mergeStrandedColons } from "@/lib/markdownPreprocess";
+import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks, mergeStrandedColons } from "@/lib/markdown/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {

@@ -9,8 +9,8 @@ import { isExpoGo } from "@/lib/expoRuntime";
 import { connectGoogleCalendar } from "@/lib/google-calendar";
 import { connectGoogleGmail } from "@/lib/google-gmail";
 import { gmailSyncMessage } from "@/lib/gmailSyncFeedback";
-import { invalidateSuggestedRemindersCache } from "@/lib/suggestedRemindersCache";
-import { patchIntegrationStatusCache } from "@/lib/integrationStatusCache";
+import { invalidateSuggestedRemindersCache } from "@/lib/cache/suggestedRemindersCache";
+import { patchIntegrationStatusCache } from "@/lib/cache/integrationStatusCache";
 
 export function useSettingsIntegrations() {
   const { token } = useAuth();

@@ -1,5 +1,5 @@
 import { classifyOpenFencePreview } from "@/lib/copyBlock";
-import { preprocessMarkdownForStream } from "@/lib/markdownPreprocessStream";
+import { preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 
 /**

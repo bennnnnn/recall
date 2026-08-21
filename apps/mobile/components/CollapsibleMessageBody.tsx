@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
-import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/messageFold";
+import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {

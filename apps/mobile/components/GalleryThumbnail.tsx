@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 
 import { Icon } from "@/components/Icon";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { getApiUrl } from "@/lib/config";
+import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -28,11 +28,7 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
   // downloadUrl may be a relative "/attachments/{id}/file" (local backend) or
   // an absolute presigned R2 URL. Relative paths need the API base + auth.
   const isRelative = Boolean(downloadUrl && downloadUrl.startsWith("/"));
-  const uri = downloadUrl
-    ? isRelative
-      ? `${getApiUrl()}${downloadUrl}`
-      : downloadUrl
-    : `${getApiUrl()}/attachments/${attachmentId}/file`;
+  const uri = resolveAttachmentUri({ attachmentId, path: downloadUrl })!;
 
   // Always add auth for local API URLs — the /file endpoint requires a Bearer token.
   const needsAuth = isRelative || !downloadUrl;

@@ -7,11 +7,12 @@ import { Icon } from "@/components/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
-import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
+import { type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
+import { useHomeSuggestions } from "@/hooks/useHomeSuggestions";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import { type IoniconName } from "@/lib/icons";
-import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
-import { describeDueAt } from "@/lib/dueDate";
+import { buildHomeDailyQuizChatPrompt } from "@/lib/projects/projectChat";
+import { describeDueAt } from "@/lib/todos/dueDate";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
 import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
@@ -188,6 +189,7 @@ export function HomeStarters({ onSelect }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { token, user } = useAuth();
+  const { dismiss: dismissSuggestion } = useHomeSuggestions();
   const { screen } = useHome();
   const {
     todos,
@@ -211,7 +213,8 @@ export function HomeStarters({ onSelect }: Props) {
     setDismissedStarterKeys((prev) => new Set(prev).add(key));
     if (starter.id && token) {
       try {
-        await api.dismissSuggestion(token, starter.id);
+        const dismissed = await dismissSuggestion(starter.id);
+        if (!dismissed) throw new Error("dismiss failed");
       } catch {
         setDismissedStarterKeys((prev) => {
           const next = new Set(prev);

@@ -27,17 +27,18 @@ import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
 import { StepPicker } from "@/components/projects/StepPicker";
-import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
+import { type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
+import { useProjectActions } from "@/hooks/useProjectActions";
 import {
   DEFAULT_VOCAB_DAILY_GOAL,
   formatDailyGoalShort,
   resolveDailyGoal,
   VOCAB_DAILY_GOALS,
   type VocabDailyGoal,
-} from "@/lib/dailyGoals";
+} from "@/lib/projects/dailyGoals";
 import { LANGUAGES } from "@/lib/i18n/languages";
 import { isLanguageProject, LANGUAGE_LEVELS, levelLabelT } from "@/lib/languageLevels";
-import { findLanguageProject } from "@/lib/languageProject";
+import { findLanguageProject } from "@/lib/projects/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
   buildLanguageOnboardingPrompt,
@@ -45,16 +46,16 @@ import {
   buildProjectReviewPrompt,
   buildTriviaOnboardingPrompt,
   projectDetailForChat,
-} from "@/lib/projectChat";
+} from "@/lib/projects/projectChat";
 import {
   canAddLearningProject,
   languageProjectTitle,
   triviaProjectTitle,
   type CreateStep,
-} from "@/lib/projectCreateFlow";
-import { findTriviaProject } from "@/lib/triviaProject";
-import { isTriviaProject } from "@/lib/projectUi";
-import { invalidateProjectDetail, prefetchProjectDetails } from "@/lib/projectDetailCache";
+} from "@/lib/projects/projectCreateFlow";
+import { findTriviaProject } from "@/lib/projects/triviaProject";
+import { isTriviaProject } from "@/lib/projects/projectUi";
+import { invalidateProjectDetail, prefetchProjectDetails } from "@/lib/cache/projectDetailCache";
 import {
   encodeTriviaTopics,
   formatTriviaTopicLabels,
@@ -64,7 +65,7 @@ import {
   triviaDifficultyLabel,
   parseTriviaTopics,
   type TriviaTopicId,
-} from "@/lib/triviaTopics";
+} from "@/lib/projects/triviaTopics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -86,6 +87,7 @@ export default function ProjectsScreen() {
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
   const { refresh: refreshHome } = useHome();
+  const { createProject } = useProjectActions();
   const visibleProjects = useMemo(
     () => projects.filter((p) => !p.archived),
     [projects],
@@ -209,7 +211,7 @@ export default function ProjectsScreen() {
 
     setCreating(true);
     try {
-      const project = await api.createProject(token, {
+      const project = await createProject({
         title,
         description: "",
         kind: "language",
@@ -243,7 +245,7 @@ export default function ProjectsScreen() {
 
     setCreating(true);
     try {
-      const project = await api.createProject(token, {
+      const project = await createProject({
         title,
         description,
         kind: "trivia",

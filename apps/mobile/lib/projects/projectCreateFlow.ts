@@ -1,8 +1,8 @@
 import type { LanguageLevel, Project, ProjectKind } from "@/lib/api";
 import { LANGUAGES, languageLabel } from "@/lib/i18n/languages";
 import { levelLabel } from "@/lib/languageLevels";
-import { findLanguageProject } from "@/lib/languageProject";
-import { findTriviaProject } from "@/lib/triviaProject";
+import { findLanguageProject } from "@/lib/projects/languageProject";
+import { findTriviaProject } from "@/lib/projects/triviaProject";
 
 export type CreateStep = "subject" | "language" | "level" | "daily" | "topics" | "trivia_level";
 

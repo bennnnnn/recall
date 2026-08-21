@@ -13,7 +13,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { Icon } from "@/components/Icon";
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { getApiUrl } from "@/lib/config";
+import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
@@ -127,11 +127,7 @@ export function ChatMessageImage({
   const [viewerOpen, setViewerOpen] = useState(false);
 
   const remoteUri = useMemo(() => {
-    if (localUri) return localUri;
-    if (attachmentId) return `${getApiUrl()}/attachments/${attachmentId}/file`;
-    if (path?.startsWith("http://") || path?.startsWith("https://")) return path;
-    if (path?.startsWith("/attachments/")) return `${getApiUrl()}${path}`;
-    return null;
+    return resolveAttachmentUri({ attachmentId, localUri, path });
   }, [attachmentId, localUri, path]);
 
   useEffect(() => {

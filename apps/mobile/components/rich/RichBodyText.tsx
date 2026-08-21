@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Text, type TextProps } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
-import { parseInlineMarkdown } from "@/lib/inlineMarkdown";
+import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { useTheme } from "@/lib/theme";
 
 /**

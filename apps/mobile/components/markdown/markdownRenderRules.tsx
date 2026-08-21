@@ -40,9 +40,9 @@ import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
-import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
+import { isHeavyInlineMath } from "@/lib/math/mathFenceRetag";
 import {
   latexHasNestedMathView,
   mathRunLineHeight,

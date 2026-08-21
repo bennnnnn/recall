@@ -8,10 +8,10 @@ import { type IoniconName } from "@/lib/icons";
 type Router = ReturnType<typeof useRouter>;
 
 import { api, type Message } from "@/lib/api";
-import { shouldRefetchChatOnForeground } from "@/lib/chatForegroundRefetch";
+import { shouldRefetchChatOnForeground } from "@/lib/chat/chatForegroundRefetch";
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
-import { mergeLocalAttachmentUris } from "@/lib/chatMessageMerge";
-import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
+import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
+import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";

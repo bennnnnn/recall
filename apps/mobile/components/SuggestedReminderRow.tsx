@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
 import type { SuggestedReminder } from "@/lib/api";
-import { describeDueAt } from "@/lib/dueDate";
+import { describeDueAt } from "@/lib/todos/dueDate";
 
 type Props = {
   reminder: SuggestedReminder;

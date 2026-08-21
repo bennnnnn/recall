@@ -12,8 +12,9 @@ import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type HomeScreen } from "@/lib/api";
+import { StaleResourceCache } from "@/lib/cache/staleResource";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
-import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
+import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 import { loadHomeFallback } from "@/lib/homeFallback";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
 
@@ -31,9 +32,10 @@ export function HomeProvider({ children }: { children: ReactNode }) {
   const userName = auth?.user?.name;
   const [screen, setScreen] = useState<HomeScreen | null>(null);
   const [loading, setLoading] = useState(true);
-  const inflightRef = useRef<Promise<void> | null>(null);
+  const resourceRef = useRef(
+    new StaleResourceCache<string, HomeScreen>(CONTEXT_REFRESH_STALE_MS),
+  );
   const screenRef = useRef(screen);
-  const lastFetchedRef = useRef(0);
   screenRef.current = screen;
 
   const refresh = useCallback(
@@ -41,49 +43,40 @@ export function HomeProvider({ children }: { children: ReactNode }) {
       if (!token) {
         setScreen(null);
         setLoading(false);
-        lastFetchedRef.current = 0;
+        resourceRef.current.clear();
         return;
       }
       if (
         !opts?.force &&
         screenRef.current &&
-        Date.now() - lastFetchedRef.current < CONTEXT_REFRESH_STALE_MS
+        resourceRef.current.isFresh(token)
       ) {
-        return;
-      }
-      if (inflightRef.current) {
-        await inflightRef.current;
         return;
       }
       if (!opts?.silent) {
         setLoading(true);
       }
 
-      const task = (async () => {
-        try {
-          const data = await api.getHomeScreen(token, getDeviceTimezone());
-          setScreen(data);
-          lastFetchedRef.current = Date.now();
-        } catch {
+      try {
+        const data = await resourceRef.current.fetch(
+          token,
+          async () => {
+            try {
+              return await api.getHomeScreen(token, getDeviceTimezone());
+            } catch {
           // Keep a good screen on silent refresh failure — only fall back when
           // we have nothing to show yet.
-          if (screenRef.current) {
-            return;
-          }
-          setScreen(await loadHomeFallback(token));
-          lastFetchedRef.current = Date.now();
-        } finally {
-          if (!opts?.silent) {
-            setLoading(false);
-          }
-        }
-      })();
-
-      inflightRef.current = task;
-      try {
-        await task;
+              if (screenRef.current) throw new Error("Home refresh failed");
+              return loadHomeFallback(token);
+            }
+          },
+          opts,
+        );
+        setScreen(data);
+      } catch {
+        // Keep the last successful screen.
       } finally {
-        inflightRef.current = null;
+        if (!opts?.silent) setLoading(false);
       }
     },
     [token],
@@ -93,13 +86,12 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     if (!token) {
       setScreen(null);
       setLoading(false);
-      lastFetchedRef.current = 0;
+      resourceRef.current.clear();
       return;
     }
     // Paint greeting + starters immediately — first sign-in must not sit on a
     // blank ActivityIndicator while /home is in flight.
     setScreen(instantHomePlaceholder());
-    lastFetchedRef.current = 0;
     void refresh({ force: true });
   }, [refresh, token]);
 

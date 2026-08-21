@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import type { Chat } from "@/lib/api";
-import { displayChatTitle } from "@/lib/chatTitle";
+import { displayChatTitle } from "@/lib/chat/chatTitle";
 
 export type ConversationRowStyles = {
   row: ViewStyle;

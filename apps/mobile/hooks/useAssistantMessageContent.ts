@@ -4,7 +4,7 @@ import type { Message } from "@/lib/api";
 import {
   deriveAssistantMessageContent,
   type AssistantMessageContent,
-} from "@/lib/assistantMessageContent";
+} from "@/lib/markdown/assistantMessageContent";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,

@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { TRIVIA_TOPICS, type TriviaTopicId } from "@/lib/triviaTopics";
+import { TRIVIA_TOPICS, type TriviaTopicId } from "@/lib/projects/triviaTopics";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 

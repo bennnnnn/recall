@@ -11,7 +11,7 @@ import { api, type Message } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
-import { sanitizeManualChatTitle } from "@/lib/chatTitle";
+import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
 
 const SERVER_MESSAGE_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

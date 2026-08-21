@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 
 import type { Project } from "@/lib/api";
-import { findLanguageProject } from "@/lib/languageProject";
-import { findTriviaProject } from "@/lib/triviaProject";
+import { findLanguageProject } from "@/lib/projects/languageProject";
+import { findTriviaProject } from "@/lib/projects/triviaProject";
 import { quizVariantForProjectKind, type QuizVariant } from "@/lib/quizVariant";
 
 type Params = {

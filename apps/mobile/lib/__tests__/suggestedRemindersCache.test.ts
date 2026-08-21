@@ -6,7 +6,7 @@ import {
   isSuggestedRemindersFresh,
   removeSuggestedReminderFromCache,
   setSuggestedRemindersCache,
-} from "@/lib/suggestedRemindersCache";
+} from "@/lib/cache/suggestedRemindersCache";
 
 jest.mock("@/lib/api", () => ({
   api: {

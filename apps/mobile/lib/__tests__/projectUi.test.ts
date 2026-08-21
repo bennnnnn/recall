@@ -1,4 +1,4 @@
-import { formatProjectListTitle, projectStatsLabels } from "@/lib/projectUi";
+import { formatProjectListTitle, projectStatsLabels } from "@/lib/projects/projectUi";
 
 const t = (key: string) => key;
 

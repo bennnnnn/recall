@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Alert, ScrollView } from "react-native";
 import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,24 +11,18 @@ import {
   SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
-import { useAuth } from "@/contexts/AuthContext";
-import { isAccountDeleteComplete } from "@/lib/accountDelete";
-import { api } from "@/lib/api";
-import { formatExportJsonForShare, shareAccountExport } from "@/lib/exportData";
+import { useDataControls } from "@/hooks/useDataControls";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function DataControlsScreen() {
-  const { token, signOut, setIgnoreUnauthorized } = useAuth();
+  const { token, progress, exportData, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
-  const [progress, setProgress] = useState<"idle" | "exporting" | "deleting">(
-    "idle",
-  );
   const busy = progress !== "idle";
 
   useEffect(() => {
@@ -44,18 +38,13 @@ export default function DataControlsScreen() {
 
   const doExport = async () => {
     if (!token || busy) return;
-    setProgress("exporting");
     try {
-      const raw = await api.exportDataText(token);
-      const payload = formatExportJsonForShare(raw);
-      await shareAccountExport(payload);
+      await exportData();
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (!message.toLowerCase().includes("cancel")) {
         Alert.alert(t("common.error"), t("settings.export_failed"));
       }
-    } finally {
-      setProgress("idle");
     }
   };
 
@@ -67,28 +56,17 @@ export default function DataControlsScreen() {
         text: t("common.delete"),
         style: "destructive",
         onPress: () => {
-          void runDelete(token);
+          void runDelete();
         },
       },
     ]);
   };
 
-  const runDelete = async (accessToken: string) => {
-    setProgress("deleting");
-    setIgnoreUnauthorized(true);
-    try {
-      try {
-        await api.deleteAccount(accessToken);
-      } catch (error) {
-        if (!isAccountDeleteComplete(error)) {
-          throw error;
-        }
-      }
-      await signOut();
+  const runDelete = async () => {
+    const deleted = await deleteAccount();
+    if (deleted) {
       router.replace("/login");
-    } catch {
-      setIgnoreUnauthorized(false);
-      setProgress("idle");
+    } else {
       Alert.alert(t("common.error"), t("settings.delete_failed"));
     }
   };

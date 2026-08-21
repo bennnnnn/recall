@@ -8,8 +8,8 @@ import { AppSheet } from "@/components/AppSheet";
 import { defaultDueDate } from "@/components/todos/todoHelpers";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { Todo } from "@/lib/api";
-import { describeDueAt, toDueAtIso } from "@/lib/dueDate";
-import { findOverlappingReminder } from "@/lib/reminderOverlap";
+import { describeDueAt, toDueAtIso } from "@/lib/todos/dueDate";
+import { findOverlappingReminder } from "@/lib/todos/reminderOverlap";
 import { useTheme } from "@/lib/theme";
 
 export function AddReminderSheet({

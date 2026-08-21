@@ -6,7 +6,7 @@ import {
   buildProjectBonusWordsPrompt,
   isDailyGoalMet,
   remainingDailyGoal,
-} from "@/lib/projectChat";
+} from "@/lib/projects/projectChat";
 import type { ProjectDetail } from "@/lib/api";
 
 const t = (key: string) => key;

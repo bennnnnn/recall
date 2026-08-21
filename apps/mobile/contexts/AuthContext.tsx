@@ -185,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshToken = await getRefreshToken();
     try {
       try {
-        const { cancelAllTodoReminders } = await import("@/lib/todoReminders");
+        const { cancelAllTodoReminders } = await import("@/lib/todos/todoReminders");
         await cancelAllTodoReminders();
       } catch {
         /* best-effort */

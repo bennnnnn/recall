@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { AppSheet } from "@/components/AppSheet";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { Todo } from "@/lib/api";
-import { findOverlappingReminder } from "@/lib/reminderOverlap";
+import { findOverlappingReminder } from "@/lib/todos/reminderOverlap";
 import { useTheme } from "@/lib/theme";
 
 export function DuePickerModal({

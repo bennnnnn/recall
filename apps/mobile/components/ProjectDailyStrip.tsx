@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ProjectDailyHistoryDay } from "@/lib/api";
-import { localDateKey } from "@/lib/reminderCalendar";
+import { localDateKey } from "@/lib/todos/reminderCalendar";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
