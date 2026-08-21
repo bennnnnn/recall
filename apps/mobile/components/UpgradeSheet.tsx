@@ -9,6 +9,7 @@ import { useSubscriptionActions } from "@/hooks/useSubscriptionActions";
 import { type IoniconName } from "@/lib/icons";
 import {
   getMonthlyProPackage,
+  isPurchaseCancelled,
   isPurchasesConfigured,
   type ProPurchasePackage,
   purchaseProPackage,
@@ -16,6 +17,8 @@ import {
 } from "@/lib/purchases";
 import { Space } from "@/lib/space";
 import { trackProductEvent } from "@/lib/productAnalytics";
+import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -86,9 +89,12 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     let purchased = false;
     try {
       purchased = await purchaseProPackage(pkg);
-    } catch {
-      trackProductEvent(token, "purchase_failed", { reason: "error" });
-      setError(t("upgrade.purchase_failed"));
+    } catch (purchaseError) {
+      const cancelled = isPurchaseCancelled(purchaseError);
+      trackProductEvent(token, "purchase_failed", {
+        reason: cancelled ? "cancelled" : "error",
+      });
+      if (!cancelled) setError(t("upgrade.purchase_failed"));
       setBusy(false);
       return;
     }
@@ -170,6 +176,24 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       ) : (
         <Button title={t("upgrade.coming_soon")} onPress={onClose} style={s.primaryBtn} />
       )}
+      <Text style={s.subscriptionTerms}>{t("upgrade.subscription_terms")}</Text>
+      <View style={s.legalLinks}>
+        <Pressable
+          onPress={() => void openAllowedUrl(getLegalTermsUrl())}
+          accessibilityRole="link"
+          accessibilityLabel={t("terms.title")}
+        >
+          <Text style={s.legalLink}>{t("terms.title")}</Text>
+        </Pressable>
+        <Text style={s.legalSeparator}>·</Text>
+        <Pressable
+          onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
+          accessibilityRole="link"
+          accessibilityLabel={t("privacy.title")}
+        >
+          <Text style={s.legalLink}>{t("privacy.title")}</Text>
+        </Pressable>
+      </View>
       {__DEV__ ? (
         <Pressable style={s.devBtn} onPress={() => void tryDevUpgrade()}>
           <Text style={s.devBtnText}>{t("upgrade.dev_enable")}</Text>
@@ -232,6 +256,27 @@ const makeStyles = (theme: Theme) =>
     },
     primaryBtn: {
       marginTop: Space.xxs,
+    },
+    subscriptionTerms: {
+      ...Type.caption,
+      color: theme.textTertiary,
+      textAlign: "center",
+      lineHeight: 17,
+    },
+    legalLinks: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.xs,
+    },
+    legalLink: {
+      ...Type.caption,
+      color: theme.primary,
+      fontWeight: "600",
+    },
+    legalSeparator: {
+      ...Type.caption,
+      color: theme.textTertiary,
     },
     devBtn: {
       alignItems: "center",

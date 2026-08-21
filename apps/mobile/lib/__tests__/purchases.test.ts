@@ -36,13 +36,21 @@ jest.mock("react-native-purchases", () => {
   return { ...api, default: api };
 });
 
-import { registerPlanChangeListener } from "@/lib/purchases";
+import { isPurchaseCancelled, registerPlanChangeListener } from "@/lib/purchases";
 
 // Force the purchases module to be "configured" (API key present + not Expo Go).
 process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "test-ios-key";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const purchasesMod = require("react-native-purchases");
+
+describe("isPurchaseCancelled", () => {
+  it("recognizes RevenueCat user cancellation without treating other failures as cancellation", () => {
+    expect(isPurchaseCancelled({ userCancelled: true })).toBe(true);
+    expect(isPurchaseCancelled({ userCancelled: false })).toBe(false);
+    expect(isPurchaseCancelled(new Error("store unavailable"))).toBe(false);
+  });
+});
 
 describe("registerPlanChangeListener", () => {
   it("fires onChange only when the entitlement state flips (de-dupe)", async () => {

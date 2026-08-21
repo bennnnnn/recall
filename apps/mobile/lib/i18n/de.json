@@ -915,6 +915,7 @@
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
+  "upgrade.subscription_terms": "Das Abo verlängert sich jeden Monat automatisch, sofern es nicht im App-Store- oder Google-Play-Konto gekündigt wird.",
   "upgrade.title": "Upgrade auf Pro",
   "chat.status.image_gen_2": "Gleich fertig…",
   "common.saved": "Gespeichert",

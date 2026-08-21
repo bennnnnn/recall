@@ -915,6 +915,7 @@
   "upgrade.restore": "ግዢዎችን ይመልሱ",
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
+  "upgrade.subscription_terms": "የደንበኝነት ምዝገባው በApp Store ወይም Google Play መለያዎ ውስጥ ካልተሰረዘ በየወሩ በራሱ ይታደሳል።",
   "upgrade.title": "ወደ Pro ይሂዱ",
   "chat.status.image_gen_2": "Almost ready…",
   "common.saved": "Saved",

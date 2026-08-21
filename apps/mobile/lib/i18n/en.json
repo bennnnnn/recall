@@ -962,6 +962,7 @@
   "upgrade.restore": "Restore purchases",
   "upgrade.restore_empty": "No active subscription found for this account.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
+  "upgrade.subscription_terms": "Subscription renews automatically each month unless canceled in your App Store or Google Play account.",
   "upgrade.title": "Upgrade to Pro",
   "chat.status.image_gen_2": "Almost ready…",
   "common.saved": "Saved",
