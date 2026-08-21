@@ -61,6 +61,8 @@ export type ChatScreenBodyProps = {
   chatError: ResolvedChatError | null;
   isPro: boolean;
   onUpgrade: () => void;
+  onRetryChatError: () => void;
+  onChangeModel: () => void;
   onDismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
@@ -127,6 +129,8 @@ export function ChatScreenBody({
   chatError,
   isPro,
   onUpgrade,
+  onRetryChatError,
+  onChangeModel,
   onDismissChatError,
   composerAnimatedStyle,
   streaming,
@@ -218,6 +222,8 @@ export function ChatScreenBody({
         upgradeLabel={!isPro ? t("chat.quota_nudge_cta") : undefined}
         onUpgrade={!isPro ? onUpgrade : undefined}
         onStop={onStop}
+        onRetry={onRetryChatError}
+        onChangeModel={onChangeModel}
         onDismiss={onDismissChatError}
       />
 

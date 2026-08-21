@@ -13,6 +13,8 @@ type Props = {
   upgradeLabel?: string;
   onUpgrade?: () => void;
   onStop?: () => void;
+  onRetry?: () => void;
+  onChangeModel?: () => void;
   onDismiss: () => void;
   bottom: number;
 };
@@ -22,6 +24,8 @@ export function ChatInlineError({
   upgradeLabel,
   onUpgrade,
   onStop,
+  onRetry,
+  onChangeModel,
   onDismiss,
   bottom,
 }: Props) {
@@ -60,6 +64,28 @@ export function ChatInlineError({
           testID="chat-busy-stop"
         >
           <Text style={s.ctaText}>{t("chat.stop")}</Text>
+        </Pressable>
+      ) : null}
+      {error.kind === "generic" && onRetry ? (
+        <Pressable
+          style={s.cta}
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.retry")}
+          testID="chat-error-retry"
+        >
+          <Text style={s.ctaText}>{t("common.retry")}</Text>
+        </Pressable>
+      ) : null}
+      {error.kind === "model_unavailable" && onChangeModel ? (
+        <Pressable
+          style={s.cta}
+          onPress={onChangeModel}
+          accessibilityRole="button"
+          accessibilityLabel={t("settings.model")}
+          testID="chat-error-change-model"
+        >
+          <Text style={s.ctaText}>{t("settings.model")}</Text>
         </Pressable>
       ) : null}
       <Pressable
