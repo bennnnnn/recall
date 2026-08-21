@@ -65,6 +65,8 @@ export type ChatScreenBodyProps = {
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
   attachBusy: boolean;
+  attachPicking: boolean;
+  sendBusy: boolean;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
   editingMessageId: string | null;
@@ -129,6 +131,8 @@ export function ChatScreenBody({
   composerAnimatedStyle,
   streaming,
   attachBusy,
+  attachPicking,
+  sendBusy,
   pendingAttachment,
   onRemoveAttachment,
   editingMessageId,
@@ -223,6 +227,8 @@ export function ChatScreenBody({
         token={token}
         streaming={streaming}
         attachBusy={attachBusy}
+            attachPicking={attachPicking}
+            sendBusy={sendBusy}
         pendingAttachment={pendingAttachment}
         onRemoveAttachment={onRemoveAttachment}
         editingMessageId={editingMessageId}

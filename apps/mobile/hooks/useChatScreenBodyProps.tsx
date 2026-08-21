@@ -85,6 +85,7 @@ export type UseChatScreenBodyPropsParams = {
     attachSheetOpen: boolean;
     closeAttachSheet: () => void;
     attachBusy: boolean;
+    attachPicking: boolean;
     pendingAttachment: PendingAttachment | null;
     setPendingAttachment: (value: PendingAttachment | null) => void;
     handlePickAttachment: () => void;
@@ -102,6 +103,7 @@ export type UseChatScreenBodyPropsParams = {
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   setInput: (value: string) => void;
   streaming: boolean;
+  sendBusy: boolean;
   /** Which message (if any) the composer is editing in place. */
   editing: {
     editingMessageId: string | null;
@@ -161,6 +163,7 @@ export function useChatScreenBodyProps({
     attachSheetOpen,
     closeAttachSheet,
     attachBusy,
+    attachPicking,
     pendingAttachment,
     setPendingAttachment,
     handlePickAttachment,
@@ -178,6 +181,7 @@ export function useChatScreenBodyProps({
   composerAnimatedStyle,
   setInput,
   streaming,
+  sendBusy,
   editing: { editingMessageId, setEditingMessageId },
   stopGeneration,
   isOffline,
@@ -335,6 +339,8 @@ export function useChatScreenBodyProps({
       composerAnimatedStyle,
       streaming,
       attachBusy,
+      attachPicking,
+      sendBusy,
       pendingAttachment,
       onRemoveAttachment,
       editingMessageId,
@@ -397,6 +403,8 @@ export function useChatScreenBodyProps({
       setInput,
       streaming,
       attachBusy,
+      attachPicking,
+      sendBusy,
       pendingAttachment,
       onRemoveAttachment,
       editingMessageId,

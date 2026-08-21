@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -10,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { Motion } from "@/lib/motion";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -23,10 +24,12 @@ type Props = {
 export function VoiceMicButton({ recording, transcribing, disabled, onPress }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const reduceMotion = useReduceMotion();
   const pulse = useSharedValue(0);
 
   useEffect(() => {
-    if (!recording) {
+    cancelAnimation(pulse);
+    if (!recording || reduceMotion) {
       pulse.value = 0;
       return;
     }
@@ -44,7 +47,7 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
       -1,
       false,
     );
-  }, [recording, pulse]);
+  }, [recording, pulse, reduceMotion]);
 
   const ringStyle = useAnimatedStyle(() => ({
     opacity: 0.55 * (1 - pulse.value),
@@ -60,6 +63,7 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
       accessibilityRole="button"
       accessibilityLabel={t("chat.voice_a11y")}
       accessibilityHint={recording ? t("chat.voice_stop_hint") : t("chat.voice_start_hint")}
+      accessibilityState={{ disabled: Boolean(disabled || transcribing), busy: transcribing }}
     >
       <View style={styles.slot}>
         {recording ? (

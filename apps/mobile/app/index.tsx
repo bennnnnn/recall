@@ -301,6 +301,8 @@ function ChatScreen() {
     pendingAttachment,
     setPendingAttachment,
     attachBusy,
+    attachPicking,
+    sendPhase,
     attachSheetOpen,
     setAttachSheetOpen,
     editingMessageId,
@@ -379,7 +381,7 @@ function ChatScreen() {
     connect,
   });
 
-  const handleRegenerate = useChatRegenerate({
+  const { regenerate: handleRegenerate, regenerating } = useChatRegenerate({
     token,
     messages,
     user,
@@ -444,6 +446,7 @@ function ChatScreen() {
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
     setMenuVisible,
     regenerateResponse: handleRegenerate,
+    regenerating,
     handleEditMessage,
     handleFeedback,
     suggestions,
@@ -509,6 +512,7 @@ function ChatScreen() {
       attachSheetOpen,
       closeAttachSheet,
       attachBusy,
+      attachPicking,
       pendingAttachment,
       setPendingAttachment,
       handlePickAttachment,
@@ -526,6 +530,7 @@ function ChatScreen() {
     composerAnimatedStyle,
     setInput,
     streaming: streamActive,
+    sendBusy: sendPhase !== "idle",
     editing: { editingMessageId, setEditingMessageId },
     stopGeneration: stopTurn,
     isOffline,

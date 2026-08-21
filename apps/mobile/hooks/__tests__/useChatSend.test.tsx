@@ -5,8 +5,13 @@ import { act, render } from "@testing-library/react-native";
 import { useChatSend } from "@/hooks/useChatSend";
 
 const inputRef = { current: "hello" };
+const mockSetInput = jest.fn();
+const mockFeedbackError = jest.fn();
 jest.mock("@/contexts/ComposerDraftContext", () => ({
-  useComposerDraftApi: () => ({ setInput: jest.fn(), inputRef }),
+  useComposerDraftApi: () => ({ setInput: mockSetInput, inputRef }),
+}));
+jest.mock("@/contexts/ActionFeedbackContext", () => ({
+  useActionFeedbackOptional: () => ({ error: mockFeedbackError }),
 }));
 jest.mock("expo-router", () => ({
   useRouter: () => ({ setParams: jest.fn() }),
@@ -35,10 +40,20 @@ let current: ReturnType<typeof useChatSend>;
 const onOfflineBlocked = jest.fn();
 const onGenerateImage = jest.fn();
 
-function Probe({ offline = false }: { offline?: boolean }) {
+function Probe({
+  offline = false,
+  chatId = null,
+  sendMessage = jest.fn(),
+  prepareDraftChat = jest.fn(),
+}: {
+  offline?: boolean;
+  chatId?: string | null;
+  sendMessage?: jest.Mock;
+  prepareDraftChat?: jest.Mock;
+}) {
   current = useChatSend({
     token: "token",
-    chatId: null,
+    chatId,
     setChatId: jest.fn(),
     setChatTitle: jest.fn(),
     router: { setParams: jest.fn() } as never,
@@ -46,12 +61,12 @@ function Probe({ offline = false }: { offline?: boolean }) {
       draftChatIdRef: { current: null },
       skipLoadForChatIdRef: { current: null },
       creatingRef: { current: false },
-      prepareDraftChat: jest.fn(),
+      prepareDraftChat,
       setDraftChatId: jest.fn(),
     } as never,
     scroll: { newMessageCountRef: { current: 0 } } as never,
     streaming: false,
-    sendMessage: jest.fn(),
+    sendMessage,
     editMessage: jest.fn(),
     setMessages: jest.fn(),
     messages: [],
@@ -97,5 +112,33 @@ describe("useChatSend", () => {
       "a lighthouse",
       "Generate an image of a lighthouse",
     );
+  });
+
+  it("blocks duplicate sends while preparation is in flight", async () => {
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+
+    await act(async () => {
+      await Promise.all([current.handleSend(), current.handleSend()]);
+    });
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces new-chat creation failures and restores the draft", async () => {
+    const prepareDraftChat = jest.fn().mockRejectedValue(new Error("failed"));
+    await act(async () => {
+      render(<Probe prepareDraftChat={prepareDraftChat} />);
+    });
+
+    await act(async () => {
+      await current.handleSend();
+    });
+
+    expect(mockSetInput).toHaveBeenCalledWith("hello");
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.error_generic");
+    expect(current.sendPhase).toBe("idle");
   });
 });

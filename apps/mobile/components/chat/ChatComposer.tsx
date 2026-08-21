@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -62,6 +63,8 @@ type Props = {
   onChangeInput?: (text: string) => void;
   streaming: boolean;
   attachBusy: boolean;
+  attachPicking?: boolean;
+  sendBusy?: boolean;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
   editingMessageId: string | null;
@@ -94,6 +97,8 @@ export const ChatComposer = memo(function ChatComposer({
   onChangeInput: onChangeInputProp,
   streaming,
   attachBusy,
+  attachPicking = false,
+  sendBusy = false,
   pendingAttachment,
   onRemoveAttachment,
   editingMessageId,
@@ -236,12 +241,20 @@ export const ChatComposer = memo(function ChatComposer({
               <Pressable
                 style={s.attachBtn}
                 onPress={onPickAttachment}
-                disabled={attachBusy || streaming}
+                disabled={attachBusy || attachPicking || sendBusy || streaming}
                 hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.attach_a11y")}
+                accessibilityState={{
+                  disabled: attachBusy || attachPicking || sendBusy || streaming,
+                  busy: attachPicking,
+                }}
               >
-                <Icon name="attach-outline" size={22} color={theme.primary} />
+                {attachPicking ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <Icon name="attach-outline" size={22} color={theme.primary} />
+                )}
               </Pressable>
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform
@@ -321,21 +334,36 @@ export const ChatComposer = memo(function ChatComposer({
                       <VoiceMicButton
                         recording={voiceRecording}
                         transcribing={voiceTranscribing}
-                        disabled={attachBusy || isOffline}
+                        disabled={attachBusy || attachPicking || sendBusy || isOffline}
                         onPress={onVoicePress}
                       />
                     ) : null}
-                    {showSend ? (
+                    {showSend || sendBusy ? (
                       <Pressable
-                        style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
+                        style={[
+                          s.sendBtn,
+                          (isOffline || sendBusy) && s.sendBtnDisabled,
+                        ]}
                         onPress={() => onSend()}
+                        disabled={isOffline || sendBusy}
                         hitSlop={6}
                         accessibilityRole="button"
-                        accessibilityLabel={t("chat.send_a11y")}
+                        accessibilityLabel={
+                          sendBusy ? t("chat.sending") : t("chat.send_a11y")
+                        }
                         accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
-                        accessibilityState={{ disabled: isOffline }}
+                        accessibilityState={{
+                          disabled: isOffline || sendBusy,
+                          busy: sendBusy,
+                        }}
                       >
-                        <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
+                        {sendBusy ? (
+                          <ActivityIndicator size="small" color={theme.textTertiary} />
+                        ) : (
+                          <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>
+                            ↑
+                          </Text>
+                        )}
                       </Pressable>
                     ) : null}
                   </>

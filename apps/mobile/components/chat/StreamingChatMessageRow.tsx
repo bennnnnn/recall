@@ -20,6 +20,7 @@ type Props = {
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
   onRegenerate: (model: string) => void;
+  regenerating?: boolean;
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
   onQuizAnswer?: (letter: string) => void;
@@ -38,6 +39,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   highlightedMessageId,
   sendingMessageId,
   onRegenerate,
+  regenerating = false,
   onEdit,
   onFeedback,
   onQuizAnswer,
@@ -69,6 +71,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       onRegenerate={
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined
       }
+      regenerating={isLastAssistant && regenerating}
       onEdit={onEdit}
       canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
       onFeedback={onFeedback}
