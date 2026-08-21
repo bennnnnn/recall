@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { ActionShimmer } from "@/components/ActionShimmer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -19,6 +20,7 @@ type Props = {
   onPress: () => void;
   variant?: Variant;
   loading?: boolean;
+  loadingLabel?: string;
   disabled?: boolean;
   accessibilityLabel?: string;
   /** Layout-only overrides (e.g. `{ flex: 1 }` in action rows). */
@@ -34,6 +36,7 @@ export function Button({
   onPress,
   variant = "primary",
   loading = false,
+  loadingLabel,
   disabled = false,
   accessibilityLabel,
   style,
@@ -56,11 +59,19 @@ export function Button({
       onPress={onPress}
       disabled={blocked}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityLabel={accessibilityLabel ?? (loading && loadingLabel ? loadingLabel : title)}
       accessibilityState={{ disabled: blocked, busy: loading }}
     >
-      {loading && variant === "primary" ? (
-        <ActivityIndicator color={theme.onPrimary} />
+      {loading && loadingLabel ? (
+        <ActionShimmer
+          label={loadingLabel}
+          color={variant === "primary" ? theme.onPrimary : theme.primary}
+          compact
+          delayMs={220}
+          textStyle={s.loadingLabel}
+        />
+      ) : loading ? (
+        <ActivityIndicator color={variant === "primary" ? theme.onPrimary : theme.primary} />
       ) : (
         <Text
           style={[
@@ -121,6 +132,10 @@ function makeStyles(theme: Theme) {
       color: theme.primary,
       fontWeight: "600",
       fontSize: 15,
+    },
+    loadingLabel: {
+      fontSize: 15,
+      fontWeight: "700",
     },
   });
 }

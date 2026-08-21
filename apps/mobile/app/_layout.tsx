@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { HomeProvider } from "@/contexts/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
@@ -119,20 +120,22 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <AppearanceProvider>
-        <AuthProvider>
-          <ModelsProvider>
-            <TodosProvider>
-              <ProjectsProvider>
-                <HomeProvider>
-                  <NetworkProvider>
-                    <PushNotificationBootstrap />
-                    <RootNavigator />
-                  </NetworkProvider>
-                </HomeProvider>
-              </ProjectsProvider>
-            </TodosProvider>
-          </ModelsProvider>
-        </AuthProvider>
+        <ActionFeedbackProvider>
+          <AuthProvider>
+            <ModelsProvider>
+              <TodosProvider>
+                <ProjectsProvider>
+                  <HomeProvider>
+                    <NetworkProvider>
+                      <PushNotificationBootstrap />
+                      <RootNavigator />
+                    </NetworkProvider>
+                  </HomeProvider>
+                </ProjectsProvider>
+              </TodosProvider>
+            </ModelsProvider>
+          </AuthProvider>
+        </ActionFeedbackProvider>
       </AppearanceProvider>
     </GestureHandlerRootView>
   );
