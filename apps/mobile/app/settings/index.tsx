@@ -369,7 +369,11 @@ export default function SettingsScreen() {
         keyboardType={fieldKeyboard}
       />
 
-      <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />
+      <UpgradeSheet
+        visible={upgradeVisible}
+        source="settings"
+        onClose={() => setUpgradeVisible(false)}
+      />
     </View>
   );
 }

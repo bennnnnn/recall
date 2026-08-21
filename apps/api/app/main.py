@@ -10,6 +10,7 @@ from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.routers import (
     admin,
+    analytics,
     attachments,
     auth,
     chat_stream,
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(legal.router)
     app.include_router(auth.router)
     app.include_router(admin.router)
+    app.include_router(analytics.router)
     app.include_router(webhooks.router)
     app.include_router(users.router)
     app.include_router(home.router)

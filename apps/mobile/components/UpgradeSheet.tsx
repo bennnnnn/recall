@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -15,15 +15,17 @@ import {
   restorePurchases,
 } from "@/lib/purchases";
 import { Space } from "@/lib/space";
+import { trackProductEvent } from "@/lib/productAnalytics";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
   onClose: () => void;
+  source?: "quota" | "model_gate" | "settings" | "other";
 };
 
-export function UpgradeSheet({ visible, onClose }: Props) {
+export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
@@ -33,6 +35,14 @@ export function UpgradeSheet({ visible, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const purchasesReady = isPurchasesConfigured();
+  const wasVisible = useRef(false);
+
+  useEffect(() => {
+    if (visible && !wasVisible.current) {
+      trackProductEvent(token, "paywall_viewed", { source });
+    }
+    wasVisible.current = visible;
+  }, [source, token, visible]);
 
   useEffect(() => {
     if (!visible || !purchasesReady) {
@@ -72,14 +82,28 @@ export function UpgradeSheet({ visible, onClose }: Props) {
     if (!token || !pkg || busy) return;
     setBusy(true);
     setError(null);
+    trackProductEvent(token, "purchase_started");
+    let purchased = false;
     try {
-      const ok = await purchaseProPackage(pkg);
-      if (!ok) {
-        setError(t("upgrade.purchase_failed"));
-        return;
-      }
+      purchased = await purchaseProPackage(pkg);
+    } catch {
+      trackProductEvent(token, "purchase_failed", { reason: "error" });
+      setError(t("upgrade.purchase_failed"));
+      setBusy(false);
+      return;
+    }
+    if (!purchased) {
+      trackProductEvent(token, "purchase_failed", { reason: "error" });
+      setError(t("upgrade.purchase_failed"));
+      setBusy(false);
+      return;
+    }
+    trackProductEvent(token, "purchase_succeeded");
+    try {
       await syncAfterStore();
     } catch {
+      // The store purchase succeeded; subscription bootstrap can retry without
+      // corrupting the purchase funnel with a false provider failure.
       setError(t("upgrade.purchase_failed"));
     } finally {
       setBusy(false);

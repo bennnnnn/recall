@@ -29,6 +29,15 @@ def _app_with_user(user):
     return app
 
 
+@pytest.fixture(autouse=True)
+def _empty_product_events_for_exports():
+    with patch(
+        "app.services.export_service.product_events_repo.list_for_user",
+        AsyncMock(return_value=[]),
+    ) as list_events:
+        yield list_events
+
+
 def test_delete_account_returns_204():
     user = _fake_user()
     app = _app_with_user(user)
@@ -198,7 +207,7 @@ async def test_delete_user_deletes_children_then_user():
 
 
 @pytest.mark.asyncio
-async def test_build_export_structure():
+async def test_build_export_structure(_empty_product_events_for_exports):
     from app.services import export_service
 
     session = AsyncMock()
@@ -261,6 +270,16 @@ async def test_build_export_structure():
     item.created_at = datetime(2024, 1, 1)
     item.updated_at = datetime(2024, 1, 1)
 
+    event = MagicMock()
+    event.name = "paywall_viewed"
+    event.properties = {"source": "settings"}
+    event.platform = "ios"
+    event.app_version = "1.0.0"
+    event.installation_id = "install-1"
+    event.client_at = datetime(2024, 1, 2)
+    event.recorded_at = datetime(2024, 1, 2)
+    _empty_product_events_for_exports.return_value = [event]
+
     with (
         patch(
             "app.services.export_service.chats_repo.list_for_user",
@@ -301,6 +320,8 @@ async def test_build_export_structure():
     assert data["projects"][0]["title"] == "Spanish"
     assert data["projects"][0]["items"][0]["content"] == "hola"
     assert data["attachments"] == []
+    assert data["product_events"][0]["name"] == "paywall_viewed"
+    assert data["product_events"][0]["properties"] == {"source": "settings"}
     assert data["export_limits"]["max_chats"] == export_service.EXPORT_MAX_CHATS
     assert (
         data["export_limits"]["max_messages_per_chat"]

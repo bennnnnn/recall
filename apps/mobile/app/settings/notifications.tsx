@@ -98,7 +98,7 @@ export default function NotificationsSettingsScreen() {
       // Enabling: the server flag alone does nothing on-device — we must also
       // request OS notification permission and register the Expo push token.
       // Without this the toggle silently lied "on" but no token was ever sent.
-        const granted = await ensureNotificationPermission();
+        const granted = await ensureNotificationPermission(token);
         if (!granted) {
           Alert.alert(
             t("settings.push_blocked_title"),

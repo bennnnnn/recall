@@ -17,11 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.gateways.storage_gateway import StorageGateway, get_storage_gateway
-from app.models.orm import Chat, Memory, Message, Project, ProjectItem, TodoItem, User
+from app.models.orm import Chat, Memory, Message, ProductEvent, Project, ProjectItem, TodoItem, User
 from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
 from app.repositories import memories as memories_repo
 from app.repositories import messages as messages_repo
+from app.repositories import product_events as product_events_repo
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
@@ -39,6 +40,7 @@ EXPORT_TODO_PAGE_SIZE = 200
 EXPORT_MAX_PROJECTS = 100
 EXPORT_MAX_PROJECT_ITEMS = 20_000
 EXPORT_MAX_ATTACHMENTS = 2_000
+EXPORT_MAX_PRODUCT_EVENTS = 2_000
 
 
 def _user_payload(user: User) -> dict[str, Any]:
@@ -128,6 +130,18 @@ def _project_item_payload(item: ProjectItem) -> dict[str, Any]:
     }
 
 
+def _product_event_payload(event: ProductEvent) -> dict[str, Any]:
+    return {
+        "name": event.name,
+        "properties": event.properties,
+        "platform": event.platform,
+        "app_version": event.app_version,
+        "installation_id": event.installation_id,
+        "client_at": event.client_at.isoformat() if event.client_at is not None else None,
+        "recorded_at": event.recorded_at.isoformat(),
+    }
+
+
 def _export_limits(settings: Settings) -> dict[str, int]:
     return {
         "max_chats": EXPORT_MAX_CHATS,
@@ -137,6 +151,7 @@ def _export_limits(settings: Settings) -> dict[str, int]:
         "max_projects": EXPORT_MAX_PROJECTS,
         "max_project_items": EXPORT_MAX_PROJECT_ITEMS,
         "max_attachments": EXPORT_MAX_ATTACHMENTS,
+        "max_product_events": EXPORT_MAX_PRODUCT_EVENTS,
         "attachment_download_url_ttl_seconds": settings.r2_presign_expiry_seconds,
     }
 
@@ -347,6 +362,21 @@ async def _iter_export_json(
         if attachment_index:
             yield ","
         yield json.dumps(await _attachment_payload(attachment, settings=settings, gateway=gateway))
+
+    yield '],"product_events":['
+    async with session_factory() as session:
+        product_events = await product_events_repo.list_for_user(
+            session,
+            user.id,
+            limit=EXPORT_MAX_PRODUCT_EVENTS,
+        )
+        product_event_chunks = [
+            json.dumps(_product_event_payload(event)) for event in product_events
+        ]
+    for event_index, event_payload in enumerate(product_event_chunks):
+        if event_index:
+            yield ","
+        yield event_payload
 
     yield "]}"
 

@@ -232,6 +232,36 @@ class UsageDaily(Base):
     )
 
 
+class ProductEvent(Base):
+    __tablename__ = "product_events"
+    __table_args__ = (
+        Index("ix_product_events_name_recorded", "name", "recorded_at"),
+        Index("ix_product_events_user_recorded", "user_id", "recorded_at"),
+        CheckConstraint(
+            "name IN "
+            "('paywall_viewed', 'purchase_started', 'purchase_succeeded', "
+            "'purchase_failed', 'push_permission')",
+            name="ck_product_events_name",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    properties: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    platform: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    app_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    installation_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    client_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class TodoItem(Base):
     __tablename__ = "todo_items"
     __table_args__ = (
