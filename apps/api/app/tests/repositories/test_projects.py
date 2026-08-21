@@ -120,3 +120,19 @@ async def test_projects_delete_by_id_success(fake_session):
 
     assert deleted is True
     fake_session.delete.assert_awaited_once_with(project)
+
+
+@pytest.mark.asyncio
+async def test_projects_delete_by_id_commit_false_flushes(fake_session):
+    from app.repositories.projects import delete_by_id
+
+    project = MagicMock()
+    fake_session.execute.return_value = MagicMock(
+        scalar_one_or_none=MagicMock(return_value=project)
+    )
+
+    deleted = await delete_by_id(fake_session, uuid4(), uuid4(), commit=False)
+
+    assert deleted is True
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_awaited()

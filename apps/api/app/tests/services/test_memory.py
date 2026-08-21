@@ -787,8 +787,17 @@ async def test_update_memory_rewrites_text_and_reembeds():
     vector = [0.1, 0.2, 0.3]
 
     async def fake_update_text_and_embedding(
-        session, user_id, memory_id, text, embedding, embedding_json, *, embedding_text_hash=None
+        session,
+        user_id,
+        memory_id,
+        text,
+        embedding,
+        embedding_json,
+        *,
+        embedding_text_hash=None,
+        commit=True,
     ):
+        assert commit is False
         memory.text = text
         memory.embedding = embedding
         memory.embedding_json = embedding_json
@@ -826,6 +835,38 @@ async def test_update_memory_rewrites_text_and_reembeds():
     assert "Likes hiking trails" in updated.text
     update_embed.assert_awaited_once()
     invalidate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_memory_rolls_back_without_invalidating_on_commit_failure():
+    from app.services.memory import update_memory
+
+    user_id = uuid4()
+    session = AsyncMock()
+    session.commit.side_effect = RuntimeError("commit failed")
+    settings = Settings(mock_llm_enabled=True)
+    memory = _memory("fact", "Old fact", 0.9)
+    memory.id = uuid4()
+    update_text = AsyncMock(return_value=memory)
+    invalidate = AsyncMock()
+
+    with (
+        patch("app.repositories.memories.get_by_id", AsyncMock(return_value=memory)),
+        patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)),
+        patch("app.repositories.memories.update_text", update_text),
+        patch("app.services.memory.invalidate_memory_block", invalidate),
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()),
+    ):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            await update_memory(session, settings, user_id, memory.id, "New fact")
+
+    assert update_text.await_args.kwargs["commit"] is False
+    session.rollback.assert_awaited_once()
+    invalidate.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -948,7 +989,8 @@ async def test_delete_memory_fact_matches_by_content_when_index_is_stale():
 
     captured: dict = {}
 
-    async def fake_update_text(session, user_id, memory_id, text):
+    async def fake_update_text(session, user_id, memory_id, text, *, commit=True):
+        assert commit is False
         captured["text"] = text
         return memory
 
@@ -1026,7 +1068,8 @@ async def test_delete_memory_fact_uses_index_among_duplicate_matches():
 
     captured: dict = {}
 
-    async def fake_update_text(session, user_id, memory_id, text):
+    async def fake_update_text(session, user_id, memory_id, text, *, commit=True):
+        assert commit is False
         captured["text"] = text
         return memory
 

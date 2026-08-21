@@ -582,6 +582,10 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
 
     embed_calls.assert_awaited_once()
     assert fetched.embedding_text_hash == embedding_text_hash("likes TypeScript")
+
+
+@pytest.mark.asyncio
+async def test_extract_and_store_releases_db_before_provider_io_without_write_commit():
     from app.background.memory_extraction import extract_and_store_memories
 
     session = AsyncMock()
@@ -601,14 +605,13 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             return None
 
     load_cm = _FakeSessionCM()
-    apply_cm = _FakeSessionCM()
 
     async def fake_revise(*_args: object, **_kwargs: object) -> None:
-        db_open_during_extract.append(load_cm.open or apply_cm.open)
+        db_open_during_extract.append(load_cm.open)
         return None
 
     with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=[load_cm, apply_cm]),
+        patch("app.background.memory_extraction.SessionLocal", return_value=load_cm),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
@@ -630,7 +633,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         )
 
     assert db_open_during_extract == [False]
-    assert session.commit.await_count == 1
+    session.commit.assert_not_awaited()
 
 
 # ── topic service ──────────────────────────────────────────────────────────────

@@ -65,6 +65,7 @@ class _ProjectApplyState:
     projects: list[Project]
     items: list[ProjectItem]
     timezone_name: str = "UTC"
+    language_path_project_ids: list[UUID] | None = None
 
 
 def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | None:
@@ -127,8 +128,8 @@ async def _project_action_create_project(
         return 0
     applied = 1
     state.projects = await projects_repo.list_for_user(state.session, state.user_id, limit=200)
-    if kind == "language":
-        await enqueue_language_path_job(state.user_id, project.id)
+    if kind == "language" and state.language_path_project_ids is not None:
+        state.language_path_project_ids.append(project.id)
     if action.content.strip():
         list_title = (
             resolve_add_list_title(project, action.list_title, state.items)
@@ -160,7 +161,12 @@ async def _project_action_delete_project(
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
-    await projects_repo.delete_by_id(state.session, matched.id, state.user_id)
+    await projects_repo.delete_by_id(
+        state.session,
+        matched.id,
+        state.user_id,
+        commit=False,
+    )
     state.projects = [p for p in state.projects if p.id != matched.id]
     state.items = [i for i in state.items if i.project_id != matched.id]
     return 1
@@ -375,7 +381,7 @@ async def apply_project_actions(
     chat_id: UUID | None = None,
     from_transcript: bool = True,
 ) -> int:
-    """Apply LLM-extracted or explicit-user project/item actions.
+    """Apply project/item actions as one service-owned transaction.
 
     ``from_transcript`` defaults to True (safe): whole-project/whole-deck
     deletes are blocked unless a caller explicitly opts out with
@@ -383,6 +389,10 @@ async def apply_project_actions(
     dedicated "delete project" endpoint). Defaulting to the permissive
     behavior would mean a future caller that forgets this parameter silently
     inherits the ability to let a model delete data via chat.
+
+    Repository writes use ``commit=False``. This service commits the complete
+    batch once, rolls it all back if any unhandled action fails, and only then
+    performs best-effort enqueue/cache side effects.
     """
     if not actions:
         return 0
@@ -429,6 +439,7 @@ async def apply_project_actions(
         projects=projects,
         items=items,
         timezone_name=timezone_name,
+        language_path_project_ids=[],
     )
 
     def _on_error(action: ProjectActionItem) -> None:
@@ -454,13 +465,24 @@ async def apply_project_actions(
 
         await _invalidate_home_for_user(user_id)
 
-    return await apply_action_batch(
-        actions=actions,
-        state=state,
-        handlers=_PROJECT_ACTION_HANDLERS,
-        action_name=lambda a: a.action,
-        prepare=_prepare_project_action,
-        on_error=_on_error,
-        log_summary=_log_summary,
-        invalidate_home=_invalidate_home,
-    )
+    try:
+        applied = await apply_action_batch(
+            actions=actions,
+            state=state,
+            handlers=_PROJECT_ACTION_HANDLERS,
+            action_name=lambda a: a.action,
+            prepare=_prepare_project_action,
+            on_error=_on_error,
+            log_summary=_log_summary,
+            raise_on_error=True,
+        )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+    for project_id in state.language_path_project_ids or []:
+        await enqueue_language_path_job(user_id, project_id)
+    if applied > 0:
+        await _invalidate_home()
+    return applied

@@ -30,6 +30,20 @@ async def test_upsert_sections_executes_and_commits(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_upsert_sections_commit_false_flushes_without_committing(fake_session):
+    await memories_repo.upsert_sections(
+        fake_session,
+        user_id=uuid4(),
+        items=[("fact", "Owns a bicycle.", 0.9, None)],
+        commit=False,
+    )
+
+    fake_session.execute.assert_awaited_once()
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_upsert_sections_deduplicates_duplicate_types(fake_session):
     """Two sections with the same type would make Postgres raise
     'ON CONFLICT DO UPDATE cannot affect row a second time'. The repo must

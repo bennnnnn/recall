@@ -1033,7 +1033,7 @@ async def test_should_minimal_quiz_context_false_without_prior_quiz():
 
 
 @pytest.mark.asyncio
-async def test_grade_quiz_answer_failure_rolls_back_only_its_own_session():
+async def test_grade_quiz_answer_failure_leaves_rollback_to_grading_service():
     from datetime import UTC, datetime
 
     from app.services.chat.turn_prep.prepare import _grade_quiz_answer
@@ -1083,7 +1083,7 @@ async def test_grade_quiz_answer_failure_rolls_back_only_its_own_session():
     assert is_letter is True
     assert grade is None
     get_last.assert_not_awaited()
-    grade_session.rollback.assert_awaited()
+    grade_session.rollback.assert_not_awaited()
     grade_session.commit.assert_not_awaited()
 
 

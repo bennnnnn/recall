@@ -150,10 +150,19 @@ async def update(
     return project
 
 
-async def delete_by_id(session: AsyncSession, project_id: UUID, user_id: UUID) -> bool:
+async def delete_by_id(
+    session: AsyncSession,
+    project_id: UUID,
+    user_id: UUID,
+    *,
+    commit: bool = True,
+) -> bool:
     project = await get_by_id(session, project_id, user_id)
     if not project:
         return False
     await session.delete(project)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return True

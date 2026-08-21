@@ -44,7 +44,17 @@ async def delete_memory_fact(
             return False
         facts.pop(target_index)
         if not facts:
-            deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
+            try:
+                deleted = await memories_repo.delete_by_id(
+                    session,
+                    user_id,
+                    memory_id,
+                    commit=False,
+                )
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
             if deleted:
                 await seams.invalidate_memory_block(user_id)
             return deleted
@@ -55,17 +65,30 @@ async def delete_memory_fact(
         except Exception:
             logger.debug("Memory re-embed on fact delete failed", exc_info=True)
             new_vec = None
-        if new_vec is not None:
-            updated = await memories_repo.update_text_and_embedding(
-                session,
-                user_id,
-                memory_id,
-                new_text,
-                new_vec,
-                embedding_gateway.serialize_embedding(new_vec),
-            )
-        else:
-            updated = await memories_repo.update_text(session, user_id, memory_id, new_text)
+        try:
+            if new_vec is not None:
+                updated = await memories_repo.update_text_and_embedding(
+                    session,
+                    user_id,
+                    memory_id,
+                    new_text,
+                    new_vec,
+                    embedding_gateway.serialize_embedding(new_vec),
+                    commit=False,
+                )
+            else:
+                updated = await memories_repo.update_text(
+                    session,
+                    user_id,
+                    memory_id,
+                    new_text,
+                    commit=False,
+                )
+            if updated is not None:
+                await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         if updated is not None:
             await seams.invalidate_memory_block(user_id)
             return True
@@ -99,18 +122,31 @@ async def update_memory(
         except Exception:
             logger.debug("Memory re-embed on edit failed", exc_info=True)
             new_vec = None
-        if new_vec is not None:
-            updated = await memories_repo.update_text_and_embedding(
-                session,
-                user_id,
-                memory_id,
-                stamped,
-                new_vec,
-                embedding_gateway.serialize_embedding(new_vec),
-                embedding_text_hash=seams.embedding_text_hash(stamped),
-            )
-        else:
-            updated = await memories_repo.update_text(session, user_id, memory_id, stamped)
+        try:
+            if new_vec is not None:
+                updated = await memories_repo.update_text_and_embedding(
+                    session,
+                    user_id,
+                    memory_id,
+                    stamped,
+                    new_vec,
+                    embedding_gateway.serialize_embedding(new_vec),
+                    embedding_text_hash=seams.embedding_text_hash(stamped),
+                    commit=False,
+                )
+            else:
+                updated = await memories_repo.update_text(
+                    session,
+                    user_id,
+                    memory_id,
+                    stamped,
+                    commit=False,
+                )
+            if updated is not None:
+                await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         if updated is not None:
             await seams.invalidate_memory_block(user_id)
         return updated
@@ -128,7 +164,17 @@ async def delete_memory(
 
     lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
     try:
-        deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
+        try:
+            deleted = await memories_repo.delete_by_id(
+                session,
+                user_id,
+                memory_id,
+                commit=False,
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         if deleted:
             await seams.invalidate_memory_block(user_id)
         return deleted
@@ -146,7 +192,17 @@ async def delete_memory_section(
 
     lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
     try:
-        removed = await memories_repo.delete_by_type(session, user_id, memory_type)
+        try:
+            removed = await memories_repo.delete_by_type(
+                session,
+                user_id,
+                memory_type,
+                commit=False,
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         if removed:
             await seams.invalidate_memory_block(user_id)
         return removed > 0
