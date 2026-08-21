@@ -30,6 +30,33 @@ def test_selectable_models_count():
     assert "gpt-5.5" in {m.id for m in model_catalog.selectable_models()}
 
 
+@pytest.mark.parametrize(
+    "alias, slug, input_price, output_price, tier",
+    [
+        ("glm-5.3", "z-ai/glm-5.3", 1.40, 4.40, "smart"),
+        ("qwen-3.8-max", "qwen/qwen3.8-max", 2.00, 6.00, "smart"),
+        ("minimax-m3", "minimax/minimax-m3", 0.23, 0.96, "standard"),
+        ("kimi-k3", "moonshotai/kimi-k3", 2.60, 13.00, "smart"),
+    ],
+)
+def test_new_frontier_models_use_fixed_openrouter_releases(
+    alias: str,
+    slug: str,
+    input_price: float,
+    output_price: float,
+    tier: str,
+) -> None:
+    model = model_catalog.get(alias)
+
+    assert model.model == f"openrouter/{slug}"
+    assert model.input_price_per_m == input_price
+    assert model.output_price_per_m == output_price
+    assert model.tier == tier
+    assert model.plan_access == "pro"
+    assert model.selectable is True
+    assert model_catalog.openrouter_slug(alias) == slug
+
+
 def test_known_model_aliases_match_catalog():
     from app.core.validation import KNOWN_MODEL_ALIASES
 
