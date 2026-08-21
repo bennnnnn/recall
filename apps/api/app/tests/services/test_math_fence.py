@@ -226,6 +226,34 @@ def test_corrects_graph_fence_to_canonical_points() -> None:
     assert data["points"] == points
 
 
+def test_corrects_trajectory_fence_to_canonical_points() -> None:
+    points = [[i * 2.1 / 99, max(0.0, 20.0 - 4.905 * (i * 2.1 / 99) ** 2)] for i in range(100)]
+    canonical = {
+        "type": "trajectory",
+        "expr": "h(t) = 20 - 0.5*9.81*t^2",
+        "variable": "t",
+        "x_min": 0.0,
+        "x_max": 2.0,
+        "points": points,
+        "title": "Height vs. Time",
+        "x_label": "Time (s)",
+        "y_label": "Height (m)",
+        "trajectory_type": "position_vs_time",
+    }
+    content = (
+        '```graph\n{"type":"trajectory","expr":"h(t)=99","points":[[0,99],[1,99]],'
+        '"title":"Wrong trajectory"}\n```'
+    )
+
+    out = validate_math_fences(content, verified=_verified(canonical))
+
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["points"] == points
+    assert data["title"] == "Height vs. Time"
+    assert data["trajectory_type"] == "position_vs_time"
+
+
 def test_corrects_points_less_function_fence_to_canonical() -> None:
     """The model often emits a ```graph fence with type=function but DROPS the
     points array (e.g. "Graph x=2y" → {"type":"function","expr":"x/2",...} with

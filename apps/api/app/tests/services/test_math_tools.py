@@ -143,6 +143,28 @@ async def test_augment_prompt_injects_system_solve_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_build_math_augmentation_verifies_kinematics_trajectory() -> None:
+    settings = Settings(math_tools_enabled=True)
+    note, verified = await math_tools.build_math_augmentation(
+        "A ball is dropped from 20m. How long until it hits the ground?",
+        settings,
+    )
+
+    assert verified is not None
+    assert note == verified.text
+    assert verified.canonical_answer == "2.02 s"
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "trajectory"
+    assert verified.canonical_fence["trajectory_type"] == "position_vs_time"
+    assert verified.canonical_fence["x_label"] == "Time (s)"
+    assert verified.canonical_fence["y_label"] == "Height (m)"
+    points = verified.canonical_fence["points"]
+    assert len(points) == 100
+    assert points[0] == [0.0, 20.0]
+    assert points[-1][1] == 0.0
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_no_intent_forbids_invented_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
