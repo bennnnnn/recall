@@ -47,6 +47,11 @@ class TestNeedsSymbolic:
             "x > 4",
             "1 < x < 5",
             "2x - 1 > 5",
+            # Supported verified physics templates must reach extraction.
+            "A ball is dropped from 20m. How long until it hits the ground?",
+            "A projectile is launched at 20 m/s at 45 degrees. Find its range.",
+            "What net force accelerates a 5 kg mass at 3 m/s^2?",
+            "Calculate the kinetic energy of a 2 kg object moving at 10 m/s.",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -73,6 +78,10 @@ class TestNeedsSymbolic:
             "less than 5 minutes",
             "5 < 10",
             "see the file > readme",
+            # Conceptual and unsupported physics stays on the normal chat path.
+            "explain kinetic energy",
+            "find the friction on a 5 kg block",
+            "find the tension in a 10 kg rope",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):
