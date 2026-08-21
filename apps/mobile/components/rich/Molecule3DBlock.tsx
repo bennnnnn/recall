@@ -25,17 +25,19 @@ const VIEW_PAD = 36;
 type MoleculeStyle = "ball-stick" | "spacefill" | "wireframe";
 
 const CPK: Record<string, string> = {
-  H: "#f0f0f0",
-  C: "#4a4a4a",
-  N: "#3050f8",
+  H: "#c5cdd8",
+  C: "#3d3d3d",
+  N: "#3b6bdb",
   O: "#e31c1c",
-  F: "#90e050",
-  P: "#ff8000",
-  S: "#e0c020",
+  F: "#3aaa3a",
+  P: "#e07000",
+  S: "#d4b41c",
   Cl: "#1f9a1f",
   Br: "#a62929",
   I: "#940094",
 };
+
+const LIGHT_ATOMS = new Set(["H", "F", "S", "Cl"]);
 
 const RADIUS: Record<string, number> = {
   H: 0.32,
@@ -52,6 +54,10 @@ const RADIUS: Record<string, number> = {
 
 function atomColor(el: string): string {
   return CPK[el] ?? "#c45c9a";
+}
+
+function atomLabelColor(el: string): string {
+  return LIGHT_ATOMS.has(el) ? "#1a1a1a" : "#fff";
 }
 
 function atomRadius(el: string): number {
@@ -151,7 +157,7 @@ function MoleculeSvg({
                   y1={a.y + o.y}
                   x2={b.x + o.x}
                   y2={b.y + o.y}
-                  stroke={theme.textSecondary}
+                  stroke={theme.text}
                   strokeWidth={bondW}
                   strokeLinecap="round"
                 />,
@@ -170,8 +176,8 @@ function MoleculeSvg({
             cy={atom.y}
             r={atom.r}
             fill={fill}
-            stroke={theme.border}
-            strokeWidth={1}
+            stroke="#1a1a1a"
+            strokeWidth={1.75}
           />
         );
       })}
@@ -186,7 +192,7 @@ function MoleculeSvg({
                 y={atom.y + 4}
                 fontSize={Math.min(14, atom.r)}
                 fontWeight="700"
-                fill="#fff"
+                fill={atomLabelColor(atom.el)}
                 textAnchor="middle"
               >
                 {atom.el}
@@ -318,7 +324,7 @@ function makeStyles(t: Theme) {
       backgroundColor: t.bg,
     },
     captionText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
-    stage: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
+    stage: { height: PREVIEW_HEIGHT, backgroundColor: t.contentSurface },
     previewBox: {
       paddingHorizontal: 14,
       paddingVertical: 24,
