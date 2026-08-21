@@ -32,6 +32,26 @@ def _ensure_rdkit() -> None:
     _rdkit_loaded = True
 
 
+# Model output often uses formulas (`H2`, `O2`) as ```smiles bodies.
+# RDKit reads those as ring-closure syntax, not diatomic molecules.
+_DIATOMIC_SMILES: dict[str, str] = {
+    "H-H": "[H][H]",
+    "H2": "[H][H]",
+    "O2": "O=O",
+    "N2": "N#N",
+    "F2": "FF",
+    "Cl2": "ClCl",
+    "Br2": "BrBr",
+    "I2": "II",
+}
+
+
+def normalize_smiles_input(raw: str) -> str:
+    """Map common diatomic formulas to SMILES RDKit can parse."""
+    key = raw.strip()
+    return _DIATOMIC_SMILES.get(key, key)
+
+
 @dataclass(frozen=True)
 class MoleculeProperties:
     """Verified molecular properties from RDKit."""
@@ -67,7 +87,7 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
     from rdkit import Chem
     from rdkit.Chem import Descriptors
 
-    smiles = smiles.strip()
+    smiles = normalize_smiles_input(smiles.strip())
     if not smiles or len(smiles) > 500:
         return MoleculeProperties(
             smiles=smiles,
@@ -125,7 +145,7 @@ def generate_2d_coordinates(smiles: str) -> MoleculeCoordinates:
     from rdkit import Chem
     from rdkit.Chem import AllChem
 
-    smiles = smiles.strip()
+    smiles = normalize_smiles_input(smiles.strip())
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
@@ -153,7 +173,7 @@ def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
     from rdkit import Chem
     from rdkit.Chem import AllChem
 
-    smiles = smiles.strip()
+    smiles = normalize_smiles_input(smiles.strip())
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
@@ -513,7 +533,7 @@ def compute_descriptors(smiles: str) -> MolecularDescriptors:
     from rdkit import Chem
     from rdkit.Chem import Crippen, Descriptors, Lipinski, rdMolDescriptors
 
-    smiles = smiles.strip()
+    smiles = normalize_smiles_input(smiles.strip())
     try:
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:

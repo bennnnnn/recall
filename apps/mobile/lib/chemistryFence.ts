@@ -6,6 +6,22 @@ export const MAX_SMILES_LENGTH = 500;
 const SMILES_LINE =
   /^[A-Za-z0-9@+\-\[\]\(\)=#$/:\\.>%!~,*]+$/;
 
+/** Formulas the model writes as SMILES (`H2`) — ring-closure syntax, not diatomics. */
+const DIATOMIC_SMILES: Record<string, string> = {
+  "H-H": "[H][H]",
+  H2: "[H][H]",
+  O2: "O=O",
+  N2: "N#N",
+  F2: "FF",
+  Cl2: "ClCl",
+  Br2: "BrBr",
+  I2: "II",
+};
+
+function normalizeSmilesLine(raw: string): string {
+  return DIATOMIC_SMILES[raw] ?? raw;
+}
+
 /** Element token for structure-formula detection (not full SMILES). */
 const ELEMENT_TOKEN = String.raw`(?:\[[A-Z][a-z]?[+\-]?\d*\]|[A-Z][a-z]?)`;
 /** Bond between atoms in math-ish molecule formulas. */
@@ -38,9 +54,10 @@ export function parseChemistryFence(content: string): ChemistryFence | null {
     const raw = lines[i].replace(/^smiles:\s*/i, "").trim();
     if (raw.length === 0 || raw.length > MAX_SMILES_LENGTH) continue;
     if (!SMILES_LINE.test(raw)) continue;
+    const smiles = normalizeSmilesLine(raw);
     const captionParts = lines.slice(0, i);
     const caption = captionParts.length > 0 ? captionParts.join(" ").trim() : null;
-    return { smiles: raw, caption: caption || null };
+    return { smiles, caption: caption || null };
   }
 
   // Last resort: first line only if it still looks SMILES-ish (no spaces,
@@ -51,7 +68,7 @@ export function parseChemistryFence(content: string): ChemistryFence | null {
   if (/\s/.test(fallback)) return null;
   if (/[A-Z][a-z]/.test(fallback) && !/[\[\]\(\)=#\\/.]/.test(fallback)) return null;
   if (!SMILES_LINE.test(fallback)) return null;
-  return { smiles: fallback, caption: null };
+  return { smiles: normalizeSmilesLine(fallback), caption: null };
 }
 
 /**
@@ -82,7 +99,7 @@ export function normalizeMoleculeFormulaToSmiles(raw: string): string | null {
   if (!SMILES_LINE.test(s) || s.length > MAX_SMILES_LENGTH) return null;
   // Need at least one explicit bond (avoid bare "CO" / "NO" false positives).
   if (!/[=#\-]/.test(s)) return null;
-  return s;
+  return normalizeSmilesLine(s);
 }
 
 /** True when fence/math body should render as a Molecule card, not KaTeX. */

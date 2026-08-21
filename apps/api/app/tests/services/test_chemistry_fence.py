@@ -62,6 +62,16 @@ def test_enrich_smiles_with_comment_lines() -> None:
     assert "```smiles" in result
 
 
+def test_enrich_diatomic_formula_h2_keeps_smiles_and_3d() -> None:
+    """`H2` is a formula, not SMILES — still emit 2D + 3D like O=O."""
+    content = "```smiles\nH2\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    assert "```smiles" in result
+    assert "[H][H]" in result
+    assert "```molecule3d" in result
+    assert "M  END" in result
+
+
 def test_enrich_generates_molecule3d_fence() -> None:
     """Valid SMILES should also produce a ```molecule3d fence with 3D SDF."""
     content = "```smiles\nCCO\n```"
