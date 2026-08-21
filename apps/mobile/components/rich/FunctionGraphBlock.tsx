@@ -13,6 +13,7 @@ import {
   graphPolylinePoints,
   mapGraphPoint,
   parseGraphSpec,
+  type GraphSpec,
 } from "@/lib/graphBlock";
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
@@ -61,6 +62,17 @@ export function FunctionGraphBlock({ content }: Props) {
           surfaceColor={theme.bg}
         />
       </View>
+    );
+  }
+
+  if (spec.type === "trajectory") {
+    return (
+      <TrajectoryChart
+        spec={spec}
+        chartWidth={chartWidth}
+        styles={styles}
+        theme={theme}
+      />
     );
   }
 
@@ -276,6 +288,111 @@ export function FunctionGraphBlock({ content }: Props) {
             0
           </SvgText>
         ) : null}
+      </Svg>
+    </View>
+  );
+}
+
+type TrajectoryChartProps = {
+  spec: GraphSpec;
+  chartWidth: number;
+  styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
+};
+
+function TrajectoryChart({ spec, chartWidth, styles, theme }: TrajectoryChartProps) {
+  const pad = 28;
+  const bounds = expandBoundsForAxes(graphBounds(spec.points));
+  const polyline = graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT, bounds);
+  const origin = mapGraphPoint(0, 0, bounds, chartWidth, CHART_HEIGHT);
+  const yAxisX = origin.px;
+  const xAxisY = origin.py;
+  const axisColor = theme.border;
+  const xLabel = spec.x_label ?? "x";
+  const yLabel = spec.y_label ?? "y";
+  const title = formatGraphExpr(spec.title ?? "Trajectory");
+
+  return (
+    <View style={styles.wrap}>
+      <Text style={styles.title}>{title}</Text>
+      <Svg width={chartWidth} height={CHART_HEIGHT}>
+        <Line
+          x1={yAxisX}
+          y1={pad}
+          x2={yAxisX}
+          y2={CHART_HEIGHT - pad}
+          stroke={axisColor}
+          strokeWidth={1}
+        />
+        <Line
+          x1={pad}
+          y1={xAxisY}
+          x2={chartWidth - pad}
+          y2={xAxisY}
+          stroke={axisColor}
+          strokeWidth={1}
+        />
+        <Polyline
+          points={polyline}
+          fill="none"
+          stroke={theme.primary}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <SvgText
+          x={chartWidth - pad}
+          y={xAxisY - 6}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="end"
+        >
+          {xLabel}
+        </SvgText>
+        <SvgText
+          x={yAxisX}
+          y={pad - 2}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="middle"
+        >
+          {yLabel}
+        </SvgText>
+        <SvgText
+          x={Math.max(4, yAxisX - 4)}
+          y={pad + 16}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="end"
+        >
+          {formatAxisNumber(bounds.yMax)}
+        </SvgText>
+        <SvgText
+          x={Math.max(4, yAxisX - 4)}
+          y={CHART_HEIGHT - pad + 4}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="end"
+        >
+          {formatAxisNumber(bounds.yMin)}
+        </SvgText>
+        <SvgText
+          x={pad}
+          y={xAxisY + 16}
+          fill={theme.textSecondary}
+          fontSize={11}
+        >
+          {formatAxisNumber(bounds.xMin)}
+        </SvgText>
+        <SvgText
+          x={chartWidth - pad}
+          y={xAxisY + 16}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="end"
+        >
+          {formatAxisNumber(bounds.xMax)}
+        </SvgText>
       </Svg>
     </View>
   );

@@ -669,4 +669,101 @@ describe("graphBlock", () => {
     expect(formatAxisNumber(10)).toBe("10");
     expect(formatAxisNumber(-0)).toBe("0");
   });
+
+  it("parses a trajectory fence (position vs time)", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "trajectory",
+        expr: "h(t) = 20 + 0·t − ½·9.81·t²",
+        variable: "t",
+        x_min: 0,
+        x_max: 2.1,
+        points: [
+          [0, 20],
+          [1, 15.1],
+          [2, 0.8],
+          [2.1, 0],
+        ],
+        title: "Height vs. Time",
+        x_label: "Time (s)",
+        y_label: "Height (m)",
+        trajectory_type: "position_vs_time",
+      }),
+    );
+    expect(spec?.type).toBe("trajectory");
+    if (spec?.type === "trajectory") {
+      expect(spec.trajectory_type).toBe("position_vs_time");
+      expect(spec.x_label).toBe("Time (s)");
+      expect(spec.y_label).toBe("Height (m)");
+      expect(spec.points.length).toBe(4);
+      expect(spec.points[0]).toEqual([0, 20]);
+      expect(spec.points[3]).toEqual([2.1, 0]);
+    }
+  });
+
+  it("parses a trajectory fence (parametric projectile)", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "trajectory",
+        expr: "y(x) = x·tan(45°) − g·x²/(2·v₀²·cos²θ)",
+        variable: "x",
+        x_min: 0,
+        x_max: 24,
+        points: [
+          [0, 0],
+          [12, 5.7],
+          [24, 0],
+        ],
+        title: "Projectile Trajectory",
+        x_label: "Distance (m)",
+        y_label: "Height (m)",
+        trajectory_type: "parametric",
+      }),
+    );
+    expect(spec?.type).toBe("trajectory");
+    if (spec?.type === "trajectory") {
+      expect(spec.trajectory_type).toBe("parametric");
+      expect(spec.x_label).toBe("Distance (m)");
+      expect(spec.points.length).toBe(3);
+    }
+  });
+
+  it("rejects a trajectory fence with fewer than 2 points", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "trajectory",
+        expr: "h(t)",
+        points: [[0, 20]],
+      }),
+    );
+    expect(spec).toBeNull();
+  });
+
+  it("rejects a trajectory fence with no points", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "trajectory",
+        expr: "h(t)",
+        points: [],
+      }),
+    );
+    expect(spec).toBeNull();
+  });
+
+  it("trajectory fence defaults title to 'Trajectory' when missing", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "trajectory",
+        expr: "h(t)",
+        points: [
+          [0, 20],
+          [1, 10],
+        ],
+      }),
+    );
+    expect(spec?.type).toBe("trajectory");
+    if (spec?.type === "trajectory") {
+      expect(spec.title).toBe("Trajectory");
+    }
+  });
 });

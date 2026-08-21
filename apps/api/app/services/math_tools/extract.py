@@ -19,6 +19,7 @@ from app.services.math_tools.helpers import (
     _strip_series_prefix,
     _strip_trailing_filler,
 )
+from app.services.math_tools.physics import PHYSICS_EXTRACTORS
 from app.services.math_tools.school import SCHOOL_EXTRACTORS
 
 logger = logging.getLogger(__name__)
@@ -845,6 +846,11 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     _extract_solid_intent,
     *SCHOOL_EXTRACTORS,
+    # Physics extractors run before the generic equation extractor so a
+    # word problem like "A ball is dropped from 20m" is recognized as
+    # kinematics (verified solve + trajectory graph) instead of falling
+    # through to "solve 20 = 0".
+    *PHYSICS_EXTRACTORS,
     _extract_rectangle_intent,
     _extract_square_intent,
     # Sector before the generic circle extractor: a sector mention almost

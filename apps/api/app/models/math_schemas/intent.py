@@ -41,6 +41,10 @@ class MathIntent(BaseModel):
         "probability",
         "complex",
         "unit",
+        "kinematics",
+        "projectile",
+        "force",
+        "energy",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -161,3 +165,29 @@ class MathIntent(BaseModel):
     unit_from: str | None = None
     unit_to: str | None = None
     taylor_n: int | None = None
+    # Physics — kinematics / projectile / force / energy. The model sets up the
+    # equation with known values; SymPy solves symbolically; the SVG engine
+    # renders the trajectory. See math_tools/physics.py extractors and
+    # physics_solver.py solvers.
+    physics_op: (
+        Literal[
+            "position",
+            "velocity",
+            "acceleration",
+            "time_to_ground",
+            "range",
+            "max_height",
+            "net_force",
+            "kinetic_energy",
+            "potential_energy",
+            "work",
+            "power",
+        ]
+        | None
+    ) = None
+    # Initial conditions / knowns: {"h0": 20.0, "v0": 0.0, "g": 9.81, ...}.
+    # Keys are the canonical variable names the solver expects.
+    physics_params: dict[str, float] | None = None
+    # Unit labels for the params above: {"h0": "m", "v0": "m/s", "g": "m/s^2"}.
+    # Used to render the answer with proper units.
+    physics_units: dict[str, str] | None = None
