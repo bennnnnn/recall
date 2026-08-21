@@ -1,6 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
+import { useTranslation } from "react-i18next";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type SuggestedReminder } from "@/lib/api";
 import {
   fetchSuggestedReminders,
@@ -12,10 +14,13 @@ export function useSuggestedReminders(
   token: string | null,
   callbacks?: { onAdded?: () => void; onDismiss?: (id: string) => void },
 ) {
+  const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const [reminders, setReminders] = useState<SuggestedReminder[]>(
     () => getCachedSuggestedReminders()?.reminders.slice(0, 3) ?? [],
   );
   const [busyId, setBusyId] = useState<string | null>(null);
+  const busyRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -33,7 +38,8 @@ export function useSuggestedReminders(
   );
 
   const mutate = async (id: string, action: "add" | "dismiss") => {
-    if (!token || busyId) return false;
+    if (!token || busyRef.current) return false;
+    busyRef.current = id;
     setBusyId(id);
     try {
       if (action === "add") await api.addSuggestedReminder(token, id);
@@ -44,8 +50,10 @@ export function useSuggestedReminders(
       else callbacks?.onDismiss?.(id);
       return true;
     } catch {
+      feedback?.error(t("common.error"));
       return false;
     } finally {
+      busyRef.current = null;
       setBusyId(null);
     }
   };

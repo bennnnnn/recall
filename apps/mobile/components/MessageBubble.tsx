@@ -54,6 +54,8 @@ type Props = {
   highlighted?: boolean;
   isSending?: boolean;
   onQuizAnswer?: (letter: string) => void;
+  quizSubmitting?: boolean;
+  quizSubmissionFailed?: boolean;
   onRetryImageGen?: () => void;
 };
 
@@ -331,6 +333,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   highlighted = false,
   isSending = false,
   onQuizAnswer,
+  quizSubmitting = false,
+  quizSubmissionFailed = false,
   onRetryImageGen,
 }: Props) {
   const theme = useTheme();
@@ -530,6 +534,8 @@ export const MessageBubble = React.memo(function MessageBubble({
                 choices={interactiveQuiz.choices}
                 correctLetter={interactiveQuiz.correct}
                 disabled={!onQuizAnswer || Boolean(isGenerating)}
+                submitting={quizSubmitting}
+                submissionFailed={quizSubmissionFailed}
                 onSelect={(letter) => onQuizAnswer?.(letter)}
               />
             ) : null}

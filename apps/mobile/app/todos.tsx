@@ -137,7 +137,7 @@ export default function TodosScreen() {
       onDismissSuggestion={(reminder) => void calendar.handleDismissSuggestion(reminder)}
       highlight={highlight}
       overlapNotes={calendar.overlapNotes}
-      togglingId={actions.togglingId}
+      busyTodoIds={actions.busyTodoIds}
       onToggle={(todo) => void actions.handleToggle(todo)}
       onDue={actions.openDuePicker}
       onDeleteItem={actions.handleDeleteItem}
@@ -154,6 +154,7 @@ export default function TodosScreen() {
     <GestureHandlerRootView style={s.root}>
       {showList && newListOpen ? (
         <NewListComposer
+          saving={actions.creatingList}
           onCancel={() => setNewListOpen(false)}
           onSave={(name) => void actions.handleCreateList(name, () => setNewListOpen(false))}
         />
@@ -165,7 +166,7 @@ export default function TodosScreen() {
         openReminders={openReminders}
         visibleDone={visibleDone}
         focusSection={focusSection}
-        togglingId={actions.togglingId}
+        busyTodoIds={actions.busyTodoIds}
         highlight={highlight}
         overlapNotes={calendar.overlapNotes}
         onToggle={actions.handleToggle}
@@ -208,6 +209,11 @@ export default function TodosScreen() {
       <DuePickerModal
         todos={todos}
         duePicker={actions.duePicker}
+        saving={
+          actions.duePicker
+            ? actions.busyTodoIds.has(actions.duePicker.todo.id)
+            : false
+        }
         onDismiss={() => actions.setDuePicker(null)}
         onChange={actions.onDuePickerChange}
         onConfirm={() => void actions.confirmDuePicker()}

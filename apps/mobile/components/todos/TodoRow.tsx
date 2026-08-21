@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
@@ -56,13 +56,17 @@ export const TodoRow = memo(function TodoRow({
         style={s.checkbox}
         disabled={busy}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: todo.checked, disabled: busy }}
+        accessibilityState={{ checked: todo.checked, disabled: busy, busy }}
       >
-        <Icon
-          name={todo.checked ? "checkbox" : "square-outline"}
-          size={22}
-          color={todo.checked ? C.primary : C.textTertiary}
-        />
+        {busy ? (
+          <ActivityIndicator size="small" color={C.primary} />
+        ) : (
+          <Icon
+            name={todo.checked ? "checkbox" : "square-outline"}
+            size={22}
+            color={todo.checked ? C.primary : C.textTertiary}
+          />
+        )}
       </Pressable>
       <View style={s.todoMain}>
         <Text
@@ -86,8 +90,10 @@ export const TodoRow = memo(function TodoRow({
           onPress={() => onDue(todo)}
           hitSlop={8}
           style={s.dueBtn}
+          disabled={busy}
           accessibilityRole="button"
           accessibilityLabel={t("todos.due_date_a11y")}
+          accessibilityState={{ disabled: busy, busy }}
         >
           <Icon
             name={todo.due_at ? "calendar" : "calendar-outline"}
@@ -102,6 +108,8 @@ export const TodoRow = memo(function TodoRow({
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
+          disabled={busy}
+          accessibilityState={{ disabled: busy, busy }}
         >
           <Icon name="trash-outline" size={16} color={C.textTertiary} />
         </Pressable>
@@ -118,11 +126,13 @@ export const TodoRow = memo(function TodoRow({
       friction={2}
       rightThreshold={40}
       overshootRight={false}
+      enabled={!busy}
       containerStyle={s.swipeContainer}
       renderRightActions={() => (
         <Pressable
           style={s.swipeDeleteAction}
           onPress={handleDelete}
+          disabled={busy}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >

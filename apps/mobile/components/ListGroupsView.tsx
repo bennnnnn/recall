@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -25,7 +26,7 @@ const CHECKBOX_SIZE = 22;
 type Props = {
   groups: ListGroup[];
   initialExpandedTopic?: string;
-  togglingId: string | null;
+  busyTodoIds: ReadonlySet<string>;
   onReorderGroups: (topics: string[]) => void;
   onReorderItems: (topic: string, ordered: Todo[]) => void;
   onToggle: (todo: Todo) => void;
@@ -37,7 +38,7 @@ type Props = {
 export function ListGroupsView({
   groups,
   initialExpandedTopic,
-  togglingId,
+  busyTodoIds,
   onReorderGroups,
   onReorderItems,
   onToggle,
@@ -130,7 +131,7 @@ export function ListGroupsView({
                         <ListItemRow
                           todo={todo}
                           variant="open"
-                          busy={togglingId === todo.id}
+                          busy={busyTodoIds.has(todo.id)}
                           dragging={itemActive}
                           onDrag={dragItem}
                           onToggle={() => onToggle(todo)}
@@ -184,7 +185,7 @@ export function ListGroupsView({
                         key={todo.id}
                         todo={todo}
                         variant="done"
-                        busy={togglingId === todo.id}
+                        busy={busyTodoIds.has(todo.id)}
                         onToggle={() => onToggle(todo)}
                         onDelete={() => onDeleteItem(todo)}
                       />
@@ -207,7 +208,7 @@ export function ListGroupsView({
       onReorderItems,
       onToggle,
       s,
-      togglingId,
+      busyTodoIds,
       toggleCollapsed,
       t,
     ],
@@ -255,7 +256,7 @@ function ListItemRow({
     <Pressable
       onLongPress={onDrag}
       delayLongPress={220}
-      disabled={!onDrag}
+      disabled={!onDrag || busy}
       style={[s.row, dragging && s.rowDragging]}
     >
       <Pressable
@@ -264,13 +265,17 @@ function ListItemRow({
         disabled={busy}
         style={s.checkbox}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: todo.checked, disabled: busy }}
+        accessibilityState={{ checked: todo.checked, disabled: busy, busy }}
       >
-        <Icon
-          name={todo.checked ? "checkbox" : "square-outline"}
-          size={CHECKBOX_SIZE}
-          color={todo.checked ? C.primary : C.textTertiary}
-        />
+        {busy ? (
+          <ActivityIndicator size="small" color={C.primary} />
+        ) : (
+          <Icon
+            name={todo.checked ? "checkbox" : "square-outline"}
+            size={CHECKBOX_SIZE}
+            color={todo.checked ? C.primary : C.textTertiary}
+          />
+        )}
       </Pressable>
       <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
         {todo.content}
@@ -281,6 +286,7 @@ function ListItemRow({
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
+          disabled={busy}
         >
           <Icon name="trash-outline" size={16} color={C.textTertiary} />
         </Pressable>
@@ -296,13 +302,14 @@ function ListItemRow({
     <Swipeable
       friction={2}
       rightThreshold={40}
-      enabled={!dragging}
+      enabled={!dragging && !busy}
       overshootRight={false}
       containerStyle={s.swipeContainer}
       renderRightActions={() => (
         <Pressable
           style={s.swipeDeleteAction}
           onPress={onDelete}
+          disabled={busy}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >

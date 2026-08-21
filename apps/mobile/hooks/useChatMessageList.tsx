@@ -32,6 +32,7 @@ type Options = {
   onSelectSuggestion?: (prompt: string) => void;
   onDismissSuggestion?: (id: string) => void;
   onQuizAnswer?: (letter: string) => void;
+  quizSubmissionFailed?: boolean;
   imageGenerating?: boolean;
   onRetryImageGen?: () => void;
 };
@@ -53,6 +54,7 @@ export function useChatMessageList({
   onSelectSuggestion,
   onDismissSuggestion,
   onQuizAnswer,
+  quizSubmissionFailed = false,
   imageGenerating = false,
   onRetryImageGen,
 }: Options) {
@@ -107,6 +109,7 @@ export function useChatMessageList({
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
       onQuizAnswer,
+      quizSubmissionFailed,
       onRetryImageGen,
     }),
     [
@@ -121,6 +124,7 @@ export function useChatMessageList({
       handleEditMessage,
       handleFeedback,
       onQuizAnswer,
+      quizSubmissionFailed,
       onRetryImageGen,
     ],
   );

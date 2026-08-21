@@ -34,10 +34,16 @@ export function useTodosListGroups(
 
   const persistGroupOrder = useCallback(
     async (order: string[]) => {
+      const previous = groupOrder;
       setGroupOrder(order);
-      if (userId) await saveListGroupOrder(userId, order);
+      try {
+        if (userId) await saveListGroupOrder(userId, order);
+      } catch (error) {
+        setGroupOrder(previous);
+        throw error;
+      }
     },
-    [userId],
+    [groupOrder, userId],
   );
 
   const allListGroups = useMemo(

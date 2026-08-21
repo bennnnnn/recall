@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type IoniconName } from "@/lib/icons";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useHome } from "@/contexts/HomeContext";
@@ -88,6 +88,7 @@ export default function ProjectsScreen() {
   const { projects, loading, error, refresh, setProjects } = useProjects();
   const { refresh: refreshHome } = useHome();
   const { createProject } = useProjectActions();
+  const feedback = useActionFeedbackOptional();
   const visibleProjects = useMemo(
     () => projects.filter((p) => !p.archived),
     [projects],
@@ -105,6 +106,7 @@ export default function ProjectsScreen() {
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
   const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
 
   useFocusEffect(
@@ -205,10 +207,11 @@ export default function ProjectsScreen() {
   };
 
   const handleCreateLanguage = async () => {
-    if (!token || kind !== "language" || creating) return;
+    if (!token || kind !== "language" || creatingRef.current) return;
 
     const title = languageProjectTitle(level, targetLanguage);
 
+    creatingRef.current = true;
     setCreating(true);
     try {
       const project = await createProject({
@@ -230,19 +233,27 @@ export default function ProjectsScreen() {
       );
       router.replace("/");
     } catch {
-      Alert.alert(t("common.error"), t("projects.create_failed"));
+      feedback?.error(t("projects.create_failed"));
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   };
 
   const handleCreateTrivia = async () => {
-    if (!token || kind !== "trivia" || creating || triviaTopics.length === 0) return;
+    if (
+      !token ||
+      kind !== "trivia" ||
+      creatingRef.current ||
+      triviaTopics.length === 0
+    )
+      return;
 
     const title = triviaProjectTitle(t);
     const description = encodeTriviaTopics(triviaTopics);
     const topicLabels = formatTriviaTopicLabels(triviaTopics, t);
 
+    creatingRef.current = true;
     setCreating(true);
     try {
       const project = await createProject({
@@ -264,8 +275,9 @@ export default function ProjectsScreen() {
       );
       router.replace("/");
     } catch {
-      Alert.alert(t("common.error"), t("projects.create_failed"));
+      feedback?.error(t("projects.create_failed"));
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   };
@@ -505,7 +517,9 @@ export default function ProjectsScreen() {
         visible={createStep !== null}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={resetCreate}
+        onRequestClose={() => {
+          if (!creating) resetCreate();
+        }}
       >
         <KeyboardAvoidingView
           style={[s.modalRoot, { paddingTop: insets.top }]}
@@ -515,6 +529,7 @@ export default function ProjectsScreen() {
             <Pressable
               style={s.modalClose}
               onPress={resetCreate}
+              disabled={creating}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={t("common.close")}

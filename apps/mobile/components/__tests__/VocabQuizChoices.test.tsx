@@ -1,4 +1,4 @@
-import { render, fireEvent } from "@testing-library/react-native";
+import { act, render, fireEvent, waitFor } from "@testing-library/react-native";
 
 import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
@@ -65,5 +65,43 @@ describe("VocabQuizChoices", () => {
 
     fireEvent.press(getByText("serendipity"));
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("keeps the selected answer busy and unlocks it after submission failure", async () => {
+    const onSelect = jest.fn();
+    const { getByTestId, getByText, rerender } = await render(
+      <VocabQuizChoices
+        choices={choices}
+        correctLetter="A"
+        submitting
+        onSelect={onSelect}
+      />,
+    );
+
+    await fireEvent.press(getByText("ephemeral"));
+    expect(getByTestId("quiz-choice-B")).toHaveProp(
+      "accessibilityState",
+      expect.objectContaining({ selected: true, busy: true }),
+    );
+
+    await act(async () => {
+      rerender(
+        <VocabQuizChoices
+          choices={choices}
+          correctLetter="A"
+          submissionFailed
+          onSelect={onSelect}
+        />,
+      );
+    });
+    await waitFor(() =>
+      expect(getByTestId("quiz-choice-B")).toHaveProp(
+        "accessibilityState",
+        expect.objectContaining({ selected: false }),
+      ),
+    );
+    fireEvent.press(getByText("ubiquitous"));
+
+    expect(onSelect).toHaveBeenNthCalledWith(2, "C");
   });
 });

@@ -46,7 +46,7 @@ type Props = {
   onDismissSuggestion: (reminder: SuggestedReminder) => void;
   highlight?: string;
   overlapNotes: Map<string, string>;
-  togglingId: string | null;
+  busyTodoIds: ReadonlySet<string>;
   onToggle: (todo: Todo) => void;
   onDue: (todo: Todo) => void;
   onDeleteItem: (todo: Todo) => void;
@@ -86,7 +86,7 @@ export function TodosScreenHeader({
   onDismissSuggestion,
   highlight,
   overlapNotes,
-  togglingId,
+  busyTodoIds,
   onToggle,
   onDue,
   onDeleteItem,
@@ -178,7 +178,7 @@ export function TodosScreenHeader({
                   variant="open"
                   highlighted={highlight === todo.id}
                   overlapWith={overlapNotes.get(todo.id)}
-                  busy={togglingId === todo.id}
+                  busy={busyTodoIds.has(todo.id)}
                   onToggle={onToggle}
                   onDue={onDue}
                   onDelete={onDeleteItem}
@@ -197,7 +197,7 @@ export function TodosScreenHeader({
         <ListGroupsView
           groups={listGroups}
           initialExpandedTopic={focusTopic}
-          togglingId={togglingId}
+          busyTodoIds={busyTodoIds}
           onReorderGroups={onReorderGroups}
           onReorderItems={onReorderItems}
           onToggle={onToggle}

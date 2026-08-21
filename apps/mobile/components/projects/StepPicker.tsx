@@ -60,7 +60,8 @@ export function StepPicker<T>({
               key={option.key}
               style={[s.row, selected && s.rowActive]}
               accessibilityRole="radio"
-              accessibilityState={{ selected }}
+              accessibilityState={{ selected, disabled: continueBusy }}
+              disabled={continueBusy}
               accessibilityLabel={option.label}
               onPress={() => onSelect(option.value)}
             >
@@ -71,11 +72,19 @@ export function StepPicker<T>({
         })}
       </View>
       <View style={s.actions}>
-        <Button title={backLabel} onPress={onBack} variant="outline" style={s.actionBtn} />
+        <Button
+          title={backLabel}
+          onPress={onBack}
+          variant="outline"
+          disabled={continueBusy}
+          style={s.actionBtn}
+        />
         <Button
           title={continueLabel}
           onPress={onContinue}
           loading={continueBusy}
+          loadingLabel={continueLabel}
+          disabled={continueBusy}
           style={s.actionBtn}
         />
       </View>
