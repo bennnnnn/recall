@@ -39,6 +39,7 @@ function msg(role: "user" | "assistant", content: string, id: string): Message {
 type Regenerate = (model: string) => Promise<void>;
 
 let currentRegenerate: Regenerate;
+let currentRegenerating = false;
 
 function Probe({
   messages,
@@ -49,7 +50,7 @@ function Probe({
   regenerateResponse: jest.Mock;
   regenerateImage?: jest.Mock;
 }) {
-  currentRegenerate = useChatRegenerate({
+  const result = useChatRegenerate({
     token: "tok",
     messages,
     user,
@@ -57,7 +58,9 @@ function Probe({
     regenerateResponse,
     regenerateImage,
   });
-  return <Text>probe</Text>;
+  currentRegenerate = result.regenerate;
+  currentRegenerating = result.regenerating;
+  return <Text>{result.regenerating ? "busy" : "idle"}</Text>;
 }
 
 describe("useChatRegenerate", () => {
@@ -134,5 +137,35 @@ describe("useChatRegenerate", () => {
     });
 
     expect(regenerateResponse).toHaveBeenCalled();
+  });
+
+  it("blocks duplicate regeneration while the first request is pending", async () => {
+    let finish: (() => void) | undefined;
+    const regenerateResponse = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const messages = [msg("user", "Hello", "u1"), msg("assistant", "Hi", "a1")];
+    await act(async () => {
+      render(<Probe messages={messages} regenerateResponse={regenerateResponse} />);
+    });
+
+    let first: Promise<void> = Promise.resolve();
+    await act(async () => {
+      first = currentRegenerate("free-chat");
+      await Promise.resolve();
+      await currentRegenerate("free-chat");
+    });
+
+    expect(regenerateResponse).toHaveBeenCalledTimes(1);
+    expect(currentRegenerating).toBe(true);
+
+    await act(async () => {
+      finish?.();
+      await first;
+    });
+    expect(currentRegenerating).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
-import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, Alert } from "react-native";
 
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
@@ -10,6 +10,7 @@ import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
+import { ActionShimmer } from "@/components/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -45,6 +46,7 @@ type Props = {
   streamStatusDetail?: string;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
+  regenerating?: boolean;
   onEdit?: (message: Message) => void;
   canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
@@ -125,6 +127,7 @@ function AssistantActions({
   feedback,
   onFeedback,
   onRegenerate,
+  regenerating = false,
   theme,
   hidden = false,
   thumbsOnly = false,
@@ -135,6 +138,7 @@ function AssistantActions({
   feedback: "up" | "down" | null;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   onRegenerate?: () => void;
+  regenerating?: boolean;
   theme: Theme;
   hidden?: boolean;
   /** Image-only replies: thumbs only (no copy / speak / PDF / regenerate). */
@@ -291,11 +295,17 @@ function AssistantActions({
             tap();
             onRegenerate();
           }}
+          disabled={regenerating}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t("chat.regenerate_a11y")}
+          accessibilityState={{ disabled: regenerating, busy: regenerating }}
         >
-          <Icon name="refresh-outline" size={20} color={theme.textSecondary} />
+          {regenerating ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Icon name="refresh-outline" size={20} color={theme.textSecondary} />
+          )}
         </Pressable>
       ) : null}
     </View>
@@ -313,6 +323,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   streamStatusDetail,
   isLastAssistant,
   onRegenerate,
+  regenerating = false,
   onEdit,
   canEdit,
   onFeedback,
@@ -432,7 +443,14 @@ export const MessageBubble = React.memo(function MessageBubble({
             <UserMessageContent message={message} />
           </Pressable>
           {showSendingLabel ? (
-            <Text style={b.sendingLabel}>{t("chat.sending")}</Text>
+            <ActionShimmer
+              label={t("chat.sending")}
+              compact
+              color={theme.primary}
+              style={b.sendingStatus}
+              textStyle={b.sendingLabel}
+              testID={`sending-${message.id}`}
+            />
           ) : null}
           {showUserActions ? (
             <UserActions
@@ -546,6 +564,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             feedback={message.feedback ?? null}
             onFeedback={onFeedback}
             onRegenerate={isLastAssistant ? onRegenerate : undefined}
+            regenerating={isLastAssistant && regenerating}
             theme={theme}
             hidden={!actionsReady}
             thumbsOnly={imageOnlyActions}
@@ -595,11 +614,12 @@ function makeStyles(t: Theme) {
     },
     userRow: { alignItems: "flex-end" },
     userColumn: { alignItems: "flex-end", maxWidth: "88%" },
-    sendingLabel: {
+    sendingStatus: {
       marginTop: 4,
       marginRight: 4,
+    },
+    sendingLabel: {
       fontSize: 13,
-      color: t.textTertiary,
     },
     assistantRow: { alignItems: "stretch" },
     assistantBubble: {

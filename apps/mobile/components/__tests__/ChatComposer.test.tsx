@@ -82,6 +82,18 @@ describe("ChatComposer math keyboard", () => {
     jest.clearAllMocks();
   });
 
+  it("shows a guarded busy send control before streaming starts", async () => {
+    const onSend = jest.fn();
+    const { getByLabelText } = await render(
+      <ChatComposer {...baseProps} input="" sendBusy onSend={onSend} />,
+    );
+
+    const send = getByLabelText("chat.sending");
+    expect(send.props.accessibilityState).toEqual({ disabled: true, busy: true });
+    await fireEvent.press(send);
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
   it("hides the math pill when the chat is not about math", async () => {
     const { queryByTestId } = await render(
       <ChatComposer {...baseProps} mathContext={false} input="" />,

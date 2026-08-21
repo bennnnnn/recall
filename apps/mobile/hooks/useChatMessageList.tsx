@@ -25,6 +25,7 @@ type Options = {
   sendingMessageId: string | null;
   setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
   regenerateResponse: (model: string) => void | Promise<void>;
+  regenerating?: boolean;
   handleEditMessage: (message: Message) => void;
   handleFeedback: (messageId: string, next: "up" | "down" | null) => void;
   suggestions?: Suggestion[];
@@ -45,6 +46,7 @@ export function useChatMessageList({
   sendingMessageId,
   setMenuVisible,
   regenerateResponse,
+  regenerating = false,
   handleEditMessage,
   handleFeedback,
   suggestions = [],
@@ -101,6 +103,7 @@ export function useChatMessageList({
       highlightedMessageId,
       sendingMessageId,
       onRegenerate: regenerateResponse,
+      regenerating,
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
       onQuizAnswer,
@@ -114,6 +117,7 @@ export function useChatMessageList({
       highlightedMessageId,
       sendingMessageId,
       regenerateResponse,
+      regenerating,
       handleEditMessage,
       handleFeedback,
       onQuizAnswer,

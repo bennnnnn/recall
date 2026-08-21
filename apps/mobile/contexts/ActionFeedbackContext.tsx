@@ -100,3 +100,8 @@ export function useActionFeedback(): ActionFeedbackApi {
   }
   return value;
 }
+
+/** Useful for isolated hooks/tests that can also run outside the app root. */
+export function useActionFeedbackOptional(): ActionFeedbackApi | null {
+  return useContext(ActionFeedbackContext);
+}

@@ -3,6 +3,7 @@ import { Alert, Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -39,6 +40,7 @@ import {
 
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
+export type ChatSendPhase = "idle" | "preparing" | "uploading" | "creating";
 
 type SendMessageFn = (
   text: string,
@@ -125,8 +127,11 @@ export function useChatSend({
   const { newMessageCountRef } = scroll;
 
   const { setInput, inputRef } = useComposerDraftApi();
+  const feedback = useActionFeedbackOptional();
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachBusy, setAttachBusy] = useState(false);
+  const [attachPicking, setAttachPicking] = useState(false);
+  const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -145,6 +150,7 @@ export function useChatSend({
   } | null>(null);
 
   const attachPickInFlightRef = useRef(false);
+  const sendInFlightRef = useRef(false);
   useEffect(() => {
     if (chatId && pendingSend) {
       const {
@@ -171,11 +177,15 @@ export function useChatSend({
         model,
         clientGeo,
       });
+      setPendingOutboundId(null);
+      sendInFlightRef.current = false;
+      setSendPhase("idle");
     }
   }, [chatId, pendingSend, sendMessage]);
 
   const handleSend = useCallback(
     async (overrideText?: string) => {
+      if (sendInFlightRef.current) return;
       const text = (overrideText ?? inputRef.current).trim();
       if (isOffline) {
         // Keep the draft; banner + dimmed send already signal offline. A modal
@@ -230,6 +240,8 @@ export function useChatSend({
       if (!authToken) return;
 
       const attached = pendingAttachment;
+      sendInFlightRef.current = true;
+      setSendPhase(attached ? "uploading" : "preparing");
       // Clear the text input immediately so the composer is ready for the next
       // message, but keep the attachment preview visible during upload — the
       // `attachBusy` state drives a spinner on the preview so the user sees
@@ -244,17 +256,19 @@ export function useChatSend({
           const id = await uploadChatAttachment(authToken, attached);
           attachmentIds = [id];
         } catch (error) {
-          Alert.alert(
-            t("chat.error_title"),
-            error instanceof Error ? error.message : t("common.error"),
-          );
           setAttachBusy(false);
           setInput(text);
           setPendingAttachment(attached);
+          feedback?.error(
+            error instanceof Error ? error.message : t("chat.attach_failed"),
+          );
+          sendInFlightRef.current = false;
+          setSendPhase("idle");
           return;
         }
         setAttachBusy(false);
         setPendingAttachment(null);
+        setSendPhase("preparing");
       } else {
         setPendingAttachment(null);
       }
@@ -270,6 +284,8 @@ export function useChatSend({
       if (!geoResult.ok) {
         setInput(text);
         setPendingAttachment(attached);
+        sendInFlightRef.current = false;
+        setSendPhase("idle");
         return;
       }
       clientGeo = geoResult.clientGeo;
@@ -279,11 +295,14 @@ export function useChatSend({
         const editId = editingMessageId;
         setEditingMessageId(null);
         void editMessage(editId, text, selectedModel, clientGeo);
+        sendInFlightRef.current = false;
+        setSendPhase("idle");
         return;
       }
 
       if (!chatId) {
         creatingRef.current = true;
+        setSendPhase("creating");
         const optimisticId = `local-${Date.now()}`;
         const createdAt = new Date().toISOString();
         setPendingOutboundId(optimisticId);
@@ -315,12 +334,14 @@ export function useChatSend({
               model: selectedModel,
             }),
           );
-          setPendingOutboundId(null);
         } catch {
           setPendingOutboundId(null);
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           setInput(text);
           setPendingAttachment(attached);
+          feedback?.error(t("chat.error_generic"));
+          sendInFlightRef.current = false;
+          setSendPhase("idle");
         } finally {
           creatingRef.current = false;
         }
@@ -335,6 +356,8 @@ export function useChatSend({
         model: selectedModel,
         clientGeo,
       });
+      sendInFlightRef.current = false;
+      setSendPhase("idle");
     },
     [
       pendingAttachment,
@@ -365,6 +388,7 @@ export function useChatSend({
       onGenerateImage,
       imageGenerating,
       messages,
+      feedback,
       setChatId,
       setChatTitle,
     ],
@@ -393,11 +417,13 @@ export function useChatSend({
     async (source: AttachmentSource) => {
       if (attachPickInFlightRef.current || !token || attachBusy || streaming) return;
       attachPickInFlightRef.current = true;
+      setAttachPicking(true);
       setAttachSheetOpen(false);
       await waitForPickerUi();
 
       if (!token || attachBusy || streaming) {
         attachPickInFlightRef.current = false;
+        setAttachPicking(false);
         return;
       }
 
@@ -419,16 +445,16 @@ export function useChatSend({
         if (error instanceof HeicUnsupportedError) {
           Alert.alert(t("chat.heic_unsupported_title"), t("chat.heic_unsupported_body"));
         } else {
-          Alert.alert(
-            t("chat.attach_failed"),
-            error instanceof Error ? error.message : t("common.error"),
+          feedback?.error(
+            error instanceof Error ? error.message : t("chat.attach_failed"),
           );
         }
       } finally {
         attachPickInFlightRef.current = false;
+        setAttachPicking(false);
       }
     },
-    [attachBusy, streaming, t, token, waitForPickerUi],
+    [attachBusy, feedback, streaming, t, token, waitForPickerUi],
   );
 
   const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
@@ -453,6 +479,8 @@ export function useChatSend({
     pendingAttachment,
     setPendingAttachment,
     attachBusy,
+    attachPicking,
+    sendPhase,
     attachSheetOpen,
     setAttachSheetOpen,
     mathScannerOpen,

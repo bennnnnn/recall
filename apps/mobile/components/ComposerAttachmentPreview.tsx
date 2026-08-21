@@ -19,7 +19,11 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
 
   if (attachment.kind === "image") {
     return (
-      <View style={s.imageWrap}>
+      <View
+        style={s.imageWrap}
+        accessibilityLabel={uploading ? t("chat.sending") : undefined}
+        accessibilityState={{ busy: Boolean(uploading) }}
+      >
         <Image source={{ uri: attachment.localUri }} style={s.image} resizeMode="cover" />
         {uploading ? (
           <View style={s.uploadOverlay}>
@@ -41,7 +45,11 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
   }
 
   return (
-    <View style={s.fileWrap}>
+    <View
+      style={s.fileWrap}
+      accessibilityLabel={uploading ? t("chat.sending") : undefined}
+      accessibilityState={{ busy: Boolean(uploading) }}
+    >
       <View style={s.fileIcon}>
         <Icon name="document-outline" size={18} color={C.primary} />
       </View>

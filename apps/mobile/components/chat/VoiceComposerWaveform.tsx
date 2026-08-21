@@ -103,8 +103,10 @@ export function VoiceComposerWaveform({
   return (
     <View
       style={s.wrap}
+      accessibilityRole="progressbar"
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
+      accessibilityState={{ busy: transcribing }}
     >
       {transcribing ? (
         <Text style={s.status} numberOfLines={1}>

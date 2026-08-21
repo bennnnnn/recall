@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ClientGeo } from "@/lib/clientGeo";
@@ -29,10 +29,12 @@ export function useChatRegenerate({
   regenerateImage,
 }: Params) {
   const { t } = useTranslation();
+  const [regenerating, setRegenerating] = useState(false);
+  const inFlightRef = useRef(false);
 
-  return useCallback(
+  const regenerate = useCallback(
     async (model: string) => {
-      if (!token) return;
+      if (!token || inFlightRef.current) return;
       const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
       // If the last assistant turn was an image-gen reply, route regenerate
       // through the image-gen path so the user sees the ImageGenPlaceholder
@@ -46,16 +48,23 @@ export function useChatRegenerate({
         regenerateImage(lastUser?.content ?? "");
         return;
       }
-      const lastUser = [...messages].reverse().find((m) => m.role === "user");
-      const result = await resolveClientGeoForQuery(
-        token,
-        lastUser?.content ?? "",
-        t,
-        updateUser,
-        user?.location_enabled ?? false,
-      );
-      if (!result.ok) return;
-      await regenerateResponse(model, result.clientGeo);
+      inFlightRef.current = true;
+      setRegenerating(true);
+      try {
+        const lastUser = [...messages].reverse().find((m) => m.role === "user");
+        const result = await resolveClientGeoForQuery(
+          token,
+          lastUser?.content ?? "",
+          t,
+          updateUser,
+          user?.location_enabled ?? false,
+        );
+        if (!result.ok) return;
+        await regenerateResponse(model, result.clientGeo);
+      } finally {
+        inFlightRef.current = false;
+        setRegenerating(false);
+      }
     },
     [
       token,
@@ -67,4 +76,6 @@ export function useChatRegenerate({
       user?.location_enabled,
     ],
   );
+
+  return { regenerate, regenerating };
 }
