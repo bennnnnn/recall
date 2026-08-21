@@ -20,7 +20,7 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = { content: string };
 
 const PREVIEW_HEIGHT = 280;
-const VIEW_PAD = 28;
+const VIEW_PAD = 36;
 
 type MoleculeStyle = "ball-stick" | "spacefill" | "wireframe";
 
@@ -76,29 +76,31 @@ function layout(
   height: number,
   style: MoleculeStyle,
 ) {
+  const atomScale = style === "spacefill" ? 0.72 : style === "wireframe" ? 0.2 : 0.32;
   const projected = geom.atoms.map((atom) => project(atom, yaw, pitch));
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
   let maxY = -Infinity;
-  for (const p of projected) {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.y < minY) minY = p.y;
-    if (p.y > maxY) maxY = p.y;
+  for (let i = 0; i < projected.length; i++) {
+    const p = projected[i]!;
+    const r = atomRadius(geom.atoms[i]!.el) * atomScale;
+    if (p.x - r < minX) minX = p.x - r;
+    if (p.x + r > maxX) maxX = p.x + r;
+    if (p.y - r < minY) minY = p.y - r;
+    if (p.y + r > maxY) maxY = p.y + r;
   }
   const span = Math.max(maxX - minX, maxY - minY, 0.8);
   const scale = (Math.min(width, height) - VIEW_PAD * 2) / span;
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const atomScale = style === "spacefill" ? 1 : style === "wireframe" ? 0.22 : 0.42;
   const atoms = projected.map((p, i) => ({
     i,
     el: geom.atoms[i]!.el,
     x: (p.x - cx) * scale + width / 2,
     y: (cy - p.y) * scale + height / 2,
     z: p.z,
-    r: Math.max(4, atomRadius(geom.atoms[i]!.el) * scale * atomScale),
+    r: Math.max(3, atomRadius(geom.atoms[i]!.el) * scale * atomScale),
   }));
   const order = atoms.map((_, i) => i).sort((a, b) => atoms[a]!.z - atoms[b]!.z);
   return { atoms, order, scale };
