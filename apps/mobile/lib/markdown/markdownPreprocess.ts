@@ -688,6 +688,36 @@ export function mergeStrandedColons(content: string): string {
   return out.join("\n");
 }
 
+/**
+ * Models sometimes put a list label and its value on separate lines:
+ * `- **Chemical Formula**\n  : O₂`. The leading colon becomes a conspicuous
+ * standalone glyph in React Native. Keep the intended two-line layout while
+ * dropping only that decorative colon.
+ */
+export function stripBoldListLabelContinuationColons(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const originalLine of lines) {
+    const trimmed = originalLine.trim();
+    if (/^(?:```|~~~)/.test(trimmed)) {
+      inFence = !inFence;
+      out.push(originalLine);
+      continue;
+    }
+
+    const previous = out[out.length - 1]?.trim() ?? "";
+    const previousIsBoldListLabel =
+      /^(?:[-*+]|\d+[.)])\s+\*\*[^*\n]+\*\*\s*$/.test(previous);
+    if (!inFence && previousIsBoldListLabel) {
+      out.push(originalLine.replace(/^(\s*):(?:\s+|$)/, "$1"));
+      continue;
+    }
+    out.push(originalLine);
+  }
+  return out.join("\n");
+}
+
 function splitPackedCheckLine(line: string): string {
   const colon = indexOfCheckLabelColon(line);
   if (colon < 0) return line;
@@ -894,6 +924,9 @@ export function preprocessMarkdown(
   mathFormat?: (expr: string) => string,
 ): string {
   let out = repairBrokenMarkdownLinks(content);
+  // Do this before math normalization can reinterpret a punctuation-only
+  // continuation line.
+  out = stripBoldListLabelContinuationColons(out);
   out = repairCorruptedPriceTierMarkdown(out);
   out = normalizeVerificationBullets(out);
   out = normalizeImplicitMath(out, mathFormat);
