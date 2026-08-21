@@ -268,7 +268,11 @@ export default function ModelsSettingsScreen() {
           />
         </SettingsGroup>
       </ScrollView>
-      <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />
+      <UpgradeSheet
+        visible={upgradeVisible}
+        source="model_gate"
+        onClose={() => setUpgradeVisible(false)}
+      />
     </>
   );
 }

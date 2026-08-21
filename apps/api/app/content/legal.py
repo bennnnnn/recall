@@ -9,24 +9,25 @@ import re
 
 PRIVACY_POLICY_MD = """# Privacy Policy
 
-**Last updated: June 2026**
+**Last updated: August 2026**
 
 ## What We Collect
 
 - **Account information**: Your name and email address from Google Sign-In.
 - **Conversations**: Messages you send and responses from the AI.
 - **Learned facts**: Information Recall extracts to personalize your experience (preferences, projects, facts you share).
-- **Usage data**: Token counts for daily quota tracking.
+- **Usage data**: Token counts for daily quota tracking and a limited set of product events such as paywall views, purchase outcomes, and notification permission results. Product events do not include prompts, message text, search queries, or attachment names.
 
 ## How We Use Your Data
 
 - To provide personalized AI responses based on what you've shared.
 - To improve response quality via thumbs-up/thumbs-down feedback.
 - To enforce daily usage limits.
+- To understand product reliability, feature adoption, and subscription conversion.
 
 ## Data Storage
 
-Your data is stored in a secure PostgreSQL database. Memories and conversations are associated with your account and are never shared with third parties.
+Your account data, conversations, memories, and limited product-event metadata are stored in a secure PostgreSQL database.
 
 ## AI Processing
 

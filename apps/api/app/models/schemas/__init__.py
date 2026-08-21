@@ -1,5 +1,6 @@
 """Pydantic API schemas. Prefer `from app.models.schemas import X`."""
 
+from app.models.schemas.analytics import ProductEventBatchIn, ProductEventIn, ProductEventName
 from app.models.schemas.attachments import (
     AttachmentListItemOut,
     AttachmentListOut,
@@ -160,6 +161,9 @@ __all__ = [
     "ModelInfo",
     "PathChapterProgress",
     "PinUpdate",
+    "ProductEventBatchIn",
+    "ProductEventIn",
+    "ProductEventName",
     "ProjectActionItem",
     "ProjectCreate",
     "ProjectDailyHistoryDay",

@@ -2,6 +2,7 @@ jest.mock("@/lib/api", () => ({
   api: {
     registerPushToken: jest.fn().mockResolvedValue(undefined),
     unregisterPushToken: jest.fn().mockResolvedValue(undefined),
+    recordProductEvents: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -28,10 +29,12 @@ jest.mock("react-native", () => ({
 }));
 
 import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 
 import { api } from "@/lib/api";
 import {
   attachPushForegroundSync,
+  ensureNotificationPermission,
   registerRemotePushToken,
   unregisterRemotePushToken,
 } from "@/lib/pushNotifications";
@@ -46,6 +49,9 @@ describe("push gating on user.push_notifications_enabled", () => {
     Platform.OS = "ios";
     registerMock.mockClear();
     unregisterMock.mockClear();
+    (api.recordProductEvents as jest.Mock).mockClear();
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
   });
 
   it("registerRemotePushToken registers when pushNotificationsEnabled=true", async () => {
@@ -57,6 +63,24 @@ describe("push gating on user.push_notifications_enabled", () => {
         expo_push_token: "ExponentPushToken[abc]",
         device_id: "dev-1",
       }),
+    );
+  });
+
+  it("records the result only when the OS permission prompt is shown", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+
+    await expect(ensureNotificationPermission("tok")).resolves.toBe(false);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(api.recordProductEvents).toHaveBeenCalledWith(
+      "tok",
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "push_permission",
+          properties: { status: "denied" },
+        }),
+      ]),
     );
   });
 

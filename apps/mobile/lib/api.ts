@@ -1,4 +1,5 @@
 import { accountApi } from "@/lib/api/account";
+import { analyticsApi } from "@/lib/api/analytics";
 import { attachmentsApi } from "@/lib/api/attachments";
 import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
@@ -9,6 +10,7 @@ import { projectsApi } from "@/lib/api/projects";
 import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
+export type { ProductEventInput, ProductEventName } from "@/lib/api/analytics";
 export type {
   AttachmentListItem,
   AttachmentListResponse,
@@ -28,6 +30,7 @@ export {
 
 export const api = {
   ...accountApi,
+  ...analyticsApi,
   ...chatsApi,
   ...memoriesApi,
   ...discoverApi,

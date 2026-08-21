@@ -5,6 +5,7 @@ import { AppState, type AppStateStatus, Platform } from "react-native";
 import { api } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
+import { trackProductEvent } from "@/lib/productAnalytics";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -14,12 +15,15 @@ type AppRouter = {
 let androidChannelReady = false;
 const ANDROID_CHANNEL = "recall-notifications";
 
-export async function ensureNotificationPermission(): Promise<boolean> {
+export async function ensureNotificationPermission(analyticsToken?: string): Promise<boolean> {
   if (Platform.OS === "web") return false;
   await ensureAndroidChannel();
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
   const { status } = await Notifications.requestPermissionsAsync();
+  trackProductEvent(analyticsToken ?? null, "push_permission", {
+    status: status === "granted" ? "granted" : "denied",
+  });
   return status === "granted";
 }
 
@@ -70,7 +74,7 @@ export async function registerRemotePushToken(
 ): Promise<void> {
   if (Platform.OS === "web") return;
   if (!pushNotificationsEnabled) return;
-  const granted = await ensureNotificationPermission();
+  const granted = await ensureNotificationPermission(apiToken);
   if (!granted) return;
 
   const expoPushToken = await resolveExpoPushToken();
