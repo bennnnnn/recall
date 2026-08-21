@@ -400,6 +400,18 @@ function ChatScreen() {
       [imageGen],
     ),
   });
+  const retryChatError = useCallback(() => {
+    if (streaming || finalizing || regenerating) return;
+    dismissChatError();
+    void handleRegenerate(selectedModel);
+  }, [
+    dismissChatError,
+    finalizing,
+    handleRegenerate,
+    regenerating,
+    selectedModel,
+    streaming,
+  ]);
 
   const displayMessages = messages;
 
@@ -527,6 +539,7 @@ function ChatScreen() {
     quotaNudge,
     chatError,
     isPro,
+    retryChatError,
     dismissChatError,
     composerAnimatedStyle,
     setInput,

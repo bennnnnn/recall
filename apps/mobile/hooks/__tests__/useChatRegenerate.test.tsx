@@ -121,6 +121,23 @@ describe("useChatRegenerate", () => {
     expect(regenerateImage).not.toHaveBeenCalled();
   });
 
+  it("retries a user-only failed turn without adding another user message", async () => {
+    const messages = [msg("user", "My first question", "u1")];
+    const regenerateResponse = jest.fn();
+
+    await act(async () => {
+      render(<Probe messages={messages} regenerateResponse={regenerateResponse} />);
+    });
+
+    await act(async () => {
+      await currentRegenerate("free-chat");
+    });
+
+    expect(regenerateResponse).toHaveBeenCalledWith("free-chat", null);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ role: "user", content: "My first question" });
+  });
+
   it("does not route to image path when regenerateImage is not provided", async () => {
     const messages: Message[] = [
       msg("user", "Generate image: a cat", "u1"),

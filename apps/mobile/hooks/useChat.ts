@@ -20,6 +20,7 @@ import {
   popLastAssistantMessage,
   restoreAssistantMessage,
 } from "@/lib/chatRegenerateLogic";
+import { replaceStreamingMessageWithPartial } from "@/lib/chatPartialStream";
 
 const CONNECT_TIMEOUT_MS = 8000;
 const EAGER_CONNECT_DEBOUNCE_MS = 300;
@@ -283,6 +284,7 @@ export function useChat(
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
+        finalizingRef.current = false;
         assistantBuffer.current = "";
         reasoningBuffer.current = "";
         const draft = streamingDraftRef.current;
@@ -314,6 +316,7 @@ export function useChat(
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
+        finalizingRef.current = false;
         const draft = streamingDraftRef.current;
         const partial = (draft?.content ?? assistantBuffer.current).trim();
         assistantBuffer.current = "";
@@ -362,6 +365,21 @@ export function useChat(
       t,
     ],
   );
+
+  const preservePartialStream = useCallback((): boolean => {
+    const draft = streamingDraftRef.current;
+    const partial = (draft?.content ?? assistantBuffer.current).trim();
+    assistantBuffer.current = "";
+    reasoningBuffer.current = "";
+    if (!partial) return false;
+
+    const keptId = `streamed-${Date.now()}`;
+    updateStreamingDraft(null);
+    setMessages((prev) =>
+      replaceStreamingMessageWithPartial(prev, partial, draft, keptId),
+    );
+    return true;
+  }, [updateStreamingDraft]);
 
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId) return Promise.resolve();
@@ -539,11 +557,23 @@ export function useChat(
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
-        clearStreamingBubble();
+        finalizingRef.current = false;
+        if (!preservePartialStream()) {
+          clearStreamingBubble();
+        }
         reportError(t("chat.error_unreachable"));
       }
     },
-    [token, chatId, beginSseStream, handleChatPayload, clearStreamingBubble, reportError, t],
+    [
+      token,
+      chatId,
+      beginSseStream,
+      handleChatPayload,
+      preservePartialStream,
+      clearStreamingBubble,
+      reportError,
+      t,
+    ],
   );
 
   const regenerateViaSse = useCallback(
@@ -561,11 +591,28 @@ export function useChat(
         });
       } catch (err) {
         if (isSseAbortError(err)) return;
-        restoreRegenerateBackup();
+        setStreaming(false);
+        setFinalizing(false);
+        streamingRef.current = false;
+        finalizingRef.current = false;
+        if (preservePartialStream()) {
+          regenerateBackupRef.current = null;
+        } else {
+          restoreRegenerateBackup();
+        }
         reportError(t("chat.error_unreachable"));
       }
     },
-    [token, chatId, beginSseStream, handleChatPayload, restoreRegenerateBackup, reportError, t],
+    [
+      token,
+      chatId,
+      beginSseStream,
+      handleChatPayload,
+      preservePartialStream,
+      restoreRegenerateBackup,
+      reportError,
+      t,
+    ],
   );
 
   const ensureConnected = useCallback(async () => {

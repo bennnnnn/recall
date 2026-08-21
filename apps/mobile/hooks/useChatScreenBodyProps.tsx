@@ -99,6 +99,7 @@ export type UseChatScreenBodyPropsParams = {
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
   isPro: boolean;
+  retryChatError: () => void;
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   setInput: (value: string) => void;
@@ -177,6 +178,7 @@ export function useChatScreenBodyProps({
   quotaNudge,
   chatError,
   isPro,
+  retryChatError,
   dismissChatError,
   composerAnimatedStyle,
   setInput,
@@ -242,6 +244,10 @@ export function useChatScreenBodyProps({
     setUpgradeVisible(true);
   }, [quotaNudge]);
   const onUpgrade = useCallback(() => setUpgradeVisible(true), []);
+  const onChangeModel = useCallback(() => {
+    dismissChatError();
+    router.push("/settings/models");
+  }, [dismissChatError, router]);
   const onRemoveAttachment = useCallback(() => setPendingAttachment(null), [setPendingAttachment]);
   const onCancelEdit = useCallback(() => {
     setEditingMessageId(null);
@@ -335,6 +341,8 @@ export function useChatScreenBodyProps({
       chatError,
       isPro,
       onUpgrade,
+      onRetryChatError: retryChatError,
+      onChangeModel,
       onDismissChatError: dismissChatError,
       composerAnimatedStyle,
       streaming,
@@ -398,6 +406,8 @@ export function useChatScreenBodyProps({
       chatError,
       isPro,
       onUpgrade,
+      retryChatError,
+      onChangeModel,
       dismissChatError,
       composerAnimatedStyle,
       setInput,
