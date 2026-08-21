@@ -31,6 +31,50 @@ from app.services.math_text_match.scan import (
     prepare,
 )
 
+_SUPPORTED_PHYSICS_CUES = (
+    # 1D kinematics under gravity.
+    "dropped",
+    "free fall",
+    "freefall",
+    "falls from",
+    "fall from",
+    "thrown upward",
+    "thrown down",
+    "thrown downward",
+    "launched upward",
+    "launched downward",
+    "how long to fall",
+    "time to hit",
+    "velocity after",
+    "speed after",
+    "height after",
+    "position after",
+    # Vacuum projectile motion.
+    "projectile",
+    "launched at angle",
+    "launched at an angle",
+    "fired at angle",
+    "thrown at angle",
+    "thrown at an angle",
+    "maximum height",
+    "max height",
+    # Scalar F = ma.
+    "net force",
+    "newton's second law",
+    "newtons second law",
+    "force of",
+    "force required",
+    "acceleration given",
+    "given force",
+    # Scalar energy/work/power formulas.
+    "kinetic energy",
+    "potential energy",
+    "work done",
+    "work is done",
+    "how much work",
+    "power of",
+)
+
 
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     cleaned = prepare(text)
@@ -163,9 +207,19 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if matrix_signal(cleaned) is not None:
         return True
+    if supported_physics_cue(cleaned):
+        return True
     if school_homework_cue(cleaned):
         return True
     return has_math_keyword(lower) and has_equation(cleaned)
+
+
+def supported_physics_cue(cleaned: str) -> bool:
+    """A numeric problem supported by the narrow verified physics solver."""
+    if not any(ch.isdigit() for ch in cleaned):
+        return False
+    lower = cleaned.lower()
+    return any(cue in lower for cue in _SUPPORTED_PHYSICS_CUES)
 
 
 def school_homework_cue(cleaned: str) -> bool:
