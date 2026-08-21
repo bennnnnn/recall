@@ -5,7 +5,7 @@
  */
 import { useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -24,6 +24,15 @@ type Props = { content: string };
 
 const PREVIEW_HEIGHT = 280;
 
+type MoleculeStyle = "ball-stick" | "spacefill" | "wireframe" | "cartoon";
+
+const STYLE_CONFIG: Record<MoleculeStyle, string> = {
+  "ball-stick": "{ stick: { radius: 0.14 }, sphere: { scale: 0.28 } }",
+  spacefill: "{ sphere: { scale: 0.32 } }",
+  wireframe: "{ stick: { radius: 0.06, wireframe: true }, sphere: { scale: 0.12 } }",
+  cartoon: "{ cartoon: { } }",
+};
+
 function escapeJsString(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
@@ -32,9 +41,10 @@ function escapeJsString(value: string): string {
     .replace(/<\/script>/gi, "<\\/script>");
 }
 
-function buildMolecule3dHtml(sdf: string, theme: Theme): string {
+function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): string {
   const safeSdf = escapeJsString(sdf.trim());
   const bgColor = theme.isDark ? "#1a1a2e" : "#ffffff";
+  const styleConfig = STYLE_CONFIG[style];
   // 3Dmol.js is a UMD bundle. We eval it into the global scope, then use
   // the global `M` / `$3Dmol` object.
   const loader = `eval(\`${THREE_D_MOL_MIN_JS}\`);\n`;
@@ -61,7 +71,7 @@ function buildMolecule3dHtml(sdf: string, theme: Theme): string {
     bgColor +
     "', antialias: true });\n" +
     "    viewer.addModel(sdf, 'sdf');\n" +
-    "    viewer.setStyle({}, { stick: { radius: 0.14 }, sphere: { scale: 0.28 } });\n" +
+    "    viewer.setStyle({}, " + styleConfig + ");\n" +
     "    viewer.zoomTo();\n" +
     "    viewer.render();\n" +
     "  } catch (e) {\n" +
@@ -93,14 +103,15 @@ export function Molecule3DBlock({ content }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [style, setStyle] = useState<MoleculeStyle>("ball-stick");
 
   const parsed = useMemo(() => parseMolecule3DFence(content), [content]);
   const sdf = parsed?.sdf ?? "";
   const caption = parsed?.caption;
 
   const html = useMemo(
-    () => (sdf ? buildMolecule3dHtml(sdf, theme) : ""),
-    [sdf, theme],
+    () => (sdf ? buildMolecule3dHtml(sdf, theme, style) : ""),
+    [sdf, theme, style],
   );
   const webSource = useMemo(() => ({ html }), [html]);
   const previewWebView = getPreviewWebView();
@@ -184,6 +195,21 @@ export function Molecule3DBlock({ content }: Props) {
       )}
 
       <View style={s.actions}>
+        {canRenderInline && WebView ? (
+          <View style={s.styleRow}>
+            {(["ball-stick", "spacefill", "wireframe"] as const).map((st) => (
+              <Pressable
+                key={st}
+                style={[s.styleBtn, style === st && s.styleBtnActive]}
+                onPress={() => setStyle(st)}
+              >
+                <Text style={[s.styleBtnText, style === st && s.styleBtnTextActive]}>
+                  {st === "ball-stick" ? "Ball" : st === "spacefill" ? "Sphere" : "Wire"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <CopyButton text={sdf} variant="action" />
       </View>
     </View>
@@ -236,6 +262,21 @@ function makeStyles(t: Theme) {
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
     fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
-    actions: { flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+    actions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+    styleRow: { flexDirection: "row", gap: 6 },
+    styleBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 8,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+    },
+    styleBtnActive: {
+      backgroundColor: t.primary,
+      borderColor: t.primary,
+    },
+    styleBtnText: { fontSize: 11, fontWeight: "600", color: t.textSecondary },
+    styleBtnTextActive: { color: "#fff" },
   });
 }

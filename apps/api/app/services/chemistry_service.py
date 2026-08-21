@@ -9,6 +9,7 @@ only renders verified results.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -197,3 +198,356 @@ def enrich_smiles_fence(smiles: str) -> dict[str, Any]:
         "atom_count": props.atom_count,
         "error": props.error,
     }
+
+
+# ---------------------------------------------------------------------------
+# Chemical equation balancing (SymPy linear algebra)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BalancedEquation:
+    """Result of balancing a chemical equation."""
+
+    reactants: dict[str, int]  # species → coefficient
+    products: dict[str, int]  # species → coefficient
+    balanced: bool
+    error: str | None = None
+
+
+def _parse_equation_side(side: str) -> list[tuple[str, int]]:
+    """Parse one side of a chemical equation into (species, count) pairs.
+
+    e.g. "2 H2 + O2" → [("H2", 2), ("O2", 1)]
+    """
+    terms = []
+    for part in side.split("+"):
+        part = part.strip()
+        if not part:
+            continue
+        # Match optional coefficient + formula.
+        match = re.match(r"^(\d*)\s*([A-Za-z0-9\(\)\[\]\.]+)$", part)
+        if match is None:
+            continue
+        coeff = int(match.group(1)) if match.group(1) else 1
+        formula = match.group(2)
+        terms.append((formula, coeff))
+    return terms
+
+
+def _parse_formula_atoms(formula: str) -> dict[str, int]:
+    """Parse a chemical formula into element → count.
+
+    e.g. "H2O" → {"H": 2, "O": 1}, "C6H12O6" → {"C": 6, "H": 12, "O": 6}
+    Handles parentheses: "Ca(OH)2" → {"Ca": 1, "O": 2, "H": 2}
+    """
+    atoms: dict[str, int] = {}
+
+    def _parse(s: str, multiplier: int = 1) -> None:
+        i = 0
+        while i < len(s):
+            if s[i] == "(" or s[i] == "[":
+                # Find matching close paren.
+                depth = 1
+                j = i + 1
+                while j < len(s) and depth > 0:
+                    if s[j] in "([":
+                        depth += 1
+                    elif s[j] in ")]":
+                        depth -= 1
+                    if depth == 0:
+                        break
+                    j += 1
+                inner = s[i + 1 : j]
+                # Check for multiplier after close paren.
+                k = j + 1
+                num_str = ""
+                while k < len(s) and s[k].isdigit():
+                    num_str += s[k]
+                    k += 1
+                inner_mult = int(num_str) if num_str else 1
+                _parse(inner, multiplier * inner_mult)
+                i = k
+            elif s[i].isupper():
+                # Element symbol.
+                elem = s[i]
+                j = i + 1
+                while j < len(s) and s[j].islower():
+                    elem += s[j]
+                    j += 1
+                # Check for count.
+                num_str = ""
+                while j < len(s) and s[j].isdigit():
+                    num_str += s[j]
+                    j += 1
+                count = int(num_str) if num_str else 1
+                atoms[elem] = atoms.get(elem, 0) + count * multiplier
+                i = j
+            else:
+                i += 1
+
+    _parse(formula)
+    return atoms
+
+
+def balance_equation(equation: str) -> BalancedEquation:
+    """Balance a chemical equation using SymPy linear algebra.
+
+    e.g. "H2 + O2 -> H2O" → reactants={"H2": 2, "O2": 1}, products={"H2O": 2}
+    """
+    _ensure_rdkit()  # not needed, but keeps the lazy-load pattern
+    from sympy import Matrix, lcm
+
+    if "->" not in equation and "→" not in equation:
+        return BalancedEquation({}, {}, False, "no arrow in equation")
+    arrow = "->" if "->" in equation else "→"
+    left, right = equation.split(arrow, 1)
+
+    reactant_terms = _parse_equation_side(left)
+    product_terms = _parse_equation_side(right)
+
+    if not reactant_terms or not product_terms:
+        return BalancedEquation({}, {}, False, "empty side")
+
+    # Collect all elements.
+    all_elements: set[str] = set()
+    for formula, _ in reactant_terms + product_terms:
+        all_elements.update(_parse_formula_atoms(formula).keys())
+    elements = sorted(all_elements)
+
+    # Build the matrix: each row is an element, each column is a species.
+    # Reactants are positive, products are negative.
+    species = [f for f, _ in reactant_terms] + [f for f, _ in product_terms]
+    n_reactants = len(reactant_terms)
+    n_products = len(product_terms)
+
+    rows = []
+    for elem in elements:
+        row = []
+        for formula, _ in reactant_terms:
+            atoms = _parse_formula_atoms(formula)
+            row.append(atoms.get(elem, 0))
+        for formula, _ in product_terms:
+            atoms = _parse_formula_atoms(formula)
+            row.append(-atoms.get(elem, 0))
+        rows.append(row)
+
+    matrix = Matrix(rows)
+    nullspace = matrix.nullspace()
+    if not nullspace:
+        return BalancedEquation({}, {}, False, "no solution")
+
+    # The nullspace vector gives the coefficients.
+    vec = nullspace[0]
+    # Convert to integers.
+    denominators = [v.q for v in vec]
+    common = lcm(denominators) if denominators else 1
+    coeffs = [int(v * common) for v in vec]
+
+    # Ensure all positive.
+    if any(c < 0 for c in coeffs):
+        coeffs = [-c for c in coeffs]
+
+    reactant_coeffs = {species[i]: coeffs[i] for i in range(n_reactants)}
+    product_coeffs = {species[n_reactants + i]: coeffs[n_reactants + i] for i in range(n_products)}
+
+    return BalancedEquation(
+        reactants=reactant_coeffs,
+        products=product_coeffs,
+        balanced=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Stoichiometry
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StoichiometryResult:
+    """Result of a stoichiometry calculation."""
+
+    answer: str  # human-readable answer
+    limiting_reagent: str | None = None
+    product_amount: float | None = None
+    error: str | None = None
+
+
+def stoichiometry(
+    equation: str,
+    known_reactant: str,
+    known_amount: float,
+    target_product: str | None = None,
+) -> StoichiometryResult:
+    """Calculate product yield from a balanced equation and known reactant amount.
+
+    If target_product is None, uses the first product.
+    """
+    balanced = balance_equation(equation)
+    if not balanced.balanced:
+        return StoichiometryResult("", error=balanced.error)
+
+    if known_reactant not in balanced.reactants:
+        return StoichiometryResult("", error=f"{known_reactant} not found in reactants")
+
+    reactant_coeff = balanced.reactants[known_reactant]
+
+    if target_product is None:
+        target_product = next(iter(balanced.products))
+    if target_product not in balanced.products:
+        return StoichiometryResult("", error=f"{target_product} not found in products")
+
+    product_coeff = balanced.products[target_product]
+    # Mole ratio: product_coeff / reactant_coeff
+    product_amount = known_amount * product_coeff / reactant_coeff
+    answer = (
+        f"{known_amount} mol {known_reactant} produces {product_amount:.4g} mol {target_product}"
+    )
+    return StoichiometryResult(
+        answer=answer,
+        product_amount=product_amount,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Molar mass
+# ---------------------------------------------------------------------------
+
+
+def molar_mass(formula_or_smiles: str) -> float:
+    """Calculate the molar mass of a compound from its formula or SMILES.
+
+    Uses RDKit when the input is a valid SMILES. For plain formulas
+    (e.g. "H2O", "C6H12O6"), parses the formula and sums atomic masses.
+    """
+    # Try SMILES first (RDKit gives exact molecular weight).
+    props = validate_smiles(formula_or_smiles)
+    if props.valid:
+        return props.molecular_weight
+
+    # Fall back to formula parsing with atomic masses.
+    atoms = _parse_formula_atoms(formula_or_smiles)
+    if not atoms:
+        raise ValueError(f"cannot compute molar mass for {formula_or_smiles}")
+
+    # Common atomic masses (g/mol).
+    _ATOMIC_MASSES = {
+        "H": 1.008,
+        "C": 12.011,
+        "N": 14.007,
+        "O": 15.999,
+        "F": 18.998,
+        "Na": 22.990,
+        "Mg": 24.305,
+        "Al": 26.982,
+        "Si": 28.085,
+        "P": 30.974,
+        "S": 32.06,
+        "Cl": 35.45,
+        "K": 39.098,
+        "Ca": 40.078,
+        "Fe": 55.845,
+        "Cu": 63.546,
+        "Zn": 65.38,
+        "Br": 79.904,
+        "I": 126.904,
+        "Ba": 137.327,
+        "Pb": 207.2,
+        "Ag": 107.868,
+        "Au": 196.967,
+        "He": 4.003,
+        "Li": 6.941,
+        "Be": 9.012,
+        "B": 10.811,
+        "Ne": 20.180,
+        "Ar": 39.948,
+        "Ti": 47.867,
+        "Cr": 51.996,
+        "Mn": 54.938,
+        "Co": 58.933,
+        "Ni": 58.693,
+        "Ga": 69.723,
+        "Ge": 72.63,
+        "As": 74.922,
+        "Se": 78.96,
+        "Sr": 87.62,
+        "Sn": 118.71,
+        "Sb": 121.76,
+        "Bi": 208.98,
+    }
+    total = 0.0
+    for elem, count in atoms.items():
+        mass = _ATOMIC_MASSES.get(elem)
+        if mass is None:
+            raise ValueError(f"unknown element: {elem}")
+        total += mass * count
+    return round(total, 2)
+
+
+# ---------------------------------------------------------------------------
+# Molecular descriptors (RDKit)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MolecularDescriptors:
+    """RDKit-computed molecular descriptors for drug-likeness assessment."""
+
+    smiles: str
+    molecular_weight: float
+    log_p: float  # partition coefficient (lipophilicity)
+    tpsa: float  # topological polar surface area
+    h_bond_donors: int  # Lipinski H-bond donors
+    h_bond_acceptors: int  # Lipinski H-bond acceptors
+    rotatable_bonds: int
+    ring_count: int
+    error: str | None = None
+
+
+def compute_descriptors(smiles: str) -> MolecularDescriptors:
+    """Compute molecular descriptors for a SMILES using RDKit.
+
+    Returns MolecularDescriptors with error set on failure.
+    """
+    _ensure_rdkit()
+    from rdkit import Chem
+    from rdkit.Chem import Crippen, Descriptors, Lipinski, rdMolDescriptors
+
+    smiles = smiles.strip()
+    try:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return MolecularDescriptors(
+                smiles=smiles,
+                molecular_weight=0,
+                log_p=0,
+                tpsa=0,
+                h_bond_donors=0,
+                h_bond_acceptors=0,
+                rotatable_bonds=0,
+                ring_count=0,
+                error="invalid SMILES",
+            )
+        canonical = Chem.MolToSmiles(mol)
+        return MolecularDescriptors(
+            smiles=canonical,
+            molecular_weight=round(float(Descriptors.MolWt(mol)), 2),  # type: ignore[attr-defined]
+            log_p=round(float(Crippen.MolLogP(mol)), 2),  # type: ignore[attr-defined]
+            tpsa=round(float(Descriptors.TPSA(mol)), 2),  # type: ignore[attr-defined]
+            h_bond_donors=int(Lipinski.NumHDonors(mol)),  # type: ignore[attr-defined]
+            h_bond_acceptors=int(Lipinski.NumHAcceptors(mol)),  # type: ignore[attr-defined]
+            rotatable_bonds=int(Lipinski.NumRotatableBonds(mol)),  # type: ignore[attr-defined]
+            ring_count=int(rdMolDescriptors.CalcNumRings(mol)),
+        )
+    except Exception as exc:
+        return MolecularDescriptors(
+            smiles=smiles,
+            molecular_weight=0,
+            log_p=0,
+            tpsa=0,
+            h_bond_donors=0,
+            h_bond_acceptors=0,
+            rotatable_bonds=0,
+            ring_count=0,
+            error=str(exc),
+        )
