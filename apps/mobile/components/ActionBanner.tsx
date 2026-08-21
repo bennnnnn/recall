@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
-import { Motion } from "@/lib/motion";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
@@ -19,21 +19,26 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = {
   message: string | null;
   icon?: IoniconName;
+  tone?: ActionFeedbackTone;
   onDismiss: () => void;
   bottomOffset?: number;
 };
+
+export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
 
 const SHOW_MS = 2600;
 
 export function ActionBanner({
   message,
   icon = "checkmark-circle",
+  tone = "success",
   onDismiss,
   bottomOffset = 24,
 }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const reduceMotion = useReduceMotion();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,13 +46,19 @@ export function ActionBanner({
   useEffect(() => {
     if (!message) return;
 
-    opacity.value = 0;
-    translateY.value = 24;
-    opacity.value = withTiming(1, { duration: Motion.duration.snappy });
-    translateY.value = withSpring(0, { damping: 14, stiffness: 140 });
+    opacity.value = reduceMotion ? 1 : 0;
+    translateY.value = reduceMotion ? 0 : 24;
+    if (!reduceMotion) {
+      opacity.value = withTiming(1, { duration: Motion.duration.snappy });
+      translateY.value = withSpring(0, { damping: 14, stiffness: 140 });
+    }
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
+      if (reduceMotion) {
+        onDismiss();
+        return;
+      }
       opacity.value = withTiming(0, { duration: Motion.duration.snappy }, (finished) => {
         if (finished) runOnJS(onDismiss)();
       });
@@ -57,7 +68,7 @@ export function ActionBanner({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [message, onDismiss, opacity, translateY]);
+  }, [message, onDismiss, opacity, reduceMotion, translateY]);
 
   const bannerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -66,7 +77,14 @@ export function ActionBanner({
 
   if (!message) return null;
 
-  const toastText = theme.isDark ? theme.text : theme.onPrimary;
+  const iconColor =
+    tone === "error"
+      ? theme.danger
+      : tone === "warning"
+        ? theme.warning
+        : tone === "info"
+          ? theme.primary
+          : theme.success;
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onDismiss}>
@@ -81,8 +99,14 @@ export function ActionBanner({
           ]}
           pointerEvents="box-none"
         >
-          <Pressable style={s.toast} onPress={onDismiss}>
-            <Icon name={icon} size={18} color={toastText} />
+          <Pressable
+            style={s.toast}
+            onPress={onDismiss}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={message}
+          >
+            <Icon name={icon} size={18} color={iconColor} />
             <Text style={s.text} numberOfLines={2}>
               {message}
             </Text>
