@@ -122,16 +122,24 @@ async def _reserve_daily_slot(redis: Redis, key: str, *, limit: int) -> bool:
     lands over the limit and gives its slot back, so the cap can't be
     exceeded by concurrent calls. A limit of 0 (feature off / not entitled)
     always refuses.
+
+    M10: Redis outages fail closed with ``RedisUnavailableError`` — same
+    pattern as ``reserve_usage`` so speech/image/Tavily paths return 503
+    instead of an opaque 500.
     """
     if limit <= 0:
         return False
-    new_total = await redis.incrby(key, 1)
-    if new_total == 1:
-        await redis.expire(key, _DAILY_TTL)
-    if new_total > limit:
-        await redis.incrby(key, -1)
-        return False
-    return True
+    try:
+        new_total = await redis.incrby(key, 1)
+        if new_total == 1:
+            await redis.expire(key, _DAILY_TTL)
+        if new_total > limit:
+            await redis.incrby(key, -1)
+            return False
+        return True
+    except RedisError as exc:
+        logger.warning("Daily slot reserve failed; Redis unavailable key=%s", key, exc_info=True)
+        raise RedisUnavailableError() from exc
 
 
 async def _refund_daily(redis: Redis, key: str, *, amount: int = 1) -> None:
@@ -174,6 +182,37 @@ async def seed_usage_if_missing(
         return
     key = _usage_key(user_id, day or utc_today())
     await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
+
+
+async def heal_usage_drift(
+    redis: Redis,
+    user_id: str,
+    db_total: int,
+    *,
+    day: date | None = None,
+) -> None:
+    """Heal Redis/DB drift when Redis holds a stale value lower than the DB.
+
+    ``seed_usage_if_missing`` only seeds when the key is absent — if Redis
+    holds a stale value *lower* than the DB total (repeated ``adjust_usage``
+    failures, partial outages, manual key edits), seeding is skipped forever
+    for that UTC day and the user can exceed daily limits. This compares the
+    two and raises Redis to ``max(redis, db_total)`` when DB is ahead. Atomic
+    via a Lua compare-and-set so concurrent turns can't double-count.
+    """
+    if db_total <= 0:
+        return
+    key = _usage_key(user_id, day or utc_today())
+    try:
+        current = await redis.get(key)
+        if current is None:
+            await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
+            return
+        current_int = int(current)
+        if current_int < db_total:
+            await redis.set(key, db_total, ex=_DAILY_TTL)
+    except RedisError:
+        logger.warning("heal_usage_drift failed user_id=%s", user_id, exc_info=True)
 
 
 async def reserve_usage(

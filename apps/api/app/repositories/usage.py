@@ -59,3 +59,17 @@ async def get_total_for_date(session: AsyncSession, user_id: UUID, day: date) ->
     if not usage:
         return 0
     return usage.input_tokens + usage.output_tokens
+
+
+async def reset_for_date(session: AsyncSession, user_id: UUID, day: date) -> None:
+    """Zero out the daily usage row for a user/day (dev support).
+
+    L9: reset_today_usage must clear both Redis and DB so the UI shows 0
+    after reset. Deleting the row (vs zeroing) keeps the upsert path simple.
+    """
+    from sqlalchemy import delete as sa_delete
+
+    await session.execute(
+        sa_delete(UsageDaily).where(UsageDaily.user_id == user_id, UsageDaily.date == day)
+    )
+    await session.commit()

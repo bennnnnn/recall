@@ -105,12 +105,12 @@ async def purge_user_sessions(redis: Redis, user_id: UUID, settings: Settings) -
     Used on account deletion — without this, a logged-in client keeps a
     working access token after `DELETE /auth/me` and can still hit endpoints
     until the token's own exp (the DB user check is the only remaining gate).
-    Best-effort: Redis failures are logged but never block the delete.
+
+    M1: Redis failures are NOT swallowed — if we can't purge sessions, the
+    delete fails (503) so the client knows to retry. Silently succeeding
+    leaves live sessions that can call the API until JWT expiry.
     """
-    try:
-        await _revoke_all_refresh_tokens(redis, user_id, settings)
-    except Exception:  # never block account deletion on Redis
-        logger.exception("purge_user_sessions failed user_id=%s", user_id)
+    await _revoke_all_refresh_tokens(redis, user_id, settings)
 
 
 async def refresh_token_pair(

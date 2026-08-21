@@ -2,7 +2,6 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +13,6 @@ from app.core.deps import (
     get_redis,
     get_settings_dep,
     redis_unavailable_http_exception,
-    security,
 )
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
@@ -197,21 +195,34 @@ async def refresh_session(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     body: LogoutRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
+    # M5: access token is optional — if it's expired and refresh already
+    # failed, the client can still revoke the refresh token by itself so a
+    # stolen refresh can't mint new access tokens after the victim signed
+    # out locally. Extract the bearer token from the header manually so
+    # FastAPI doesn't 401 before we reach the handler.
+    auth_header = request.headers.get("authorization", "")
+    access_token: str | None = None
+    if auth_header.lower().startswith("bearer "):
+        access_token = auth_header[7:]
     try:
-        if body.refresh_token:
-            await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
+        if access_token and body.refresh_token:
+            await tokens_service.revoke_access_token(redis, access_token, settings)
             await tokens_service.revoke_refresh_token(redis, body.refresh_token)
-        else:
+        elif body.refresh_token:
+            # No valid access token — revoke refresh only.
+            await tokens_service.revoke_refresh_token(redis, body.refresh_token)
+        elif access_token:
             # Client lost refresh — resolve user before revoke, then kill all sessions.
-            user_id = await tokens_service.verify_access_token(
-                redis, credentials.credentials, settings
-            )
-            await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
+            user_id = await tokens_service.verify_access_token(redis, access_token, settings)
+            await tokens_service.revoke_access_token(redis, access_token, settings)
             await tokens_service.purge_user_sessions(redis, user_id, settings)
+        else:
+            # Nothing to revoke — no-op (204).
+            pass
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
     except GoogleAuthError as exc:
@@ -317,7 +328,18 @@ async def delete_me(
     # Kill every outstanding session before the row goes — otherwise a
     # logged-in client keeps a working access token until its own exp, with
     # only the (now-deleted) DB user check to stop it.
-    await tokens_service.purge_user_sessions(redis, user.id, settings)
+    # M1: if Redis is down, fail the delete (503) so the client retries —
+    # silently succeeding leaves live sessions that can call the API.
+    try:
+        await tokens_service.purge_user_sessions(redis, user.id, settings)
+    except Exception:
+        logger.warning(
+            "Session purge failed during account delete user_id=%s", user.id, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not revoke sessions. Please retry.",
+        ) from None
     try:
         await google_integrations_service.revoke_all_google_tokens_for_user(
             session,

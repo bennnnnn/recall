@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AppState } from "react-native";
 import { Alert, ScrollView, Switch, Text, View } from "react-native";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -71,6 +72,17 @@ export default function ModelsSettingsScreen() {
       void refreshUsage();
     }, [refreshUsage]),
   );
+
+  // M8: also refresh usage when the app returns to foreground — the user
+  // may have completed turns in another chat, and the Settings screen
+  // only refetches on its own focus. Without this, the "Today" numbers
+  // are stale until the user leaves and returns to Settings.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshUsage();
+    });
+    return () => sub.remove();
+  }, [refreshUsage]);
 
   const effectiveAuto = draft?.auto ?? autoEnabled;
   const effectiveModels = draft?.models ?? modelEnabledSet;

@@ -24,6 +24,7 @@ import { signInWithAppleCredentials } from "@/lib/apple-auth";
 import { signInWithGoogleIdToken, signOutGoogle } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
 import {
+  clearOnboarded,
   clearToken,
   getOnboarded,
   getRefreshToken,
@@ -135,9 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void writeCachedUser(me);
     } catch {
       // 401 already triggers onUnauthorized → signOut before this catch.
-      // Transient failures (offline, 5xx) must not wipe a still-valid session —
-      // same policy as the cached-user path above.
-      setTokenState(stored);
+      // M2: transient failures (offline, 5xx) must not set token without a
+      // user — settings/profile/bootstrap break when user is null but token
+      // is set. Keep loading so the app stays on the splash screen until
+      // /auth/me succeeds or the user retries. A cached user (if any) was
+      // already handled by the early-return path above.
+      setLoading(false);
     } finally {
       setLoading(false);
     }
@@ -250,6 +254,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // best-effort — clearing the local token is what matters
       }
+      // L4: log out RevenueCat so the next user doesn't inherit the prior
+      // user's entitlements / customer info.
+      try {
+        const { signOutRevenueCat } = await import("@/lib/purchases");
+        await signOutRevenueCat();
+      } catch {
+        /* best-effort */
+      }
+      // L3: reset onboarding so a different user signing in on this device
+      // still sees the intro.
+      try {
+        await clearOnboarded();
+        setOnboardedState(false);
+      } catch {
+        /* best-effort */
+      }
       if (accessToken) {
         await logoutSession(accessToken, refreshToken);
       }
@@ -273,8 +293,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Keep in-memory token in sync when api.ts silently refreshes after a 401.
   useEffect(() => {
-    setTokenRefreshHandler((accessToken) => {
+    setTokenRefreshHandler((accessToken, refreshedUser) => {
       setTokenState(accessToken);
+      // L2: merge the refreshed user so plan/profile changes (e.g. webhook
+      // downgrade) appear without waiting for the next /auth/me.
+      if (refreshedUser) {
+        setUser((prev) => (prev ? { ...prev, ...refreshedUser } : refreshedUser));
+      }
     });
     return () => setTokenRefreshHandler(null);
   }, []);

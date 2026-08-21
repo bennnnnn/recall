@@ -95,7 +95,14 @@ async def _reenqueue_after_memory_lock(
 
 
 async def _spend_capped(settings: Settings) -> bool:
-    """Fail-closed: skip extra LLM/embed work when the global $ cap is hit."""
+    """Fail-closed: skip extra LLM/embed work when the global $ cap is hit.
+
+    M12: background LLM jobs (memory/topic/compress/suggestions) intentionally
+    bypass per-user token quota — they are operator cost, not user cost.
+    The global $ cap is the guardrail that prevents runaway spend across
+    all users. Per-user quota debiting would punish users for the app's
+    own background work (title generation, memory extraction).
+    """
     if settings.daily_global_spend_usd <= 0:
         return False
     if await quota_service.global_spend_exceeded(get_redis_client(), settings):

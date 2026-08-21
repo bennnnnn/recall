@@ -87,7 +87,9 @@ describe("api client", () => {
     expect(data).toEqual({ ok: true });
     expect(mockFetch).toHaveBeenCalledTimes(3);
     expect(mockSetTokenPair).toHaveBeenCalledWith("new-access", "new-refresh");
-    expect(onRefresh).toHaveBeenCalledWith("new-access");
+    // L2: onRefresh now also receives the user payload (undefined when the
+    // refresh response omits it).
+    expect(onRefresh).toHaveBeenCalledWith("new-access", undefined);
     expect(mockFetch.mock.calls[2][1]?.headers).toMatchObject({
       Authorization: "Bearer new-access",
     });
