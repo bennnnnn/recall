@@ -1047,7 +1047,9 @@ async def _enrich_final_content(
         # Chemistry fence enrichment — validate SMILES via RDKit and replace
         # with canonical SMILES (or strip invalid ones). Runs in the process
         # pool like validate_math_fences because RDKit is a heavy C extension.
-        if "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower():
+        if settings.chemistry_enabled and (
+            "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower()
+        ):
             from app.services import chemistry_fence as chemistry_fence_service
             from app.services.sympy_executor import run_sympy
 

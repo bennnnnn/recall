@@ -551,3 +551,288 @@ def compute_descriptors(smiles: str) -> MolecularDescriptors:
             ring_count=0,
             error=str(exc),
         )
+
+
+# ---------------------------------------------------------------------------
+# pH / acid-base calculations
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class pHResult:
+    """Result of a pH / acid-base calculation."""
+
+    answer: str
+    ph: float | None = None
+    poh: float | None = None
+    error: str | None = None
+
+
+def ph_from_concentration(h_concentration: float) -> pHResult:
+    """Calculate pH from [H+] concentration (mol/L).
+
+    pH = -log10([H+])
+    """
+    import math
+
+    if h_concentration <= 0:
+        return pHResult(answer="", error="concentration must be positive")
+    ph = -math.log10(h_concentration)
+    poh = 14.0 - ph
+    return pHResult(
+        answer=f"pH = -log10({h_concentration}) = {ph:.2f}",
+        ph=round(ph, 2),
+        poh=round(poh, 2),
+    )
+
+
+def ph_from_poh(poh: float) -> pHResult:
+    """Calculate pH from pOH: pH = 14 - pOH."""
+    ph = 14.0 - poh
+    return pHResult(
+        answer=f"pH = 14 - {poh} = {ph:.2f}",
+        ph=round(ph, 2),
+        poh=round(poh, 2),
+    )
+
+
+def h_from_ph(ph: float) -> pHResult:
+    """Calculate [H+] from pH: [H+] = 10^(-pH)."""
+
+    h_conc = 10 ** (-ph)
+    return pHResult(
+        answer=f"[H+] = 10^(-{ph}) = {h_conc:.2e} mol/L",
+        ph=round(ph, 2),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Gas law calculations (ideal gas law)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GasLawResult:
+    """Result of a gas law calculation."""
+
+    answer: str
+    value: float | None = None
+    error: str | None = None
+
+
+def ideal_gas_law(
+    pressure: float | None = None,
+    volume: float | None = None,
+    moles: float | None = None,
+    temperature: float | None = None,
+) -> GasLawResult:
+    """Solve PV=nRT for the missing variable.
+
+    Exactly one of P, V, n, T must be None (the unknown).
+    Temperature in Kelvin, pressure in atm, volume in L.
+    R = 0.0821 L·atm/(mol·K).
+    """
+    R = 0.0821
+    given = {"P": pressure, "V": volume, "n": moles, "T": temperature}
+    none_count = sum(1 for v in given.values() if v is None)
+    if none_count != 1:
+        return GasLawResult(answer="", error="exactly one variable must be unknown (None)")
+
+    if pressure is None:
+        # P = nRT / V
+        if volume is None or moles is None or temperature is None:
+            return GasLawResult(answer="", error="missing required values")
+        p = (moles * R * temperature) / volume
+        return GasLawResult(
+            answer=f"P = nRT/V = ({moles} * {R} * {temperature}) / {volume} = {p:.4f} atm",
+            value=round(p, 4),
+        )
+    if volume is None:
+        # V = nRT / P
+        if pressure is None or moles is None or temperature is None:
+            return GasLawResult(answer="", error="missing required values")
+        v = (moles * R * temperature) / pressure
+        return GasLawResult(
+            answer=f"V = nRT/P = ({moles} * {R} * {temperature}) / {pressure} = {v:.4f} L",
+            value=round(v, 4),
+        )
+    if moles is None:
+        # n = PV / RT
+        if pressure is None or volume is None or temperature is None:
+            return GasLawResult(answer="", error="missing required values")
+        n = (pressure * volume) / (R * temperature)
+        return GasLawResult(
+            answer=f"n = PV/RT = ({pressure} * {volume}) / ({R} * {temperature}) = {n:.4f} mol",
+            value=round(n, 4),
+        )
+    # temperature is None → T = PV / nR
+    if pressure is None or volume is None or moles is None:
+        return GasLawResult(answer="", error="missing required values")
+    t = (pressure * volume) / (moles * R)
+    return GasLawResult(
+        answer=f"T = PV/nR = ({pressure} * {volume}) / ({moles} * {R}) = {t:.4f} K",
+        value=round(t, 4),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Solution chemistry (molarity, dilution)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SolutionResult:
+    """Result of a solution chemistry calculation."""
+
+    answer: str
+    value: float | None = None
+    error: str | None = None
+
+
+def molarity(moles: float, volume_liters: float) -> SolutionResult:
+    """Calculate molarity: M = moles / volume (L)."""
+    if volume_liters <= 0:
+        return SolutionResult(answer="", error="volume must be positive")
+    m = moles / volume_liters
+    return SolutionResult(
+        answer=f"M = {moles} / {volume_liters} = {m:.4f} mol/L",
+        value=round(m, 4),
+    )
+
+
+def dilution(
+    m1: float,
+    v1: float,
+    v2: float | None = None,
+    m2: float | None = None,
+) -> SolutionResult:
+    """Solve M1V1 = M2V2 for the missing variable.
+
+    Exactly one of V2 or M2 must be None.
+    """
+    if v2 is None and m2 is None:
+        return SolutionResult(answer="", error="one of V2 or M2 must be unknown")
+    if v2 is not None and m2 is not None:
+        return SolutionResult(answer="", error="only one of V2 or M2 can be unknown")
+    if v2 is None:
+        # V2 = M1V1 / M2
+        if m2 is None or m2 == 0:
+            return SolutionResult(answer="", error="M2 must be non-zero")
+        v = (m1 * v1) / m2
+        return SolutionResult(
+            answer=f"V2 = M1V1/M2 = ({m1} * {v1}) / {m2} = {v:.4f} L",
+            value=round(v, 4),
+        )
+    # m2 is None → M2 = M1V1 / V2
+    if v2 == 0:
+        return SolutionResult(answer="", error="V2 must be non-zero")
+    m = (m1 * v1) / v2
+    return SolutionResult(
+        answer=f"M2 = M1V1/V2 = ({m1} * {v1}) / {v2} = {m:.4f} mol/L",
+        value=round(m, 4),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Periodic table data
+# ---------------------------------------------------------------------------
+
+# Atomic masses (g/mol) and electronegativity (Pauling scale) for common elements.
+PERIODIC_TABLE: dict[str, dict[str, float | int | str]] = {
+    "H": {"mass": 1.008, "electronegativity": 2.20, "group": 1, "period": 1, "name": "Hydrogen"},
+    "He": {"mass": 4.003, "electronegativity": 0.0, "group": 18, "period": 1, "name": "Helium"},
+    "Li": {"mass": 6.941, "electronegativity": 0.98, "group": 1, "period": 2, "name": "Lithium"},
+    "Be": {"mass": 9.012, "electronegativity": 1.57, "group": 2, "period": 2, "name": "Beryllium"},
+    "B": {"mass": 10.811, "electronegativity": 2.04, "group": 13, "period": 2, "name": "Boron"},
+    "C": {"mass": 12.011, "electronegativity": 2.55, "group": 14, "period": 2, "name": "Carbon"},
+    "N": {"mass": 14.007, "electronegativity": 3.04, "group": 15, "period": 2, "name": "Nitrogen"},
+    "O": {"mass": 15.999, "electronegativity": 3.44, "group": 16, "period": 2, "name": "Oxygen"},
+    "F": {"mass": 18.998, "electronegativity": 3.98, "group": 17, "period": 2, "name": "Fluorine"},
+    "Ne": {"mass": 20.180, "electronegativity": 0.0, "group": 18, "period": 2, "name": "Neon"},
+    "Na": {"mass": 22.990, "electronegativity": 0.93, "group": 1, "period": 3, "name": "Sodium"},
+    "Mg": {"mass": 24.305, "electronegativity": 1.31, "group": 2, "period": 3, "name": "Magnesium"},
+    "Al": {"mass": 26.982, "electronegativity": 1.61, "group": 13, "period": 3, "name": "Aluminum"},
+    "Si": {"mass": 28.085, "electronegativity": 1.90, "group": 14, "period": 3, "name": "Silicon"},
+    "P": {
+        "mass": 30.974,
+        "electronegativity": 2.19,
+        "group": 15,
+        "period": 3,
+        "name": "Phosphorus",
+    },
+    "S": {"mass": 32.06, "electronegativity": 2.58, "group": 16, "period": 3, "name": "Sulfur"},
+    "Cl": {"mass": 35.45, "electronegativity": 3.16, "group": 17, "period": 3, "name": "Chlorine"},
+    "Ar": {"mass": 39.948, "electronegativity": 0.0, "group": 18, "period": 3, "name": "Argon"},
+    "K": {"mass": 39.098, "electronegativity": 0.82, "group": 1, "period": 4, "name": "Potassium"},
+    "Ca": {"mass": 40.078, "electronegativity": 1.00, "group": 2, "period": 4, "name": "Calcium"},
+    "Fe": {"mass": 55.845, "electronegativity": 1.83, "group": 8, "period": 4, "name": "Iron"},
+    "Cu": {"mass": 63.546, "electronegativity": 1.90, "group": 11, "period": 4, "name": "Copper"},
+    "Zn": {"mass": 65.38, "electronegativity": 1.65, "group": 12, "period": 4, "name": "Zinc"},
+    "Br": {"mass": 79.904, "electronegativity": 2.96, "group": 17, "period": 4, "name": "Bromine"},
+    "I": {"mass": 126.904, "electronegativity": 2.66, "group": 17, "period": 5, "name": "Iodine"},
+    "Ag": {"mass": 107.868, "electronegativity": 1.93, "group": 11, "period": 5, "name": "Silver"},
+    "Au": {"mass": 196.967, "electronegativity": 2.54, "group": 11, "period": 6, "name": "Gold"},
+}
+
+
+def get_element_info(symbol: str) -> dict[str, float | int | str] | None:
+    """Get periodic table data for an element by symbol.
+
+    Returns None if the element is not in our data.
+    """
+    return PERIODIC_TABLE.get(symbol)
+
+
+# ---------------------------------------------------------------------------
+# Limiting reagent
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LimitingReagentResult:
+    """Result of a limiting reagent calculation."""
+
+    answer: str
+    limiting_reagent: str | None = None
+    product_amount: float | None = None
+    error: str | None = None
+
+
+def limiting_reagent(
+    equation: str,
+    reactant_amounts: dict[str, float],
+    target_product: str | None = None,
+) -> LimitingReagentResult:
+    """Determine the limiting reagent and product yield.
+
+    reactant_amounts maps formula → moles available.
+    """
+    balanced = balance_equation(equation)
+    if not balanced.balanced:
+        return LimitingReagentResult(answer="", error=balanced.error)
+
+    if target_product is None:
+        target_product = next(iter(balanced.products))
+    if target_product not in balanced.products:
+        return LimitingReagentResult(answer="", error=f"{target_product} not found in products")
+
+    product_coeff = balanced.products[target_product]
+    # For each reactant, compute how much product it could make.
+    best_reactant: str | None = None
+    best_product: float = float("inf")
+    for reactant, amount in reactant_amounts.items():
+        if reactant not in balanced.reactants:
+            return LimitingReagentResult(answer="", error=f"{reactant} not found in reactants")
+        r_coeff = balanced.reactants[reactant]
+        possible = amount * product_coeff / r_coeff
+        if possible < best_product:
+            best_product = possible
+            best_reactant = reactant
+
+    return LimitingReagentResult(
+        answer=(
+            f"Limiting reagent: {best_reactant}. Product ({target_product}): {best_product:.4g} mol"
+        ),
+        limiting_reagent=best_reactant,
+        product_amount=round(best_product, 4),
+    )

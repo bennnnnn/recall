@@ -78,3 +78,28 @@ def test_enrich_molecule3d_includes_formula_title() -> None:
     assert "```molecule3d" in result
     # Ethanol formula is C2H6O
     assert "C2H6O" in result
+
+
+def test_enrich_surfaces_verified_properties_in_caption() -> None:
+    """When no caption is provided, the fence should include formula + MW as caption."""
+    content = "```smiles\nCCO\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    # Ethanol: C2H6O, MW ~46.07
+    assert "C2H6O" in result
+    assert "g/mol" in result
+
+
+def test_enrich_chemistry_fences_worker_passthrough() -> None:
+    """The worker function (called from stream.py process pool) should match the main function."""
+    content = "```smiles\nCCO\n```"
+    result = chemistry_fence.enrich_chemistry_fences_worker(content)
+    assert "```smiles" in result
+    assert "```molecule3d" in result
+
+
+def test_enrich_multiple_fences_all_get_3d() -> None:
+    """Multiple valid SMILES fences should each get a molecule3d fence."""
+    content = "```smiles\nCCO\n```\n\nSome text.\n\n```smiles\nO=O\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    # Both should be canonicalized and get 3D fences.
+    assert result.count("```molecule3d") == 2
