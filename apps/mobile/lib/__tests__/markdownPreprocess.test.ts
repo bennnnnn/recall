@@ -1,4 +1,15 @@
-import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines, breakAttachedMathFences, unwrapProseMathBackticks, mergeStrandedColons } from "@/lib/markdown/markdownPreprocess";
+import {
+  normalizeBoldInlineMath,
+  normalizeMarkdownTables,
+  isPipeTable,
+  preprocessMarkdown,
+  splitInlineMath,
+  layoutCheckVerificationLines,
+  breakAttachedMathFences,
+  unwrapProseMathBackticks,
+  mergeStrandedColons,
+  stripBoldListLabelContinuationColons,
+} from "@/lib/markdown/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
@@ -168,7 +179,7 @@ $)
     expect(mergeStrandedColons("# Heading\n:")).toBe("# Heading\n:");
   });
 
-  it("preprocessMarkdown merges stranded colons in a numbered list", () => {
+  it("preprocessMarkdown removes stranded colons after bold list labels", () => {
     const input = `1. **Substitute** $n = 3$: $3! = 3 \\times 2 \\times 1$
 2. **Multiply**
 :
@@ -177,10 +188,37 @@ $)
 :
    $6 \\times 1 = 6$`;
     const out = preprocessMarkdown(input);
-    expect(out).toContain("**Multiply**:");
-    expect(out).toContain("**Final step**:");
-    // No stranded colon lines remain
-    expect(out).not.toMatch(/\n:\n/);
+    expect(out).toContain("**Multiply**\n");
+    expect(out).toContain("**Final step**\n");
+    expect(out).not.toMatch(/(?:\n:|\*\*:|·)/);
+  });
+
+  it("removes decorative colons before values under bold list labels", () => {
+    const input = `- **Chemical Formula**
+  : O₂
+- **Appearance**
+  : Colorless gas
+1. **Role**
+   : Essential for respiration`;
+
+    expect(stripBoldListLabelContinuationColons(input)).toBe(`- **Chemical Formula**
+  O₂
+- **Appearance**
+  Colorless gas
+1. **Role**
+   Essential for respiration`);
+    expect(preprocessMarkdown(input)).not.toMatch(/^\s*:|·/m);
+  });
+
+  it("keeps unrelated and fenced colon-prefixed lines intact", () => {
+    const input = `Regular label
+: keep this
+\`\`\`text
+- **Chemical Formula**
+  : keep in code
+\`\`\``;
+
+    expect(stripBoldListLabelContinuationColons(input)).toBe(input);
   });
 
   it("keeps a short ```math fence inside a numbered solution step intact", () => {

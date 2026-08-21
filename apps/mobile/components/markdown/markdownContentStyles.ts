@@ -46,7 +46,7 @@ export function makeMdMath(t: Theme) {
       width: 7,
       height: 7,
       borderRadius: 4,
-      backgroundColor: t.assistantText,
+      backgroundColor: t.primary,
       // Body is 16/22 — center the disc on the first line.
       marginTop: 8,
       marginRight: 10,

@@ -5,6 +5,7 @@ import { render } from "@testing-library/react-native";
 import { Text } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { makeMdMath } from "@/components/markdown/markdownContentStyles";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { lightTheme } from "@/lib/theme";
 
@@ -48,6 +49,10 @@ const LIST = [
 ].join("\n");
 
 describe("markdown paragraph wrap", () => {
+  it("uses the theme accent for standard list bullets", () => {
+    expect(makeMdMath(lightTheme).listBullet.backgroundColor).toBe(lightTheme.primary);
+  });
+
   it("renders a list paragraph as Text, not a View", () => {
     const { rules } = makeRenderRules(lightTheme);
     const element = rules.paragraph(
