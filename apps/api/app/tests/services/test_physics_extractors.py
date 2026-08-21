@@ -44,6 +44,30 @@ def test_kinematics_free_fall_velocity_after() -> None:
     assert intent is not None
     assert intent.kind == "kinematics"
     assert intent.physics_op == "velocity"
+    assert intent.physics_params is not None
+    assert intent.physics_units is not None
+    assert intent.physics_params["t"] == 3.0
+    assert intent.physics_units["t"] == "seconds"
+
+
+def test_kinematics_position_after_duration() -> None:
+    intent = _extract_kinematics_intent(
+        "A ball is thrown upward at 15 m/s. What is its height after 2 seconds?"
+    )
+    assert intent is not None
+    assert intent.physics_op == "position"
+    assert intent.physics_params is not None
+    assert intent.physics_params["t"] == 2.0
+    assert "h0" not in intent.physics_params
+
+
+def test_kinematics_after_without_duration_is_not_verified() -> None:
+    assert (
+        _extract_kinematics_intent(
+            "An object falls from 100 m. What is its velocity after the fall?"
+        )
+        is None
+    )
 
 
 def test_kinematics_moon_gravity() -> None:
