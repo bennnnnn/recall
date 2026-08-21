@@ -339,20 +339,17 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
-# Force: Newton's laws, net force, friction
+# Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
 _FORCE_CUES = (
     "net force",
-    "newton's",
-    "newtons law",
-    "friction",
+    "newton's second law",
+    "newtons second law",
     "force of",
     "force required",
     "acceleration given",
     "given force",
-    "normal force",
-    "tension",
 )
 
 
@@ -432,7 +429,6 @@ _ENERGY_CUES = (
     "work of",
     "power of",
     "energy of",
-    "conservation of energy",
 )
 
 

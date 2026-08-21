@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Physics solver existed but free-fall stayed unverified; KE gained fake height.**
+  The pre-stream gate had no physics cues, and a length regex matched `m` inside
+  `m/s`. Gate supported templates explicitly; use unit-suffix boundaries and
+  bind multiple quantities to their nearest semantic label.
 - **Radicals looked like `√` + subscript, and `\sqrt{8^3}` printed a caret.** The
   radical is a row of `[√ Text][radicand View with borderTop]`, so it only holds
   together when both sides share one line box and the bar sits on the ink. Three

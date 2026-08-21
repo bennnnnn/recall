@@ -38,6 +38,7 @@ The API persists and forwards the user's message **verbatim**. Capture happens i
 | Layer | Path |
 |-------|------|
 | SymPy core | `apps/api/app/services/math_service/` |
+| Physics templates | `apps/api/app/services/physics_solver.py`, `math_tools/physics.py` |
 | Pre-stream inject | `apps/api/app/services/math_tools/` |
 | Post-stream fences | `apps/api/app/services/math_fence.py` |
 | Camera OCR | `apps/api/app/services/math_image_extract.py` |
@@ -68,6 +69,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
+| Physics (narrow) | 1D gravity kinematics, vacuum projectile range/max height, scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; computed trajectory points render as `graph` fences |
 | Linear algebra | 2×2–4×4 det and inverse | `matrix` |
 | Calc II (thin) | Taylor, partials, first-order `dsolve`. Polar/parametric/double integrals stay LLM | `calculus` |
 | Probability | Binomial PMF, expected value of a list | `probability` |
@@ -99,5 +101,6 @@ Still not a verified kind (the model may answer; it must **not** claim SymPy):
 2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
 3. **Linear algebra** beyond 4×4 det / inverse (no multiply / rref / eigen; no general NL matrix parsing).
 4. **Full unit catalogs** (only common length/mass/time/temp).
+5. **Physics beyond the verified templates** — friction, tension, normal-force systems, momentum/collisions, rotation, circuits, waves, thermodynamics, relativity, coupled ODEs, and free-body diagrams remain LLM-only.
 
 New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.

@@ -175,6 +175,14 @@ def test_force_only_one_known_returns_none() -> None:
     assert _extract_force_intent("A 5 kg mass is at rest.") is None
 
 
+def test_force_does_not_claim_unsupported_friction_or_tension() -> None:
+    assert _extract_force_intent("Find the friction on a 5 kg block with a 10 N load.") is None
+    assert (
+        _extract_force_intent("Find the tension supporting a 5 kg mass accelerating at 2 m/s^2.")
+        is None
+    )
+
+
 # ---------------------------------------------------------------------------
 # Energy
 # ---------------------------------------------------------------------------
@@ -221,3 +229,12 @@ def test_energy_work() -> None:
 
 def test_energy_no_knowns_returns_none() -> None:
     assert _extract_energy_intent("Tell me about energy conservation.") is None
+
+
+def test_energy_does_not_claim_conservation_problem() -> None:
+    assert (
+        _extract_energy_intent(
+            "Use conservation of energy for a 2 kg cart moving at 10 m/s from a height of 5 m."
+        )
+        is None
+    )
