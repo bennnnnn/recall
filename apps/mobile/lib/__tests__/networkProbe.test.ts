@@ -46,7 +46,7 @@ describe("resolveIsOffline", () => {
     mockRefresh.mockResolvedValueOnce({ isConnected: false, isInternetReachable: false });
     mockCheckHealth.mockResolvedValueOnce(true);
     await expect(resolveIsOffline()).resolves.toBe(false);
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("is online when NetInfo + API fail but public internet works", async () => {
@@ -54,6 +54,46 @@ describe("resolveIsOffline", () => {
     mockCheckHealth.mockResolvedValueOnce(false);
     mockFetch.mockResolvedValueOnce({ ok: true, status: 204 });
     await expect(resolveIsOffline()).resolves.toBe(false);
+  });
+
+  it("recovers when NetInfo refresh hangs after reconnect", async () => {
+    jest.useFakeTimers();
+    try {
+      mockRefresh.mockReturnValueOnce(new Promise(() => undefined));
+      mockCheckHealth.mockResolvedValueOnce(true);
+      const result = resolveIsOffline();
+
+      await jest.advanceTimersByTimeAsync(1_000);
+
+      await expect(result).resolves.toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("uses public reachability without waiting for a hung API probe", async () => {
+    mockRefresh.mockResolvedValueOnce({ isConnected: false, isInternetReachable: false });
+    mockCheckHealth.mockReturnValueOnce(new Promise(() => undefined));
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 204 });
+
+    await expect(resolveIsOffline()).resolves.toBe(false);
+  });
+
+  it("settles offline when every reconnect probe hangs", async () => {
+    jest.useFakeTimers();
+    try {
+      mockRefresh.mockReturnValueOnce(new Promise(() => undefined));
+      mockCheckHealth.mockReturnValueOnce(new Promise(() => undefined));
+      mockFetch.mockReturnValueOnce(new Promise(() => undefined));
+      const result = resolveIsOffline();
+
+      await jest.advanceTimersByTimeAsync(1_000);
+      await jest.advanceTimersByTimeAsync(3_500);
+
+      await expect(result).resolves.toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("is offline only when NetInfo, API, and public probe all fail", async () => {
