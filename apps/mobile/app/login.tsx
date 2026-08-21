@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import {
   formatAppleSignInError,
   shouldShowAppleSignInButton,
@@ -48,6 +49,8 @@ export default function LoginScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const feedback = useActionFeedbackOptional();
+  const busyRef = useRef(false);
   const [busyProvider, setBusyProvider] = useState<"apple" | "google" | "dev" | null>(null);
   const busy = busyProvider !== null;
   const showDevLogin = config.devAuthEnabled && __DEV__;
@@ -58,6 +61,10 @@ export default function LoginScreen() {
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
   const expoGoIos = isExpoGo() && Platform.OS === "ios";
   const expoGoAndroid = isExpoGo() && Platform.OS === "android";
+  const showSignInError = (message: string) => {
+    if (feedback) feedback.error(message);
+    else Alert.alert(t("login.sign_in_failed"), message);
+  };
 
   if (loading) {
     return (
@@ -83,19 +90,23 @@ export default function LoginScreen() {
   };
 
   const handleApple = async () => {
+    if (busyRef.current) return;
     tap();
+    busyRef.current = true;
     setBusyProvider("apple");
     try {
       await signInWithApple();
     } catch (e) {
       const message = signInErrorMessage(e, "apple");
-      if (message) Alert.alert(t("login.sign_in_failed"), message);
+      if (message) showSignInError(message);
     } finally {
+      busyRef.current = false;
       setBusyProvider(null);
     }
   };
 
   const handleGoogle = async () => {
+    if (busyRef.current) return;
     tap();
     if (isExpoGo()) {
       Alert.alert(
@@ -112,28 +123,30 @@ export default function LoginScreen() {
       Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
       return;
     }
+    busyRef.current = true;
     setBusyProvider("google");
     try {
       await signInWithGoogle();
     } catch (e) {
       const message = signInErrorMessage(e, "google");
-      if (message) Alert.alert(t("login.sign_in_failed"), message);
+      if (message) showSignInError(message);
     } finally {
+      busyRef.current = false;
       setBusyProvider(null);
     }
   };
 
   const handleDev = async () => {
+    if (busyRef.current) return;
     tap();
+    busyRef.current = true;
     setBusyProvider("dev");
     try {
       await signInWithDev();
     } catch (e) {
-      Alert.alert(
-        t("login.sign_in_failed"),
-        e instanceof Error ? e.message : t("login.error_generic"),
-      );
+      showSignInError(e instanceof Error ? e.message : t("login.error_generic"));
     } finally {
+      busyRef.current = false;
       setBusyProvider(null);
     }
   };
@@ -173,6 +186,7 @@ export default function LoginScreen() {
                 title={t("login.dev")}
                 onPress={handleDev}
                 loading={busyProvider === "dev"}
+                loadingLabel={t("login.dev")}
                 disabled={busy}
                 style={s.primaryBtn}
               />
@@ -251,7 +265,11 @@ export default function LoginScreen() {
                     accessibilityLabel={t("login.dev")}
                     accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
                   >
-                    <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+                    {busyProvider === "dev" ? (
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    ) : (
+                      <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+                    )}
                   </Pressable>
                 </>
               ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
@@ -259,6 +277,7 @@ export default function LoginScreen() {
                   title={t("login.dev")}
                   onPress={handleDev}
                   loading={busyProvider === "dev"}
+                  loadingLabel={t("login.dev")}
                   disabled={busy}
                   style={s.primaryBtn}
                 />
@@ -277,7 +296,11 @@ export default function LoginScreen() {
                     accessibilityLabel={t("login.dev")}
                     accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
                   >
-                    <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+                    {busyProvider === "dev" ? (
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    ) : (
+                      <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+                    )}
                   </Pressable>
                 </>
               ) : null}

@@ -4,6 +4,7 @@
  */
 import { useMemo } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +31,7 @@ type Props = {
   maxLength?: number;
   multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
+  saving?: boolean;
 };
 
 export function SettingsFieldSheet({
@@ -44,6 +46,7 @@ export function SettingsFieldSheet({
   maxLength,
   multiline = false,
   keyboardType = "default",
+  saving = false,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -52,21 +55,40 @@ export function SettingsFieldSheet({
   return (
     <AppSheet
       visible={visible}
-      onClose={onClose}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
       variant="bottom"
       keyboardAvoiding
       withHandle={false}
       contentContainerStyle={s.sheet}
     >
       <View style={s.header}>
-        <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button">
+        <Pressable
+          onPress={onClose}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("settings.cancel")}
+          disabled={saving}
+        >
           <Text style={s.cancelText}>{t("settings.cancel")}</Text>
         </Pressable>
         <Text style={s.title} numberOfLines={1}>
           {title}
         </Text>
-        <Pressable onPress={onSave} hitSlop={8} accessibilityRole="button">
-          <Text style={s.saveText}>{t("settings.save")}</Text>
+        <Pressable
+          onPress={onSave}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("settings.save")}
+          disabled={saving}
+          accessibilityState={{ disabled: saving, busy: saving }}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Text style={s.saveText}>{t("settings.save")}</Text>
+          )}
         </Pressable>
       </View>
       <View style={s.body}>
@@ -84,6 +106,7 @@ export function SettingsFieldSheet({
           keyboardType={keyboardType}
           multiline={multiline}
           textAlignVertical={multiline ? "top" : "center"}
+          editable={!saving}
         />
       </View>
     </AppSheet>

@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -38,15 +39,29 @@ export default function Onboarding() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const feedback = useActionFeedbackOptional();
+  const [finishing, setFinishing] = useState(false);
+  const finishingRef = useRef(false);
 
   if (onboarded) return <Redirect href="/login" />;
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;
 
   const finish = async () => {
+    if (finishingRef.current) return;
     tap();
-    await completeOnboarding();
-    router.replace("/login");
+    finishingRef.current = true;
+    setFinishing(true);
+    try {
+      await completeOnboarding();
+      router.replace("/login");
+    } catch {
+      if (feedback) feedback.error(t("common.error"));
+      else Alert.alert(t("common.error"));
+    } finally {
+      finishingRef.current = false;
+      setFinishing(false);
+    }
   };
 
   return (
@@ -82,7 +97,14 @@ export default function Onboarding() {
         ))}
       </View>
 
-      <Button title={t("onboarding.get_started")} onPress={() => void finish()} style={s.cta} />
+      <Button
+        title={t("onboarding.get_started")}
+        onPress={() => void finish()}
+        loading={finishing}
+        loadingLabel={t("onboarding.get_started")}
+        disabled={finishing}
+        style={s.cta}
+      />
     </LinearGradient>
   );
 }
