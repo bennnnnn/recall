@@ -81,6 +81,8 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
     h0 = p.get("h0", 0.0)
     v0 = p.get("v0", 0.0)
     op = intent.physics_op or "time_to_ground"
+    if g <= 0:
+        raise MathServiceError("gravity must be positive")
 
     t = Symbol("t", positive=True, real=True)
     h_sym = h0 + v0 * t - 0.5 * g * t**2
@@ -93,7 +95,9 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
             raise MathServiceError("no positive real time to ground")
         t_val = float(valid[0])
         answer_latex = (
-            rf"t = \sqrt{{\frac{{2 \cdot {h0:g}}}{{{g:g}}}}} "
+            r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g} = "
+            rf"\frac{{{v0:g} + \sqrt{{{v0:g}^2 + 2 \cdot {g:g} \cdot {h0:g}}}}}"
+            rf"{{{g:g}}} "
             rf"\approx {t_val:.2f} \text{{ s}}"
         )
         answer_value = f"{t_val:.2f} s"

@@ -37,6 +37,22 @@ def test_kinematics_time_to_ground() -> None:
     assert spec.points[-1][1] == 0.0
 
 
+def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="time_to_ground",
+        physics_params={"h0": 0.0, "v0": 15.0, "g": 9.81},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2"},
+        operation="solve",
+    )
+    result = physics_solver.solve_kinematics(intent)
+
+    assert abs(float(result.answer_value.split()[0]) - (2 * 15.0 / 9.81)) < 0.01
+    assert "v_0" in result.answer
+    assert "h_0" in result.answer
+    assert r"\sqrt{\frac{2 \cdot 0}{9.81}}" not in result.answer
+
+
 def test_kinematics_velocity_op() -> None:
     intent = MathIntent(
         kind="kinematics",
@@ -48,6 +64,20 @@ def test_kinematics_velocity_op() -> None:
     result = physics_solver.solve_kinematics(intent)
     # v = v0 - g*t = 0 - 9.81*1 = -9.81 m/s
     assert abs(float(result.answer_value.split()[0]) - (-9.81)) < 0.01
+
+
+def test_kinematics_position_op_uses_requested_time() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="position",
+        physics_params={"h0": 20.0, "v0": 5.0, "g": 9.81, "t": 2.0},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"},
+        operation="solve",
+    )
+    result = physics_solver.solve_kinematics(intent)
+
+    expected = 20.0 + 5.0 * 2.0 - 0.5 * 9.81 * 2.0**2
+    assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
 
 
 def test_kinematics_acceleration_is_constant() -> None:

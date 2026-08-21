@@ -178,7 +178,10 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     # Initial height (h0): "from 20m", "height of 20m", "20m high", "dropped from 20m"
     h0: float | None = None
     h0_unit = "m"
-    hu = _find_value_with_unit(cleaned, ("from", "height of", "height", "high", "above", "cliff"))
+    hu = _find_value_with_unit(
+        cleaned,
+        ("from", "initial height", "height of", "high", "above", "cliff"),
+    )
     if hu is not None:
         h0, h0_unit = hu
 
@@ -205,6 +208,19 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     elif "acceleration" in lower:
         op = "acceleration"
 
+    time_value: float | None = None
+    time_unit = "s"
+    if op in ("position", "velocity"):
+        time_match = _find_value_with_specific_unit(
+            cleaned,
+            r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
+        )
+        if time_match is None:
+            # "velocity after" / "height after" without a duration is
+            # ambiguous; do not silently answer with impact time.
+            return None
+        time_value, time_unit = time_match
+
     g = _detect_gravity(cleaned)
     params: dict[str, float] = {"g": g}
     units: dict[str, str] = {"g": "m/s^2"}
@@ -213,6 +229,9 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
         units["h0"] = h0_unit or "m"
     params["v0"] = v0
     units["v0"] = v0_unit or "m/s"
+    if time_value is not None:
+        params["t"] = time_value
+        units["t"] = time_unit or "s"
 
     return MathIntent(
         kind="kinematics",
