@@ -94,9 +94,11 @@ def enrich_chemistry_fences(content: str) -> str:
         try:
             coords = chemistry_service.generate_3d_coordinates(props.smiles)
             if coords.sdf:
-                # Use the molecular formula as the title line.
+                # Caption after M END — never prepend it. An extra line before
+                # the RDKit molblock shifts the V2000 counts off line 4 and
+                # 3Dmol.js parses 0 atoms (blank viewer).
                 title = props.formula or caption or "Molecule"
-                mol3d_fence = f"\n```molecule3d\n{title}\n{coords.sdf}\n```"
+                mol3d_fence = f"\n```molecule3d\n{coords.sdf.rstrip()}\n{title}\n```"
         except Exception:
             logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
 

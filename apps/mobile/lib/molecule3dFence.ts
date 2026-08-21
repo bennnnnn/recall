@@ -50,18 +50,25 @@ export function parseMolecule3DFence(content: string): Molecule3DFence | null {
     }
   }
 
-  let caption: string | null = null;
-  if (countsLineIdx >= 3) {
-    // Standard MOL block: title is line 0, program line 1, comment line 2.
-    const title = lines[0].trim();
-    if (title) caption = title;
-  } else if (countsLineIdx > 0) {
-    // Non-standard header — take any non-empty line before the counts line.
-    const captionLines = lines.slice(0, countsLineIdx).filter((l) => l.trim().length > 0);
-    if (captionLines.length > 0) {
-      caption = captionLines[0].trim() || null;
-    }
-  }
+  if (countsLineIdx < 0) return null;
 
-  return { sdf: block, caption };
+  // A V2000 MOL block has exactly 3 header lines before the counts line.
+  // The backend used to prepend the formula (`O2\n` + RDKit molblock), which
+  // shifted counts off line 4 and 3Dmol.js parsed 0 atoms — blank viewer.
+  const headerStart = Math.max(0, countsLineIdx - 3);
+  const prefix = lines
+    .slice(0, headerStart)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const molLines = lines.slice(headerStart);
+  const headerCount = countsLineIdx - headerStart;
+  const padded =
+    headerCount >= 3 ? molLines : [...Array<string>(3 - headerCount).fill(""), ...molLines];
+  const sdf = `${padded.join("\n")}\n$$$$`;
+
+  const trailing = raw.slice(endIdx + 6).trim();
+  const title = padded[0]?.trim() || "";
+  const caption = prefix[0] || trailing.split("\n")[0]?.trim() || title || null;
+
+  return { sdf, caption };
 }

@@ -3,14 +3,14 @@
  * sandboxed WebView (same offline/CSP pattern as ChemistryBlock).
  * Supports rotate/zoom via touch; styled to match the 2D SMILES card.
  */
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseMolecule3DFence } from "@/lib/molecule3dFence";
-import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
+import { injectPreviewCsp, inlineScript, MOLECULE3D_PREVIEW_CSP } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { THREE_D_MOL_MIN_JS } from "@/lib/vendor/threeDMolMinJs";
 import {
@@ -44,9 +44,9 @@ function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): s
   const safeSdf = escapeJsString(sdf.trim());
   const bgColor = theme.isDark ? "#1a1a2e" : "#ffffff";
   const styleConfig = STYLE_CONFIG[style];
-  // 3Dmol.js is a UMD bundle. We inline it in its own <script> block (not
-  // eval) so the CSP `script-src 'unsafe-inline'` is sufficient — eval would
-  // require 'unsafe-eval', which the sandbox CSP does not allow.
+  // 3Dmol.js is a UMD webpack bundle that assigns window.$3Dmol (and
+  // root["3Dmol"]). Inline it in its own <script> block — eval is blocked
+  // by CSP. WebGL shaders still need 'unsafe-eval' (MOLECULE3D_PREVIEW_CSP).
   const run =
     "(function() {\n" +
     "  var sdf = `" +
@@ -55,32 +55,51 @@ function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): s
     "  function reportError(msg) {\n" +
     "    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'molecule3d-error', message: msg })); } catch (e) {}\n" +
     "    var err = document.getElementById('err');\n" +
-    "    err.textContent = msg;\n" +
-    "    err.style.display = 'block';\n" +
+    "    if (err) { err.textContent = msg; err.style.display = 'block'; }\n" +
     "    var viewer = document.getElementById('viewer');\n" +
     "    if (viewer) viewer.style.display = 'none';\n" +
     "  }\n" +
-    "  var M = (typeof $3Dmol !== 'undefined') ? $3Dmol : (typeof window.M !== 'undefined' ? window.M : null);\n" +
-    "  if (!M || typeof M.createViewer !== 'function') {\n" +
-    "    reportError('3D molecule renderer unavailable.');\n" +
-    "    return;\n" +
+    "  function resolveMol() {\n" +
+    "    return window['$3Dmol'] || window['3Dmol'] || (typeof $3Dmol !== 'undefined' ? $3Dmol : null);\n" +
     "  }\n" +
-    "  try {\n" +
-    "    var viewer = M.createViewer('viewer', { backgroundColor: '" +
+    "  var attempts = 0;\n" +
+    "  function start() {\n" +
+    "    var el = document.getElementById('viewer');\n" +
+    "    if (!el) { reportError('3D molecule renderer unavailable.'); return; }\n" +
+    "    if (el.clientWidth < 8 && attempts < 40) {\n" +
+    "      attempts += 1;\n" +
+    "      requestAnimationFrame(start);\n" +
+    "      return;\n" +
+    "    }\n" +
+    "    var M = resolveMol();\n" +
+    "    if (!M || typeof M.createViewer !== 'function') {\n" +
+    "      reportError('3D molecule renderer unavailable.');\n" +
+    "      return;\n" +
+    "    }\n" +
+    "    try {\n" +
+    "      var viewer = M.createViewer(el, { backgroundColor: '" +
     bgColor +
     "', antialias: true });\n" +
-    "    viewer.addModel(sdf, 'sdf');\n" +
-    "    viewer.setStyle({}, " + styleConfig + ");\n" +
-    "    viewer.zoomTo();\n" +
-    "    viewer.render();\n" +
-    "  } catch (e) {\n" +
-    "    reportError('Could not render that 3D structure.');\n" +
+    "      if (!viewer) { reportError('WebGL is not available.'); return; }\n" +
+    "      viewer.addModel(sdf, 'sdf');\n" +
+    "      viewer.setStyle({}, " +
+    styleConfig +
+    ");\n" +
+    "      viewer.zoomTo();\n" +
+    "      viewer.render();\n" +
+    "      if (typeof viewer.resize === 'function') viewer.resize();\n" +
+    "    } catch (e) {\n" +
+    "      reportError((e && e.message) ? e.message : 'Could not render that 3D structure.');\n" +
+    "    }\n" +
     "  }\n" +
+    "  start();\n" +
     "})();\n";
   return injectPreviewCsp(
     "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-      "<style>body{margin:0;padding:0;background:" +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">' +
+      "<style>html,body{margin:0;padding:0;width:100%;height:" +
+      PREVIEW_HEIGHT +
+      "px;background:" +
       bgColor +
       ";overflow:hidden}" +
       "#viewer{width:100%;height:" +
@@ -91,9 +110,14 @@ function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): s
       ";font-size:13px;display:none;white-space:pre-wrap;padding:16px;text-align:center}</style>" +
       "</head><body>" +
       '<div id="viewer"></div><div id="err"></div>' +
-      "<script>" + inlineScript(THREE_D_MOL_MIN_JS) + "</script>" +
-      "<script>" + inlineScript(run) + "</script>" +
+      "<script>" +
+      inlineScript(THREE_D_MOL_MIN_JS) +
+      "</script>" +
+      "<script>" +
+      inlineScript(run) +
+      "</script>" +
       "</body></html>",
+    MOLECULE3D_PREVIEW_CSP,
   );
 }
 
@@ -112,6 +136,9 @@ export function Molecule3DBlock({ content }: Props) {
     () => (sdf ? buildMolecule3dHtml(sdf, theme, style) : ""),
     [sdf, theme, style],
   );
+  useEffect(() => {
+    setRenderError(null);
+  }, [html]);
   const webSource = useMemo(() => ({ html }), [html]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;

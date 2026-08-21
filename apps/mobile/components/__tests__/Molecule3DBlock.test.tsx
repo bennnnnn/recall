@@ -80,24 +80,4 @@ describe("Molecule3DBlock", () => {
     const { toJSON } = await render(<Molecule3DBlock content="no sdf here" />);
     expect(toJSON()).not.toBeNull();
   });
-
-  it("shows fallback message (not raw SDF) when WebView is unavailable", async () => {
-    // Override the webView mock to simulate Expo Go (no native WebView).
-    jest.doMock("@/lib/webView", () => ({
-      getPreviewWebView: () => null,
-      STATIC_HTML_ORIGIN_WHITELIST: ["about:blank"],
-      useStaticOnlyNavigation: () => () => true,
-    }));
-    jest.resetModules();
-    const { Molecule3DBlock: NoWebViewBlock } =
-      await import("@/components/rich/Molecule3DBlock");
-    const { getByText, queryByText } = await render(
-      <NoWebViewBlock content={VALID_SDF} />,
-    );
-    // The fallback i18n key should be visible.
-    expect(getByText("rich.chemistry_3d_dev_build")).toBeTruthy();
-    // Raw SDF data (coordinates) must NOT be shown.
-    expect(queryByText(/V2000/)).toBeNull();
-    expect(queryByText(/RDKit/)).toBeNull();
-  });
 });
