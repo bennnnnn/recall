@@ -17,6 +17,7 @@ import {
   LazyFunctionGraphBlock,
   LazyGeometryBlock,
   LazyMermaidBlock,
+  LazyMolecule3DBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
 import { MessagePreview } from "@/components/rich/MessagePreview";
@@ -154,6 +155,11 @@ export function renderRichFence(
   // Chemistry structures (SMILES — async-split SmilesDrawer)
   if (l === "smiles" || l === "chemistry") {
     return <LazyChemistryBlock key={key} content={content} />;
+  }
+
+  // 3D molecule viewer (SDF — async-split 3Dmol.js)
+  if (l === "molecule3d" || l === "mol3d" || l === "3dmol") {
+    return <LazyMolecule3DBlock key={key} content={content} />;
   }
 
   // Chart / data visualization (vega-lite — async-split vendors)

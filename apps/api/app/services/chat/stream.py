@@ -1044,6 +1044,27 @@ async def _enrich_final_content(
 
         assistant_text = strip_vocab_session_metadata(assistant_text)
 
+        # Chemistry fence enrichment — validate SMILES via RDKit and replace
+        # with canonical SMILES (or strip invalid ones). Runs in the process
+        # pool like validate_math_fences because RDKit is a heavy C extension.
+        if "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower():
+            from app.services import chemistry_fence as chemistry_fence_service
+            from app.services.sympy_executor import run_sympy
+
+            pre_chem_text = assistant_text
+            try:
+                assistant_text = await run_sympy(
+                    chemistry_fence_service.enrich_chemistry_fences_worker,
+                    assistant_text,
+                    timeout=settings.math_solve_timeout_seconds,
+                )
+            except TimeoutError:
+                logger.warning("enrich_chemistry_fences timed out; keeping raw assistant text")
+            except Exception:
+                logger.exception("enrich_chemistry_fences failed; keeping raw assistant text")
+            if result is not None and assistant_text != pre_chem_text:
+                result["final_content"] = assistant_text
+
         # validate_math_fences may rewrite a ```graph fence the model emitted
         # without points (e.g. "Graph x=2y" → model drops the 96-point array)
         # by substituting the verified canonical fence. That corrected text is
