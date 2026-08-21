@@ -33,6 +33,7 @@ export type FenceId =
   | "math"
   | "mermaid"
   | "message"
+  | "molecule3d"
   | "places"
   | "quote"
   | "social"
@@ -111,6 +112,12 @@ export const FENCES: readonly FenceSpec[] = [
   {
     id: "chemistry",
     langs: ["smiles", "chemistry"],
+    structured: true,
+    neverCodeBlock: true,
+  },
+  {
+    id: "molecule3d",
+    langs: ["molecule3d", "mol3d", "3dmol"],
     structured: true,
     neverCodeBlock: true,
   },
