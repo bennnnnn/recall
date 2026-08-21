@@ -44,9 +44,9 @@ function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): s
   const safeSdf = escapeJsString(sdf.trim());
   const bgColor = theme.isDark ? "#1a1a2e" : "#ffffff";
   const styleConfig = STYLE_CONFIG[style];
-  // 3Dmol.js is a UMD bundle. We eval it into the global scope, then use
-  // the global `M` / `$3Dmol` object.
-  const loader = `eval(\`${THREE_D_MOL_MIN_JS}\`);\n`;
+  // 3Dmol.js is a UMD bundle. We inline it in its own <script> block (not
+  // eval) so the CSP `script-src 'unsafe-inline'` is sufficient — eval would
+  // require 'unsafe-eval', which the sandbox CSP does not allow.
   const run =
     "(function() {\n" +
     "  var sdf = `" +
@@ -91,9 +91,9 @@ function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): s
       ";font-size:13px;display:none;white-space:pre-wrap;padding:16px;text-align:center}</style>" +
       "</head><body>" +
       '<div id="viewer"></div><div id="err"></div>' +
-      "<script>" +
-      inlineScript(loader + run) +
-      "</script></body></html>",
+      "<script>" + inlineScript(THREE_D_MOL_MIN_JS) + "</script>" +
+      "<script>" + inlineScript(run) + "</script>" +
+      "</body></html>",
   );
 }
 
