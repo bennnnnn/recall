@@ -652,6 +652,7 @@
   "rich.math_dev_build": "Für gerenderte Mathematik einen Dev-Build verwenden.",
   "rich.math_preview": "{{engine}}-Vorschau",
   "rich.chemistry_dev_build": "App bauen, um Strukturen inline anzuzeigen.",
+  "rich.chemistry_3d_dev_build": "3D-Molekülvorschau erfordert einen Dev-Build.",
   "rich.chemistry_invalid": "Struktur konnte nicht dargestellt werden.",
   "rich.chemistry_structure": "Molekül",
   "rich.mermaid_dev_build": "App bauen, um Diagramme inline anzuzeigen.",

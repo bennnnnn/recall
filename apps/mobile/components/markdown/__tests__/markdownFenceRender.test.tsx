@@ -45,12 +45,16 @@ jest.mock("@/components/rich/LazyHeavyRich", () => {
   const { GeometryBlock } = require("@/components/rich/GeometryBlock");
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   const { FunctionGraphBlock } = require("@/components/rich/FunctionGraphBlock");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
+  const { Molecule3DBlock } = require("@/components/rich/Molecule3DBlock");
   return {
     ...jest.requireActual("@/components/rich/LazyHeavyRich"),
     LazyGeometryBlock: ({ content }: { content: string }) =>
       React.createElement(GeometryBlock, { content }),
     LazyFunctionGraphBlock: ({ content }: { content: string }) =>
       React.createElement(FunctionGraphBlock, { content }),
+    LazyMolecule3DBlock: ({ content }: { content: string }) =>
+      React.createElement(Molecule3DBlock, { content }),
   };
 });
 // Same reasoning — CircularClockBlock pulls in react-native-reanimated,
@@ -322,5 +326,19 @@ describe("renderFence edge cases", () => {
     );
     expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
     expect(queryByText("Copy")).toBeNull();
+  });
+
+  it("routes an explicit ```molecule3d fence to Molecule3DBlock (not CodeBlock)", async () => {
+    // The fence lang "molecule3d" contains a digit — takeLang used to
+    // only read [a-zA-Z-], splitting it into "molecule" + "3d". The
+    // fence then fell through to a plain CodeBlock instead of the 3D
+    // molecule viewer.
+    const sdf = `O2\n     RDKit          3D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\n    0.5705    0.0000    0.0000 O   0  0  0  0  0  0\n   -0.5705    0.0000    0.0000 O   0  0  0  0  0  0\n  1  2  2  0\nM  END`;
+    const { getByText, queryByText } = await render(
+      <>{renderFence(node(sdf, "molecule3d"))}</>,
+    );
+    expect(getByText("Ball")).toBeTruthy();
+    // Must NOT fall through to a CodeBlock with "molecule3d" badge.
+    expect(queryByText("molecule3d")).toBeNull();
   });
 });

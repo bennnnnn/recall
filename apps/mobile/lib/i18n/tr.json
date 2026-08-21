@@ -652,6 +652,7 @@
   "rich.math_dev_build": "İşlenmiş matematik için geliştirme derlemesi kullanın.",
   "rich.math_preview": "{{engine}} önizleme",
   "rich.chemistry_dev_build": "Yapıları görmek için uygulamayı derleyin.",
+  "rich.chemistry_3d_dev_build": "3D molekül önizlemesi bir derleme gerektirir.",
   "rich.chemistry_invalid": "Bu yapı gösterilemedi.",
   "rich.chemistry_structure": "Molekül",
   "rich.mermaid_dev_build": "Diyagramları satır içi görmek için uygulamayı derleyin.",

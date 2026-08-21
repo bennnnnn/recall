@@ -652,6 +652,7 @@
   "rich.math_dev_build": "ለተሳለ ሂሳብ የልማት ግንባታ ይጠቀሙ።",
   "rich.math_preview": "{{engine}} ቅድመ እይታ",
   "rich.chemistry_dev_build": "መዋቅሮችን ለማየት መተግበሪያውን ይገንቡ።",
+  "rich.chemistry_3d_dev_build": "የ3ዲ ሞሌኪውል ቅድሚያ የዴቭ ግንባታ ይፈልጋል።",
   "rich.chemistry_invalid": "ያንን መዋቅር ማሳየት አልተቻለም።",
   "rich.chemistry_structure": "ሞለኪውል",
   "rich.mermaid_dev_build": "ስዕሎችን በመስመር ለማየት መተግበሪያውን ይገንቡ።",

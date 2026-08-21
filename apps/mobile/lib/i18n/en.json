@@ -692,6 +692,7 @@
   "rich.math_dev_build": "Use a dev build for rendered math.",
   "rich.math_preview": "{{engine}} preview",
   "rich.chemistry_dev_build": "Build the app to preview structures inline.",
+  "rich.chemistry_3d_dev_build": "3D molecule preview requires a dev build.",
   "rich.chemistry_invalid": "Could not render that structure.",
   "rich.chemistry_structure": "Molecule",
   "rich.mermaid_dev_build": "Build the app to preview diagrams inline.",

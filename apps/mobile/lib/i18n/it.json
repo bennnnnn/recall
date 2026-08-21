@@ -652,6 +652,7 @@
   "rich.math_dev_build": "Usa un build di sviluppo per la matematica renderizzata.",
   "rich.math_preview": "Anteprima {{engine}}",
   "rich.chemistry_dev_build": "Compila l’app per vedere le strutture in linea.",
+  "rich.chemistry_3d_dev_build": "L’anteprima 3D delle molecole richiede un dev build.",
   "rich.chemistry_invalid": "Impossibile visualizzare quella struttura.",
   "rich.chemistry_structure": "Molecola",
   "rich.mermaid_dev_build": "Compila l’app per visualizzare i diagrammi in linea.",

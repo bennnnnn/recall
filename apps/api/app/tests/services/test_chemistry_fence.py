@@ -76,8 +76,12 @@ def test_enrich_molecule3d_includes_formula_title() -> None:
     content = "```smiles\nCCO\n```"
     result = chemistry_fence.enrich_chemistry_fences(content)
     assert "```molecule3d" in result
-    # Ethanol formula is C2H6O
+    # Ethanol formula is C2H6O — after M END, never as an extra header line.
     assert "C2H6O" in result
+    mol3d = result.split("```molecule3d", 1)[1].split("```", 1)[0]
+    end = mol3d.index("M  END")
+    assert "C2H6O" in mol3d[end:]
+    assert mol3d.strip().splitlines()[0].strip() != "C2H6O"
 
 
 def test_enrich_surfaces_verified_properties_in_caption() -> None:

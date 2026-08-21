@@ -1,33 +1,8 @@
 /**
- * Molecule3DBlock — 3D molecule viewer with style controls.
- *
- * The WebView and heavy deps are mocked; we verify the component renders
- * the style toggle buttons when an SDF is present.
+ * Molecule3DBlock — native SVG ball-and-stick from SDF coordinates.
  */
 import React from "react";
 import { render } from "@testing-library/react-native";
-
-jest.mock("@/lib/webView", () => ({
-  getPreviewWebView: () => ({
-    Component: () => null,
-    mode: "rnc",
-  }),
-  STATIC_HTML_ORIGIN_WHITELIST: ["about:blank"],
-  useStaticOnlyNavigation: () => () => true,
-}));
-
-jest.mock("@/hooks/useDeferredWebViewMount", () => ({
-  useDeferredWebViewMount: () => ({ canMount: true, onLoaded: jest.fn() }),
-}));
-
-jest.mock("@/lib/previewSandbox", () => ({
-  injectPreviewCsp: (html: string) => html,
-  inlineScript: (s: string) => s,
-}));
-
-jest.mock("@/lib/vendor/threeDMolMinJs", () => ({
-  THREE_D_MOL_MIN_JS: "/* 3dmol mock */",
-}));
 
 jest.mock("@/components/Icon", () => ({
   Icon: () => null,
@@ -70,14 +45,18 @@ const VALID_SDF = `Ethanol
 M  END`;
 
 describe("Molecule3DBlock", () => {
-  it("renders without crashing when given a valid SDF", async () => {
-    const { toJSON } = await render(<Molecule3DBlock content={VALID_SDF} />);
-    // Should produce a render tree (not null).
-    expect(toJSON()).not.toBeNull();
+  it("renders atom labels from a valid SDF", async () => {
+    const { getByText, queryByText } = await render(
+      <Molecule3DBlock content={VALID_SDF} />,
+    );
+    expect(getByText("rich.chemistry_structure")).toBeTruthy();
+    expect(getByText("Ball")).toBeTruthy();
+    expect(getByText("Sphere")).toBeTruthy();
+    expect(queryByText(/V2000/)).toBeNull();
   });
 
-  it("renders without crashing when no SDF is present", async () => {
-    const { toJSON } = await render(<Molecule3DBlock content="no sdf here" />);
-    expect(toJSON()).not.toBeNull();
+  it("renders an invalid-structure hint when there is no SDF", async () => {
+    const { getByText } = await render(<Molecule3DBlock content="no sdf here" />);
+    expect(getByText("rich.chemistry_invalid")).toBeTruthy();
   });
 });

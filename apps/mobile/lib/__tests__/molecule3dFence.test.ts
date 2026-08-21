@@ -1,4 +1,4 @@
-import { parseMolecule3DFence } from "@/lib/molecule3dFence";
+import { parseMolGeometry, parseMolecule3DFence } from "@/lib/molecule3dFence";
 
 const VALID_SDF = `Ethanol
      RDKit          3D
@@ -34,8 +34,8 @@ M  END`;
     const result = parseMolecule3DFence(sdf);
     expect(result).not.toBeNull();
     expect(result!.sdf).toContain("M  END");
-    // First non-empty line before counts is the program line.
-    expect(result!.caption).toBe("RDKit          3D");
+    // Program/timestamp line is not a user-facing caption.
+    expect(result!.caption).toBeNull();
   });
 
   it("returns null when there is no M  END", () => {
@@ -46,6 +46,42 @@ M  END`;
   it("returns null for empty content", () => {
     expect(parseMolecule3DFence("")).toBeNull();
     expect(parseMolecule3DFence("   ")).toBeNull();
+  });
+
+  it("strips a prepended formula caption so the MOL header stays 3 lines", () => {
+    // Production fences were ```molecule3d\nO2\n<RDKit molblock>``` — that extra
+    // line shifted the V2000 counts off line 4 and 3Dmol.js drew nothing.
+    const sdf = `O2
+
+     RDKit          3D
+
+  2  1  0  0  0  0  0  0  0  0999 V2000
+    0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+   -0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+  1  2  2  0
+M  END`;
+    const result = parseMolecule3DFence(sdf);
+    expect(result).not.toBeNull();
+    expect(result!.caption).toBe("O2");
+    const mol = result!.sdf;
+    const lines = mol.split("\n");
+    const countsIdx = lines.findIndex((line) => /V2000/.test(line));
+    expect(countsIdx).toBe(3);
+    expect(mol).toContain("$$$$");
+  });
+
+  it("reads a caption after M  END", () => {
+    const sdf = `
+     RDKit          3D
+
+  2  1  0  0  0  0  0  0  0  0999 V2000
+    0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+   -0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+  1  2  2  0
+M  END
+O2`;
+    const result = parseMolecule3DFence(sdf);
+    expect(result!.caption).toBe("O2");
   });
 
   it("handles V3000 counts line", () => {
@@ -61,5 +97,31 @@ M  END`;
     expect(result).not.toBeNull();
     expect(result!.sdf).toContain("M  END");
     expect(result!.caption).toBe("Aspirin");
+  });
+});
+
+describe("parseMolGeometry", () => {
+  it("reads O2 atoms and the double bond", () => {
+    const sdf = `
+     RDKit          3D
+
+  2  1  0  0  0  0  0  0  0  0999 V2000
+    0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+   -0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+  1  2  2  0
+M  END
+$$$$`;
+    const geom = parseMolGeometry(sdf);
+    expect(geom).not.toBeNull();
+    expect(geom!.atoms).toHaveLength(2);
+    expect(geom!.atoms.map((a) => a.el)).toEqual(["O", "O"]);
+    expect(geom!.bonds).toEqual([{ a: 0, b: 1, order: 2 }]);
+  });
+
+  it("reads ethanol from parseMolecule3DFence output", () => {
+    const parsed = parseMolecule3DFence(VALID_SDF);
+    const geom = parseMolGeometry(parsed!.sdf);
+    expect(geom!.atoms.map((a) => a.el)).toEqual(["C", "C", "O"]);
+    expect(geom!.bonds).toHaveLength(2);
   });
 });

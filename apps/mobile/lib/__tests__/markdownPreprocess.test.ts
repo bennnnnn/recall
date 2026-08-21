@@ -388,6 +388,20 @@ represents`;
     expect(fences.some((t) => t.info?.trim() === "geometry")).toBe(true);
   });
 
+  it("BUG FIX regression: ```molecule3d glued to a sentence is a real fence (digits in lang)", () => {
+    // takeLang only read [a-zA-Z-], so "molecule3d" was split into
+    // "molecule" (unrecognized) + "3d" (body), and the glued opener
+    // was never lifted — the fence rendered as prose with literal backticks.
+    const input =
+      "Here's the 3D structure: ```molecule3d\nO2\n\n     RDKit          3D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\nM  END\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/structure: ```molecule3d/);
+    expect(out).toContain("Here's the 3D structure:");
+    const tokens = markdownItInstance.parse(out, {});
+    const fences = tokens.filter((t) => t.type === "fence");
+    expect(fences.some((t) => t.info?.trim() === "molecule3d")).toBe(true);
+  });
+
   it("BUG FIX regression: does not unwrap a math fence just because its content starts with a dollar sign", () => {
     // The price-tier-corruption check matched any body starting with "$",
     // not just the specific "$)" artifact left on its own line by a botched
