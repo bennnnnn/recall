@@ -1,4 +1,4 @@
-import { deriveAssistantMessageContent } from "@/lib/assistantMessageContent";
+import { deriveAssistantMessageContent } from "@/lib/markdown/assistantMessageContent";
 
 describe("deriveAssistantMessageContent", () => {
   const base = {

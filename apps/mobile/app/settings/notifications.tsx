@@ -19,8 +19,8 @@ import {
   setReminderLeadMinutes,
   syncReminderLeadFromServer,
 } from "@/lib/reminderPrefs";
-import { normalizeReminderLeadMinutes } from "@/lib/reminderTiming";
-import { syncTodoReminders } from "@/lib/todoReminders";
+import { normalizeReminderLeadMinutes } from "@/lib/todos/reminderTiming";
+import { syncTodoReminders } from "@/lib/todos/todoReminders";
 import {
   ensureNotificationPermission,
   registerRemotePushToken,

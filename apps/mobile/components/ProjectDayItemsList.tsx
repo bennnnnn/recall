@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { StateView } from "@/components/StateView";
-import { api, type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
+import { type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
+import { useProjectDayItems } from "@/hooks/useProjectDayItems";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
-
-const PAGE_SIZE = 50;
 
 export type ProjectStudyAction = {
   label: string;
@@ -48,99 +47,24 @@ export function ProjectDayItemsList({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const cachedItems = itemsByDate ? (itemsByDate[activityDate] ?? []) : undefined;
-  const useEmbedded =
-    itemsByDate !== undefined && missedItemsProp !== undefined;
-  const [items, setItems] = useState<ProjectItem[]>(cachedItems ?? []);
-  const [missedItems, setMissedItems] = useState<ProjectItem[]>(missedItemsProp ?? []);
-  const [loading, setLoading] = useState(!useEmbedded && cachedItems === undefined);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const [page, missed] = await Promise.all([
-        api.getProjectDailyItems(token, projectId, activityDate, {
-          limit: PAGE_SIZE,
-          offset: 0,
-          bucket: "mastered",
-        }),
-        api.getProjectDailyItems(token, projectId, activityDate, {
-          limit: PAGE_SIZE,
-          offset: 0,
-          bucket: "missed",
-        }),
-      ]);
-      setItems(page);
-      setMissedItems(missed);
-    } catch {
-      setItems([]);
-      setMissedItems([]);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, projectId, activityDate]);
-
-  useEffect(() => {
-    if (useEmbedded) {
-      setItems(itemsByDate?.[activityDate] ?? []);
-      setMissedItems(missedItemsProp ?? []);
-      setLoading(false);
-      setLoadError(false);
-      return;
-    }
-    if (itemsByDate) {
-      setItems(itemsByDate[activityDate] ?? []);
-      setLoading(false);
-      // Still fetch misses when only mastered map was embedded.
-      void (async () => {
-        try {
-          const missed = await api.getProjectDailyItems(token, projectId, activityDate, {
-            limit: PAGE_SIZE,
-            offset: 0,
-            bucket: "missed",
-          });
-          setMissedItems(missed);
-        } catch {
-          setMissedItems([]);
-        }
-      })();
-      return;
-    }
-    void load();
-  }, [
-    activityDate,
-    itemsByDate,
-    load,
-    missedItemsProp,
-    projectId,
-    token,
-    useEmbedded,
-  ]);
+  const { items, missedItems, loading, busyId, loadError, load, changeStatus } =
+    useProjectDayItems({
+      token,
+      projectId,
+      activityDate,
+      itemsByDate,
+      missedItems: missedItemsProp,
+      onItemUpdated,
+    });
 
   const handleStatusChange = useCallback(
     async (itemId: string, status: VocabStatus) => {
-      setBusyId(itemId);
-      try {
-        const updated = await api.updateProjectItem(token, projectId, itemId, { status });
-        setItems((prev) => prev.map((row) => (row.id === itemId ? updated : row)));
-        setMissedItems((prev) => {
-          if (status === "mastered") {
-            return prev.filter((row) => row.id !== itemId);
-          }
-          return prev.map((row) => (row.id === itemId ? updated : row));
-        });
-        onItemUpdated?.();
-      } catch {
+      const updated = await changeStatus(itemId, status);
+      if (!updated) {
         Alert.alert(t("common.error"), t("projects.status_update_failed"));
-      } finally {
-        setBusyId(null);
       }
     },
-    [token, projectId, onItemUpdated, t],
+    [changeStatus, t],
   );
 
   const dayName = weekdayFullLabel(dayMeta?.weekday ?? 0, t);

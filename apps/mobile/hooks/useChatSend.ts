@@ -17,7 +17,7 @@ import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   shouldBlockSend,
-} from "@/lib/chatSendLogic";
+} from "@/lib/chat/chatSendLogic";
 import {
   extractImageGenPrompt,
   extractImageRevisionPrompt,

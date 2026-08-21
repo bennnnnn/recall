@@ -4,12 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
-import { useAppearance } from "@/contexts/AppearanceContext";
-import { useAuth, useAuthToken } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
-import { writeCachedUser } from "@/lib/cachedUser";
-import type { AppearancePreference } from "@/lib/appearance";
-import { normalizeAppearancePreference } from "@/lib/appearance";
+import { useSettingsProposal } from "@/hooks/useSettingsProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -18,37 +13,18 @@ type Props = {
   disabled?: boolean;
 };
 
-function isAppearance(value: string): value is AppearancePreference {
-  return value === "light" || value === "dark" || value === "system";
-}
-
 export function SettingsProposalCard({ proposal, disabled }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const token = useAuthToken();
-  const { mergeUser } = useAuth();
-  const { setPreference } = useAppearance();
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const { busy, done, confirm } = useSettingsProposal(proposal);
   const [error, setError] = useState<string | null>(null);
 
   const onConfirm = async () => {
-    if (!token || busy || done || disabled) return;
-    setBusy(true);
+    if (busy || done || disabled) return;
     setError(null);
-    try {
-      const result = await api.confirmSettingsProposal(token, proposal.proposal_id);
-      mergeUser(result.user);
-      void writeCachedUser(result.user);
-      if (result.appearance && isAppearance(result.appearance)) {
-        await setPreference(normalizeAppearancePreference(result.appearance));
-      }
-      setDone(true);
-    } catch {
+    if (!(await confirm())) {
       setError(t("settings.proposal_failed"));
-    } finally {
-      setBusy(false);
     }
   };
 

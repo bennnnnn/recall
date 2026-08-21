@@ -1,5 +1,5 @@
 import { drawerChatFetchMode, insertChatIntoGroups } from "@/lib/drawerChatList";
-import { removeChatFromGroups } from "@/lib/chatListSections";
+import { removeChatFromGroups } from "@/lib/chat/chatListSections";
 import type { Chat, ChatList } from "@/lib/api";
 
 const empty: ChatList = {

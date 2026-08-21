@@ -18,12 +18,12 @@ import { useModels } from "@/hooks/useModels";
 import { type User } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
-import { prefetchMemories } from "@/lib/memoryListCache";
+import { prefetchMemories } from "@/lib/cache/memoryListCache";
 import {
   connectedCountFromStatus,
   fetchIntegrationStatus,
   getCachedConnectedCount,
-} from "@/lib/integrationStatusCache";
+} from "@/lib/cache/integrationStatusCache";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 

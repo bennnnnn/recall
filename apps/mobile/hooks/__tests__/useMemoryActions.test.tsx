@@ -12,14 +12,14 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@/lib/memoryListCache", () => ({
+jest.mock("@/lib/cache/memoryListCache", () => ({
   fetchMemories: jest.fn(),
   getCachedMemories: jest.fn(),
   setMemoriesCache: jest.fn(),
 }));
 
 import { api } from "@/lib/api";
-import { fetchMemories, getCachedMemories } from "@/lib/memoryListCache";
+import { fetchMemories, getCachedMemories } from "@/lib/cache/memoryListCache";
 
 const mockApi = api as unknown as {
   deleteMemorySection: jest.Mock;

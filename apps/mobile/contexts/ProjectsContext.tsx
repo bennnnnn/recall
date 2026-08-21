@@ -14,7 +14,8 @@ import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type Project } from "@/lib/api";
-import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
+import { StaleResourceCache } from "@/lib/cache/staleResource";
+import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 
 type ProjectsContextValue = {
   projects: Project[];
@@ -32,9 +33,10 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const inflightRef = useRef<Promise<void> | null>(null);
+  const resourceRef = useRef(
+    new StaleResourceCache<string, Project[]>(CONTEXT_REFRESH_STALE_MS),
+  );
   const projectsRef = useRef(projects);
-  const lastFetchedRef = useRef(0);
   projectsRef.current = projects;
 
   const refresh = useCallback(
@@ -43,18 +45,14 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         setProjects([]);
         setLoading(false);
         setError(false);
-        lastFetchedRef.current = 0;
+        resourceRef.current.clear();
         return;
       }
       if (
         !opts?.force &&
         projectsRef.current.length > 0 &&
-        Date.now() - lastFetchedRef.current < CONTEXT_REFRESH_STALE_MS
+        resourceRef.current.isFresh(token)
       ) {
-        return;
-      }
-      if (inflightRef.current) {
-        await inflightRef.current;
         return;
       }
       if (!opts?.silent) {
@@ -62,24 +60,17 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       }
       setError(false);
 
-      const task = (async () => {
-        try {
-          setProjects(await api.listProjects(token));
-          lastFetchedRef.current = Date.now();
-        } catch {
-          setError(true);
-        } finally {
-          if (!opts?.silent) {
-            setLoading(false);
-          }
-        }
-      })();
-
-      inflightRef.current = task;
       try {
-        await task;
+        const data = await resourceRef.current.fetch(
+          token,
+          () => api.listProjects(token),
+          { force: opts?.force || projectsRef.current.length === 0 },
+        );
+        setProjects(data);
+      } catch {
+        setError(true);
       } finally {
-        inflightRef.current = null;
+        if (!opts?.silent) setLoading(false);
       }
     },
     [token],

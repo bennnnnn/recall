@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppState } from "react-native";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, Switch, Text, View } from "react-native";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +14,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { useTtsPreference } from "@/hooks/useTtsPreference";
-import { api, type Usage } from "@/lib/api";
+import { useUsage } from "@/hooks/useUsage";
 import {
   formatTokenCount,
   promptWindowMessages,
@@ -53,36 +52,10 @@ export default function ModelsSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [usage, setUsage] = useState<Usage | null>(null);
+  const usage = useUsage();
   // Local draft so the Switch doesn't snap back while Auth/Models context
   // catches up (and so a racing /auth/me echo can't flash the old value).
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
-
-  const refreshUsage = useCallback(async () => {
-    if (!token) return;
-    try {
-      setUsage(await api.todayUsage(token));
-    } catch {
-      // Keep the last successful read; defaults still render the window.
-    }
-  }, [token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void refreshUsage();
-    }, [refreshUsage]),
-  );
-
-  // M8: also refresh usage when the app returns to foreground — the user
-  // may have completed turns in another chat, and the Settings screen
-  // only refetches on its own focus. Without this, the "Today" numbers
-  // are stale until the user leaves and returns to Settings.
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void refreshUsage();
-    });
-    return () => sub.remove();
-  }, [refreshUsage]);
 
   const effectiveAuto = draft?.auto ?? autoEnabled;
   const effectiveModels = draft?.models ?? modelEnabledSet;

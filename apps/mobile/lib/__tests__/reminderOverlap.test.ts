@@ -5,7 +5,7 @@ import {
   buildReminderOverlapNotes,
   findOverlappingCalendarEvent,
   findOverlappingReminder,
-} from "@/lib/reminderOverlap";
+} from "@/lib/todos/reminderOverlap";
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {

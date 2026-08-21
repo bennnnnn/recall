@@ -16,7 +16,7 @@ import {
   mergeDayCounts,
   startOfMonth,
   weekdayHeaders,
-} from "@/lib/reminderCalendar";
+} from "@/lib/todos/reminderCalendar";
 
 type Props = {
   reminders: Todo[];

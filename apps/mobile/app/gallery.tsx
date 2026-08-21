@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,17 +18,15 @@ import { GalleryThumbnail } from "@/components/GalleryThumbnail";
 import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
-import { useAuth } from "@/contexts/AuthContext";
-import { api, type AttachmentListItem } from "@/lib/api";
+import { type AttachmentListItem } from "@/lib/api";
+import { type GalleryFilter, useGalleryData } from "@/hooks/useGalleryData";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type Filter = "all" | "images" | "files";
 type ViewMode = "grid" | "list";
 
-const PAGE_SIZE = 30;
 const NUM_COLUMNS = 3;
 const THUMB_SIZE = 112;
 
@@ -37,59 +35,27 @@ function isImageType(contentType: string): boolean {
 }
 
 export default function GalleryScreen() {
-  const { token } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
 
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<GalleryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [items, setItems] = useState<AttachmentListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [pullRefreshing, setPullRefreshing] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const offsetRef = useRef(0);
-
-  const load = useCallback(
-    async (opts: { reset?: boolean; silent?: boolean } = {}) => {
-      if (!token) return;
-      const reset = opts.reset ?? true;
-      if (!opts.silent) {
-        if (reset) setLoading(true);
-        else setLoadingMore(true);
-      }
-      try {
-        const offset = reset ? 0 : offsetRef.current;
-        const res = await api.listAttachments(token, {
-          category: filter === "all" ? undefined : filter,
-          limit: PAGE_SIZE,
-          offset,
-        });
-        setItems((prev) => (reset ? res.items : [...prev, ...res.items]));
-        setHasMore(res.has_more);
-        offsetRef.current = offset + res.items.length;
-        setError(null);
-      } catch {
-        setError(t("common.error"));
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    },
-    [token, filter, t],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      void load({ reset: true });
-    }, [load]),
-  );
+  const {
+    items,
+    filteredItems,
+    loading,
+    loadingMore,
+    error,
+    pullRefreshing,
+    refresh,
+    loadMore,
+    retry,
+  } = useGalleryData(filter, searchQuery);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,34 +63,11 @@ export default function GalleryScreen() {
     }, [navigation]),
   );
 
-  const onRefresh = useCallback(async () => {
-    setPullRefreshing(true);
-    await load({ reset: true, silent: true });
-    setPullRefreshing(false);
-  }, [load]);
-
-  const onEndReached = useCallback(() => {
-    if (!hasMore || loadingMore || loading) return;
-    void load({ reset: false, silent: true });
-  }, [hasMore, loadingMore, loading, load]);
-
-  const filters: { key: Filter; label: string }[] = [
+  const filters: { key: GalleryFilter; label: string }[] = [
     { key: "all", label: t("gallery.filter.all") },
     { key: "images", label: t("gallery.filter.images") },
     { key: "files", label: t("gallery.filter.files") },
   ];
-
-  // Client-side search filter on the loaded items
-  const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items;
-    const q = searchQuery.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.source.toLowerCase().includes(q) ||
-        item.content_type.toLowerCase().includes(q) ||
-        item.id.toLowerCase().includes(q),
-    );
-  }, [items, searchQuery]);
 
   const viewerItem =
     viewerIndex != null ? filteredItems[viewerIndex] ?? null : null;
@@ -253,7 +196,7 @@ export default function GalleryScreen() {
         <StateView
           variant="error"
           title={t("common.error")}
-          onRetry={() => void load({ reset: true })}
+          onRetry={() => void retry({ reset: true })}
           retryLabel={t("common.retry")}
         />
       ) : (
@@ -266,11 +209,11 @@ export default function GalleryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={pullRefreshing}
-              onRefresh={onRefresh}
+              onRefresh={refresh}
               tintColor={C.primary}
             />
           }
-          onEndReached={onEndReached}
+          onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={
             loadingMore ? (

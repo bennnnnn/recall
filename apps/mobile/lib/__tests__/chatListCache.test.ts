@@ -7,7 +7,7 @@ import {
   isChatListFresh,
   prefetchChatList,
   setChatListCache,
-} from "@/lib/chatListCache";
+} from "@/lib/cache/chatListCache";
 import type { ChatList } from "@/lib/api";
 
 jest.mock("@/lib/api", () => ({

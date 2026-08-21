@@ -6,7 +6,7 @@ import {
   isMemoriesFresh,
   prefetchMemories,
   setMemoriesCache,
-} from "@/lib/memoryListCache";
+} from "@/lib/cache/memoryListCache";
 
 jest.mock("@/lib/api", () => ({
   api: {

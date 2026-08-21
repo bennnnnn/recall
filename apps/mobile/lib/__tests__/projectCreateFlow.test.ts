@@ -4,7 +4,7 @@ import {
   resolveProjectDescription,
   resolveProjectTitle,
   languageProjectTitle,
-} from "@/lib/projectCreateFlow";
+} from "@/lib/projects/projectCreateFlow";
 import type { Project } from "@/lib/api";
 
 const t = (key: string) => key;

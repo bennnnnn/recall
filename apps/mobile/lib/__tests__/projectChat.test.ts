@@ -1,7 +1,7 @@
 import {
   buildProjectChatTutorPrompt,
   buildProjectPracticePrompt,
-} from "@/lib/projectChat";
+} from "@/lib/projects/projectChat";
 import type { ProjectDetail } from "@/lib/api";
 
 function triviaProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {

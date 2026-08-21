@@ -19,7 +19,7 @@ import {
   saveChatAttachmentToLibrary,
   shareChatAttachment,
 } from "@/lib/downloadChatAttachment";
-import { getApiUrl } from "@/lib/config";
+import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -54,11 +54,7 @@ export function AttachmentImageViewer({
   const [cachedUri, setCachedUri] = useState<string | null>(null);
 
   const remoteUri = useMemo(() => {
-    if (localUri) return localUri;
-    if (attachmentId) return `${getApiUrl()}/attachments/${attachmentId}/file`;
-    if (path?.startsWith("http://") || path?.startsWith("https://")) return path;
-    if (path?.startsWith("/attachments/")) return `${getApiUrl()}${path}`;
-    return null;
+    return resolveAttachmentUri({ attachmentId, localUri, path });
   }, [attachmentId, localUri, path]);
 
   // Prefer local file / in-memory cache / thumbnail URI so the large view

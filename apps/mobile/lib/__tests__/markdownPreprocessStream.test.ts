@@ -1,9 +1,9 @@
-import { preprocessMarkdown } from "@/lib/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
 import {
   findStableMarkdownPrefixLen,
   preprocessMarkdownForStream,
   type StreamingPreprocessCache,
-} from "@/lib/markdownPreprocessStream";
+} from "@/lib/markdown/markdownPreprocessStream";
 
 /**
  * Simulate a message streaming in by repeatedly growing `full` in chunks of

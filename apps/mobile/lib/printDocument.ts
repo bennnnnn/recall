@@ -3,7 +3,7 @@
 import katex from "katex";
 
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
-import { preprocessMarkdown, splitInlineMath } from "@/lib/markdownPreprocess";
+import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 
 const MATH_FENCE_LANGS = new Set([
   "math",

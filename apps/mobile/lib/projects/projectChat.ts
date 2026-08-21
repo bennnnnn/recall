@@ -1,13 +1,13 @@
 import type { HomeProjectHighlight, LanguageLevel, Project, ProjectDetail, ProjectStats } from "@/lib/api";
-import { resolveDailyGoal } from "@/lib/dailyGoals";
+import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
-import { learningProjectTitle } from "@/lib/projectUi";
+import { learningProjectTitle } from "@/lib/projects/projectUi";
 import {
   formatTriviaTopicLabels,
   parseTriviaTopics,
   triviaDifficultyLabel,
-} from "@/lib/triviaTopics";
+} from "@/lib/projects/triviaTopics";
 import { VOCAB_QUIZ_FORMAT_BLOCK, TRIVIA_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
 const EMPTY_STATS: ProjectStats = {

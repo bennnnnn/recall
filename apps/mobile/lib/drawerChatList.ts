@@ -1,5 +1,5 @@
 import type { Chat, ChatList } from "@/lib/api";
-import { activeChatsFromGroups, emptyChatList } from "@/lib/chatListSections";
+import { activeChatsFromGroups, emptyChatList } from "@/lib/chat/chatListSections";
 
 /** How long a GET /chats response stays fresh for drawer paint / prefetch. */
 export const CHAT_LIST_STALE_MS = 20_000;

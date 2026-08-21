@@ -6,7 +6,7 @@ import {
   fetchMemories,
   getCachedMemories,
   setMemoriesCache,
-} from "@/lib/memoryListCache";
+} from "@/lib/cache/memoryListCache";
 
 export type LoadOptions = { silent?: boolean; force?: boolean };
 

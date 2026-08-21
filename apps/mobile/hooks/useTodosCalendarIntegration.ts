@@ -8,12 +8,12 @@ import { api, GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
 import {
   fetchSuggestedReminders,
   removeSuggestedReminderFromCache,
-} from "@/lib/suggestedRemindersCache";
+} from "@/lib/cache/suggestedRemindersCache";
 import {
   buildCalendarOverlapNotes,
   buildReminderOverlapNotes,
-} from "@/lib/reminderOverlap";
-import { syncTodoReminders } from "@/lib/todoReminders";
+} from "@/lib/todos/reminderOverlap";
+import { syncTodoReminders } from "@/lib/todos/todoReminders";
 import {
   calendarEventsOnDay,
   formatDayHeading,
@@ -22,7 +22,7 @@ import {
   remindersOnDay,
   startOfMonth,
   suggestedRemindersOnDay,
-} from "@/lib/reminderCalendar";
+} from "@/lib/todos/reminderCalendar";
 
 type FocusSection = "list" | "reminders" | null;
 

@@ -4,8 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
-import { useAuthToken } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { useCalendarProposal } from "@/hooks/useCalendarProposal";
 import {
   type CalendarProposal,
   formatProposalWhen,
@@ -21,33 +20,14 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const token = useAuthToken();
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const { busy, done, confirm } = useCalendarProposal(proposal);
   const [error, setError] = useState<string | null>(null);
 
   const onConfirm = async () => {
-    if (!token || busy || done || disabled) return;
-    setBusy(true);
+    if (busy || done || disabled) return;
     setError(null);
-    try {
-      let proposalId = proposal.proposal_id;
-      if (!proposalId) {
-        const created = await api.proposeCalendarEvent(token, {
-          title: proposal.title,
-          start_at: proposal.start_at,
-          end_at: proposal.end_at,
-          location: proposal.location ?? undefined,
-          description: proposal.description ?? undefined,
-        });
-        proposalId = created.proposal_id;
-      }
-      await api.confirmCalendarEvent(token, proposalId);
-      setDone(true);
-    } catch {
+    if (!(await confirm())) {
       setError(t("calendar.proposal_failed"));
-    } finally {
-      setBusy(false);
     }
   };
 

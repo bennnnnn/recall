@@ -3,7 +3,7 @@ import {
   retagMathAndDiagramFences,
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
-} from "@/lib/mathFenceRetag";
+} from "@/lib/math/mathFenceRetag";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
 import { isStructuredFenceLang } from "@/lib/richBlocks";

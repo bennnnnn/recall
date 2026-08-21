@@ -17,7 +17,7 @@ import { useTodosDerivedState } from "@/hooks/useTodosDerivedState";
 import { useTodosListGroups } from "@/hooks/useTodosListGroups";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
-import { ensureNotificationPermission } from "@/lib/todoReminders";
+import { ensureNotificationPermission } from "@/lib/todos/todoReminders";
 import { useTheme } from "@/lib/theme";
 
 type FocusSection = "list" | "reminders";

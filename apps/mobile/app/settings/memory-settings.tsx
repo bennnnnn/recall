@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   fetchMemories,
   prefetchMemories,
-} from "@/lib/memoryListCache";
+} from "@/lib/cache/memoryListCache";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 

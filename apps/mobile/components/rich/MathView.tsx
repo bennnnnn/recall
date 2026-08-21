@@ -6,7 +6,7 @@ import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
-import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { useTheme } from "@/lib/theme";
 
 export function MathInline({ latex }: { latex: string }) {

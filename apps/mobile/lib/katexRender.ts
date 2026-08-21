@@ -1,7 +1,7 @@
 import katex from "katex";
 
 import { readableLatexFallback } from "@/lib/mathText";
-import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 

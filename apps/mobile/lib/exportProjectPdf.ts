@@ -3,7 +3,7 @@
 import type { ProjectDetail, ProjectItem, ProjectKind } from "@/lib/api";
 import { escapeHtml, wrapPrintDocument } from "@/lib/printDocument";
 import { isLanguageProject } from "@/lib/languageLevels";
-import { isTriviaProject } from "@/lib/projectUi";
+import { isTriviaProject } from "@/lib/projects/projectUi";
 
 const STATUS_ORDER: Array<ProjectItem["status"]> = ["mastered", "learning", "new"];
 

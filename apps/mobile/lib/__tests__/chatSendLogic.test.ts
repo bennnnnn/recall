@@ -11,7 +11,7 @@ import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   shouldBlockSend,
-} from "@/lib/chatSendLogic";
+} from "@/lib/chat/chatSendLogic";
 
 describe("chatSendLogic", () => {
   it("shouldBlockSend rejects empty sends and busy states", () => {

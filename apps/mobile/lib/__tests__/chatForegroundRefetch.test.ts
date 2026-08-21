@@ -1,4 +1,4 @@
-import { shouldRefetchChatOnForeground } from "@/lib/chatForegroundRefetch";
+import { shouldRefetchChatOnForeground } from "@/lib/chat/chatForegroundRefetch";
 
 describe("shouldRefetchChatOnForeground", () => {
   const base = {

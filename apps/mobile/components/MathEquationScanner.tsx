@@ -24,7 +24,7 @@ import {
   scaleScanRegion,
   translateScanRegion,
   type ScanRegion,
-} from "@/lib/mathScannerRegion";
+} from "@/lib/math/mathScannerRegion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {

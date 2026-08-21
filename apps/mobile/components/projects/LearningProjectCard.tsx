@@ -5,10 +5,10 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import type { Project } from "@/lib/api";
-import { resolveDailyGoal } from "@/lib/dailyGoals";
+import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/lib/languageLevels";
-import { isTriviaProject, learningProjectTitle } from "@/lib/projectUi";
+import { isTriviaProject, learningProjectTitle } from "@/lib/projects/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {

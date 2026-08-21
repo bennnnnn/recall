@@ -14,24 +14,24 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { api, type LanguageLevel, type Project } from "@/lib/api";
+import { type LanguageLevel, type Project } from "@/lib/api";
+import { useProjectActions } from "@/hooks/useProjectActions";
 import {
   dailyGoalPickerOptions,
   formatDailyGoalShort,
   resolveDailyGoal,
-} from "@/lib/dailyGoals";
+} from "@/lib/projects/dailyGoals";
 import { isLanguageProject, levelLabelT, levelPickerOptions } from "@/lib/languageLevels";
-import { invalidateProjectDetail } from "@/lib/projectDetailCache";
 import { languageLabel } from "@/lib/i18n/languages";
-import { languageProjectTitle } from "@/lib/projectCreateFlow";
-import { isTriviaProject } from "@/lib/projectUi";
+import { languageProjectTitle } from "@/lib/projects/projectCreateFlow";
+import { isTriviaProject } from "@/lib/projects/projectUi";
 import {
   encodeTriviaTopics,
   parseTriviaTopics,
   triviaDifficultyLabel,
   triviaDifficultyPickerOptions,
   type TriviaTopicId,
-} from "@/lib/triviaTopics";
+} from "@/lib/projects/triviaTopics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -49,6 +49,7 @@ export default function LearningSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const { projects: allProjects, refresh, setProjects } = useProjects();
+  const { updateProject } = useProjectActions();
 
   const [saving, setSaving] = useState(false);
   const [openPicker, setOpenPicker] = useState<string | null>(null);
@@ -73,9 +74,8 @@ export default function LearningSettingsScreen() {
     if (!token || saving) return;
     setSaving(true);
     try {
-      const updated = await api.updateProject(token, project.id, { daily_goal: nextGoal });
+      const updated = await updateProject(project.id, { daily_goal: nextGoal });
       setProjects((prev) => mergeProjectRow(prev, updated));
-      invalidateProjectDetail(project.id);
       void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("common.error"), t("settings.learning.save_failed"));
@@ -96,9 +96,8 @@ export default function LearningSettingsScreen() {
         kind === "language"
           ? { level, title: languageProjectTitle(level, project.target_language) }
           : { level };
-      const updated = await api.updateProject(token, project.id, patch);
+      const updated = await updateProject(project.id, patch);
       setProjects((prev) => mergeProjectRow(prev, updated));
-      invalidateProjectDetail(project.id);
       void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("common.error"), t("settings.learning.save_failed"));
@@ -111,11 +110,10 @@ export default function LearningSettingsScreen() {
     if (!token || !topicsProject || saving || topicsDraft.length === 0) return;
     setSaving(true);
     try {
-      const updated = await api.updateProject(token, topicsProject.id, {
+      const updated = await updateProject(topicsProject.id, {
         description: encodeTriviaTopics(topicsDraft),
       });
       setProjects((prev) => mergeProjectRow(prev, updated));
-      invalidateProjectDetail(topicsProject.id);
       void refresh({ silent: true, force: true });
       setTopicsProject(null);
     } catch {

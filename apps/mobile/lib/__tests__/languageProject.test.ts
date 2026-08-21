@@ -1,5 +1,5 @@
 import { languageLabel, speechLocale } from "@/lib/i18n/languages";
-import { findLanguageProject } from "@/lib/languageProject";
+import { findLanguageProject } from "@/lib/projects/languageProject";
 import type { Project } from "@/lib/api";
 
 const english: Project = {

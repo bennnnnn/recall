@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
-import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
-import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
+import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/mathText";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";

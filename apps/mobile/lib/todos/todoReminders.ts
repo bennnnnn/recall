@@ -9,7 +9,7 @@ import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   leadMsFromMinutes,
   reminderNotifyDate,
-} from "@/lib/reminderTiming";
+} from "@/lib/todos/reminderTiming";
 
 export { ensureNotificationPermission };
 

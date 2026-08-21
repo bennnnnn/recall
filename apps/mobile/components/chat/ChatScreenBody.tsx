@@ -20,7 +20,7 @@ import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { type IoniconName } from "@/lib/icons";
-import { messagesLookLikeMath } from "@/lib/mathComposerIntent";
+import { messagesLookLikeMath } from "@/lib/math/mathComposerIntent";
 import type { Theme } from "@/lib/theme";
 
 export type ChatScreenBodyProps = {

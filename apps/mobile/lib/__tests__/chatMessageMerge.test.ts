@@ -1,4 +1,4 @@
-import { mergeLocalAttachmentUris } from "@/lib/chatMessageMerge";
+import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import type { Message } from "@/lib/api";
 
 describe("mergeLocalAttachmentUris", () => {

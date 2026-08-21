@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { Icon } from "@/components/Icon";
-import { Redirect, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { ProjectDailyStrip } from "@/components/ProjectDailyStrip";
@@ -21,8 +21,9 @@ import { StateView } from "@/components/StateView";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { LearningPathList } from "@/components/projects/LearningPathList";
 import { useAuth } from "@/contexts/AuthContext";
-import { useHome } from "@/contexts/HomeContext";
-import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
+import { type VocabStatus } from "@/lib/api";
+import { useProjectActions } from "@/hooks/useProjectActions";
+import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
   exportProjectAsPdf,
@@ -36,23 +37,18 @@ import {
   buildProjectReviewPrompt,
   isDailyGoalMet,
   remainingDailyGoal,
-} from "@/lib/projectChat";
-import {
-  fetchProjectDetail,
-  getCachedProjectDetail,
-  invalidateProjectDetail,
-  isProjectDetailFresh,
-} from "@/lib/projectDetailCache";
+} from "@/lib/projects/projectChat";
+import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { speechLocale } from "@/lib/i18n/languages";
 import { isLanguageProject } from "@/lib/languageLevels";
-import { resolveDailyGoal } from "@/lib/dailyGoals";
-import { localDateKey } from "@/lib/reminderCalendar";
+import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
+import { localDateKey } from "@/lib/todos/reminderCalendar";
 import {
   formatProjectListTitle,
   isTriviaProject,
   learningProjectTitle,
   projectStatsLabels,
-} from "@/lib/projectUi";
+} from "@/lib/projects/projectUi";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -61,64 +57,18 @@ import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 export default function ProjectDetailScreen() {
   const { token } = useAuth();
-  const { refresh: refreshHome } = useHome();
+  const { deleteProject, getExportProject, updateProjectItem } = useProjectActions();
   const { t } = useTranslation();
   const router = useRouter();
   const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const initialProject =
-    typeof id === "string" ? getCachedProjectDetail(id) ?? null : null;
-  const [loading, setLoading] = useState(!initialProject);
-  const [loadError, setLoadError] = useState(false);
-  const [project, setProject] = useState<ProjectDetail | null>(initialProject);
-  const hasLoadedRef = useRef(Boolean(initialProject));
-  const projectRef = useRef(project);
-  projectRef.current = project;
+  const projectId = typeof id === "string" ? id : undefined;
+  const { project, loading, loadError, load } = useProjectDetail(projectId);
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
-
-  const load = useCallback(
-    async (opts?: { silent?: boolean; force?: boolean }) => {
-      if (!token || typeof id !== "string") return;
-      const firstLoad = !hasLoadedRef.current;
-      if (!opts?.silent && firstLoad && !projectRef.current) setLoading(true);
-      setLoadError(false);
-      try {
-        const data = await fetchProjectDetail(token, id, { force: opts?.force });
-        if (data) {
-          setProject(data);
-        } else if (!projectRef.current) {
-          setProject(null);
-          setLoadError(true);
-        }
-      } catch {
-        if (!projectRef.current) {
-          setProject(null);
-          setLoadError(true);
-        }
-      } finally {
-        hasLoadedRef.current = true;
-        if (!opts?.silent && firstLoad) setLoading(false);
-      }
-    },
-    [token, id, router],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      if (typeof id !== "string") return;
-      const cached = getCachedProjectDetail(id);
-      const hasPaint = Boolean(projectRef.current || cached);
-      const fresh = isProjectDetailFresh(id);
-      // Paint cache immediately; only force-network when stale/missing so quiz
-      // returns still refresh after invalidateProjectDetail.
-      void load({ silent: hasPaint, force: !fresh });
-      void refreshHome({ silent: true });
-    }, [load, id, refreshHome]),
-  );
 
   const exportLearningPdf = useCallback(async () => {
     if (!token || !project || exportingPdf) return;
@@ -128,7 +78,7 @@ export default function ProjectDetailScreen() {
     }
     setExportingPdf(true);
     try {
-      const withLists = await api.getProject(token, project.id, { includeLists: true });
+      const withLists = await getExportProject(project.id);
       await exportProjectAsPdf(withLists, {
         mastered: t("projects.export_pdf.section_mastered"),
         learning: t("projects.export_pdf.section_learning"),
@@ -151,7 +101,7 @@ export default function ProjectDetailScreen() {
     } finally {
       setExportingPdf(false);
     }
-  }, [token, project, exportingPdf, t]);
+  }, [token, project, exportingPdf, getExportProject, t]);
 
   useLayoutEffect(() => {
     if (!project) return;
@@ -180,7 +130,7 @@ export default function ProjectDetailScreen() {
       if (!token || typeof id !== "string") return;
       setConceptBusyId(itemId);
       try {
-        await api.updateProjectItem(token, id, itemId, { status });
+        await updateProjectItem(id, itemId, status);
         await load({ silent: true, force: true });
       } catch {
         Alert.alert(t("common.error"), t("projects.status_update_failed"));
@@ -188,7 +138,7 @@ export default function ProjectDetailScreen() {
         setConceptBusyId(null);
       }
     },
-    [token, id, load, t],
+    [token, id, load, t, updateProjectItem],
   );
 
   if (!token) return <Redirect href="/login" />;
@@ -205,8 +155,7 @@ export default function ProjectDetailScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await api.deleteProject(token, project.id);
-            invalidateProjectDetail(project.id);
+            await deleteProject(project.id);
             router.back();
           } catch {
             Alert.alert(t("common.error"), t("projects.delete_failed"));

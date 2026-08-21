@@ -7,7 +7,7 @@ import {
   invalidateIntegrationStatusCache,
   patchIntegrationStatusCache,
   setIntegrationStatusCache,
-} from "@/lib/integrationStatusCache";
+} from "@/lib/cache/integrationStatusCache";
 
 jest.mock("@/lib/api", () => ({
   api: {

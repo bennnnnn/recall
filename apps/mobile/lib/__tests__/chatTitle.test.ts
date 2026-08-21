@@ -1,7 +1,7 @@
 import {
   displayChatTitle,
   sanitizeManualChatTitle,
-} from "@/lib/chatTitle";
+} from "@/lib/chat/chatTitle";
 
 const t = (key: string) =>
   ({

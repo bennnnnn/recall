@@ -1,4 +1,4 @@
-import { applyPinnedTextChange } from "@/lib/mathComposerChange";
+import { applyPinnedTextChange } from "@/lib/math/mathComposerChange";
 
 describe("applyPinnedTextChange", () => {
   const frac = "$\\frac{8}{8}$";

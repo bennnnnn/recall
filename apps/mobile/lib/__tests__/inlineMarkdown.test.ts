@@ -1,4 +1,4 @@
-import { parseInlineMarkdown } from "@/lib/inlineMarkdown";
+import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 
 describe("parseInlineMarkdown", () => {
   it("returns empty for empty input", () => {

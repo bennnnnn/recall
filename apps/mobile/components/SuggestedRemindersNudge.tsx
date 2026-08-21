@@ -1,16 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { api, SuggestedReminder } from "@/lib/api";
-import { describeDueAt } from "@/lib/dueDate";
-import {
-  fetchSuggestedReminders,
-  getCachedSuggestedReminders,
-  removeSuggestedReminderFromCache,
-} from "@/lib/suggestedRemindersCache";
+import { useSuggestedReminders } from "@/hooks/useSuggestedReminders";
+import { describeDueAt } from "@/lib/todos/dueDate";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -24,60 +19,29 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
   const theme = useTheme();
   const router = useRouter();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [reminders, setReminders] = useState<SuggestedReminder[]>(
-    () => getCachedSuggestedReminders()?.reminders.slice(0, 3) ?? [],
-  );
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const { reminders, busyId, add, dismiss } = useSuggestedReminders(token, {
+    onAdded,
+    onDismiss,
+  });
   const [collapsed, setCollapsed] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!token) {
-      setReminders([]);
-      return;
-    }
-    try {
-      const data = await fetchSuggestedReminders(token, { force: true });
-      setReminders((data?.reminders ?? []).slice(0, 3));
-    } catch {
-      setReminders([]);
-    }
-  }, [token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
 
   if (reminders.length === 0) return null;
 
   const handleAdd = async (id: string) => {
     if (!token || busyId) return;
-    setBusyId(id);
     try {
-      await api.addSuggestedReminder(token, id);
-      removeSuggestedReminderFromCache(id);
-      setReminders((prev) => prev.filter((r) => r.id !== id));
-      onAdded?.();
+      if (!(await add(id))) throw new Error("add failed");
     } catch {
       Alert.alert(t("common.error"), t("reminders.add_failed"));
-    } finally {
-      setBusyId(null);
     }
   };
 
   const handleDismiss = async (id: string) => {
     if (!token || busyId) return;
-    setBusyId(id);
     try {
-      await api.dismissSuggestedReminder(token, id);
-      removeSuggestedReminderFromCache(id);
-      setReminders((prev) => prev.filter((r) => r.id !== id));
-      onDismiss?.(id);
+      if (!(await dismiss(id))) throw new Error("dismiss failed");
     } catch {
       Alert.alert(t("common.error"), t("reminders.dismiss_failed"));
-    } finally {
-      setBusyId(null);
     }
   };
 

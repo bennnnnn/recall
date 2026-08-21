@@ -1,5 +1,5 @@
 import { hasReminderFence, stripReminderFences } from "@/lib/reminderFence";
-import { deriveAssistantMessageContent } from "@/lib/assistantMessageContent";
+import { deriveAssistantMessageContent } from "@/lib/markdown/assistantMessageContent";
 
 describe("stripReminderFences", () => {
   it("removes reminder JSON fences from chat text", () => {

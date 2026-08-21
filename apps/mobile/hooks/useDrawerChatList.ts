@@ -9,14 +9,14 @@ import {
   patchChatListGroups,
   removeChatFromGroups,
   type ChatListSectionKey,
-} from "@/lib/chatListSections";
+} from "@/lib/chat/chatListSections";
 import {
   fetchChatList,
   getCachedChatList,
   getChatListFetchedAt,
   isChatListFresh,
   setChatListCache,
-} from "@/lib/chatListCache";
+} from "@/lib/cache/chatListCache";
 import {
   registerChatArchiveMover,
   registerChatInserter,

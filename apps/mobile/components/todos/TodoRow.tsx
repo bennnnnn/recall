@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { Todo } from "@/lib/api";
-import { describeDueAt } from "@/lib/dueDate";
+import { describeDueAt } from "@/lib/todos/dueDate";
 import { notifyWarning } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 

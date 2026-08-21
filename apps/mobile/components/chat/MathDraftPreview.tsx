@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
-import { splitInlineMath } from "@/lib/markdownPreprocess";
-import { textLooksLikeMath } from "@/lib/mathComposerIntent";
+import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
+import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import {
   caretAfterExpression,
   caretBeforeExpression,

@@ -13,7 +13,7 @@ import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { CODE_FONT } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdown } from "@/lib/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { Theme, useTheme } from "@/lib/theme";
 

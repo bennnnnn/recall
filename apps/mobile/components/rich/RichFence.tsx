@@ -24,7 +24,7 @@ import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
-import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
+import { looksLikeLatexFence } from "@/lib/math/mathFenceRetag";
 import { isAnswerLang } from "@/lib/copyBlock";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import {

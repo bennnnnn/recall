@@ -21,7 +21,7 @@ import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMemoryActions } from "@/hooks/useMemoryActions";
 import { Memory } from "@/lib/api";
-import { getCachedMemories } from "@/lib/memoryListCache";
+import { getCachedMemories } from "@/lib/cache/memoryListCache";
 import { splitMemoryFacts } from "@/lib/memoryFacts";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";

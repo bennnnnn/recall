@@ -6,7 +6,7 @@ import {
   isProjectDetailFresh,
   prefetchProjectDetail,
   setProjectDetailCache,
-} from "@/lib/projectDetailCache";
+} from "@/lib/cache/projectDetailCache";
 
 jest.mock("@/lib/api", () => ({
   api: {

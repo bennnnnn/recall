@@ -6,7 +6,7 @@ import {
   regionToImageCrop,
   scaleScanRegion,
   translateScanRegion,
-} from "@/lib/mathScannerRegion";
+} from "@/lib/math/mathScannerRegion";
 
 describe("defaultScanRegion", () => {
   it("is centered and within bounds", () => {

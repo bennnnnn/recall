@@ -5,7 +5,7 @@ import {
   leadMsFromMinutes,
   normalizeReminderLeadMinutes,
   reminderNotifyDate,
-} from "@/lib/reminderTiming";
+} from "@/lib/todos/reminderTiming";
 
 describe("reminderTiming", () => {
   const now = new Date("2026-06-28T12:00:00.000Z");
