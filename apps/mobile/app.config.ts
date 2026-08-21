@@ -1,21 +1,10 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import appJson from "./app.json";
-
-function includeDevClientPlugin(buildProfile: string): boolean {
-  return !buildProfile || buildProfile === "development";
-}
-
-function requirePublicApiUrlForReleaseBuild(
-  buildProfile: string,
-  apiUrl: string | undefined,
-): void {
-  if (buildProfile !== "production" && buildProfile !== "preview") return;
-  if (apiUrl?.trim()) return;
-  throw new Error(
-    "EXPO_PUBLIC_API_URL must be set in EAS secrets for production and preview builds",
-  );
-}
+import {
+  includeDevClientPlugin,
+  requireReleaseBuildSecrets,
+} from "./lib/easBuildConfig";
 
 function iosUrlSchemeFromClientId(iosClientId: string): string | null {
   const trimmed = iosClientId.trim();
@@ -26,7 +15,11 @@ function iosUrlSchemeFromClientId(iosClientId: string): string | null {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const base = appJson.expo as ExpoConfig;
   const buildProfile = process.env.EAS_BUILD_PROFILE ?? "";
-  requirePublicApiUrlForReleaseBuild(buildProfile, process.env.EXPO_PUBLIC_API_URL);
+  requireReleaseBuildSecrets(
+    buildProfile,
+    process.env.EAS_BUILD_PLATFORM ?? "",
+    process.env,
+  );
   const includeDevClient = includeDevClientPlugin(buildProfile);
   const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();
   const plugins: ExpoConfig["plugins"] = [

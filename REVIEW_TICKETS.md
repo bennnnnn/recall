@@ -94,7 +94,7 @@ sandbox policy.
 stale in `README.md` / `DEPLOY_TICKETS.md`.
 
 **Fix:** Update `FEATURES.md`, `CLAUDE.md`, `README.md`, `DEPLOY_TICKETS.md` to match
-code (head `0041`, Apple ✅, etc.).
+code (derive the migration head with `uv run alembic heads`, Apple ✅, etc.).
 
 **Acceptance:** No factual contradictions between docs and code for listed items.
 

@@ -3,7 +3,8 @@
 Sequenced checklist from "code on main" to "live in the App Store / Play Store".
 Code blockers are all resolved; what remains is provisioning, building, and QA.
 
-> **Alembic head:** `0041` · **App/API version:** `1.0.0` / `0.1.0`
+> **Alembic head:** run `cd apps/api && uv run alembic heads` before deploy ·
+> **App/API version:** `1.0.0` / `0.1.0`
 > Local gate: `./scripts/dev.sh check` (API: ruff + format + mypy + pytest ≥80%; mobile: typecheck + lint + jest).
 
 ---
@@ -79,7 +80,8 @@ Required keys (also listed in `apps/api/.env.production.example`):
 
 ## Step 3 — Migrate + deploy the API
 
-- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0041` — idempotent; safe to re-run;
+- [ ] `cd apps/api && uv run alembic upgrade head` (idempotent; safe to re-run; confirm
+      `uv run alembic current` matches `uv run alembic heads`;
       also runs automatically on `fly deploy` via Dockerfile)
 - [ ] `./scripts/deploy-api.sh` from repo root (or `fly deploy --remote-only` / GitHub Actions
       **Deploy** workflow with `FLY_API_TOKEN` set)
@@ -90,12 +92,15 @@ Required keys (also listed in `apps/api/.env.production.example`):
 
 Set in **EAS dashboard → Secrets** (production + preview):
 
-- [ ] `EXPO_PUBLIC_API_URL=https://<api>` (build fails without it — guarded in `app.config.ts`)
+- [ ] `EXPO_PUBLIC_API_URL=https://<api>` (release builds fail if any required value
+      in this list is missing — guarded in `app.config.ts`)
 - [ ] `EXPO_PUBLIC_EAS_PROJECT_ID` (push; `npx eas init`)
 - [ ] `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
 - [ ] `EXPO_PUBLIC_DEV_AUTH_ENABLED=false`
 - [ ] `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` (required — Pro ships at launch)
 - [ ] `EXPO_PUBLIC_SENTRY_DSN` (mobile crash reporting — needs the native build)
+- [ ] Register the EAS production Android signing certificate SHA-1 with the
+      Android Google OAuth client (the debug SHA-1 does not cover store builds)
 
 Build + submit:
 
@@ -120,8 +125,10 @@ Build + submit:
 
 ## Step 6 — Post-launch operations
 
-- [ ] **DLQ replay** (if jobs fail in prod): `uv run python scripts/replay_dlq.py --list`
-      then `scripts/replay_dlq.py` to re-enqueue; or dev-gated `GET/POST /admin/dlq[/*]`.
+- [ ] Review [`docs/ROLLBACK.md`](docs/ROLLBACK.md) before the first deploy.
+- [ ] **DLQ replay** (if jobs fail in prod): from `apps/api`, run
+      `uv run python ../../scripts/replay_dlq.py --list`, then rerun without `--list`
+      to re-enqueue; or use the dev-gated `GET/POST /admin/dlq[/*]`.
 - [ ] Monitor Sentry (backend + mobile) and `GET /health/ready`.
 - [ ] `JWT_SECRET` rotation: rotating invalidates all sessions (no graceful migration yet —
       refresh tokens are Redis-bound; document before doing it).

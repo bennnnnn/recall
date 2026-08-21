@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+API_URL="${API_URL:-http://localhost:8000}"
 cd "$ROOT"
 
 echo "== Recall production checklist =="
@@ -44,9 +45,9 @@ check "JWT refresh TTL documented" "grep -q 'JWT_REFRESH_EXPIRE_DAYS' apps/api/.
 check "Sentry DSN documented" "grep -q 'SENTRY_DSN' apps/api/.env.example"
 echo
 
-echo "Legal routes (local API must be running for live check)"
-warn_if "GET /legal/privacy" "curl -sf http://localhost:8000/legal/privacy >/dev/null 2>&1"
-warn_if "GET /legal/terms" "curl -sf http://localhost:8000/legal/terms >/dev/null 2>&1"
+echo "Legal routes ($API_URL)"
+warn_if "GET /legal/privacy" "curl -sf '$API_URL/legal/privacy' >/dev/null 2>&1"
+warn_if "GET /legal/terms" "curl -sf '$API_URL/legal/terms' >/dev/null 2>&1"
 echo
 
 echo "Production env scripts (run on your machine with real secrets):"

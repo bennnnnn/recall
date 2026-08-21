@@ -62,6 +62,6 @@ jobs:
         # environment. Set every EXPO_PUBLIC_* (API_URL, EAS_PROJECT_ID,
         # GOOGLE_WEB/IOS_CLIENT_ID, DEV_AUTH_ENABLED=false, REVENUECAT_*_API_KEY,
         # SENTRY_DSN) as EAS Secrets (dashboard → Secrets, or `eas env:push`).
-        # app.config.ts fails the build if EXPO_PUBLIC_API_URL is empty for a
-        # production/preview profile.
+        # app.config.ts fails release builds when the API URL, EAS project ID,
+        # Google client IDs, or platform RevenueCat key is missing.
         run: eas build --platform all --profile production --non-interactive --no-wait

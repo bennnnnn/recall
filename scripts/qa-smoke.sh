@@ -48,6 +48,8 @@ REQUIRED_KEYS=(
   CORS_ORIGINS
   OAUTH_TOKEN_ENCRYPTION_KEY
   REVENUECAT_WEBHOOK_AUTH
+  REVENUECAT_SECRET_KEY
+  DAILY_GLOBAL_SPEND_USD
   STORAGE_BACKEND
   R2_ACCOUNT_ID
   R2_ACCESS_KEY_ID
@@ -56,8 +58,8 @@ REQUIRED_KEYS=(
 )
 env_fail=0
 for key in "${REQUIRED_KEYS[@]}"; do
-  if ! rg -q "^${key}=" "$ROOT/apps/api/.env.example"; then
-    echo "    FAIL: missing $key in apps/api/.env.example"
+  if ! rg -q "^${key}=" "$ROOT/apps/api/.env.production.example"; then
+    echo "    FAIL: missing $key in apps/api/.env.production.example"
     env_fail=1
   fi
 done
@@ -83,6 +85,16 @@ if [[ "$LIVE" -eq 1 ]]; then
     echo "    FAIL: GET /health/ready (is API up with Postgres?)"
     fail=1
   fi
+
+  for page in privacy terms; do
+    echo "==> Live legal page: $API_URL/legal/$page"
+    if curl -sf "$API_URL/legal/$page" | rg -qi '<h1>'; then
+      echo "    OK"
+    else
+      echo "    FAIL: GET /legal/$page"
+      fail=1
+    fi
+  done
 fi
 
 if [[ "$fail" -ne 0 ]]; then
