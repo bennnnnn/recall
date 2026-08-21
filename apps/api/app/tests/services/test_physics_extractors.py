@@ -161,6 +161,16 @@ def test_force_f_ma_solve_f() -> None:
     assert intent.physics_params["a"] == 2.0
 
 
+def test_force_prefers_mass_nearest_mass_label() -> None:
+    intent = _extract_force_intent(
+        "A 3 kg cart is nearby. A net force of 20 N acts on a 5 kg mass. What is the acceleration?"
+    )
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["m"] == 5.0
+    assert intent.physics_params["F"] == 20.0
+
+
 def test_force_only_one_known_returns_none() -> None:
     assert _extract_force_intent("A 5 kg mass is at rest.") is None
 
@@ -178,6 +188,15 @@ def test_energy_kinetic() -> None:
     assert intent.physics_params is not None
     assert intent.physics_params["m"] == 2.0
     assert intent.physics_params["v"] == 10.0
+    assert set(intent.physics_params) == {"m", "v"}
+
+
+def test_energy_velocity_unit_is_not_parsed_as_length() -> None:
+    intent = _extract_energy_intent("What is the kinetic energy of a 2 kg object moving at 10 m/s?")
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert "h" not in intent.physics_params
+    assert "d" not in intent.physics_params
 
 
 def test_energy_potential() -> None:

@@ -75,29 +75,45 @@ def _find_value_with_specific_unit(
 ) -> tuple[float, str] | None:
     """Find a number followed by a specific unit (e.g. "20 N", "5 kg").
 
-    When keywords are provided, only matches near those keywords. Otherwise
-    searches the whole text. This avoids the generic _find_value_with_unit
-    picking up the wrong quantity (e.g. "20 N" as a mass).
+    When keywords are present in the text, prefer the unit-bearing value
+    nearest one of them; otherwise use the first matching value. This avoids
+    binding an earlier unrelated quantity to the requested mass/force/etc.
     """
+    matches = list(
+        re.finditer(
+            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            text,
+            re.IGNORECASE,
+        )
+    )
+    if not matches:
+        return None
+
+    match = matches[0]
     if keywords:
         lower = text.lower()
-        for kw in keywords:
-            idx = lower.find(kw)
-            if idx == -1:
-                continue
-            window = text[max(0, idx - 40) : idx + len(kw) + 40]
-        else:
-            window = text
-    else:
-        window = text
-    m = re.search(
-        rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})",
-        window,
-        re.IGNORECASE,
-    )
-    if m:
-        return float(m.group(1)), m.group(2)
-    return None
+        keyword_spans: list[tuple[int, int]] = []
+        for keyword in keywords:
+            start = 0
+            while (idx := lower.find(keyword.lower(), start)) != -1:
+                keyword_spans.append((idx, idx + len(keyword)))
+                start = idx + len(keyword)
+        if keyword_spans:
+
+            def distance_to_keyword(candidate: re.Match[str]) -> int:
+                distances: list[int] = []
+                for start, end in keyword_spans:
+                    if candidate.end() <= start:
+                        distances.append(start - candidate.end())
+                    elif end <= candidate.start():
+                        distances.append(candidate.start() - end)
+                    else:
+                        distances.append(0)
+                return min(distances)
+
+            match = min(matches, key=distance_to_keyword)
+
+    return float(match.group(1)), match.group(2)
 
 
 def _find_all_numbers(text: str) -> list[float]:
@@ -351,21 +367,29 @@ def _extract_force_intent(cleaned: str) -> MathIntent | None:
     # search so "20 N" (force) isn't picked up as the mass.
     mass: float | None = None
     mass_unit = "kg"
-    mu = _find_value_with_specific_unit(cleaned, r"kg|g|mg|lb|lbs|oz")
+    mu = _find_value_with_specific_unit(
+        cleaned,
+        r"kg|g|mg|lb|lbs|oz",
+        ("mass", "object", "body"),
+    )
     if mu is not None:
         mass, mass_unit = mu
 
     # Force (F): "force of 20 N", "20 N force" — use unit-specific search.
     force: float | None = None
     force_unit = "N"
-    fu = _find_value_with_specific_unit(cleaned, r"N")
+    fu = _find_value_with_specific_unit(cleaned, r"N", ("force",))
     if fu is not None:
         force, force_unit = fu
 
     # Acceleration (a): "acceleration of 2 m/s^2"
     accel: float | None = None
     accel_unit = "m/s^2"
-    au = _find_value_with_specific_unit(cleaned, r"m/s\^?2|m/s2")
+    au = _find_value_with_specific_unit(
+        cleaned,
+        r"m/s\^?2|m/s2",
+        ("acceleration", "accelerates"),
+    )
     if au is not None:
         accel, accel_unit = au
 
@@ -422,35 +446,51 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
     # Mass (m) — use unit-specific search so force isn't picked up as mass.
     mass: float | None = None
     mass_unit = "kg"
-    mu = _find_value_with_specific_unit(cleaned, r"kg|g|mg|lb|lbs|oz")
+    mu = _find_value_with_specific_unit(
+        cleaned,
+        r"kg|g|mg|lb|lbs|oz",
+        ("mass", "object", "body"),
+    )
     if mu is not None:
         mass, mass_unit = mu
 
     # Velocity (v) — for KE = 1/2 m v^2
     velocity: float | None = None
     vel_unit = "m/s"
-    vu = _find_value_with_specific_unit(cleaned, r"m/s|km/h|mph|cm/s|mm/s")
+    vu = _find_value_with_specific_unit(
+        cleaned,
+        r"m/s|km/h|mph|cm/s|mm/s",
+        ("velocity", "speed", "moving", "traveling", "travelling"),
+    )
     if vu is not None:
         velocity, vel_unit = vu
 
     # Height (h) — for PE = m g h. Use length-specific search.
     height: float | None = None
     height_unit = "m"
-    hu = _find_value_with_specific_unit(cleaned, r"km|cm|mm|m|ft|yd|in|mi")
+    hu = _find_value_with_specific_unit(
+        cleaned,
+        r"km|cm|mm|m|ft|yd|in|mi",
+        ("height", "high", "above"),
+    )
     if hu is not None:
         height, height_unit = hu
 
     # Force (F) — for W = F d
     force: float | None = None
     force_unit = "N"
-    fu = _find_value_with_specific_unit(cleaned, r"\bN\b")
+    fu = _find_value_with_specific_unit(cleaned, r"\bN\b", ("force",))
     if fu is not None:
         force, force_unit = fu
 
     # Distance (d) — for W = F d. Use length-specific search.
     distance: float | None = None
     dist_unit = "m"
-    du = _find_value_with_specific_unit(cleaned, r"km|cm|mm|m|ft|yd|in|mi")
+    du = _find_value_with_specific_unit(
+        cleaned,
+        r"km|cm|mm|m|ft|yd|in|mi",
+        ("distance", "over", "through"),
+    )
     if du is not None:
         distance, dist_unit = du
 
@@ -485,23 +525,24 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
 
     params: dict[str, float] = {}
     units: dict[str, str] = {}
-    if mass is not None:
+    if op in ("kinetic_energy", "potential_energy") and mass is not None:
         params["m"] = mass
         units["m"] = mass_unit or "kg"
-    if velocity is not None:
+    if op in ("kinetic_energy", "power") and velocity is not None:
         params["v"] = velocity
         units["v"] = vel_unit or "m/s"
-    if height is not None:
+    if op == "potential_energy" and height is not None:
         params["h"] = height
         units["h"] = height_unit or "m"
-    if force is not None:
+    if op in ("work", "power") and force is not None:
         params["F"] = force
         units["F"] = force_unit or "N"
-    if distance is not None:
+    if op == "work" and distance is not None:
         params["d"] = distance
         units["d"] = dist_unit or "m"
-    params["g"] = _detect_gravity(cleaned)
-    units["g"] = "m/s^2"
+    if op == "potential_energy":
+        params["g"] = _detect_gravity(cleaned)
+        units["g"] = "m/s^2"
 
     return MathIntent(
         kind="energy",
