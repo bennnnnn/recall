@@ -464,7 +464,8 @@ class SympyAdapter:
             return ToolResult(
                 name=self.name,
                 content=(
-                    f"Sampled {len(ellipse_spec.points)} parametric points for {ellipse_spec.expr}\n"
+                    f"Sampled {len(ellipse_spec.points)} parametric points "
+                    f"for {ellipse_spec.expr}\n"
                     "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
                     f"```graph\n{fence_json}\n```"
                 ),

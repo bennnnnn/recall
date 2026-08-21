@@ -11,12 +11,12 @@ from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.gateways import mock_llm
+from app.models import model_catalog
+from app.models.model_catalog import ChatModel
 from app.models.schemas import (
     MemorySectionItem,
     MemorySectionUpdateResult,
 )
-from app.services import model_catalog
-from app.services.model_catalog import ChatModel
 
 logger = logging.getLogger(__name__)
 

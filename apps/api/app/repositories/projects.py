@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.learning_policy import resolve_daily_goal
 from app.models.orm import Project
-from app.services import daily_learning
 
 
 def _initial_daily_goal_history(
@@ -23,7 +23,7 @@ def _initial_daily_goal_history(
     except Exception:
         tz = ZoneInfo("UTC")
     today = datetime.now(tz).date()
-    goal = daily_learning.resolve_daily_goal(SimpleNamespace(kind=kind, daily_goal=daily_goal))
+    goal = resolve_daily_goal(SimpleNamespace(kind=kind, daily_goal=daily_goal))
     return [{"effective_from": today.isoformat(), "goal": goal}]
 
 

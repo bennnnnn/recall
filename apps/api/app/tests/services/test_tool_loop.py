@@ -4,8 +4,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp import registry as mcp_registry
-from app.gateways.mcp.web_search_adapter import WebSearchAdapter
 from app.services import tool_loop
+from app.services.mcp.web_search_adapter import WebSearchAdapter
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -256,7 +256,7 @@ async def test_invoke_validated_rejects_empty_query(web_search_registered):
 async def test_tool_loop_generate_image_is_terminal():
     """Successful generate_image stops further completion rounds."""
     from app.gateways.mcp.base import ToolResult
-    from app.gateways.mcp.image_gen_adapter import ImageGenAdapter
+    from app.services.mcp.image_gen_adapter import ImageGenAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
@@ -328,7 +328,7 @@ async def test_tool_loop_generate_image_is_terminal():
 
 @pytest.mark.asyncio
 async def test_tools_for_user_omits_image_gen_for_free():
-    from app.gateways.mcp.image_gen_adapter import ImageGenAdapter
+    from app.services.mcp.image_gen_adapter import ImageGenAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))

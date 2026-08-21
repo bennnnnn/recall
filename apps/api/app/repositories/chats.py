@@ -6,6 +6,7 @@ from sqlalchemy import delete, exists, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.timezone import resolve_timezone
 from app.models.orm import Chat, Message
 
 
@@ -114,8 +115,6 @@ def group_by_recency(
     - this_month: earlier in the current calendar month
     - older: before this month
     """
-    from app.services.time_context import resolve_timezone
-
     tz = resolve_timezone(user_timezone)
     if now is None:
         now_local = datetime.now(tz)

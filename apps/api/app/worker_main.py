@@ -20,7 +20,7 @@ from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
 from app.gateways.http_client import aclose_pooled_clients
-from app.gateways.mcp import setup_mcp_adapters
+from app.services.mcp import setup_mcp_adapters
 from app.worker_health import create_worker_health_app
 
 
