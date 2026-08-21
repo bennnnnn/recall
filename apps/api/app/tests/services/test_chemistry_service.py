@@ -19,6 +19,8 @@ from app.services import chemistry_service
         ("N#N", "N2", 28.0),
         ("c1ccccc1", "C6H6", 78.0),
         ("O", "H2O", 18.0),
+        ("H2", "H2", 2.0),
+        ("O2", "O2", 31.0),
     ],
 )
 def test_validate_valid_smiles(smiles: str, expected_formula: str, min_weight: float) -> None:
@@ -91,6 +93,13 @@ def test_generate_3d_coordinates_valid() -> None:
     assert len(coords.sdf) > 0
     # SDF should contain atom coordinates
     assert "M  END" in coords.sdf
+
+
+def test_generate_3d_coordinates_diatomic_formula() -> None:
+    coords = chemistry_service.generate_3d_coordinates("H2")
+    assert coords.error is None
+    assert "M  END" in coords.sdf
+    assert coords.sdf.count(" H ") == 2
 
 
 def test_generate_3d_coordinates_invalid() -> None:

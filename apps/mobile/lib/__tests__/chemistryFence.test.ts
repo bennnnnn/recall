@@ -24,6 +24,12 @@ describe("parseChemistryFence", () => {
     });
   });
 
+  it("maps diatomic formulas to SMILES", () => {
+    expect(parseChemistryFence("H2")).toEqual({ smiles: "[H][H]", caption: null });
+    expect(parseChemistryFence("O2")).toEqual({ smiles: "O=O", caption: null });
+    expect(parseChemistryFence("N2")).toEqual({ smiles: "N#N", caption: null });
+  });
+
   it("strips smiles: prefix", () => {
     expect(parseChemistryFence("smiles: CCO")).toEqual({
       smiles: "CCO",
@@ -56,6 +62,7 @@ describe("normalizeMoleculeFormulaToSmiles", () => {
     expect(normalizeMoleculeFormulaToSmiles("N \\equiv N")).toBe("N#N");
     expect(normalizeMoleculeFormulaToSmiles("N ≡ N")).toBe("N#N");
     expect(normalizeMoleculeFormulaToSmiles("$O=O$")).toBe("O=O");
+    expect(normalizeMoleculeFormulaToSmiles("H-H")).toBe("[H][H]");
   });
 
   it("rejects real math", () => {
