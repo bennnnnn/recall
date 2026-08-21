@@ -78,3 +78,12 @@ def test_enrich_molecule3d_includes_formula_title() -> None:
     assert "```molecule3d" in result
     # Ethanol formula is C2H6O
     assert "C2H6O" in result
+
+
+def test_enrich_surfaces_verified_properties_in_caption() -> None:
+    """When no caption is provided, the fence should include formula + MW as caption."""
+    content = "```smiles\nCCO\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    # Ethanol: C2H6O, MW ~46.07
+    assert "C2H6O" in result
+    assert "g/mol" in result

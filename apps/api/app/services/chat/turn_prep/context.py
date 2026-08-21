@@ -449,7 +449,7 @@ async def build_stream_prompt_context(
         | None
     ) = None
     chem_coro: Awaitable[str | None] | None = None
-    if augment:
+    if augment and settings.chemistry_enabled:
         web_coro = fetch_web_and_tools(
             content,
             settings,

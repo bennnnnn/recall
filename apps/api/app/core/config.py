@@ -124,6 +124,7 @@ class Settings(BaseSettings):
     r2_presign_expiry_seconds: int = 600
 
     math_tools_enabled: bool = True
+    chemistry_enabled: bool = True
     math_max_expr_length: int = 256
     # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
     # chat bubbles and FallbackMarkdown when the rich renderer dies.

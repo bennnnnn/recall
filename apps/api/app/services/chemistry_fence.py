@@ -79,6 +79,10 @@ def enrich_chemistry_fences(content: str) -> str:
         # Drop the last line (the old SMILES) and re-append canonical.
         caption_lines = lines[:-1] if len(lines) > 1 else []
         caption = "\n".join(caption_lines).strip()
+        # If no caption was provided, synthesize one with verified properties
+        # (formula + MW) so the mobile card surfaces the verified data.
+        if not caption and props.formula and props.molecular_weight > 0:
+            caption = f"{props.formula} · {props.molecular_weight:.2f} g/mol"
         if caption:
             smiles_fence = f"```smiles\n{caption}\n{props.smiles}\n```"
         else:

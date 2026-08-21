@@ -232,3 +232,182 @@ def test_compute_descriptors_invalid() -> None:
     desc = chemistry_service.compute_descriptors("not_a_smiles")
     assert desc.error is not None
     assert desc.molecular_weight == 0
+
+
+# ---------------------------------------------------------------------------
+# pH / acid-base
+# ---------------------------------------------------------------------------
+
+
+def test_ph_from_concentration() -> None:
+    # [H+] = 1e-7 → pH = 7 (neutral)
+    result = chemistry_service.ph_from_concentration(1e-7)
+    assert result.error is None
+    assert result.ph == pytest.approx(7.0, abs=0.01)
+    assert result.poh == pytest.approx(7.0, abs=0.01)
+
+
+def test_ph_from_concentration_acidic() -> None:
+    # [H+] = 1e-2 → pH = 2
+    result = chemistry_service.ph_from_concentration(1e-2)
+    assert result.ph == pytest.approx(2.0, abs=0.01)
+
+
+def test_ph_from_concentration_invalid() -> None:
+    result = chemistry_service.ph_from_concentration(0)
+    assert result.error is not None
+
+
+def test_ph_from_poh() -> None:
+    result = chemistry_service.ph_from_poh(4.0)
+    assert result.ph == pytest.approx(10.0, abs=0.01)
+
+
+def test_h_from_ph() -> None:
+    result = chemistry_service.h_from_ph(3.0)
+    assert result.ph == pytest.approx(3.0, abs=0.01)
+    # [H+] = 10^-3 = 1e-3
+    assert "e-03" in result.answer or "0.001" in result.answer
+
+
+# ---------------------------------------------------------------------------
+# Gas laws
+# ---------------------------------------------------------------------------
+
+
+def test_ideal_gas_law_solve_pressure() -> None:
+    # P = nRT/V with n=1, T=273, V=22.4 → ~1 atm
+    result = chemistry_service.ideal_gas_law(volume=22.4, moles=1, temperature=273)
+    assert result.error is None
+    assert result.value == pytest.approx(1.0, abs=0.05)
+
+
+def test_ideal_gas_law_solve_volume() -> None:
+    result = chemistry_service.ideal_gas_law(pressure=1, moles=1, temperature=273)
+    assert result.error is None
+    assert result.value == pytest.approx(22.4, abs=0.5)
+
+
+def test_ideal_gas_law_solve_moles() -> None:
+    result = chemistry_service.ideal_gas_law(pressure=1, volume=22.4, temperature=273)
+    assert result.error is None
+    assert result.value == pytest.approx(1.0, abs=0.05)
+
+
+def test_ideal_gas_law_solve_temperature() -> None:
+    result = chemistry_service.ideal_gas_law(pressure=1, volume=22.4, moles=1)
+    assert result.error is None
+    assert result.value == pytest.approx(273, abs=2)
+
+
+def test_ideal_gas_law_no_unknown() -> None:
+    result = chemistry_service.ideal_gas_law(pressure=1, volume=1, moles=1, temperature=273)
+    assert result.error is not None
+
+
+def test_ideal_gas_law_two_unknown() -> None:
+    result = chemistry_service.ideal_gas_law(pressure=1, volume=1)
+    assert result.error is not None
+
+
+# ---------------------------------------------------------------------------
+# Solution chemistry
+# ---------------------------------------------------------------------------
+
+
+def test_molarity() -> None:
+    result = chemistry_service.molarity(2.0, 1.0)
+    assert result.error is None
+    assert result.value == pytest.approx(2.0)
+
+
+def test_molarity_zero_volume() -> None:
+    result = chemistry_service.molarity(2.0, 0.0)
+    assert result.error is not None
+
+
+def test_dilution_solve_v2() -> None:
+    # M1V1 = M2V2 → V2 = M1V1/M2 = (2*1)/1 = 2
+    result = chemistry_service.dilution(m1=2.0, v1=1.0, m2=1.0)
+    assert result.error is None
+    assert result.value == pytest.approx(2.0)
+
+
+def test_dilution_solve_m2() -> None:
+    # M2 = M1V1/V2 = (2*1)/4 = 0.5
+    result = chemistry_service.dilution(m1=2.0, v1=1.0, v2=4.0)
+    assert result.error is None
+    assert result.value == pytest.approx(0.5)
+
+
+def test_dilution_no_unknown() -> None:
+    result = chemistry_service.dilution(m1=2.0, v1=1.0, v2=4.0, m2=0.5)
+    assert result.error is not None
+
+
+def test_dilution_two_unknown() -> None:
+    result = chemistry_service.dilution(m1=2.0, v1=1.0)
+    assert result.error is not None
+
+
+# ---------------------------------------------------------------------------
+# Periodic table
+# ---------------------------------------------------------------------------
+
+
+def test_get_element_info_carbon() -> None:
+    info = chemistry_service.get_element_info("C")
+    assert info is not None
+    assert info["name"] == "Carbon"
+    assert info["mass"] == pytest.approx(12.011)
+    assert info["electronegativity"] == pytest.approx(2.55)
+
+
+def test_get_element_info_unknown() -> None:
+    info = chemistry_service.get_element_info("Xx")
+    assert info is None
+
+
+# ---------------------------------------------------------------------------
+# Limiting reagent
+# ---------------------------------------------------------------------------
+
+
+def test_limiting_reagent_basic() -> None:
+    # 2H2 + O2 -> 2H2O
+    # If we have 1 mol H2 and 1 mol O2:
+    # H2 can make 1*(2/2) = 1 mol H2O
+    # O2 can make 1*(2/1) = 2 mol H2O
+    # H2 is limiting
+    result = chemistry_service.limiting_reagent(
+        "H2 + O2 -> H2O",
+        {"H2": 1.0, "O2": 1.0},
+        target_product="H2O",
+    )
+    assert result.error is None
+    assert result.limiting_reagent == "H2"
+    assert result.product_amount == pytest.approx(1.0, abs=0.01)
+
+
+def test_limiting_reagent_o2_limiting() -> None:
+    # If we have 3 mol H2 and 1 mol O2:
+    # H2 can make 3*(2/2) = 3 mol H2O
+    # O2 can make 1*(2/1) = 2 mol H2O
+    # O2 is limiting
+    result = chemistry_service.limiting_reagent(
+        "H2 + O2 -> H2O",
+        {"H2": 3.0, "O2": 1.0},
+        target_product="H2O",
+    )
+    assert result.error is None
+    assert result.limiting_reagent == "O2"
+    assert result.product_amount == pytest.approx(2.0, abs=0.01)
+
+
+def test_limiting_reagent_unknown_reactant() -> None:
+    result = chemistry_service.limiting_reagent(
+        "H2 + O2 -> H2O",
+        {"N2": 1.0},
+        target_product="H2O",
+    )
+    assert result.error is not None
