@@ -1,297 +1,37 @@
-"""Chemistry context — detect chemistry questions and fetch PubChem data.
+"""Compatibility alias for the packaged implementation."""
 
-When a user asks about a compound by name (e.g. "what is aspirin?"),
-this fetches the compound from PubChem and injects the SMILES + properties
-into the prompt context so the model can render a verified ```smiles fence
-and discuss real properties.
-"""
+import sys
 
-from __future__ import annotations
-
-import logging
-import re
-
-from app.core.config import Settings
-from app.gateways import pubchem_gateway
-from app.services import chemistry_service
-
-logger = logging.getLogger(__name__)
-
-# Detect chemical equations: "H2 + O2 -> H2O" or "H2 + O2 → H2O"
-# Match a sequence of chemical formulas separated by +, with an arrow.
-# A formula is a sequence of element symbols (uppercase + optional lowercase)
-# each optionally followed by digits, with optional parenthesized groups.
-_EQ_FORMULA = (
-    r"[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)*"
-    r"(?:[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)?)*"
+from app.services.chemistry import context as _impl
+from app.services.chemistry.context import (
+    Settings as Settings,
 )
-_EQUATION_RE = re.compile(
-    rf"((?:{_EQ_FORMULA}\s*\+\s*)*{_EQ_FORMULA}\s*(?:->|→)\s*(?:{_EQ_FORMULA}\s*\+\s*)*{_EQ_FORMULA})"
+from app.services.chemistry.context import (
+    annotations as annotations,
 )
-# Cues that indicate the user wants the equation balanced.
-_BALANCE_CUE = re.compile(
-    r"\b(?:balance|balanced|coefficient|stoichiometr)\b",
-    re.IGNORECASE,
+from app.services.chemistry.context import (
+    build_chemistry_context as build_chemistry_context,
 )
-# Detect molar mass questions: "molar mass of H2O", "molecular weight of C6H12O6"
-_MOLAR_MASS_RE = re.compile(
-    r"\b(?:molar\s+mass\s+of|molecular\s+weight\s+of|mass\s+of)\s+"
-    r"([A-Za-z0-9\(\)\[\]\.]+)",
-    re.IGNORECASE,
+from app.services.chemistry.context import (
+    chemistry_service as chemistry_service,
+)
+from app.services.chemistry.context import (
+    extract_compound_name as extract_compound_name,
+)
+from app.services.chemistry.context import (
+    is_chemistry_question as is_chemistry_question,
+)
+from app.services.chemistry.context import (
+    logger as logger,
+)
+from app.services.chemistry.context import (
+    logging as logging,
+)
+from app.services.chemistry.context import (
+    pubchem_gateway as pubchem_gateway,
+)
+from app.services.chemistry.context import (
+    re as re,
 )
 
-# Detect stoichiometry questions: "how much product", "how many moles of"
-_STOICH_CUE = re.compile(
-    r"\b(?:how\s+much|how\s+many|amount\s+of|moles\s+of|grams?\s+of|limiting\s+reagent)\b",
-    re.IGNORECASE,
-)
-
-# Detect descriptor questions: "LogP", "TPSA", "polar surface area", "drug-likeness"
-_DESCRIPTOR_CUE = re.compile(
-    r"\b(?:logp|log\s*p|tpsa|polar\s+surface\s+area|drug[-\s]?likeness|"
-    r"hydrogen\s+bond|h[-\s]?bond|lipinski|ro5|bioavailability)\b",
-    re.IGNORECASE,
-)
-
-# Detect pH questions: "pH", "pOH", "acidic", "basic", "neutralize"
-# Note: "pH" is matched case-sensitively to avoid false positives on "phase", "photo".
-_PH_CUE = re.compile(
-    r"(?:\bpH\b|\bpOH\b|acidic|basic|neutralize|"
-    r"\[H\+?\]|\[OH-?\]|hydrogen\s+ion)",
-)
-
-# Detect gas law questions: "PV=nRT", "ideal gas", "Boyle", "Charles", "Gay-Lussac"
-_GAS_LAW_CUE = re.compile(
-    r"\b(?:pv\s*=\s*nrt|ideal\s+gas|boyle|charles|gay[-\s]?lussac|"
-    r"pressure.*volume|volume.*pressure|gas\s+law)\b",
-    re.IGNORECASE,
-)
-
-# Detect solution chemistry: "molarity", "molality", "dilution", "M1V1"
-_SOLUTION_CUE = re.compile(
-    r"\b(?:molarity|molality|dilut|M1V1|concentration\s+of\s+solution)\b",
-    re.IGNORECASE,
-)
-
-# Cues that indicate a chemistry question about a specific compound.
-_COMPOUND_CUES = re.compile(
-    r"\b(?:structure|formula|molecule|molecular|smiles|compound|chemical|"
-    r"what\s+is|tell\s+me\s+about|draw|show|describe)\b",
-    re.IGNORECASE,
-)
-
-# Common compound name patterns — a word or two after a cue.
-# e.g. "what is aspirin", "structure of caffeine", "molecular formula of ethanol"
-_COMPOUND_NAME_RE = re.compile(
-    r"\b(?:structure\s+of|molecular\s+formula\s+of|formula\s+of|"
-    r"what\s+is|what's|tell\s+me\s+about|draw\s+(?:the\s+)?(?:molecule\s+)?|show\s+me\s+(?:the\s+)?(?:molecule\s+)?|describe(?:\s+the)?(?:\s+molecule)?\s+|"
-    r"smiles\s+for|smiles\s+of|compound|chemical\s+structure\s+of)\s*"
-    r"([a-zA-Z][a-zA-Z0-9\-\s]{2,40}?)"
-    r"(?:\?|$|\.|,|\s+(?:and|or|with|in|at|for|to|is|are|the))",
-    re.IGNORECASE,
-)
-
-# Known non-chemistry words that match the cue pattern.
-_FALSE_POSITIVES = frozenset(
-    {
-        "the",
-        "this",
-        "that",
-        "it",
-        "a",
-        "an",
-        "water",
-        "light",
-        "energy",
-        "time",
-        "space",
-        "code",
-        "data",
-        "file",
-        "image",
-        "text",
-    }
-)
-
-
-def is_chemistry_question(content: str) -> bool:
-    """True when the user message looks like a chemistry question."""
-    if not _COMPOUND_CUES.search(content):
-        return False
-    # Must also have a molecule-ish word or a compound name.
-    if re.search(
-        r"\b(?:molecule|smiles|compound|chemical|molecular|atom|bond|reaction)\b",
-        content,
-        re.IGNORECASE,
-    ):
-        return True
-    # "what is aspirin" without explicit chemistry words — still try.
-    return bool(_COMPOUND_NAME_RE.search(content))
-
-
-def extract_compound_name(content: str) -> str | None:
-    """Extract a candidate compound name from a chemistry question.
-
-    Returns None when no compound name can be identified.
-    """
-    match = _COMPOUND_NAME_RE.search(content)
-    if match is None:
-        return None
-    name = match.group(1).strip().lower()
-    # Clean up trailing articles/prepositions.
-    name = re.sub(r"\s+(?:the|a|an|of|for|with)$", "", name).strip()
-    if not name or name in _FALSE_POSITIVES:
-        return None
-    if len(name) < 3 or len(name) > 40:
-        return None
-    return name
-
-
-async def build_chemistry_context(
-    content: str,
-    settings: Settings,
-) -> str | None:
-    """Fetch chemistry context for a user message.
-
-    Returns a context block string to inject into the prompt, or None
-    when no chemistry context is needed or the fetch fails.
-    """
-    # Check for equation balancing first (no PubChem needed).
-    eq_match = _EQUATION_RE.search(content)
-    if eq_match and _BALANCE_CUE.search(content):
-        equation = eq_match.group(1).strip()
-        try:
-            balanced = chemistry_service.balance_equation(equation)
-            if balanced.balanced:
-                r_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.reactants.items()))
-                p_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.products.items()))
-                return (
-                    f"[Verified balanced equation]\n"
-                    f"{r_str} -> {p_str}\n"
-                    f"Use this balanced equation verbatim."
-                )
-        except Exception:
-            logger.info("equation balancing failed for %r", equation, exc_info=True)
-
-    # Check for molar mass questions.
-    mm_match = _MOLAR_MASS_RE.search(content)
-    if mm_match:
-        formula = mm_match.group(1).strip()
-        try:
-            mass = chemistry_service.molar_mass(formula)
-            return (
-                f"[Verified molar mass]\n"
-                f"Molar mass of {formula}: {mass} g/mol\n"
-                f"Use this value verbatim in your answer."
-            )
-        except Exception:
-            logger.info("molar mass failed for %r", formula, exc_info=True)
-
-    # Check for stoichiometry questions (with an equation).
-    if _STOICH_CUE.search(content) and eq_match:
-        equation = eq_match.group(1).strip()
-        try:
-            balanced = chemistry_service.balance_equation(equation)
-            if balanced.balanced:
-                r_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.reactants.items()))
-                p_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.products.items()))
-                return (
-                    f"[Verified stoichiometry]\n"
-                    f"Balanced equation: {r_str} -> {p_str}\n"
-                    f"Use mole ratios from the balanced coefficients for your calculation."
-                )
-        except Exception:
-            logger.info("stoichiometry context failed", exc_info=True)
-
-    # Check for molecular descriptor questions (with a SMILES in the message).
-    if _DESCRIPTOR_CUE.search(content):
-        # Try to find a SMILES-like string in the message.
-        smiles_match = re.search(r"\b([A-Z][A-Za-z0-9@\[\]\(\)=#\\\\/\\\\.]{4,60})\b", content)
-        if smiles_match:
-            smiles = smiles_match.group(1)
-            try:
-                desc = chemistry_service.compute_descriptors(smiles)
-                if desc.error is None:
-                    return (
-                        f"[Verified molecular descriptors for {desc.smiles}]\n"
-                        f"MW: {desc.molecular_weight} g/mol\n"
-                        f"LogP: {desc.log_p}\n"
-                        f"TPSA: {desc.tpsa}\n"
-                        f"H-bond donors: {desc.h_bond_donors}\n"
-                        f"H-bond acceptors: {desc.h_bond_acceptors}\n"
-                        f"Rotatable bonds: {desc.rotatable_bonds}\n"
-                        f"Rings: {desc.ring_count}\n"
-                        f"Use these values verbatim in your answer."
-                    )
-            except Exception:
-                logger.info("descriptor context failed for %r", smiles, exc_info=True)
-
-    # Check for pH questions.
-    if _PH_CUE.search(content):
-        # Try to extract [H+] concentration.
-        h_match = re.search(r"\[H\+?\]\s*=\s*([\d\.eE\-]+)", content)
-        if h_match:
-            try:
-                h_conc = float(h_match.group(1))
-                ph_result = chemistry_service.ph_from_concentration(h_conc)
-                if ph_result.error is None:
-                    return (
-                        f"[Verified pH calculation]\n{ph_result.answer}\nUse this value verbatim."
-                    )
-            except Exception:
-                logger.info("pH context failed", exc_info=True)
-
-    # Check for gas law questions.
-    if _GAS_LAW_CUE.search(content):
-        return (
-            "[Gas law hint]\n"
-            "Use PV=nRT with R=0.0821 L·atm/(mol·K). "
-            "State the known variables and solve for the unknown."
-        )
-
-    # Check for solution chemistry questions.
-    if _SOLUTION_CUE.search(content):
-        return (
-            "[Solution chemistry hint]\n"
-            "Molarity M = moles / volume (L). Dilution: M1V1 = M2V2. "
-            "State the known values and solve for the unknown."
-        )
-
-    # Compound lookup via PubChem.
-    if not is_chemistry_question(content):
-        return None
-
-    name = extract_compound_name(content)
-    if name is None:
-        return None
-
-    result = await pubchem_gateway.lookup_by_name(name)
-    if result.error is not None or result.compound is None:
-        logger.info("PubChem lookup failed for %r: %s", name, result.error)
-        return None
-
-    compound = result.compound
-    # Build a context block that tells the model the verified SMILES and
-    # properties, so it can emit a ```smiles fence and discuss real data.
-    lines = [
-        f"[Chemistry context for {name}]",
-        f"Canonical SMILES: {compound.smiles}",
-        f"Molecular formula: {compound.molecular_formula}",
-        f"Molecular weight: {compound.molecular_weight:.2f} g/mol",
-        f"PubChem CID: {compound.cid}",
-        "Use the SMILES above verbatim in a ```smiles fence if you show the structure.",
-    ]
-
-    # Best-effort: fetch 3D SDF from PubChem as a fallback for molecules
-    # where RDKit embedding may fail (complex ring systems, macrocycles).
-    # The model can emit a ```molecule3d fence directly with this SDF.
-    if compound.cid:
-        try:
-            sdf = await pubchem_gateway.fetch_3d_sdf(compound.cid)
-            if sdf:
-                lines.append("3D SDF (use verbatim in a ```molecule3d fence if you show 3D):")
-                lines.append(sdf)
-        except Exception:
-            logger.info("PubChem 3D SDF fetch failed for CID %s", compound.cid, exc_info=True)
-
-    return "\n".join(lines)
+sys.modules[__name__] = _impl
