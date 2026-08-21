@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from pint import UnitRegistry
 from sympy import (
     Function,
     Symbol,
@@ -21,31 +22,51 @@ from sympy import (
 from app.models.math_schemas import MathExprResult
 from app.services.math_service import MathServiceError, _parse_expression
 
-_LENGTH_TO_M = {
-    "mm": 0.001,
-    "cm": 0.01,
-    "m": 1.0,
-    "km": 1000.0,
-    "in": 0.0254,
-    "inch": 0.0254,
-    "inches": 0.0254,
-    "ft": 0.3048,
-    "feet": 0.3048,
-    "foot": 0.3048,
-    "yd": 0.9144,
-    "mi": 1609.344,
-    "mile": 1609.344,
-    "miles": 1609.344,
+# Pint unit registry (singleton — 50-80ms init, paid once at first use).
+# Replaces the hardcoded _LENGTH_TO_M / _MASS_TO_KG / _TIME_TO_S dicts with
+# proper dimensional analysis, compound units (m/s², N, J, Pa), and offset
+# temperature handling (C/F/K).
+_unit_registry: UnitRegistry | None = None
+
+
+def _get_unit_registry() -> UnitRegistry:
+    global _unit_registry
+    if _unit_registry is None:
+        _unit_registry = UnitRegistry()
+    return _unit_registry
+
+
+# Aliases the old hardcoded tables accepted that Pint doesn't by default.
+# Maps user-facing unit strings → Pint-compatible strings.
+_UNIT_ALIASES = {
+    "in": "inch",
+    "inches": "inch",
+    "ft": "foot",
+    "feet": "foot",
+    "foot": "foot",
+    "yd": "yard",
+    "mi": "mile",
+    "miles": "mile",
+    "mile": "mile",
+    "lbs": "pound",
+    "lb": "pound",
+    "oz": "ounce",
+    "sec": "second",
+    "secs": "second",
+    "s": "second",
+    "mins": "minute",
+    "min": "minute",
+    "hr": "hour",
+    "hrs": "hour",
+    "h": "hour",
+    "ms": "millisecond",
+    "c": "degC",
+    "celsius": "degC",
+    "f": "degF",
+    "fahrenheit": "degF",
+    "k": "kelvin",
+    "kelvin": "kelvin",
 }
-_MASS_TO_KG = {
-    "mg": 0.000001,
-    "g": 0.001,
-    "kg": 1.0,
-    "lb": 0.45359237,
-    "lbs": 0.45359237,
-    "oz": 0.028349523125,
-}
-_TIME_TO_S = {"ms": 0.001, "s": 1.0, "sec": 1.0, "min": 60.0, "hr": 3600.0, "h": 3600.0}
 
 
 def evaluate_arithmetic(expr: str) -> str:
@@ -159,20 +180,46 @@ def evaluate_complex(expr: str) -> str:
 
 
 def convert_unit(value: float, src: str, dest: str) -> str:
-    s, d = src.lower().rstrip("s"), dest.lower().rstrip("s")
-    if s in {"c", "celsius"} and d in {"f", "fahrenheit"}:
-        return f"{value * 9.0 / 5.0 + 32.0:g}"
-    if s in {"f", "fahrenheit"} and d in {"c", "celsius"}:
-        return f"{(value - 32.0) * 5.0 / 9.0:g}"
-    if s in {"c", "celsius"} and d in {"k", "kelvin"}:
-        return f"{value + 273.15:g}"
-    if s in {"k", "kelvin"} and d in {"c", "celsius"}:
-        return f"{value - 273.15:g}"
-    for table in (_LENGTH_TO_M, _MASS_TO_KG, _TIME_TO_S):
-        if s in table and d in table:
-            si = value * table[s]
-            return f"{si / table[d]:g}"
-    raise MathServiceError(f"unsupported conversion {src} to {dest}")
+    """Convert a value from one unit to another using Pint dimensional analysis.
+
+    Handles length, mass, time, temperature (C/F/K), and compound units
+    (m/s, m/s², N, J, Pa, W, Hz, etc.). Raises MathServiceError on
+    unsupported conversions or dimensionality mismatches.
+    """
+    ureg = _get_unit_registry()
+
+    def _normalize(unit: str) -> str:
+        key = unit.lower().strip()
+        # Check the alias dict with the full string first (handles "inches",
+        # "feet", "celsius", "fahrenheit", "m/s2", etc.), then try the
+        # plural-stripped form (handles "meters" → "meter", "seconds" → "second").
+        # Only strip plurals from simple word units (no "/" or "^") so compound
+        # units like "m/s" aren't broken into "m/", and only from 2+ char words
+        # so "s" (second) and "m" (meter) aren't reduced to "".
+        if key in _UNIT_ALIASES:
+            return _UNIT_ALIASES[key]
+        if "/" in key or "^" in key:
+            return key  # compound unit — pass through to Pint as-is
+        stripped = key.rstrip("s") if len(key) > 1 else key
+        if stripped in _UNIT_ALIASES:
+            return _UNIT_ALIASES[stripped]
+        return stripped
+
+    try:
+        src_unit = _normalize(src)
+        dest_unit = _normalize(dest)
+        # Pint offset units (degC, degF) can't be multiplied by a scalar
+        # directly — use Quantity() which handles the offset correctly.
+        try:
+            quantity = value * ureg(src_unit)
+        except Exception:
+            quantity = ureg.Quantity(value, src_unit)
+        result = quantity.to(dest_unit)
+        # Use :.10g for enough precision that test tolerances pass (the old
+        # hardcoded dicts used :g which only gave 6 significant digits).
+        return f"{float(result.magnitude):.10g}"
+    except Exception as exc:
+        raise MathServiceError(f"unsupported conversion {src} to {dest}") from exc
 
 
 def taylor_series(expr: str, variable: str, point: str, order: int) -> MathExprResult:

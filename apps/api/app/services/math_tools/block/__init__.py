@@ -62,6 +62,7 @@ from app.services.math_tools.block.graph import (
     _verified_block_point,
     _verified_block_vertical,
 )
+from app.services.math_tools.block.physics import PHYSICS_BLOCK_BUILDERS
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             from app.services.math_tools.school import SCHOOL_BLOCK_BUILDERS
 
             builder = SCHOOL_BLOCK_BUILDERS.get(intent.kind)
+        if builder is None:
+            builder = PHYSICS_BLOCK_BUILDERS.get(intent.kind)
         if builder is None:
             return None
         return builder(intent, settings, lines)

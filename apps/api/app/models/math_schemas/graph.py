@@ -50,7 +50,7 @@ class NumberLineInterval(BaseModel):
 
 
 class GraphBlockSpec(BaseModel):
-    type: Literal["function", "vertical", "number_line"] = "function"
+    type: Literal["function", "vertical", "number_line", "trajectory"] = "function"
     # Same bounds as every other math input model in this file (EquationInput,
     # GraphSampleInput, MathImageExtract) — this one was missing them, an
     # inconsistency worth closing even though this field is currently
@@ -87,6 +87,13 @@ class GraphBlockSpec(BaseModel):
     # 1-variable inequality on a number line (`type: "number_line"`). Empty
     # on function/vertical fences so existing dumps stay valid.
     intervals: list[NumberLineInterval] = Field(default_factory=list, max_length=8)
+    # Trajectory plots (`type: "trajectory"`) — pre-computed points from the
+    # physics solver (no function sampling). `points` is [[x, y], ...].
+    # `trajectory_type` distinguishes time-series (height vs time) from
+    # parametric (projectile x-y). Axis labels render on the SVG.
+    x_label: str | None = Field(default=None, max_length=64)
+    y_label: str | None = Field(default=None, max_length=64)
+    trajectory_type: Literal["position_vs_time", "velocity_vs_time", "parametric"] | None = None
 
     @model_validator(mode="after")
     def vertical_or_function_shape(self) -> GraphBlockSpec:
@@ -96,6 +103,14 @@ class GraphBlockSpec(BaseModel):
             if not self.title:
                 self.title = self.expr
             self.points = []
+            self.segments = []
+            return self
+        if self.type == "trajectory":
+            if len(self.points) < 2:
+                raise ValueError("trajectory graph requires at least 2 points")
+            if not self.title:
+                self.title = "Trajectory"
+            # Trajectory plots are pre-computed; no segments needed.
             self.segments = []
             return self
         if self.type == "vertical":

@@ -33,6 +33,7 @@ dependencies = [
     "pgvector>=0.5.0,<0.6",
     "sympy>=1.13.0,<1.15",
     "numpy>=2.5.2,<2.6",
+    "pint>=0.24,<0.25",
     "cryptography>=50.0.0,<51",
     "boto3>=1.35.0,<1.44",
     "sentry-sdk[fastapi]>=2.66.0,<2.67",

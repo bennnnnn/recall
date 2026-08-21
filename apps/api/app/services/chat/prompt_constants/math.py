@@ -134,7 +134,15 @@ MATH_SOLVER_HINT = (
     "ONLY when a verified SymPy/system block is present for that ask — then use "
     "its exact numbers (and convergence/divergence / infinity status when given) "
     "and do NOT recompute. If no verified block is present, do NOT claim SymPy "
-    "verification; be cautious and say when you are unsure."
+    "verification; be cautious and say when you are unsure.\n"
+    "- Physics problems (kinematics, projectile motion, forces, energy): when a "
+    "verified physics block is present, use its exact answer and trajectory graph "
+    "fence verbatim — do NOT recompute the time, velocity, range, or energy. "
+    "Always include units in the setup (g = 9.81 m/s^2, h0 = 20 m, v0 = 0 m/s). "
+    "Start with the general equation (e.g. $h = h_0 + v_0 t - \\frac{1}{2} g t^2$), "
+    "then substitute the known values, then the verified answer in ```answer. "
+    "When a trajectory ```graph fence is provided, emit it once — the app renders "
+    "the SVG; do NOT re-list the points in prose."
 )
 
 # When the user is practicing/learning math and gives a wrong answer (or asks

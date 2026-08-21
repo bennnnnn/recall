@@ -8,7 +8,7 @@ export type NumberLineInterval = {
 };
 
 export type GraphSpec = {
-  type: "function" | "vertical" | "number_line";
+  type: "function" | "vertical" | "number_line" | "trajectory";
   expr: string;
   variable?: string;
   x_min?: number;
@@ -33,6 +33,11 @@ export type GraphSpec = {
   label?: string;
   label2?: string;
   intervals?: NumberLineInterval[];
+  // Trajectory plots (type "trajectory") — pre-computed points from the
+  // physics solver. Axis labels render on the SVG.
+  x_label?: string;
+  y_label?: string;
+  trajectory_type?: "position_vs_time" | "velocity_vs_time" | "parametric";
 };
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
@@ -130,6 +135,31 @@ function parseNumberLineGraph(row: Record<string, unknown>): GraphSpec | null {
   };
 }
 
+function parseTrajectoryGraph(row: Record<string, unknown>): GraphSpec | null {
+  // Trajectory plots carry pre-computed points (no function sampling).
+  // The physics solver already clamped negative heights to 0.
+  const points = parsePoints(row.points);
+  if (points.length < 2) return null;
+  const expr = String(row.expr ?? "").trim();
+  const trajectoryType = row.trajectory_type as
+    | "position_vs_time"
+    | "velocity_vs_time"
+    | "parametric"
+    | undefined;
+  return {
+    type: "trajectory",
+    expr: expr.length > MAX_GRAPH_EXPR_LENGTH ? expr.slice(0, MAX_GRAPH_EXPR_LENGTH) : expr,
+    variable: String(row.variable ?? "t"),
+    x_min: Number(row.x_min ?? points[0][0]),
+    x_max: Number(row.x_max ?? points[points.length - 1][0]),
+    title: row.title != null ? String(row.title) : "Trajectory",
+    points,
+    x_label: row.x_label != null ? String(row.x_label) : undefined,
+    y_label: row.y_label != null ? String(row.y_label) : undefined,
+    trajectory_type: trajectoryType,
+  };
+}
+
 function parsePoints(raw: unknown): [number, number][] {
   if (!Array.isArray(raw)) return [];
   return downsamplePoints(
@@ -159,6 +189,9 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     }
     if (row.type === "number_line") {
       return parseNumberLineGraph(row);
+    }
+    if (row.type === "trajectory") {
+      return parseTrajectoryGraph(row);
     }
     if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
