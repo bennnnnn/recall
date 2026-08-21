@@ -4,6 +4,7 @@ import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, GoogleCalendarStatus, GoogleGmailStatus } from "@/lib/api";
 import { isExpoGo } from "@/lib/expoRuntime";
 import { connectGoogleCalendar } from "@/lib/google-calendar";
@@ -15,6 +16,7 @@ import { patchIntegrationStatusCache } from "@/lib/cache/integrationStatusCache"
 export function useSettingsIntegrations() {
   const { token } = useAuth();
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const [calendarStatus, setCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<GoogleGmailStatus | null>(null);
@@ -70,7 +72,8 @@ export function useSettingsIntegrations() {
     } catch (error) {
       const message = error instanceof Error ? error.message : t("settings.calendar_connect_failed");
       if (!message.toLowerCase().includes("cancel")) {
-        Alert.alert(t("settings.calendar_title"), message);
+        if (feedback) feedback.error(message);
+        else Alert.alert(t("settings.calendar_title"), message);
       }
     } finally {
       setCalendarBusy(false);
@@ -90,9 +93,9 @@ export function useSettingsIntegrations() {
             await api.disconnectGoogleCalendar(token);
             setCalendarStatus({ connected: false, configured: calendarStatus?.configured ?? true });
             patchIntegrationStatusCache({ calendarConnected: false });
-            Alert.alert(t("settings.calendar_title"), t("settings.calendar_disconnected"));
           } catch {
-            Alert.alert(t("settings.calendar_title"), t("settings.calendar_connect_failed"));
+            if (feedback) feedback.error(t("settings.calendar_connect_failed"));
+            else Alert.alert(t("settings.calendar_title"), t("settings.calendar_connect_failed"));
           } finally {
             setCalendarBusy(false);
           }
@@ -110,13 +113,13 @@ export function useSettingsIntegrations() {
       setGmailStatus(status);
       patchIntegrationStatusCache({ gmailConnected: status.connected });
       const message = gmailSyncMessage(result);
-      Alert.alert(
-        t("settings.gmail_title"),
+      feedback?.success(
         t(message.key, "params" in message ? message.params : undefined),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : t("settings.gmail_sync_failed");
-      Alert.alert(t("settings.gmail_title"), message);
+      if (feedback) feedback.error(message);
+      else Alert.alert(t("settings.gmail_title"), message);
     } finally {
       setGmailBusy(false);
     }
@@ -135,7 +138,8 @@ export function useSettingsIntegrations() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : t("settings.gmail_connect_failed");
       if (message !== "Gmail connect cancelled") {
-        Alert.alert(t("settings.gmail_title"), message);
+        if (feedback) feedback.error(message);
+        else Alert.alert(t("settings.gmail_title"), message);
       }
     } finally {
       setGmailBusy(false);
@@ -173,9 +177,9 @@ export function useSettingsIntegrations() {
             const status = await api.googleGmailStatus(token);
             setGmailStatus(status);
             patchIntegrationStatusCache({ gmailConnected: status.connected });
-            Alert.alert(t("settings.gmail_title"), t("settings.gmail_disconnected"));
           } catch {
-            Alert.alert(t("settings.gmail_title"), t("settings.gmail_connect_failed"));
+            if (feedback) feedback.error(t("settings.gmail_connect_failed"));
+            else Alert.alert(t("settings.gmail_title"), t("settings.gmail_connect_failed"));
           } finally {
             setGmailBusy(false);
           }

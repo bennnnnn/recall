@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,6 +13,7 @@ import {
   SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { LANGUAGES } from "@/lib/i18n";
@@ -32,7 +33,10 @@ export default function PreferencesSettingsScreen() {
     useAppearance();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
+  const feedback = useActionFeedbackOptional();
   const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<string | null>(null);
+  const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<
     "appearance" | "style" | "tone" | "language" | null
   >(null);
@@ -45,29 +49,40 @@ export default function PreferencesSettingsScreen() {
   const selectedTone = normalizeResponseTone(user?.response_tone ?? DEFAULT_RESPONSE_TONE);
 
   const patch = useCallback(
-    async (fields: Parameters<typeof updateUser>[0]) => {
+    async (fields: Parameters<typeof updateUser>[0], action: string): Promise<boolean> => {
+      if (savingRef.current) return false;
+      savingRef.current = true;
       setSaving(true);
+      setSavingAction(action);
       try {
         await updateUser(fields);
+        return true;
       } catch {
-        Alert.alert(t("common.error"), t("common.error"));
+        if (feedback) feedback.error(t("common.error"));
+        else Alert.alert(t("common.error"), t("common.error"));
+        return false;
       } finally {
+        savingRef.current = false;
         setSaving(false);
+        setSavingAction(null);
       }
     },
-    [t, updateUser],
+    [feedback, t, updateUser],
   );
 
   const handleLocationToggle = async (enabled: boolean) => {
     if (!enabled) {
-      await patch({ location_enabled: false, location: null });
+      await patch({ location_enabled: false, location: null }, "location");
       return;
     }
     if (!canUseDeviceLocation()) {
       Alert.alert(t("settings.location"), t("settings.location_expo_go"));
       return;
     }
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
+    setSavingAction("location");
     try {
       const label = await getDeviceLocationLabel();
       if (!label) {
@@ -77,9 +92,12 @@ export default function PreferencesSettingsScreen() {
       }
       await updateUser({ location_enabled: true, location: label });
     } catch {
-      Alert.alert(t("common.error"), t("settings.location_denied"));
+      if (feedback) feedback.error(t("settings.location_denied"));
+      else Alert.alert(t("common.error"), t("settings.location_denied"));
     } finally {
+      savingRef.current = false;
       setSaving(false);
+      setSavingAction(null);
     }
   };
 
@@ -97,10 +115,16 @@ export default function PreferencesSettingsScreen() {
   };
 
   const saveInstructions = async () => {
-    setInstructionsOpen(false);
     const trimmed = instructionsText.trim();
-    if ((user?.custom_instructions ?? null) === (trimmed || null)) return;
-    await patch({ custom_instructions: trimmed || null });
+    if ((user?.custom_instructions ?? null) === (trimmed || null)) {
+      setInstructionsOpen(false);
+      return;
+    }
+    const saved = await patch(
+      { custom_instructions: trimmed || null },
+      "instructions",
+    );
+    if (saved) setInstructionsOpen(false);
   };
 
   return (
@@ -148,9 +172,10 @@ export default function PreferencesSettingsScreen() {
               setOpenPicker((cur) => (cur === "style" ? null : "style"))
             }
             onSelect={(st) =>
-              void patch({ response_style: st as (typeof STYLES)[number] })
+              void patch({ response_style: st as (typeof STYLES)[number] }, "style")
             }
             disabled={saving}
+            busy={savingAction === "style"}
             styles={s}
             theme={theme}
           />
@@ -170,9 +195,13 @@ export default function PreferencesSettingsScreen() {
               setOpenPicker((cur) => (cur === "tone" ? null : "tone"))
             }
             onSelect={(tone) =>
-              void patch({ response_tone: tone as (typeof RESPONSE_TONES)[number] })
+              void patch(
+                { response_tone: tone as (typeof RESPONSE_TONES)[number] },
+                "tone",
+              )
             }
             disabled={saving}
+            busy={savingAction === "tone"}
             styles={s}
             theme={theme}
           />
@@ -191,8 +220,9 @@ export default function PreferencesSettingsScreen() {
             onToggle={() =>
               setOpenPicker((cur) => (cur === "language" ? null : "language"))
             }
-            onSelect={(code) => void patch({ locale: code })}
+            onSelect={(code) => void patch({ locale: code }, "language")}
             disabled={saving}
+            busy={savingAction === "language"}
             styles={s}
             theme={theme}
           />
@@ -219,6 +249,7 @@ export default function PreferencesSettingsScreen() {
             subtitle={locationSubtitle}
             value={locationEnabled}
             disabled={saving || !locationAvailable}
+            busy={savingAction === "location"}
             onValueChange={(enabled) => void handleLocationToggle(enabled)}
             styles={s}
             theme={theme}
@@ -234,6 +265,7 @@ export default function PreferencesSettingsScreen() {
         onChangeText={setInstructionsText}
         onClose={() => setInstructionsOpen(false)}
         onSave={() => void saveInstructions()}
+        saving={savingAction === "instructions"}
         multiline
         maxLength={1000}
         placeholder={t("settings.custom_instructions_placeholder")}

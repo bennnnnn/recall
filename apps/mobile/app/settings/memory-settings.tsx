@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +11,7 @@ import {
   SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import {
   fetchMemories,
   prefetchMemories,
@@ -27,6 +28,8 @@ export default function MemorySettingsScreen() {
   const router = useRouter();
   const [memCount, setMemCount] = useState(0);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const feedback = useActionFeedbackOptional();
 
   const loadMemories = useCallback(async () => {
     if (!token) return;
@@ -52,13 +55,20 @@ export default function MemorySettingsScreen() {
           subtitle={t("settings.memory_desc")}
           value={user?.memory_enabled ?? true}
           disabled={saving}
+          busy={saving}
           onValueChange={(v) => {
+            if (savingRef.current) return;
+            savingRef.current = true;
             setSaving(true);
             void updateUser({ memory_enabled: v })
               .catch(() => {
-                Alert.alert(t("common.error"), t("common.error"));
+                if (feedback) feedback.error(t("common.error"));
+                else Alert.alert(t("common.error"), t("common.error"));
               })
-              .finally(() => setSaving(false));
+              .finally(() => {
+                savingRef.current = false;
+                setSaving(false);
+              });
           }}
           styles={s}
           theme={theme}

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Switch, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Switch, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -12,6 +12,7 @@ import {
   SettingsValueRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { useTtsPreference } from "@/hooks/useTtsPreference";
 import { useUsage } from "@/hooks/useUsage";
@@ -56,6 +57,9 @@ export default function ModelsSettingsScreen() {
   // Local draft so the Switch doesn't snap back while Auth/Models context
   // catches up (and so a racing /auth/me echo can't flash the old value).
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const savingRef = useRef(false);
+  const feedback = useActionFeedbackOptional();
 
   const effectiveAuto = draft?.auto ?? autoEnabled;
   const effectiveModels = draft?.models ?? modelEnabledSet;
@@ -69,21 +73,27 @@ export default function ModelsSettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  const patchPreferences = (auto: boolean, modelIds: Set<string>) => {
-    if (!auto && modelIds.size === 0) return;
+  const patchPreferences = (auto: boolean, modelIds: Set<string>, key: string) => {
+    if ((!auto && modelIds.size === 0) || savingRef.current) return;
+    savingRef.current = true;
+    setSavingKey(key);
     const nextModels = new Set(modelIds);
     setDraft({ auto, models: nextModels });
-    void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) }).catch(
-      () => {
+    void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) })
+      .catch(() => {
         setDraft(null);
-        Alert.alert(t("common.error"));
-      },
-    );
+        if (feedback) feedback.error(t("common.error"));
+        else Alert.alert(t("common.error"));
+      })
+      .finally(() => {
+        savingRef.current = false;
+        setSavingKey(null);
+      });
   };
 
   const toggleAuto = (enabled: boolean) => {
     if (!enabled && effectiveModels.size === 0) return;
-    patchPreferences(enabled, effectiveModels);
+    patchPreferences(enabled, effectiveModels, "auto");
   };
 
   const toggleModel = (modelId: string, enabled: boolean) => {
@@ -98,7 +108,7 @@ export default function ModelsSettingsScreen() {
     if (enabled) next.add(modelId);
     else next.delete(modelId);
     if (next.size === 0 && !effectiveAuto) return;
-    patchPreferences(effectiveAuto, next);
+    patchPreferences(effectiveAuto, next, modelId);
   };
 
   return (
@@ -151,7 +161,8 @@ export default function ModelsSettingsScreen() {
             title={t("settings.model_auto")}
             subtitle={t("settings.model_auto_summary")}
             value={effectiveAuto}
-            disabled={effectiveAuto && effectiveModels.size === 0}
+            disabled={Boolean(savingKey) || (effectiveAuto && effectiveModels.size === 0)}
+            busy={savingKey === "auto"}
             onValueChange={toggleAuto}
             styles={s}
             theme={theme}
@@ -187,20 +198,32 @@ export default function ModelsSettingsScreen() {
                       </Text>
                     ) : null}
                   </View>
-                  <Switch
-                    value={enabled}
-                    disabled={switchDisabled}
-                    thumbColor={theme.bg}
-                    trackColor={{ false: theme.border, true: theme.primary }}
-                    onValueChange={(v) => {
-                      if (proLocked) {
-                        if (v) setUpgradeVisible(true);
-                        return;
-                      }
-                      if (v && !option.available) return;
-                      toggleModel(option.id, v);
-                    }}
-                  />
+                  {savingKey === option.id ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.primary}
+                      accessibilityRole="progressbar"
+                    />
+                  ) : (
+                    <Switch
+                      value={enabled}
+                      disabled={Boolean(savingKey) || switchDisabled}
+                      thumbColor={theme.bg}
+                      trackColor={{ false: theme.border, true: theme.primary }}
+                      accessibilityState={{
+                        disabled: Boolean(savingKey) || switchDisabled,
+                        busy: false,
+                      }}
+                      onValueChange={(v) => {
+                        if (proLocked) {
+                          if (v) setUpgradeVisible(true);
+                          return;
+                        }
+                        if (v && !option.available) return;
+                        toggleModel(option.id, v);
+                      }}
+                    />
+                  )}
                 </View>
               </View>
             );

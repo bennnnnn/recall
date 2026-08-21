@@ -39,6 +39,7 @@ function SettingsRowChrome({
   subtitle,
   value,
   chevron,
+  busy,
   danger,
   styles,
   theme,
@@ -48,6 +49,7 @@ function SettingsRowChrome({
   subtitle?: string;
   value?: string;
   chevron?: "forward" | "down" | "up";
+  busy?: boolean;
   danger?: boolean;
   styles: SettingsStyles;
   theme: Theme;
@@ -69,7 +71,9 @@ function SettingsRowChrome({
             {value}
           </Text>
         ) : null}
-        {chevron ? (
+        {busy ? (
+          <ActivityIndicator size="small" color={theme.primary} />
+        ) : chevron ? (
           <Icon name={`chevron-${chevron}`} size={18} color={theme.textTertiary} />
         ) : null}
       </View>
@@ -154,6 +158,7 @@ export function SettingsInlinePicker({
   selectedKey,
   expanded,
   disabled,
+  busy,
   onToggle,
   onSelect,
   styles,
@@ -167,6 +172,7 @@ export function SettingsInlinePicker({
   selectedKey: string;
   expanded: boolean;
   disabled?: boolean;
+  busy?: boolean;
   onToggle: () => void;
   onSelect: (key: string) => void;
   styles: SettingsStyles;
@@ -179,7 +185,7 @@ export function SettingsInlinePicker({
         onPress={onToggle}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityState={{ expanded }}
+        accessibilityState={{ expanded, disabled: Boolean(disabled), busy: Boolean(busy) }}
       >
         <SettingsRowChrome
           icon={icon}
@@ -187,6 +193,7 @@ export function SettingsInlinePicker({
           subtitle={subtitle}
           value={value}
           chevron={expanded ? "up" : "down"}
+          busy={busy}
           styles={styles}
           theme={theme}
         />
@@ -238,6 +245,7 @@ export function SettingsSwitchRow({
   icon,
   value,
   disabled,
+  busy,
   onValueChange,
   styles,
   theme,
@@ -247,6 +255,7 @@ export function SettingsSwitchRow({
   icon?: IoniconName;
   value: boolean;
   disabled?: boolean;
+  busy?: boolean;
   onValueChange: (next: boolean) => void;
   styles: SettingsStyles;
   theme: Theme;
@@ -260,13 +269,24 @@ export function SettingsSwitchRow({
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
       </View>
-      <Switch
-        value={value}
-        disabled={disabled}
-        thumbColor={theme.bg}
-        trackColor={{ false: theme.border, true: theme.primary }}
-        onValueChange={onValueChange}
-      />
+      {busy ? (
+        <View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityState={{ busy: true }}
+        >
+          <ActivityIndicator size="small" color={theme.primary} />
+        </View>
+      ) : (
+        <Switch
+          value={value}
+          disabled={disabled}
+          thumbColor={theme.bg}
+          trackColor={{ false: theme.border, true: theme.primary }}
+          onValueChange={onValueChange}
+          accessibilityState={{ disabled: Boolean(disabled), busy: false }}
+        />
+      )}
     </View>
   );
 }

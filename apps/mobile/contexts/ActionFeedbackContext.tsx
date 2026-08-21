@@ -1,34 +1,20 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useRef,
   useState,
   type PropsWithChildren,
 } from "react";
 
+import { ActionBanner } from "@/components/ActionBanner";
 import {
-  ActionBanner,
+  ActionFeedbackContext,
+  type ActionFeedbackApi,
+  type ActionFeedbackOptions,
   type ActionFeedbackTone,
-} from "@/components/ActionBanner";
+} from "@/contexts/actionFeedbackCore";
 import { notifySuccess, notifyWarning } from "@/lib/haptics";
 import { type IoniconName } from "@/lib/icons";
-
-type ShowOptions = {
-  tone?: ActionFeedbackTone;
-  icon?: IoniconName;
-  haptic?: boolean;
-};
-
-type ActionFeedbackApi = {
-  show: (message: string, options?: ShowOptions) => void;
-  success: (message: string, options?: Omit<ShowOptions, "tone">) => void;
-  info: (message: string, options?: Omit<ShowOptions, "tone">) => void;
-  warning: (message: string, options?: Omit<ShowOptions, "tone">) => void;
-  error: (message: string, options?: Omit<ShowOptions, "tone">) => void;
-  dismiss: () => void;
-};
 
 type FeedbackItem = {
   id: number;
@@ -44,14 +30,12 @@ const DEFAULT_ICONS: Record<ActionFeedbackTone, IoniconName> = {
   error: "alert-circle",
 };
 
-const ActionFeedbackContext = createContext<ActionFeedbackApi | null>(null);
-
 export function ActionFeedbackProvider({ children }: PropsWithChildren) {
   const nextId = useRef(0);
   const [item, setItem] = useState<FeedbackItem | null>(null);
 
   const dismiss = useCallback(() => setItem(null), []);
-  const show = useCallback((message: string, options: ShowOptions = {}) => {
+  const show = useCallback((message: string, options: ActionFeedbackOptions = {}) => {
     const tone = options.tone ?? "success";
     nextId.current += 1;
     setItem({
@@ -93,15 +77,7 @@ export function ActionFeedbackProvider({ children }: PropsWithChildren) {
   );
 }
 
-export function useActionFeedback(): ActionFeedbackApi {
-  const value = useContext(ActionFeedbackContext);
-  if (!value) {
-    throw new Error("useActionFeedback must be used within ActionFeedbackProvider");
-  }
-  return value;
-}
-
-/** Useful for isolated hooks/tests that can also run outside the app root. */
-export function useActionFeedbackOptional(): ActionFeedbackApi | null {
-  return useContext(ActionFeedbackContext);
-}
+export {
+  useActionFeedback,
+  useActionFeedbackOptional,
+} from "@/contexts/actionFeedbackCore";

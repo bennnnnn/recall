@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +14,7 @@ import {
   SettingsValueRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useModels } from "@/hooks/useModels";
 import { type User } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
@@ -37,11 +38,14 @@ export default function SettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const feedback = useActionFeedbackOptional();
 
   const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [editField, setEditField] = useState<ProfileField | null>(null);
   const [fieldText, setFieldText] = useState("");
+  const [fieldSaving, setFieldSaving] = useState(false);
+  const fieldSavingRef = useRef(false);
 
   const refreshSummary = useCallback(async () => {
     if (!token) return;
@@ -74,24 +78,29 @@ export default function SettingsScreen() {
   };
 
   const saveField = async () => {
+    if (fieldSavingRef.current) return;
     const field = editField;
-    setEditField(null);
     if (!field || !user) return;
 
     let patch: Partial<User> | null = null;
     if (field === "name") {
       const name = sanitizeDisplayName(fieldText);
-      if (!name || name === user.name) {
-        if (fieldText.trim() && !name) {
-          Alert.alert(t("common.error"), t("settings.name_invalid"));
-        }
+      if (!name) {
+        if (fieldText.trim()) Alert.alert(t("common.error"), t("settings.name_invalid"));
+        return;
+      }
+      if (name === user.name) {
+        setEditField(null);
         return;
       }
       patch = { name };
     } else if (field === "age") {
       const trimmed = fieldText.trim();
       if (!trimmed) {
-        if (user.age == null) return;
+        if (user.age == null) {
+          setEditField(null);
+          return;
+        }
         patch = { age: null };
       } else {
         const age = Number.parseInt(trimmed, 10);
@@ -99,23 +108,39 @@ export default function SettingsScreen() {
           Alert.alert(t("common.error"), t("settings.age_invalid"));
           return;
         }
-        if (age === user.age) return;
+        if (age === user.age) {
+          setEditField(null);
+          return;
+        }
         patch = { age };
       }
     } else if (field === "country") {
       const country = fieldText.trim() || null;
-      if (country === (user.country ?? null)) return;
+      if (country === (user.country ?? null)) {
+        setEditField(null);
+        return;
+      }
       patch = { country };
     } else {
       const job = fieldText.trim() || null;
-      if (job === (user.job ?? null)) return;
+      if (job === (user.job ?? null)) {
+        setEditField(null);
+        return;
+      }
       patch = { job };
     }
 
+    fieldSavingRef.current = true;
+    setFieldSaving(true);
     try {
       await updateUser(patch);
+      setEditField(null);
     } catch {
-      Alert.alert(t("common.error"), t("common.error"));
+      if (feedback) feedback.error(t("common.error"));
+      else Alert.alert(t("common.error"), t("common.error"));
+    } finally {
+      fieldSavingRef.current = false;
+      setFieldSaving(false);
     }
   };
 
@@ -338,6 +363,7 @@ export default function SettingsScreen() {
         onChangeText={setFieldText}
         onClose={() => setEditField(null)}
         onSave={() => void saveField()}
+        saving={fieldSaving}
         maxLength={fieldMaxLength}
         placeholder={fieldPlaceholder}
         keyboardType={fieldKeyboard}
