@@ -1,243 +1,88 @@
-"""Ordered language-learning path (chapters = decks / list_title)."""
+"""Compatibility alias for the packaged implementation."""
 
-from __future__ import annotations
+import sys
 
-import logging
-from collections.abc import Sequence
-from uuid import UUID
-
-from app.models.orm import Project, ProjectItem
-from app.models.schemas.projects import PathChapterProgress
-from app.services.projects.common import (
-    DEFAULT_LIST,
-    _item_status,
-    _list_key,
+from app.services.learning import path as _impl
+from app.services.learning.path import (
+    CHAPTER_COMPLETE_RATIO as CHAPTER_COMPLETE_RATIO,
+)
+from app.services.learning.path import (
+    CHAPTER_MIN_WORDS as CHAPTER_MIN_WORDS,
+)
+from app.services.learning.path import (
+    DEFAULT_LIST as DEFAULT_LIST,
+)
+from app.services.learning.path import (
+    PATH_MAX_CHAPTERS as PATH_MAX_CHAPTERS,
+)
+from app.services.learning.path import (
+    PATH_MIN_CHAPTERS as PATH_MIN_CHAPTERS,
+)
+from app.services.learning.path import (
+    PATH_SEED_WORD_CAP as PATH_SEED_WORD_CAP,
+)
+from app.services.learning.path import (
+    STARTER_PATH_BY_LEVEL as STARTER_PATH_BY_LEVEL,
+)
+from app.services.learning.path import (
+    UUID as UUID,
+)
+from app.services.learning.path import (
+    PathChapterProgress as PathChapterProgress,
+)
+from app.services.learning.path import (
+    Project as Project,
+)
+from app.services.learning.path import (
+    ProjectItem as ProjectItem,
+)
+from app.services.learning.path import (
+    Sequence as Sequence,
+)
+from app.services.learning.path import (
+    annotations as annotations,
+)
+from app.services.learning.path import (
+    append_chapter as append_chapter,
+)
+from app.services.learning.path import (
+    build_path_progress as build_path_progress,
+)
+from app.services.learning.path import (
+    chapter_is_complete as chapter_is_complete,
+)
+from app.services.learning.path import (
+    enqueue_language_path_job as enqueue_language_path_job,
+)
+from app.services.learning.path import (
+    format_path_prompt_lines as format_path_prompt_lines,
+)
+from app.services.learning.path import (
+    is_unspecified_list as is_unspecified_list,
+)
+from app.services.learning.path import (
+    logger as logger,
+)
+from app.services.learning.path import (
+    logging as logging,
+)
+from app.services.learning.path import (
+    normalize_path_titles as normalize_path_titles,
+)
+from app.services.learning.path import (
+    parse_learning_path as parse_learning_path,
+)
+from app.services.learning.path import (
+    resolve_add_list_title as resolve_add_list_title,
+)
+from app.services.learning.path import (
+    sort_list_titles as sort_list_titles,
+)
+from app.services.learning.path import (
+    starter_path_for_level as starter_path_for_level,
+)
+from app.services.learning.path import (
+    up_next_chapter as up_next_chapter,
 )
 
-logger = logging.getLogger(__name__)
-
-PATH_MIN_CHAPTERS = 8
-PATH_MAX_CHAPTERS = 12
-PATH_SEED_WORD_CAP = 10
-CHAPTER_COMPLETE_RATIO = 0.8
-CHAPTER_MIN_WORDS = 5
-
-STARTER_PATH_BY_LEVEL: dict[str, list[str]] = {
-    "level1": [
-        "Greetings",
-        "Numbers",
-        "Family",
-        "Food",
-        "Daily life",
-        "Colors",
-        "Time",
-        "Travel",
-    ],
-    "level2": [
-        "Greetings",
-        "Shopping",
-        "Weather",
-        "Home",
-        "Work",
-        "Hobbies",
-        "Directions",
-        "Health",
-    ],
-    "level3": [
-        "Conversation",
-        "Dining out",
-        "Travel plans",
-        "Opinions",
-        "Past events",
-        "Future plans",
-        "Media",
-        "Workplace",
-    ],
-    "level4": [
-        "Debate",
-        "News",
-        "Culture",
-        "Formal writing",
-        "Idioms",
-        "Relationships",
-        "Career",
-        "Current events",
-    ],
-    "level5": [
-        "Abstract ideas",
-        "Literature",
-        "Science",
-        "Politics",
-        "Nuance",
-        "Humor",
-        "Professional",
-        "Academic",
-    ],
-    "level6": [
-        "Rhetoric",
-        "Literary devices",
-        "Specialized fields",
-        "Satire",
-        "Philosophy",
-        "Diplomacy",
-        "Research",
-        "Style",
-    ],
-}
-
-
-def is_unspecified_list(title: str) -> bool:
-    return _list_key(title) in ("", _list_key(DEFAULT_LIST))
-
-
-def starter_path_for_level(level: str | None) -> list[str]:
-    return list(STARTER_PATH_BY_LEVEL.get(level or "level1") or STARTER_PATH_BY_LEVEL["level1"])
-
-
-def normalize_path_titles(titles: Sequence[object]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for raw in titles:
-        if not isinstance(raw, str):
-            continue
-        title = raw.strip()[:200]
-        if not title or is_unspecified_list(title):
-            continue
-        key = _list_key(title)
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(title)
-        if len(out) >= PATH_MAX_CHAPTERS:
-            break
-    return out
-
-
-def parse_learning_path(project: object) -> list[str]:
-    raw = getattr(project, "learning_path", None)
-    if not isinstance(raw, list):
-        return []
-    return normalize_path_titles(raw)
-
-
-def chapter_is_complete(*, mastered: int, total: int, daily_goal: int) -> bool:
-    min_total = min(max(daily_goal, 1), CHAPTER_MIN_WORDS)
-    if total < min_total:
-        return False
-    return (mastered / total) >= CHAPTER_COMPLETE_RATIO
-
-
-def build_path_progress(
-    project: object,
-    items: list[ProjectItem],
-) -> list[PathChapterProgress]:
-    from app.services.daily_learning import resolve_daily_goal
-
-    path = parse_learning_path(project)
-    if not path:
-        return []
-    daily_goal = resolve_daily_goal(project)
-    project_id = getattr(project, "id", None)
-    by_list: dict[str, list[ProjectItem]] = {}
-    for item in items:
-        item_project = getattr(item, "project_id", None)
-        if project_id is not None and item_project not in (None, project_id):
-            continue
-        key = _list_key(getattr(item, "list_title", "") or DEFAULT_LIST)
-        by_list.setdefault(key, []).append(item)
-    progress: list[PathChapterProgress] = []
-    for title in path:
-        group = by_list.get(_list_key(title), [])
-        mastered = sum(1 for item in group if _item_status(item) == "mastered")
-        total = len(group)
-        progress.append(
-            PathChapterProgress(
-                title=title,
-                mastered=mastered,
-                total=total,
-                complete=chapter_is_complete(mastered=mastered, total=total, daily_goal=daily_goal),
-            )
-        )
-    return progress
-
-
-def up_next_chapter(project: object, items: list[ProjectItem]) -> str | None:
-    progress = build_path_progress(project, items)
-    for chapter in progress:
-        if not chapter.complete:
-            return chapter.title
-    if progress:
-        return progress[-1].title
-    path = parse_learning_path(project)
-    return path[0] if path else None
-
-
-def sort_list_titles(titles: list[str], learning_path: list[str] | None) -> list[str]:
-    path = normalize_path_titles(list(learning_path or []))
-    if not path:
-        return sorted(titles, key=str.casefold)
-    order = {_list_key(title): index for index, title in enumerate(path)}
-    return sorted(
-        titles,
-        key=lambda title: (order.get(_list_key(title), len(path)), title.casefold()),
-    )
-
-
-def append_chapter(project: Project, title: str) -> bool:
-    if is_unspecified_list(title):
-        return False
-    path = parse_learning_path(project)
-    if any(_list_key(existing) == _list_key(title) for existing in path):
-        return False
-    if len(path) >= PATH_MAX_CHAPTERS:
-        return False
-    path.append(title.strip()[:200])
-    project.learning_path = path
-    return True
-
-
-def resolve_add_list_title(
-    project: object,
-    action_list_title: str,
-    items: list[ProjectItem],
-) -> str:
-    title = (action_list_title or "").strip()
-    if title and not is_unspecified_list(title):
-        return title
-    current = up_next_chapter(project, items)
-    return current or DEFAULT_LIST
-
-
-def format_path_prompt_lines(project: object, items: list[ProjectItem]) -> list[str]:
-    path = parse_learning_path(project)
-    if not path:
-        return []
-    progress = build_path_progress(project, items)
-    lines = ["Learning path (teach in this order; add new words to the current chapter):"]
-    for chapter in progress:
-        mark = "✓" if chapter.complete else "○"
-        lines.append(f"- {mark} {chapter.title} ({chapter.mastered}/{chapter.total})")
-    current = up_next_chapter(project, items)
-    if current:
-        lines.append(f"Teach and add new words in: {current}")
-    return lines
-
-
-async def enqueue_language_path_job(user_id: UUID, project_id: UUID) -> None:
-    """Best-effort — never raise into create / chat sync."""
-    try:
-        from app.core import jobs
-        from app.core.redis import get_redis_client
-
-        await jobs.enqueue(
-            get_redis_client(),
-            "language_path",
-            {"user_id": str(user_id), "project_id": str(project_id)},
-            dedupe_key=f"language_path:{project_id}",
-        )
-    except Exception:
-        logger.exception(
-            "Failed to enqueue language_path job user_id=%s project_id=%s",
-            user_id,
-            project_id,
-        )
+sys.modules[__name__] = _impl
