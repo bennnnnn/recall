@@ -1,5 +1,4 @@
 import {
-  MOLECULE3D_PREVIEW_CSP,
   PDF_PREVIEW_CSP,
   PREVIEW_CSP,
   PREVIEW_CSP_INLINE,
@@ -33,12 +32,6 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP_LIVE).toContain("connect-src https: http:");
     expect(PREVIEW_CSP_LIVE).toContain("form-action 'none'");
     expect(PREVIEW_CSP_LIVE).not.toContain("sandbox");
-  });
-
-  it("MOLECULE3D_PREVIEW_CSP allows WebGL shader eval and omits meta sandbox", () => {
-    expect(MOLECULE3D_PREVIEW_CSP).toContain("script-src 'unsafe-inline' 'unsafe-eval'");
-    expect(MOLECULE3D_PREVIEW_CSP).toContain("connect-src 'none'");
-    expect(MOLECULE3D_PREVIEW_CSP).not.toContain("sandbox");
   });
 });
 

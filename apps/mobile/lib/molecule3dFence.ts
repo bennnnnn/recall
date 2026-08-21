@@ -72,3 +72,60 @@ export function parseMolecule3DFence(content: string): Molecule3DFence | null {
 
   return { sdf, caption };
 }
+
+export type MolAtom = { x: number; y: number; z: number; el: string };
+export type MolBond = { a: number; b: number; order: number };
+export type MolGeometry = { atoms: MolAtom[]; bonds: MolBond[] };
+
+const ATOM_LINE_RE =
+  /^\s*(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+([A-Z][a-z]?)/;
+const BOND_LINE_RE = /^\s*(\d+)\s+(\d+)\s+(\d+)/;
+const MAX_ATOMS = 400;
+
+/**
+ * Read 3D atom positions and bonds from a V2000 MOL/SDF block.
+ * Used by the native SVG viewer (WebGL/3Dmol.js is unreliable in WKWebView).
+ */
+export function parseMolGeometry(sdf: string): MolGeometry | null {
+  const lines = sdf.split("\n");
+  let countsIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (
+      /V2000/.test(lines[i]!) &&
+      /^\s*\d+\s+\d+/.test(lines[i]!)
+    ) {
+      countsIdx = i;
+      break;
+    }
+  }
+  if (countsIdx < 0) return null;
+  const parts = lines[countsIdx]!.trim().split(/\s+/);
+  const nAtoms = Number.parseInt(parts[0] ?? "", 10);
+  const nBonds = Number.parseInt(parts[1] ?? "", 10);
+  if (!Number.isFinite(nAtoms) || nAtoms < 1 || nAtoms > MAX_ATOMS) return null;
+  if (!Number.isFinite(nBonds) || nBonds < 0) return null;
+
+  const atoms: MolAtom[] = [];
+  for (let i = 0; i < nAtoms; i++) {
+    const line = lines[countsIdx + 1 + i];
+    if (!line) return null;
+    const m = line.match(ATOM_LINE_RE);
+    if (!m) return null;
+    atoms.push({ x: Number(m[1]), y: Number(m[2]), z: Number(m[3]), el: m[4]! });
+  }
+
+  const bonds: MolBond[] = [];
+  for (let i = 0; i < nBonds; i++) {
+    const line = lines[countsIdx + 1 + nAtoms + i];
+    if (!line) break;
+    const m = line.match(BOND_LINE_RE);
+    if (!m) continue;
+    const a = Number(m[1]) - 1;
+    const b = Number(m[2]) - 1;
+    const order = Number(m[3]) || 1;
+    if (a >= 0 && b >= 0 && a < nAtoms && b < nAtoms && a !== b) {
+      bonds.push({ a, b, order });
+    }
+  }
+  return { atoms, bonds };
+}

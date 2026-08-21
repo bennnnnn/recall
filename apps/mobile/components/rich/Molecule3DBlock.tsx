@@ -1,123 +1,198 @@
 /**
- * 3D molecule viewer — renders SDF/MOL blocks via vendored 3Dmol.js in a
- * sandboxed WebView (same offline/CSP pattern as ChemistryBlock).
- * Supports rotate/zoom via touch; styled to match the 2D SMILES card.
+ * 3D molecule viewer — native SVG ball-and-stick from SDF coordinates.
+ * WKWebView + 3Dmol.js WebGL stays blank (CSP / zero-size canvas), so we
+ * project the same 3D coords that RDKit already computed.
  */
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Line, Text as SvgText } from "react-native-svg";
 import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
-import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { parseMolecule3DFence } from "@/lib/molecule3dFence";
-import { injectPreviewCsp, inlineScript, MOLECULE3D_PREVIEW_CSP } from "@/lib/previewSandbox";
-import { Theme, useTheme } from "@/lib/theme";
-import { THREE_D_MOL_MIN_JS } from "@/lib/vendor/threeDMolMinJs";
 import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
+  parseMolGeometry,
+  parseMolecule3DFence,
+  type MolAtom,
+  type MolGeometry,
+} from "@/lib/molecule3dFence";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
 
 const PREVIEW_HEIGHT = 280;
+const VIEW_PAD = 28;
 
-type MoleculeStyle = "ball-stick" | "spacefill" | "wireframe" | "cartoon";
+type MoleculeStyle = "ball-stick" | "spacefill" | "wireframe";
 
-const STYLE_CONFIG: Record<MoleculeStyle, string> = {
-  "ball-stick": "{ stick: { radius: 0.14 }, sphere: { scale: 0.28 } }",
-  spacefill: "{ sphere: { scale: 0.32 } }",
-  wireframe: "{ stick: { radius: 0.06, wireframe: true }, sphere: { scale: 0.12 } }",
-  cartoon: "{ cartoon: { } }",
+const CPK: Record<string, string> = {
+  H: "#f0f0f0",
+  C: "#4a4a4a",
+  N: "#3050f8",
+  O: "#e31c1c",
+  F: "#90e050",
+  P: "#ff8000",
+  S: "#e0c020",
+  Cl: "#1f9a1f",
+  Br: "#a62929",
+  I: "#940094",
 };
 
-function escapeJsString(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/`/g, "\\`")
-    .replace(/\$/g, "\\$")
-    .replace(/<\/script>/gi, "<\\/script>");
+const RADIUS: Record<string, number> = {
+  H: 0.32,
+  C: 0.7,
+  N: 0.65,
+  O: 0.6,
+  F: 0.5,
+  P: 0.9,
+  S: 0.88,
+  Cl: 0.79,
+  Br: 0.94,
+  I: 1.15,
+};
+
+function atomColor(el: string): string {
+  return CPK[el] ?? "#c45c9a";
 }
 
-function buildMolecule3dHtml(sdf: string, theme: Theme, style: MoleculeStyle): string {
-  const safeSdf = escapeJsString(sdf.trim());
-  const bgColor = theme.isDark ? "#1a1a2e" : "#ffffff";
-  const styleConfig = STYLE_CONFIG[style];
-  // 3Dmol.js is a UMD webpack bundle that assigns window.$3Dmol (and
-  // root["3Dmol"]). Inline it in its own <script> block — eval is blocked
-  // by CSP. WebGL shaders still need 'unsafe-eval' (MOLECULE3D_PREVIEW_CSP).
-  const run =
-    "(function() {\n" +
-    "  var sdf = `" +
-    safeSdf +
-    "`;\n" +
-    "  function reportError(msg) {\n" +
-    "    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'molecule3d-error', message: msg })); } catch (e) {}\n" +
-    "    var err = document.getElementById('err');\n" +
-    "    if (err) { err.textContent = msg; err.style.display = 'block'; }\n" +
-    "    var viewer = document.getElementById('viewer');\n" +
-    "    if (viewer) viewer.style.display = 'none';\n" +
-    "  }\n" +
-    "  function resolveMol() {\n" +
-    "    return window['$3Dmol'] || window['3Dmol'] || (typeof $3Dmol !== 'undefined' ? $3Dmol : null);\n" +
-    "  }\n" +
-    "  var attempts = 0;\n" +
-    "  function start() {\n" +
-    "    var el = document.getElementById('viewer');\n" +
-    "    if (!el) { reportError('3D molecule renderer unavailable.'); return; }\n" +
-    "    if (el.clientWidth < 8 && attempts < 40) {\n" +
-    "      attempts += 1;\n" +
-    "      requestAnimationFrame(start);\n" +
-    "      return;\n" +
-    "    }\n" +
-    "    var M = resolveMol();\n" +
-    "    if (!M || typeof M.createViewer !== 'function') {\n" +
-    "      reportError('3D molecule renderer unavailable.');\n" +
-    "      return;\n" +
-    "    }\n" +
-    "    try {\n" +
-    "      var viewer = M.createViewer(el, { backgroundColor: '" +
-    bgColor +
-    "', antialias: true });\n" +
-    "      if (!viewer) { reportError('WebGL is not available.'); return; }\n" +
-    "      viewer.addModel(sdf, 'sdf');\n" +
-    "      viewer.setStyle({}, " +
-    styleConfig +
-    ");\n" +
-    "      viewer.zoomTo();\n" +
-    "      viewer.render();\n" +
-    "      if (typeof viewer.resize === 'function') viewer.resize();\n" +
-    "    } catch (e) {\n" +
-    "      reportError((e && e.message) ? e.message : 'Could not render that 3D structure.');\n" +
-    "    }\n" +
-    "  }\n" +
-    "  start();\n" +
-    "})();\n";
-  return injectPreviewCsp(
-    "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">' +
-      "<style>html,body{margin:0;padding:0;width:100%;height:" +
-      PREVIEW_HEIGHT +
-      "px;background:" +
-      bgColor +
-      ";overflow:hidden}" +
-      "#viewer{width:100%;height:" +
-      PREVIEW_HEIGHT +
-      "px}" +
-      "#err{color:" +
-      theme.danger +
-      ";font-size:13px;display:none;white-space:pre-wrap;padding:16px;text-align:center}</style>" +
-      "</head><body>" +
-      '<div id="viewer"></div><div id="err"></div>' +
-      "<script>" +
-      inlineScript(THREE_D_MOL_MIN_JS) +
-      "</script>" +
-      "<script>" +
-      inlineScript(run) +
-      "</script>" +
-      "</body></html>",
-    MOLECULE3D_PREVIEW_CSP,
+function atomRadius(el: string): number {
+  return RADIUS[el] ?? 0.7;
+}
+
+function project(atom: MolAtom, yaw: number, pitch: number) {
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const x1 = atom.x * cy + atom.z * sy;
+  const z1 = -atom.x * sy + atom.z * cy;
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  return { x: x1, y: atom.y * cp - z1 * sp, z: atom.y * sp + z1 * cp };
+}
+
+function layout(
+  geom: MolGeometry,
+  yaw: number,
+  pitch: number,
+  width: number,
+  height: number,
+  style: MoleculeStyle,
+) {
+  const projected = geom.atoms.map((atom) => project(atom, yaw, pitch));
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const p of projected) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const span = Math.max(maxX - minX, maxY - minY, 0.8);
+  const scale = (Math.min(width, height) - VIEW_PAD * 2) / span;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const atomScale = style === "spacefill" ? 1 : style === "wireframe" ? 0.22 : 0.42;
+  const atoms = projected.map((p, i) => ({
+    i,
+    el: geom.atoms[i]!.el,
+    x: (p.x - cx) * scale + width / 2,
+    y: (cy - p.y) * scale + height / 2,
+    z: p.z,
+    r: Math.max(4, atomRadius(geom.atoms[i]!.el) * scale * atomScale),
+  }));
+  const order = atoms.map((_, i) => i).sort((a, b) => atoms[a]!.z - atoms[b]!.z);
+  return { atoms, order, scale };
+}
+
+function bondOffset(dx: number, dy: number, dist: number, mag: number) {
+  return { x: (-dy / dist) * mag, y: (dx / dist) * mag };
+}
+
+function MoleculeSvg({
+  geom,
+  style,
+  theme,
+  yaw,
+  pitch,
+}: {
+  geom: MolGeometry;
+  style: MoleculeStyle;
+  theme: Theme;
+  yaw: number;
+  pitch: number;
+}) {
+  const width = 320;
+  const height = PREVIEW_HEIGHT;
+  const laid = layout(geom, yaw, pitch, width, height, style);
+  const showBonds = style !== "spacefill";
+  const bondW = style === "wireframe" ? 1.6 : 3.4;
+
+  return (
+    <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+      {showBonds
+        ? geom.bonds.map((bond, bi) => {
+            const a = laid.atoms[bond.a]!;
+            const b = laid.atoms[bond.b]!;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const copies = Math.min(3, Math.max(1, bond.order));
+            const spread = copies === 1 ? 0 : copies === 2 ? 3.2 : 4.2;
+            const lines = [];
+            for (let k = 0; k < copies; k++) {
+              const t = copies === 1 ? 0 : (k - (copies - 1) / 2) * spread;
+              const o = bondOffset(dx, dy, dist, t);
+              lines.push(
+                <Line
+                  key={`${bi}-${k}`}
+                  x1={a.x + o.x}
+                  y1={a.y + o.y}
+                  x2={b.x + o.x}
+                  y2={b.y + o.y}
+                  stroke={theme.textSecondary}
+                  strokeWidth={bondW}
+                  strokeLinecap="round"
+                />,
+              );
+            }
+            return lines;
+          })
+        : null}
+      {laid.order.map((idx) => {
+        const atom = laid.atoms[idx]!;
+        const fill = atomColor(atom.el);
+        return (
+          <Circle
+            key={`a-${idx}`}
+            cx={atom.x}
+            cy={atom.y}
+            r={atom.r}
+            fill={fill}
+            stroke={theme.border}
+            strokeWidth={1}
+          />
+        );
+      })}
+      {style !== "spacefill"
+        ? laid.order.map((idx) => {
+            const atom = laid.atoms[idx]!;
+            if (atom.r < 8) return null;
+            return (
+              <SvgText
+                key={`t-${idx}`}
+                x={atom.x}
+                y={atom.y + 4}
+                fontSize={Math.min(14, atom.r)}
+                fontWeight="700"
+                fill="#fff"
+                textAnchor="middle"
+              >
+                {atom.el}
+              </SvgText>
+            );
+          })
+        : null}
+    </Svg>
   );
 }
 
@@ -125,37 +200,39 @@ export function Molecule3DBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [renderError, setRenderError] = useState<string | null>(null);
   const [style, setStyle] = useState<MoleculeStyle>("ball-stick");
+  const [yaw, setYaw] = useState(0.7);
+  const [pitch, setPitch] = useState(0.35);
+  const yawRef = useRef(0.7);
+  const pitchRef = useRef(0.35);
+  const startYaw = useRef(0.7);
+  const startPitch = useRef(0.35);
+  yawRef.current = yaw;
+  pitchRef.current = pitch;
 
   const parsed = useMemo(() => parseMolecule3DFence(content), [content]);
   const sdf = parsed?.sdf ?? "";
   const caption = parsed?.caption;
+  const geom = useMemo(() => (sdf ? parseMolGeometry(sdf) : null), [sdf]);
 
-  const html = useMemo(
-    () => (sdf ? buildMolecule3dHtml(sdf, theme, style) : ""),
-    [sdf, theme, style],
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e, g) =>
+          Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
+        onPanResponderGrant: () => {
+          startYaw.current = yawRef.current;
+          startPitch.current = pitchRef.current;
+        },
+        onPanResponderMove: (_e, g) => {
+          setYaw(startYaw.current + g.dx * 0.012);
+          setPitch(Math.max(-1.2, Math.min(1.2, startPitch.current + g.dy * 0.012)));
+        },
+      }),
+    [],
   );
-  useEffect(() => {
-    setRenderError(null);
-  }, [html]);
-  const webSource = useMemo(() => ({ html }), [html]);
-  const previewWebView = getPreviewWebView();
-  const WebView = previewWebView?.Component;
-  const canRenderInline = previewWebView?.mode === "rnc" && Boolean(sdf);
-  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
 
-  const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data ?? "{}");
-      if (data && data.kind === "molecule3d-error") setRenderError(data.message ?? t("rich.chemistry_invalid"));
-    } catch {
-      setRenderError(t("rich.chemistry_invalid"));
-    }
-  }, [t]);
-
-  if (!parsed) {
+  if (!parsed || !geom) {
     return (
       <View style={s.wrap}>
         <View style={s.header}>
@@ -186,59 +263,24 @@ export function Molecule3DBlock({ content }: Props) {
         </View>
       ) : null}
 
-      {renderError ? (
-        <View style={s.previewBox}>
-          <Icon name="alert-circle-outline" size={20} color={theme.danger} />
-          <Text style={[s.fallbackHint, { color: theme.danger }]}>
-            {renderError}
-          </Text>
-        </View>
-      ) : canRenderInline && WebView ? (
-        canMount ? (
-          <View style={s.webWrap}>
-            <WebView
-              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={webSource}
-              scrollEnabled={false}
-              style={s.webview}
-              javaScriptEnabled
-              domStorageEnabled={false}
-              onLoadEnd={onLoaded}
-              onMessage={handleWebViewMessage}
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-            />
-          </View>
-        ) : (
-          <View style={s.loadingWrap}>
-            <ActivityIndicator color={theme.primary} />
-          </View>
-        )
-      ) : (
-        <View style={s.previewBox}>
-          <Icon name="flask-outline" size={28} color={theme.textTertiary} />
-          <Text style={s.fallbackHint}>
-            {caption ? `${caption}\n` : ""}
-            {t("rich.chemistry_3d_dev_build")}
-          </Text>
-        </View>
-      )}
+      <View style={s.stage} {...pan.panHandlers}>
+        <MoleculeSvg geom={geom} style={style} theme={theme} yaw={yaw} pitch={pitch} />
+      </View>
 
       <View style={s.actions}>
-        {canRenderInline && WebView ? (
-          <View style={s.styleRow}>
-            {(["ball-stick", "spacefill", "wireframe"] as const).map((st) => (
-              <Pressable
-                key={st}
-                style={[s.styleBtn, style === st && s.styleBtnActive]}
-                onPress={() => setStyle(st)}
-              >
-                <Text style={[s.styleBtnText, style === st && s.styleBtnTextActive]}>
-                  {st === "ball-stick" ? "Ball" : st === "spacefill" ? "Sphere" : "Wire"}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
+        <View style={s.styleRow}>
+          {(["ball-stick", "spacefill", "wireframe"] as const).map((st) => (
+            <Pressable
+              key={st}
+              style={[s.styleBtn, style === st && s.styleBtnActive]}
+              onPress={() => setStyle(st)}
+            >
+              <Text style={[s.styleBtnText, style === st && s.styleBtnTextActive]}>
+                {st === "ball-stick" ? "Ball" : st === "spacefill" ? "Sphere" : "Wire"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <CopyButton text={sdf} variant="action" />
       </View>
     </View>
@@ -274,25 +316,22 @@ function makeStyles(t: Theme) {
       backgroundColor: t.bg,
     },
     captionText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
-    webWrap: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
-    webview: { flex: 1, backgroundColor: "transparent" },
-    loadingWrap: {
-      height: PREVIEW_HEIGHT,
-      backgroundColor: t.bg,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+    stage: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
     previewBox: {
       paddingHorizontal: 14,
       paddingVertical: 24,
       backgroundColor: t.contentSurface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
       alignItems: "center",
-      gap: 8,
     },
     fallbackHint: { fontSize: 13, color: t.textTertiary, textAlign: "center" },
-    actions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+    actions: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
     styleRow: { flexDirection: "row", gap: 6 },
     styleBtn: {
       paddingHorizontal: 10,

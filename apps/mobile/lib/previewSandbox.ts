@@ -40,26 +40,6 @@ export const PREVIEW_CSP_INLINE = [
 export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
 /**
- * CSP for the 3Dmol.js WebView. WebKit compiles WebGL shaders via eval, so
- * `script-src 'unsafe-inline'` alone leaves a blank canvas. This document is
- * our own vendor + a server-generated MOL block — not model HTML — so
- * `'unsafe-eval'` is scoped to this trusted page. No `sandbox` token: some
- * WKWebView builds honor meta-CSP sandbox and then refuse a WebGL context.
- */
-export const MOLECULE3D_PREVIEW_CSP = [
-  "default-src 'none'",
-  "style-src 'unsafe-inline'",
-  "script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'",
-  "img-src data: blob:",
-  "font-src data:",
-  "media-src data: blob:",
-  "connect-src 'none'",
-  "worker-src blob:",
-  "base-uri 'none'",
-  "form-action 'none'",
-].join("; ");
-
-/**
  * HTML Run tab — still isolated from the app (no shared cookies / tokens),
  * but allows http(s) subresources so CDN CSS/JS demos actually paint.
  * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and

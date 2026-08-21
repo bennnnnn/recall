@@ -1,4 +1,4 @@
-import { parseMolecule3DFence } from "@/lib/molecule3dFence";
+import { parseMolGeometry, parseMolecule3DFence } from "@/lib/molecule3dFence";
 
 const VALID_SDF = `Ethanol
      RDKit          3D
@@ -97,5 +97,31 @@ M  END`;
     expect(result).not.toBeNull();
     expect(result!.sdf).toContain("M  END");
     expect(result!.caption).toBe("Aspirin");
+  });
+});
+
+describe("parseMolGeometry", () => {
+  it("reads O2 atoms and the double bond", () => {
+    const sdf = `
+     RDKit          3D
+
+  2  1  0  0  0  0  0  0  0  0999 V2000
+    0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+   -0.5705    0.0000    0.0000 O   0  0  0  0  0  0
+  1  2  2  0
+M  END
+$$$$`;
+    const geom = parseMolGeometry(sdf);
+    expect(geom).not.toBeNull();
+    expect(geom!.atoms).toHaveLength(2);
+    expect(geom!.atoms.map((a) => a.el)).toEqual(["O", "O"]);
+    expect(geom!.bonds).toEqual([{ a: 0, b: 1, order: 2 }]);
+  });
+
+  it("reads ethanol from parseMolecule3DFence output", () => {
+    const parsed = parseMolecule3DFence(VALID_SDF);
+    const geom = parseMolGeometry(parsed!.sdf);
+    expect(geom!.atoms.map((a) => a.el)).toEqual(["C", "C", "O"]);
+    expect(geom!.bonds).toHaveLength(2);
   });
 });
