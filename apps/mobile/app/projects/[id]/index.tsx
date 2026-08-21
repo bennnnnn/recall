@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -21,6 +21,7 @@ import { StateView } from "@/components/StateView";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { LearningPathList } from "@/components/projects/LearningPathList";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type VocabStatus } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
@@ -68,6 +69,10 @@ export default function ProjectDetailScreen() {
   const { project, loading, loadError, load } = useProjectDetail(projectId);
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
+  const conceptBusyRef = useRef<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+  const feedback = useActionFeedbackOptional();
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const exportLearningPdf = useCallback(async () => {
@@ -127,24 +132,27 @@ export default function ProjectDetailScreen() {
 
   const handleItemStatusChange = useCallback(
     async (itemId: string, status: VocabStatus) => {
-      if (!token || typeof id !== "string") return;
+      if (!token || typeof id !== "string" || conceptBusyRef.current) return;
+      conceptBusyRef.current = itemId;
       setConceptBusyId(itemId);
       try {
         await updateProjectItem(id, itemId, status);
         await load({ silent: true, force: true });
       } catch {
-        Alert.alert(t("common.error"), t("projects.status_update_failed"));
+        if (feedback) feedback.error(t("projects.status_update_failed"));
+        else Alert.alert(t("common.error"), t("projects.status_update_failed"));
       } finally {
+        conceptBusyRef.current = null;
         setConceptBusyId(null);
       }
     },
-    [token, id, load, t, updateProjectItem],
+    [feedback, id, load, t, token, updateProjectItem],
   );
 
   if (!token) return <Redirect href="/login" />;
 
   const confirmDelete = () => {
-    if (!token || !project) return;
+    if (!token || !project || deletingRef.current) return;
     Alert.alert(
       t("projects.delete_title", { title: project.title }),
       t("projects.delete_body"),
@@ -154,11 +162,18 @@ export default function ProjectDetailScreen() {
         text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
+          if (deletingRef.current) return;
+          deletingRef.current = true;
+          setDeleting(true);
           try {
             await deleteProject(project.id);
             router.back();
           } catch {
-            Alert.alert(t("common.error"), t("projects.delete_failed"));
+            if (feedback) feedback.error(t("projects.delete_failed"));
+            else Alert.alert(t("common.error"), t("projects.delete_failed"));
+          } finally {
+            deletingRef.current = false;
+            setDeleting(false);
           }
         },
       },
@@ -379,8 +394,20 @@ export default function ProjectDetailScreen() {
         </>
       ) : null}
 
-      <Pressable style={s.deleteBtn} onPress={confirmDelete}>
-        <Text style={s.deleteBtnText}>{t("projects.delete", { title: project.title })}</Text>
+      <Pressable
+        style={s.deleteBtn}
+        onPress={confirmDelete}
+        disabled={deleting}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: deleting, busy: deleting }}
+      >
+        {deleting ? (
+          <ActivityIndicator size="small" color={theme.danger} />
+        ) : (
+          <Text style={s.deleteBtnText}>
+            {t("projects.delete", { title: project.title })}
+          </Text>
+        )}
       </Pressable>
     </ScrollView>
     </>

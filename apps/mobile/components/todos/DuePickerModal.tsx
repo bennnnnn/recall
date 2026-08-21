@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
@@ -13,12 +13,14 @@ import { useTheme } from "@/lib/theme";
 export function DuePickerModal({
   todos,
   duePicker,
+  saving = false,
   onDismiss,
   onChange,
   onConfirm,
 }: {
   todos: Todo[];
   duePicker: { todo: Todo; date: Date } | null;
+  saving?: boolean;
   onDismiss: () => void;
   onChange: (event: DateTimePickerEvent, date?: Date) => void;
   onConfirm: () => void;
@@ -45,21 +47,34 @@ export function DuePickerModal({
   return (
     <AppSheet
       visible
-      onClose={onDismiss}
+      onClose={() => {
+        if (!saving) onDismiss();
+      }}
       variant="bottom"
       withHandle={false}
       minBottomPadding={24}
       contentContainerStyle={s.pickerSheet}
     >
       <View style={s.pickerHeader}>
-        <Pressable onPress={onDismiss} hitSlop={8}>
+        <Pressable onPress={onDismiss} hitSlop={8} disabled={saving}>
           <Text style={s.pickerCancel}>{t("common.cancel")}</Text>
         </Pressable>
         <Text style={s.pickerTitle}>
           {duePicker.todo.due_at ? t("todos.change_due") : t("todos.set_due")}
         </Text>
-        <Pressable onPress={onConfirm} hitSlop={8}>
-          <Text style={s.pickerDone}>{t("todos.due_done")}</Text>
+        <Pressable
+          onPress={onConfirm}
+          hitSlop={8}
+          disabled={saving}
+          accessibilityRole="button"
+          accessibilityLabel={t("todos.due_done")}
+          accessibilityState={{ disabled: saving, busy: saving }}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={C.primary} />
+          ) : (
+            <Text style={s.pickerDone}>{t("todos.due_done")}</Text>
+          )}
         </Pressable>
       </View>
       <DateTimePicker
@@ -67,6 +82,7 @@ export function DuePickerModal({
         mode="datetime"
         display="spinner"
         onChange={onChange}
+        disabled={saving}
       />
       {overlap ? (
         <View style={[s.overlapNote, s.pickerOverlapNote]}>

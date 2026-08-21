@@ -24,6 +24,7 @@ type Props = {
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
   onQuizAnswer?: (letter: string) => void;
+  quizSubmissionFailed?: boolean;
   onRetryImageGen?: () => void;
 };
 
@@ -43,6 +44,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   onEdit,
   onFeedback,
   onQuizAnswer,
+  quizSubmissionFailed = false,
 }: Props) {
   const streamingDraft = useStreamingDraft();
   const liveReasoning = useThrottledStreamText(streamingDraft?.reasoning, streamVisualActive);
@@ -79,6 +81,8 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
       onQuizAnswer={isActiveQuiz && !streamVisualActive ? onQuizAnswer : undefined}
+      quizSubmitting={isActiveQuiz && streamVisualActive}
+      quizSubmissionFailed={isActiveQuiz && quizSubmissionFailed}
     />
   );
 });

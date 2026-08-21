@@ -21,7 +21,7 @@ type Props = {
   openReminders: Todo[];
   visibleDone: Todo[];
   focusSection: TodosFocusSection;
-  togglingId: string | null;
+  busyTodoIds: ReadonlySet<string>;
   highlight?: string;
   overlapNotes: Map<string, string>;
   onToggle: (todo: Todo) => void;
@@ -40,7 +40,7 @@ export function TodosFlashList({
   openReminders,
   visibleDone,
   focusSection,
-  togglingId,
+  busyTodoIds,
   highlight,
   overlapNotes,
   onToggle,
@@ -94,7 +94,7 @@ export function TodosFlashList({
           <TodoRow
             todo={todo}
             variant="done"
-            busy={togglingId === todo.id}
+            busy={busyTodoIds.has(todo.id)}
             onToggle={onToggle}
             onDue={isReminder(todo) ? onDue : undefined}
             onDelete={onDeleteItem}
@@ -107,14 +107,14 @@ export function TodosFlashList({
           variant="open"
           highlighted={highlight === todo.id}
           overlapWith={overlapNotes.get(todo.id)}
-          busy={togglingId === todo.id}
+          busy={busyTodoIds.has(todo.id)}
           onToggle={onToggle}
           onDue={onDue}
           onDelete={onDeleteItem}
         />
       );
     },
-    [s, togglingId, highlight, overlapNotes, onToggle, onDue, onDeleteItem],
+    [s, busyTodoIds, highlight, overlapNotes, onToggle, onDue, onDeleteItem],
   );
 
   return (

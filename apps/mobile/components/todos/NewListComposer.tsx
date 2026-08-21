@@ -9,6 +9,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 type Props = {
+  saving?: boolean;
   onCancel: () => void;
   onSave: (name: string) => void;
 };
@@ -17,13 +18,13 @@ type Props = {
  * Inline “new list” row on the Lists page — not a Modal sheet, so the OS
  * keyboard resize keeps it on-screen with the rest of the page.
  */
-export function NewListComposer({ onCancel, onSave }: Props) {
+export function NewListComposer({ saving = false, onCancel, onSave }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const [name, setName] = useState("");
   const inputRef = useRef<TextInput>(null);
-  const canSave = name.trim().length > 0;
+  const canSave = name.trim().length > 0 && !saving;
 
   useEffect(() => {
     const id = requestAnimationFrame(() => inputRef.current?.focus());
@@ -40,7 +41,12 @@ export function NewListComposer({ onCancel, onSave }: Props) {
     <View style={s.wrap} accessibilityLabel={t("lists.new_group_title")}>
       <View style={s.header}>
         <Text style={s.title}>{t("lists.new_group_title")}</Text>
-        <Pressable onPress={onCancel} hitSlop={8} accessibilityRole="button">
+        <Pressable
+          onPress={onCancel}
+          hitSlop={8}
+          accessibilityRole="button"
+          disabled={saving}
+        >
           <Text style={s.cancel}>{t("common.cancel")}</Text>
         </Pressable>
       </View>
@@ -58,12 +64,15 @@ export function NewListComposer({ onCancel, onSave }: Props) {
             maxLength={200}
             autoCorrect={false}
             accessibilityLabel={t("lists.group_name_label")}
+            editable={!saving}
           />
         </View>
         <Button
           title={t("common.add")}
           onPress={submit}
           disabled={!canSave}
+          loading={saving}
+          loadingLabel={t("common.add")}
           style={s.addButton}
         />
       </View>

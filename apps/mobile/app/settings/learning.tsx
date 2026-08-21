@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,6 +13,7 @@ import {
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { type LanguageLevel, type Project } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
@@ -50,8 +51,11 @@ export default function LearningSettingsScreen() {
   const insets = useSafeAreaInsets();
   const { projects: allProjects, refresh, setProjects } = useProjects();
   const { updateProject } = useProjectActions();
+  const feedback = useActionFeedbackOptional();
 
   const [saving, setSaving] = useState(false);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<string | null>(null);
   const [topicsProject, setTopicsProject] = useState<Project | null>(null);
   const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
@@ -71,16 +75,21 @@ export default function LearningSettingsScreen() {
   const triviaProject = projects.find((p) => isTriviaProject(p.kind));
 
   const saveDailyGoal = async (project: Project, nextGoal: number) => {
-    if (!token || saving) return;
+    if (!token || savingRef.current) return;
+    savingRef.current = true;
+    setSavingKey(`${project.id}-daily`);
     setSaving(true);
     try {
       const updated = await updateProject(project.id, { daily_goal: nextGoal });
       setProjects((prev) => mergeProjectRow(prev, updated));
       void refresh({ silent: true, force: true });
     } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+      if (feedback) feedback.error(t("settings.learning.save_failed"));
+      else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
+      savingRef.current = false;
       setSaving(false);
+      setSavingKey(null);
     }
   };
 
@@ -89,7 +98,9 @@ export default function LearningSettingsScreen() {
     level: LanguageLevel,
     kind: "language" | "trivia",
   ) => {
-    if (!token || saving) return;
+    if (!token || savingRef.current) return;
+    savingRef.current = true;
+    setSavingKey(`${project.id}-level`);
     setSaving(true);
     try {
       const patch =
@@ -100,14 +111,19 @@ export default function LearningSettingsScreen() {
       setProjects((prev) => mergeProjectRow(prev, updated));
       void refresh({ silent: true, force: true });
     } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+      if (feedback) feedback.error(t("settings.learning.save_failed"));
+      else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
+      savingRef.current = false;
       setSaving(false);
+      setSavingKey(null);
     }
   };
 
   const saveTopics = async () => {
-    if (!token || !topicsProject || saving || topicsDraft.length === 0) return;
+    if (!token || !topicsProject || savingRef.current || topicsDraft.length === 0) return;
+    savingRef.current = true;
+    setSavingKey(`${topicsProject.id}-topics`);
     setSaving(true);
     try {
       const updated = await updateProject(topicsProject.id, {
@@ -117,9 +133,12 @@ export default function LearningSettingsScreen() {
       void refresh({ silent: true, force: true });
       setTopicsProject(null);
     } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+      if (feedback) feedback.error(t("settings.learning.save_failed"));
+      else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
+      savingRef.current = false;
       setSaving(false);
+      setSavingKey(null);
     }
   };
 
@@ -172,6 +191,7 @@ export default function LearningSettingsScreen() {
                   selectedKey={languageProject.level}
                   expanded={openPicker === `${languageProject.id}-level`}
                   disabled={saving}
+                  busy={savingKey === `${languageProject.id}-level`}
                   onToggle={() => togglePicker(`${languageProject.id}-level`)}
                   onSelect={(key) =>
                     void saveLevel(languageProject, key as LanguageLevel, "language")
@@ -188,6 +208,7 @@ export default function LearningSettingsScreen() {
                   selectedKey={String(resolveDailyGoal(languageProject.daily_goal))}
                   expanded={openPicker === `${languageProject.id}-daily`}
                   disabled={saving}
+                  busy={savingKey === `${languageProject.id}-daily`}
                   onToggle={() => togglePicker(`${languageProject.id}-daily`)}
                   onSelect={(key) => {
                     const nextGoal = Number(key);
@@ -210,6 +231,7 @@ export default function LearningSettingsScreen() {
                   selectedKey={triviaProject.level}
                   expanded={openPicker === `${triviaProject.id}-level`}
                   disabled={saving}
+                  busy={savingKey === `${triviaProject.id}-level`}
                   onToggle={() => togglePicker(`${triviaProject.id}-level`)}
                   onSelect={(key) =>
                     void saveLevel(triviaProject, key as LanguageLevel, "trivia")
@@ -226,6 +248,7 @@ export default function LearningSettingsScreen() {
                   selectedKey={String(resolveDailyGoal(triviaProject.daily_goal))}
                   expanded={openPicker === `${triviaProject.id}-daily`}
                   disabled={saving}
+                  busy={savingKey === `${triviaProject.id}-daily`}
                   onToggle={() => togglePicker(`${triviaProject.id}-daily`)}
                   onSelect={(key) => {
                     const nextGoal = Number(key);

@@ -454,6 +454,7 @@ function ChatScreen() {
     onDismissSuggestion: dismissSuggestion,
     imageGenerating: imageGen.generating,
     onQuizAnswer,
+    quizSubmissionFailed: Boolean(chatError),
     onRetryImageGen: imageGen.retry,
   });
 

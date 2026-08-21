@@ -6,6 +6,17 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
 
+jest.mock("@/components/ActionShimmer", () => {
+  const { Text, View } = jest.requireActual("react-native");
+  return {
+    ActionShimmer: ({ label }: { label: string }) => (
+      <View testID="action-shimmer">
+        <Text>{label}</Text>
+      </View>
+    ),
+  };
+});
+
 describe("StepPicker", () => {
   const options = [
     { key: "a", value: "a", label: "Option A" },
@@ -78,13 +89,12 @@ describe("StepPicker", () => {
     expect(onContinue).toHaveBeenCalledTimes(1);
   });
 
-  it("BUG FIX regression: continueBusy disables continue and hides its label behind a spinner", async () => {
+  it("keeps the create label visible and disables submit while busy", async () => {
     // The daily-goal step's continue button doubles as the final "Create"
     // submit — while creating, it must not be tappable again (double-submit)
-    // and must show a spinner instead of the label, matching the original
-    // inline ActivityIndicator-vs-Text swap this component replaced.
+    // and must show shared indeterminate feedback without hiding its purpose.
     const onContinue = jest.fn();
-    const { queryByText, toJSON } = await render(
+    const { getByRole, getByTestId, getByText } = await render(
       <StepPicker
         label="Pick one"
         hint="Choose wisely"
@@ -99,8 +109,15 @@ describe("StepPicker", () => {
       />,
     );
 
-    expect(queryByText("Create")).toBeNull();
-    expect(JSON.stringify(toJSON())).toContain("ActivityIndicator");
+    const createButton = getByRole("button", { name: "Create" });
+    expect(getByText("Create")).toBeOnTheScreen();
+    expect(getByTestId("action-shimmer")).toBeOnTheScreen();
+    expect(createButton).toHaveProp(
+      "accessibilityState",
+      expect.objectContaining({ disabled: true, busy: true }),
+    );
+    fireEvent.press(createButton);
+    expect(onContinue).not.toHaveBeenCalled();
   });
 
   it("shows a checkmark only next to the option isSelected returns true for", async () => {

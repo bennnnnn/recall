@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Keyboard, Platform, Pressable, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
@@ -50,6 +58,7 @@ export function AddReminderSheet({
   const canSave = text.trim().length > 0 && !saving;
 
   const handleClose = () => {
+    if (saving) return;
     onClose();
   };
 
@@ -78,14 +87,25 @@ export function AddReminderSheet({
       contentContainerStyle={[s.sheet, { paddingHorizontal: 0, paddingTop: 0 }]}
     >
       <View style={s.sheetHeader}>
-        <Pressable onPress={handleClose} hitSlop={8}>
+        <Pressable onPress={handleClose} hitSlop={8} disabled={saving}>
           <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
         </Pressable>
         <Text style={s.sheetTitle}>{t("todos.reminder_sheet_title")}</Text>
-        <Pressable onPress={handleSave} hitSlop={8} disabled={!canSave}>
-          <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
-            {t("todos.save")}
-          </Text>
+        <Pressable
+          onPress={handleSave}
+          hitSlop={8}
+          disabled={!canSave}
+          accessibilityRole="button"
+          accessibilityLabel={t("todos.save")}
+          accessibilityState={{ disabled: !canSave, busy: saving }}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={C.primary} />
+          ) : (
+            <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
+              {t("todos.save")}
+            </Text>
+          )}
         </Pressable>
       </View>
 
@@ -100,6 +120,7 @@ export function AddReminderSheet({
           autoFocus
           returnKeyType="done"
           maxLength={500}
+          editable={!saving}
         />
 
         <Text style={[s.formLabel, s.fieldGap]}>{t("todos.due_date_required")}</Text>
@@ -109,6 +130,7 @@ export function AddReminderSheet({
             mode="datetime"
             display="spinner"
             onChange={onPickerChange}
+            disabled={saving}
           />
         ) : (
           <Pressable
@@ -119,6 +141,7 @@ export function AddReminderSheet({
               Keyboard.dismiss();
               setShowPicker(true);
             }}
+            disabled={saving}
             accessibilityRole="button"
             accessibilityLabel={t("todos.due_date_required")}
           >
@@ -133,6 +156,7 @@ export function AddReminderSheet({
             value={dueDate}
             mode="datetime"
             onChange={onPickerChange}
+            disabled={saving}
           />
         ) : null}
 

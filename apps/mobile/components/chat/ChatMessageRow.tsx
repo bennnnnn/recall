@@ -32,6 +32,7 @@ type Props = {
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
   onQuizAnswer?: (letter: string) => void;
+  quizSubmissionFailed?: boolean;
   onRetryImageGen?: () => void;
 };
 
@@ -51,6 +52,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onEdit,
   onFeedback,
   onQuizAnswer,
+  quizSubmissionFailed = false,
   onRetryImageGen,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
@@ -84,6 +86,8 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
       onQuizAnswer={isActiveQuiz && !chatStreamActive ? onQuizAnswer : undefined}
+      quizSubmitting={isActiveQuiz && chatStreamActive}
+      quizSubmissionFailed={isActiveQuiz && quizSubmissionFailed}
     />
   );
 });

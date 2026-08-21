@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
 import { tap } from "@/lib/haptics";
@@ -10,6 +10,8 @@ type Props = {
   /** The correct letter from the quiz fence (for answer state coloring). */
   correctLetter?: QuizChoice["letter"] | null;
   disabled?: boolean;
+  submitting?: boolean;
+  submissionFailed?: boolean;
   onSelect: (letter: QuizChoice["letter"]) => void;
 };
 
@@ -17,6 +19,8 @@ export function VocabQuizChoices({
   choices,
   correctLetter,
   disabled = false,
+  submitting = false,
+  submissionFailed = false,
   onSelect,
 }: Props) {
   const theme = useTheme();
@@ -24,7 +28,9 @@ export function VocabQuizChoices({
   const [selectedLetter, setSelectedLetter] = useState<QuizChoice["letter"] | null>(null);
 
   const answered = selectedLetter !== null && correctLetter !== null && correctLetter !== undefined;
-  const isCorrect = answered && selectedLetter === correctLetter;
+  useEffect(() => {
+    if (submissionFailed) setSelectedLetter(null);
+  }, [submissionFailed]);
 
   return (
     <View style={s.row}>
@@ -58,6 +64,7 @@ export function VocabQuizChoices({
             accessibilityState={{
               selected: isSelected,
               disabled: disabled || answered,
+              busy: submitting && isSelected,
             }}
             onPress={() => {
               tap();
@@ -71,6 +78,9 @@ export function VocabQuizChoices({
             </Text>
             {showCorrect ? <Text style={s.checkmark}>✓</Text> : null}
             {showWrong ? <Text style={s.crossmark}>✕</Text> : null}
+            {submitting && isSelected ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : null}
           </Pressable>
         );
       })}
