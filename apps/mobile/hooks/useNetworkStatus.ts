@@ -53,9 +53,16 @@ export function useNetworkStatus(): { isOffline: boolean } {
   useEffect(() => {
     if (!isOffline) return;
     let cancelled = false;
+    let probeInFlight = false;
     const tick = async () => {
-      const offline = await resolveIsOffline();
-      if (!cancelled) setIsOffline(offline);
+      if (probeInFlight) return;
+      probeInFlight = true;
+      try {
+        const offline = await resolveIsOffline();
+        if (!cancelled) setIsOffline(offline);
+      } finally {
+        probeInFlight = false;
+      }
     };
     void tick();
     const id = setInterval(() => void tick(), OFFLINE_POLL_MS);
