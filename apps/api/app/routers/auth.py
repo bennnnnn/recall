@@ -1,5 +1,3 @@
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
@@ -17,7 +15,6 @@ from app.core.deps import (
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
 from app.exceptions import RedisUnavailableError
-from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.models.schemas import (
     AppleAuthRequest,
@@ -30,18 +27,11 @@ from app.models.schemas import (
     UserOut,
     UserUpdate,
 )
-from app.repositories import users as users_repo
-from app.services import attachment_lifecycle, export_service
+from app.services import account_lifecycle, export_service
 from app.services import auth as auth_service
-from app.services import google_integrations as google_integrations_service
-from app.services import home as home_service
-from app.services import memory as memory_service
-from app.services import plan as plan_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import subscription as subscription_service
 from app.services import tokens as tokens_service
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -91,7 +81,7 @@ async def google_login(
     await _enforce_login_rate_limit(redis, request, settings, provider="google")
     try:
         return await auth_service.login_with_google(session, settings, body.id_token, redis)
-    except GoogleAuthError as exc:
+    except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
@@ -112,7 +102,7 @@ async def apple_login(
             redis,
             name=body.name,
         )
-    except GoogleAuthError as exc:
+    except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
@@ -146,7 +136,7 @@ async def dev_login(
             name=body.name,
             redis=redis,
         )
-    except GoogleAuthError as exc:
+    except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
@@ -183,7 +173,7 @@ async def refresh_session(
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
-    except GoogleAuthError as exc:
+    except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return AuthResponse(
         access_token=access_token,
@@ -209,23 +199,15 @@ async def logout(
     if auth_header.lower().startswith("bearer "):
         access_token = auth_header[7:]
     try:
-        if access_token and body.refresh_token:
-            await tokens_service.revoke_access_token(redis, access_token, settings)
-            await tokens_service.revoke_refresh_token(redis, body.refresh_token)
-        elif body.refresh_token:
-            # No valid access token — revoke refresh only.
-            await tokens_service.revoke_refresh_token(redis, body.refresh_token)
-        elif access_token:
-            # Client lost refresh — resolve user before revoke, then kill all sessions.
-            user_id = await tokens_service.verify_access_token(redis, access_token, settings)
-            await tokens_service.revoke_access_token(redis, access_token, settings)
-            await tokens_service.purge_user_sessions(redis, user_id, settings)
-        else:
-            # Nothing to revoke — no-op (204).
-            pass
+        await account_lifecycle.logout(
+            redis,
+            settings,
+            access_token=access_token,
+            refresh_token=body.refresh_token,
+        )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
-    except GoogleAuthError as exc:
+    except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
@@ -237,24 +219,10 @@ async def update_me(
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
     fields = body.model_dump(exclude_unset=True)
-    if "enabled_models" in fields:
-        try:
-            fields["enabled_models"] = plan_service.validate_enabled_models_for_update(
-                user,
-                fields["enabled_models"],
-                settings,
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    memory_toggled = "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
-    updated = await users_repo.update(
-        session,
-        user,
-        **fields,
-    )
-    if memory_toggled:
-        await memory_service.invalidate_memory_block(user.id)
-    await home_service.invalidate_home_cache(user.id)
+    try:
+        updated = await account_lifecycle.update_account(session, user, settings, fields)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return UserOut.model_validate(updated)
 
 
@@ -288,7 +256,7 @@ async def dev_upgrade_pro(
 ) -> UserOut:
     """Dev-only helper to simulate a Pro subscription."""
     require_dev_privilege_access(request, settings, user)
-    updated = await users_repo.update(session, user, plan="pro")
+    updated = await account_lifecycle.upgrade_to_pro_for_dev(session, user)
     return UserOut.model_validate(updated)
 
 
@@ -325,36 +293,10 @@ async def delete_me(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
-    # Kill every outstanding session before the row goes — otherwise a
-    # logged-in client keeps a working access token until its own exp, with
-    # only the (now-deleted) DB user check to stop it.
-    # M1: if Redis is down, fail the delete (503) so the client retries —
-    # silently succeeding leaves live sessions that can call the API.
     try:
-        await tokens_service.purge_user_sessions(redis, user.id, settings)
-    except Exception:
-        logger.warning(
-            "Session purge failed during account delete user_id=%s", user.id, exc_info=True
-        )
+        await account_lifecycle.delete_account(session, redis, settings, user)
+    except account_lifecycle.SessionPurgeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Could not revoke sessions. Please retry.",
-        ) from None
-    try:
-        await google_integrations_service.revoke_all_google_tokens_for_user(
-            session,
-            settings,
-            user.id,
-        )
-    except google_integrations_service.GoogleConnectError:
-        # Decrypt/key-rotation failures must not block account deletion after
-        # sessions are already purged — sibling disconnect endpoints return
-        # 400; here we best-effort revoke and continue wiping the account.
-        logger.warning(
-            "Google token revoke failed during account delete; continuing wipe user_id=%s",
-            user.id,
-            exc_info=True,
-        )
-    # Storage bytes before DB rows — delete_user only clears attachment rows.
-    await attachment_lifecycle.purge_attachments_for_user(session, settings, user.id)
-    await users_repo.delete_user(session, user.id)
+        ) from exc

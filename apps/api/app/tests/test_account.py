@@ -48,18 +48,19 @@ def test_delete_account_returns_204():
 
     with (
         patch(
-            "app.routers.auth.tokens_service.purge_user_sessions",
+            "app.services.account_lifecycle.tokens_service.purge_user_sessions",
             side_effect=purge_sessions,
         ),
         patch(
-            "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
+            "app.services.account_lifecycle.google_integrations_service."
+            "revoke_all_google_tokens_for_user",
             side_effect=revoke,
         ),
         patch(
-            "app.routers.auth.attachment_lifecycle.purge_attachments_for_user",
+            "app.services.account_lifecycle.attachment_lifecycle.purge_attachments_for_user",
             side_effect=purge,
         ),
-        patch("app.routers.auth.users_repo.delete_user", side_effect=delete_user),
+        patch("app.services.account_lifecycle.users_repo.delete_user", side_effect=delete_user),
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
@@ -92,18 +93,19 @@ def test_delete_account_continues_when_google_revoke_fails():
 
     with (
         patch(
-            "app.routers.auth.tokens_service.purge_user_sessions",
+            "app.services.account_lifecycle.tokens_service.purge_user_sessions",
             side_effect=purge_sessions,
         ),
         patch(
-            "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
+            "app.services.account_lifecycle.google_integrations_service."
+            "revoke_all_google_tokens_for_user",
             side_effect=revoke,
         ),
         patch(
-            "app.routers.auth.attachment_lifecycle.purge_attachments_for_user",
+            "app.services.account_lifecycle.attachment_lifecycle.purge_attachments_for_user",
             side_effect=purge,
         ),
-        patch("app.routers.auth.users_repo.delete_user", side_effect=delete_user),
+        patch("app.services.account_lifecycle.users_repo.delete_user", side_effect=delete_user),
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
@@ -131,11 +133,12 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
 
     with (
         patch(
-            "app.routers.auth.tokens_service.purge_user_sessions",
+            "app.services.account_lifecycle.tokens_service.purge_user_sessions",
             AsyncMock(),
         ),
         patch(
-            "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
+            "app.services.account_lifecycle.google_integrations_service."
+            "revoke_all_google_tokens_for_user",
             AsyncMock(),
         ),
         patch(
@@ -154,7 +157,7 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
-        patch("app.routers.auth.users_repo.delete_user", AsyncMock()) as delete_user,
+        patch("app.services.account_lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})

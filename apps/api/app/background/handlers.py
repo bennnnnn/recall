@@ -20,13 +20,9 @@ from uuid import UUID
 
 from app.background import (
     attachment_indexing,
-    compaction,
     gmail_sync,
-    memory_consolidation,
-    memory_extraction,
     message_indexing,
     project_sync,
-    suggestion_generation,
     todo_sync,
     topic_generation,
 )
@@ -35,7 +31,11 @@ from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
 from app.services import quota as quota_service
+from app.services import suggestion_generation
 from app.services import transactional_email as transactional_email_service
+from app.services.chat import compaction
+from app.services.memory import consolidation_workflow as memory_consolidation
+from app.services.memory import extraction_workflow as memory_extraction
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +277,3 @@ def register_all() -> None:
     register("transactional_email", _handle_transactional_email)
     register("attachment_index", _handle_attachment_index)
     register("message_index", _handle_message_index)
-
-
-register_all()

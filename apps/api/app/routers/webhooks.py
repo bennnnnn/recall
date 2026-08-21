@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import hmac
 import json
-import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -16,52 +14,18 @@ from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.deps import get_redis
 from app.core.jobs import enqueue_purchase_receipt
-from app.core.redis_lock import acquire_lock, release_lock
-from app.services import subscription as subscription_service
+from app.core.redis_lock import acquire_lock
+from app.services import revenuecat_webhook as webhook_service
 
-logger = logging.getLogger(__name__)
+subscription_service = webhook_service.subscription_service
+_already_processed = webhook_service._already_processed
+_try_claim = webhook_service._try_claim
+_expiration = webhook_service._expiration
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 # Cap before body parse — endpoint is rate-limit-exempt and auth runs in-handler.
 _MAX_WEBHOOK_BODY_BYTES = 64 * 1024
-
-# RevenueCat retries webhooks; dedup event ids for ~24h so a replay doesn't
-# reprocess (and, via the receipt path, re-email) the same event.
-_EVENT_ID_TTL = 60 * 60 * 24
-# Short lock while a delivery is in flight — two concurrent deliveries of the
-# same event_id must not both pass a check-then-act exists() race.
-_EVENT_CLAIM_TTL = 120
-
-_PRO_EVENTS = frozenset(
-    {
-        "INITIAL_PURCHASE",
-        "RENEWAL",
-        "UNCANCELLATION",
-        "NON_RENEWING_PURCHASE",
-        "PRODUCT_CHANGE",
-        "SUBSCRIPTION_EXTENDED",
-    }
-)
-# BILLING_ISSUE is intentionally omitted: payment failed but the subscriber may
-# still be in a grace/retry window. CANCELLATION means auto-renew off — the
-# entitlement stays active until period end, so it is not in this set.
-_FREE_EVENTS = frozenset({"EXPIRATION"})
-# Events that mutate (or intentionally preserve) plan state — watermarked so
-# a late-arriving older event cannot overwrite a newer decision.
-_ORDERED_EVENTS = _PRO_EVENTS | _FREE_EVENTS | frozenset({"CANCELLATION", "TRANSFER"})
-
-
-def _done_key(event_id: str) -> str:
-    return f"rcwebhook:{event_id}"
-
-
-def _lock_key(event_id: str) -> str:
-    return f"rcwebhook:lock:{event_id}"
-
-
-def _subscriber_lock_key(app_user_id: str) -> str:
-    return f"rcwebhook:user:{app_user_id}"
 
 
 def _secrets_match(candidate: str, expected: str) -> bool:
@@ -71,23 +35,6 @@ def _secrets_match(candidate: str, expected: str) -> bool:
     if not candidate.isascii() or not expected.isascii():
         return False
     return hmac.compare_digest(candidate, expected)
-
-
-async def _already_processed(redis: Redis, event_id: str) -> bool:
-    return bool(await redis.exists(_done_key(event_id)))
-
-
-async def _try_claim(redis: Redis, event_id: str) -> bool:
-    """Atomically claim this event for in-flight processing."""
-    return bool(await redis.set(_lock_key(event_id), "1", nx=True, ex=_EVENT_CLAIM_TTL))
-
-
-async def _mark_processed(redis: Redis, event_id: str) -> None:
-    await redis.set(_done_key(event_id), "1", ex=_EVENT_ID_TTL)
-
-
-async def _release_claim(redis: Redis, event_id: str) -> None:
-    await redis.delete(_lock_key(event_id))
 
 
 def _verify_auth(authorization: str | None, settings: Settings) -> None:
@@ -111,190 +58,6 @@ def _verify_auth(authorization: str | None, settings: Settings) -> None:
     authorized = any(_secrets_match(c, expected) for c in candidates)
     if not authorized:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-
-def _event_id(payload: dict[str, Any]) -> str | None:
-    event = payload.get("event")
-    if not isinstance(event, dict):
-        return None
-    for key in ("event_id", "id"):
-        value = event.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def _app_user_id(payload: dict[str, Any]) -> str | None:
-    event = payload.get("event")
-    if not isinstance(event, dict):
-        return None
-    for key in ("app_user_id", "original_app_user_id"):
-        value = event.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def _event_type(payload: dict[str, Any]) -> str:
-    event = payload.get("event")
-    if isinstance(event, dict):
-        et = event.get("type")
-        if isinstance(et, str):
-            return et
-    return ""
-
-
-def _event_environment(payload: dict[str, Any]) -> str | None:
-    """RevenueCat sends ``event.environment`` as PRODUCTION or SANDBOX."""
-    event = payload.get("event")
-    if isinstance(event, dict):
-        value = event.get("environment")
-        if isinstance(value, str) and value.strip():
-            return value.strip().upper()
-    return None
-
-
-def _ignore_sandbox_event(payload: dict[str, Any], settings: Settings) -> bool:
-    """Sandbox purchases must not grant Pro on a production API host.
-
-    Local/dev still processes SANDBOX so storekit testing can exercise the
-    webhook path. Production (and any non-development environment) ACK with
-    204 and skip plan mutation.
-    """
-    if _event_environment(payload) != "SANDBOX":
-        return False
-    return settings.environment.strip().lower() != "development"
-
-
-def _event_field(payload: dict[str, Any], key: str) -> str | None:
-    event = payload.get("event")
-    if isinstance(event, dict):
-        value = event.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def _expiration_ms(payload: dict[str, Any]) -> int | None:
-    event = payload.get("event")
-    if not isinstance(event, dict):
-        return None
-    raw = event.get("expiration_at_ms")
-    if raw is None:
-        return None
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
-
-
-def _event_timestamp_ms(payload: dict[str, Any]) -> int | None:
-    """RevenueCat ``event.event_timestamp_ms`` (epoch ms when the event occurred)."""
-    event = payload.get("event")
-    if not isinstance(event, dict):
-        return None
-    raw = event.get("event_timestamp_ms")
-    if raw is None:
-        return None
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
-
-
-def _expiration(payload: dict[str, Any]) -> str | None:
-    """RevenueCat sends `expiration_at_ms` (epoch ms) for subscriptions."""
-    ms = _expiration_ms(payload)
-    if ms is None:
-        return None
-    try:
-        return datetime.fromtimestamp(ms / 1000.0, tz=UTC).isoformat()
-    except (OverflowError, OSError, ValueError):
-        # Huge / negative ms must not 500 the webhook (RevenueCat retry storm).
-        return None
-
-
-def _cancellation_should_downgrade(payload: dict[str, Any]) -> bool:
-    """Downgrade on cancel only when paid-through time is already past.
-
-    Future ``expiration_at_ms`` means the subscriber keeps Pro until
-    EXPIRATION. Missing/unparseable expiry is treated conservatively as a
-    refund-style cancel (downgrade now).
-    """
-    ms = _expiration_ms(payload)
-    if ms is None:
-        return True
-    try:
-        return datetime.fromtimestamp(ms / 1000.0, tz=UTC) <= datetime.now(tz=UTC)
-    except (OverflowError, OSError, ValueError):
-        return True
-
-
-async def _dispatch_event(
-    session: AsyncSession,
-    redis: Redis,
-    settings: Settings,
-    payload: dict[str, Any],
-    event_type: str,
-    app_user_id: str,
-) -> bool:
-    """Process the event. Returns True if it mutated plan state (and should
-    therefore be deduped against future retries); False for event types we
-    intentionally ignore, which are safe to reprocess if replayed."""
-    if event_type == "TRANSFER":
-        event = payload.get("event")
-        if not isinstance(event, dict):
-            return False
-        new_id = event.get("app_user_id")
-        old_ids = event.get("transferred_from") or []
-        if not isinstance(new_id, str) or not new_id.strip():
-            return False
-        from_list = old_ids if isinstance(old_ids, list) else []
-        return await subscription_service.handle_revenuecat_transfer(
-            session,
-            settings,
-            new_app_user_id=new_id,
-            transferred_from=[oid for oid in from_list if isinstance(oid, str)],
-        )
-    if event_type in _PRO_EVENTS:
-        applied = await subscription_service.apply_plan_for_app_user_id(
-            session,
-            app_user_id,
-            plan="pro",
-        )
-        if applied and settings.email_enabled:
-            await enqueue_purchase_receipt(
-                redis,
-                app_user_id,
-                event_type=event_type,
-                store=_event_field(payload, "store"),
-                product_id=_event_field(payload, "product_id"),
-                expiration=_expiration(payload),
-            )
-        return True
-    if event_type == "CANCELLATION":
-        if not _cancellation_should_downgrade(payload):
-            logger.info(
-                "RevenueCat CANCELLATION ignored until period end app_user_id=%s",
-                app_user_id,
-            )
-            # Handled (keep Pro) — ACK/dedup and advance watermark so a late
-            # older EXPIRATION cannot slip in behind this decision.
-            return True
-        await subscription_service.apply_plan_for_app_user_id(
-            session,
-            app_user_id,
-            plan="free",
-        )
-        return True
-    if event_type in _FREE_EVENTS:
-        await subscription_service.apply_plan_for_app_user_id(
-            session,
-            app_user_id,
-            plan="free",
-        )
-        return True
-    return False
 
 
 def _reject_oversized_webhook_body(content_length: str | None, body_len: int) -> None:
@@ -341,80 +104,19 @@ async def revenuecat_webhook(
         )
     payload: dict[str, Any] = parsed
 
-    if _ignore_sandbox_event(payload, settings):
-        logger.info(
-            "RevenueCat sandbox webhook ignored in %s environment",
-            settings.environment,
+    try:
+        await webhook_service.process_event(
+            session,
+            redis,
+            settings,
+            payload,
+            processed_check=_already_processed,
+            event_claim=_try_claim,
+            subscriber_lock=acquire_lock,
+            receipt_enqueuer=enqueue_purchase_receipt,
         )
-        return
-
-    # Dedup: done-marker (24h) + short NX lock so concurrent deliveries of the
-    # same event_id cannot both process (duplicate receipt emails). Mark only
-    # after success so a mid-processing failure still allows RevenueCat retry.
-    event_id = _event_id(payload)
-    claimed = False
-    if event_id:
-        if await _already_processed(redis, event_id):
-            logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
-            return
-        claimed = await _try_claim(redis, event_id)
-        if not claimed:
-            logger.info("RevenueCat webhook in-flight ignored event_id=%s", event_id)
-            return
-
-    app_user_id = _app_user_id(payload)
-    if not app_user_id:
-        if claimed and event_id:
-            await _release_claim(redis, event_id)
-        return
-
-    event_type = _event_type(payload)
-    event_ts = _event_timestamp_ms(payload)
-    # Per-subscriber lock (separate from the per-event_id claim): two different
-    # events for the same user must not both pass the watermark check-then-act.
-    subscriber_key = _subscriber_lock_key(app_user_id)
-    subscriber_token = await acquire_lock(redis, subscriber_key, _EVENT_CLAIM_TTL)
-    if subscriber_token is None:
-        if claimed and event_id:
-            await _release_claim(redis, event_id)
+    except webhook_service.SubscriberBusyError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="RevenueCat webhook busy for subscriber",
-        )
-    try:
-        if (
-            event_ts is not None
-            and event_type in _ORDERED_EVENTS
-            and await subscription_service.is_stale_rc_event(session, app_user_id, event_ts)
-        ):
-            logger.info(
-                "RevenueCat stale event ignored type=%s app_user_id=%s event_ts=%s",
-                event_type,
-                app_user_id,
-                event_ts,
-            )
-            if event_id:
-                await _mark_processed(redis, event_id)
-            return
-
-        processed = await _dispatch_event(
-            session, redis, settings, payload, event_type, app_user_id
-        )
-        if processed and event_ts is not None and event_type in _ORDERED_EVENTS:
-            await subscription_service.advance_rc_event_watermark(session, app_user_id, event_ts)
-            if event_type == "TRANSFER":
-                event = payload.get("event")
-                if isinstance(event, dict):
-                    old_ids = event.get("transferred_from") or []
-                    if isinstance(old_ids, list):
-                        for oid in old_ids:
-                            if isinstance(oid, str) and oid.strip():
-                                await subscription_service.advance_rc_event_watermark(
-                                    session, oid.strip(), event_ts
-                                )
-        if processed and event_id:
-            await _mark_processed(redis, event_id)
-    finally:
-        await release_lock(redis, subscriber_key, subscriber_token)
-        if claimed and event_id:
-            await _release_claim(redis, event_id)
+        ) from exc
