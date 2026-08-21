@@ -52,6 +52,11 @@ from app.services.vocab_quiz import QuizAnswerGrade
 logger = logging.getLogger(__name__)
 
 
+async def _noop_str_none() -> str | None:
+    """No-op coroutine used as a defensive fallback for asyncio.gather."""
+    return None
+
+
 @dataclass
 class RegenerateBackup:
     content: str
@@ -469,12 +474,13 @@ async def build_stream_prompt_context(
     chem_block: str | None = None
     if integration_coro is not None and web_coro is not None:
         # chem_coro is set alongside web_coro (both gated on augment).
-        assert chem_coro is not None
+        # If chem_coro is somehow None (defensive), use a no-op coroutine.
+        chem_awaitable = chem_coro if chem_coro is not None else _noop_str_none()
         (
             integration_blocks,
             (web_block, math_block, search_sources, verified_math),
             chem_block,
-        ) = await asyncio.gather(integration_coro, web_coro, chem_coro)
+        ) = await asyncio.gather(integration_coro, web_coro, chem_awaitable)
     elif integration_coro is not None:
         integration_blocks = await integration_coro
         if chem_coro is not None:
