@@ -66,8 +66,8 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   const fnRows = useMemo(() => {
     const functions = symbolsInGroup(group);
     const rows: MathKeyboardSymbol[][] = [];
-    for (let i = 0; i < functions.length; i += 5) {
-      rows.push(functions.slice(i, i + 5));
+    for (let i = 0; i < functions.length; i += 6) {
+      rows.push(functions.slice(i, i + 6));
     }
     return rows;
   }, [group]);
@@ -309,35 +309,6 @@ function PadKey({
       </KeyBtn>
     );
   }
-  if (cell.kind === "slot-nav") {
-    const s = makeStyles(theme);
-    return (
-      <View style={s.slotNav}>
-        <PadKey
-          cell={{ kind: "prev" }}
-          onInsert={onInsert}
-          onBackspace={onBackspace}
-          onNextSlot={onNextSlot}
-          onPrevSlot={onPrevSlot}
-          backspaceLabel={backspaceLabel}
-          nextLabel={nextLabel}
-          prevLabel={prevLabel}
-          theme={theme}
-        />
-        <PadKey
-          cell={{ kind: "next" }}
-          onInsert={onInsert}
-          onBackspace={onBackspace}
-          onNextSlot={onNextSlot}
-          onPrevSlot={onPrevSlot}
-          backspaceLabel={backspaceLabel}
-          nextLabel={nextLabel}
-          prevLabel={prevLabel}
-          theme={theme}
-        />
-      </View>
-    );
-  }
   if (cell.kind === "prev") {
     return (
       <KeyBtn
@@ -447,7 +418,6 @@ const makeStyles = (theme: Theme) =>
     abcLabel: { fontSize: 15, fontWeight: "700", color: theme.primary },
     numpad: { gap: 6, marginTop: 2 },
     keySpacer: { flex: 1 },
-    slotNav: { flex: 1, gap: 4 },
     row: {
       flexDirection: "row",
       alignItems: "stretch",

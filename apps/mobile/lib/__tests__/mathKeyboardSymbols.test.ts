@@ -287,18 +287,17 @@ describe("mathGroupCanToggleDigits", () => {
 });
 
 describe("MATH_NUMPAD_ROWS", () => {
-  it("is a calculator grid with comma, y, backspace, and slot nav", () => {
-    expect(MATH_NUMPAD_ROWS).toHaveLength(4);
+  it("is a compact calculator grid with comma, y, backspace", () => {
+    expect(MATH_NUMPAD_ROWS).toHaveLength(3);
     const ids = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
       c.kind === "insert" ? [c.spec.id] : [],
     );
     expect(ids).toContain("comma");
     expect(ids).toContain("var-y");
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(true);
-    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "slot-nav")).toBe(true);
   });
 
-  it("BUG FIX regression: includes <, >, and extra variables (z, n, t)", () => {
+  it("BUG FIX regression: includes <, >, and variable z", () => {
     const allSymbols = MATH_KEYBOARD_SYMBOLS.map((s) => s.id);
     expect(allSymbols).toContain("lt");
     expect(allSymbols).toContain("gt");
@@ -306,8 +305,6 @@ describe("MATH_NUMPAD_ROWS", () => {
       c.kind === "insert" ? [c.spec.id] : [],
     );
     expect(padIds).toContain("var-z");
-    expect(padIds).toContain("var-n");
-    expect(padIds).toContain("var-t");
   });
 });
 

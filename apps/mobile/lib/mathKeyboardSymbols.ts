@@ -143,8 +143,6 @@ export const MATH_PAD_KEYS: readonly MathKeyboardSymbol[] = [
   key({ id: "var-x", label: "𝑥", insert: "x", group: "pad" }),
   key({ id: "var-y", label: "𝑦", insert: "y", group: "pad" }),
   key({ id: "var-z", label: "𝑧", insert: "z", group: "pad" }),
-  key({ id: "var-n", label: "𝑛", insert: "n", group: "pad" }),
-  key({ id: "var-t", label: "𝑡", insert: "t", group: "pad" }),
 ];
 
 export function symbolsInGroup(group: MathKeyboardGroup): MathKeyboardSymbol[] {
@@ -248,8 +246,6 @@ export const SYMBOL_A11Y: Record<string, string> = {
   "var-x": "Variable x",
   "var-y": "Variable y",
   "var-z": "Variable z",
-  "var-n": "Variable n",
-  "var-t": "Variable t",
 };
 
 export function symbolA11yLabel(spec: MathKeyboardSymbol): string {
@@ -572,8 +568,7 @@ export type PadCell =
   | { kind: "insert"; spec: MathKeyboardSymbol }
   | { kind: "backspace" }
   | { kind: "next" }
-  | { kind: "prev" }
-  | { kind: "slot-nav" };
+  | { kind: "prev" };
 
 function padSpec(id: string): MathKeyboardSymbol {
   const spec = MATH_PAD_KEYS.find((s) => s.id === id) ?? MATH_KEYBOARD_SYMBOLS.find((s) => s.id === id);
@@ -588,6 +583,7 @@ export const MATH_NUMPAD_ROWS: PadCell[][] = [
     { kind: "insert", spec: padSpec("digit-8") },
     { kind: "insert", spec: padSpec("digit-9") },
     { kind: "insert", spec: padSpec("times") },
+    { kind: "insert", spec: padSpec("parens") },
     { kind: "backspace" },
   ],
   [
@@ -595,25 +591,19 @@ export const MATH_NUMPAD_ROWS: PadCell[][] = [
     { kind: "insert", spec: padSpec("digit-5") },
     { kind: "insert", spec: padSpec("digit-6") },
     { kind: "insert", spec: padSpec("div") },
-    { kind: "slot-nav" },
+    { kind: "insert", spec: padSpec("minus") },
+    { kind: "insert", spec: padSpec("plus") },
   ],
   [
     { kind: "insert", spec: padSpec("digit-1") },
     { kind: "insert", spec: padSpec("digit-2") },
     { kind: "insert", spec: padSpec("digit-3") },
-    { kind: "insert", spec: padSpec("minus") },
-    { kind: "insert", spec: padSpec("parens") },
-    { kind: "insert", spec: padSpec("plus") },
-  ],
-  [
     { kind: "insert", spec: padSpec("digit-0") },
     { kind: "insert", spec: padSpec("digit-dot") },
     { kind: "insert", spec: padSpec("comma") },
     { kind: "insert", spec: padSpec("var-x") },
     { kind: "insert", spec: padSpec("var-y") },
     { kind: "insert", spec: padSpec("var-z") },
-    { kind: "insert", spec: padSpec("var-n") },
-    { kind: "insert", spec: padSpec("var-t") },
     { kind: "insert", spec: padSpec("eq") },
   ],
 ];
