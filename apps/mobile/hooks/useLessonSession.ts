@@ -87,17 +87,20 @@ export function useLessonSession(projectId: string) {
   }, [load, projectId, refreshHome, refreshProjects]);
 
   const finishWord = useCallback(
-    async (itemId: string, failed: boolean) => {
-      if (!token) return;
+    async (itemId: string, failed: boolean): Promise<boolean> => {
+      if (!token) return false;
       setSaving(true);
+      setError(null);
       try {
         await api.updateProjectItem(token, projectId, itemId, {
           status: failed ? "learning" : "mastered",
           ...(failed ? { was_correct: false } : {}),
         });
         refreshLearning();
+        return true;
       } catch {
-        setError(t("projects.study_launch_failed"));
+        setError(t("lesson.save_failed"));
+        return false;
       } finally {
         setSaving(false);
       }
@@ -105,12 +108,17 @@ export function useLessonSession(projectId: string) {
     [projectId, refreshLearning, t, token],
   );
 
-  const continueLesson = useCallback(() => {
+  // Awaits the save before advancing — a failed save must not let the local
+  // queue index (and therefore `complete`) move past it. On failure this
+  // leaves `feedback` set so the result sheet stays up with the error and a
+  // retry (tapping Continue again re-attempts the same word).
+  const continueLesson = useCallback(async () => {
     const current = drills[index];
-    setFeedback(null);
     if (current?.kind === "meaning") {
-      void finishWord(current.itemId, missed.has(current.itemId));
+      const saved = await finishWord(current.itemId, missed.has(current.itemId));
+      if (!saved) return;
     }
+    setFeedback(null);
     setIndex((value) => value + 1);
   }, [drills, finishWord, index, missed]);
 

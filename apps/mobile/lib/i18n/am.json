@@ -334,6 +334,7 @@
   "lesson.open": "ትምህርት ክፈት",
   "lesson.quiz_meaning": "\"{{word}}\" ምን ማለት ነው?",
   "lesson.quiz_use": "\"{{meaning}}\" ማለት የትኛው ቃል ነው?",
+  "lesson.save_failed": "መልስዎን ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።",
   "lesson.send_answer": "አረጋግጥ",
   "lesson.start": "ትምህርት ጀምር",
   "lesson.try_again": "Try again.",

@@ -97,7 +97,6 @@ export default function LearningLessonPlayScreen() {
         {!step && !empty && !complete ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
-        {error ? <Text style={s.error}>{error}</Text> : null}
       </ScrollView>
 
       {step?.kind === "teach" && !feedback ? (
@@ -111,6 +110,8 @@ export default function LearningLessonPlayScreen() {
           feedback={feedback}
           language={language}
           onContinue={continueLesson}
+          saving={streaming}
+          error={error}
         />
       ) : null}
     </SafeAreaView>
@@ -173,11 +174,6 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       textAlign: "center",
       marginTop: Space.lg,
-    },
-    error: {
-      ...Type.secondary,
-      color: theme.danger,
-      textAlign: "center",
     },
     typedWrap: {
       paddingHorizontal: Space.lg,

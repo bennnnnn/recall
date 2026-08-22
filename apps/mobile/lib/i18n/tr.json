@@ -334,6 +334,7 @@
   "lesson.open": "Dersi aç",
   "lesson.quiz_meaning": "\"{{word}}\" ne anlama gelir?",
   "lesson.quiz_use": "\"{{meaning}}\" anlamına gelen sözcük hangisi?",
+  "lesson.save_failed": "Cevabınız kaydedilemedi. Tekrar deneyin.",
   "lesson.send_answer": "Kontrol et",
   "lesson.start": "Dersi başlat",
   "lesson.try_again": "Tekrar dene.",

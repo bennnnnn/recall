@@ -334,6 +334,7 @@
   "lesson.open": "Abrir lição",
   "lesson.quiz_meaning": "O que significa \"{{word}}\"?",
   "lesson.quiz_use": "Qual palavra significa \"{{meaning}}\"?",
+  "lesson.save_failed": "Não foi possível salvar sua resposta. Tente novamente.",
   "lesson.send_answer": "Verificar",
   "lesson.start": "Começar lição",
   "lesson.try_again": "Tenta outra vez.",
