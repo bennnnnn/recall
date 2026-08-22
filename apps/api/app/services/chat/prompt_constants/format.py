@@ -139,6 +139,14 @@ SHORT_RESPONSE_FORMAT_HINT = (
     "No pipe tables. No ```html / ```mermaid / ```chart unless the user explicitly requested a visual."
 )
 
+# Compact baseline injected on ALL non-lightweight turns (short, day-plan, quiz).
+# Covers the artifacts that make output ugly regardless of turn type.
+UNIVERSAL_FORMAT_BASELINE = (
+    "Never put a colon on its own line — it strands as a lone punctuation mark. "
+    "If a label introduces a formula, put the formula on the next line without a trailing colon. "
+    "Keep paragraphs to 2-3 sentences. Avoid 3+ consecutive blank lines."
+)
+
 # NOTE: response style (short/balanced/detailed) drives *brevity through the
 # prompt* via STYLE_HINTS above — it no longer caps output tokens. A single
 # high ceiling (settings.max_output_tokens) is the safety backstop; the daily

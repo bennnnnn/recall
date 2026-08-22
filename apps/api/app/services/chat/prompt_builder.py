@@ -45,6 +45,7 @@ from app.services.chat.prompt_constants import (
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
+    UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
     VOCAB_CHAT_ANSWER_HINT,
     format_quiz_grading_hint,
@@ -469,9 +470,9 @@ async def _quiz_hints(
         chat is None or chat.project_id is not None
     )
     if minimal_quiz_context:
-        parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
+        parts.extend([UNIVERSAL_FORMAT_BASELINE, QUIZ_ANSWER_HINT, PRIVACY_HINT])
     elif minimal_vocab_answer_context:
-        parts.extend([VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
+        parts.extend([UNIVERSAL_FORMAT_BASELINE, VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
     else:
         return parts, chat
 
@@ -508,9 +509,11 @@ def _style_format_hints(
     if minimal_personal_context:
         parts.append(BROAD_SELF_ANSWER_HINT)
     if style == "short":
+        parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(SHORT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     elif not is_day_plan:
+        parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.extend(
             [
                 INTENT_FORMAT_HINT,
@@ -525,6 +528,7 @@ def _style_format_hints(
         # question that landed in day-plan mode lost every guardrail against
         # raw ```latex/```copy fences. Keep the compact math safety hint so
         # any math in a day-plan turn still renders correctly.
+        parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
