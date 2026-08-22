@@ -33,6 +33,7 @@ export default function LearningLessonPlayScreen() {
     error,
     empty,
     complete,
+    sessionEndedEarly,
     currentNumber,
     total,
     progressFill,
@@ -78,6 +79,12 @@ export default function LearningLessonPlayScreen() {
       >
         {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
         {complete ? <LessonCompleteCard /> : null}
+        {sessionEndedEarly ? (
+          <View style={s.pausedWrap}>
+            <Text style={s.status}>{t("lesson.more_to_learn")}</Text>
+            <Button title={t("common.done")} onPress={() => router.back()} />
+          </View>
+        ) : null}
         {step?.kind === "teach" ? (
           <VocabCard card={step.card} language={language} />
         ) : null}
@@ -94,10 +101,9 @@ export default function LearningLessonPlayScreen() {
             onWrongAnswer={recordWrongAttempt}
           />
         ) : null}
-        {!step && !empty && !complete ? (
+        {!step && !empty && !complete && !sessionEndedEarly ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
-        {error ? <Text style={s.error}>{error}</Text> : null}
       </ScrollView>
 
       {step?.kind === "teach" && !feedback ? (
@@ -111,6 +117,8 @@ export default function LearningLessonPlayScreen() {
           feedback={feedback}
           language={language}
           onContinue={continueLesson}
+          saving={streaming}
+          error={error}
         />
       ) : null}
     </SafeAreaView>
@@ -174,10 +182,11 @@ function makeStyles(theme: Theme) {
       textAlign: "center",
       marginTop: Space.lg,
     },
-    error: {
-      ...Type.secondary,
-      color: theme.danger,
-      textAlign: "center",
+    pausedWrap: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.lg,
     },
     typedWrap: {
       paddingHorizontal: Space.lg,

@@ -18,9 +18,17 @@ type Props = {
   feedback: LessonFeedback;
   language?: string;
   onContinue: () => void;
+  saving?: boolean;
+  error?: string | null;
 };
 
-export function LessonResultSheet({ feedback, language = "en", onContinue }: Props) {
+export function LessonResultSheet({
+  feedback,
+  language = "en",
+  onContinue,
+  saving = false,
+  error = null,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const token = useAuthToken();
@@ -77,7 +85,18 @@ export function LessonResultSheet({ feedback, language = "en", onContinue }: Pro
       </View>
       {word ? <Text style={s.word}>{word}</Text> : null}
       {feedback.meaning ? <Text style={s.meaning}>{feedback.meaning}</Text> : null}
-      <Button title={t("lesson.continue")} onPress={onContinue} style={s.continue} />
+      {error ? (
+        <Text style={s.saveError} accessibilityLiveRegion="assertive">
+          {error}
+        </Text>
+      ) : null}
+      <Button
+        title={t("lesson.continue")}
+        onPress={onContinue}
+        loading={saving}
+        disabled={saving}
+        style={s.continue}
+      />
     </Animated.View>
   );
 }
@@ -119,6 +138,11 @@ function makeStyles(theme: Theme) {
     meaning: {
       ...Type.body,
       color: theme.textSecondary,
+    },
+    saveError: {
+      ...Type.secondary,
+      color: theme.danger,
+      fontWeight: "600",
     },
     continue: { marginTop: Space.xs },
   });

@@ -95,7 +95,11 @@ def test_up_next_is_first_incomplete_chapter():
     progress = build_path_progress(project, items)
     assert progress[0].complete is True
     assert progress[1].complete is False
-    assert progress[0].domain
+    assert progress[0].domain == "Greetings"
+    # Regression: "Food" (min_level=3) sits in this level1 project's path from
+    # before the level gate existed. Its domain must still resolve correctly —
+    # not fall back to its own title — even though level1 wouldn't seed it today.
+    assert progress[1].domain == "Food"
     assert up_next_chapter(project, items) == "Food"
 
 

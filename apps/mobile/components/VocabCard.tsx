@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -30,16 +31,18 @@ export function VocabCard({ card, language = "en" }: Props) {
   };
 
   return (
-    <View style={s.wrap} accessibilityRole="summary">
-      <Text style={s.word}>{word}</Text>
-      <Pressable
-        onPress={handleSpeak}
-        style={s.speakBtn}
-        accessibilityRole="button"
-        accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
-      >
-        <Icon name="volume-medium-outline" size={28} color={theme.primary} />
-      </Pressable>
+    <View style={s.card} accessibilityRole="summary">
+      <View style={s.wordRow}>
+        <Text style={s.word}>{word}</Text>
+        <Pressable
+          onPress={handleSpeak}
+          style={s.speakBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
+        >
+          <Icon name="volume-medium-outline" size={24} color={theme.primary} />
+        </Pressable>
+      </View>
       <View style={s.details}>
         <Text style={s.definition}>{card.definition}</Text>
         {card.exampleSentence ? (
@@ -52,22 +55,31 @@ export function VocabCard({ card, language = "en" }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      flex: 1,
+    card: {
+      alignSelf: "stretch",
+      alignItems: "center",
+      gap: Space.md,
+      paddingVertical: Space.xl,
+      paddingHorizontal: Space.lg,
+      backgroundColor: t.surfaceAlt,
+      borderRadius: Radius.xl,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+    },
+    wordRow: {
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: Space.sm,
-      paddingVertical: Space.xl,
     },
     word: {
-      fontSize: 34,
+      fontSize: 30,
       fontWeight: "700",
       color: t.text,
       textAlign: "center",
     },
     speakBtn: {
-      padding: Space.sm,
-      marginBottom: Space.md,
+      padding: Space.xxs,
     },
     details: {
       alignItems: "center",

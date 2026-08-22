@@ -70,12 +70,16 @@ def build_path_progress(
     daily_goal = resolve_daily_goal(project)
     project_id = getattr(project, "id", None)
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
-    from app.content.vocab_catalog import catalog_domain_by_title, level_to_int
+    from app.content.vocab_catalog import catalog_domain_by_title
 
-    project_level = level_to_int(getattr(project, "level", None))
-    domain_by_title = catalog_domain_by_title(
-        lang, level=project_level, include_sat=project_level >= 6
-    )
+    # Unfiltered lookup — chapter titles are globally unique per language, so a
+    # title's domain never depends on the viewer's current level. Filtering this
+    # by level (as opposed to filtering what's *in* the path, done separately in
+    # path_seed.py) broke grouping for any pre-existing path with chapters below
+    # the project's current level: those titles fell out of the level-filtered
+    # lookup, and the `title` fallback below turned each one into its own
+    # ungrouped top-level "domain" instead of nesting it under its real one.
+    domain_by_title = catalog_domain_by_title(lang, include_sat=True)
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
         item_project = getattr(item, "project_id", None)
