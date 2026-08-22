@@ -129,6 +129,55 @@ def plot_point(text: str) -> tuple[float, float] | None:
     return _parse_xy_pair(rest.split(")")[0])
 
 
+_BARE_YF_SKIP_CUES = (
+    "solve",
+    "roots of",
+    "zeros of",
+    "find x",
+    "for x when",
+    "when x",
+)
+
+
+def _strip_wrapping_math_delims(text: str) -> str:
+    s = text.strip()
+    if len(s) >= 2 and s.startswith("$") and s.endswith("$"):
+        return s[1:-1].strip()
+    return s
+
+
+def _bare_y_equals_rhs(text: str) -> str | None:
+    """A message that's just ``y = f(x)`` (optionally wrapped in ``$...$``).
+
+    The model is prompted to emit a ```graph fence for y=f(x). Without a
+    verified sample, that invented JSON usually has no points and the
+    post-stream rewriter turns it into "Could not render that diagram."
+    """
+    lower = text.lower()
+    if any(cue in lower for cue in _BARE_YF_SKIP_CUES):
+        return None
+    stripped = _strip_wrapping_math_delims(text).rstrip(".!?")
+    if stripped.count("=") != 1:
+        return None
+    lower_s = stripped.lower()
+    if lower_s.startswith("y="):
+        rhs = stripped[2:].lstrip()
+    elif lower_s.startswith("y ="):
+        rhs = stripped[3:].lstrip()
+    else:
+        return None
+    if not rhs or len(rhs) > 120:
+        return None
+    compact = rhs.replace(" ", "").lower()
+    if "x" in compact:
+        return rhs
+    try:
+        float(compact)
+    except ValueError:
+        return None
+    return rhs
+
+
 def graph_expr(text: str) -> str | None:
     lower = text.lower()
     for prefix in ("graph ", "plot "):
@@ -141,7 +190,7 @@ def graph_expr(text: str) -> str | None:
         elif expr.lower().startswith("y ="):
             expr = expr[3:].lstrip()
         return expr or None
-    return None
+    return _bare_y_equals_rhs(text)
 
 
 _GRAPH_PAIR_PREFIXES = ("graph ", "plot ", "compare ")

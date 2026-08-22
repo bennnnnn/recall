@@ -608,6 +608,48 @@ def test_extract_graph_intent_solves_equation_for_y(text: str, expected_expr: st
 @pytest.mark.parametrize(
     "text, expected_expr",
     [
+        ("y=3x+4", "3x+4"),
+        ("$y=3x+4$", "3x+4"),
+        ("y=x^2", "x**2"),
+    ],
+)
+def test_extract_graph_intent_bare_y_equals(text: str, expected_expr: str) -> None:
+    """A slope-intercept / function-form message with no 'graph'/'plot'
+    still extracts as a graph so the verified sample fence reaches the
+    rewriter. Otherwise the model emits an empty-points ```graph and the
+    user sees 'Could not render that diagram.'"""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr == expected_expr
+
+
+def test_extract_bare_y_equals_stays_equation_when_solving() -> None:
+    intent = math_tools.extract_math_intent("solve y=3x+4")
+    assert intent is not None
+    assert intent.kind == "equation"
+
+
+@pytest.mark.asyncio
+async def test_augment_bare_y_equals_injects_graph_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "$y=3x+4$"}],
+        "$y=3x+4$",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "function"
+    points = verified.canonical_fence["points"]
+    assert len(points) >= 2
+    x0, y0 = points[len(points) // 2]
+    assert abs(y0 - (3.0 * x0 + 4.0)) < 1e-4
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr",
+    [
         ("differentiate x^2 please", "x^2"),
         ("integrate x^2 for me", "x^2"),
         ("simplify x^2 + 2x + x^2 now", "x^2 + 2x + x^2"),

@@ -220,6 +220,25 @@ class TestGraphExpr:
     def test_graph_expr_none_without_trigger(self):
         assert mtm.graph_expr("x^2") is None
 
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ("y=3x+4", "3x+4"),
+            ("y = 3x+4", "3x+4"),
+            ("$y=3x+4$", "3x+4"),
+            ("y=x^2", "x^2"),
+            ("y=4", "4"),
+        ],
+    )
+    def test_graph_expr_bare_y_equals(self, text, expected):
+        """A message that's just y=f(x) is a graph request — the model emits
+        ```graph for slope-intercept even without 'graph'/'plot'."""
+        assert mtm.graph_expr(text) == expected
+
+    def test_graph_expr_bare_y_equals_skips_solve(self):
+        assert mtm.graph_expr("solve y=3x+4") is None
+        assert mtm.graph_expr("y=3x+4, x+y=10") is None
+
 
 class TestGraphExprPair:
     """`graph y=x^2 and y=2x` must split into two candidates — checked
