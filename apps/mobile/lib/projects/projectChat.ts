@@ -10,6 +10,10 @@ import {
 } from "@/lib/projects/triviaTopics";
 import { VOCAB_QUIZ_FORMAT_BLOCK, TRIVIA_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
+const LESSON_FENCE_ONLY =
+  "Reply with ONLY one ```vocab_quiz or ```vocab_card fence. " +
+  "No vocab lists, check-ins, headings, or markdown essays.";
+
 const EMPTY_STATS: ProjectStats = {
   total: 0,
   new_count: 0,
@@ -236,7 +240,7 @@ export function buildProjectAskPrompt(
     return (
       `Continue my ${screenTitle} session.\n` +
       `Level: ${lvl}. ${todayProgressClause(project)} — continue with the next word using a ` +
-      `learning format (teach→use, use→define, or occasional MCQ).`
+      `learning format (teach→use, use→define, or occasional MCQ). ${LESSON_FENCE_ONLY}`
     );
   }
 
@@ -267,6 +271,22 @@ export function buildProjectAskPrompt(
   return (
     `Help me with my "${project.title}" project (${project.kind}). ${goal}` +
     `${progressLine(project)} What should I focus on next?`
+  );
+}
+
+/** Lesson window opener scoped to one learning-path chapter. */
+export function buildChapterLessonPrompt(
+  project: ProjectDetail,
+  chapterTitle: string,
+): string {
+  const chapter = chapterTitle.trim();
+  const name = languageLabel(project.target_language);
+  const lvl = levelLabel(project.level);
+  return (
+    `Continue my ${name} lesson in the "${chapter}" chapter.\n` +
+    `Level: ${lvl}. ${todayProgressClause(project)}\n` +
+    `Teach and quiz only this chapter. Add any new words to "${chapter}". ` +
+    `Use teach→use, use→define, or occasional MCQ — one word at a time. ${LESSON_FENCE_ONLY}`
   );
 }
 

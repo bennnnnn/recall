@@ -137,10 +137,10 @@ export function useLessonSession(projectId: string) {
   const submitTyped = useCallback(() => {
     const answer = typed.trim();
     if (!chatId || streaming || finalizing || !answer) return;
-    if (step.kind !== "vocab_card" && step.kind !== "open_ended") return;
+    if (step.kind !== "vocab_card") return;
     pendingTypedRef.current = {
-      word: step.kind === "vocab_card" ? step.card.word : "",
-      meaning: step.kind === "vocab_card" ? step.card.definition : "",
+      word: step.card.word,
+      meaning: step.card.definition,
     };
     awaitingHintRef.current = true;
     setTyped("");

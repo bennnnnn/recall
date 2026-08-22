@@ -21,7 +21,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-export default function LearningLessonScreen() {
+export default function LearningLessonPlayScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
@@ -49,8 +49,7 @@ export default function LearningLessonScreen() {
   const goal = project ? Math.max(1, resolveProjectDailyGoal(project)) : 1;
   const progress = Math.min(1, done / goal);
   const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
-  const showTyped =
-    !feedback && (step.kind === "vocab_card" || step.kind === "open_ended");
+  const showTyped = !feedback && step.kind === "vocab_card";
 
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
@@ -90,11 +89,8 @@ export default function LearningLessonScreen() {
         {step.kind === "vocab_card" ? (
           <>
             <VocabCard card={step.card} language={language} />
-            {step.prompt ? <Text style={s.prompt}>{step.prompt}</Text> : null}
+            <Text style={s.prompt}>{t("lesson.write_sentence")}</Text>
           </>
-        ) : null}
-        {step.kind === "open_ended" || step.kind === "idle" ? (
-          <Text style={s.question}>{step.prompt}</Text>
         ) : null}
         {step.kind === "loading" ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />

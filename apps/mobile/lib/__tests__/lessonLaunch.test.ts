@@ -29,6 +29,6 @@ describe("lessonLaunch", () => {
   });
 
   it("builds the lesson route", () => {
-    expect(lessonPath("abc")).toBe("/projects/abc/lesson");
+    expect(lessonPath("abc")).toBe("/projects/abc/lesson/play");
   });
 });

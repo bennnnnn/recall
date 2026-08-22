@@ -59,7 +59,7 @@ export function LessonResultSheet({ feedback, language = "en", onContinue }: Pro
       </View>
       {word ? <Text style={s.word}>{word}</Text> : null}
       {feedback.meaning ? <Text style={s.meaning}>{feedback.meaning}</Text> : null}
-      {feedback.body ? <Text style={s.body}>{feedback.body}</Text> : null}
+      {!feedback.correct ? <Text style={s.tryAgain}>{t("lesson.try_again")}</Text> : null}
       <Button title={t("lesson.continue")} onPress={onContinue} style={s.continue} />
     </View>
   );
@@ -100,7 +100,7 @@ function makeStyles(theme: Theme) {
       ...Type.body,
       color: theme.textSecondary,
     },
-    body: {
+    tryAgain: {
       ...Type.secondary,
       color: theme.text,
     },

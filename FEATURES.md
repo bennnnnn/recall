@@ -434,6 +434,7 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
   interaction runs in a dedicated lesson window (MCQ, vocab cards, typed answers, result sheet).
+  The teaching window shows only those fences plus pronunciation — not tutor markdown.
   Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
   grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
 - ✅ **Tap-to-answer MCQ** — large choice cards in the lesson window on complete `vocab_quiz` fences.
@@ -452,8 +453,10 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
   (decks). Create enqueues a `language_path` job: the model suggests 8–12 chapters and
   seeds the first lesson; LLM failure falls back to a level template. Progress is
   derived (mastered/total; chapter complete at ≥80% and a small word floor). Extract
-  adds words to the current chapter and can append a user-named topic. Detail shows
-  Chapters + Up next. No generic `learning` kind, lesson notes, certificates, or
+  adds words to the current chapter and can append a user-named topic. The lesson
+  map shows the chapter path; tap an unlocked chapter to open the teaching window.
+  Project stats stay stats-only. Locked chapters stay visible until the current
+  one is complete. No generic `learning` kind, lesson notes, certificates, or
   marketplace.
 
 ### Phase 3 — Cross-linking

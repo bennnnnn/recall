@@ -19,12 +19,12 @@ import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
-import { LearningPathList } from "@/components/projects/LearningPathList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type VocabStatus } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
+import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import {
   exportProjectAsPdf,
@@ -208,7 +208,6 @@ export default function ProjectDetailScreen() {
   const extraDecks = isLang
     ? project.lists.filter((group) => !pathKeys.has(group.list_title.trim().toLowerCase()))
     : [];
-  const showPath = isLang;
   const showDeckBrowse = extraDecks.length > 0;
   const stats = project.stats;
   const statLabels = projectStatsLabels(project.kind, t);
@@ -249,25 +248,33 @@ export default function ProjectDetailScreen() {
         ? t("projects.list.continue_questions", { count: remainingToday })
         : t("projects.list.continue_words", { count: remainingToday });
 
+  const openLessonMap = () => {
+    router.push(lessonMapPath(project.id));
+  };
+
   const startReviewSession = () => {
-    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    if (isLang) {
+      openLessonMap();
+      return;
+    }
     invalidateProjectDetail(project.id);
     openLearningLesson(router, {
       projectId: project.id,
       prompt: buildProjectReviewPrompt(project),
-      quizLanguage: isLang ? project.target_language : undefined,
-      quizVariant: variant,
+      quizVariant: "trivia",
     });
   };
 
   const startStudyQuiz = () => {
-    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    if (isLang) {
+      openLessonMap();
+      return;
+    }
     invalidateProjectDetail(project.id);
     openLearningLesson(router, {
       projectId: project.id,
       prompt: buildProjectAskPromptFromProject(project, t),
-      quizLanguage: isLang ? project.target_language : undefined,
-      quizVariant: variant,
+      quizVariant: "trivia",
     });
   };
 
@@ -350,6 +357,10 @@ export default function ProjectDetailScreen() {
             progress={studyProgress}
           />
         </View>
+      ) : isLang ? (
+        <View style={showDailyTracking ? s.studyCtaBeforeList : undefined}>
+          <LearningContinueCta label={t("lesson.lessons")} onPress={openLessonMap} />
+        </View>
       ) : null}
 
       {showDailyTracking && token ? (
@@ -364,17 +375,6 @@ export default function ProjectDetailScreen() {
           missedItems={selectedDayMissed}
           studyAction={todayStudyAction}
           onItemUpdated={() => load({ silent: true, force: true })}
-        />
-      ) : null}
-
-      {showPath ? (
-        <LearningPathList
-          pathProgress={pathProgress}
-          upNext={project.up_next}
-          lists={project.lists}
-          speechLanguage={speechLocale(project.target_language)}
-          busyId={conceptBusyId}
-          onStatusChange={handleItemStatusChange}
         />
       ) : null}
 

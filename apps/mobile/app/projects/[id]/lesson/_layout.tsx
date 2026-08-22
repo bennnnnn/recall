@@ -7,7 +7,7 @@ import { stackHeaderOptions } from "@/lib/stackHeader";
 import { stackPushTransition } from "@/lib/stackTransitions";
 import { useTheme } from "@/lib/theme";
 
-export default function ProjectIdLayout() {
+export default function LessonLayout() {
   const { t } = useTranslation();
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
@@ -23,8 +23,8 @@ export default function ProjectIdLayout() {
         headerLeft: () => <StackBackButton fallback="/projects" />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: t("projects.detail") }} />
-      <Stack.Screen name="lesson" options={{ headerShown: false, title: t("lesson.lessons") }} />
+      <Stack.Screen name="index" options={{ title: t("lesson.lessons") }} />
+      <Stack.Screen name="play" options={{ headerShown: false, title: t("lesson.open") }} />
     </Stack>
   );
 }

@@ -2255,6 +2255,7 @@ def test_language_tutor_hint_uses_target_language():
     assert "Spanish vocabulary" in hint
     assert "Spanish skill level" in hint
     assert "English skill level" not in hint
+    assert "lesson UI shows only fences" in hint
 
 
 def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
