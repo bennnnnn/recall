@@ -54,7 +54,7 @@ function makeStyles(t: Theme) {
       marginTop: 10,
       padding: 14,
       borderRadius: 14,
-      backgroundColor: t.surfaceAlt,
+      backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       gap: 8,
