@@ -128,9 +128,32 @@ async def test_transcribe_filters_multiword_hallucination_when_audio_short():
 
 
 @pytest.mark.asyncio
+async def test_transcribe_filters_hallucination_variants():
+    # Whisper variants from silence — caught by stem-prefix matching regardless
+    # of audio length (the reported symptom: "thank you very much!").
+    assert await _transcribe_with_gateway_text("thank you very much!") is None
+    assert await _transcribe_with_gateway_text("Thank you very much.") is None
+    assert await _transcribe_with_gateway_text("thank you for watching") is None
+    assert await _transcribe_with_gateway_text("thanks for watching, please subscribe") is None
+    # Long audio still drops short stem-matched transcriptions (ambient noise can
+    # produce a long byte stream with no real speech).
+    long_audio = b"x" * 60_000
+    assert await _transcribe_with_gateway_text("thank you very much", long_audio) is None
+
+
+@pytest.mark.asyncio
+async def test_transcribe_keeps_long_real_speech_starting_with_stem():
+    # A long, real utterance starting with "thank you" is NOT a hallucination.
+    long_real = "thank you for your help with the math problem I had yesterday afternoon"
+    assert await _transcribe_with_gateway_text(long_real) == long_real
+
+
+@pytest.mark.asyncio
 async def test_transcribe_keeps_real_speech():
     assert await _transcribe_with_gateway_text("hello there") == "hello there"
     assert await _transcribe_with_gateway_text("what is the weather") == "what is the weather"
+    # "you are awesome" starts with "you" but "you" is not a stem — kept.
+    assert await _transcribe_with_gateway_text("you are awesome") == "you are awesome"
 
 
 @pytest.mark.asyncio
