@@ -70,7 +70,7 @@ async def list_recent_for_user(
     in-memory match/dedup window (_find_item/_find_project), so a stale
     window hurts dedup/match accuracy for large decks. Kept as a separate
     function rather than changing list_for_user's default order: other
-    callers (format_projects_block / group_items / group_trivia_items — the
+    callers (format_projects_block / group_items — the
     deck-browse UI and prompt injection) rely on the existing
     list_title/status grouping order.
     """
@@ -172,8 +172,8 @@ async def list_quiz_exclusion_contents(
 ) -> list[str]:
     """Contents the quiz model must not re-ask (DB ledger, not prompt hope).
 
-    Always includes mastered. When ``include_learning`` is True (trivia), also
-    includes previously asked/missed questions so paraphrased duplicates are
+    Always includes mastered. When ``include_learning`` is True, also
+    includes previously asked/missed items so paraphrased duplicates are
     discouraged. Ordered newest-first; capped so the prompt stays bounded.
     """
     if limit < 1:
@@ -591,6 +591,7 @@ async def create(
     chat_id: UUID | None = None,
     status: str = "new",
     pronunciation_url: str | None = None,
+    catalog_entry_id: UUID | None = None,
     commit: bool = True,
 ) -> ProjectItem:
     normalized_list = list_title.strip() or DEFAULT_LIST
@@ -607,6 +608,7 @@ async def create(
         status=status,
         mastered=status == "mastered",
         pronunciation_url=pronunciation_url,
+        catalog_entry_id=catalog_entry_id,
     )
     session.add(item)
     if commit:

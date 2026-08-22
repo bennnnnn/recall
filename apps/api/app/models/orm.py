@@ -320,13 +320,51 @@ class Suggestion(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class VocabDeck(Base):
+    """Curated chapter / SAT bank (not per-user)."""
+
+    __tablename__ = "vocab_decks"
+    __table_args__ = (
+        UniqueConstraint("target_language", "slug", name="uq_vocab_decks_lang_slug"),
+        CheckConstraint("kind IN ('chapter', 'sat')", name="ck_vocab_decks_kind"),
+        Index("ix_vocab_decks_language_sort", "target_language", "sort_order"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    target_language: Mapped[str] = mapped_column(String(10), nullable=False)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    domain: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, default="chapter")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    entries: Mapped[list["VocabEntry"]] = relationship(back_populates="deck", passive_deletes=True)
+
+
+class VocabEntry(Base):
+    """One pre-generated word in a catalog deck."""
+
+    __tablename__ = "vocab_entries"
+    __table_args__ = (
+        UniqueConstraint("deck_id", "content", name="uq_vocab_entries_deck_content"),
+        Index("ix_vocab_entries_deck_sort", "deck_id", "sort_order"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    deck_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("vocab_decks.id", ondelete="CASCADE"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    definition: Mapped[str] = mapped_column(Text, nullable=False)
+    example_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    deck: Mapped["VocabDeck"] = relationship(back_populates="entries")
+
+
 class Project(Base):
     __tablename__ = "projects"
     __table_args__ = (
         Index("ix_projects_user_updated", "user_id", "updated_at"),
         Index("ix_projects_user_kind", "user_id", "kind"),
-        # One active vocabulary project per (user, target_language); one trivia
-        # project per user. Replaces the kind-wide unique from migration 0055.
         Index(
             "uq_projects_user_language_target_active",
             "user_id",
@@ -334,13 +372,7 @@ class Project(Base):
             unique=True,
             postgresql_where=text("kind = 'language' AND archived = false"),
         ),
-        Index(
-            "uq_projects_user_trivia_active",
-            "user_id",
-            unique=True,
-            postgresql_where=text("kind = 'trivia' AND archived = false"),
-        ),
-        CheckConstraint("kind IN ('language', 'trivia')", name="ck_projects_kind"),
+        CheckConstraint("kind IN ('language')", name="ck_projects_kind"),
         CheckConstraint(
             "level IN ('level1', 'level2', 'level3', 'level4', 'level5', 'level6')",
             name="ck_projects_level",
@@ -417,6 +449,11 @@ class ProjectItem(Base):
     interval_days: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     pronunciation_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    catalog_entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("vocab_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

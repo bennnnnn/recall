@@ -27,6 +27,11 @@ export const LANGUAGES: LanguageMeta[] = [
   { code: "am", label: "አማርኛ", speechLocale: "am-ET" },
 ];
 
+/** Learning classes we ship a word catalog for. App UI locales stay on LANGUAGES. */
+export const LEARNING_LANGUAGES: LanguageMeta[] = LANGUAGES.filter(
+  (item) => item.code === "en" || item.code === "es",
+);
+
 export function languageLabel(code?: string | null): string {
   const normalized = (code ?? "en").trim().toLowerCase();
   return LANGUAGES.find((item) => item.code === normalized)?.label ?? LANGUAGES[0].label;

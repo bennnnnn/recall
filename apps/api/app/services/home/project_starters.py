@@ -23,16 +23,12 @@ def is_language_project(project: Project) -> bool:
     return project.kind in ("language", "vocabulary")
 
 
-def is_trivia_project(project: Project) -> bool:
-    return project.kind == "trivia"
-
-
 def is_daily_home_project(project: Project) -> bool:
-    return is_language_project(project) or is_trivia_project(project)
+    return is_language_project(project)
 
 
-def daily_home_kind(project: Project) -> Literal["language", "trivia"]:
-    return "trivia" if is_trivia_project(project) else "language"
+def daily_home_kind(project: Project) -> Literal["language"]:
+    return "language"
 
 
 def completed_today(stats: ProjectStats) -> int:
@@ -170,6 +166,6 @@ async def load_project_home_content(
                 return ProjectHomeContent([], None, highlight, completed_daily, has_language)
         return ProjectHomeContent([], None, None, completed_daily, has_language)
 
-    # No English/trivia daily cue — do not fall back to legacy project kinds
+    # No English daily cue — do not fall back to legacy project kinds
     # (old programming topics used to show up as "Continue TypeScript · …").
     return ProjectHomeContent([], None, None, [], has_language)

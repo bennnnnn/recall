@@ -7,7 +7,6 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from app.core.learning_policy import (
-    DEFAULT_DAILY_TRIVIA_GOAL,
     DEFAULT_DAILY_VOCAB_GOAL,
     day_bounds_utc,
     resolve_daily_goal,
@@ -17,7 +16,6 @@ from app.core.learning_policy import (
 )
 
 __all__ = [
-    "DEFAULT_DAILY_TRIVIA_GOAL",
     "DEFAULT_DAILY_VOCAB_GOAL",
     "day_bounds_utc",
     "resolve_daily_goal",
@@ -500,7 +498,7 @@ def build_daily_history(
     days: int = 14,
     miss_events_by_item: dict[Any, list[datetime]] | None = None,
 ) -> list[dict[str, object]]:
-    """Per-calendar-day mastery counts for language/trivia projects.
+    """Per-calendar-day mastery counts for language projects.
 
     `miss_events_by_item` (from QuizMissEvent) makes the "missed" side of the
     history event-log-backed instead of keyed off the single mutable

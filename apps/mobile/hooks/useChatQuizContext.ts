@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 
 import type { Project } from "@/lib/api";
 import { findLanguageProject } from "@/lib/projects/languageProject";
-import { findTriviaProject } from "@/lib/projects/triviaProject";
 import { quizVariantForProjectKind, type QuizVariant } from "@/lib/quizVariant";
 
 type Params = {
@@ -26,9 +25,6 @@ export function useChatQuizContext({ projects, draftProjectIdRef }: Params) {
   const resolveQuizProjectId = useCallback((): string | null => {
     const fromDraft = draftProjectIdRef.current;
     if (fromDraft) return fromDraft;
-    if (quizVariant === "trivia") {
-      return findTriviaProject(projects)?.id ?? null;
-    }
     if (quizVariant === "vocab") {
       // LANG-UI-003: use the active quiz language, not a hardcoded "en" —
       // users learning Spanish, French, etc. would never match an English project.

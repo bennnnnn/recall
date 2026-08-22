@@ -3,6 +3,7 @@ import type { QuizVariant } from "@/lib/quizVariant";
 
 export type QueuedLessonLaunch = {
   projectId: string;
+  chapter?: string;
   prompt?: string;
   quizLanguage?: string;
   quizVariant?: QuizVariant;
@@ -14,8 +15,10 @@ export function queueLessonLaunch(launch: QueuedLessonLaunch): boolean {
   const projectId = launch.projectId.trim();
   if (!projectId) return false;
   const prompt = launch.prompt?.trim();
+  const chapter = launch.chapter?.trim();
   queued = {
     projectId,
+    ...(chapter ? { chapter } : {}),
     ...(prompt ? { prompt } : {}),
     ...(launch.quizLanguage ? { quizLanguage: launch.quizLanguage } : {}),
     ...(launch.quizVariant ? { quizVariant: launch.quizVariant } : {}),

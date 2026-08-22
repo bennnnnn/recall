@@ -1,7 +1,7 @@
 """Real-Postgres tests for app.repositories.projects — specifically the
-partial unique indexes (one active language project per target language,
-one trivia project per user). A mocked `AsyncSession` can't exercise a
-real DB constraint, so these use the `db_session` fixture from conftest.py.
+partial unique indexes (one active language project per target language).
+A mocked `AsyncSession` can't exercise a real DB constraint, so these use
+the `db_session` fixture from conftest.py.
 """
 
 from uuid import uuid4
@@ -65,24 +65,6 @@ async def test_same_user_can_have_two_target_languages(db_session):
 
 
 @pytest.mark.asyncio
-async def test_one_active_trivia_project_per_user_enforced_by_db(db_session):
-    user = await _make_user(db_session)
-    user_id = user.id
-    await projects_repo.create(db_session, user_id=user_id, title="Trivia", kind="trivia")
-
-    with pytest.raises(IntegrityError):
-        await projects_repo.create(db_session, user_id=user_id, title="Trivia 2", kind="trivia")
-    await db_session.rollback()
-
-    rows = (
-        (await db_session.execute(select(Project).where(Project.user_id == user_id)))
-        .scalars()
-        .all()
-    )
-    assert len(rows) == 1
-
-
-@pytest.mark.asyncio
 async def test_different_users_can_each_have_their_own_language_project(db_session):
     """The unique index is scoped per user_id — it must not block other users."""
     user_a = await _make_user(db_session)
@@ -111,11 +93,16 @@ async def test_archiving_frees_up_the_kind_for_a_new_active_project(db_session):
 
 @pytest.mark.asyncio
 async def test_legacy_project_kinds_rejected_by_check_constraint(db_session):
-    """Only language + trivia remain — programming/general rows are deleted
-    by migration 0058 and blocked by ck_projects_kind."""
+    """Only language remains — trivia/general rows are blocked by ck_projects_kind."""
     user = await _make_user(db_session)
+    user_id = user.id
     with pytest.raises(IntegrityError):
         await projects_repo.create(
-            db_session, user_id=user.id, title="TypeScript · Programming", kind="general"
+            db_session, user_id=user_id, title="TypeScript · Programming", kind="general"
+        )
+    await db_session.rollback()
+    with pytest.raises(IntegrityError):
+        await projects_repo.create(
+            db_session, user_id=user_id, title="General knowledge", kind="trivia"
         )
     await db_session.rollback()

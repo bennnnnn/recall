@@ -4,9 +4,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-# Product learning kinds: vocabulary (one project per target language) + trivia.
+# Product learning kinds: vocabulary (one project per target language).
 # `vocabulary` is accepted as a write alias and normalized to `language`.
-ProjectKind = Literal["language", "vocabulary", "trivia"]
+ProjectKind = Literal["language", "vocabulary"]
 
 LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level6"]
 
@@ -15,6 +15,7 @@ VocabStatus = Literal["new", "learning", "mastered"]
 
 class PathChapterProgress(BaseModel):
     title: str
+    domain: str = ""
     mastered: int = 0
     total: int = 0
     complete: bool = False

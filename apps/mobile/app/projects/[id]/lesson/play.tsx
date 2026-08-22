@@ -5,17 +5,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { ActionShimmer } from "@/components/ActionShimmer";
+import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { VocabCard } from "@/components/VocabCard";
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
 import { LessonResultSheet } from "@/components/projects/LessonResultSheet";
-import { LessonTypedAnswer } from "@/components/projects/LessonTypedAnswer";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLessonSession } from "@/hooks/useLessonSession";
-import {
-  completedTodayCount,
-  resolveProjectDailyGoal,
-} from "@/lib/projects/projectChat";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -31,25 +27,26 @@ export default function LearningLessonPlayScreen() {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const {
     project,
+    chapter,
     step,
     feedback,
-    typed,
-    setTyped,
     error,
+    empty,
+    complete,
+    currentNumber,
+    total,
+    progressFill,
     streaming,
     submitLetter,
-    submitTyped,
     continueLesson,
+    continueTeach,
   } = useLessonSession(projectId);
 
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
 
-  const done = project ? completedTodayCount(project.stats) : 0;
-  const goal = project ? Math.max(1, resolveProjectDailyGoal(project)) : 1;
-  const progress = Math.min(1, done / goal);
   const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
-  const showTyped = !feedback && step.kind === "vocab_card";
+  const quizStep = step && (step.kind === "use" || step.kind === "meaning") ? step : null;
 
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
@@ -63,49 +60,45 @@ export default function LearningLessonPlayScreen() {
           <Icon name="close" size={26} color={theme.text} />
         </Pressable>
         <View style={s.progressTrack} accessibilityRole="progressbar">
-          <View style={[s.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+          <View style={[s.progressFill, { width: `${Math.round(progressFill * 100)}%` }]} />
         </View>
         <Text style={s.progressLabel}>
-          {done}/{goal}
+          {currentNumber}/{Math.max(total, 1)}
         </Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={s.body}
-        keyboardShouldPersistTaps="handled"
-      >
-        {step.kind === "quiz" ? (
+      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+        {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
+        {complete ? <Text style={s.status}>{t("lesson.chapter_complete")}</Text> : null}
+        {step?.kind === "teach" ? (
           <>
-            <Text style={s.question}>{step.question}</Text>
+            {chapter ? <Text style={s.chapter}>{chapter}</Text> : null}
+            <Text style={s.prompt}>{t("lesson.learn_this")}</Text>
+            <VocabCard card={step.card} language={language} />
+          </>
+        ) : null}
+        {quizStep ? (
+          <>
+            {chapter ? <Text style={s.chapter}>{chapter}</Text> : null}
+            <Text style={s.question}>{quizStep.question}</Text>
             <LessonQuizCards
-              choices={step.quiz.choices}
-              correctLetter={step.quiz.correct}
+              choices={quizStep.quiz.choices}
+              correctLetter={quizStep.quiz.correct}
               disabled={Boolean(feedback) || streaming}
-              resetToken={`${step.messageId}:${feedback ? "done" : "ready"}`}
+              resetToken={`${quizStep.itemId}:${quizStep.kind}:${feedback ? "done" : "ready"}`}
               onSelect={submitLetter}
             />
           </>
         ) : null}
-        {step.kind === "vocab_card" ? (
-          <>
-            <VocabCard card={step.card} language={language} />
-            <Text style={s.prompt}>{t("lesson.write_sentence")}</Text>
-          </>
-        ) : null}
-        {step.kind === "loading" ? (
+        {!step && !empty && !complete ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
         {error ? <Text style={s.error}>{error}</Text> : null}
       </ScrollView>
 
-      {showTyped ? (
+      {step?.kind === "teach" && !feedback ? (
         <View style={s.typedWrap}>
-          <LessonTypedAnswer
-            value={typed}
-            onChange={setTyped}
-            onSubmit={submitTyped}
-            disabled={streaming}
-          />
+          <Button title={t("lesson.continue")} onPress={continueTeach} />
         </View>
       ) : null}
 
@@ -144,7 +137,7 @@ function makeStyles(theme: Theme) {
     progressLabel: {
       ...Type.caption,
       color: theme.textSecondary,
-      minWidth: 36,
+      minWidth: 44,
       textAlign: "right",
     },
     body: {
@@ -160,9 +153,23 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       lineHeight: 28,
     },
+    chapter: {
+      ...Type.caption,
+      fontWeight: "700",
+      color: theme.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
     prompt: {
       ...Type.secondary,
       color: theme.textSecondary,
+    },
+    status: {
+      ...Type.body,
+      fontWeight: "700",
+      color: theme.text,
+      textAlign: "center",
+      marginTop: Space.lg,
     },
     error: {
       ...Type.secondary,

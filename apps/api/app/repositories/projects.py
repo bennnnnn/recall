@@ -16,7 +16,7 @@ def _initial_daily_goal_history(
     daily_goal: int | None,
     timezone_name: str,
 ) -> list[dict[str, int | str]] | None:
-    if kind not in ("language", "trivia"):
+    if kind not in ("language", "vocabulary"):
         return None
     try:
         tz = ZoneInfo(timezone_name)
@@ -74,19 +74,6 @@ async def find_language_by_target(
             Project.archived.is_(False),
             Project.kind.in_(("language", "vocabulary")),
             Project.target_language == lang,
-        )
-        .limit(1)
-    )
-    return (await session.execute(stmt)).scalar_one_or_none()
-
-
-async def find_trivia_project(session: AsyncSession, user_id: UUID) -> Project | None:
-    stmt = (
-        select(Project)
-        .where(
-            Project.user_id == user_id,
-            Project.archived.is_(False),
-            Project.kind == "trivia",
         )
         .limit(1)
     )

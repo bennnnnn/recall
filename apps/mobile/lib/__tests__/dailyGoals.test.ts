@@ -15,9 +15,8 @@ describe("dailyGoals", () => {
     expect(resolveDailyGoal(5)).toBe(5);
   });
 
-  it("formatDailyGoalLabel picks vocab vs trivia keys", () => {
+  it("formatDailyGoalLabel uses vocab keys", () => {
     expect(formatDailyGoalLabel(5, "language", t)).toBe("projects.daily_goal_words:5");
-    expect(formatDailyGoalLabel(5, "trivia", t)).toBe("projects.trivia.daily_questions:5");
   });
 
   it("formatDailyGoalShort shows only the number", () => {

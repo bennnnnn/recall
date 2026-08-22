@@ -4,7 +4,6 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 DEFAULT_DAILY_VOCAB_GOAL = 10
-DEFAULT_DAILY_TRIVIA_GOAL = 10
 
 
 def start_of_today_utc(timezone_name: str, *, now: datetime | None = None) -> datetime:
@@ -32,6 +31,4 @@ def resolve_daily_goal(project: object) -> int:
     goal = getattr(project, "daily_goal", None)
     if isinstance(goal, int) and goal >= 1:
         return goal
-    if getattr(project, "kind", None) == "trivia":
-        return DEFAULT_DAILY_TRIVIA_GOAL
     return DEFAULT_DAILY_VOCAB_GOAL

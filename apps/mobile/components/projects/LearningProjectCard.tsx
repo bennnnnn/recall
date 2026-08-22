@@ -3,34 +3,27 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
-import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import type { Project } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/lib/languageLevels";
-import { isTriviaProject, learningProjectTitle } from "@/lib/projects/projectUi";
+import { learningProjectTitle } from "@/lib/projects/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   project: Project;
   icon: IoniconName;
   onOpen: () => void;
-  onStudy?: () => void;
-  onReview?: () => void;
   levelLabel: string;
   dailyLabel: string;
-  topicsChip?: string;
 };
 
 export function LearningProjectCard({
   project,
   icon,
   onOpen,
-  onStudy,
-  onReview,
   levelLabel,
   dailyLabel,
-  topicsChip,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -39,50 +32,22 @@ export function LearningProjectCard({
   const stats = project.stats;
   const dailyGoal = resolveDailyGoal(project.daily_goal);
   const isLang = isLanguageProject(project.kind);
-  const isTrivia = isTriviaProject(project.kind);
-  const showLearningUi = isLang || isTrivia;
+  const showLearningUi = isLang;
 
   const lifetimeTotal = stats?.mastered_count ?? 0;
   const masteredToday = stats?.mastered_today ?? 0;
   const missedToday = stats?.missed_today ?? 0;
   const completedToday = masteredToday + missedToday;
-  const dueForReview = stats?.due_for_review ?? 0;
   const streakDays = stats?.streak_days ?? 0;
   const goalMet = stats != null && completedToday >= dailyGoal;
-  const remaining = Math.max(0, dailyGoal - completedToday);
   const progressPct =
     dailyGoal > 0
       ? Math.min(100, Math.round((Math.min(completedToday, dailyGoal) / dailyGoal) * 100))
       : 0;
 
-  const lifetimeLine = isTrivia
-    ? t("projects.list.lifetime_facts", { count: lifetimeTotal })
-    : t("projects.list.lifetime_words", { count: lifetimeTotal });
+  const lifetimeLine = t("projects.list.lifetime_words", { count: lifetimeTotal });
 
-  const chips = [levelLabel, `${dailyLabel}/day`, ...(topicsChip ? [topicsChip] : [])];
-
-  const ctaLabel =
-    showLearningUi && stats
-      ? !goalMet && remaining > 0 && onStudy
-        ? masteredToday === 0 && missedToday === 0
-          ? isTrivia
-            ? t("projects.study.start_questions")
-            : t("projects.study.start_words", { count: dailyGoal })
-          : isTrivia
-            ? t("projects.list.continue_questions", { count: remaining })
-            : t("projects.list.continue_words", { count: remaining })
-        : goalMet && dueForReview > 0 && onReview
-          ? isTrivia
-            ? t("projects.list.review_facts", { count: dueForReview })
-            : t("projects.list.review_words", { count: dueForReview })
-          : null
-      : null;
-  const ctaAction =
-    ctaLabel && !goalMet && remaining > 0 && onStudy
-      ? onStudy
-      : ctaLabel && goalMet && dueForReview > 0 && onReview
-        ? onReview
-        : undefined;
+  const chips = [levelLabel, `${dailyLabel}/day`];
 
   return (
     <View style={s.section}>
@@ -143,15 +108,6 @@ export function LearningProjectCard({
             </View>
           ) : null}
         </Pressable>
-
-        {ctaLabel && ctaAction ? (
-          <LearningContinueCta
-            label={ctaLabel}
-            onPress={ctaAction}
-            embedded
-            progress={{ completedToday, dailyGoal }}
-          />
-        ) : null}
       </View>
     </View>
   );
