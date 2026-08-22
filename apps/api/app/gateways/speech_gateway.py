@@ -90,10 +90,6 @@ async def transcribe_via_openrouter(
             "data": base64.b64encode(audio_bytes).decode("ascii"),
             "format": audio_format,
         },
-        # Whisper's default temperature is 0, but make it explicit so provider
-        # updates can't silently raise it. Lower temperature reduces hallucinated
-        # words from silence/ambient noise.
-        "temperature": 0,
     }
     try:
         client = get_pooled_client(_TRANSCRIBE_TIMEOUT)

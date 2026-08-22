@@ -87,7 +87,6 @@ async def test_transcribe_openrouter_json_api():
     body = call.kwargs["json"]
     assert body["model"] == "openai/gpt-4o-mini-transcribe"
     assert body["input_audio"]["format"] == "m4a"
-    assert body["temperature"] == 0
 
 
 async def _transcribe_with_gateway_text(
