@@ -2,7 +2,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import type { ParsedVocabCard } from "@/lib/parseVocabCard";
 import { cleanQuizWord } from "@/lib/parseVocabQuiz";
 import { speakWord } from "@/lib/pronunciation";
@@ -40,9 +42,15 @@ export function VocabCard({ card, language = "en" }: Props) {
           <Icon name="volume-medium-outline" size={20} color={theme.primary} />
         </Pressable>
       </View>
-      <Text style={s.definition}>{card.definition}</Text>
+      <View style={s.section}>
+        <Text style={s.label}>{t("lesson.definition_label")}</Text>
+        <Text style={s.definition}>{card.definition}</Text>
+      </View>
       {card.exampleSentence ? (
-        <Text style={s.example}>{card.exampleSentence}</Text>
+        <View style={s.section}>
+          <Text style={s.label}>{t("lesson.example_label")}</Text>
+          <Text style={s.example}>{card.exampleSentence}</Text>
+        </View>
       ) : null}
     </View>
   );
@@ -51,22 +59,18 @@ export function VocabCard({ card, language = "en" }: Props) {
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     card: {
-      marginTop: 10,
-      padding: 20,
-      borderRadius: 16,
-      backgroundColor: t.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      gap: 20,
+      marginTop: Space.sm,
+      backgroundColor: t.bg,
+      gap: Space.lg,
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.sm,
       flexWrap: "wrap",
     },
     word: {
-      fontSize: 24,
+      fontSize: 26,
       fontWeight: "700",
       color: t.text,
     },
@@ -74,15 +78,24 @@ function makeStyles(t: Theme) {
       marginLeft: "auto",
       padding: 4,
     },
+    section: {
+      gap: Space.xs,
+    },
+    label: {
+      ...Type.caption,
+      fontWeight: "600",
+      color: t.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
     definition: {
-      fontSize: 16,
-      lineHeight: 22,
-      color: t.textSecondary,
+      ...Type.body,
+      color: t.text,
     },
     example: {
       fontSize: 15,
       lineHeight: 21,
-      color: t.textTertiary,
+      color: t.textSecondary,
       fontStyle: "italic",
     },
   });

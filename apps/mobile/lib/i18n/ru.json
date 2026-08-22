@@ -329,6 +329,8 @@
   "lesson.chapter_empty": "В этой главе пока нет слов.",
   "lesson.close": "Закрыть",
   "lesson.continue": "Продолжить",
+  "lesson.definition_label": "Определение",
+  "lesson.example_label": "Пример",
   "lesson.lessons": "Уроки",
   "lesson.loading": "Готовим урок…",
   "lesson.open": "Открыть урок",

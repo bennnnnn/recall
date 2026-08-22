@@ -329,6 +329,8 @@
   "lesson.chapter_empty": "Aún no hay palabras en este capítulo.",
   "lesson.close": "Cerrar",
   "lesson.continue": "Continuar",
+  "lesson.definition_label": "Definición",
+  "lesson.example_label": "Ejemplo",
   "lesson.lessons": "Lecciones",
   "lesson.loading": "Preparando tu lección…",
   "lesson.open": "Abrir lección",
