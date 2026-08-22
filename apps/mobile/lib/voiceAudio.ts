@@ -44,10 +44,20 @@ export function isVoiceInputAvailable(): boolean {
 
 export type MeterListener = (level: number) => void;
 
+/** Result of stopping a recording — URI plus peak audio level for silence detection. */
+export type RecordingResult = {
+  uri: string;
+  /** Highest normalized metering level seen during recording (0–1). */
+  peakMetering: number;
+};
+
 export type VoiceRecorder = {
-  stop: () => Promise<string | null>;
+  stop: () => Promise<RecordingResult | null>;
   subscribeMetering: (listener: MeterListener) => () => void;
 };
+
+/** Below this normalized level, the recording is considered silence. */
+export const SILENCE_THRESHOLD = 0.15;
 
 /** Map expo-audio dB metering (-160…0) to a 0–1 visual level. */
 export function normalizeMetering(db?: number): number {
@@ -122,10 +132,12 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
   recorder.record();
 
   const listeners = new Set<MeterListener>();
+  let peakMetering = 0;
   const tick = setInterval(() => {
     if (!recorder.isRecording) return;
     try {
       const level = normalizeMetering(recorder.getStatus().metering);
+      if (level > peakMetering) peakMetering = level;
       listeners.forEach((listener) => listener(level));
     } catch {
       /* best-effort metering */
@@ -151,7 +163,7 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
       const uri = normalizeRecordingUri(rawUri);
       const size = await waitForRecordingFile(uri);
       if (!size) return null;
-      return uri;
+      return { uri, peakMetering };
     },
     subscribeMetering: (listener) => {
       listeners.add(listener);
