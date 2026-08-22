@@ -1,6 +1,6 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { Animated, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -52,6 +52,48 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
   );
 });
 
+/** Pulsing placeholder for open math/diagram fences during streaming.
+ *  Uses RN's built-in Animated (no Reanimated worklet dependency). */
+const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
+  height,
+}: {
+  height: number;
+}) {
+  const theme = useTheme();
+  const opacity = useRef(new Animated.Value(0.5)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.5,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+  return (
+    <View style={{ marginVertical: 8 }}>
+      <Animated.View
+        style={{
+          width: "100%",
+          height,
+          borderRadius: 10,
+          backgroundColor: theme.border,
+          opacity,
+        }}
+      />
+    </View>
+  );
+});
+
 /** Open $$ / \[ body — native MathText until the closer arrives (no KaTeX WebView). */
 const StreamingMathPreview = React.memo(function StreamingMathPreview({
   body,
@@ -69,16 +111,7 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   // layout when \end{…} arrives — a visible blank-then-jump. Hold a quiet
   // box until the environment closes, matching StreamingDiagramPlaceholder.
   if (hasUnclosedMathEnv(trimmed)) {
-    return (
-      <View
-        style={{
-          marginVertical: 8,
-          minHeight: 48,
-          borderRadius: 10,
-          backgroundColor: theme.contentSurface,
-        }}
-      />
-    );
+    return <StreamingPlaceholder height={48} />;
   }
   return (
     <View style={{ marginVertical: 4 }}>
@@ -94,19 +127,9 @@ function hasUnclosedMathEnv(s: string): boolean {
   return begins > ends;
 }
 
-/** Open ```geometry / ```graph — hold a quiet box, never dump JSON into CodeBlock. */
+/** Open ```geometry / ```graph — hold a quiet box, never dump JSON into Codeblock. */
 const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlaceholder() {
-  const theme = useTheme();
-  return (
-    <View
-      style={{
-        marginVertical: 8,
-        minHeight: 96,
-        borderRadius: 10,
-        backgroundColor: theme.contentSurface,
-      }}
-    />
-  );
+  return <StreamingPlaceholder height={96} />;
 });
 
 export function MarkdownContent({ content, streaming = false, mathFormat }: Props) {
