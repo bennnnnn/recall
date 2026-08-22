@@ -28,7 +28,6 @@ _CREATE_ERROR_STATUS = {
     "unsupported_project_kind": status.HTTP_400_BAD_REQUEST,
     "unsupported_target_language": status.HTTP_400_BAD_REQUEST,
     "language_project_exists": status.HTTP_409_CONFLICT,
-    "trivia_project_exists": status.HTTP_409_CONFLICT,
 }
 
 

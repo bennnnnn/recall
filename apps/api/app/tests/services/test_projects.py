@@ -251,7 +251,7 @@ def test_normalize_and_infer_target_language():
     from app.services.projects.common import infer_target_language
 
     assert infer_target_language("Spanish vocabulary") == "es"
-    assert infer_target_language("Words", "de") == "de"
+    assert infer_target_language("Words", "es") == "es"
 
 
 @pytest.mark.asyncio
@@ -626,14 +626,40 @@ async def test_load_projects_for_prompt():
     ):
         block = await projects_service.load_projects_for_prompt(session, uuid4(), Settings())
     assert "English" in block
-    assert "run" in block
+    assert "○ run" not in block
     assert str(project.id) in block
     assert "learning_launch" in block
     assert "Do NOT run a quiz in this chat" in block
+    assert "You ARE connected to their Recall Learning data" in block
+    assert "progress only" in block
+
+
+def test_format_learning_overview_block_omits_lemmas():
+    project = _project("English")
+    project.learning_path = ["Hello and goodbye", "Immediate family"]
+    hello = _item("hello", project.id, list_title="Hello and goodbye")
+    parent = _item("parent", project.id, list_title="Immediate family")
+    block = projects_service.format_learning_overview_block([project], [hello, parent])
+    assert "Current chapter: Hello and goodbye" in block
+    assert "○ hello" not in block
+    assert "○ parent" not in block
+    assert "parent" not in block
+    assert "Progress:" in block
+
+
+def test_format_current_chapter_block_scopes_words():
+    project = _project("English")
+    project.learning_path = ["Hello and goodbye", "Immediate family"]
+    hello = _item("hello", project.id, list_title="Hello and goodbye")
+    parent = _item("parent", project.id, list_title="Immediate family")
+    block = projects_service.format_current_chapter_block(project, [hello, parent])
+    assert "Now: Hello and goodbye" in block
+    assert "hello" in block
+    assert "parent" not in block
 
 
 @pytest.mark.asyncio
-async def test_sync_projects_from_transcript_adds_words():
+async def test_sync_projects_from_transcript_does_not_add_language_words():
     from app.gateways import mock_llm
     from app.services.projects import sync_projects_from_transcript
 
@@ -692,9 +718,9 @@ async def test_sync_projects_from_transcript_adds_words():
             transcript=transcript,
         )
 
-    assert result is not None
-    assert len(result.actions) >= 3
-    assert create_mock.await_count >= 3
+        assert result is not None
+        assert len(result.actions) >= 3
+        assert create_mock.await_count == 0
 
 
 @pytest.mark.asyncio
@@ -807,46 +833,10 @@ async def test_load_daily_learning_summary_skips_completed_goal():
     assert "vocabulary quiz" in block
     assert "daily goal complete" in block
     assert "0/5" not in block
-    assert "Do not mention general knowledge quiz" in block
-    assert "general knowledge quiz):" not in block.lower()
+    assert "Only mention learning tracks listed above" in block
 
 
 @pytest.mark.asyncio
-async def test_load_daily_learning_summary_complete_trivia_omits_vocabulary():
-    """Trivia-only users must not get a combined vocabulary+GK 'complete' line."""
-    session = AsyncMock()
-    user = MagicMock()
-    user.id = uuid4()
-    user.timezone = "America/Los_Angeles"
-    project = _project("General knowledge")
-    project.kind = "trivia"
-    project.daily_goal = 5
-
-    with (
-        patch.object(
-            projects_repo,
-            "list_for_user",
-            AsyncMock(return_value=[project]),
-        ),
-        _patch_count_stats_by_project(
-            {
-                "total": 20,
-                "mastered_today": 5,
-                "pending_today": 0,
-            }
-        ),
-    ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
-            session, user, Settings()
-        )
-
-    assert "general knowledge quiz" in block
-    assert "daily goal complete" in block
-    assert "Do not mention vocabulary quiz" in block
-    # No vocabulary track line — only the absent-track ban may say the word.
-    assert "vocabulary quiz):" not in block.lower()
-
-
 @pytest.mark.asyncio
 async def test_load_daily_learning_summary_no_active_class():
     """Deleted vocab class must not leave room for invented 0/N quiz stats."""
@@ -869,88 +859,6 @@ async def test_load_daily_learning_summary_no_active_class():
 
 
 @pytest.mark.asyncio
-async def test_load_daily_learning_summary_trivia_label():
-    """A trivia project uses the 'general knowledge quiz' label (not
-    'vocabulary quiz'), and — like every other already-met-goal case in this
-    file (see test_load_daily_learning_summary_skips_completed_goal and
-    test_load_daily_learning_summary_complete_trivia_omits_vocabulary) —
-    still returns a non-empty summary line rather than going silent.
-
-    BUG FIX (stale assertion): this used to assert `block == ""` for an
-    already-met-goal trivia project, contradicting the two sibling tests
-    above that cover the identical scenario and correctly expect a
-    "daily goal complete" line — `load_daily_learning_summary_for_prompt`
-    has never gone silent in that case; it always renders either the
-    incomplete-lines or the complete-lines summary.
-    """
-    session = AsyncMock()
-    user = MagicMock()
-    user.id = uuid4()
-    user.timezone = "America/Los_Angeles"
-    project = _project("World History")
-    project.kind = "trivia"
-    project.daily_goal = 5
-
-    with (
-        patch.object(
-            projects_repo,
-            "list_for_user",
-            AsyncMock(return_value=[project]),
-        ),
-        _patch_count_stats_by_project(
-            {
-                "total": 8,
-                "mastered_today": 8,
-                "pending_today": 0,
-            }
-        ),
-    ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
-            session, user, Settings()
-        )
-
-    assert "World History" in block
-    assert "general knowledge quiz" in block
-    assert "daily goal complete" in block
-    assert "8/5" in block
-    assert "vocabulary quiz):" not in block.lower()
-    assert "Do not mention vocabulary quiz" in block
-
-
-@pytest.mark.asyncio
-async def test_load_daily_learning_summary_trivia_incomplete():
-    session = AsyncMock()
-    user = MagicMock()
-    user.id = uuid4()
-    user.timezone = "America/Los_Angeles"
-    project = _project("World History")
-    project.kind = "trivia"
-    project.daily_goal = 5
-
-    with (
-        patch.object(
-            projects_repo,
-            "list_for_user",
-            AsyncMock(return_value=[project]),
-        ),
-        _patch_count_stats_by_project(
-            {
-                "total": 8,
-                "mastered_today": 3,
-                "pending_today": 0,
-            }
-        ),
-    ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
-            session, user, Settings()
-        )
-
-    assert "general knowledge quiz" in block
-    assert "3/5 done" in block
-    assert "3 correct" in block
-
-
-@pytest.mark.asyncio
 async def test_load_daily_learning_summary_batches_stats():
     session = AsyncMock()
     user = MagicMock()
@@ -958,14 +866,15 @@ async def test_load_daily_learning_summary_batches_stats():
     user.timezone = "UTC"
     english = _project("English · Beginner")
     english.daily_goal = 5
-    trivia = _project("World History", kind="trivia")
-    trivia.daily_goal = 5
+    spanish = _project("Spanish · Beginner")
+    spanish.target_language = "es"
+    spanish.daily_goal = 5
     general = _project("Research notes", kind="research")
 
     async def _mock(_session, project_ids, *, timezone_by_project=None):
         by_id = {
             english.id: {"total": 10, "mastered_today": 2, "pending_today": 0},
-            trivia.id: {"total": 8, "mastered_today": 1, "pending_today": 0},
+            spanish.id: {"total": 8, "mastered_today": 1, "pending_today": 0},
         }
         return {pid: by_id[pid] for pid in project_ids if pid in by_id}
 
@@ -973,7 +882,7 @@ async def test_load_daily_learning_summary_batches_stats():
         patch.object(
             projects_repo,
             "list_for_user",
-            AsyncMock(return_value=[english, trivia, general]),
+            AsyncMock(return_value=[english, spanish, general]),
         ),
         patch(
             "app.services.projects.stats.count_stats_by_project",
@@ -985,9 +894,102 @@ async def test_load_daily_learning_summary_batches_stats():
         )
 
     stats_mock.assert_awaited_once()
-    assert set(stats_mock.await_args.args[1]) == {english.id, trivia.id}
+    assert set(stats_mock.await_args.args[1]) == {english.id, spanish.id}
     assert "English · Beginner" in block
-    assert "World History" in block
+    assert "Spanish · Beginner" in block
+
+
+@pytest.mark.asyncio
+async def test_load_today_learning_words_for_prompt():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("English · Beginner")
+    mastered = _item("apple", project.id, mastered=True)
+    missed = _item("pear", project.id)
+
+    with (
+        patch.object(
+            projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_by_activity_date",
+            AsyncMock(return_value=[mastered]),
+        ) as mastered_mock,
+        patch.object(
+            project_items_repo,
+            "list_missed_by_activity_date",
+            AsyncMock(return_value=[missed]),
+        ) as missed_mock,
+    ):
+        block = await projects_service.load_today_learning_words_for_prompt(
+            session, user, Settings(), client_timezone="America/Los_Angeles"
+        )
+
+    mastered_mock.assert_awaited_once()
+    missed_mock.assert_awaited_once()
+    assert "Words from today's session" in block
+    assert "apple" in block
+    assert "pear" in block
+    assert "You ARE connected" in block
+    assert "not connected to their learning app" in block
+
+
+@pytest.mark.asyncio
+async def test_load_today_learning_words_no_practice_yet():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    project = _project("English · Beginner")
+
+    with (
+        patch.object(
+            projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_by_activity_date",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_missed_by_activity_date",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        block = await projects_service.load_today_learning_words_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "no words practiced today yet" in block
+    assert "You ARE connected" in block
+
+
+@pytest.mark.asyncio
+async def test_load_today_learning_words_no_active_class():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+
+    with patch.object(
+        projects_repo,
+        "list_for_user",
+        AsyncMock(return_value=[]),
+    ):
+        block = await projects_service.load_today_learning_words_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "No active learning class" in block
+    assert "You ARE connected" in block
 
 
 @pytest.mark.asyncio
@@ -1027,6 +1029,38 @@ async def test_load_project_for_prompt_scoped():
 
 
 @pytest.mark.asyncio
+async def test_load_project_for_prompt_current_chapter_only():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+    project.learning_path = ["Hello and goodbye", "Immediate family"]
+    hello = _item("hello", project_id, list_title="Hello and goodbye")
+    parent = _item("parent", project_id, list_title="Immediate family")
+
+    with (
+        patch.object(
+            projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[hello, parent]),
+        ),
+    ):
+        block = await projects_service.load_project_for_prompt(
+            session, user_id, project_id, Settings()
+        )
+
+    assert "hello" in block
+    assert "parent" not in block
+    assert "Now: Hello and goodbye" in block
+
+
+@pytest.mark.asyncio
 async def test_load_project_for_prompt_chat_mode():
     session = AsyncMock()
     user_id = uuid4()
@@ -1063,40 +1097,6 @@ async def test_load_project_for_prompt_chat_mode():
 
 
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_trivia_chat_mode():
-    session = AsyncMock()
-    user_id = uuid4()
-    project_id = uuid4()
-    project = _project("General knowledge", kind="trivia")
-    project.id = project_id
-
-    with (
-        patch.object(
-            projects_repo,
-            "get_by_id",
-            AsyncMock(return_value=project),
-        ),
-        patch.object(
-            project_items_repo,
-            "list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch.object(
-            project_items_repo,
-            "list_quiz_exclusion_contents",
-            AsyncMock(return_value=[]),
-        ),
-    ):
-        block = await projects_service.load_project_for_prompt(
-            session, user_id, project_id, Settings(), quiz_mode="chat"
-        )
-
-    assert "daily general knowledge in chat" in block
-    assert "vocab_quiz" in block
-    assert "Do NOT use vocab_card" in block
-    assert "Bonus quiz" in block
-
-
 @pytest.mark.asyncio
 async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested():
     session = AsyncMock()
@@ -1210,6 +1210,38 @@ async def test_load_project_quiz_context():
     assert "apple" in block
     assert "vocab_quiz" in block or "teach→use" in block
     assert "NEXT word" in block
+
+
+@pytest.mark.asyncio
+async def test_load_project_quiz_context_scopes_to_current_chapter():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+    project.learning_path = ["Hello and goodbye", "Immediate family"]
+    current = _item("hello", project_id, list_title="Hello and goodbye")
+    later = _item("parent", project_id, list_title="Immediate family")
+
+    with (
+        patch.object(
+            projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[current, later]),
+        ),
+    ):
+        block = await projects_service.load_project_quiz_context(
+            session, user_id, project_id, Settings()
+        )
+
+    assert "hello" in block
+    assert "parent" not in block
+    assert "this chapter" in block
 
 
 @pytest.mark.asyncio
@@ -1392,15 +1424,6 @@ def test_group_items_and_build_stats():
     assert stats.total == 2
     assert stats.mastered_count == 1
     assert stats.new_count == 1
-
-
-def test_format_projects_block_trivia_topics():
-    project = _project("World facts", kind="trivia")
-    project.description = "history,science"
-    item = _item("Colossus of Rhodes", project.id, list_title="History")
-    block = projects_service.format_projects_block([project], [item])
-    assert "topics=history,science" in block
-    assert "#### History" in block
 
 
 def test_format_projects_block_empty_items():
@@ -1847,13 +1870,13 @@ async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
-    """BUG FIX regression: deck has "category" but not "cat" — adding "cat"
-    must NOT be silently skipped as a "duplicate" of "category"."""
+async def test_apply_project_actions_master_not_skipped_as_fuzzy_duplicate():
+    """Deck has "category" and "cat" — mastering "cat" must not hit "category"."""
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
-    existing = _item("category", project.id, list_title="nouns")
+    category = _item("category", project.id, list_title="nouns")
+    cat = _item("cat", project.id, list_title="nouns")
     with (
         patch.object(
             projects_repo,
@@ -1863,25 +1886,19 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
         patch.object(
             project_items_repo,
             "list_recent_for_projects",
-            AsyncMock(return_value=[existing]),
+            AsyncMock(return_value=[category, cat]),
         ),
-        patch.object(
-            project_items_repo,
-            "create",
-            AsyncMock(return_value=_item("cat", project.id, list_title="nouns")),
-        ) as create_mock,
-        patch.object(
-            project_items_repo,
-            "count_for_project",
-            AsyncMock(return_value=0),
-        ),
+        patch(
+            "app.services.projects.items.update_item",
+            AsyncMock(return_value=cat),
+        ) as update_mock,
     ):
         applied = await projects_service.apply_project_actions(
             session,
             user_id=user_id,
             actions=[
                 ProjectActionItem(
-                    action="add",
+                    action="master",
                     project_title="English",
                     list_title="nouns",
                     content="cat",
@@ -1889,17 +1906,15 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
             ],
         )
     assert applied == 1
-    create_mock.assert_awaited_once()
+    update_mock.assert_awaited_once()
+    assert update_mock.await_args.args[1] is cat
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_add_skips_at_item_cap():
-    """BUG FIX: `add` was only bounded by the per-turn action cap + content
-    dedup, so a deck could grow unbounded over many turns. Once a project is
-    at MAX_PROJECT_ITEMS_PER_PROJECT, `add` must skip (no-op), not raise."""
+async def test_apply_project_actions_add_skipped_for_language_catalog():
     session = AsyncMock()
     user_id = uuid4()
-    project = _project("English")
+    project = _project("Spanish")
     with (
         patch.object(
             projects_repo,
@@ -1913,11 +1928,6 @@ async def test_apply_project_actions_add_skips_at_item_cap():
         ),
         patch.object(
             project_items_repo,
-            "count_for_project",
-            AsyncMock(return_value=projects_service.MAX_PROJECT_ITEMS_PER_PROJECT),
-        ),
-        patch.object(
-            project_items_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
@@ -1928,9 +1938,9 @@ async def test_apply_project_actions_add_skips_at_item_cap():
             actions=[
                 ProjectActionItem(
                     action="add",
-                    project_title="English",
-                    list_title="nouns",
-                    content="new word",
+                    project_title="Spanish",
+                    list_title="Greetings",
+                    content="invented",
                 ),
             ],
         )
@@ -1952,11 +1962,12 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
     user_id = uuid4()
     chat_id = uuid4()
     project = _project("English")
+    apple = _item("apple", project.id, list_title="nouns")
     result = ProjectExtractionResult(
         actions=[
             ProjectActionItem(action="delete_project", project_title="English"),
             ProjectActionItem(
-                action="add", project_title="English", list_title="nouns", content="apple"
+                action="master", project_title="English", list_title="nouns", content="apple"
             ),
             ProjectActionItem(action="delete_list", project_title="English", list_title="Travel"),
         ]
@@ -1970,7 +1981,7 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
         patch.object(
             project_items_repo,
             "list_recent_for_projects",
-            AsyncMock(return_value=[]),
+            AsyncMock(return_value=[apple]),
         ),
         patch.object(
             projects_repo,
@@ -1982,16 +1993,10 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_list_mock,
-        patch.object(
-            project_items_repo,
-            "create",
-            AsyncMock(return_value=_item("apple", project.id, list_title="nouns")),
-        ) as create_mock,
-        patch.object(
-            project_items_repo,
-            "count_for_project",
-            AsyncMock(return_value=0),
-        ),
+        patch(
+            "app.services.projects.items.update_item",
+            AsyncMock(return_value=apple),
+        ) as update_mock,
     ):
         applied = await projects_sync._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
@@ -2000,7 +2005,7 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
     assert applied == 1
     delete_project_mock.assert_not_awaited()
     delete_list_mock.assert_not_awaited()
-    create_mock.assert_awaited_once()
+    update_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -2014,10 +2019,11 @@ async def test_apply_project_extraction_result_caps_actions_per_turn():
     chat_id = uuid4()
     project = _project("English")
     over_cap = projects_service.MAX_PROJECT_ACTIONS_PER_TURN + 2
+    items = [_item(f"word{i}", project.id, list_title="nouns") for i in range(over_cap)]
     result = ProjectExtractionResult(
         actions=[
             ProjectActionItem(
-                action="add", project_title="English", list_title="nouns", content=f"word{i}"
+                action="master", project_title="English", list_title="nouns", content=f"word{i}"
             )
             for i in range(over_cap)
         ]
@@ -2031,25 +2037,19 @@ async def test_apply_project_extraction_result_caps_actions_per_turn():
         patch.object(
             project_items_repo,
             "list_recent_for_projects",
-            AsyncMock(return_value=[]),
+            AsyncMock(return_value=items),
         ),
-        patch.object(
-            project_items_repo,
-            "create",
-            AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
-        ) as create_mock,
-        patch.object(
-            project_items_repo,
-            "count_for_project",
-            AsyncMock(return_value=0),
-        ),
+        patch(
+            "app.services.projects.items.update_item",
+            AsyncMock(side_effect=lambda *a, **kw: a[1] if a else None),
+        ) as update_mock,
     ):
         applied = await projects_sync._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
         )
 
     assert applied == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
-    assert create_mock.await_count == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
+    assert update_mock.await_count == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
 
 
 @pytest.mark.asyncio
@@ -2207,47 +2207,6 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
     assert result is None
 
 
-@pytest.mark.asyncio
-async def test_load_project_for_prompt_trivia_hint():
-    session = AsyncMock()
-    user_id = uuid4()
-    project_id = uuid4()
-    project = _project("World", kind="trivia")
-    project.id = project_id
-    project.description = "history"
-    item = _item("Colossus of Rhodes", project_id, list_title="History")
-
-    with (
-        patch.object(
-            projects_repo,
-            "get_by_id",
-            AsyncMock(return_value=project),
-        ),
-        patch.object(
-            project_items_repo,
-            "list_for_user",
-            AsyncMock(return_value=[item]),
-        ),
-        patch.object(
-            project_items_repo,
-            "list_quiz_exclusion_contents",
-            AsyncMock(return_value=["Colossus of Rhodes"]),
-        ),
-        patch(
-            "app.repositories.users.get_by_id",
-            AsyncMock(return_value=MagicMock(timezone="UTC")),
-        ),
-    ):
-        block = await projects_service.load_project_for_prompt(
-            session, user_id, project_id, Settings()
-        )
-
-    assert "trivia" in block.lower() or "general knowledge" in block.lower()
-    assert "Colossus of Rhodes" in block
-    assert "Do NOT ask these again" in block
-    assert "quiz ledger" in block
-
-
 def test_language_tutor_hint_uses_target_language():
     from app.services.projects import language_tutor_hint
 
@@ -2264,6 +2223,7 @@ def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
     assert "learning_launch" in CHAT_LEARNING_HANDOFF_HINT
     assert "Do NOT run a quiz in this chat" in CHAT_LEARNING_HANDOFF_HINT
     assert "vocab_quiz" in CHAT_LEARNING_HANDOFF_HINT
+    assert "You ARE connected to their Recall Learning data" in CHAT_LEARNING_HANDOFF_HINT
 
 
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():
@@ -2273,11 +2233,9 @@ def test_chat_tutor_hints_acknowledge_completed_daily_goal():
     from app.services.projects import (
         DAILY_GOAL_COMPLETE_BEHAVIOR,
         LANGUAGE_CHAT_TUTOR_HINT,
-        TRIVIA_CHAT_TUTOR_HINT,
     )
 
     assert DAILY_GOAL_COMPLETE_BEHAVIOR in LANGUAGE_CHAT_TUTOR_HINT
-    assert DAILY_GOAL_COMPLETE_BEHAVIOR in TRIVIA_CHAT_TUTOR_HINT
     # The behaviour must explicitly handle the "let's continue" case.
     assert "let's continue" in DAILY_GOAL_COMPLETE_BEHAVIOR.lower()
     assert "raise their daily goal" in DAILY_GOAL_COMPLETE_BEHAVIOR.lower()

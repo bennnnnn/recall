@@ -49,6 +49,7 @@ from app.services.chat.prompt_constants import (
     VOCAB_CHAT_ANSWER_HINT,
     format_quiz_grading_hint,
     is_comparison_question,
+    is_learning_progress_question,
     is_writing_deliverable_request,
 )
 from app.services.chat.stream_status import StreamStatusFn
@@ -368,7 +369,7 @@ async def _load_context_blocks(
                     client_timezone=client_timezone,
                 )
             if chat and chat.project_id:
-                return await projects_service.load_project_for_prompt(
+                block = await projects_service.load_project_for_prompt(
                     s,
                     user.id,
                     chat.project_id,
@@ -376,7 +377,17 @@ async def _load_context_blocks(
                     quiz_mode=getattr(chat, "quiz_mode", None),
                     client_timezone=client_timezone,
                 )
-            return await projects_service.load_projects_for_prompt(s, user.id, settings)
+            else:
+                block = await projects_service.load_projects_for_prompt(s, user.id, settings)
+            if query_text and is_learning_progress_question(query_text):
+                today = await projects_service.load_today_learning_words_for_prompt(
+                    s,
+                    user,
+                    settings,
+                    client_timezone=client_timezone,
+                )
+                return "\n\n".join(part for part in (block, today) if part)
+            return block
 
     async def _attachment_rag_block() -> str:
         # HTTP/embed-bound — do not hold a DB pool slot.

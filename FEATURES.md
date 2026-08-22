@@ -423,41 +423,47 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Learning** link → list → create → detail screen.
 - ✅ **Project kinds** — API + mobile support **vocabulary** (`language`, with `vocabulary` as
-  a write alias) for the nine UI locales (`en`, `es`, `fr`, `de`, `it`, `pt`, `ru`, `tr`,
-  `am`) — one project per target language — and **general knowledge** (`trivia`, one per
-  user). Legacy kinds (`programming`, `math`, …) are rejected on create and hidden from
-  list/detail.
+  a write alias) for English and Spanish — one project per target language. Other UI locales
+  stay in the app; Learning create only offers `en` / `es`. Legacy kinds (`trivia`,
+  `programming`, `math`, …) are rejected on create.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — organize words by deck title on the detail screen.
 - ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
-- ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
+- ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
+  lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
   interaction runs in a dedicated lesson window (MCQ, vocab cards, typed answers, result sheet).
   The teaching window shows only those fences plus pronunciation — not tutor markdown.
   Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
   grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
 - ✅ **Tap-to-answer MCQ** — large choice cards in the lesson window on complete `vocab_quiz` fences.
-- ✅ **Review queue** — project detail CTA opens a due-only spaced-repetition lesson.
+- ✅ **Review queue** — due-only spaced-repetition items surface in the lesson map; no
+  separate review CTA on the project card.
 - ✅ **Adaptive level hints** — suggests level up/down from mastery ratio + quiz accuracy.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).
-- ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch; trivia
-  included alongside vocabulary.
+- ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch.
 - ✅ **Pronunciation** — play button per word tries `pronunciation_url` when set, then cloud TTS,
   then on-device `expo-speech`.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on vocab status changes; due counts prefer `due_at` (falls back to 24h heuristic).
-- ✅ **Deck browse on language detail** — browse words by deck on the language project detail screen.
+- ✅ **Deck browse** — browse words by deck from Settings/Learning (PDF export per class).
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
-  (decks). Create enqueues a `language_path` job: the model suggests 8–12 chapters and
-  seeds the first lesson; LLM failure falls back to a level template. Progress is
-  derived (mastered/total; chapter complete at ≥80% and a small word floor). Extract
-  adds words to the current chapter and can append a user-named topic. The lesson
-  map shows the chapter path; tap an unlocked chapter to open the teaching window.
-  Project stats stay stats-only. Locked chapters stay visible until the current
-  one is complete. No generic `learning` kind, lesson notes, certificates, or
-  marketplace.
+  (decks). Create enqueues a `language_path` job that copies a curated catalog
+  (`vocab_decks` / `vocab_entries`: domain → branch tree — Family, Food, Hotel, …
+  plus SAT banks for English). Main chat gets a progress overview (class, daily
+  counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
+  A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
+  ○ / ◐ words. The model must not invent or add words. Progress is derived
+  (mastered/total; chapter complete at ≥80% and a small word floor). The lesson
+  map lists each domain as a parent with its branches nested under it; tap an
+  unlocked branch to open the teaching window. The main flow is
+  Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
+  screen). Compact stats, PDF export, and delete live in Settings/Learning. A
+  thin "today" progress line sits above the path tree. Locked chapters stay
+  visible until the current one is complete. No generic `learning` kind, lesson
+  notes, certificates, or marketplace.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
@@ -468,9 +474,7 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
-- ✅ **General knowledge (trivia)** — topic picker, difficulty tiers (easy/medium/hard), scoped
-  quiz chat, daily goal, trivia nudges. Each answered question stores a `project_items` row
-  (reads capped); retention/rollup for very large decks is deferred.
+- ❌ **General knowledge (trivia)** — removed. Learning is language vocabulary only.
 - 🔜 **Learning (generic)** — lesson notes, spaced repetition beyond vocab, richer AI tutor mode.
 
 Chat + memory + todos + projects share one backend; the LLM orchestrates across them (no keys on
@@ -540,7 +544,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Messaging | Reactions, read receipts; duplex / live voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
-| Learning | Generic `learning` kind (lesson notes / richer tutor); trivia marketplace; certificates |
+| Learning | Generic `learning` kind (lesson notes / richer tutor); other target languages; certificates |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; virus scan |
@@ -720,8 +724,8 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Language (`language`) — nine targets, ordered path, decks, quiz, tutor, SM-2 | Curated trivia marketplace |
-| General knowledge (`trivia`) — topics, scoped quiz chat | Certificates, GitHub linking |
+| Language (`language`) — en/es catalog tree, decks, quiz, tutor, SM-2 | Other target languages |
+| Domain → branch lesson map | Certificates, GitHub linking |
 | Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |
 

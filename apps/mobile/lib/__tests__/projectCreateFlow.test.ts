@@ -10,15 +10,10 @@ import type { Project } from "@/lib/api";
 const t = (key: string) => key;
 
 describe("projectCreateFlow", () => {
-  it("tracks language as four steps ending on daily", () => {
-    expect(createStepProgress("language", "language")).toEqual({ current: 2, total: 4 });
-    expect(createStepProgress("level", "language")).toEqual({ current: 3, total: 4 });
-    expect(createStepProgress("daily", "language")).toEqual({ current: 4, total: 4 });
-  });
-
-  it("tracks trivia as three steps ending on daily", () => {
-    expect(createStepProgress("topics", "trivia")).toEqual({ current: 2, total: 3 });
-    expect(createStepProgress("daily", "trivia")).toEqual({ current: 3, total: 3 });
+  it("tracks language as three steps ending on daily", () => {
+    expect(createStepProgress("language", "language")).toEqual({ current: 1, total: 3 });
+    expect(createStepProgress("level", "language")).toEqual({ current: 2, total: 3 });
+    expect(createStepProgress("daily", "language")).toEqual({ current: 3, total: 3 });
   });
 
   it("builds language project title from level and target", () => {
@@ -32,10 +27,10 @@ describe("projectCreateFlow", () => {
   });
 
   it("uses title input when provided", () => {
-    expect(resolveProjectTitle("World facts", "trivia", "level1", t)).toBe("World facts");
+    expect(resolveProjectTitle("Spanish class", "language", "level1", t)).toBe("Spanish class");
   });
 
-  it("allows add learning until every language and trivia exist", () => {
+  it("allows add learning until English and Spanish exist", () => {
     const english: Project = {
       id: "1",
       title: "English",
@@ -49,31 +44,10 @@ describe("projectCreateFlow", () => {
       created_at: "",
       updated_at: "",
     };
-    const trivia: Project = {
-      id: "2",
-      title: "General knowledge",
-      description: "history,science",
-      kind: "trivia",
-      level: "level1",
-      target_language: "en",
-      native_language: null,
-      daily_goal: 5,
-      archived: false,
-      created_at: "",
-      updated_at: "",
-    };
+    const spanish: Project = { ...english, id: "2", title: "Spanish", target_language: "es" };
     expect(canAddLearningProject([])).toBe(true);
     expect(canAddLearningProject([english])).toBe(true);
-    expect(canAddLearningProject([trivia])).toBe(true);
-    expect(canAddLearningProject([english, trivia])).toBe(true);
-    expect(canAddLearningProject([english, { ...trivia, archived: true }])).toBe(true);
-    const allLanguages: Project[] = ["en", "es", "fr", "de", "it", "pt", "ru", "tr", "am"].map(
-      (code, index) => ({
-        ...english,
-        id: `lang-${index}`,
-        target_language: code,
-      }),
-    );
-    expect(canAddLearningProject([...allLanguages, trivia])).toBe(false);
+    expect(canAddLearningProject([english, spanish])).toBe(false);
+    expect(canAddLearningProject([english, { ...spanish, archived: true }])).toBe(true);
   });
 });

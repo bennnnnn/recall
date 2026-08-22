@@ -1,11 +1,7 @@
 import type { ProjectKind } from "@/lib/api";
 import { languageLabel } from "@/lib/i18n/languages";
 
-export function isTriviaProject(kind: ProjectKind): boolean {
-  return kind === "trivia";
-}
-
-/** User-facing title for vocabulary / trivia learning screens (list + detail). */
+/** User-facing title for vocabulary learning screens (list + detail). */
 export function learningProjectTitle(
   kind: ProjectKind,
   t: (key: string) => string,
@@ -14,9 +10,6 @@ export function learningProjectTitle(
 ): string {
   if (kind === "language" || kind === "vocabulary") {
     return languageLabel(targetLanguage) || fallbackTitle || t("projects.kind.language");
-  }
-  if (kind === "trivia") {
-    return t("projects.trivia.title");
   }
   return fallbackTitle || t("projects.detail");
 }
@@ -30,31 +23,22 @@ export type ProjectStatLabels = {
 };
 
 export function projectStatsLabels(
-  kind: ProjectKind,
+  _kind: ProjectKind,
   t: (key: string) => string,
 ): ProjectStatLabels {
-  if (kind === "language" || kind === "vocabulary") {
-    return {
-      learned: t("projects.stats.learned"),
-      learnedToday: t("projects.stats.mastered_today"),
-      new: t("projects.stats.new"),
-      thisWeek: t("projects.stats.this_week"),
-      due: t("projects.stats.due"),
-    };
-  }
   return {
-    learned: t("projects.stats.correct_total"),
-    learnedToday: t("projects.stats.correct_today"),
-    new: t("projects.stats.facts_new"),
+    learned: t("projects.stats.learned"),
+    learnedToday: t("projects.stats.mastered_today"),
+    new: t("projects.stats.new"),
     thisWeek: t("projects.stats.this_week"),
-    due: t("projects.stats.facts_due"),
+    due: t("projects.stats.due"),
   };
 }
 
 /** Map backend default list buckets to kind-appropriate section titles. */
 export function formatProjectListTitle(
   listTitle: string,
-  kind: ProjectKind,
+  _kind: ProjectKind,
   t: (key: string) => string,
 ): string {
   const normalized = listTitle.trim().toLowerCase();

@@ -22,12 +22,11 @@ import { type IoniconName } from "@/lib/icons";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useHome } from "@/contexts/HomeContext";
 import { AddFab } from "@/components/AddFab";
-import { Button } from "@/components/Button";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
 import { StepPicker } from "@/components/projects/StepPicker";
-import { type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
+import { type LanguageLevel } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import {
   DEFAULT_VOCAB_DAILY_GOAL,
@@ -36,45 +35,26 @@ import {
   VOCAB_DAILY_GOALS,
   type VocabDailyGoal,
 } from "@/lib/projects/dailyGoals";
-import { LANGUAGES } from "@/lib/i18n/languages";
-import { isLanguageProject, LANGUAGE_LEVELS, levelLabelT } from "@/lib/languageLevels";
+import { LEARNING_LANGUAGES } from "@/lib/i18n/languages";
+import { LANGUAGE_LEVELS, levelLabelT } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
 import { openLearningLesson } from "@/lib/lessonLaunch";
+import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import {
   buildLanguageOnboardingPrompt,
-  buildProjectAskPromptFromProject,
-  buildProjectReviewPrompt,
-  buildTriviaOnboardingPrompt,
-  projectDetailForChat,
 } from "@/lib/projects/projectChat";
 import {
   canAddLearningProject,
   languageProjectTitle,
-  triviaProjectTitle,
   type CreateStep,
 } from "@/lib/projects/projectCreateFlow";
-import { findTriviaProject } from "@/lib/projects/triviaProject";
-import { isTriviaProject } from "@/lib/projects/projectUi";
-import { invalidateProjectDetail, prefetchProjectDetails } from "@/lib/cache/projectDetailCache";
-import {
-  encodeTriviaTopics,
-  formatTriviaTopicLabels,
-  formatTriviaTopicsChip,
-  TRIVIA_TOPICS,
-  TRIVIA_DIFFICULTY_LEVELS,
-  triviaDifficultyLabel,
-  parseTriviaTopics,
-  type TriviaTopicId,
-} from "@/lib/projects/triviaTopics";
+import { prefetchProjectDetails } from "@/lib/cache/projectDetailCache";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-const SUBJECTS: ProjectKind[] = ["language", "trivia"];
-
-function kindIcon(kind: ProjectKind): IoniconName {
+function kindIcon(kind: string): IoniconName {
   if (kind === "language" || kind === "vocabulary") return "language-outline";
-  if (kind === "trivia") return "bulb-outline";
   return "folder-outline";
 }
 
@@ -99,12 +79,10 @@ export default function ProjectsScreen() {
   );
 
   const [createStep, setCreateStep] = useState<CreateStep | null>(null);
-  const [kind, setKind] = useState<ProjectKind | null>(null);
+  const [kind, setKind] = useState<"language" | null>(null);
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [level, setLevel] = useState<LanguageLevel>("level1");
-  const [triviaLevel, setTriviaLevel] = useState<LanguageLevel>("level3");
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
-  const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -133,67 +111,23 @@ export default function ProjectsScreen() {
     setKind(null);
     setTargetLanguage("en");
     setLevel("level1");
-    setTriviaLevel("level3");
     setDailyGoal(DEFAULT_VOCAB_DAILY_GOAL);
-    setTriviaTopics(["history", "science"]);
     setCreating(false);
   }, []);
 
   const openCreate = useCallback(() => {
     resetCreate();
-    setCreateStep("subject");
+    setKind("language");
+    setCreateStep("language");
   }, [resetCreate]);
 
   if (!token) return <Redirect href="/login" />;
-
-  const startStudyForProject = (project: Project) => {
-    const isTrivia = isTriviaProject(project.kind);
-    const isLang = isLanguageProject(project.kind);
-    invalidateProjectDetail(project.id);
-    openLearningLesson(router, {
-      projectId: project.id,
-      prompt: buildProjectAskPromptFromProject(project, t),
-      quizLanguage: isLang ? project.target_language : undefined,
-      quizVariant: isTrivia ? "trivia" : isLang ? "vocab" : undefined,
-    });
-  };
-
-  const startReviewForProject = (project: Project) => {
-    const detail = projectDetailForChat(project);
-    const isTrivia = isTriviaProject(project.kind);
-    const isLang = isLanguageProject(project.kind);
-    invalidateProjectDetail(project.id);
-    openLearningLesson(router, {
-      projectId: project.id,
-      prompt: buildProjectReviewPrompt(detail),
-      quizLanguage: isLang ? project.target_language : undefined,
-      quizVariant: isTrivia ? "trivia" : isLang ? "vocab" : undefined,
-    });
-  };
-
-  const selectSubject = (next: ProjectKind) => {
-    if (next === "language") {
-      setKind(next);
-      setCreateStep("language");
-      return;
-    }
-    if (next === "trivia") {
-      const existing = findTriviaProject(projects);
-      if (existing) {
-        resetCreate();
-        router.push(`/projects/${existing.id}`);
-        return;
-      }
-      setKind(next);
-      setCreateStep("topics");
-    }
-  };
 
   const selectTargetLanguage = (code: string) => {
     const existing = findLanguageProject(projects, code);
     if (existing) {
       resetCreate();
-      router.push(`/projects/${existing.id}`);
+      router.push(lessonMapPath(existing.id));
       return;
     }
     setTargetLanguage(code);
@@ -232,97 +166,17 @@ export default function ProjectsScreen() {
     }
   };
 
-  const handleCreateTrivia = async () => {
-    if (
-      !token ||
-      kind !== "trivia" ||
-      creatingRef.current ||
-      triviaTopics.length === 0
-    )
-      return;
-
-    const title = triviaProjectTitle(t);
-    const description = encodeTriviaTopics(triviaTopics);
-    const topicLabels = formatTriviaTopicLabels(triviaTopics, t);
-
-    creatingRef.current = true;
-    setCreating(true);
-    try {
-      const project = await createProject({
-        title,
-        description,
-        kind: "trivia",
-        level: triviaLevel,
-        target_language: "en",
-        daily_goal: dailyGoal,
-      });
-      resetCreate();
-      setProjects((prev) => [project, ...prev]);
-      openLearningLesson(router, {
-        projectId: project.id,
-        prompt: buildTriviaOnboardingPrompt(topicLabels, dailyGoal, triviaLevel),
-        quizVariant: "trivia",
-      });
-    } catch {
-      feedback?.error(t("projects.create_failed"));
-    } finally {
-      creatingRef.current = false;
-      setCreating(false);
-    }
-  };
-
-  const toggleTriviaTopic = (topicId: TriviaTopicId) => {
-    setTriviaTopics((prev) => {
-      if (prev.includes(topicId)) {
-        const next = prev.filter((id) => id !== topicId);
-        return next.length > 0 ? next : prev;
-      }
-      return [...prev, topicId];
-    });
-  };
-
   const renderCreateSteps = () => {
     if (!createStep) return null;
 
     return (
       <>
-        {createStep === "subject" ? (
-          <>
-            <Text style={s.createLabel}>{t("projects.what_to_learn")}</Text>
-            <View style={s.subjectList}>
-              {SUBJECTS.map((item) => {
-                const existingTrivia = item === "trivia" ? findTriviaProject(projects) : undefined;
-                const continueHint =
-                  existingTrivia && item === "trivia" ? t("projects.trivia_continue") : null;
-                return (
-                  <Pressable
-                    key={item}
-                    style={s.subjectRow}
-                    onPress={() => selectSubject(item)}
-                  >
-                    <View style={s.subjectIcon}>
-                      <Icon name={kindIcon(item)} size={22} color={C.primary} />
-                    </View>
-                    <View style={s.subjectMain}>
-                      <Text style={s.subjectText}>{t(`projects.kind.${item}`)}</Text>
-                      {continueHint ? (
-                        <Text style={s.subjectHint}>{continueHint}</Text>
-                      ) : null}
-                    </View>
-                    <Icon name="chevron-forward" size={18} color={C.textTertiary} />
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
-
         {createStep === "language" ? (
           <>
             <Text style={s.createLabel}>{t("projects.language_pick_label")}</Text>
             <Text style={s.stepHint}>{t("projects.language_pick_hint")}</Text>
             <View style={s.subjectList}>
-              {LANGUAGES.map((item) => {
+              {LEARNING_LANGUAGES.map((item) => {
                 const existing = findLanguageProject(projects, item.code);
                 return (
                   <Pressable
@@ -341,11 +195,6 @@ export default function ProjectsScreen() {
                 );
               })}
             </View>
-            <Button
-              title={t("projects.back")}
-              onPress={() => setCreateStep("subject")}
-              variant="outline"
-            />
           </>
         ) : null}
 
@@ -367,66 +216,21 @@ export default function ProjectsScreen() {
           />
         ) : null}
 
-        {createStep === "topics" ? (
-          <StepPicker
-            label={t("projects.trivia.topics_label")}
-            hint={t("projects.trivia.topics_hint")}
-            options={TRIVIA_TOPICS.map((topic) => ({
-              key: topic.id,
-              value: topic.id,
-              label: t(topic.labelKey),
-            }))}
-            isSelected={(value) => triviaTopics.includes(value)}
-            onSelect={toggleTriviaTopic}
-            backLabel={t("projects.back")}
-            onBack={() => setCreateStep("subject")}
-            continueLabel={t("common.continue")}
-            onContinue={() => setCreateStep("trivia_level")}
-          />
-        ) : null}
-
-        {createStep === "trivia_level" ? (
-          <StepPicker
-            label={t("projects.trivia.difficulty_label")}
-            hint={t("projects.trivia.difficulty_hint")}
-            options={TRIVIA_DIFFICULTY_LEVELS.map((item) => ({
-              key: item.level,
-              value: item.level,
-              label: t(item.labelKey),
-            }))}
-            isSelected={(value) => value === triviaLevel}
-            onSelect={setTriviaLevel}
-            backLabel={t("projects.back")}
-            onBack={() => setCreateStep("topics")}
-            continueLabel={t("common.continue")}
-            onContinue={() => setCreateStep("daily")}
-          />
-        ) : null}
-
         {createStep === "daily" ? (
           <StepPicker
-            label={
-              kind === "trivia" ? t("projects.trivia.daily_label") : t("projects.daily_goal_label")
-            }
-            hint={
-              kind === "trivia" ? t("projects.trivia.daily_hint") : t("projects.daily_goal_hint")
-            }
+            label={t("projects.daily_goal_label")}
+            hint={t("projects.daily_goal_hint")}
             options={VOCAB_DAILY_GOALS.map((item) => ({
               key: String(item),
               value: item,
-              label:
-                kind === "trivia"
-                  ? t("projects.trivia.daily_questions", { count: item })
-                  : t("projects.daily_goal_words", { count: item }),
+              label: t("projects.daily_goal_words", { count: item }),
             }))}
             isSelected={(value) => value === dailyGoal}
             onSelect={setDailyGoal}
             backLabel={t("projects.back")}
-            onBack={() => setCreateStep(kind === "trivia" ? "trivia_level" : "level")}
+            onBack={() => setCreateStep("level")}
             continueLabel={t("projects.create")}
-            onContinue={() =>
-              void (kind === "trivia" ? handleCreateTrivia() : handleCreateLanguage())
-            }
+            onContinue={() => void handleCreateLanguage()}
             continueBusy={creating}
           />
         ) : null}
@@ -472,23 +276,14 @@ export default function ProjectsScreen() {
             </>
           }
           renderItem={({ item: project }) => {
-            const isTrivia = isTriviaProject(project.kind);
-            const levelValue = isTrivia
-              ? triviaDifficultyLabel(project.level, t)
-              : levelLabelT(project.level, t);
             const dailyValue = formatDailyGoalShort(resolveDailyGoal(project.daily_goal));
-            const topicIds = parseTriviaTopics(project.description);
-            const topicsChip = isTrivia ? formatTriviaTopicsChip(topicIds, t) : undefined;
             return (
               <LearningProjectCard
                 project={project}
                 icon={kindIcon(project.kind)}
-                levelLabel={levelValue}
+                levelLabel={levelLabelT(project.level, t)}
                 dailyLabel={dailyValue}
-                topicsChip={topicsChip}
-                onOpen={() => router.push(`/projects/${project.id}`)}
-                onStudy={() => startStudyForProject(project)}
-                onReview={() => startReviewForProject(project)}
+                onOpen={() => router.push(lessonMapPath(project.id))}
               />
             );
           }}

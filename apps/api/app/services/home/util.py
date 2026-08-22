@@ -40,7 +40,7 @@ _LANGUAGE_LEARNING = re.compile(
 )
 
 T = TypeVar("T")
-CompletedDaily = tuple[str, Literal["language", "trivia"]]
+CompletedDaily = tuple[str, Literal["language"]]
 
 
 class ProjectHomeContent(NamedTuple):

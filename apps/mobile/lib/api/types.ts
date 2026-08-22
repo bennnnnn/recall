@@ -94,13 +94,14 @@ export type Todo = {
   updated_at: string;
 };
 
-/** Product learning kinds: vocabulary (one project per target language) + trivia. */
-export type ProjectKind = "language" | "vocabulary" | "trivia";
+/** Product learning kinds: vocabulary (one project per target language). */
+export type ProjectKind = "language" | "vocabulary";
 export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
 export type VocabStatus = "new" | "learning" | "mastered";
 
 export type PathChapterProgress = {
   title: string;
+  domain?: string;
   mastered: number;
   total: number;
   complete: boolean;
@@ -119,7 +120,7 @@ export type Project = {
   created_at: string;
   updated_at: string;
   learning_path?: string[];
-  /** Present on list responses for language/trivia projects. */
+  /** Present on list responses for language projects. */
   stats?: ProjectStats;
 };
 
@@ -221,7 +222,7 @@ export type HomeStarter = {
 export type HomeProjectHighlight = {
   project_id: string;
   title: string;
-  kind: "language" | "trivia";
+  kind: "language";
   target_language?: string;
   daily_goal: number;
   mastered_today: number;

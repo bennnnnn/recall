@@ -7,13 +7,8 @@ describe("projectUi", () => {
     expect(projectStatsLabels("language", t).new).toBe("projects.stats.new");
   });
 
-  it("uses trivia fact stats for trivia projects", () => {
-    expect(projectStatsLabels("trivia", t).new).toBe("projects.stats.facts_new");
-    expect(projectStatsLabels("trivia", t).learned).toBe("projects.stats.correct_total");
-  });
-
-  it("maps General list title for language and trivia", () => {
+  it("maps General list title for language", () => {
     expect(formatProjectListTitle("General", "language", t)).toBe("projects.list.general");
-    expect(formatProjectListTitle("History", "trivia", t)).toBe("History");
+    expect(formatProjectListTitle("History", "language", t)).toBe("History");
   });
 });

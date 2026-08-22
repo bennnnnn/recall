@@ -88,7 +88,7 @@ async def test_list_recent_for_user_orders_by_recency_and_respects_limit(db_sess
 async def test_list_recent_for_user_scopes_to_project(db_session):
     user = await _make_user(db_session)
     project_a = Project(user_id=user.id, title="A", kind="language")
-    project_b = Project(user_id=user.id, title="B", kind="trivia")
+    project_b = Project(user_id=user.id, title="B", kind="language", target_language="es")
     db_session.add_all([project_a, project_b])
     await db_session.flush()
 
@@ -115,7 +115,7 @@ async def test_list_recent_for_projects_caps_per_project_not_globally(db_session
     (the N+1 loop it replaced preserved this; a naive global LIMIT would not)."""
     user = await _make_user(db_session)
     project_a = Project(user_id=user.id, title="Busy", kind="language")
-    project_b = Project(user_id=user.id, title="Quiet", kind="trivia")
+    project_b = Project(user_id=user.id, title="Quiet", kind="language", target_language="es")
     db_session.add_all([project_a, project_b])
     await db_session.flush()
 

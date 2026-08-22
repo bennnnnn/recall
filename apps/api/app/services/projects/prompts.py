@@ -7,8 +7,10 @@ from app.models.schemas import ProjectStats
 from app.services.projects.common import language_display_name
 
 CHAT_LEARNING_HANDOFF_HINT = (
-    "The user has Learning classes listed above. Answer questions about progress, "
-    "saved words, facts, and study advice in prose.\n"
+    "The user has Learning classes listed above. You ARE connected to their Recall "
+    "Learning data — never say you cannot see their vocab list or are not connected "
+    "to their learning app. Answer questions about progress, saved words, facts, "
+    "and study advice in prose.\n"
     "Do NOT run a quiz in this chat. Do NOT emit ```vocab_quiz or ```vocab_card.\n"
     "If they ask to practice, quiz, continue a class, or start today's lesson, "
     "reply briefly and emit this fence with the exact project_id from the list:\n"
@@ -21,17 +23,17 @@ CHAT_LEARNING_HANDOFF_HINT = (
 
 
 PROJECT_HINT = (
-    "The user keeps **Learning** workspaces — only two kinds:\n"
-    "1) **Language** (`language`) — vocabulary path in a target language: ordered "
+    "The user keeps **Learning** workspaces — language vocabulary only:\n"
+    "**Language** (`language`) — vocabulary path in a target language: ordered "
     "chapters (decks), words, definitions, daily quiz. One project per target language "
-    "(en, es, fr, de, it, pt, ru, tr, am).\n"
-    "2) **General knowledge** (`trivia`) — topic facts, daily quiz. One per user.\n"
-    "Do NOT create learning topics for coding repos, apps to build, math courses, or other subjects.\n"
+    "(en or es).\n"
+    "Do NOT create learning topics for coding repos, apps to build, math courses, trivia, "
+    "or other subjects.\n"
     "When they ask about learning topics, answer from the injected list below.\n"
-    "Creating via chat — name → type (language|trivia) → target_language (ISO) → description → "
+    "Creating via chat — name → type (language) → target_language (en|es) → description → "
     "confirm. Changes sync after your reply; phrase as what you will set up, never claim a "
     "project was already created or updated in this turn.\n"
-    "At most ONE language project per target language and ONE trivia project per user. "
+    "At most ONE language project per target language. "
     "You MAY create a second language project when they want a different language "
     "(e.g. Spanish when they already have English). Use set_level on the existing project "
     "when skill in that language grows.\n"
@@ -58,16 +60,6 @@ LEVEL_GUIDANCE: dict[str, str] = {
     ),
     "level5": ("Advanced: sophisticated vocabulary including nuance and formal register."),
     "level6": ("Fluent: full range including rare, literary, and technical words when relevant."),
-}
-
-
-TRIVIA_LEVEL_GUIDANCE: dict[str, str] = {
-    "level1": "Easy: well-known facts most adults would recognize from school or pop culture.",
-    "level2": "Easy-plus: straightforward facts with one clear correct answer.",
-    "level3": "Medium: moderately challenging facts that need some prior knowledge.",
-    "level4": "Medium-plus: less obvious facts across the chosen topics.",
-    "level5": "Hard: obscure, expert-level, or nuanced facts — still fair multiple-choice.",
-    "level6": "Expert: very difficult facts; wrong answers should be plausible distractors.",
 }
 
 
@@ -98,7 +90,7 @@ VOCAB_CARD_FENCE_EXAMPLE = (
 )
 
 
-# Learning-oriented rotation for vocabulary (trivia stays MCQ-only).
+# Learning-oriented rotation for vocabulary.
 VOCAB_LEARNING_FORMATS_BLOCK = (
     "Rotate these formats across turns (vary; do **not** default to MCQ every time):\n"
     "1) **Teach → use:** show a ```vocab_card``` with **word + definition only** "
@@ -165,7 +157,8 @@ def language_tutor_hint(target_language: str | None = "en") -> str:
         "✓ mastered as a 'freebie'.\n"
         "Use the **Today:** line in the project snapshot as the only progress counter.\n"
         "When a **Learning path** is listed, teach the current chapter "
-        "('Teach and add new words in') and put new vocabulary in that chapter.\n\n"
+        "('Teach only words listed under'). Do NOT invent or add words — "
+        "use the preloaded list and its ○ / ◐ / ✓ status.\n\n"
         f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
     )
 
@@ -199,57 +192,14 @@ TRIVIA_QUIZ_FORMAT_BLOCK = (
 )
 
 
-TRIVIA_BONUS_QUIZ_RULES = (
-    "**Bonus quiz (after today's goal):** When the user explicitly asks for more quiz, bonus "
-    "questions, or extra practice beyond today's goal, ask ONE multiple-choice question per turn "
-    "using ```vocab_quiz JSON with quiz_type trivia:\n"
-    f"{TRIVIA_QUIZ_FORMAT_BLOCK}"
-)
-
-
-TRIVIA_CHAT_TUTOR_HINT = (
-    "Active **trivia** project — **daily general knowledge in chat**.\n"
-    "Topics are in project description (comma-separated). daily_goal = correct/mastered per session.\n\n"
-    "**Daily session format (required): multiple choice only.**\n"
-    "One question per turn. Every question MUST use ```vocab_quiz JSON with quiz_type trivia "
-    "(word = topic label such as History, Science):\n"
-    f"{TRIVIA_QUIZ_FORMAT_BLOCK}\n"
-    "Wait for A–D before revealing the answer.\n"
-    "**On wrong answers:** say wrong, give a short hint (not the full answer), do NOT mark "
-    "mastered, and do NOT redisplay the question or emit a new ```vocab_quiz fence — they will "
-    "answer again on the previous chips (up to 3 tries). After 3 wrong tries: briefly reveal "
-    "the answer, keep it as learning/missed for next time, then ask a DIFFERENT next question — "
-    "never re-ask the missed question in this session.\n"
-    "**On correct answers:** congratulate briefly (mastering is recorded automatically), then "
-    "ask the NEXT question.\n"
-    "Do NOT use vocab_card or teach English vocabulary.\n"
-    "Stop when today's daily_goal is met unless they ask for bonus practice.\n"
-    "Use the **Today:** line as the only progress counter. If the quiz pool is empty, invent a "
-    "new question on the project's topics.\n\n"
-    f"{TRIVIA_BONUS_QUIZ_RULES}\n\n"
-    f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
-)
-
-
-TRIVIA_TUTOR_HINT = TRIVIA_CHAT_TUTOR_HINT
-
-
 def _language_tutor_hint(
     _quiz_mode: str | None = None, *, target_language: str | None = "en"
 ) -> str:
     return language_tutor_hint(target_language)
 
 
-def _trivia_tutor_hint(_quiz_mode: str | None = None) -> str:
-    return TRIVIA_CHAT_TUTOR_HINT
-
-
 def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None) -> str:
-    if kind == "trivia":
-        return (
-            "**Presentation mode: chat.** Run today's trivia as multiple-choice only — "
-            "one ```vocab_quiz question per turn (quiz_type trivia)."
-        )
+    del kind
     return (
         "**Presentation mode: chat.** Run today's vocabulary session with mixed learning "
         "formats (teach→use, use→define, occasional MCQ) — one word per turn."
@@ -258,10 +208,6 @@ def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None)
 
 def _level_guidance(level: str) -> str:
     return LEVEL_GUIDANCE.get(level or "level1", LEVEL_GUIDANCE["level1"])
-
-
-def _trivia_level_guidance(level: str) -> str:
-    return TRIVIA_LEVEL_GUIDANCE.get(level or "level1", TRIVIA_LEVEL_GUIDANCE["level1"])
 
 
 _LEVEL_LABELS: dict[str, str] = {

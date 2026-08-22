@@ -19,11 +19,11 @@ async def _invalidate_home_for_user(user_id: UUID) -> None:
 DEFAULT_LIST = "General"
 
 
-# Product surface: vocabulary (one project per target language) + general knowledge.
-LEARNING_PRODUCT_KINDS = frozenset({"language", "trivia"})
+# Product surface: vocabulary (one project per target language).
+LEARNING_PRODUCT_KINDS = frozenset({"language"})
 
 # Same codes as mobile UI locales (`apps/mobile/lib/i18n/languages.ts`).
-LEARNING_TARGET_LANGUAGES = frozenset({"en", "es", "fr", "de", "it", "pt", "ru", "tr", "am"})
+LEARNING_TARGET_LANGUAGES = frozenset({"en", "es"})
 
 LANGUAGE_DISPLAY_NAMES: dict[str, str] = {
     "en": "English",
@@ -80,11 +80,17 @@ def normalize_target_language(code: str | None) -> str | None:
 
 def locale_language(locale: str | None) -> str:
     """Best-effort app-language code from a user locale (defaults to English)."""
-    return normalize_target_language(locale) or "en"
+    if not isinstance(locale, str):
+        return "en"
+    iso = locale.strip().lower().replace("_", "-").split("-", 1)[0]
+    if iso in LANGUAGE_DISPLAY_NAMES:
+        return iso
+    return "en"
 
 
 def language_display_name(code: str | None) -> str:
-    return LANGUAGE_DISPLAY_NAMES[normalize_target_language(code) or "en"]
+    iso = locale_language(code)
+    return LANGUAGE_DISPLAY_NAMES[iso]
 
 
 def infer_target_language(title: str, explicit: str | None = None) -> str:
@@ -94,7 +100,7 @@ def infer_target_language(title: str, explicit: str | None = None) -> str:
         return normalized
     lowered = title.strip().lower()
     for alias, code in _LANGUAGE_TITLE_ALIASES.items():
-        if alias in lowered:
+        if alias in lowered and code in LEARNING_TARGET_LANGUAGES:
             return code
     return "en"
 
@@ -130,22 +136,6 @@ def _find_item_by_content(
 
 def _is_language_project(project: Project) -> bool:
     return project.kind in ("language", "vocabulary")
-
-
-def _is_trivia_project(project: Project) -> bool:
-    return project.kind == "trivia"
-
-
-def _trivia_daily_goal(project: Project) -> int:
-    goal = getattr(project, "daily_goal", None)
-    if isinstance(goal, int) and goal >= 1:
-        return goal
-    # Use the trivia-specific default so a future change to
-    # DEFAULT_DAILY_VOCAB_GOAL doesn't silently change the trivia goal
-    # (LANG-PROMPT-005).
-    from app.services.daily_learning import DEFAULT_DAILY_TRIVIA_GOAL
-
-    return DEFAULT_DAILY_TRIVIA_GOAL
 
 
 def _normalize(text: str) -> str:

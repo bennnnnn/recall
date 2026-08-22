@@ -168,12 +168,12 @@ describe("projectLearningToPrintHtml", () => {
     expect(html).toContain("serendipity");
   });
 
-  it("includes trivia topic labels", () => {
+  it("includes language project labels", () => {
     const project = {
       id: "p2",
-      title: "General knowledge",
-      description: "History, Science",
-      kind: "trivia",
+      title: "Spanish",
+      description: "Family, Food",
+      kind: "language",
       target_language: "en",
       native_language: null,
       level: "level1",
@@ -213,7 +213,7 @@ describe("projectLearningToPrintHtml", () => {
     } as ProjectDetail;
 
     const html = projectLearningToPrintHtml(project, labels);
-    expect(html).toContain("General knowledge");
+    expect(html).toContain("Language");
     expect(html).toContain("Which treaty ended World War I?");
     expect(html).toContain("Topic:");
     expect(html).toContain("History");

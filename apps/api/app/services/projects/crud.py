@@ -17,7 +17,7 @@ from app.services.projects import stats as project_stats
 from app.services.projects.common import (
     DEFAULT_LIST,
     LEARNING_PRODUCT_KINDS,
-    _is_trivia_project,
+    _is_language_project,
     is_learning_product_kind,
     locale_language,
     normalize_project_kind,
@@ -58,11 +58,6 @@ def group_items(
             )
         )
     return groups
-
-
-def group_trivia_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
-    """Group saved quiz facts by topic (list_title)."""
-    return group_items(items)
 
 
 def build_stats(items: list[ProjectItem]) -> ProjectStats:
@@ -128,7 +123,7 @@ async def list_projects_for_user(
     *,
     client_timezone: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return product learning projects (language + trivia) with optional stats."""
+    """Return product learning projects with optional stats."""
     from app.services import time_context as time_context_service
 
     items = await projects_repo.list_for_user(session, user.id)
@@ -179,7 +174,7 @@ async def create_learning_project(
     level: str = "level1",
     daily_goal: int | None = None,
 ) -> Project:
-    """Create a language or trivia project; raises ValueError with a stable code."""
+    """Create a language project; raises ValueError with a stable code."""
     from app.services import time_context as time_context_service
 
     normalized = normalize_project_kind(kind)
@@ -198,10 +193,6 @@ async def create_learning_project(
         existing = await projects_repo.find_language_by_target(session, user.id, resolved_target)
         if existing:
             raise ValueError("language_project_exists")
-    if normalized == "trivia":
-        existing = await projects_repo.find_trivia_project(session, user.id)
-        if existing:
-            raise ValueError("trivia_project_exists")
     project = await projects_repo.create(
         session,
         user_id=user.id,
@@ -313,7 +304,7 @@ async def get_project_detail(
     client_timezone: str | None = None,
     include_lists: bool = False,
 ) -> dict[str, Any] | None:
-    """Assemble project detail for language/trivia; None if missing or unsupported.
+    """Assemble project detail for a language class; None if missing or unsupported.
 
     Default response includes stats, 14-day count history, and recent day item maps
     built from the same in-memory item load (no extra queries). Full deck ``lists``
@@ -374,12 +365,13 @@ async def get_project_detail(
     lists: list[Any] = []
     path = parse_learning_path(item)
     if include_lists:
-        lists = (
-            group_trivia_items(project_items)
-            if _is_trivia_project(item)
-            else group_items(project_items, learning_path=path)
-        )
-    path_progress = build_path_progress(item, project_items) if not _is_trivia_project(item) else []
+        lists = group_items(project_items, learning_path=path)
+    path_progress = build_path_progress(item, project_items)
+    if _is_language_project(item):
+        from app.services.learning.path_seed import needs_catalog_sync
+
+        if needs_catalog_sync(item, project_items):
+            await enqueue_language_path_job(user.id, item.id)
     return {
         **ProjectOut.model_validate(item).model_dump(),
         "kind": normalize_project_kind(item.kind),

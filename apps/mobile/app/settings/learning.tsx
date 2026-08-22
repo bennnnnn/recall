@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { StateView } from "@/components/StateView";
-import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -25,14 +25,11 @@ import {
 import { isLanguageProject, levelLabelT, levelPickerOptions } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
 import { languageProjectTitle } from "@/lib/projects/projectCreateFlow";
-import { isTriviaProject } from "@/lib/projects/projectUi";
 import {
-  encodeTriviaTopics,
-  parseTriviaTopics,
-  triviaDifficultyLabel,
-  triviaDifficultyPickerOptions,
-  type TriviaTopicId,
-} from "@/lib/projects/triviaTopics";
+  exportProjectAsPdf,
+  projectHasExportableItems,
+} from "@/lib/exportProjectPdf";
+import { isShareCancelled } from "@/lib/exportPdf";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -50,15 +47,15 @@ export default function LearningSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const { projects: allProjects, refresh, setProjects } = useProjects();
-  const { updateProject } = useProjectActions();
+  const { updateProject, deleteProject, getExportProject } = useProjectActions();
   const feedback = useActionFeedbackOptional();
 
   const [saving, setSaving] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<string | null>(null);
-  const [topicsProject, setTopicsProject] = useState<Project | null>(null);
-  const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
   const projects = useMemo(
     () => allProjects.filter((p) => !p.archived),
@@ -72,7 +69,6 @@ export default function LearningSettingsScreen() {
   );
 
   const languageProjects = projects.filter((p) => isLanguageProject(p.kind));
-  const triviaProject = projects.find((p) => isTriviaProject(p.kind));
 
   const saveDailyGoal = async (project: Project, nextGoal: number) => {
     if (!token || savingRef.current) return;
@@ -93,45 +89,18 @@ export default function LearningSettingsScreen() {
     }
   };
 
-  const saveLevel = async (
-    project: Project,
-    level: LanguageLevel,
-    kind: "language" | "trivia",
-  ) => {
+  const saveLevel = async (project: Project, level: LanguageLevel) => {
     if (!token || savingRef.current) return;
     savingRef.current = true;
     setSavingKey(`${project.id}-level`);
     setSaving(true);
     try {
-      const patch =
-        kind === "language"
-          ? { level, title: languageProjectTitle(level, project.target_language) }
-          : { level };
-      const updated = await updateProject(project.id, patch);
-      setProjects((prev) => mergeProjectRow(prev, updated));
-      void refresh({ silent: true, force: true });
-    } catch {
-      if (feedback) feedback.error(t("settings.learning.save_failed"));
-      else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-      setSavingKey(null);
-    }
-  };
-
-  const saveTopics = async () => {
-    if (!token || !topicsProject || savingRef.current || topicsDraft.length === 0) return;
-    savingRef.current = true;
-    setSavingKey(`${topicsProject.id}-topics`);
-    setSaving(true);
-    try {
-      const updated = await updateProject(topicsProject.id, {
-        description: encodeTriviaTopics(topicsDraft),
+      const updated = await updateProject(project.id, {
+        level,
+        title: languageProjectTitle(level, project.target_language),
       });
       setProjects((prev) => mergeProjectRow(prev, updated));
       void refresh({ silent: true, force: true });
-      setTopicsProject(null);
     } catch {
       if (feedback) feedback.error(t("settings.learning.save_failed"));
       else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
@@ -142,27 +111,71 @@ export default function LearningSettingsScreen() {
     }
   };
 
-  const toggleTopicsDraft = (topicId: TriviaTopicId) => {
-    setTopicsDraft((prev) => {
-      if (prev.includes(topicId)) {
-        const next = prev.filter((id) => id !== topicId);
-        return next.length > 0 ? next : prev;
-      }
-      return [...prev, topicId];
-    });
+  const confirmDelete = (project: Project) => {
+    if (!token || deletingId) return;
+    Alert.alert(
+      t("projects.delete_title", { title: project.title }),
+      t("projects.delete_body"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: async () => {
+            setDeletingId(project.id);
+            try {
+              await deleteProject(project.id);
+              setProjects((prev) => prev.filter((p) => p.id !== project.id));
+              void refresh({ silent: true, force: true });
+            } catch {
+              if (feedback) feedback.error(t("projects.delete_failed"));
+              else Alert.alert(t("common.error"), t("projects.delete_failed"));
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
-  const openTopicsPicker = (project: Project) => {
-    const topicIds = parseTriviaTopics(project.description);
-    setTopicsDraft(
-      topicIds.length > 0 ? (topicIds as TriviaTopicId[]) : ["history", "science"],
-    );
-    setTopicsProject(project);
+  const exportPdf = async (project: Project) => {
+    if (!token || exportingId) return;
+    setExportingId(project.id);
+    try {
+      const detail = await getExportProject(project.id);
+      if (!projectHasExportableItems(detail)) {
+        Alert.alert(
+          t("projects.export_pdf_empty_title"),
+          t("projects.export_pdf_empty_body"),
+        );
+        return;
+      }
+      await exportProjectAsPdf(detail, {
+        mastered: t("projects.export_pdf.section_mastered"),
+        learning: t("projects.export_pdf.section_learning"),
+        new: t("projects.export_pdf.section_new"),
+        empty: t("projects.export_pdf.empty"),
+        definition: t("projects.export_pdf.definition"),
+        example: t("projects.export_pdf.example"),
+        topic: t("projects.export_pdf.topic"),
+        summary: ({ total, mastered, learning, newCount }) =>
+          t("projects.export_pdf.summary", {
+            total,
+            mastered,
+            learning,
+            new: newCount,
+          }),
+      });
+    } catch (error) {
+      if (isShareCancelled(error)) return;
+      Alert.alert(t("common.error"), t("projects.export_pdf_failed"));
+    } finally {
+      setExportingId(null);
+    }
   };
 
   if (!token) return <Redirect href="/login" />;
-
-  const hasLearningProjects = languageProjects.length > 0 || triviaProject != null;
 
   const togglePicker = (id: string) => {
     setOpenPicker((cur) => (cur === id ? null : id));
@@ -174,103 +187,94 @@ export default function LearningSettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
-        {hasLearningProjects ? (
+        {languageProjects.length > 0 ? (
           <>
             <Text style={s.sectionHint}>{t("settings.learning.hint")}</Text>
-            {languageProjects.map((languageProject) => (
-              <SettingsGroup
-                key={languageProject.id}
-                label={languageLabel(languageProject.target_language)}
-                styles={s}
-              >
-                <SettingsInlinePicker
-                  icon="school-outline"
-                  title={t("settings.learning.level_label")}
-                  value={levelLabelT(languageProject.level, t)}
-                  options={levelPickerOptions(t)}
-                  selectedKey={languageProject.level}
-                  expanded={openPicker === `${languageProject.id}-level`}
-                  disabled={saving}
-                  busy={savingKey === `${languageProject.id}-level`}
-                  onToggle={() => togglePicker(`${languageProject.id}-level`)}
-                  onSelect={(key) =>
-                    void saveLevel(languageProject, key as LanguageLevel, "language")
-                  }
+            {languageProjects.map((languageProject) => {
+              const stats = languageProject.stats;
+              const statsSummary = stats
+                ? t("settings.learning.stats_summary", {
+                    week: stats.added_this_week,
+                    total: stats.mastered_count,
+                    streak: stats.streak_days ?? 0,
+                  })
+                : null;
+              return (
+                <SettingsGroup
+                  key={languageProject.id}
+                  label={languageLabel(languageProject.target_language)}
                   styles={s}
-                  theme={theme}
-                />
-                <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-                <SettingsInlinePicker
-                  icon="book-outline"
-                  title={t("settings.learning.words_label")}
-                  value={formatDailyGoalShort(resolveDailyGoal(languageProject.daily_goal))}
-                  options={dailyGoalPickerOptions("language", t)}
-                  selectedKey={String(resolveDailyGoal(languageProject.daily_goal))}
-                  expanded={openPicker === `${languageProject.id}-daily`}
-                  disabled={saving}
-                  busy={savingKey === `${languageProject.id}-daily`}
-                  onToggle={() => togglePicker(`${languageProject.id}-daily`)}
-                  onSelect={(key) => {
-                    const nextGoal = Number(key);
-                    if (!Number.isFinite(nextGoal)) return;
-                    void saveDailyGoal(languageProject, nextGoal);
-                  }}
-                  styles={s}
-                  theme={theme}
-                />
-              </SettingsGroup>
-            ))}
-
-            {triviaProject ? (
-              <SettingsGroup label={t("settings.learning.trivia_section")} styles={s}>
-                <SettingsInlinePicker
-                  icon="speedometer-outline"
-                  title={t("settings.learning.difficulty_label")}
-                  value={triviaDifficultyLabel(triviaProject.level, t)}
-                  options={triviaDifficultyPickerOptions(t)}
-                  selectedKey={triviaProject.level}
-                  expanded={openPicker === `${triviaProject.id}-level`}
-                  disabled={saving}
-                  busy={savingKey === `${triviaProject.id}-level`}
-                  onToggle={() => togglePicker(`${triviaProject.id}-level`)}
-                  onSelect={(key) =>
-                    void saveLevel(triviaProject, key as LanguageLevel, "trivia")
-                  }
-                  styles={s}
-                  theme={theme}
-                />
-                <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-                <SettingsInlinePicker
-                  icon="help-circle-outline"
-                  title={t("settings.learning.questions_label")}
-                  value={formatDailyGoalShort(resolveDailyGoal(triviaProject.daily_goal))}
-                  options={dailyGoalPickerOptions("trivia", t)}
-                  selectedKey={String(resolveDailyGoal(triviaProject.daily_goal))}
-                  expanded={openPicker === `${triviaProject.id}-daily`}
-                  disabled={saving}
-                  busy={savingKey === `${triviaProject.id}-daily`}
-                  onToggle={() => togglePicker(`${triviaProject.id}-daily`)}
-                  onSelect={(key) => {
-                    const nextGoal = Number(key);
-                    if (!Number.isFinite(nextGoal)) return;
-                    void saveDailyGoal(triviaProject, nextGoal);
-                  }}
-                  styles={s}
-                  theme={theme}
-                />
-                <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-                <SettingsLinkRow
-                  icon="list-outline"
-                  title={t("settings.learning.topics_label")}
-                  value={t("projects.list.topics_value", {
-                    count: parseTriviaTopics(triviaProject.description).length,
-                  })}
-                  onPress={() => openTopicsPicker(triviaProject)}
-                  styles={s}
-                  theme={theme}
-                />
-              </SettingsGroup>
-            ) : null}
+                >
+                  {statsSummary ? (
+                    <View style={s.menuRow}>
+                      <Icon name="stats-chart-outline" size={20} color={theme.textTertiary} />
+                      <View style={s.rowBody}>
+                        <Text style={s.rowTitle}>{statsSummary}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  <SettingsInlinePicker
+                    icon="school-outline"
+                    title={t("settings.learning.level_label")}
+                    value={levelLabelT(languageProject.level, t)}
+                    options={levelPickerOptions(t)}
+                    selectedKey={languageProject.level}
+                    expanded={openPicker === `${languageProject.id}-level`}
+                    disabled={saving}
+                    busy={savingKey === `${languageProject.id}-level`}
+                    onToggle={() => togglePicker(`${languageProject.id}-level`)}
+                    onSelect={(key) => void saveLevel(languageProject, key as LanguageLevel)}
+                    styles={s}
+                    theme={theme}
+                  />
+                  <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+                  <SettingsInlinePicker
+                    icon="book-outline"
+                    title={t("settings.learning.words_label")}
+                    value={formatDailyGoalShort(resolveDailyGoal(languageProject.daily_goal))}
+                    options={dailyGoalPickerOptions("language", t)}
+                    selectedKey={String(resolveDailyGoal(languageProject.daily_goal))}
+                    expanded={openPicker === `${languageProject.id}-daily`}
+                    disabled={saving}
+                    busy={savingKey === `${languageProject.id}-daily`}
+                    onToggle={() => togglePicker(`${languageProject.id}-daily`)}
+                    onSelect={(key) => {
+                      const nextGoal = Number(key);
+                      if (!Number.isFinite(nextGoal)) return;
+                      void saveDailyGoal(languageProject, nextGoal);
+                    }}
+                    styles={s}
+                    theme={theme}
+                  />
+                  <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+                  <SettingsLinkRow
+                    icon="document-text-outline"
+                    title={t("settings.learning.export_pdf")}
+                    onPress={() => void exportPdf(languageProject)}
+                    styles={s}
+                    theme={theme}
+                  />
+                  <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+                  <Pressable
+                    style={({ pressed }) => [s.menuRow, pressed && s.rowPressed]}
+                    onPress={() => confirmDelete(languageProject)}
+                    disabled={Boolean(deletingId)}
+                    accessibilityRole="button"
+                  >
+                    <View style={s.rowBody}>
+                      <Text style={[s.rowTitle, { color: theme.danger }]}>
+                        {deletingId === languageProject.id
+                          ? t("common.deleting")
+                          : t("settings.learning.delete_class")}
+                      </Text>
+                    </View>
+                    {deletingId === languageProject.id ? (
+                      <ActivityIndicator size="small" color={theme.danger} />
+                    ) : null}
+                  </Pressable>
+                </SettingsGroup>
+              );
+            })}
           </>
         ) : (
           <StateView
@@ -283,15 +287,6 @@ export default function LearningSettingsScreen() {
           />
         )}
       </ScrollView>
-
-      <TriviaTopicsPickerModal
-        visible={topicsProject != null}
-        selected={topicsDraft}
-        saving={saving}
-        onClose={() => setTopicsProject(null)}
-        onDone={() => void saveTopics()}
-        onToggle={toggleTopicsDraft}
-      />
     </View>
   );
 }

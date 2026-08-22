@@ -15,7 +15,6 @@ from app.services.projects.path import (
     parse_learning_path,
     resolve_add_list_title,
     sort_list_titles,
-    starter_path_for_level,
     up_next_chapter,
 )
 from app.services.projects.path_seed import seed_language_path
@@ -66,6 +65,11 @@ def test_normalize_path_titles_drops_general_and_dupes():
     ]
 
 
+def test_normalize_path_titles_keeps_long_catalog_paths():
+    titles = [f"Chapter {index}" for index in range(20)]
+    assert normalize_path_titles(titles) == titles
+
+
 def test_parse_learning_path_ignores_non_lists():
     assert parse_learning_path(SimpleNamespace(learning_path=None)) == []
     assert parse_learning_path(MagicMock()) == []
@@ -91,6 +95,7 @@ def test_up_next_is_first_incomplete_chapter():
     progress = build_path_progress(project, items)
     assert progress[0].complete is True
     assert progress[1].complete is False
+    assert progress[0].domain
     assert up_next_chapter(project, items) == "Food"
 
 
@@ -133,7 +138,7 @@ def test_format_projects_block_includes_path():
     item.project_id = project.id
     block = format_projects_block([project], [item])
     assert "Learning path" in block
-    assert "Teach and add new words in: Greetings" in block
+    assert "Teach only words listed under: Greetings" in block
 
 
 @pytest.mark.asyncio
@@ -146,7 +151,9 @@ async def test_enqueue_language_path_job_swallows_redis_errors():
 
 
 @pytest.mark.asyncio
-async def test_seed_language_path_uses_template_when_llm_returns_none():
+async def test_seed_language_path_copies_catalog_words():
+    from app.content.vocab_catalog import catalog_path_titles, catalog_word_count
+
     user_id = uuid4()
     project_id = uuid4()
     project = _project(id=project_id, user_id=user_id, learning_path=None)
@@ -160,17 +167,48 @@ async def test_seed_language_path_uses_template_when_llm_returns_none():
         async def __aexit__(self, *args: object) -> None:
             return None
 
+    created = AsyncMock()
     with (
         patch("app.core.db.SessionLocal", return_value=_CM()),
         patch("app.repositories.projects.get_by_id", AsyncMock(return_value=project)),
         patch("app.repositories.project_items.list_for_user", AsyncMock(return_value=[])),
-        patch("app.repositories.users.get_by_id", AsyncMock(return_value=MagicMock(locale="en"))),
-        patch(
-            "app.services.projects.path_seed._suggest_language_path",
-            AsyncMock(return_value=None),
-        ),
+        patch("app.services.projects.items.create_item", created),
         patch("app.services.projects.common._invalidate_home_for_user", AsyncMock()),
     ):
         await seed_language_path(MagicMock(), user_id=user_id, project_id=project_id)
 
-    assert project.learning_path == starter_path_for_level("level1")
+    assert project.learning_path == catalog_path_titles("es")
+    assert created.await_count == catalog_word_count("es")
+    assert created.await_count > 0
+
+
+def test_needs_catalog_sync_when_path_is_old_llm_titles():
+    from app.content.vocab_catalog import catalog_path_titles, decks_for_language
+    from app.services.learning.path_seed import needs_catalog_sync
+
+    project = _project(learning_path=["Greetings and Introductions", "Everyday Objects"])
+    assert needs_catalog_sync(project, [_item("hola", "Greetings and Introductions")]) is True
+
+    project = _project(learning_path=catalog_path_titles("es"))
+
+    items = [
+        _item(word.content, deck.title) for deck in decks_for_language("es") for word in deck.words
+    ]
+    assert needs_catalog_sync(project, items) is False
+
+
+def test_needs_catalog_sync_when_word_sits_on_old_list_title():
+    from app.content.vocab_catalog import catalog_path_titles, decks_for_language
+    from app.services.learning.path_seed import needs_catalog_sync
+
+    first = decks_for_language("es")[0]
+    word = first.words[0]
+    project = _project(learning_path=catalog_path_titles("es"))
+    leftover = [_item(word.content, "Family")]
+    leftover.extend(
+        _item(other.content, deck.title)
+        for deck in decks_for_language("es")
+        for other in deck.words
+        if not (deck.title == first.title and other.content == word.content)
+    )
+    assert needs_catalog_sync(project, leftover) is True
