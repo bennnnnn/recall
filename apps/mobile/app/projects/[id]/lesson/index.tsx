@@ -8,7 +8,6 @@ import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
-import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { chapterKey } from "@/lib/projects/chapterAccess";
@@ -67,7 +66,6 @@ export default function LearningLessonMapScreen() {
     const chapter = domain.chapters.find((entry) => chapterKey(entry.title) === chapterKey(title));
     const locked = domainAccess(domains, domain.title, project.up_next) === "locked";
     if (!chapter || branchAccess(chapter, project.up_next, locked) === "locked") return;
-    invalidateProjectDetail(project.id);
     openLearningLesson(router, {
       projectId: project.id,
       chapter: chapter.title,
