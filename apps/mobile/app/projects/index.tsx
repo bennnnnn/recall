@@ -38,7 +38,7 @@ import {
 import { LEARNING_LANGUAGES } from "@/lib/i18n/languages";
 import { LANGUAGE_LEVELS, levelLabelT } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
-import { openLearningLesson } from "@/lib/lessonLaunch";
+import { queueChatLaunch } from "@/lib/chatLaunch";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import {
   buildLanguageOnboardingPrompt,
@@ -152,12 +152,13 @@ export default function ProjectsScreen() {
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      openLearningLesson(router, {
-        projectId: project.id,
-        prompt: buildLanguageOnboardingPrompt(title, level, dailyGoal, targetLanguage),
-        quizLanguage: targetLanguage,
-        quizVariant: "vocab",
-      });
+      queueChatLaunch(
+        buildLanguageOnboardingPrompt(title, level, dailyGoal, targetLanguage),
+        project.id,
+        targetLanguage,
+        "vocab",
+      );
+      router.push("/");
     } catch {
       feedback?.error(t("projects.create_failed"));
     } finally {
