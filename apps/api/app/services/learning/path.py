@@ -22,76 +22,9 @@ PATH_SEED_WORD_CAP = 10
 CHAPTER_COMPLETE_RATIO = 0.8
 CHAPTER_MIN_WORDS = 5
 
-STARTER_PATH_BY_LEVEL: dict[str, list[str]] = {
-    "level1": [
-        "Greetings",
-        "Numbers",
-        "Family",
-        "Food",
-        "Daily life",
-        "Colors",
-        "Time",
-        "Travel",
-    ],
-    "level2": [
-        "Greetings",
-        "Shopping",
-        "Weather",
-        "Home",
-        "Work",
-        "Hobbies",
-        "Directions",
-        "Health",
-    ],
-    "level3": [
-        "Conversation",
-        "Dining out",
-        "Travel plans",
-        "Opinions",
-        "Past events",
-        "Future plans",
-        "Media",
-        "Workplace",
-    ],
-    "level4": [
-        "Debate",
-        "News",
-        "Culture",
-        "Formal writing",
-        "Idioms",
-        "Relationships",
-        "Career",
-        "Current events",
-    ],
-    "level5": [
-        "Abstract ideas",
-        "Literature",
-        "Science",
-        "Politics",
-        "Nuance",
-        "Humor",
-        "Professional",
-        "Academic",
-    ],
-    "level6": [
-        "Rhetoric",
-        "Literary devices",
-        "Specialized fields",
-        "Satire",
-        "Philosophy",
-        "Diplomacy",
-        "Research",
-        "Style",
-    ],
-}
-
 
 def is_unspecified_list(title: str) -> bool:
     return _list_key(title) in ("", _list_key(DEFAULT_LIST))
-
-
-def starter_path_for_level(level: str | None) -> list[str]:
-    return list(STARTER_PATH_BY_LEVEL.get(level or "level1") or STARTER_PATH_BY_LEVEL["level1"])
 
 
 def normalize_path_titles(titles: Sequence[object]) -> list[str]:

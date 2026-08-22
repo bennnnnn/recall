@@ -5,9 +5,6 @@ import { itemToCard } from "@/lib/projects/chapterLesson";
 
 const LETTERS: QuizChoice["letter"][] = ["A", "B", "C", "D"];
 
-const FALLBACK_WORDS = ["hello", "thanks", "please", "water"];
-const FALLBACK_MEANINGS = ["a greeting", "a polite request", "a drink", "a number"];
-
 export type DrillStep =
   | { kind: "teach"; itemId: string; card: ReturnType<typeof itemToCard> }
   | {
@@ -125,7 +122,7 @@ export function buildChapterDrills(
       quiz: quizFromChoices(
         word,
         labels.useQuestion(meaning),
-        pickTexts(wordPool, word, `${item.id}:use`, FALLBACK_WORDS),
+        pickTexts(wordPool, word, `${item.id}:use`, []),
         word,
       ),
     });
@@ -136,7 +133,7 @@ export function buildChapterDrills(
       quiz: quizFromChoices(
         word,
         labels.meaningQuestion(word),
-        pickTexts(meaningPool, meaning, `${item.id}:meaning`, FALLBACK_MEANINGS),
+        pickTexts(meaningPool, meaning, `${item.id}:meaning`, []),
         meaning,
       ),
     });
