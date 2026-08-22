@@ -84,7 +84,15 @@ function renderTextWithMath(
   _mdMath: MdMathStyles,
   tickColor: string,
 ) {
-  const parts = splitInlineMath(node.content);
+  // Strip standalone ":" lines — the model puts a colon on its own line as a
+  // "leads to the next line" marker. It strands as a lone "two dots" between
+  // a label and the formula on the next line. Drop it for all content, not
+  // just nested-math paragraphs.
+  const content = node.content
+    .split("\n")
+    .filter((line) => line.trim() !== ":")
+    .join("\n");
+  const parts = splitInlineMath(content);
   const runHeight = parts.reduce<number | undefined>((acc, p) => {
     if (p.type !== "math") return acc;
     const h = mathRunLineHeight(p.value);
