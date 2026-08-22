@@ -27,7 +27,6 @@ export default function LearningLessonPlayScreen() {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const {
     project,
-    chapter,
     step,
     feedback,
     error,
@@ -67,19 +66,17 @@ export default function LearningLessonPlayScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[s.body, step?.kind === "teach" ? s.bodyTeach : null]}
+        keyboardShouldPersistTaps="handled"
+      >
         {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
         {complete ? <Text style={s.status}>{t("lesson.chapter_complete")}</Text> : null}
         {step?.kind === "teach" ? (
-          <>
-            {chapter ? <Text style={s.chapter}>{chapter}</Text> : null}
-            <Text style={s.prompt}>{t("lesson.learn_this")}</Text>
-            <VocabCard card={step.card} language={language} />
-          </>
+          <VocabCard card={step.card} language={language} />
         ) : null}
         {quizStep ? (
           <>
-            {chapter ? <Text style={s.chapter}>{chapter}</Text> : null}
             <Text style={s.question}>{quizStep.question}</Text>
             <LessonQuizCards
               choices={quizStep.quiz.choices}
@@ -147,22 +144,15 @@ function makeStyles(theme: Theme) {
       gap: Space.md,
       flexGrow: 1,
     },
+    bodyTeach: {
+      flexGrow: 1,
+      justifyContent: "center",
+    },
     question: {
       fontSize: 22,
       fontWeight: "700",
       color: theme.text,
       lineHeight: 28,
-    },
-    chapter: {
-      ...Type.caption,
-      fontWeight: "700",
-      color: theme.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
-    },
-    prompt: {
-      ...Type.secondary,
-      color: theme.textSecondary,
     },
     status: {
       ...Type.body,

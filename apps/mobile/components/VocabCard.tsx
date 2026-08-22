@@ -2,7 +2,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import type { ParsedVocabCard } from "@/lib/parseVocabCard";
 import { cleanQuizWord } from "@/lib/parseVocabQuiz";
 import { speakWord } from "@/lib/pronunciation";
@@ -28,62 +30,61 @@ export function VocabCard({ card, language = "en" }: Props) {
   };
 
   return (
-    <View style={s.card} accessibilityRole="summary">
-      <View style={s.header}>
-        <Text style={s.word}>{word}</Text>
-        <Pressable
-          onPress={handleSpeak}
-          style={s.speakBtn}
-          accessibilityRole="button"
-          accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
-        >
-          <Icon name="volume-medium-outline" size={20} color={theme.primary} />
-        </Pressable>
+    <View style={s.wrap} accessibilityRole="summary">
+      <Text style={s.word}>{word}</Text>
+      <Pressable
+        onPress={handleSpeak}
+        style={s.speakBtn}
+        accessibilityRole="button"
+        accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
+      >
+        <Icon name="volume-medium-outline" size={28} color={theme.primary} />
+      </Pressable>
+      <View style={s.details}>
+        <Text style={s.definition}>{card.definition}</Text>
+        {card.exampleSentence ? (
+          <Text style={s.example}>{card.exampleSentence}</Text>
+        ) : null}
       </View>
-      <Text style={s.definition}>{card.definition}</Text>
-      {card.exampleSentence ? (
-        <Text style={s.example}>{card.exampleSentence}</Text>
-      ) : null}
     </View>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    card: {
-      marginTop: 10,
-      padding: 14,
-      borderRadius: 14,
-      backgroundColor: t.surfaceAlt,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      gap: 8,
-    },
-    header: {
-      flexDirection: "row",
+    wrap: {
+      flex: 1,
       alignItems: "center",
-      gap: 8,
-      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: Space.sm,
+      paddingVertical: Space.xl,
     },
     word: {
-      fontSize: 20,
+      fontSize: 34,
       fontWeight: "700",
       color: t.text,
+      textAlign: "center",
     },
     speakBtn: {
-      marginLeft: "auto",
-      padding: 4,
+      padding: Space.sm,
+      marginBottom: Space.md,
+    },
+    details: {
+      alignItems: "center",
+      gap: Space.sm,
+      maxWidth: 320,
     },
     definition: {
-      fontSize: 16,
-      lineHeight: 22,
-      color: t.text,
+      ...Type.body,
+      color: t.textSecondary,
+      textAlign: "center",
     },
     example: {
       fontSize: 15,
       lineHeight: 21,
-      color: t.textSecondary,
+      color: t.textTertiary,
       fontStyle: "italic",
+      textAlign: "center",
     },
   });
 }

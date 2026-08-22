@@ -77,7 +77,7 @@ def travel_decks() -> list[CatalogDeck]:
             "travel-tickets",
             "Tickets and places",
             [
-                _w("billete", "prueba de pago para viajar o entrar", "Un billete de tren."),
+                _w("boleto", "prueba de pago para viajar o entrar", "Un boleto de tren."),
                 _w("solo ida", "viaje en una dirección", "Un boleto de solo ida."),
                 _w("ida y vuelta", "ir y volver", "Un boleto de ida y vuelta."),
                 _w("ciudad", "población grande", "Una ciudad ocupada."),

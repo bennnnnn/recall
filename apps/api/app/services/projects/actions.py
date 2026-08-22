@@ -26,6 +26,7 @@ from app.services.projects.common import (
     _normalize,
     _resolve_list_title,
     infer_target_language,
+    locale_language,
     normalize_project_kind,
 )
 from app.services.projects.path import (
@@ -64,6 +65,7 @@ class _ProjectApplyState:
     projects: list[Project]
     items: list[ProjectItem]
     timezone_name: str = "UTC"
+    native_language: str = "en"
     language_path_project_ids: list[UUID] | None = None
 
 
@@ -103,6 +105,7 @@ async def _project_action_create_project(
                 kind=kind,
                 level=action.level or "level1",
                 target_language=target_language if kind == "language" else "en",
+                native_language=state.native_language if kind == "language" else None,
                 commit=False,
             )
     except IntegrityError:
@@ -311,7 +314,9 @@ async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectAct
     if item and _item_status(item) == "mastered":
         from app.services.projects.items import update_item
 
-        await update_item(state.session, item, status="learning", commit=False)
+        # skip_miss=True: unmaster is a manual "review again" request, not a
+        # quiz miss — must not stamp last_incorrect_at / QuizMissEvent / SM-2 penalty.
+        await update_item(state.session, item, status="learning", commit=False, skip_miss=True)
         return 1
     return 0
 
@@ -429,6 +434,9 @@ async def apply_project_actions(
         projects=projects,
         items=items,
         timezone_name=timezone_name,
+        native_language=locale_language(
+            getattr(user, "locale", None) if user is not None else None
+        ),
         language_path_project_ids=[],
     )
 
