@@ -54,8 +54,25 @@ def test_replaces_invalid_geometry_fence() -> None:
     assert "Invalid geometry block" not in out
 
 
-def test_replaces_invalid_graph_fence_with_empty_points() -> None:
-    content = '```graph\n{"type":"function","expr":"x","points":[]}\n```'
+def test_empty_points_graph_fence_is_sampled_from_expr() -> None:
+    """The model often emits ```graph with expr but no points (it copies the
+    schema without the verified sample). Resample from expr instead of
+    stripping to 'Could not render that diagram.'"""
+    content = '```graph\n{"type":"function","expr":"3*x+4","points":[]}\n```'
+    out = validate_math_fences(content)
+    assert "Could not render that diagram" not in out
+    i = out.find("```graph\n")
+    assert i != -1
+    j = out.find("\n```", i)
+    spec = json.loads(out[i + 8 : j])
+    assert spec["type"] == "function"
+    assert len(spec["points"]) >= 2
+    x0, y0 = spec["points"][len(spec["points"]) // 2]
+    assert abs(y0 - (3.0 * x0 + 4.0)) < 1e-4
+
+
+def test_invalid_graph_json_still_strips() -> None:
+    content = "```graph\n{bad json\n```"
     out = validate_math_fences(content)
     assert "Could not render that diagram" in out
     assert "Invalid graph block" not in out
@@ -450,7 +467,7 @@ def test_validate_math_fences_caps_per_kind() -> None:
     assert out_geo.count("Could not render that diagram") == _MAX_GEOMETRY_FENCES
     assert out_geo.count("```geometry") == 1
 
-    bad_graph = '```graph\n{"type":"function","expr":"x","points":[]}\n```'
+    bad_graph = "```graph\n{bad json\n```"
     graphs = "\n".join([bad_graph] * (_MAX_GRAPH_FENCES + 1))
     out_graph = validate_math_fences(graphs)
     assert out_graph.count("Could not render that diagram") == _MAX_GRAPH_FENCES

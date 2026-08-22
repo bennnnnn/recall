@@ -360,6 +360,68 @@ def replace_unclosed_graph_fence_safe(
     return _replace_unclosed_graph_fence(content, canonical_fence, densify=False)
 
 
+def _sample_function_graph_from_json(raw: str) -> GraphBlockSpec | None:
+    """Build a sampled function graph from a fence that has ``expr`` but
+    failed schema (usually empty/missing ``points``).
+
+    The model is prompted to emit ```graph for y=f(x) even when this turn
+    had no verified sample. That JSON typically copies the schema example
+    without a points array — validation then strips it to
+    "Could not render that diagram." Sampling here recovers the plot.
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    gtype = data.get("type", "function")
+    if gtype not in (None, "function"):
+        return None
+    expr = data.get("expr")
+    if not isinstance(expr, str) or not expr.strip():
+        return None
+    expr = _strip_y_equals(expr)
+    if not expr:
+        return None
+    variable = data.get("variable")
+    if not isinstance(variable, str) or not variable.strip():
+        variable = "x"
+    try:
+        x_min = float(data["x_min"]) if data.get("x_min") is not None else -10.0
+        x_max = float(data["x_max"]) if data.get("x_max") is not None else 10.0
+    except (TypeError, ValueError):
+        x_min, x_max = -10.0, 10.0
+    if x_max <= x_min:
+        x_min, x_max = -10.0, 10.0
+    settings = get_settings()
+    sampled = _resample_curve(
+        expr,
+        variable.strip(),
+        x_min,
+        x_max,
+        settings.math_graph_max_points,
+        settings.math_max_expr_length,
+    )
+    if sampled is None:
+        return None
+    points, segments, expr_out, var_out, out_xmin, out_xmax = sampled
+    title = data.get("title")
+    try:
+        return GraphBlockSpec(
+            type="function",
+            expr=expr_out,
+            variable=var_out,
+            x_min=out_xmin,
+            x_max=out_xmax,
+            title=title if isinstance(title, str) else None,
+            points=points,
+            segments=segments,
+        )
+    except ValidationError:
+        return None
+
+
 def _replace_fence(
     match: re.Match[str],
     label: str,
@@ -395,6 +457,10 @@ def _replace_fence(
             return match.group(0)
         return _graph_fence_body(densified)
     except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
+        if label == "graph":
+            recovered = _sample_function_graph_from_json(raw)
+            if recovered is not None:
+                return _graph_fence_body(recovered)
         # Soft prose — never a CopyBlock / code fence. Callouts got routed
         # into copyable cards for short meta lines; keep math failures quiet.
         return "\n*Could not render that diagram.*\n"
