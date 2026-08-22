@@ -272,7 +272,6 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false) => {
   const color = textColor ?? theme.text;
   return StyleSheet.create({
     base: {
-      fontFamily: CODE_FONT,
       fontSize: 16,
       lineHeight: compact ? SQRT_LINE_HEIGHT : 28,
       color,
