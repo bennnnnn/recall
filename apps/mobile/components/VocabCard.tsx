@@ -40,9 +40,13 @@ export function VocabCard({ card, language = "en" }: Props) {
           <Icon name="volume-medium-outline" size={20} color={theme.primary} />
         </Pressable>
       </View>
+      <View style={s.divider} />
       <Text style={s.definition}>{card.definition}</Text>
       {card.exampleSentence ? (
-        <Text style={s.example}>{card.exampleSentence}</Text>
+        <>
+          <View style={s.divider} />
+          <Text style={s.example}>{card.exampleSentence}</Text>
+        </>
       ) : null}
     </View>
   );
@@ -52,12 +56,12 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     card: {
       marginTop: 10,
-      padding: 14,
+      padding: 18,
       borderRadius: 14,
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      gap: 8,
+      gap: 14,
     },
     header: {
       flexDirection: "row",
@@ -66,13 +70,17 @@ function makeStyles(t: Theme) {
       flexWrap: "wrap",
     },
     word: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: "700",
       color: t.text,
     },
     speakBtn: {
       marginLeft: "auto",
       padding: 4,
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: t.border,
     },
     definition: {
       fontSize: 16,
