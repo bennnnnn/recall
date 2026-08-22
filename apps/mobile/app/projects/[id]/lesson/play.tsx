@@ -66,7 +66,10 @@ export default function LearningLessonPlayScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[s.body, step?.kind === "teach" ? s.bodyTeach : null]}
+        keyboardShouldPersistTaps="handled"
+      >
         {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
         {complete ? <Text style={s.status}>{t("lesson.chapter_complete")}</Text> : null}
         {step?.kind === "teach" ? (
@@ -140,6 +143,10 @@ function makeStyles(theme: Theme) {
       paddingBottom: Space.xl,
       gap: Space.md,
       flexGrow: 1,
+    },
+    bodyTeach: {
+      flexGrow: 1,
+      justifyContent: "center",
     },
     question: {
       fontSize: 22,
