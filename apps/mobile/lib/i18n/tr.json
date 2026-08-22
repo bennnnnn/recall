@@ -329,6 +329,8 @@
   "lesson.chapter_empty": "Bu bölümde henüz sözcük yok.",
   "lesson.close": "Kapat",
   "lesson.continue": "Devam",
+  "lesson.definition_label": "Tanım",
+  "lesson.example_label": "Örnek",
   "lesson.lessons": "Dersler",
   "lesson.loading": "Ders hazırlanıyor…",
   "lesson.open": "Dersi aç",
