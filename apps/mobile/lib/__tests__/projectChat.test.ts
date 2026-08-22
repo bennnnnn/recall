@@ -1,4 +1,5 @@
 import {
+  buildChapterLessonPrompt,
   buildProjectChatTutorPrompt,
   buildProjectPracticePrompt,
 } from "@/lib/projects/projectChat";
@@ -50,6 +51,23 @@ describe("buildProjectPracticePrompt", () => {
     const prompt = buildProjectPracticePrompt(triviaProject());
     expect(prompt).toContain("check my answer");
     expect(prompt).toContain("what to try next");
+  });
+});
+
+describe("buildChapterLessonPrompt", () => {
+  it("scopes the lesson to the named chapter", () => {
+    const prompt = buildChapterLessonPrompt(
+      {
+        ...triviaProject(),
+        kind: "language",
+        title: "Spanish",
+        target_language: "es",
+      } as ProjectDetail,
+      "Greetings",
+    );
+    expect(prompt).toContain('"Greetings" chapter');
+    expect(prompt).toContain('Add any new words to "Greetings"');
+    expect(prompt).toContain("one word at a time");
   });
 });
 

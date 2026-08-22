@@ -1,51 +1,27 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
-import { ProjectItemRow } from "@/components/ProjectItemRow";
-import type { PathChapterProgress, ProjectItem, ProjectListGroup, VocabStatus } from "@/lib/api";
+import type { PathChapterProgress } from "@/lib/api";
+import { chapterAccess } from "@/lib/projects/chapterAccess";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   pathProgress: PathChapterProgress[];
   upNext?: string | null;
-  lists: ProjectListGroup[];
-  speechLanguage: string;
-  busyId: string | null;
-  onStatusChange: (itemId: string, status: VocabStatus) => void | Promise<void>;
+  onOpenSection: (title: string) => void;
 };
 
-function listKey(title: string): string {
-  return title.trim().toLowerCase();
-}
-
-export function LearningPathList({
-  pathProgress,
-  upNext,
-  lists,
-  speechLanguage,
-  busyId,
-  onStatusChange,
-}: Props) {
+export function LearningPathList({ pathProgress, upNext, onOpenSection }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [openTitle, setOpenTitle] = useState<string | null>(upNext ?? null);
-
-  const itemsByChapter = useMemo(() => {
-    const map = new Map<string, ProjectItem[]>();
-    for (const group of lists) {
-      map.set(listKey(group.list_title), group.items);
-    }
-    return map;
-  }, [lists]);
 
   if (pathProgress.length === 0) {
     return (
       <View style={s.card}>
         <Text style={s.heading}>{t("projects.chapters_title")}</Text>
-        <Text style={s.hint}>{t("projects.chapters_hint")}</Text>
       </View>
     );
   }
@@ -62,52 +38,61 @@ export function LearningPathList({
         <Text style={s.upNext}>{t("projects.chapters_up_next", { chapter: upNext })}</Text>
       ) : null}
       <Text style={s.hint}>{t("projects.chapters_expand_hint")}</Text>
-      {pathProgress.map((chapter) => {
-        const open = listKey(openTitle ?? "") === listKey(chapter.title);
-        const words = itemsByChapter.get(listKey(chapter.title)) ?? [];
-        return (
-          <View key={chapter.title} style={s.chapter}>
-            <Pressable
-              style={s.chapterRow}
-              onPress={() => setOpenTitle(open ? null : chapter.title)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: open }}
+      <View style={s.path}>
+        {pathProgress.map((chapter, index) => {
+          const access = chapterAccess(chapter, upNext);
+          const initial = chapter.title.trim().charAt(0).toUpperCase() || "•";
+          return (
+            <View
+              key={chapter.title}
+              style={[s.nodeWrap, index % 2 === 1 ? s.nodeOffset : null]}
             >
-              <Icon
-                name={chapter.complete ? "checkmark-circle" : "ellipse-outline"}
-                size={20}
-                color={chapter.complete ? theme.primary : theme.textTertiary}
-              />
-              <View style={s.chapterMain}>
-                <Text style={s.chapterTitle}>{chapter.title}</Text>
-                <Text style={s.chapterMeta}>
-                  {t("projects.journey_topic_progress", {
-                    mastered: chapter.mastered,
-                    total: chapter.total,
-                  })}
-                </Text>
-              </View>
-              <Icon
-                name={open ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={theme.textTertiary}
-              />
-            </Pressable>
-            {open
-              ? words.map((item) => (
-                  <ProjectItemRow
-                    key={item.id}
-                    item={item}
-                    showSpeech
-                    speechLanguage={speechLanguage}
-                    busy={busyId === item.id}
-                    onStatusChange={onStatusChange}
-                  />
-                ))
-              : null}
-          </View>
-        );
-      })}
+              {index > 0 ? <View style={s.connector} /> : null}
+              <Pressable
+                style={s.node}
+                onPress={() => onOpenSection(chapter.title)}
+                accessibilityRole="button"
+                accessibilityLabel={chapter.title}
+              >
+                <View
+                  style={[
+                    s.circle,
+                    access === "done" ? s.circleDone : null,
+                    access === "current" ? s.circleCurrent : null,
+                    access === "locked" ? s.circleLocked : null,
+                  ]}
+                >
+                  {access === "done" ? (
+                    <Icon name="checkmark" size={26} color={theme.onPrimary} />
+                  ) : access === "locked" ? (
+                    <Icon name="lock-closed-outline" size={20} color={theme.textTertiary} />
+                  ) : (
+                    <Text style={s.initial}>{initial}</Text>
+                  )}
+                </View>
+                <View
+                  style={[
+                    s.label,
+                    access === "current" ? s.labelCurrent : null,
+                    access === "done" ? s.labelDone : null,
+                    access === "locked" ? s.labelLocked : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      s.labelText,
+                      access === "locked" ? s.labelTextLocked : null,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {chapter.title}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -130,15 +115,57 @@ function makeStyles(theme: Theme) {
     meta: { fontSize: 14, fontWeight: "600", color: theme.textSecondary },
     upNext: { fontSize: 14, fontWeight: "700", color: theme.primary },
     hint: { fontSize: 13, lineHeight: 18, color: theme.textSecondary },
-    chapter: { gap: 8 },
-    chapterRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingVertical: 6,
+    path: { alignItems: "center", paddingVertical: 8, gap: 0 },
+    nodeWrap: { alignItems: "center", width: "100%" },
+    nodeOffset: { transform: [{ translateX: 56 }] },
+    connector: {
+      width: 3,
+      height: 22,
+      borderRadius: 2,
+      backgroundColor: theme.border,
+      marginBottom: 4,
     },
-    chapterMain: { flex: 1, gap: 2 },
-    chapterTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
-    chapterMeta: { fontSize: 12, fontWeight: "600", color: theme.textTertiary },
+    node: { alignItems: "center", gap: 8 },
+    circle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 3,
+    },
+    circleCurrent: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    circleDone: {
+      backgroundColor: theme.success,
+      borderColor: theme.success,
+    },
+    circleLocked: {
+      backgroundColor: theme.surfaceAlt,
+      borderColor: theme.border,
+    },
+    initial: {
+      fontSize: 26,
+      fontWeight: "800",
+      color: theme.onPrimary,
+    },
+    label: {
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      maxWidth: 140,
+    },
+    labelCurrent: { backgroundColor: theme.primaryLight },
+    labelDone: { backgroundColor: theme.successLight },
+    labelLocked: { backgroundColor: theme.surfaceAlt },
+    labelText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.text,
+      textAlign: "center",
+    },
+    labelTextLocked: { color: theme.textTertiary },
   });
 }

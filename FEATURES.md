@@ -453,8 +453,9 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
   seeds the first lesson; LLM failure falls back to a level template. Progress is
   derived (mastered/total; chapter complete at ≥80% and a small word floor). Extract
   adds words to the current chapter and can append a user-named topic. Detail shows
-  Chapters + Up next. No generic `learning` kind, lesson notes, certificates, or
-  marketplace.
+  a chapter path; tap a chapter for its landing page, then Start opens the lesson
+  window for that section. Locked chapters stay visible until the current one is
+  complete. No generic `learning` kind, lesson notes, certificates, or marketplace.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt

@@ -270,6 +270,22 @@ export function buildProjectAskPrompt(
   );
 }
 
+/** Lesson window opener scoped to one learning-path chapter. */
+export function buildChapterLessonPrompt(
+  project: ProjectDetail,
+  chapterTitle: string,
+): string {
+  const chapter = chapterTitle.trim();
+  const name = languageLabel(project.target_language);
+  const lvl = levelLabel(project.level);
+  return (
+    `Continue my ${name} lesson in the "${chapter}" chapter.\n` +
+    `Level: ${lvl}. ${todayProgressClause(project)}\n` +
+    `Teach and quiz only this chapter. Add any new words to "${chapter}". ` +
+    `Use teach→use, use→define, or occasional MCQ — one word at a time.`
+  );
+}
+
 /** Explicit opt-in when the user wants questions beyond today's daily goal. */
 export function buildProjectBonusQuestionsPrompt(project: ProjectDetail): string {
   const daily = resolveProjectDailyGoal(project);

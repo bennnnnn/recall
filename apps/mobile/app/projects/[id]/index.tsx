@@ -25,6 +25,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type VocabStatus } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
+import { sectionPath } from "@/lib/projects/chapterAccess";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import {
   exportProjectAsPdf,
@@ -371,10 +372,7 @@ export default function ProjectDetailScreen() {
         <LearningPathList
           pathProgress={pathProgress}
           upNext={project.up_next}
-          lists={project.lists}
-          speechLanguage={speechLocale(project.target_language)}
-          busyId={conceptBusyId}
-          onStatusChange={handleItemStatusChange}
+          onOpenSection={(title) => router.push(sectionPath(project.id, title))}
         />
       ) : null}
 
