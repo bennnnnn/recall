@@ -132,16 +132,19 @@ def catalog_path_titles(language: str, *, include_sat: bool = False, level: int 
     ]
 
 
-def catalog_domain_by_title(language: str, *, level: int = 6) -> dict[str, str]:
+def catalog_domain_by_title(
+    language: str, *, include_sat: bool = False, level: int = 6
+) -> dict[str, str]:
     return {
-        deck.title.casefold(): deck.domain for deck in decks_for_language(language, level=level)
+        deck.title.casefold(): deck.domain
+        for deck in decks_for_language(language, include_sat=include_sat, level=level)
     }
 
 
-def catalog_domains(language: str, *, level: int = 6) -> list[str]:
+def catalog_domains(language: str, *, include_sat: bool = False, level: int = 6) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
-    for deck in decks_for_language(language, level=level):
+    for deck in decks_for_language(language, include_sat=include_sat, level=level):
         key = deck.domain.casefold()
         if key in seen:
             continue

@@ -72,8 +72,9 @@ def build_path_progress(
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     from app.content.vocab_catalog import catalog_domain_by_title, level_to_int
 
+    project_level = level_to_int(getattr(project, "level", None))
     domain_by_title = catalog_domain_by_title(
-        lang, level=level_to_int(getattr(project, "level", None))
+        lang, level=project_level, include_sat=project_level >= 6
     )
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
