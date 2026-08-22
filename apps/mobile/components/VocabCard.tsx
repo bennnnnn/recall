@@ -30,73 +30,61 @@ export function VocabCard({ card, language = "en" }: Props) {
   };
 
   return (
-    <View style={s.card} accessibilityRole="summary">
-      <View style={s.header}>
-        <Text style={s.word}>{word}</Text>
-        <Pressable
-          onPress={handleSpeak}
-          style={s.speakBtn}
-          accessibilityRole="button"
-          accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
-        >
-          <Icon name="volume-medium-outline" size={20} color={theme.primary} />
-        </Pressable>
-      </View>
-      <View style={s.section}>
-        <Text style={s.label}>{t("lesson.definition_label")}</Text>
+    <View style={s.wrap} accessibilityRole="summary">
+      <Text style={s.word}>{word}</Text>
+      <Pressable
+        onPress={handleSpeak}
+        style={s.speakBtn}
+        accessibilityRole="button"
+        accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
+      >
+        <Icon name="volume-medium-outline" size={28} color={theme.primary} />
+      </Pressable>
+      <View style={s.details}>
         <Text style={s.definition}>{card.definition}</Text>
-      </View>
-      {card.exampleSentence ? (
-        <View style={s.section}>
-          <Text style={s.label}>{t("lesson.example_label")}</Text>
+        {card.exampleSentence ? (
           <Text style={s.example}>{card.exampleSentence}</Text>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </View>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    card: {
-      marginTop: Space.sm,
-      backgroundColor: t.bg,
-      gap: Space.lg,
-    },
-    header: {
-      flexDirection: "row",
+    wrap: {
+      flex: 1,
       alignItems: "center",
+      justifyContent: "center",
       gap: Space.sm,
-      flexWrap: "wrap",
+      paddingVertical: Space.xl,
     },
     word: {
-      fontSize: 26,
+      fontSize: 34,
       fontWeight: "700",
       color: t.text,
+      textAlign: "center",
     },
     speakBtn: {
-      marginLeft: "auto",
-      padding: 4,
+      padding: Space.sm,
+      marginBottom: Space.md,
     },
-    section: {
-      gap: Space.xs,
-    },
-    label: {
-      ...Type.caption,
-      fontWeight: "600",
-      color: t.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
+    details: {
+      alignItems: "center",
+      gap: Space.sm,
+      maxWidth: 320,
     },
     definition: {
       ...Type.body,
-      color: t.text,
+      color: t.textSecondary,
+      textAlign: "center",
     },
     example: {
       fontSize: 15,
       lineHeight: 21,
-      color: t.textSecondary,
+      color: t.textTertiary,
       fontStyle: "italic",
+      textAlign: "center",
     },
   });
 }
