@@ -95,15 +95,16 @@ export function makeMdStyles(t: Theme) {
       paddingHorizontal: 4,
       fontFamily: CODE_FONT,
       fontSize: 14,
+      lineHeight: 20,
     },
     // Custom fence renderer handles code blocks / HTML preview inline.
     fence: { marginVertical: 0, padding: 0 },
     paragraph: { marginVertical: 0 },
     // Text-only paragraph run. Do not reuse `paragraph` — markdown-display
     // mergeStyle copies flexDirection/flexWrap/width onto that key.
-    paragraphRun: { marginTop: 2, marginBottom: 8 },
-    bullet_list: { marginVertical: 4 },
-    ordered_list: { marginVertical: 4 },
+    paragraphRun: { marginTop: 0, marginBottom: 10 },
+    bullet_list: { marginVertical: 8 },
+    ordered_list: { marginVertical: 8 },
     heading1: { ...Type.h1, marginTop: 18, marginBottom: 8, color: t.text },
     heading2: { ...Type.h2, marginTop: 16, marginBottom: 6, color: t.text },
     heading3: { ...Type.h3, marginTop: 12, marginBottom: 4, color: t.text },
