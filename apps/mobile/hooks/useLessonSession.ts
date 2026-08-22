@@ -93,6 +93,7 @@ export function useLessonSession(projectId: string) {
       try {
         await api.updateProjectItem(token, projectId, itemId, {
           status: failed ? "learning" : "mastered",
+          ...(failed ? { was_correct: false } : {}),
         });
         refreshLearning();
       } catch {
@@ -119,9 +120,6 @@ export function useLessonSession(projectId: string) {
         return;
       }
       const correct = step.quiz.correct === letter;
-      if (!correct) {
-        setMissed((prev) => new Set(prev).add(step.itemId));
-      }
       const picked = step.quiz.choices.find((choice) => choice.letter === letter);
       setFeedback({
         correct,
@@ -132,6 +130,11 @@ export function useLessonSession(projectId: string) {
     },
     [feedback, step],
   );
+
+  const recordWrongAttempt = useCallback(() => {
+    if (!step) return;
+    setMissed((prev) => new Set(prev).add(step.itemId));
+  }, [step]);
 
   return {
     project,
@@ -149,5 +152,6 @@ export function useLessonSession(projectId: string) {
     submitLetter,
     continueLesson,
     continueTeach: continueLesson,
+    recordWrongAttempt,
   };
 }
