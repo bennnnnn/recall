@@ -22,9 +22,6 @@ from app.services.learning.path import (
     PATH_SEED_WORD_CAP as PATH_SEED_WORD_CAP,
 )
 from app.services.learning.path import (
-    STARTER_PATH_BY_LEVEL as STARTER_PATH_BY_LEVEL,
-)
-from app.services.learning.path import (
     UUID as UUID,
 )
 from app.services.learning.path import (
@@ -77,9 +74,6 @@ from app.services.learning.path import (
 )
 from app.services.learning.path import (
     sort_list_titles as sort_list_titles,
-)
-from app.services.learning.path import (
-    starter_path_for_level as starter_path_for_level,
 )
 from app.services.learning.path import (
     up_next_chapter as up_next_chapter,

@@ -60,7 +60,10 @@ export function useLessonSession(projectId: string) {
     if (!title) return;
     setChapter(title);
     const items = chapterQueue(chapterItems(project, title));
-    const pool = items;
+    // Distractor pool = ALL chapter items (mastered + pending), not just the
+    // pending subset. Using only pending items shrinks the pool near chapter
+    // completion, triggering wrong-language English fallback words.
+    const pool = chapterItems(project, title);
     if (!seededRef.current || (drills.length === 0 && items.length > 0)) {
       setDrills(buildChapterDrills(items, pool, labels));
       setIndex(0);

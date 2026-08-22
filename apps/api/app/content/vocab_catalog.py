@@ -76,12 +76,16 @@ def all_catalog_decks() -> tuple[CatalogDeck, ...]:
     return tuple([*spanish_decks(), *english_decks()])
 
 
-def decks_for_language(language: str) -> list[CatalogDeck]:
+def decks_for_language(language: str, *, include_sat: bool = False) -> list[CatalogDeck]:
     lang = (language or "en").strip().lower()
     found = [deck for deck in all_catalog_decks() if deck.language == lang]
+    if not include_sat:
+        found = [deck for deck in found if deck.kind != "sat"]
     if found:
         return sorted(found, key=lambda deck: deck.sort_order)
     english = [deck for deck in all_catalog_decks() if deck.language == "en"]
+    if not include_sat:
+        english = [deck for deck in english if deck.kind != "sat"]
     return sorted(english, key=lambda deck: deck.sort_order)
 
 

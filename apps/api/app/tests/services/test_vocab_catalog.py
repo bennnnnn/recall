@@ -33,16 +33,19 @@ def test_spanish_catalog_is_a_domain_tree():
 
 
 def test_english_catalog_includes_sat_domain():
+    # SAT is excluded from the default path; opt in explicitly via decks_for_language.
     titles = catalog_path_titles("en")
     assert "Hotel services" in titles
-    assert catalog_domains("en")[-1] == "SAT"
-    assert "SAT" in titles
-    assert "SAT words" in titles
-    sat = next(deck for deck in decks_for_language("en") if deck.kind == "sat")
+    assert "SAT" not in titles
+    sat_decks = decks_for_language("en", include_sat=True)
+    assert any(deck.kind == "sat" for deck in sat_decks)
+    sat = next(deck for deck in sat_decks if deck.kind == "sat")
     assert sat.domain == "SAT"
     assert sat.words
     entry = sat.words[0]
     assert word_id(sat, entry) != sat.id
+    # Default excludes SAT from domains.
+    assert "SAT" not in catalog_domains("en")
 
 
 def test_catalog_leaf_titles_are_unique_per_language():

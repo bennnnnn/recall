@@ -54,9 +54,16 @@ async def update_item(
     item: ProjectItem,
     *,
     commit: bool = True,
+    skip_miss: bool = False,
     **fields: Any,
 ) -> ProjectItem:
-    """Apply field updates; schedule SM-2 when status changes."""
+    """Apply field updates; schedule SM-2 when status changes.
+
+    ``skip_miss`` suppresses the QuizMissEvent / last_incorrect_at side effects
+    for transitions into "learning" that are NOT quiz misses — e.g. unmaster
+    (user wants to review a word again, not a wrong answer). SM-2 still runs
+    with a neutral quality so the word re-enters the review queue.
+    """
     now = datetime.now(UTC)
     prior_status = item.status or ("mastered" if item.mastered else "new")
     if "status" in fields:
@@ -66,14 +73,18 @@ async def update_item(
             # UI "Needs review" / Failed maps to status=learning. That must count as a
             # miss for today's Failed metric and day history — quiz grading already
             # stamps last_incorrect_at + QuizMissEvent, but manual status updates did not.
+            # skip_miss=True suppresses this for non-quiz transitions (e.g. unmaster).
             if new_status == "learning":
                 if not isinstance(was_correct, bool):
                     was_correct = False
-                fields["last_incorrect_at"] = now
-                session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
+                if not skip_miss:
+                    fields["last_incorrect_at"] = now
+                    session.add(
+                        QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now)
+                    )
             quality = quality_for_status(
                 new_status,
-                was_correct=was_correct if isinstance(was_correct, bool) else None,
+                was_correct=None if skip_miss else was_correct,
             )
             state = apply_sm2(
                 quality=quality,
