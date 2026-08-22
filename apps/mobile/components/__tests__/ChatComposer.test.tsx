@@ -271,7 +271,7 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
     expect(getByTestId("math-slot-den-placeholder")).toBeTruthy();
     await fireEvent.press(getByTestId("math-key-digit-1"));
-    await fireEvent.press(getByTestId("math-key-next-slot"));
+    await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-2"));
     expect(getByTestId("math-slot-num")).toBeTruthy();
     expect(getByTestId("math-slot-den")).toBeTruthy();
@@ -290,10 +290,10 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-key-next-slot"));
+    await fireEvent.press(getByTestId("math-slot-den"));
     expect(getByTestId("math-slot-den-caret")).toBeTruthy();
     expect(queryByTestId("math-slot-num-caret")).toBeNull();
-    await fireEvent.press(getByTestId("math-key-prev-slot"));
+    await fireEvent.press(getByTestId("math-slot-num"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
   });
 
@@ -428,7 +428,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
-    await fireEvent.press(getByTestId("math-key-next-slot"));
+    await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     await fireEvent.press(getByTestId("math-key-backspace"));
     expect(latest).toBe("$\\frac{8}{}$");
@@ -451,7 +451,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
-    await fireEvent.press(getByTestId("math-key-next-slot"));
+    await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     await fireEvent.press(getByTestId("math-slot-before"));
     expect(getByTestId("math-slot-before-caret")).toBeTruthy();

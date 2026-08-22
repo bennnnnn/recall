@@ -34,9 +34,9 @@ MATH_INTENT_HINT = (
     "step. Wrong: '1. Subtract 3 from both sides' then `$F = 3 - 3$`. "
     "Right: `$F + 3 - 3 = 3 - 3$`, then `$F = 0$`. Never skip the both-sides line.\n"
     "  - Never use a ```steps fence for math homework (that card is not the solver UI).\n"
-    '  - Write each step number as its own plain-text line (e.g. "2. Simplify the left '
-    'side:") then the formula in `$...$` on that line or the next — not inside a '
-    "```math fence.\n"
+    '  - Write each step number and title as its own plain-text line (e.g. "2. Simplify the left '
+    'side") then the formula in `$...$` on the NEXT line — not on the same line as the '
+    "title, and not inside a ```math fence. Do NOT put a colon on its own line.\n"
     '  - Add a short verification block titled "You can check:" (or '
     '"Verification:") that substitutes each intermediate step or the final '
     "result back into the original expression. Give each check its own "
