@@ -40,13 +40,9 @@ export function VocabCard({ card, language = "en" }: Props) {
           <Icon name="volume-medium-outline" size={20} color={theme.primary} />
         </Pressable>
       </View>
-      <View style={s.divider} />
       <Text style={s.definition}>{card.definition}</Text>
       {card.exampleSentence ? (
-        <>
-          <View style={s.divider} />
-          <Text style={s.example}>{card.exampleSentence}</Text>
-        </>
+        <Text style={s.example}>{card.exampleSentence}</Text>
       ) : null}
     </View>
   );
@@ -56,12 +52,12 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     card: {
       marginTop: 10,
-      padding: 18,
-      borderRadius: 14,
+      padding: 20,
+      borderRadius: 16,
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      gap: 14,
+      gap: 20,
     },
     header: {
       flexDirection: "row",
@@ -70,7 +66,7 @@ function makeStyles(t: Theme) {
       flexWrap: "wrap",
     },
     word: {
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: "700",
       color: t.text,
     },
@@ -78,19 +74,15 @@ function makeStyles(t: Theme) {
       marginLeft: "auto",
       padding: 4,
     },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: t.border,
-    },
     definition: {
       fontSize: 16,
       lineHeight: 22,
-      color: t.text,
+      color: t.textSecondary,
     },
     example: {
       fontSize: 15,
       lineHeight: 21,
-      color: t.textSecondary,
+      color: t.textTertiary,
       fontStyle: "italic",
     },
   });
