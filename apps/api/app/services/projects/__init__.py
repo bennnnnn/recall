@@ -53,7 +53,6 @@ from app.services.projects.prompts import (
     VOCAB_LEARNING_FORMATS_BLOCK,
     VOCAB_QUIZ_FENCE_EXAMPLE,
     VOCAB_QUIZ_FORMAT_BLOCK,
-    VOCAB_QUIZ_MARKDOWN_EXAMPLE,
     build_language_quiz_prompt,
     language_tutor_hint,
 )
@@ -97,7 +96,6 @@ __all__ = [
     "VOCAB_LEARNING_FORMATS_BLOCK",
     "VOCAB_QUIZ_FENCE_EXAMPLE",
     "VOCAB_QUIZ_FORMAT_BLOCK",
-    "VOCAB_QUIZ_MARKDOWN_EXAMPLE",
     "apply_deterministic_quiz_answer",
     "apply_project_actions",
     "apply_quiz_result",
