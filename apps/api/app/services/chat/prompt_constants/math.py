@@ -36,7 +36,7 @@ MATH_INTENT_HINT = (
     "  - Never use a ```steps fence for math homework (that card is not the solver UI).\n"
     '  - Write each step number and title as its own plain-text line (e.g. "2. Simplify the left '
     'side") then the formula in `$...$` on the NEXT line — not on the same line as the '
-    'title, and not inside a ```math fence. Do NOT put a colon on its own line.\n'
+    "title, and not inside a ```math fence. Do NOT put a colon on its own line.\n"
     '  - Add a short verification block titled "You can check:" (or '
     '"Verification:") that substitutes each intermediate step or the final '
     "result back into the original expression. Give each check its own "
