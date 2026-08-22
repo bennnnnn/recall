@@ -19,6 +19,22 @@ _MOCK_MP3_BYTES = b"\xff\xfb\x90\x00" + b"\x00" * 64
 _STT_ALIAS = "speech-stt-model"
 TTS_QUALITY_ALIAS = "speech-tts-model"
 TTS_FAST_ALIAS = "speech-tts-fast-model"
+
+# Whisper hallucinates these from silence/ambient noise. Lowercased, trimmed.
+# Safety net behind the mobile silence gate — catches phantoms that slip through
+# when background noise has energy but no real speech.
+_HALLUCINATION_PATTERNS = frozenset(
+    {
+        "you",
+        "thank you",
+        "thanks for watching",
+        "please subscribe",
+        "bye",
+        "ok",
+    }
+)
+# AAC ~128 kbps ≈ 16 KB/s; below this byte count the clip is likely < 3 seconds.
+_SHORT_AUDIO_BYTES = 48_000
 # OpenAI GPT TTS is not listed on OpenRouter anymore (400 "does not exist").
 _RETIRED_TTS_SLUGS = frozenset(
     {
@@ -127,12 +143,34 @@ async def transcribe_audio(
         return None
 
     model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
-    return await speech_gateway.transcribe_via_openrouter(
+    text = await speech_gateway.transcribe_via_openrouter(
         settings,
         audio_bytes,
         filename=filename,
         model=model,
     )
+    return _filter_hallucination(text, audio_bytes)
+
+
+def _filter_hallucination(text: str | None, audio_bytes: bytes) -> str | None:
+    """Drop known Whisper phantom words from short/silent clips.
+
+    Whisper commonly hallucinates "you", "thank you", etc. from silence. If the
+    transcription matches a known phantom pattern and the audio is short (or the
+    result is a single word), return None so the client shows "empty" instead of
+    inserting a phantom word into the composer.
+    """
+    if not text:
+        return text
+    normalized = " ".join(text.split()).strip().lower()
+    if not normalized or normalized not in _HALLUCINATION_PATTERNS:
+        return text
+    is_single_word = " " not in normalized
+    is_short_audio = len(audio_bytes) < _SHORT_AUDIO_BYTES
+    if is_single_word or is_short_audio:
+        logger.info("Filtered Whisper hallucination: %r (audio bytes=%s)", text, len(audio_bytes))
+        return None
+    return text
 
 
 async def synthesize_speech(
