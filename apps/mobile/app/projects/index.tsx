@@ -39,7 +39,7 @@ import {
 import { LANGUAGES } from "@/lib/i18n/languages";
 import { isLanguageProject, LANGUAGE_LEVELS, levelLabelT } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
-import { queueChatLaunch } from "@/lib/chatLaunch";
+import { openLearningLesson } from "@/lib/lessonLaunch";
 import {
   buildLanguageOnboardingPrompt,
   buildProjectAskPromptFromProject,
@@ -149,32 +149,26 @@ export default function ProjectsScreen() {
   const startStudyForProject = (project: Project) => {
     const isTrivia = isTriviaProject(project.kind);
     const isLang = isLanguageProject(project.kind);
-    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     invalidateProjectDetail(project.id);
-    queueChatLaunch(
-      buildProjectAskPromptFromProject(project, t),
-      project.id,
-      isLang ? project.target_language : undefined,
-      variant,
-      "chat",
-    );
-    router.replace("/");
+    openLearningLesson(router, {
+      projectId: project.id,
+      prompt: buildProjectAskPromptFromProject(project, t),
+      quizLanguage: isLang ? project.target_language : undefined,
+      quizVariant: isTrivia ? "trivia" : isLang ? "vocab" : undefined,
+    });
   };
 
   const startReviewForProject = (project: Project) => {
     const detail = projectDetailForChat(project);
     const isTrivia = isTriviaProject(project.kind);
     const isLang = isLanguageProject(project.kind);
-    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     invalidateProjectDetail(project.id);
-    queueChatLaunch(
-      buildProjectReviewPrompt(detail),
-      project.id,
-      isLang ? project.target_language : undefined,
-      variant,
-      "chat",
-    );
-    router.replace("/");
+    openLearningLesson(router, {
+      projectId: project.id,
+      prompt: buildProjectReviewPrompt(detail),
+      quizLanguage: isLang ? project.target_language : undefined,
+      quizVariant: isTrivia ? "trivia" : isLang ? "vocab" : undefined,
+    });
   };
 
   const selectSubject = (next: ProjectKind) => {
@@ -224,14 +218,12 @@ export default function ProjectsScreen() {
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(
-        buildLanguageOnboardingPrompt(title, level, dailyGoal, targetLanguage),
-        project.id,
-        targetLanguage,
-        "vocab",
-        "chat",
-      );
-      router.replace("/");
+      openLearningLesson(router, {
+        projectId: project.id,
+        prompt: buildLanguageOnboardingPrompt(title, level, dailyGoal, targetLanguage),
+        quizLanguage: targetLanguage,
+        quizVariant: "vocab",
+      });
     } catch {
       feedback?.error(t("projects.create_failed"));
     } finally {
@@ -266,14 +258,11 @@ export default function ProjectsScreen() {
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(
-        buildTriviaOnboardingPrompt(topicLabels, dailyGoal, triviaLevel),
-        project.id,
-        undefined,
-        "trivia",
-        "chat",
-      );
-      router.replace("/");
+      openLearningLesson(router, {
+        projectId: project.id,
+        prompt: buildTriviaOnboardingPrompt(topicLabels, dailyGoal, triviaLevel),
+        quizVariant: "trivia",
+      });
     } catch {
       feedback?.error(t("projects.create_failed"));
     } finally {

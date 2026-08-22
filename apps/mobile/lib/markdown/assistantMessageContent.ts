@@ -20,6 +20,12 @@ import {
   stripVocabCardBlock,
   type ParsedVocabCard,
 } from "@/lib/parseVocabCard";
+import {
+  hasLearningLaunchFence,
+  parseLearningLaunch,
+  stripLearningLaunchBlock,
+  type ParsedLearningLaunch,
+} from "@/lib/parseLearningLaunch";
 
 /** True when the assistant is asking the user to produce a sentence (teach→use). */
 function asksUserToWriteSentence(content: string): boolean {
@@ -74,6 +80,7 @@ export type AssistantMessageContent = {
   markdownStreamMode: boolean;
   markdownResetKey: string;
   interactiveQuiz: ParsedVocabQuiz | null;
+  learningLaunch: ParsedLearningLaunch | null;
 };
 
 function buildMarkdownContent(options: {
@@ -116,6 +123,7 @@ function buildMarkdownContent(options: {
   }
 
   if (showLiveClock) text = stripTimeAnswerFences(text);
+  text = stripLearningLaunchBlock(text);
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
   if (showCalendarProposals) text = stripCalendarProposalFences(text);
@@ -223,6 +231,10 @@ export function deriveAssistantMessageContent(
     !isUser && !layoutFrozen && quizForStrip && isRenderableVocabQuiz(quizForStrip)
       ? quizForStrip
       : null;
+  const learningLaunch =
+    !isUser && !layoutFrozen && hasLearningLaunchFence(content)
+      ? parseLearningLaunch(content)
+      : null;
 
   return {
     hasContent,
@@ -249,5 +261,6 @@ export function deriveAssistantMessageContent(
     markdownStreamMode: layoutFrozen,
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
     interactiveQuiz,
+    learningLaunch,
   };
 }

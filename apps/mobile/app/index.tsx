@@ -45,13 +45,14 @@ import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
+import { openLearningLesson } from "@/lib/lessonLaunch";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { subjectFromImageGenUserMessage } from "@/lib/imageGenIntent";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
   const { token, user, updateUser } = useAuth();
-  const { projects, refresh: refreshProjects } = useProjects();
+  const { projects } = useProjects();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
@@ -428,24 +429,13 @@ function ChatScreen() {
     [handleSend],
   );
 
-  // Stable quiz-answer handler. An inline arrow here used to be recreated on
-  // every ChatScreen render (including every composer keystroke) → it flowed
-  // into useChatMessageList's sharedRowProps → renderItem → FlashList
-  // re-rendered every row while typing. Memoize so the list stays stable.
-  const onQuizAnswer = useCallback(
-    (letter: string) => {
-      // BUG FIX (was silent): answering a quiz in chat persists new counts server-side,
-      // but nothing invalidated the project detail cache from this flow — returning to
-      // the project screen right after could show a stale pre-answer snapshot for up
-      // to the cache's 20s TTL. Bust it so the next detail fetch is fresh.
-      const quizProjectId = resolveQuizProjectId();
-      if (quizProjectId) invalidateProjectDetail(quizProjectId);
-      // LANG-FLOW-011: also force-refresh the projects list so the Learning tab
-      // card shows the updated Today count immediately (not after 20s stale gate).
-      void refreshProjects({ silent: true, force: true });
-      void handleSend(letter);
+  const onOpenLesson = useCallback(
+    (projectId: string) => {
+      if (!projectId) return;
+      invalidateProjectDetail(projectId);
+      openLearningLesson(router, { projectId });
     },
-    [handleSend, resolveQuizProjectId, refreshProjects],
+    [router],
   );
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
@@ -465,8 +455,8 @@ function ChatScreen() {
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
     imageGenerating: imageGen.generating,
-    onQuizAnswer,
-    quizSubmissionFailed: Boolean(chatError),
+    lessonProjectId: resolveQuizProjectId(),
+    onOpenLesson,
     onRetryImageGen: imageGen.retry,
   });
 

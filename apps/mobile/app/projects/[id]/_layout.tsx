@@ -24,6 +24,7 @@ export default function ProjectIdLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: t("projects.detail") }} />
+      <Stack.Screen name="lesson" options={{ headerShown: false, title: t("lesson.open") }} />
     </Stack>
   );
 }

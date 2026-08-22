@@ -30,6 +30,7 @@ export type FenceId =
   | "geometry"
   | "graph"
   | "keyvalue"
+  | "learning_launch"
   | "math"
   | "mermaid"
   | "message"
@@ -147,6 +148,12 @@ export const FENCES: readonly FenceSpec[] = [
   // server-side before it reaches the client.
   { id: "copy", langs: ["copy"], structured: false, neverCodeBlock: true },
   { id: "sources", langs: ["sources"], structured: false, neverCodeBlock: true },
+  {
+    id: "learning_launch",
+    langs: ["learning_launch"],
+    structured: false,
+    neverCodeBlock: true,
+  },
 ];
 
 const BY_LANG = new Map<string, FenceSpec>();

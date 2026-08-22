@@ -31,8 +31,8 @@ type Options = {
   suggestions?: Suggestion[];
   onSelectSuggestion?: (prompt: string) => void;
   onDismissSuggestion?: (id: string) => void;
-  onQuizAnswer?: (letter: string) => void;
-  quizSubmissionFailed?: boolean;
+  lessonProjectId?: string | null;
+  onOpenLesson?: (projectId: string) => void;
   imageGenerating?: boolean;
   onRetryImageGen?: () => void;
 };
@@ -53,8 +53,8 @@ export function useChatMessageList({
   suggestions = [],
   onSelectSuggestion,
   onDismissSuggestion,
-  onQuizAnswer,
-  quizSubmissionFailed = false,
+  lessonProjectId = null,
+  onOpenLesson,
   imageGenerating = false,
   onRetryImageGen,
 }: Options) {
@@ -108,8 +108,8 @@ export function useChatMessageList({
       regenerating,
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
-      onQuizAnswer,
-      quizSubmissionFailed,
+      lessonProjectId,
+      onOpenLesson,
       onRetryImageGen,
     }),
     [
@@ -123,8 +123,8 @@ export function useChatMessageList({
       regenerating,
       handleEditMessage,
       handleFeedback,
-      onQuizAnswer,
-      quizSubmissionFailed,
+      lessonProjectId,
+      onOpenLesson,
       onRetryImageGen,
     ],
   );

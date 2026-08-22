@@ -31,8 +31,8 @@ type Props = {
   regenerating?: boolean;
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  onQuizAnswer?: (letter: string) => void;
-  quizSubmissionFailed?: boolean;
+  lessonProjectId?: string | null;
+  onOpenLesson?: (projectId: string) => void;
   onRetryImageGen?: () => void;
 };
 
@@ -51,8 +51,8 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   regenerating = false,
   onEdit,
   onFeedback,
-  onQuizAnswer,
-  quizSubmissionFailed = false,
+  lessonProjectId = null,
+  onOpenLesson,
   onRetryImageGen,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
@@ -85,9 +85,8 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
-      onQuizAnswer={isActiveQuiz && !chatStreamActive ? onQuizAnswer : undefined}
-      quizSubmitting={isActiveQuiz && chatStreamActive}
-      quizSubmissionFailed={isActiveQuiz && quizSubmissionFailed}
+      lessonProjectId={lessonProjectId}
+      onOpenLesson={isLastAssistant || isActiveQuiz ? onOpenLesson : undefined}
     />
   );
 });

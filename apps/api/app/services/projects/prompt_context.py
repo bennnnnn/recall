@@ -26,13 +26,12 @@ from app.services.projects.path import (
     sort_list_titles,
 )
 from app.services.projects.prompts import (
-    TRIVIA_TUTOR_HINT,
+    CHAT_LEARNING_HANDOFF_HINT,
     _language_tutor_hint,
     _level_guidance,
     _quiz_mode_banner,
     _trivia_level_guidance,
     _trivia_tutor_hint,
-    language_tutor_hint,
 )
 from app.services.projects.quiz_context import (
     _covered_quiz_prompt_lines,
@@ -89,7 +88,7 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
                 f"Topics: {project.description or 'general'}\n"
             )
         lines.append(
-            f"\n### {project.title} ({meta}){desc}\n"
+            f"\n### {project.title} (id={project.id}, {meta}){desc}\n"
             f"{skill_line}"
             f"Progress: {stats['mastered_count']}/{stats['total']} mastered, "
             f"{stats['new_count']} new, {stats['learning_count']} learning, "
@@ -287,16 +286,8 @@ async def load_projects_for_prompt(
         limit=settings.project_item_inject_limit,
     )
     block = format_projects_block(projects, items)
-    lang_projects = [p for p in projects if _is_language_project(p)]
-    if lang_projects:
-        hint = (
-            language_tutor_hint(lang_projects[0].target_language)
-            if len(lang_projects) == 1
-            else language_tutor_hint(None)
-        )
-        block = f"{block}\n\n{hint}" if block else hint
-    if any(_is_trivia_project(p) for p in projects):
-        block = f"{block}\n\n{TRIVIA_TUTOR_HINT}" if block else TRIVIA_TUTOR_HINT
+    if block:
+        block = f"{block}\n\n{CHAT_LEARNING_HANDOFF_HINT}"
     return block
 
 

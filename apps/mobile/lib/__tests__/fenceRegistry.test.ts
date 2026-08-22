@@ -96,6 +96,7 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "answer",
   "result",
   "final",
+  "learning_launch",
 ];
 
 describe("fence registry reproduces the legacy language sets", () => {

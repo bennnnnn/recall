@@ -9,7 +9,7 @@ import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
 import { useHomeSuggestions } from "@/hooks/useHomeSuggestions";
-import { queueChatLaunch } from "@/lib/chatLaunch";
+import { openLearningLesson } from "@/lib/lessonLaunch";
 import { type IoniconName } from "@/lib/icons";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projects/projectChat";
 import { describeDueAt } from "@/lib/todos/dueDate";
@@ -72,14 +72,12 @@ function ProjectHighlightCard({
 
   const startDailyQuiz = () => {
     const variant = highlight.kind === "trivia" ? "trivia" : "vocab";
-    queueChatLaunch(
-      buildHomeDailyQuizChatPrompt(highlight),
-      highlight.project_id,
-      variant === "vocab" ? (highlight.target_language ?? "en") : undefined,
-      variant,
-      "chat",
-    );
-    router.replace("/");
+    openLearningLesson(router, {
+      projectId: highlight.project_id,
+      prompt: buildHomeDailyQuizChatPrompt(highlight),
+      quizLanguage: variant === "vocab" ? (highlight.target_language ?? "en") : undefined,
+      quizVariant: variant,
+    });
   };
 
   return (

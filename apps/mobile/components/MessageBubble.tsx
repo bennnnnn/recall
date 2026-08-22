@@ -18,8 +18,7 @@ import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
-import { VocabCard } from "@/components/VocabCard";
-import { VocabQuizChoices } from "@/components/VocabQuizChoices";
+import { LearningLaunchButton } from "@/components/LearningLaunchButton";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { isShareCancelled } from "@/lib/exportPdf";
@@ -53,9 +52,8 @@ type Props = {
   quizLanguage?: string;
   highlighted?: boolean;
   isSending?: boolean;
-  onQuizAnswer?: (letter: string) => void;
-  quizSubmitting?: boolean;
-  quizSubmissionFailed?: boolean;
+  lessonProjectId?: string | null;
+  onOpenLesson?: (projectId: string) => void;
   onRetryImageGen?: () => void;
 };
 
@@ -329,12 +327,10 @@ export const MessageBubble = React.memo(function MessageBubble({
   onEdit,
   canEdit,
   onFeedback,
-  quizLanguage = "en",
   highlighted = false,
   isSending = false,
-  onQuizAnswer,
-  quizSubmitting = false,
-  quizSubmissionFailed = false,
+  lessonProjectId = null,
+  onOpenLesson,
   onRetryImageGen,
 }: Props) {
   const theme = useTheme();
@@ -382,7 +378,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     showActionSlot,
     actionsReady,
     showVocabCard,
-    vocabCard,
     showLiveClock,
     clockTimezone,
     calendarProposals,
@@ -400,6 +395,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     markdownStreamMode,
     markdownResetKey,
     interactiveQuiz,
+    learningLaunch,
   } = assistant;
 
   const reasoningText =
@@ -526,19 +522,21 @@ export const MessageBubble = React.memo(function MessageBubble({
               </MarkdownErrorBoundary>
             ) : null}
             {showPlaces ? <PlacesListBlock places={places} /> : null}
-            {showVocabCard && vocabCard ? (
-              <VocabCard card={vocabCard} language={quizLanguage} />
-            ) : null}
-            {interactiveQuiz && !isStreaming ? (
-              <VocabQuizChoices
-                choices={interactiveQuiz.choices}
-                correctLetter={interactiveQuiz.correct}
-                disabled={!onQuizAnswer || Boolean(isGenerating)}
-                submitting={quizSubmitting}
-                submissionFailed={quizSubmissionFailed}
-                onSelect={(letter) => onQuizAnswer?.(letter)}
-              />
-            ) : null}
+            {(() => {
+              const launchProjectId = learningLaunch?.projectId ?? lessonProjectId ?? "";
+              const showLessonCta =
+                !isStreaming &&
+                Boolean(onOpenLesson) &&
+                Boolean(launchProjectId) &&
+                (learningLaunch != null ||
+                  (Boolean(isLastAssistant) && Boolean(interactiveQuiz || showVocabCard)));
+              return showLessonCta ? (
+                <LearningLaunchButton
+                  action={learningLaunch?.action}
+                  onPress={() => onOpenLesson?.(launchProjectId)}
+                />
+              ) : null;
+            })()}
             {showCalendarProposals
               ? calendarProposals.map((proposal, index) => (
                   <CalendarProposalCard
