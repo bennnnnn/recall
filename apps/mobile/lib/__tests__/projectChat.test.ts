@@ -68,6 +68,7 @@ describe("buildChapterLessonPrompt", () => {
     expect(prompt).toContain('"Greetings" chapter');
     expect(prompt).toContain('Add any new words to "Greetings"');
     expect(prompt).toContain("one word at a time");
+    expect(prompt).toContain("ONLY one ```vocab_quiz or ```vocab_card");
   });
 });
 

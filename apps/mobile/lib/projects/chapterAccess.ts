@@ -15,6 +15,6 @@ export function chapterAccess(
   return "locked";
 }
 
-export function sectionPath(projectId: string, chapterTitle: string): `/projects/${string}/section/${string}` {
-  return `/projects/${projectId}/section/${encodeURIComponent(chapterTitle)}`;
+export function lessonMapPath(projectId: string): `/projects/${string}/lesson` {
+  return `/projects/${projectId}/lesson`;
 }

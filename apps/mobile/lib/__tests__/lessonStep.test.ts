@@ -1,4 +1,4 @@
-import { deriveLessonStep, looksLikeOpenEndedPrompt } from "@/lib/lessonStep";
+import { deriveLessonStep } from "@/lib/lessonStep";
 import type { Message } from "@/lib/api";
 
 function message(role: Message["role"], content: string, id = "1"): Message {
@@ -15,6 +15,17 @@ const quizFence = `\`\`\`vocab_quiz
 {"word":"hello","question":"Which one is hello?","correct":"B","choices":[{"letter":"A","text":"goodbye"},{"letter":"B","text":"hello"},{"letter":"C","text":"thanks"},{"letter":"D","text":"please"}]}
 \`\`\``;
 
+const checkInDump = `5. **Libro** — Book
+*Example:* Estoy leyendo un libro.
+
+---
+
+### Check-In
+Since you’re starting out, this **beginner level** focuses on high-frequency words.
+
+### Let’s Begin!
+Write your own sentence using **Hola**.`;
+
 describe("deriveLessonStep", () => {
   it("keeps the original quiz after a hint-only wrong answer", () => {
     const step = deriveLessonStep([
@@ -27,10 +38,11 @@ describe("deriveLessonStep", () => {
     if (step.kind === "quiz") {
       expect(step.quiz.correct).toBe("B");
       expect(step.messageId).toBe("a1");
+      expect(step.question).toBe("Which one is hello?");
     }
   });
 
-  it("treats a vocab card plus write-a-sentence prompt as a card step", () => {
+  it("treats a vocab card as a card step and ignores surrounding markdown", () => {
     const step = deriveLessonStep([
       message(
         "assistant",
@@ -40,14 +52,23 @@ describe("deriveLessonStep", () => {
     expect(step.kind).toBe("vocab_card");
     if (step.kind === "vocab_card") {
       expect(step.card.word).toBe("hola");
-      expect(step.prompt).toContain("Write your own sentence");
     }
   });
-});
 
-describe("looksLikeOpenEndedPrompt", () => {
-  it("detects teach-to-use prompts", () => {
-    expect(looksLikeOpenEndedPrompt("Write your own sentence with serendipity.")).toBe(true);
-    expect(looksLikeOpenEndedPrompt("Nice work today.")).toBe(false);
+  it("does not surface a check-in or markdown vocab dump as a lesson step", () => {
+    const step = deriveLessonStep([message("assistant", checkInDump)]);
+    expect(step.kind).toBe("loading");
+  });
+
+  it("uses the quiz fence question, not leftover assistant prose", () => {
+    const step = deriveLessonStep([
+      message("assistant", `### Let’s Begin!\n${quizFence}\nWrite a sentence.`),
+    ]);
+    expect(step.kind).toBe("quiz");
+    if (step.kind === "quiz") {
+      expect(step.question).toBe("Which one is hello?");
+      expect(step.question).not.toContain("**");
+      expect(step.question).not.toContain("Let’s Begin");
+    }
   });
 });

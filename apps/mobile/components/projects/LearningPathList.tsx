@@ -50,8 +50,12 @@ export function LearningPathList({ pathProgress, upNext, onOpenSection }: Props)
               {index > 0 ? <View style={s.connector} /> : null}
               <Pressable
                 style={s.node}
-                onPress={() => onOpenSection(chapter.title)}
+                onPress={() => {
+                  if (access === "locked") return;
+                  onOpenSection(chapter.title);
+                }}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: access === "locked" }}
                 accessibilityLabel={chapter.title}
               >
                 <View

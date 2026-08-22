@@ -1,4 +1,4 @@
-import { chapterAccess, sectionPath } from "@/lib/projects/chapterAccess";
+import { chapterAccess, lessonMapPath } from "@/lib/projects/chapterAccess";
 
 describe("chapterAccess", () => {
   it("marks complete chapters done, the up-next chapter current, and the rest locked", () => {
@@ -14,8 +14,8 @@ describe("chapterAccess", () => {
   });
 });
 
-describe("sectionPath", () => {
-  it("encodes the chapter title in the route", () => {
-    expect(sectionPath("proj-1", "School 1")).toBe("/projects/proj-1/section/School%201");
+describe("lessonMapPath", () => {
+  it("points at the lesson map", () => {
+    expect(lessonMapPath("proj-1")).toBe("/projects/proj-1/lesson");
   });
 });

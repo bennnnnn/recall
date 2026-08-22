@@ -43,7 +43,9 @@ describe("LearningPathList", () => {
     expect(getByText("Greetings")).toBeOnTheScreen();
     expect(getByText("Food")).toBeOnTheScreen();
     expect(getByText("Up next: Greetings")).toBeOnTheScreen();
+    fireEvent.press(getByText("Greetings"));
+    expect(onOpenSection).toHaveBeenCalledWith("Greetings");
     fireEvent.press(getByText("Food"));
-    expect(onOpenSection).toHaveBeenCalledWith("Food");
+    expect(onOpenSection).toHaveBeenCalledTimes(1);
   });
 });

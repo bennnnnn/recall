@@ -30,12 +30,12 @@ export function takeQueuedLessonLaunch(): QueuedLessonLaunch | null {
   return next;
 }
 
-export function lessonPath(projectId: string): `/projects/${string}/lesson` {
-  return `/projects/${projectId}/lesson`;
+export function lessonPath(projectId: string): `/projects/${string}/lesson/play` {
+  return `/projects/${projectId}/lesson/play`;
 }
 
 export function openLearningLesson(
-  router: { push: (href: `/projects/${string}/lesson`) => void },
+  router: { push: (href: `/projects/${string}/lesson/play`) => void },
   launch: QueuedLessonLaunch,
 ): boolean {
   if (!queueLessonLaunch(launch)) return false;
