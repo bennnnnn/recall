@@ -63,11 +63,6 @@ LEVEL_GUIDANCE: dict[str, str] = {
 }
 
 
-VOCAB_QUIZ_MARKDOWN_EXAMPLE = (
-    "**Word:** apple\nWhat does it mean?\nA) a red fruit\nB) a vehicle\nC) a feeling\nD) a color"
-)
-
-
 VOCAB_QUIZ_FENCE_EXAMPLE = (
     "```vocab_quiz\n"
     '{"word":"apple","question":"What does it mean?",'
@@ -79,8 +74,8 @@ VOCAB_QUIZ_FENCE_EXAMPLE = (
 
 
 VOCAB_QUIZ_FORMAT_BLOCK = (
-    f"{VOCAB_QUIZ_MARKDOWN_EXAMPLE}\n\n"
-    f"Then append this machine-readable block (required — include correct letter A–D):\n"
+    "Emit ONLY the ```vocab_quiz fence below — do NOT also write a markdown Q:/A: block "
+    "or repeat the question/choices in plain text. The fence renders as tappable chips.\n"
     f"{VOCAB_QUIZ_FENCE_EXAMPLE}"
 )
 
