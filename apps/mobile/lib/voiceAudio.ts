@@ -44,15 +44,11 @@ export function isVoiceInputAvailable(): boolean {
 
 export type MeterListener = (level: number) => void;
 
-/** Result of stopping a recording — URI plus speech-detection signals. */
+/** Result of stopping a recording — URI plus peak audio level for silence detection. */
 export type RecordingResult = {
   uri: string;
   /** Highest normalized metering level seen during recording (0–1). */
   peakMetering: number;
-  /** Fraction of metering samples that reached speech level (0–1). */
-  speechRatio: number;
-  /** Absolute count of metering samples that reached speech level. */
-  speechSamples: number;
 };
 
 export type VoiceRecorder = {
@@ -62,8 +58,6 @@ export type VoiceRecorder = {
 
 /** Below this normalized level, the recording is considered silence. */
 export const SILENCE_THRESHOLD = 0.15;
-/** A metering sample at or above this level counts as speech-level energy. */
-export const SPEECH_LEVEL_THRESHOLD = 0.2;
 
 /** Map expo-audio dB metering (-160…0) to a 0–1 visual level. */
 export function normalizeMetering(db?: number): number {
@@ -139,15 +133,11 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
 
   const listeners = new Set<MeterListener>();
   let peakMetering = 0;
-  let speechSamples = 0;
-  let totalSamples = 0;
   const tick = setInterval(() => {
     if (!recorder.isRecording) return;
     try {
       const level = normalizeMetering(recorder.getStatus().metering);
-      totalSamples += 1;
       if (level > peakMetering) peakMetering = level;
-      if (level >= SPEECH_LEVEL_THRESHOLD) speechSamples += 1;
       listeners.forEach((listener) => listener(level));
     } catch {
       /* best-effort metering */
@@ -173,8 +163,7 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
       const uri = normalizeRecordingUri(rawUri);
       const size = await waitForRecordingFile(uri);
       if (!size) return null;
-      const speechRatio = totalSamples > 0 ? speechSamples / totalSamples : 0;
-      return { uri, peakMetering, speechRatio, speechSamples };
+      return { uri, peakMetering };
     },
     subscribeMetering: (listener) => {
       listeners.add(listener);

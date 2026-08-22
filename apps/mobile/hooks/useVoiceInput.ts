@@ -6,6 +6,7 @@ import {
   isVoiceInputAvailable,
   loadExpoAudio,
   requestVoicePermission,
+  SILENCE_THRESHOLD,
   startVoiceRecording,
   type RecordingResult,
   type VoiceRecorder,
@@ -13,11 +14,6 @@ import {
 
 /** Minimum recording duration in ms — shorter taps are likely accidental. */
 const MIN_RECORDING_DURATION_MS = 500;
-/** Minimum fraction of metering samples that must reach speech level. */
-const MIN_SPEECH_RATIO = 0.08;
-/** Minimum absolute speech-level samples (~180ms at the 60ms tick) — guards
- *  against a single transient spike passing the ratio check on a short clip. */
-const MIN_SPEECH_SAMPLES = 3;
 
 type Options = {
   token: string | null;
@@ -94,18 +90,10 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
       Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
       return;
     }
-    // Skip transcription if the recording was too short or contained no real
-    // speech. Whisper hallucinates words ("you", "thank you very much",
-    // "I'm full! Please look forward to the next.") from silence/ambient noise,
-    // and we can't enumerate every variant — so gate on speech *presence*
-    // (sustained speech-level energy), not just a single peak that a noise
-    // spike can satisfy.
+    // Skip transcription if the recording was too short or too quiet —
+    // Whisper hallucinates words ("you", "thank you") from silence.
     const durationMs = Date.now() - recordingStartedAtRef.current;
-    const hasSpeech =
-      durationMs >= MIN_RECORDING_DURATION_MS &&
-      result.speechSamples >= MIN_SPEECH_SAMPLES &&
-      result.speechRatio >= MIN_SPEECH_RATIO;
-    if (!hasSpeech) {
+    if (durationMs < MIN_RECORDING_DURATION_MS || result.peakMetering < SILENCE_THRESHOLD) {
       setTranscribing(false);
       Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
       return;
