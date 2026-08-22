@@ -268,6 +268,17 @@ async def enrich_final_content(
                 result["final_content"] = assistant_text
         if result is not None and was_cancelled and assistant_text:
             result["final_content"] = assistant_text
+
+        # Prose artifact cleanup — runs last so it never interferes with
+        # fence parsing. Strips orphan colon lines and collapses 3+ blank
+        # lines. Only sets final_content when the text actually changes.
+        from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
+
+        normalized = normalize_prose_artifacts(assistant_text)
+        if prose_changed(assistant_text, normalized):
+            assistant_text = normalized
+            if result is not None:
+                result["final_content"] = assistant_text
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text
