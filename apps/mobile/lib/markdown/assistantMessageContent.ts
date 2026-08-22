@@ -53,6 +53,9 @@ export type AssistantMessageContentInput = {
   messageId: string;
   isGenerating: boolean;
   renderKey?: string;
+  /** True if this message was ever in streaming mode — keeps the chunked
+   *  renderer active after the settle hold ends to avoid a full remount. */
+  wasStreamed?: boolean;
 };
 
 export type AssistantMessageContent = {
@@ -146,6 +149,7 @@ export function deriveAssistantMessageContent(
     messageId,
     isGenerating,
     renderKey,
+    wasStreamed,
   } = input;
 
   const hasContent = content.trim().length > 0;
@@ -258,7 +262,7 @@ export function deriveAssistantMessageContent(
     markdownContent,
     hasMarkdown,
     showSearchSources,
-    markdownStreamMode: layoutFrozen,
+    markdownStreamMode: layoutFrozen || Boolean(wasStreamed),
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
     interactiveQuiz,
     learningLaunch,

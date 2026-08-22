@@ -18,6 +18,7 @@ type Options = {
   layoutFrozen: boolean;
   isGenerating: boolean;
   isUser: boolean;
+  wasStreamed?: boolean;
 };
 
 export function useAssistantMessageContent({
@@ -28,6 +29,7 @@ export function useAssistantMessageContent({
   layoutFrozen,
   isGenerating,
   isUser,
+  wasStreamed,
 }: Options): AssistantMessageContent & { content: string } {
   const content = liveContent ?? message.content;
 
@@ -74,6 +76,7 @@ export function useAssistantMessageContent({
         messageId: message.id,
         isGenerating,
         renderKey: message.renderKey,
+        wasStreamed,
       }),
     [
       deriveContent,
@@ -85,6 +88,7 @@ export function useAssistantMessageContent({
       message.id,
       isGenerating,
       message.renderKey,
+      wasStreamed,
     ],
   );
 
