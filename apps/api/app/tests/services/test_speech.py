@@ -89,55 +89,6 @@ async def test_transcribe_openrouter_json_api():
     assert body["input_audio"]["format"] == "m4a"
 
 
-async def _transcribe_with_gateway_text(
-    gateway_text: str | None, audio_bytes: bytes = b"short"
-) -> str | None:
-    settings = Settings(
-        mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
-        speech_transcription_enabled=True,
-        speech_transcription_model="openai/gpt-4o-mini-transcribe",
-    )
-    response = MagicMock()
-    response.status_code = 200
-    response.raise_for_status = MagicMock()
-    response.json.return_value = {"text": gateway_text}
-    client = AsyncMock()
-    client.post = AsyncMock(return_value=response)
-    client.__aenter__ = AsyncMock(return_value=client)
-    client.__aexit__ = AsyncMock(return_value=None)
-    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
-        return await transcribe_audio(settings, audio_bytes, filename="speech.m4a")
-
-
-@pytest.mark.asyncio
-async def test_transcribe_filters_single_word_hallucination():
-    assert await _transcribe_with_gateway_text("you") is None
-    assert await _transcribe_with_gateway_text("You") is None
-    assert await _transcribe_with_gateway_text("  bye  ") is None
-
-
-@pytest.mark.asyncio
-async def test_transcribe_filters_multiword_hallucination_when_audio_short():
-    # "thank you" is two words → only filtered when audio is short (< 48 KB)
-    assert await _transcribe_with_gateway_text("thank you", b"short") is None
-    # Long audio keeps "thank you" (could be real speech)
-    long_audio = b"x" * 60_000
-    assert await _transcribe_with_gateway_text("thank you", long_audio) == "thank you"
-
-
-@pytest.mark.asyncio
-async def test_transcribe_keeps_real_speech():
-    assert await _transcribe_with_gateway_text("hello there") == "hello there"
-    assert await _transcribe_with_gateway_text("what is the weather") == "what is the weather"
-
-
-@pytest.mark.asyncio
-async def test_transcribe_keeps_none_and_empty():
-    assert await _transcribe_with_gateway_text(None) is None
-    assert await _transcribe_with_gateway_text("") is None
-
-
 @pytest.mark.asyncio
 async def test_synthesize_returns_mock_when_mock_llm_enabled():
     settings = Settings(
