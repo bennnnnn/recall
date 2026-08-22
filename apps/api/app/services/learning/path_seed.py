@@ -9,7 +9,12 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.content.vocab_catalog import catalog_path_titles, decks_for_language, word_id
+from app.content.vocab_catalog import (
+    catalog_path_titles,
+    decks_for_language,
+    level_to_int,
+    word_id,
+)
 from app.services.learning.path import parse_learning_path
 from app.services.projects.common import _is_language_project, _list_key
 
@@ -30,18 +35,23 @@ class _ProjectRow(BaseModel):
     item_count: int
 
 
+def _project_level_int(project: object) -> int:
+    return level_to_int(getattr(project, "level", None))
+
+
 def needs_catalog_sync(project: object, items: Sequence[Any]) -> bool:
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if lang not in _CATALOG_LANGUAGES:
         return False
-    titles = catalog_path_titles(lang)
+    level = _project_level_int(project)
+    titles = catalog_path_titles(lang, level=level)
     if parse_learning_path(project) != titles:
         return True
     have_pairs = {
         (_list_key(getattr(item, "list_title", "")), _list_key(getattr(item, "content", "")))
         for item in items
     }
-    for deck in decks_for_language(lang):
+    for deck in decks_for_language(lang, level=level):
         for word in deck.words:
             if (_list_key(deck.title), _list_key(word.content)) not in have_pairs:
                 return True
@@ -92,7 +102,8 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
         lang = (row.target_language or "en").strip().lower()
         if lang not in _CATALOG_LANGUAGES:
             return
-        decks = decks_for_language(lang)
+        level = level_to_int(row.level)
+        decks = decks_for_language(lang, level=level)
         if not decks:
             return
         path = [deck.title for deck in decks]

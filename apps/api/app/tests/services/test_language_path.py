@@ -177,8 +177,8 @@ async def test_seed_language_path_copies_catalog_words():
     ):
         await seed_language_path(MagicMock(), user_id=user_id, project_id=project_id)
 
-    assert project.learning_path == catalog_path_titles("es")
-    assert created.await_count == catalog_word_count("es")
+    assert project.learning_path == catalog_path_titles("es", level=1)
+    assert created.await_count == catalog_word_count("es", level=1)
     assert created.await_count > 0
 
 
@@ -189,10 +189,12 @@ def test_needs_catalog_sync_when_path_is_old_llm_titles():
     project = _project(learning_path=["Greetings and Introductions", "Everyday Objects"])
     assert needs_catalog_sync(project, [_item("hola", "Greetings and Introductions")]) is True
 
-    project = _project(learning_path=catalog_path_titles("es"))
+    project = _project(learning_path=catalog_path_titles("es", level=1))
 
     items = [
-        _item(word.content, deck.title) for deck in decks_for_language("es") for word in deck.words
+        _item(word.content, deck.title)
+        for deck in decks_for_language("es", level=1)
+        for word in deck.words
     ]
     assert needs_catalog_sync(project, items) is False
 
@@ -201,13 +203,13 @@ def test_needs_catalog_sync_when_word_sits_on_old_list_title():
     from app.content.vocab_catalog import catalog_path_titles, decks_for_language
     from app.services.learning.path_seed import needs_catalog_sync
 
-    first = decks_for_language("es")[0]
+    first = decks_for_language("es", level=1)[0]
     word = first.words[0]
-    project = _project(learning_path=catalog_path_titles("es"))
+    project = _project(learning_path=catalog_path_titles("es", level=1))
     leftover = [_item(word.content, "Family")]
     leftover.extend(
         _item(other.content, deck.title)
-        for deck in decks_for_language("es")
+        for deck in decks_for_language("es", level=1)
         for other in deck.words
         if not (deck.title == first.title and other.content == word.content)
     )

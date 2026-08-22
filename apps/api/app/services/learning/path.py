@@ -70,9 +70,11 @@ def build_path_progress(
     daily_goal = resolve_daily_goal(project)
     project_id = getattr(project, "id", None)
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
-    from app.content.vocab_catalog import catalog_domain_by_title
+    from app.content.vocab_catalog import catalog_domain_by_title, level_to_int
 
-    domain_by_title = catalog_domain_by_title(lang)
+    domain_by_title = catalog_domain_by_title(
+        lang, level=level_to_int(getattr(project, "level", None))
+    )
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
         item_project = getattr(item, "project_id", None)
