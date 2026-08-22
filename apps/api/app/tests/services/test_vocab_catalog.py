@@ -5,6 +5,7 @@ from app.content.vocab_catalog import (
     catalog_path_titles,
     catalog_word_count,
     decks_for_language,
+    level_to_int,
     word_id,
 )
 
@@ -64,3 +65,46 @@ def test_catalog_words_are_unique_within_a_deck():
 
 def test_unknown_language_falls_back_to_english():
     assert catalog_path_titles("xx") == catalog_path_titles("en")
+
+
+def test_level_filters_domains():
+    # Level 1 (beginner): only Greetings + Numbers
+    l1 = catalog_domains("en", level=1)
+    assert l1 == ["Greetings", "Numbers and time"]
+    l1_titles = catalog_path_titles("en", level=1)
+    assert "Hello and goodbye" in l1_titles
+    assert "Immediate family" not in l1_titles
+
+    # Level 2: adds Family
+    l2 = catalog_domains("en", level=2)
+    assert l2 == ["Greetings", "Family", "Numbers and time"]
+
+    # Level 3: adds Food + Home
+    l3 = catalog_domains("en", level=3)
+    assert "Food" in l3 and "Home" in l3 and "Hotel" not in l3
+
+    # Level 5: everything except SAT
+    l5 = catalog_domains("en", level=5)
+    assert "Daily life" in l5 and "SAT" not in l5
+
+    # Level 6: same as level 5 (SAT still gated by include_sat)
+    l6 = catalog_domains("en", level=6)
+    assert l6 == l5
+
+    # Spanish follows the same gating
+    assert catalog_domains("es", level=1) == ["Greetings", "Numbers and time"]
+    assert "Family" not in catalog_domains("es", level=1)
+
+
+def test_level_to_int():
+    assert level_to_int("level1") == 1
+    assert level_to_int("level6") == 6
+    assert level_to_int(None) == 1
+    assert level_to_int("garbage") == 1
+    assert level_to_int("level99") == 6  # clamped
+    assert level_to_int("level0") == 1  # clamped
+
+
+def test_word_count_shrinks_with_level():
+    assert catalog_word_count("en", level=1) < catalog_word_count("en", level=3)
+    assert catalog_word_count("en", level=3) < catalog_word_count("en", level=6)

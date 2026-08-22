@@ -76,31 +76,72 @@ def all_catalog_decks() -> tuple[CatalogDeck, ...]:
     return tuple([*spanish_decks(), *english_decks()])
 
 
-def decks_for_language(language: str, *, include_sat: bool = False) -> list[CatalogDeck]:
+# Minimum level (1=beginner … 6=fluent) at which each domain's decks become
+# available. A level-N project sees decks from domains with min_level <= N.
+_DOMAIN_MIN_LEVEL: dict[str, int] = {
+    "Greetings": 1,
+    "Numbers and time": 1,
+    "Family": 2,
+    "Food": 3,
+    "Home": 3,
+    "Hotel": 4,
+    "Travel": 4,
+    "Daily life": 5,
+    "SAT": 6,
+}
+
+
+def _domain_min_level(domain: str) -> int:
+    return _DOMAIN_MIN_LEVEL.get(domain, 1)
+
+
+def level_to_int(level: str | None) -> int:
+    """Convert 'level3' → 3; unknown/missing → 1 (beginner-safe default)."""
+    if not isinstance(level, str):
+        return 1
+    digits = level.removeprefix("level").strip()
+    n = int(digits) if digits.isdigit() else 1
+    return max(1, min(6, n))
+
+
+def decks_for_language(
+    language: str,
+    *,
+    include_sat: bool = False,
+    level: int = 6,
+) -> list[CatalogDeck]:
     lang = (language or "en").strip().lower()
     found = [deck for deck in all_catalog_decks() if deck.language == lang]
     if not include_sat:
         found = [deck for deck in found if deck.kind != "sat"]
+    if level < 6:
+        found = [deck for deck in found if _domain_min_level(deck.domain) <= level]
     if found:
         return sorted(found, key=lambda deck: deck.sort_order)
     english = [deck for deck in all_catalog_decks() if deck.language == "en"]
     if not include_sat:
         english = [deck for deck in english if deck.kind != "sat"]
+    if level < 6:
+        english = [deck for deck in english if _domain_min_level(deck.domain) <= level]
     return sorted(english, key=lambda deck: deck.sort_order)
 
 
-def catalog_path_titles(language: str) -> list[str]:
-    return [deck.title for deck in decks_for_language(language)]
+def catalog_path_titles(language: str, *, include_sat: bool = False, level: int = 6) -> list[str]:
+    return [
+        deck.title for deck in decks_for_language(language, include_sat=include_sat, level=level)
+    ]
 
 
-def catalog_domain_by_title(language: str) -> dict[str, str]:
-    return {deck.title.casefold(): deck.domain for deck in decks_for_language(language)}
+def catalog_domain_by_title(language: str, *, level: int = 6) -> dict[str, str]:
+    return {
+        deck.title.casefold(): deck.domain for deck in decks_for_language(language, level=level)
+    }
 
 
-def catalog_domains(language: str) -> list[str]:
+def catalog_domains(language: str, *, level: int = 6) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
-    for deck in decks_for_language(language):
+    for deck in decks_for_language(language, level=level):
         key = deck.domain.casefold()
         if key in seen:
             continue
@@ -109,8 +150,8 @@ def catalog_domains(language: str) -> list[str]:
     return out
 
 
-def catalog_word_count(language: str) -> int:
-    return sum(len(deck.words) for deck in decks_for_language(language))
+def catalog_word_count(language: str, *, level: int = 6) -> int:
+    return sum(len(deck.words) for deck in decks_for_language(language, level=level))
 
 
 def catalog_rows() -> list[CatalogDeck]:
