@@ -67,12 +67,12 @@ def enrich_chemistry_fences(content: str) -> str:
             props = chemistry_service.validate_smiles(smiles)
         except Exception:
             logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
-            return match.group(0)
+            return "*Could not render that structure.*"
         if not props.valid:
-            # Strip invalid SMILES fence so the renderer doesn't show a
-            # broken molecule card.
-            logger.info("stripping invalid SMILES fence: %r", smiles)
-            return ""
+            # Replace invalid SMILES fence with a one-liner so the renderer
+            # doesn't show a broken molecule card or a silent gap.
+            logger.info("replacing invalid SMILES fence: %r", smiles)
+            return "*Could not render that structure.*"
         # Replace with canonical SMILES (RDKit-normalized). Keep any
         # caption lines from the original fence.
         lines = [line for line in body.split("\n") if line.strip() and not line.startswith("#")]
