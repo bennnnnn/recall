@@ -145,6 +145,7 @@ class ProjectListGroup(BaseModel):
 class ProjectItemUpdate(BaseModel):
     status: VocabStatus | None = None
     definition: str | None = Field(default=None, max_length=2000)
+    was_correct: bool | None = None
 
     @field_validator("definition")
     @classmethod

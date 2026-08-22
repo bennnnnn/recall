@@ -40,6 +40,7 @@ export default function LearningLessonPlayScreen() {
     submitLetter,
     continueLesson,
     continueTeach,
+    recordWrongAttempt,
   } = useLessonSession(projectId);
 
   if (!token) return <Redirect href="/login" />;
@@ -90,6 +91,7 @@ export default function LearningLessonPlayScreen() {
             disabled={Boolean(feedback) || streaming}
             resetToken={`${quizStep.itemId}:${quizStep.kind}`}
             onSelect={submitLetter}
+            onWrongAnswer={recordWrongAttempt}
           />
         ) : null}
         {!step && !empty && !complete ? (

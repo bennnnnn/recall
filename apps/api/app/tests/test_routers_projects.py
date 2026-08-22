@@ -559,3 +559,37 @@ def test_update_project_item_status():
     assert r.status_code == 200
     update_mock.assert_awaited_once()
     assert update_mock.await_args.kwargs["status"] == "mastered"
+
+
+def test_update_project_item_was_correct_flows_through():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(user_id=user.id)
+    item = _item(project.id, status="learning")
+
+    with (
+        patch(
+            "app.services.projects.crud.projects_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.services.projects.crud.project_items_repo.get_by_id",
+            AsyncMock(return_value=item),
+        ),
+        patch(
+            "app.services.projects.items.update_item",
+            AsyncMock(return_value=item),
+        ) as update_mock,
+        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/projects/{project.id}/items/{item.id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"status": "mastered", "was_correct": False},
+        )
+
+    assert r.status_code == 200
+    update_mock.assert_awaited_once()
+    assert update_mock.await_args.kwargs["status"] == "mastered"
+    assert update_mock.await_args.kwargs["was_correct"] is False

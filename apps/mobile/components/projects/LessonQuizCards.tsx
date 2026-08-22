@@ -22,6 +22,7 @@ type Props = {
   disabled?: boolean;
   resetToken?: number | string;
   onSelect: (letter: QuizChoice["letter"]) => void;
+  onWrongAnswer?: () => void;
 };
 
 export function LessonQuizCards({
@@ -30,6 +31,7 @@ export function LessonQuizCards({
   disabled = false,
   resetToken = 0,
   onSelect,
+  onWrongAnswer,
 }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
@@ -72,6 +74,7 @@ export function LessonQuizCards({
               } else {
                 notifyWarning();
                 setWrongLetter(choice.letter);
+                onWrongAnswer?.();
               }
             }}
           />
