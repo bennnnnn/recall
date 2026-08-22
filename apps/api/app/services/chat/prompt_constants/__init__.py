@@ -10,6 +10,7 @@ from app.services.chat.prompt_constants.format import (
     RESPONSE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
+    UNIVERSAL_FORMAT_BASELINE,
     is_comparison_question,
 )
 from app.services.chat.prompt_constants.learning import (
@@ -65,6 +66,7 @@ __all__ = [
     "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STYLE_HINTS",
+    "UNIVERSAL_FORMAT_BASELINE",
     "VISUALIZATION_HINTS",
     "VOCAB_CHAT_ANSWER_HINT",
     "format_quiz_grading_hint",
