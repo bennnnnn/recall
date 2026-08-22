@@ -1,10 +1,13 @@
+import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { useAuthToken } from "@/contexts/AuthContext";
 import type { LessonFeedback } from "@/hooks/useLessonSession";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { speakWord } from "@/lib/pronunciation";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -23,22 +26,37 @@ export function LessonResultSheet({ feedback, language = "en", onContinue }: Pro
   const token = useAuthToken();
   const s = makeStyles(theme);
   const word = feedback.word.trim();
+  const reduceMotion = useReduceMotion();
+  const translateY = useSharedValue(reduceMotion ? 0 : 120);
+  const opacity = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    translateY.value = withTiming(0, {
+      duration: Motion.duration.snappy,
+      easing: Motion.easing.out,
+    });
+    opacity.value = withTiming(1, {
+      duration: Motion.duration.snappy,
+      easing: Motion.easing.out,
+    });
+  }, [opacity, reduceMotion, translateY]);
+
+  const sheetAnim = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
 
   return (
-    <View
-      style={[s.sheet, feedback.correct ? s.sheetCorrect : s.sheetWrong]}
+    <Animated.View
+      style={[s.sheet, s.sheetCorrect, sheetAnim]}
       accessibilityRole="summary"
       accessibilityLiveRegion="polite"
     >
       <View style={s.header}>
         <View style={s.status}>
-          <Icon
-            name={feedback.correct ? "checkmark-circle" : "close-circle"}
-            size={22}
-            color={feedback.correct ? theme.success : theme.danger}
-          />
-          <Text style={[s.statusText, { color: feedback.correct ? theme.success : theme.danger }]}>
-            {feedback.correct ? t("quiz.correct") : t("quiz.incorrect")}
+          <Icon name="checkmark-circle" size={22} color={theme.success} />
+          <Text style={[s.statusText, { color: theme.success }]}>
+            {t("quiz.correct")}
           </Text>
         </View>
         {word ? (
@@ -59,15 +77,18 @@ export function LessonResultSheet({ feedback, language = "en", onContinue }: Pro
       </View>
       {word ? <Text style={s.word}>{word}</Text> : null}
       {feedback.meaning ? <Text style={s.meaning}>{feedback.meaning}</Text> : null}
-      {!feedback.correct ? <Text style={s.tryAgain}>{t("lesson.try_again")}</Text> : null}
       <Button title={t("lesson.continue")} onPress={onContinue} style={s.continue} />
-    </View>
+    </Animated.View>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     sheet: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
       borderTopLeftRadius: Radius.sheet,
       borderTopRightRadius: Radius.sheet,
       paddingHorizontal: Space.lg,
@@ -76,7 +97,6 @@ function makeStyles(theme: Theme) {
       gap: Space.sm,
     },
     sheetCorrect: { backgroundColor: theme.successLight },
-    sheetWrong: { backgroundColor: theme.dangerLight },
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -99,10 +119,6 @@ function makeStyles(theme: Theme) {
     meaning: {
       ...Type.body,
       color: theme.textSecondary,
-    },
-    tryAgain: {
-      ...Type.secondary,
-      color: theme.text,
     },
     continue: { marginTop: Space.xs },
   });

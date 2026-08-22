@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -35,6 +35,12 @@ export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
     return null;
   }
 
+  const toggleDomain = (title: string, isLocked: boolean) => {
+    if (isLocked) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded((prev) => (prev === title ? "" : title));
+  };
+
   return (
     <View style={s.list}>
       {domains.map((domain) => {
@@ -55,10 +61,7 @@ export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
                   />
                 )
               }
-              onPress={() => {
-                if (locked) return;
-                setExpanded(open ? "" : domain.title);
-              }}
+              onPress={() => toggleDomain(domain.title, locked)}
               styles={s}
               wordsLabel={t("projects.chapter_words", {
                 done: domain.mastered,

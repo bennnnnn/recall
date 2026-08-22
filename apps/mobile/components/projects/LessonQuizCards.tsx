@@ -1,7 +1,15 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
-import { tap } from "@/lib/haptics";
+import { notifySuccess, notifyWarning } from "@/lib/haptics";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -26,68 +34,140 @@ export function LessonQuizCards({
   const theme = useTheme();
   const s = makeStyles(theme);
   const [selectedLetter, setSelectedLetter] = useState<QuizChoice["letter"] | null>(null);
+  const [wrongLetter, setWrongLetter] = useState<QuizChoice["letter"] | null>(null);
 
   useEffect(() => {
     setSelectedLetter(null);
+    setWrongLetter(null);
   }, [resetToken]);
 
-  const answered = selectedLetter != null && correctLetter != null;
+  const answeredCorrectly =
+    selectedLetter != null && correctLetter != null && selectedLetter === correctLetter;
 
   return (
-    <View style={s.grid}>
+    <View style={s.list}>
       {choices.map((choice) => {
         const isSelected = choice.letter === selectedLetter;
         const isCorrectChoice = correctLetter === choice.letter;
-        const showCorrect = answered && isCorrectChoice;
-        const showWrong = answered && isSelected && !isCorrectChoice;
+        const showCorrect = answeredCorrectly && isCorrectChoice;
+        const showWrong = wrongLetter === choice.letter && !answeredCorrectly;
+        const isLocked = disabled || answeredCorrectly;
         return (
-          <Pressable
+          <QuizCard
             key={choice.letter}
-            testID={`lesson-choice-${choice.letter}`}
-            style={[
-              s.card,
-              showCorrect && s.cardCorrect,
-              showWrong && s.cardWrong,
-              disabled && s.cardDisabled,
-            ]}
-            disabled={disabled || answered}
-            accessibilityRole="button"
-            accessibilityLabel={`${choice.letter}: ${choice.text}`}
-            accessibilityState={{ selected: isSelected, disabled: disabled || answered }}
+            choice={choice}
+            isCorrect={correctLetter === choice.letter}
+            showCorrect={showCorrect}
+            showWrong={showWrong}
+            disabled={isLocked}
+            isSelected={isSelected}
+            styles={s}
             onPress={() => {
-              tap();
-              setSelectedLetter(choice.letter);
-              onSelect(choice.letter);
+              const correct = correctLetter != null && choice.letter === correctLetter;
+              if (correct) {
+                notifySuccess();
+                setWrongLetter(null);
+                setSelectedLetter(choice.letter);
+                onSelect(choice.letter);
+              } else {
+                notifyWarning();
+                setWrongLetter(choice.letter);
+              }
             }}
-          >
-            <Text style={[s.letter, showCorrect && s.letterCorrect, showWrong && s.letterWrong]}>
-              {choice.letter}
-            </Text>
-            <Text style={s.text}>{choice.text}</Text>
-          </Pressable>
+          />
         );
       })}
     </View>
   );
 }
 
+function QuizCard({
+  choice,
+  isCorrect,
+  showCorrect,
+  showWrong,
+  disabled,
+  isSelected,
+  styles: s,
+  onPress,
+}: {
+  choice: QuizChoice;
+  isCorrect: boolean;
+  showCorrect: boolean;
+  showWrong: boolean;
+  disabled: boolean;
+  isSelected: boolean;
+  styles: ReturnType<typeof makeStyles>;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const shakeX = useSharedValue(0);
+  const cardAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateX: shakeX.value }],
+  }));
+
+  const handlePress = () => {
+    if (isCorrect) {
+      scale.value = withSequence(
+        withSpring(1.06, { damping: 12, stiffness: 200 }),
+        withSpring(1, { damping: 14, stiffness: 200 }),
+      );
+    } else {
+      scale.value = withSequence(
+        withSpring(0.94, { damping: 14, stiffness: 300 }),
+        withSpring(1, { damping: 14, stiffness: 200 }),
+      );
+      shakeX.value = withSequence(
+        withTiming(-8, { duration: 50 }),
+        withTiming(8, { duration: 50 }),
+        withTiming(-6, { duration: 50 }),
+        withTiming(6, { duration: 50 }),
+        withTiming(-3, { duration: 40 }),
+        withTiming(0, { duration: 40 }),
+      );
+    }
+    onPress();
+  };
+
+  return (
+    <Animated.View style={[s.cardWrap, cardAnim]}>
+      <Pressable
+        testID={`lesson-choice-${choice.letter}`}
+        style={[
+          s.card,
+          showCorrect && s.cardCorrect,
+          showWrong && s.cardWrong,
+          disabled && !showWrong && s.cardDisabled,
+        ]}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={choice.text}
+        accessibilityState={{ selected: isSelected, disabled }}
+        onPress={handlePress}
+      >
+        <Text style={s.text}>{choice.text}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    grid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
+    list: {
       gap: Space.sm,
     },
+    cardWrap: {
+      width: "100%",
+    },
     card: {
-      width: "47%",
-      flexGrow: 1,
-      minHeight: 112,
-      borderRadius: Radius.xl,
+      minHeight: 64,
+      borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      padding: Space.md,
-      gap: Space.xs,
+      paddingVertical: Space.md,
+      paddingHorizontal: Space.lg,
+      justifyContent: "center",
     },
     cardCorrect: {
       borderWidth: 2,
@@ -100,16 +180,10 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.dangerLight,
     },
     cardDisabled: { opacity: 0.55 },
-    letter: {
-      ...Type.caption,
-      fontWeight: "800",
-      color: theme.primary,
-    },
-    letterCorrect: { color: theme.success },
-    letterWrong: { color: theme.danger },
     text: {
       ...Type.body,
       color: theme.text,
+      textAlign: "center",
     },
   });
 }

@@ -44,14 +44,15 @@ def needs_catalog_sync(project: object, items: Sequence[Any]) -> bool:
     if lang not in _CATALOG_LANGUAGES:
         return False
     level = _project_level_int(project)
-    titles = catalog_path_titles(lang, level=level)
+    include_sat = level >= 6
+    titles = catalog_path_titles(lang, level=level, include_sat=include_sat)
     if parse_learning_path(project) != titles:
         return True
     have_pairs = {
         (_list_key(getattr(item, "list_title", "")), _list_key(getattr(item, "content", "")))
         for item in items
     }
-    for deck in decks_for_language(lang, level=level):
+    for deck in decks_for_language(lang, level=level, include_sat=include_sat):
         for word in deck.words:
             if (_list_key(deck.title), _list_key(word.content)) not in have_pairs:
                 return True
@@ -103,7 +104,8 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
         if lang not in _CATALOG_LANGUAGES:
             return
         level = level_to_int(row.level)
-        decks = decks_for_language(lang, level=level)
+        include_sat = level >= 6
+        decks = decks_for_language(lang, level=level, include_sat=include_sat)
         if not decks:
             return
         path = [deck.title for deck in decks]

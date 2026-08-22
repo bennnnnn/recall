@@ -87,9 +87,11 @@ def test_level_filters_domains():
     l5 = catalog_domains("en", level=5)
     assert "Daily life" in l5 and "SAT" not in l5
 
-    # Level 6: same as level 5 (SAT still gated by include_sat)
-    l6 = catalog_domains("en", level=6)
-    assert l6 == l5
+    # Level 6: SAT unlocks (fluent users get SAT via include_sat)
+    l6 = catalog_domains("en", level=6, include_sat=True)
+    assert "SAT" in l6
+    l6_no_sat = catalog_domains("en", level=6)
+    assert "SAT" not in l6_no_sat  # default still excludes SAT
 
     # Spanish follows the same gating
     assert catalog_domains("es", level=1) == ["Greetings", "Numbers and time"]

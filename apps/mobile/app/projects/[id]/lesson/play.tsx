@@ -8,6 +8,7 @@ import { ActionShimmer } from "@/components/ActionShimmer";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { VocabCard } from "@/components/VocabCard";
+import { LessonCompleteCard } from "@/components/projects/LessonCompleteCard";
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
 import { LessonResultSheet } from "@/components/projects/LessonResultSheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,25 +68,29 @@ export default function LearningLessonPlayScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[s.body, step?.kind === "teach" ? s.bodyTeach : null]}
+        contentContainerStyle={[
+          s.body,
+          step?.kind === "teach" ? s.bodyTeach : null,
+          quizStep ? s.bodyQuiz : null,
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
-        {complete ? <Text style={s.status}>{t("lesson.chapter_complete")}</Text> : null}
+        {complete ? <LessonCompleteCard /> : null}
         {step?.kind === "teach" ? (
           <VocabCard card={step.card} language={language} />
         ) : null}
         {quizStep ? (
-          <>
-            <Text style={s.question}>{quizStep.question}</Text>
-            <LessonQuizCards
-              choices={quizStep.quiz.choices}
-              correctLetter={quizStep.quiz.correct}
-              disabled={Boolean(feedback) || streaming}
-              resetToken={`${quizStep.itemId}:${quizStep.kind}:${feedback ? "done" : "ready"}`}
-              onSelect={submitLetter}
-            />
-          </>
+          <Text style={s.question}>{quizStep.question}</Text>
+        ) : null}
+        {quizStep ? (
+          <LessonQuizCards
+            choices={quizStep.quiz.choices}
+            correctLetter={quizStep.quiz.correct}
+            disabled={Boolean(feedback) || streaming}
+            resetToken={`${quizStep.itemId}:${quizStep.kind}`}
+            onSelect={submitLetter}
+          />
         ) : null}
         {!step && !empty && !complete ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
@@ -148,11 +153,17 @@ function makeStyles(theme: Theme) {
       flexGrow: 1,
       justifyContent: "center",
     },
+    bodyQuiz: {
+      flexGrow: 1,
+      justifyContent: "center",
+      gap: Space.xl,
+    },
     question: {
       fontSize: 22,
       fontWeight: "700",
       color: theme.text,
       lineHeight: 28,
+      marginBottom: 40,
     },
     status: {
       ...Type.body,
