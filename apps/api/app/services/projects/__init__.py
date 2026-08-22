@@ -38,6 +38,7 @@ from app.services.projects.prompt_context import (
     load_projects_for_prompt,
 )
 from app.services.projects.prompts import (
+    CHAT_LEARNING_HANDOFF_HINT,
     DAILY_GOAL_COMPLETE_BEHAVIOR,
     LANGUAGE_BONUS_QUIZ_RULES,
     LANGUAGE_CHAT_TUTOR_HINT,
@@ -77,6 +78,7 @@ from app.services.projects.sync import (
 )
 
 __all__ = [
+    "CHAT_LEARNING_HANDOFF_HINT",
     "DAILY_GOAL_COMPLETE_BEHAVIOR",
     "DEFAULT_DAILY_VOCAB_GOAL",
     "DEFAULT_LIST",

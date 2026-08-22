@@ -25,7 +25,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type VocabStatus } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
-import { queueChatLaunch } from "@/lib/chatLaunch";
+import { openLearningLesson } from "@/lib/lessonLaunch";
 import {
   exportProjectAsPdf,
   projectHasExportableItems,
@@ -252,37 +252,43 @@ export default function ProjectDetailScreen() {
   const startReviewSession = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     invalidateProjectDetail(project.id);
-    queueChatLaunch(
-      buildProjectReviewPrompt(project),
-      project.id,
-      isLang ? project.target_language : undefined,
-      variant,
-      "chat",
-    );
-    router.replace("/");
+    openLearningLesson(router, {
+      projectId: project.id,
+      prompt: buildProjectReviewPrompt(project),
+      quizLanguage: isLang ? project.target_language : undefined,
+      quizVariant: variant,
+    });
   };
 
   const startStudyQuiz = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     invalidateProjectDetail(project.id);
-    queueChatLaunch(
-      buildProjectAskPromptFromProject(project, t),
-      project.id,
-      isLang ? project.target_language : undefined,
-      variant,
-      "chat",
-    );
-    router.replace("/");
+    openLearningLesson(router, {
+      projectId: project.id,
+      prompt: buildProjectAskPromptFromProject(project, t),
+      quizLanguage: isLang ? project.target_language : undefined,
+      quizVariant: variant,
+    });
   };
 
   const startStudyBonus = () => {
     invalidateProjectDetail(project.id);
     if (isTrivia) {
-      queueChatLaunch(buildProjectBonusQuestionsPrompt(project), project.id, undefined, "trivia", "chat");
-    } else if (isLang) {
-      queueChatLaunch(buildProjectBonusWordsPrompt(project), project.id, project.target_language);
+      openLearningLesson(router, {
+        projectId: project.id,
+        prompt: buildProjectBonusQuestionsPrompt(project),
+        quizVariant: "trivia",
+      });
+      return;
     }
-    router.replace("/");
+    if (isLang) {
+      openLearningLesson(router, {
+        projectId: project.id,
+        prompt: buildProjectBonusWordsPrompt(project),
+        quizLanguage: project.target_language,
+        quizVariant: "vocab",
+      });
+    }
   };
 
   // List-footer CTA only when it's a different action than the primary filled

@@ -179,4 +179,22 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.settingsProposals[0]?.proposal_id).toBe("abc");
     expect(result.markdownContent).toBe("I can switch that for you: Appearance → Dark.");
   });
+
+  it("exposes a learning_launch fence and hides the raw JSON", () => {
+    const projectId = "11111111-1111-4111-8111-111111111111";
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: [
+        "You have 3/10 Spanish words today. Open the lesson when you're ready.",
+        "```learning_launch",
+        JSON.stringify({ project_id: projectId, action: "continue" }),
+        "```",
+      ].join("\n"),
+    });
+
+    expect(result.learningLaunch).toEqual({ projectId, action: "continue" });
+    expect(result.markdownContent).toContain("3/10 Spanish");
+    expect(result.markdownContent).not.toContain("learning_launch");
+    expect(result.markdownContent).not.toContain(projectId);
+  });
 });

@@ -432,11 +432,12 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 - ✅ **Decks / groups** — organize words by deck title on the detail screen.
 - ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
-- ✅ **AI tutor + quiz** — scoped chats from Learning; model emits `vocab_quiz` blocks; mobile
-  shows A–D choices (tap chips or type letter; fast-path answers, minimal context, no web search
-  on quiz turns). Wrong answers update SM-2 via deterministic ledger (`quiz_attempts` / `quiz_correct`).
-- ✅ **Tap-to-answer MCQ** — interactive choice chips on complete `vocab_quiz` messages.
-- ✅ **Review queue** — project detail CTA opens a due-only spaced-repetition chat session.
+- ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
+  interaction runs in a dedicated lesson window (MCQ, vocab cards, typed answers, result sheet).
+  Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
+  grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
+- ✅ **Tap-to-answer MCQ** — large choice cards in the lesson window on complete `vocab_quiz` fences.
+- ✅ **Review queue** — project detail CTA opens a due-only spaced-repetition lesson.
 - ✅ **Adaptive level hints** — suggests level up/down from mastery ratio + quiz accuracy.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).

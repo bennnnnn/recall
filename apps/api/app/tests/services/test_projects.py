@@ -112,7 +112,7 @@ def test_format_projects_block_groups_lists():
     item_a = _item("hello", project.id)
     item_b = _item("goodbye", project.id, mastered=True)
     block = projects_service.format_projects_block([project], [item_a, item_b])
-    assert "### Learning English (language, level1)" in block
+    assert f"### Learning English (id={project.id}, language, level1)" in block
     assert "1/2 mastered" in block
     assert "#### Travel" in block
     assert "○ hello" in block
@@ -627,6 +627,9 @@ async def test_load_projects_for_prompt():
         block = await projects_service.load_projects_for_prompt(session, uuid4(), Settings())
     assert "English" in block
     assert "run" in block
+    assert str(project.id) in block
+    assert "learning_launch" in block
+    assert "Do NOT run a quiz in this chat" in block
 
 
 @pytest.mark.asyncio
@@ -2252,6 +2255,14 @@ def test_language_tutor_hint_uses_target_language():
     assert "Spanish vocabulary" in hint
     assert "Spanish skill level" in hint
     assert "English skill level" not in hint
+
+
+def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
+    from app.services.projects import CHAT_LEARNING_HANDOFF_HINT
+
+    assert "learning_launch" in CHAT_LEARNING_HANDOFF_HINT
+    assert "Do NOT run a quiz in this chat" in CHAT_LEARNING_HANDOFF_HINT
+    assert "vocab_quiz" in CHAT_LEARNING_HANDOFF_HINT
 
 
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():

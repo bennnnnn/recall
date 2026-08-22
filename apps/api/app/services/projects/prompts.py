@@ -6,6 +6,20 @@ from app.models.orm import Project
 from app.models.schemas import ProjectStats
 from app.services.projects.common import language_display_name
 
+CHAT_LEARNING_HANDOFF_HINT = (
+    "The user has Learning classes listed above. Answer questions about progress, "
+    "saved words, facts, and study advice in prose.\n"
+    "Do NOT run a quiz in this chat. Do NOT emit ```vocab_quiz or ```vocab_card.\n"
+    "If they ask to practice, quiz, continue a class, or start today's lesson, "
+    "reply briefly and emit this fence with the exact project_id from the list:\n"
+    "```learning_launch\n"
+    '{"project_id":"<uuid>","action":"continue"}\n'
+    "```\n"
+    'Use action "start" only when they have not begun that class yet. '
+    "If they have no Learning class, say so and do not emit the fence."
+)
+
+
 PROJECT_HINT = (
     "The user keeps **Learning** workspaces — only two kinds:\n"
     "1) **Language** (`language`) — vocabulary path in a target language: ordered "

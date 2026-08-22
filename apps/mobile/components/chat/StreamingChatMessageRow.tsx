@@ -23,8 +23,8 @@ type Props = {
   regenerating?: boolean;
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  onQuizAnswer?: (letter: string) => void;
-  quizSubmissionFailed?: boolean;
+  lessonProjectId?: string | null;
+  onOpenLesson?: (projectId: string) => void;
   onRetryImageGen?: () => void;
 };
 
@@ -43,8 +43,9 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   regenerating = false,
   onEdit,
   onFeedback,
-  onQuizAnswer,
-  quizSubmissionFailed = false,
+  lessonProjectId = null,
+  onOpenLesson,
+  onRetryImageGen,
 }: Props) {
   const streamingDraft = useStreamingDraft();
   const liveReasoning = useThrottledStreamText(streamingDraft?.reasoning, streamVisualActive);
@@ -74,15 +75,15 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined
       }
       regenerating={isLastAssistant && regenerating}
+      onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
       onEdit={onEdit}
       canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
       onFeedback={onFeedback}
       quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
-      onQuizAnswer={isActiveQuiz && !streamVisualActive ? onQuizAnswer : undefined}
-      quizSubmitting={isActiveQuiz && streamVisualActive}
-      quizSubmissionFailed={isActiveQuiz && quizSubmissionFailed}
+      lessonProjectId={lessonProjectId}
+      onOpenLesson={isLastAssistant || isActiveQuiz ? onOpenLesson : undefined}
     />
   );
 });
