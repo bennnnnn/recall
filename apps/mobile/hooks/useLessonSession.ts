@@ -4,14 +4,17 @@ import { useTranslation } from "react-i18next";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { useChat } from "@/hooks/useChat";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { api } from "@/lib/api";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
-import { deriveLessonStep, latestAssistantProse, type LessonStep } from "@/lib/lessonStep";
-import { buildProjectAskPromptFromProject } from "@/lib/projects/projectChat";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
+import { buildChapterDrills, lessonWordProgress, type DrillStep } from "@/lib/projects/chapterDrill";
+import {
+  chapterItems,
+  chapterQueue,
+  resolveLessonChapter,
+} from "@/lib/projects/chapterLesson";
 
 export type LessonFeedback = {
   correct: boolean;
@@ -26,89 +29,52 @@ export function useLessonSession(projectId: string) {
   const { project, loading: projectLoading, load } = useProjectDetail(projectId);
   const { refresh: refreshProjects } = useProjects();
   const { refresh: refreshHome } = useHome();
-  const [chatId, setChatId] = useState<string | null>(null);
+  const requestedRef = useRef<string | null>(null);
+  const seededRef = useRef(false);
+  if (requestedRef.current === null) {
+    const launch = takeQueuedLessonLaunch();
+    requestedRef.current =
+      launch?.projectId === projectId ? launch.chapter?.trim() || "" : "";
+  }
+  const [chapter, setChapter] = useState<string | null>(
+    requestedRef.current || null,
+  );
+  const [drills, setDrills] = useState<DrillStep[]>([]);
+  const [index, setIndex] = useState(0);
+  const [missed, setMissed] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<LessonFeedback | null>(null);
-  const [typed, setTyped] = useState("");
-  const startedRef = useRef(false);
-  const sendWhenReadyRef = useRef<string | null>(null);
-  const awaitingHintRef = useRef(false);
-  const pendingTypedRef = useRef<{ word: string; meaning: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const { messages, streaming, finalizing, sendMessage } = useChat(token, chatId, {
-    onError: (message) => {
-      awaitingHintRef.current = false;
-      setError(message);
-    },
-    onFirstReply: () => {
-      invalidateProjectDetail(projectId);
-      void load({ silent: true, force: true });
-      void refreshProjects({ silent: true, force: true });
-      void refreshHome({ silent: true, force: true });
-    },
-  });
-
-  const start = useCallback(
-    async (prompt: string) => {
-      if (!token || startedRef.current) return;
-      const trimmed = prompt.trim();
-      if (!trimmed) return;
-      startedRef.current = true;
-      setError(null);
-      try {
-        const chat = await api.createChat(token, "auto", projectId, "chat");
-        sendWhenReadyRef.current = trimmed;
-        setChatId(chat.id);
-      } catch {
-        startedRef.current = false;
-        setError(t("projects.study_launch_failed"));
-      }
-    },
-    [projectId, t, token],
+  const labels = useMemo(
+    () => ({
+      useQuestion: (meaning: string) => t("lesson.quiz_use", { meaning }),
+      meaningQuestion: (word: string) => t("lesson.quiz_meaning", { word }),
+    }),
+    [t],
   );
 
   useEffect(() => {
-    const prompt = sendWhenReadyRef.current;
-    if (!chatId || !prompt) return;
-    sendWhenReadyRef.current = null;
-    void sendMessage(prompt);
-  }, [chatId, sendMessage]);
-
-  useEffect(() => {
-    if (startedRef.current) return;
-    const queued = takeQueuedLessonLaunch();
-    if (queued && queued.projectId === projectId && queued.prompt) {
-      void start(queued.prompt);
-      return;
+    if (!project) return;
+    const title = resolveLessonChapter(project, requestedRef.current);
+    if (!title) return;
+    setChapter(title);
+    const items = chapterQueue(chapterItems(project, title));
+    const pool = items;
+    if (!seededRef.current || (drills.length === 0 && items.length > 0)) {
+      setDrills(buildChapterDrills(items, pool, labels));
+      setIndex(0);
+      seededRef.current = true;
     }
-    if (project) {
-      void start(buildProjectAskPromptFromProject(project, t));
-    }
-  }, [project, projectId, start, t]);
+  }, [drills.length, labels, project]);
 
-  const step: LessonStep = useMemo(
-    () => deriveLessonStep(messages, { streaming: streaming || finalizing }),
-    [finalizing, messages, streaming],
-  );
-
-  useEffect(() => {
-    if (!awaitingHintRef.current || streaming || finalizing) return;
-    awaitingHintRef.current = false;
-    const prose = latestAssistantProse(messages);
-    if (!prose) return;
-    const typedMeta = pendingTypedRef.current;
-    pendingTypedRef.current = null;
-    setFeedback((prev) => {
-      if (prev) return { ...prev, body: prose };
-      if (!typedMeta) return prev;
-      return {
-        correct: !/\b(wrong|incorrect|not quite|try again)\b/i.test(prose),
-        word: typedMeta.word,
-        meaning: typedMeta.meaning,
-        body: prose,
-      };
-    });
-  }, [finalizing, messages, streaming]);
+  const step = drills[index] ?? null;
+  const words = lessonWordProgress(drills, index);
+  const currentNumber = words.current;
+  const total = words.total;
+  const progressFill = words.fill;
+  const empty = Boolean(project && seededRef.current && drills.length === 0);
+  const complete = Boolean(seededRef.current && drills.length > 0 && index >= drills.length);
 
   const refreshLearning = useCallback(() => {
     invalidateProjectDetail(projectId);
@@ -117,55 +83,68 @@ export function useLessonSession(projectId: string) {
     void refreshHome({ silent: true, force: true });
   }, [load, projectId, refreshHome, refreshProjects]);
 
-  const submitLetter = useCallback(
-    (letter: QuizChoice["letter"]) => {
-      if (!chatId || streaming || finalizing || step.kind !== "quiz") return;
-      const choice = step.quiz.choices.find((item) => item.letter === letter);
-      setFeedback({
-        correct: step.quiz.correct === letter,
-        word: step.quiz.word,
-        meaning: choice?.text ?? "",
-        body: "",
-      });
-      awaitingHintRef.current = true;
-      refreshLearning();
-      void sendMessage(letter);
+  const finishWord = useCallback(
+    async (itemId: string, failed: boolean) => {
+      if (!token) return;
+      setSaving(true);
+      try {
+        await api.updateProjectItem(token, projectId, itemId, {
+          status: failed ? "learning" : "mastered",
+        });
+        refreshLearning();
+      } catch {
+        setError(t("projects.study_launch_failed"));
+      } finally {
+        setSaving(false);
+      }
     },
-    [chatId, finalizing, refreshLearning, sendMessage, step, streaming],
+    [projectId, refreshLearning, t, token],
   );
 
-  const submitTyped = useCallback(() => {
-    const answer = typed.trim();
-    if (!chatId || streaming || finalizing || !answer) return;
-    if (step.kind !== "vocab_card") return;
-    pendingTypedRef.current = {
-      word: step.card.word,
-      meaning: step.card.definition,
-    };
-    awaitingHintRef.current = true;
-    setTyped("");
-    refreshLearning();
-    void sendMessage(answer);
-  }, [chatId, finalizing, refreshLearning, sendMessage, step, streaming, typed]);
-
   const continueLesson = useCallback(() => {
+    const current = drills[index];
     setFeedback(null);
-    setTyped("");
-  }, []);
+    if (current?.kind === "meaning") {
+      void finishWord(current.itemId, missed.has(current.itemId));
+    }
+    setIndex((value) => value + 1);
+  }, [drills, finishWord, index, missed]);
 
-  const busy = streaming || finalizing || (projectLoading && !project && !startedRef.current);
+  const submitLetter = useCallback(
+    (letter: QuizChoice["letter"]) => {
+      if (!step || (step.kind !== "use" && step.kind !== "meaning") || feedback) {
+        return;
+      }
+      const correct = step.quiz.correct === letter;
+      if (!correct) {
+        setMissed((prev) => new Set(prev).add(step.itemId));
+      }
+      const picked = step.quiz.choices.find((choice) => choice.letter === letter);
+      setFeedback({
+        correct,
+        word: step.quiz.word,
+        meaning: picked?.text ?? "",
+        body: "",
+      });
+    },
+    [feedback, step],
+  );
 
   return {
     project,
+    chapter,
     step,
     feedback,
-    typed,
-    setTyped,
     error,
-    busy,
-    streaming: streaming || finalizing,
+    empty,
+    complete,
+    currentNumber,
+    total,
+    progressFill,
+    busy: saving || (projectLoading && !project),
+    streaming: saving,
     submitLetter,
-    submitTyped,
     continueLesson,
+    continueTeach: continueLesson,
   };
 }

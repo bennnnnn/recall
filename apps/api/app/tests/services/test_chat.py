@@ -12,6 +12,7 @@ from app.services.chat.prompt_builder import (
 )
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
+    is_learning_progress_question,
     is_lightweight_chat_turn,
     is_writing_deliverable_request,
     needs_rich_context,
@@ -655,10 +656,31 @@ def test_is_lightweight_skipped_during_vocab_answer():
         ("what's my name", True),
         ("draft an email to my wife", True),
         ("don't forget my preference for tea", True),
+        ("What word did I learn today", True),
+        ("what words did I study", True),
+        ("how many words have I mastered", True),
+        ("what's my vocab progress", True),
+        ("what's another word for happy", False),
     ],
 )
 def test_needs_rich_context(text, expected):
     assert needs_rich_context(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("What word did I learn today", True),
+        ("what words did I study", True),
+        ("how many words have I mastered", True),
+        ("today's lesson", True),
+        ("what's another word for happy", False),
+        ("tell me a joke", False),
+        ("explain photosynthesis", False),
+    ],
+)
+def test_is_learning_progress_question(text, expected):
+    assert is_learning_progress_question(text) is expected
 
 
 @pytest.mark.asyncio
@@ -914,6 +936,65 @@ async def test_build_prompt_day_planning_injects_daily_learning():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_learning_progress_injects_today_words():
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.location_enabled = False
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = False
+    user.locale = "en"
+    user.timezone = "America/Los_Angeles"
+    user.custom_instructions = None
+
+    today_block = (
+        "Words from today's session (authoritative):\n"
+        "You ARE connected to the user's Recall Learning class.\n"
+        "- English: learned/mastered: apple, book"
+    )
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value="User learning topics:\n### English"),
+        ),
+        patch(
+            "app.services.projects.load_today_learning_words_for_prompt",
+            AsyncMock(return_value=today_block),
+        ) as today_mock,
+        patch(
+            "app.repositories.chats.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False),
+            query_text="What word did I learn today",
+            client_timezone="America/Los_Angeles",
+        )
+
+    today_mock.assert_awaited_once()
+    system = messages[0]["content"]
+    assert "apple, book" in system
+    assert "You ARE connected" in system
+    assert "not connected to their learning" in system.lower() or "ARE connected" in system
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_minimal_for_vocab_quiz_answer():
     user = MagicMock()
     user.name = "Binalfew Mecuriaw"
@@ -941,7 +1022,7 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
         )
 
     system = messages[0]["content"]
-    assert "Vocabulary (English words)" in system
+    assert "Vocabulary format rotation" in system
     assert "vocab_quiz" in system
     assert "Recall has two features" not in system
     assert "Recall has two todo features" not in system

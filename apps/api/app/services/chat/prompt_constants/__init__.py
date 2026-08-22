@@ -34,6 +34,7 @@ from app.services.chat.prompt_constants.privacy import (
 from app.services.chat.prompt_constants.routing import (
     LIGHTWEIGHT_REPLY_HINT,
     is_broad_self_question,
+    is_learning_progress_question,
     is_lightweight_chat_turn,
     is_writing_deliverable_request,
     needs_rich_context,
@@ -69,6 +70,7 @@ __all__ = [
     "format_quiz_grading_hint",
     "is_broad_self_question",
     "is_comparison_question",
+    "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_writing_deliverable_request",
     "needs_rich_context",

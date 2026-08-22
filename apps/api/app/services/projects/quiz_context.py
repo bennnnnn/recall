@@ -12,16 +12,14 @@ from app.core.config import Settings
 from app.models.orm import ProjectItem
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services.learning.path import items_in_chapter, up_next_chapter
 from app.services.projects.common import (
     _is_language_project,
-    _is_trivia_project,
     _item_status,
-    _trivia_daily_goal,
     language_display_name,
 )
 from app.services.projects.prompts import (
     _LEVEL_LABELS,
-    TRIVIA_QUIZ_FENCE_EXAMPLE,
     VOCAB_LEARNING_FORMATS_BLOCK,
     _level_guidance,
 )
@@ -201,85 +199,27 @@ async def load_project_quiz_context(
     answered_label = ""
     attempt = quiz_grade.attempt if quiz_grade is not None else 1
     if quiz_grade is not None:
-        # Trivia: question text; vocab: the word.
+        # Fence quiz_type trivia uses question text; vocab uses the word.
         answered_label = (
             (quiz_grade.question or quiz_grade.word)
             if quiz_grade.quiz_type == "trivia"
             else quiz_grade.word
         ).strip()
 
-    if _is_trivia_project(project):
-        if retry_same and answered_label:
-            follow = (
-                f'WRONG on "{answered_label}" (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}) — '
-                "reply with brief feedback + a short hint only. "
-                "Do NOT redisplay the question, choices, or a ```vocab_quiz fence. "
-                "Never switch to vocabulary words."
-            )
-        elif tries_exhausted and answered_label:
-            follow = (
-                f'FAILED after {attempt} tries — "{answered_label}" stays learning for next time. '
-                "Briefly reveal the correct answer, then ask a DIFFERENT next general-knowledge "
-                'question (quiz_type trivia — never vocabulary / "what does X mean?"):'
-            )
-        elif just_correct and answered_label:
-            follow = (
-                f'CORRECT — "{answered_label}" is done. Do NOT repeat that question. '
-                "Ask a DIFFERENT next general-knowledge question using this format "
-                '(quiz_type trivia only — never vocabulary / "what does X mean?"):'
-            )
-        else:
-            follow = (
-                "CORRECT (or starting) — after brief feedback, ask the NEXT general-knowledge "
-                "question using this format (quiz_type trivia only — never vocabulary/"
-                '"what does X mean?"). Never repeat a question already asked in this chat.'
-            )
-        lines = [
-            f"Active trivia quiz — project: {project.title}.",
-            f"Daily goal: {_trivia_daily_goal(project)} correct answers per session.",
-            follow,
-        ]
-        if not retry_same:
-            lines.extend(
-                [
-                    f"{TRIVIA_QUIZ_FENCE_EXAMPLE}",
-                    "Correct answers are saved automatically. Never master on a wrong answer.",
-                ]
-            )
-        else:
-            lines.append("Correct answers are saved automatically. Never master on a wrong answer.")
-        if just_correct or tries_exhausted or not retry_same:
-            lines.extend(
-                await _covered_quiz_prompt_lines(
-                    session,
-                    user_id,
-                    project_id,
-                    include_learning=True,
-                    just_answered=answered_label or None,
-                    max_chars=settings.quiz_exclusion_max_chars,
-                )
-            )
-        if retry_same or tries_exhausted:
-            items = await project_items_repo.list_for_user(
-                session,
-                user_id,
-                project_id=project_id,
-                limit=settings.project_item_inject_limit,
-            )
-            lines.extend(_format_missed_quiz_lines(items))
-        return "\n".join(lines)
     if not _is_language_project(project):
         return ""
     items = await project_items_repo.list_for_user(
         session,
         user_id,
         project_id=project_id,
-        limit=settings.project_item_inject_limit,
+        limit=max(settings.project_item_inject_limit, 2000),
     )
+    current = up_next_chapter(project, items)
+    chapter_items = items_in_chapter(items, current)
     # Exclude the word they just got right / exhausted even if the session snapshot is briefly stale.
     quiz_pool = [
         i
-        for i in items
+        for i in chapter_items
         if _item_status(i) in ("new", "learning")
         and not (
             (just_correct or tries_exhausted)
@@ -338,7 +278,7 @@ async def load_project_quiz_context(
         lines.extend(
             [
                 VOCAB_LEARNING_FORMATS_BLOCK,
-                "Pick words only from new/learning items at this level (except when re-asking a miss).",
+                "Pick words only from this chapter's new/learning items (except when re-asking a miss).",
                 "On MCQ correct answers mastery is automatic; on open-ended correct answers, "
                 "confirm clearly so project sync can record mastery. Never master on a wrong answer.",
             ]
@@ -351,22 +291,24 @@ async def load_project_quiz_context(
             lines.append(f"- {item.content}")
     elif just_correct or tries_exhausted:
         lines.append(
-            "\nNo new/learning words left in the pool — invent a NEW word at this level "
-            "(not one already covered)."
+            "\nNo new/learning words left in this chapter — review a due word or "
+            "say the chapter is complete. Do NOT invent new words."
         )
     if just_correct or tries_exhausted or not retry_same:
+        covered = [
+            (item.content or "").strip()
+            for item in chapter_items
+            if _item_status(item) == "mastered" and (item.content or "").strip()
+        ]
         lines.extend(
-            await _covered_quiz_prompt_lines(
-                session,
-                user_id,
-                project_id,
-                include_learning=False,
+            _format_covered_quiz_lines(
+                covered,
                 just_answered=answered_label or None,
                 max_chars=settings.quiz_exclusion_max_chars,
             )
         )
     if retry_same or tries_exhausted:
-        lines.extend(_format_missed_quiz_lines(items))
+        lines.extend(_format_missed_quiz_lines(chapter_items))
     if not retry_same:
         # LANG-FLOW-004: inject failed-review nudges on answer turns too, not
         # just session start. After the first answer, due failed items from
@@ -394,7 +336,7 @@ _VOCAB_QUESTION_MARKERS = re.compile(
 
 
 def looks_like_vocab_question(content: str) -> bool:
-    """Heuristic: prior assistant turn was asking a vocab/trivia question."""
+    """Heuristic: prior assistant turn was asking a vocab question."""
     if not content or not content.strip():
         return False
     tail = content.strip()[-1200:]

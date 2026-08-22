@@ -21,7 +21,6 @@ from app.services.projects.common import (
     _find_language_project,
     _find_project,
     _is_language_project,
-    _is_trivia_project,
     _item_status,
     _list_key,
     _normalize,
@@ -80,19 +79,12 @@ def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | No
 async def _project_action_create_project(
     state: _ProjectApplyState, action: ProjectActionItem
 ) -> int:
-    # kind is already a bounded Literal on ProjectActionItem
-    # (schemas.py: ProjectKind = "language" | "vocabulary" |
-    # "trivia") validated by Pydantic before this is ever
-    # reached, and normalize_project_kind maps "vocabulary" ->
-    # "language" — so kind is always in LEARNING_PRODUCT_KINDS
-    # here. The old `if kind not in LEARNING_PRODUCT_KINDS:
-    # continue` guard was dead code; removed.
     title = action.project_title
     kind = normalize_project_kind(action.kind or "language")
-    target_language = infer_target_language(title, action.target_language)
-    if kind == "language" and _find_language_project(state.projects, target_language):
+    if kind != "language":
         return 0
-    if kind == "trivia" and any(_is_trivia_project(p) for p in state.projects):
+    target_language = infer_target_language(title, action.target_language)
+    if _find_language_project(state.projects, target_language):
         return 0
     # Exact title only — `_find_project` falls back to the sole project, which
     # would block creating Spanish when English already exists.
@@ -117,8 +109,8 @@ async def _project_action_create_project(
         # BUG FIX (was silent): the in-memory checks above aren't
         # safe against two near-concurrent project-sync jobs for
         # the same user both passing before either commits. The
-        # DB partial unique indexes (one language per target, one
-        # trivia) are the real guard — a race loses here and
+        # DB partial unique indexes (one language per target) are
+        # the real guard — a race loses here and
         # should just no-op, not raise into the background job.
         logger.debug(
             "create_project raced with an existing active %s project for user_id=%s; skipping",
@@ -196,11 +188,9 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
     if not matched:
         return 0
     project = matched
-    list_title = (
-        resolve_add_list_title(project, action.list_title, state.items)
-        if _is_language_project(project)
-        else _resolve_list_title(project, action)
-    )
+    if _is_language_project(project):
+        return 0
+    list_title = _resolve_list_title(project, action)
     content = action.content.strip()
     if not content:
         return 0
@@ -256,7 +246,7 @@ async def _project_action_start_learning(
     if not item:
         item = _find_item_by_content(state.items, project.id, action.content)
     content = action.content.strip()
-    if not item and content:
+    if not item and content and not _is_language_project(project):
         from app.services.projects.items import create_item
 
         item = await create_item(

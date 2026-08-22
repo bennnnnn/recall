@@ -18,12 +18,14 @@ describe("lessonLaunch", () => {
         projectId: " proj-1 ",
         prompt: "  Continue Spanish  ",
         quizVariant: "vocab",
+        chapter: "  Greetings  ",
       }),
     ).toBe(true);
     expect(takeQueuedLessonLaunch()).toEqual({
       projectId: "proj-1",
       prompt: "Continue Spanish",
       quizVariant: "vocab",
+      chapter: "Greetings",
     });
     expect(takeQueuedLessonLaunch()).toBeNull();
   });

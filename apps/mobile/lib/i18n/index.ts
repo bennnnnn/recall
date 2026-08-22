@@ -55,6 +55,6 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
-export { LANGUAGES } from "./languages";
+export { LEARNING_LANGUAGES, LANGUAGES } from "./languages";
 export type { LanguageMeta } from "./languages";
 export default i18n;

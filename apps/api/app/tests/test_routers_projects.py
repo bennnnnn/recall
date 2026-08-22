@@ -229,38 +229,6 @@ def test_patch_unsupported_kind_rejected():
     assert r.status_code == 422
 
 
-def test_create_trivia_project_rejects_duplicate():
-    user = _fake_user()
-    app = _app_with_user(user)
-    existing = _project(kind="trivia", title="General knowledge")
-
-    with (
-        patch(
-            "app.repositories.projects.find_trivia_project",
-            AsyncMock(return_value=existing),
-        ),
-        patch(
-            "app.repositories.projects.create",
-            AsyncMock(),
-        ) as create_mock,
-    ):
-        client = TestClient(app)
-        r = client.post(
-            "/projects",
-            headers={"Authorization": "Bearer tok"},
-            json={
-                "title": "General knowledge",
-                "kind": "trivia",
-                "description": "history,science",
-                "daily_goal": 10,
-            },
-        )
-
-    assert r.status_code == 409
-    assert r.json()["detail"] == "trivia_project_exists"
-    create_mock.assert_not_awaited()
-
-
 def test_get_unsupported_legacy_project_not_found():
     user = _fake_user()
     app = _app_with_user(user)

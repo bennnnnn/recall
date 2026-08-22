@@ -4,9 +4,6 @@ import sys
 
 from app.services.learning import daily as _impl
 from app.services.learning.daily import (
-    DEFAULT_DAILY_TRIVIA_GOAL as DEFAULT_DAILY_TRIVIA_GOAL,
-)
-from app.services.learning.daily import (
     DEFAULT_DAILY_VOCAB_GOAL as DEFAULT_DAILY_VOCAB_GOAL,
 )
 from app.services.learning.daily import (

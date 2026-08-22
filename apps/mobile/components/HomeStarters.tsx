@@ -57,9 +57,7 @@ function ProjectHighlightCard({
   const progressPct =
     goal > 0 ? Math.min(100, Math.round((completedToday / goal) * 100)) : 0;
   const label =
-    highlight.kind === "trivia"
-      ? t("chat.home.trivia_cue_continue", { done: completedToday, goal })
-      : t("chat.home.vocab_cue_continue", { done: completedToday, goal });
+    t("chat.home.vocab_cue_continue", { done: completedToday, goal });
   const colors = learningProgressColors({
     completedToday,
     dailyGoal: goal,
@@ -71,11 +69,11 @@ function ProjectHighlightCard({
   });
 
   const startDailyQuiz = () => {
-    const variant = highlight.kind === "trivia" ? "trivia" : "vocab";
+    const variant = "vocab" as const;
     openLearningLesson(router, {
       projectId: highlight.project_id,
       prompt: buildHomeDailyQuizChatPrompt(highlight),
-      quizLanguage: variant === "vocab" ? (highlight.target_language ?? "en") : undefined,
+      quizLanguage: highlight.target_language ?? "en",
       quizVariant: variant,
     });
   };

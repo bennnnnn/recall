@@ -45,10 +45,9 @@ def test_format_quiz_grading_hint_trivia_uses_answer_not_topic():
     )
     assert "Treaty of Versailles" in hint
     assert "History is correct" not in hint
-    assert "Do NOT ask" in hint
-    assert "Which treaty officially ended World War I?" in hint
-    assert "quiz_type" in hint
-    assert "What does X mean?" in hint
+    assert "Do NOT re-ask" in hint
+    assert "quiz_type" not in hint
+    assert "What does X mean?" not in hint
 
 
 def test_format_covered_quiz_lines_bans_ledger_and_just_answered():
@@ -89,7 +88,7 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level3",
         target_language="en",
         daily_goal=10,
@@ -137,13 +136,12 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
         )
 
     assert "CORRECT" in block
-    assert "Do NOT repeat" in block
+    assert "Do NOT re-ask" in block
     assert "Do NOT ask these again" in block
     assert "quiz ledger" in block
     assert "Which treaty officially ended World War I?" in block
     assert "WRONG" not in block
-    assert "prioritize revisiting" not in block
-    list_for_user.assert_not_awaited()
+    list_for_user.assert_awaited()
 
 
 def test_format_quiz_grading_hint_wrong_nonexhausted_omits_correct_letter():
@@ -216,7 +214,7 @@ async def test_apply_deterministic_marks_tries_exhausted_on_third_wrong():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
     )
@@ -228,6 +226,10 @@ async def test_apply_deterministic_marks_tries_exhausted_on_third_wrong():
         ),
         patch(
             "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -270,7 +272,7 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
     )
@@ -284,6 +286,10 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
         ),
         patch(
             "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -328,7 +334,7 @@ async def test_apply_deterministic_persists_free_text_miss_on_third_try():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
     )
@@ -342,6 +348,10 @@ async def test_apply_deterministic_persists_free_text_miss_on_third_try():
         ),
         patch(
             "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -497,7 +507,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_correct():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
     )
@@ -569,7 +579,7 @@ async def test_load_trivia_quiz_context_exhausted_moves_on():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level3",
         target_language="en",
         daily_goal=10,
@@ -629,7 +639,7 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
         daily_goal=5,
@@ -642,6 +652,10 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
         ),
         patch(
             "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -670,14 +684,13 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
     assert grade.is_correct is True
     assert grade.user_letter == "A"
     assert grade.correct_letter == "A"
-    assert grade.word == "Colossus"
-    assert grade.quiz_type == "trivia"
+    assert grade.word == "History"
+    assert grade.quiz_type == "vocab"
     assert grade.question == "Which wonder stood at Rhodes?"
     create_mock.assert_awaited_once()
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is True
-    assert create_mock.await_args.kwargs["definition"] == "Colossus"
-    assert create_mock.await_args.kwargs["content"] == "Which wonder stood at Rhodes?"
+    assert create_mock.await_args.kwargs["content"] == "History"
 
 
 @pytest.mark.asyncio
@@ -691,7 +704,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
     )
@@ -703,6 +716,10 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
         ),
         patch(
             "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -731,13 +748,12 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
     assert grade is not None
     assert grade.is_correct is False
     assert grade.tries_exhausted is True
-    assert grade.word == "Colossus"
-    assert grade.quiz_type == "trivia"
+    assert grade.word == "History"
+    assert grade.quiz_type == "vocab"
     assert grade.question == "Which wonder stood at Rhodes?"
     create_mock.assert_awaited_once()
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is False
-    assert create_mock.await_args.kwargs["definition"] == "Colossus"
 
 
 @pytest.mark.asyncio
@@ -753,14 +769,14 @@ async def test_apply_deterministic_trivia_backfills_answer_on_existing_item():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level1",
         target_language="en",
     )
     existing = MagicMock()
     existing.project_id = project_id
     existing.list_title = "History"
-    existing.content = "Which wonder stood at Rhodes?"
+    existing.content = "History"
     existing.definition = None
     existing.status = "learning"
     existing.mastered = False
@@ -799,7 +815,6 @@ async def test_apply_deterministic_trivia_backfills_answer_on_existing_item():
     assert grade is not None
     assert grade.is_correct is True
     create_mock.assert_not_awaited()
-    assert existing.definition == "Colossus"
 
 
 @pytest.mark.asyncio
@@ -815,7 +830,7 @@ async def test_load_trivia_quiz_context_retries_question_not_topic():
         id=project_id,
         user_id=user_id,
         title="General knowledge",
-        kind="trivia",
+        kind="language",
         level="level3",
         target_language="en",
         daily_goal=10,
@@ -849,12 +864,7 @@ async def test_load_trivia_quiz_context_retries_question_not_topic():
     assert "WRONG" in block
     assert "Which treaty officially ended World War I?" in block
     assert "Do NOT redisplay" in block
-    assert "Never switch to vocabulary" in block
-    assert "NEXT general-knowledge" not in block
-    assert "as a fresh" not in block
-    # Fence *example* omitted on wrong turns (the word vocab_quiz may still appear in the ban).
     assert "Colossus of Rhodes" not in block
-    assert "What does it mean?" not in block
 
 
 @pytest.mark.asyncio
@@ -888,6 +898,10 @@ async def test_apply_deterministic_quiz_answer_language_project_ignores_trivia_f
         ),
         patch(
             "app.repositories.project_items.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(

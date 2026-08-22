@@ -27,7 +27,7 @@ class HomeStarter(BaseModel):
 class HomeProjectHighlight(BaseModel):
     project_id: UUID
     title: str
-    kind: Literal["language", "trivia"]
+    kind: Literal["language"]
     target_language: str = "en"
     daily_goal: int = Field(ge=1, le=50)
     mastered_today: int = Field(ge=0)

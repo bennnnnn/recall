@@ -3,12 +3,7 @@ import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
 import { learningProjectTitle } from "@/lib/projects/projectUi";
-import {
-  formatTriviaTopicLabels,
-  parseTriviaTopics,
-  triviaDifficultyLabel,
-} from "@/lib/projects/triviaTopics";
-import { VOCAB_QUIZ_FORMAT_BLOCK, TRIVIA_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
+import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
 const LESSON_FENCE_ONLY =
   "Reply with ONLY one ```vocab_quiz or ```vocab_card fence. " +
@@ -50,7 +45,7 @@ export function completedTodayCount(stats: Pick<ProjectStats, "mastered_today" |
 }
 
 export function isDailyGoalMet(project: ProjectDetail): boolean {
-  if (!isLanguageProject(project.kind) && project.kind !== "trivia") return false;
+  if (!isLanguageProject(project.kind)) return false;
   return completedTodayCount(project.stats) >= resolveProjectDailyGoal(project);
 }
 
@@ -61,27 +56,13 @@ export function remainingDailyGoal(project: ProjectDetail): number {
 export type ProjectAskPromptOptions = {
   /** Product screen title, e.g. "Words" or "General Knowledge". */
   screenTitle?: string;
-  /** Human-readable trivia topics, e.g. "History, Science". */
   topicLabels?: string;
-  /** Trivia difficulty label from settings. */
   difficultyLabel?: string;
 };
 
 function defaultScreenTitle(project: ProjectDetail): string {
-  if (project.kind === "trivia") return "General Knowledge";
   if (isLanguageProject(project.kind)) return languageLabel(project.target_language);
   return project.title;
-}
-
-function formatTriviaTopicIdsFallback(description: string | null | undefined): string {
-  const ids = parseTriviaTopics(description);
-  if (ids.length === 0) return "";
-  return ids.map((id) => id.charAt(0).toUpperCase() + id.slice(1)).join(", ");
-}
-
-function triviaTopicsClause(project: ProjectDetail, topicLabels?: string): string {
-  const labels = topicLabels?.trim() || formatTriviaTopicIdsFallback(project.description);
-  return labels ? `Topics: ${labels}. ` : "";
 }
 
 function todayProgressClause(project: ProjectDetail): string {
@@ -89,9 +70,6 @@ function todayProgressClause(project: ProjectDetail): string {
   const done = completedTodayCount(project.stats);
   const correct = project.stats.mastered_today;
     const missed = project.stats.missed_today ?? 0;
-  if (project.kind === "trivia") {
-    return `Today: ${done}/${daily} done (${correct} correct, ${missed} failed)`;
-  }
   if (isLanguageProject(project.kind)) {
     return `Today: ${done}/${daily} done (${correct} mastered, ${missed} failed)`;
   }
@@ -104,13 +82,8 @@ export function buildProjectAskPromptFromProject(
   t: (key: string) => string,
 ): string {
   const detail = projectDetailForChat(project);
-  const isTrivia = project.kind === "trivia";
   return buildProjectAskPrompt(detail, {
     screenTitle: learningProjectTitle(project.kind, t, project.title, project.target_language),
-    topicLabels: isTrivia
-      ? formatTriviaTopicLabels(parseTriviaTopics(project.description), t)
-      : undefined,
-    difficultyLabel: isTrivia ? triviaDifficultyLabel(project.level, t) : undefined,
   });
 }
 
@@ -118,19 +91,12 @@ function progressLine(project: ProjectDetail): string {
   const { stats, kind } = project;
   if (stats.total === 0) {
     if (isLanguageProject(kind)) return "I have no words yet — help me add some first.";
-    if (kind === "trivia") return "I have no facts yet — help me add some first.";
     return "I have nothing tracked yet — help me add some first.";
   }
   if (isLanguageProject(kind)) {
     return (
       `${stats.mastered_count} mastered, ${stats.new_count} new words, ` +
       `${stats.learning_count} learning, ${stats.due_for_review} due for review.`
-    );
-  }
-  if (kind === "trivia") {
-    return (
-      `${stats.mastered_count} facts learned, ${stats.mastered_today} correct today, ` +
-      `${stats.total} total questions saved.`
     );
   }
   return (
@@ -163,7 +129,7 @@ export function buildLanguageOnboardingPrompt(
 /** Opens chat for spaced-repetition review of due items only. */
 export function buildProjectReviewPrompt(project: ProjectDetail): string {
   const due = project.stats.due_for_review;
-  const unit = project.kind === "trivia" ? "facts" : "words";
+  const unit = "words";
   return (
     `Start a spaced-repetition review for my "${project.title}" project. ` +
     `I have ${due} ${unit} due for review. ` +
@@ -172,39 +138,9 @@ export function buildProjectReviewPrompt(project: ProjectDetail): string {
   );
 }
 
-/** Opens chat after a new general-knowledge trivia project is created. */
-export function buildTriviaOnboardingPrompt(
-  topicLabels: string,
-  dailyGoal: number,
-  level: LanguageLevel,
-): string {
-  const lvl = levelLabel(level);
-  return (
-    `I just set up my daily general knowledge quiz.\n` +
-    `Topics: ${topicLabels}. Difficulty: ${lvl}. Daily goal: ${dailyGoal} correct answers per session.\n\n` +
-    `Run a multiple-choice quiz in chat — one question at a time from my topics at ${lvl} difficulty. ` +
-    `Use vocab_quiz JSON with quiz_type=trivia: word=topic label (History, Science, …), ` +
-    `question=the full question. ` +
-    `When I answer correctly, save the fact and mark it mastered.\n\n` +
-    `Mix topics and keep questions interesting but fair. Start question 1 now.`
-  );
-}
-
 /** Home highlight card → in-chat daily session. */
 export function buildHomeDailyQuizChatPrompt(highlight: HomeProjectHighlight): string {
   const { title, kind, cue } = highlight;
-  if (kind === "trivia") {
-    if (cue === "start") {
-      return (
-        `Start my daily "${title}" general-knowledge session. ` +
-        "Quiz me with multiple-choice ```vocab_quiz (A–D chips) — one question at a time. Begin now."
-      );
-    }
-    return (
-      `Continue my daily "${title}" session. ` +
-      "Ask the next multiple-choice ```vocab_quiz question (A–D chips)."
-    );
-  }
   if (cue === "start") {
     return (
       `Start today's "${title}" vocabulary session. ` +
@@ -244,27 +180,6 @@ export function buildProjectAskPrompt(
     );
   }
 
-  if (project.kind === "trivia") {
-    const daily = resolveProjectDailyGoal(project);
-    const topics = triviaTopicsClause(project, options.topicLabels);
-    const difficulty = options.difficultyLabel
-      ? `Difficulty: ${options.difficultyLabel}. `
-      : "";
-    if (isDailyGoalMet(project)) {
-      return (
-        `I finished my daily goal of ${daily} correct on my ${screenTitle} session. ` +
-        `${topics}${difficulty}\n` +
-        `${progressLine(project)}\n\n` +
-        "Tell me clearly that today's quiz goal is complete. Do NOT ask new quiz questions unless I " +
-        "explicitly want bonus questions beyond today's goal."
-      );
-    }
-    return (
-      `Continue my ${screenTitle} session.\n` +
-      `${topics}${difficulty}${todayProgressClause(project)} — ask the next multiple-choice question.`
-    );
-  }
-
   const goal = project.description?.trim()
     ? `Goal: ${project.description.trim()}. `
     : "";
@@ -290,19 +205,6 @@ export function buildChapterLessonPrompt(
   );
 }
 
-/** Explicit opt-in when the user wants questions beyond today's daily goal. */
-export function buildProjectBonusQuestionsPrompt(project: ProjectDetail): string {
-  const daily = resolveProjectDailyGoal(project);
-  return (
-    `I already finished my daily goal of ${daily} correct answers on my general knowledge quiz today ` +
-    `(${project.stats.mastered_today}/${daily}).\n\n` +
-    "I want BONUS trivia questions beyond today's goal. Ask ONE multiple-choice question at a time " +
-    "using vocab_quiz JSON with quiz_type=trivia. Do not use spoiler syntax or bullet lists.\n\n" +
-    `${TRIVIA_QUIZ_FORMAT_BLOCK}\n\n` +
-    "Start the first bonus question now."
-  );
-}
-
 /** Explicit opt-in when the user wants words beyond today's daily goal. */
 export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   const daily = resolveProjectDailyGoal(project);
@@ -315,15 +217,8 @@ export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   );
 }
 
-/** Chat tutor mode — conversational teaching (language: vocab_card; trivia: facts only). */
+/** Chat tutor mode — conversational teaching (vocab_card / mixed formats). */
 export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
-  if (project.kind === "trivia") {
-    return (
-      `We're in **chat tutor mode** for my general knowledge quiz — share facts and explain topics in plain prose. ` +
-      `Do NOT teach English vocabulary, do NOT use vocab_card blocks, and do NOT use multiple choice unless I ask.\n\n` +
-      buildProjectAskPrompt(project)
-    );
-  }
   if (isLanguageProject(project.kind)) {
     return (
       `We're in **chat tutor mode** — teach one word at a time with definition only on the card ` +

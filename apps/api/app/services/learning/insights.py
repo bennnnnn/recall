@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from app.models.orm import Project
 from app.services.learning.daily import completed_today_count
 
-LEARNING_PROJECT_KINDS = ("language", "vocabulary", "trivia")
+LEARNING_PROJECT_KINDS = ("language", "vocabulary")
 LEVEL_ORDER = ("level1", "level2", "level3", "level4", "level5", "level6")
 SuggestedLevel = Literal["up", "down"]
 NudgeType = Literal["learning_daily_goal", "learning_review", "learning_continue"]

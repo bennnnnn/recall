@@ -165,7 +165,6 @@ def memory_blocked_by_completed_daily(
     display = memory_display_text(memory.text)
     text = memory.text
     language_done = any(kind == "language" for _, kind in completed_daily)
-    trivia_done = any(kind == "trivia" for _, kind in completed_daily)
 
     for title, _kind in completed_daily:
         if texts_overlap(display, title) or texts_overlap(text, title):
@@ -176,13 +175,6 @@ def memory_blocked_by_completed_daily(
         or looks_like_language_learning(text)
         or looks_like_language_learning(display)
         or re.search(r"\bvocabular", text, re.I)
-    ):
-        return True
-
-    if (
-        trivia_done
-        and memory.type == "project"
-        and re.search(r"\b(general\s+knowledge|trivia)\b", text, re.I)
     ):
         return True
 

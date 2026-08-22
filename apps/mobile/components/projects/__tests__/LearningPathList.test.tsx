@@ -1,51 +1,70 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { LearningPathList } from "@/components/projects/LearningPathList";
-import type { PathChapterProgress } from "@/lib/api";
+import type { DomainProgress } from "@/lib/projects/domainPath";
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, opts?: { chapter?: string; done?: number; total?: number }) => {
-      if (key === "projects.chapters_up_next") return `Up next: ${opts?.chapter ?? ""}`;
-      if (key === "projects.chapters_progress") return `${opts?.done} / ${opts?.total} done`;
+    t: (key: string, opts?: { done?: number; total?: number }) => {
+      if (key === "projects.chapter_words") return `${opts?.done} / ${opts?.total} words`;
       return key;
     },
   }),
 }));
 
-const chapters: PathChapterProgress[] = [
-  { title: "Greetings", mastered: 1, total: 2, complete: false },
-  { title: "Food", mastered: 0, total: 0, complete: false },
+const domains: DomainProgress[] = [
+  {
+    title: "Greetings",
+    mastered: 1,
+    total: 13,
+    complete: false,
+    chapters: [
+      { title: "Hello and goodbye", domain: "Greetings", mastered: 1, total: 13, complete: false },
+      { title: "Courtesy", domain: "Greetings", mastered: 0, total: 12, complete: false },
+    ],
+  },
+  {
+    title: "Family",
+    mastered: 0,
+    total: 24,
+    complete: false,
+    chapters: [
+      { title: "Immediate family", domain: "Family", mastered: 0, total: 12, complete: false },
+    ],
+  },
 ];
 
 describe("LearningPathList", () => {
-  it("shows title-only empty path while chapters are still seeding", async () => {
-    const { getByText, queryByText } = await render(
-      <LearningPathList pathProgress={[]} onOpenSection={jest.fn()} />,
+  it("renders nothing while domains are still seeding", async () => {
+    const { queryByText } = await render(
+      <LearningPathList domains={[]} onOpenChapter={jest.fn()} />,
     );
-    expect(getByText("projects.chapters_title")).toBeOnTheScreen();
-    expect(queryByText("projects.chapters_hint")).toBeNull();
     expect(queryByText("Greetings")).toBeNull();
   });
 
-  it("lists chapters and opens a section landing on tap", async () => {
-    const onOpenSection = jest.fn();
-    const { getByText } = await render(
+  it("nests current-domain chapters under the parent and starts a chapter on tap", async () => {
+    const onOpenChapter = jest.fn();
+    const { getByLabelText, getByText, queryByText } = await render(
       <LearningPathList
-        pathProgress={chapters}
-        upNext="Greetings"
-        onOpenSection={onOpenSection}
+        domains={domains}
+        upNext="Hello and goodbye"
+        onOpenChapter={onOpenChapter}
       />,
     );
     expect(getByText("Greetings")).toBeOnTheScreen();
-    expect(getByText("Food")).toBeOnTheScreen();
-    expect(getByText("Up next: Greetings")).toBeOnTheScreen();
-    fireEvent.press(getByText("Greetings"));
-    expect(onOpenSection).toHaveBeenCalledWith("Greetings");
-    fireEvent.press(getByText("Food"));
-    expect(onOpenSection).toHaveBeenCalledTimes(1);
+    expect(getByText("Hello and goodbye")).toBeOnTheScreen();
+    expect(getByText("Courtesy")).toBeOnTheScreen();
+    expect(queryByText("Immediate family")).toBeNull();
+    expect(queryByText("common.back")).toBeNull();
+    expect(queryByText("Up next: Hello and goodbye")).toBeNull();
+    fireEvent.press(getByText("Hello and goodbye"));
+    expect(onOpenChapter).toHaveBeenCalledWith("Hello and goodbye");
+    fireEvent.press(getByText("Courtesy"));
+    expect(onOpenChapter).toHaveBeenCalledTimes(1);
+    fireEvent.press(getByLabelText("Family"));
+    expect(queryByText("Immediate family")).toBeNull();
   });
 });

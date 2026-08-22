@@ -50,17 +50,6 @@ def _general_project(title: str = "General knowledge"):
     return project
 
 
-def _trivia_project(title: str = "General knowledge", *, daily_goal: int = 5):
-    project = MagicMock()
-    project.id = uuid4()
-    project.title = title
-    project.description = "history,science"
-    project.kind = "trivia"
-    project.level = "level1"
-    project.daily_goal = daily_goal
-    return project
-
-
 def _fake_session_local():
     """Stand-in for home_service.SessionLocal: each call yields a fresh
     AsyncMock session, mirroring the real per-loader sessions without
@@ -472,97 +461,12 @@ async def test_build_home_hides_vocab_card_when_daily_goal_met():
 
 
 @pytest.mark.asyncio
-async def test_build_home_trivia_project_shows_card_when_incomplete():
-    session = AsyncMock()
-    user = _user()
-    project = _trivia_project()
-
-    with _home_patches(
-        list_projects=[project],
-        count_project_stats={
-            "total": 4,
-            "new_count": 0,
-            "learning_count": 1,
-            "mastered_count": 3,
-            "added_this_week": 2,
-            "due_for_review": 0,
-            "mastered_today": 2,
-            "pending_today": 0,
-            "last_mastery_at": datetime.now(UTC).isoformat(),
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is not None
-    assert screen.project_highlight.kind == "trivia"
-    assert screen.project_highlight.cue == "continue"
-    assert screen.project_highlight.mastered_today == 2
-    starter_texts = {s.text for s in screen.starters}
-    assert "Continue General knowledge" not in starter_texts
-
-
-@pytest.mark.asyncio
-async def test_build_home_hides_trivia_card_when_daily_goal_met():
-    session = AsyncMock()
-    user = _user()
-    project = _trivia_project(daily_goal=5)
-
-    with _home_patches(
-        list_projects=[project],
-        count_project_stats={
-            "total": 20,
-            "new_count": 0,
-            "learning_count": 0,
-            "mastered_count": 20,
-            "added_this_week": 5,
-            "due_for_review": 0,
-            "mastered_today": 5,
-            "pending_today": 0,
-            "last_mastery_at": datetime.now(UTC).isoformat(),
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is None
-    starter_texts = {s.text for s in screen.starters}
-    assert "Continue General knowledge" not in starter_texts
-    assert "Quiz me on General knowledge" not in starter_texts
-
-
-@pytest.mark.asyncio
-async def test_build_home_prefers_language_when_both_need_nudging():
-    session = AsyncMock()
-    user = _user()
-    language = _project()
-    trivia = _trivia_project()
-
-    with _home_patches(
-        list_projects=[trivia, language],
-        count_project_stats={
-            "total": 3,
-            "new_count": 2,
-            "learning_count": 1,
-            "mastered_count": 0,
-            "added_this_week": 0,
-            "due_for_review": 1,
-            "mastered_today": 0,
-            "pending_today": 0,
-            "last_mastery_at": None,
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is not None
-    assert screen.project_highlight.kind == "language"
-    assert screen.project_highlight.title == "Learning English"
-
-
-@pytest.mark.asyncio
 async def test_build_home_batches_daily_project_stats():
     session = AsyncMock()
     user = _user()
     language = _project()
-    trivia = _trivia_project()
+    spanish = _project("Learning Spanish")
+    spanish.target_language = "es"
 
     with (
         patch.object(home_service, "SessionLocal", _fake_session_local()),
@@ -589,7 +493,7 @@ async def test_build_home_batches_daily_project_stats():
         patch.object(
             home_service.projects_repo,
             "list_for_user",
-            AsyncMock(return_value=[trivia, language]),
+            AsyncMock(return_value=[spanish, language]),
         ),
         patch.object(
             home_service.project_items_repo,
@@ -617,7 +521,7 @@ async def test_build_home_batches_daily_project_stats():
         await home_service.build_home_screen(session, user, Settings())
 
     items_mock.assert_awaited_once()
-    assert set(items_mock.await_args.args[1]) == {language.id, trivia.id}
+    assert set(items_mock.await_args.args[1]) == {language.id, spanish.id}
 
 
 @pytest.mark.asyncio

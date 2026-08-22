@@ -17,7 +17,7 @@ from app.services.projects.common import (
 logger = logging.getLogger(__name__)
 
 PATH_MIN_CHAPTERS = 8
-PATH_MAX_CHAPTERS = 12
+PATH_MAX_CHAPTERS = 80
 PATH_SEED_WORD_CAP = 10
 CHAPTER_COMPLETE_RATIO = 0.8
 CHAPTER_MIN_WORDS = 5
@@ -108,8 +108,6 @@ def normalize_path_titles(titles: Sequence[object]) -> list[str]:
             continue
         seen.add(key)
         out.append(title)
-        if len(out) >= PATH_MAX_CHAPTERS:
-            break
     return out
 
 
@@ -138,6 +136,10 @@ def build_path_progress(
         return []
     daily_goal = resolve_daily_goal(project)
     project_id = getattr(project, "id", None)
+    lang = (getattr(project, "target_language", None) or "en").strip().lower()
+    from app.content.vocab_catalog import catalog_domain_by_title
+
+    domain_by_title = catalog_domain_by_title(lang)
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
         item_project = getattr(item, "project_id", None)
@@ -153,12 +155,23 @@ def build_path_progress(
         progress.append(
             PathChapterProgress(
                 title=title,
+                domain=domain_by_title.get(title.casefold(), title),
                 mastered=mastered,
                 total=total,
                 complete=chapter_is_complete(mastered=mastered, total=total, daily_goal=daily_goal),
             )
         )
     return progress
+
+
+def items_in_chapter(items: list[ProjectItem], chapter: str | None) -> list[ProjectItem]:
+    """Filter items to one chapter; ``None`` keeps the full list."""
+    if not chapter:
+        return list(items)
+    key = _list_key(chapter)
+    return [
+        item for item in items if _list_key(getattr(item, "list_title", "") or DEFAULT_LIST) == key
+    ]
 
 
 def up_next_chapter(project: object, items: list[ProjectItem]) -> str | None:
@@ -213,13 +226,16 @@ def format_path_prompt_lines(project: object, items: list[ProjectItem]) -> list[
     if not path:
         return []
     progress = build_path_progress(project, items)
-    lines = ["Learning path (teach in this order; add new words to the current chapter):"]
+    lines = [
+        "Learning path (teach in this order). Words are preloaded — do NOT invent or add new words."
+    ]
     for chapter in progress:
         mark = "✓" if chapter.complete else "○"
         lines.append(f"- {mark} {chapter.title} ({chapter.mastered}/{chapter.total})")
     current = up_next_chapter(project, items)
     if current:
-        lines.append(f"Teach and add new words in: {current}")
+        lines.append(f"Teach only words listed under: {current}")
+        lines.append("○ = not started, ◐ = learning, ✓ = done. Pick the next ○ or ◐ word.")
     return lines
 
 

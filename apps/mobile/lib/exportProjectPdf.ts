@@ -1,9 +1,8 @@
-/** Export a learning project (vocab / trivia / concepts) as a PDF. */
+/** Export a language learning project as a PDF. */
 
-import type { ProjectDetail, ProjectItem, ProjectKind } from "@/lib/api";
+import type { ProjectDetail, ProjectItem } from "@/lib/api";
 import { escapeHtml, wrapPrintDocument } from "@/lib/printDocument";
 import { isLanguageProject } from "@/lib/languageLevels";
-import { isTriviaProject } from "@/lib/projects/projectUi";
 
 const STATUS_ORDER: Array<ProjectItem["status"]> = ["mastered", "learning", "new"];
 
@@ -41,20 +40,21 @@ function statusOf(item: ProjectItem): ProjectItem["status"] {
   return item.mastered ? "mastered" : "new";
 }
 
-function renderItemHtml(item: ProjectItem, kind: ProjectKind, labels: ProjectPdfLabels): string {
+function renderItemHtml(item: ProjectItem, labels: ProjectPdfLabels): string {
   const title = escapeHtml(item.content.trim() || "—");
   const def = (item.definition || item.note || "").trim();
   const example = (item.example_sentence || "").trim();
   const topic = item.list_title?.trim();
   const bits: string[] = [`<div class="item"><h3>${title}</h3>`];
-  if (isTriviaProject(kind) && topic && topic.toLowerCase() !== "general") {
+  if (topic && topic.toLowerCase() !== "general") {
     bits.push(`<p class="def"><strong>${escapeHtml(labels.topic)}:</strong> ${escapeHtml(topic)}</p>`);
   }
   if (def) {
-    const label = isTriviaProject(kind) ? "" : `<strong>${escapeHtml(labels.definition)}:</strong> `;
-    bits.push(`<p class="def">${label}${escapeHtml(def)}</p>`);
+    bits.push(
+      `<p class="def"><strong>${escapeHtml(labels.definition)}:</strong> ${escapeHtml(def)}</p>`,
+    );
   }
-  if (example && !isTriviaProject(kind)) {
+  if (example) {
     bits.push(
       `<p class="example"><strong>${escapeHtml(labels.example)}:</strong> ${escapeHtml(example)}</p>`,
     );
@@ -89,7 +89,7 @@ export function projectLearningToPrintHtml(
     if (!section.length) continue;
     bodyParts.push(`<h2>${escapeHtml(sectionTitle(status))} (${section.length})</h2>`);
     for (const item of section) {
-      bodyParts.push(renderItemHtml(item, project.kind, labels));
+      bodyParts.push(renderItemHtml(item, labels));
     }
   }
   if (!bodyParts.length) {
@@ -103,11 +103,7 @@ export function projectLearningToPrintHtml(
     newCount: grouped.new.length,
   });
 
-  const kindLabel = isTriviaProject(project.kind)
-    ? "General knowledge"
-    : isLanguageProject(project.kind)
-      ? "Language"
-      : "Learning";
+  const kindLabel = isLanguageProject(project.kind) ? "Language" : "Learning";
   const title = `${project.title.trim() || "Learning"} — ${kindLabel}`;
   return wrapPrintDocument(title, bodyParts.join("\n"), meta);
 }

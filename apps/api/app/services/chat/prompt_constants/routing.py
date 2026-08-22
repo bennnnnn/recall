@@ -72,11 +72,36 @@ _PERSONAL_CONTEXT_CUE = re.compile(
     r"name|email|preference|preferences|diet|routine|schedule|"
     r"calendar|wife|husband|kids?|dog|cat|job|work|boss|team|"
     r"project|projects|todo|todos|list|lists|reminder|reminders|"
-    r"allerg(?:y|ies)|favorite|usual|memory|memories"
+    r"allerg(?:y|ies)|favorite|usual|memory|memories|"
+    r"vocab(?:ulary)?|words?|learning"
     r")\b"
     r")",
     re.IGNORECASE,
 )
+
+# Progress / "what did I learn" — not dictionary lookups like "another word for".
+_LEARNING_PROGRESS_CUE = re.compile(
+    r"(?:"
+    r"\bvocab(?:ulary)?\b|"
+    r"\b(?:what|which) words?\b|"
+    r"\bwords? (?:did|have) i\b|"
+    r"\b(?:learn(?:ed|ing)?|studied|practiced|mastered) today\b|"
+    r"\btoday'?s (?:words?|vocab(?:ulary)?|lesson|quiz)\b|"
+    r"\bmy (?:vocab(?:ulary)?|words|learning)\b|"
+    r"\blearning (?:class|progress|path|topic)s?\b|"
+    r"\bhow many words\b|"
+    r"\bwords? (?:i|have i) (?:learn|learned|studied|mastered)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_learning_progress_question(text: str) -> bool:
+    """True when the user is asking about their Recall Learning words/progress."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    return bool(_LEARNING_PROGRESS_CUE.search(cleaned))
 
 
 def needs_rich_context(
@@ -102,6 +127,8 @@ def needs_rich_context(
     if is_broad_self_question(cleaned):
         return True
     if is_writing_deliverable_request(cleaned):
+        return True
+    if is_learning_progress_question(cleaned):
         return True
     return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 

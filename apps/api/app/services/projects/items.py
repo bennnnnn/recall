@@ -27,6 +27,7 @@ async def create_item(
     example_sentence: str | None = None,
     chat_id: UUID | None = None,
     status: str = "new",
+    catalog_entry_id: UUID | None = None,
     commit: bool = True,
 ) -> ProjectItem:
     # Do not call dictionaryapi on the quiz/turn-prep hot path — that HTTP round
@@ -43,6 +44,7 @@ async def create_item(
         chat_id=chat_id,
         status=status,
         pronunciation_url=None,
+        catalog_entry_id=catalog_entry_id,
         commit=commit,
     )
 
