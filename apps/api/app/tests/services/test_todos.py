@@ -613,7 +613,8 @@ async def test_materialize_reminder_fences_skips_invalid():
             user_timezone="UTC",
         )
     assert created == 0
-    assert "```reminder" in updated
+    assert "```reminder" not in updated
+    assert "Could not set that reminder" in updated
     create_mock.assert_not_awaited()
 
 

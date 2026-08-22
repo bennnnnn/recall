@@ -128,7 +128,7 @@ async def materialize_reminder_fences(
         parts.append(assistant_text[last : match.start()])
         ok = await _create_one(state, match.group(1))
         if not ok:
-            parts.append(match.group(0))  # keep invalid fence visible for debugging
+            parts.append("*Could not set that reminder — the format was invalid.*")
         last = match.end()
     parts.append(assistant_text[last:])
     updated = "".join(parts)
