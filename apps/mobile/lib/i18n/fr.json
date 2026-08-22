@@ -331,6 +331,7 @@
   "lesson.continue": "Continuer",
   "lesson.lessons": "Leçons",
   "lesson.loading": "Préparation de la leçon…",
+  "lesson.more_to_learn": "Encore des mots dans ce chapitre",
   "lesson.open": "Ouvrir la leçon",
   "lesson.quiz_meaning": "Que signifie « {{word}} » ?",
   "lesson.quiz_use": "Quel mot signifie « {{meaning}} » ?",

@@ -331,6 +331,7 @@
   "lesson.continue": "Продолжить",
   "lesson.lessons": "Уроки",
   "lesson.loading": "Готовим урок…",
+  "lesson.more_to_learn": "В этой главе есть ещё слова",
   "lesson.open": "Открыть урок",
   "lesson.quiz_meaning": "Что значит «{{word}}»?",
   "lesson.quiz_use": "Какое слово значит «{{meaning}}»?",

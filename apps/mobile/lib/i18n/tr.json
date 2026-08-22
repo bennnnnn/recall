@@ -331,6 +331,7 @@
   "lesson.continue": "Devam",
   "lesson.lessons": "Dersler",
   "lesson.loading": "Ders hazırlanıyor…",
+  "lesson.more_to_learn": "Bu bölümde daha fazlası var",
   "lesson.open": "Dersi aç",
   "lesson.quiz_meaning": "\"{{word}}\" ne anlama gelir?",
   "lesson.quiz_use": "\"{{meaning}}\" anlamına gelen sözcük hangisi?",
