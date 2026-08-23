@@ -74,11 +74,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
+- ✅ **Live talk (Pro)** — waveform on the composer opens a **speech-to-speech** session
+  (OpenAI GPT Audio via OpenRouter: audio in → spoken reply, **not Whisper**). Short pause
+  ends your turn; the orb never shows “Transcribing…”. Not full duplex. Free is blocked
+  (upgrade). Pro: **30 turns/day** (UTC). Composer mic STT remains Whisper.
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
   (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
   remains for non-streaming clients.
-- 🔜 Reactions, read receipts; duplex / live back-and-forth voice (later).
+- 🔜 Reactions, read receipts; full duplex / interruptible live voice (later).
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
@@ -531,7 +535,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
 - 🔜 **Web client** — slice 1 shipped (login + chat stream); see [Web client](#web-client-planned) below.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
-  response caching, duplex / live voice (later).
+  response caching, full duplex / interruptible voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 
@@ -541,7 +545,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 |------|-----------------|
 | Auth | Email/password, magic links, multi-device session management |
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
-| Messaging | Reactions, read receipts; duplex / live voice; music generation (composer send + compact inline player) |
+| Messaging | Reactions, read receipts; full duplex / interruptible voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind (lesson notes / richer tutor); other target languages; certificates |
@@ -650,6 +654,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
+| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; not Whisper; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over attachment corpora | ✅ Shipped (`attachment_rag`; flag on by default) |
@@ -751,7 +756,8 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → Whisper → composer (dev build), waveform UI, rate limits | Duplex / live back-and-forth voice (later) |
+| Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex / interruptible voice (later) |
+| Live talk speech-to-speech (Pro, 30 turns/day) | — |
 | Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
 
 ### Cost guards (recent)
@@ -760,6 +766,7 @@ drawer FTS search ✅.
 | Daily tokens | 100k | 500k |
 | Speech transcriptions/day | 30 | 200 |
 | Speech TTS (read aloud)/day | 20 | 100 |
+| Live talk turns/day | 0 (Pro only) | 30 |
 | Tavily searches/day | 20 (then DDG only) | 150 |
 | R1 / smart-chat quota weight | 3.5× token charge | Same |
 
@@ -813,7 +820,7 @@ weakness. No video generation. Native share is enough unless we later decide we 
 - Launch ops: provision Neon / Redis / R2 / Fly / EAS; landing page + support URL;
   Google OAuth verification (Gmail); on-device QA (iOS + Android); production R2 secrets.
 - Google Docs, GitHub (owned integrations).
-- Duplex / live back-and-forth voice.
+- Full duplex / interruptible live voice.
 - Code execution beyond the sandboxed HTML/chart WebView.
 - Web client (same API).
 - Locale prose + legal page bodies.

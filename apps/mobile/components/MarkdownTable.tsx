@@ -19,19 +19,17 @@ import { Theme, useTheme } from "@/lib/theme";
 
 type CellProps = { isLast?: boolean };
 
-type RowProps = CellProps & { zebra?: boolean };
+type RowProps = CellProps;
 
 type TableLayout = {
   columnWidth: number;
-  scrollable: boolean;
 };
 
 const TableLayoutContext = createContext<TableLayout>({
   columnWidth: 120,
-  scrollable: false,
 });
 
-const MIN_COL_WIDTH = 112;
+const MIN_COL_WIDTH = 160;
 const TABLE_H_PAD = 32;
 
 function mapCells(children: ReactNode) {
@@ -48,7 +46,6 @@ function mapRows(children: ReactNode) {
     if (!isValidElement<RowProps>(child)) return child;
     return cloneElement(child as ReactElement<RowProps>, {
       isLast: index === rows.length - 1,
-      zebra: index % 2 === 1,
     });
   });
 }
@@ -65,33 +62,29 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const colCount = Math.max(1, columns);
   const available = Math.max(200, screenWidth - TABLE_H_PAD);
-  const fittedWidth = available / colCount;
-  const scrollable = fittedWidth < MIN_COL_WIDTH;
-  const columnWidth = scrollable ? MIN_COL_WIDTH : fittedWidth;
+  const columnWidth = Math.max(MIN_COL_WIDTH, available / colCount);
+  const scrollable = columnWidth * colCount > available + 1;
 
   const table = (
     <View
       key={nodeKey}
-      style={[s.table, scrollable && { width: columnWidth * colCount }]}
+      style={[s.table, { width: columnWidth * colCount }]}
     >
       {mapRows(children)}
     </View>
   );
 
   return (
-    <TableLayoutContext.Provider value={{ columnWidth, scrollable }}>
-      {scrollable ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-          style={s.scroll}
-          nestedScrollEnabled
-        >
-          {table}
-        </ScrollView>
-      ) : (
-        <View style={s.wrap}>{table}</View>
-      )}
+    <TableLayoutContext.Provider value={{ columnWidth }}>
+      <ScrollView
+        horizontal
+        scrollEnabled={scrollable}
+        showsHorizontalScrollIndicator={scrollable}
+        style={s.scroll}
+        nestedScrollEnabled
+      >
+        {table}
+      </ScrollView>
     </TableLayoutContext.Provider>
   );
 }
@@ -100,20 +93,15 @@ export function MarkdownTableRow({
   nodeKey,
   children,
   isLast = false,
-  zebra = false,
 }: {
   nodeKey: string;
   children: ReactNode;
   isLast?: boolean;
-  zebra?: boolean;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View
-      key={nodeKey}
-      style={[s.row, zebra && s.rowZebra, isLast && s.rowLast]}
-    >
+    <View key={nodeKey} style={[s.row, isLast && s.rowLast]}>
       {mapCells(children)}
     </View>
   );
@@ -123,26 +111,19 @@ function TableCell({
   nodeKey,
   children,
   isLast = false,
-  header = false,
 }: {
   nodeKey: string;
   children: ReactNode;
   isLast?: boolean;
-  header?: boolean;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { columnWidth, scrollable } = useContext(TableLayoutContext);
+  const { columnWidth } = useContext(TableLayoutContext);
 
   return (
     <View
       key={nodeKey}
-      style={[
-        s.cell,
-        header && s.headerCell,
-        !isLast && s.cellBorderRight,
-        scrollable ? { width: columnWidth } : s.cellFlex,
-      ]}
+      style={[s.cell, !isLast && s.cellBorderRight, { width: columnWidth }]}
     >
       <View style={s.cellInner}>{children}</View>
     </View>
@@ -152,7 +133,7 @@ function TableCell({
 export function MarkdownTableHeaderCell(
   props: CellProps & { nodeKey: string; children: ReactNode },
 ) {
-  return <TableCell {...props} header />;
+  return <TableCell {...props} />;
 }
 
 export function MarkdownTableCell(
@@ -163,25 +144,17 @@ export function MarkdownTableCell(
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    wrap: { marginVertical: 10, alignSelf: "stretch" },
-    scroll: { marginVertical: 10 },
+    scroll: { marginVertical: 10, backgroundColor: "transparent" },
     table: {
-      width: "100%",
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 12,
-      overflow: "hidden",
-      backgroundColor: theme.surface,
+      backgroundColor: "transparent",
       alignSelf: "stretch",
     },
     row: {
       flexDirection: "row",
       alignItems: "flex-start",
+      backgroundColor: "transparent",
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
-    },
-    rowZebra: {
-      backgroundColor: theme.surfaceAlt,
     },
     rowLast: {
       borderBottomWidth: 0,
@@ -189,10 +162,6 @@ function makeStyles(theme: Theme) {
     cell: {
       backgroundColor: "transparent",
       minWidth: 0,
-    },
-    cellFlex: {
-      flex: 1,
-      flexBasis: 0,
     },
     cellBorderRight: {
       borderRightWidth: StyleSheet.hairlineWidth,
@@ -203,9 +172,6 @@ function makeStyles(theme: Theme) {
       paddingVertical: 10,
       minWidth: 0,
       flexShrink: 1,
-    },
-    headerCell: {
-      backgroundColor: theme.surfaceAlt,
     },
   });
 }

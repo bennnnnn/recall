@@ -75,6 +75,10 @@ function withGreenTicks(
   );
 }
 
+function replaceHtmlBreaks(text: string): string {
+  return text.replace(/<br\s*\/?>/gi, "\n");
+}
+
 function renderTextWithMath(
   node: { key: string; content: string },
   parent: unknown,
@@ -88,7 +92,7 @@ function renderTextWithMath(
   // "leads to the next line" marker. It strands as a lone "two dots" between
   // a label and the formula on the next line. Drop it for all content, not
   // just nested-math paragraphs.
-  const content = node.content
+  const content = replaceHtmlBreaks(node.content)
     .split("\n")
     .filter((line) => line.trim() !== ":")
     .join("\n");
@@ -110,7 +114,7 @@ function renderTextWithMath(
   if (parts.length === 1 && parts[0].type === "text") {
     return (
       <Text key={node.key} style={base} selectable>
-        {withGreenTicks(node.content, tickColor, node.key)}
+        {withGreenTicks(content, tickColor, node.key)}
       </Text>
     );
   }
@@ -421,6 +425,17 @@ function makeSharedRules(
         {children}
       </Text>
     ),
+    html_inline: (node: { key: string; content?: string }) => {
+      const html = (node.content ?? "").trim();
+      if (/^<br\s*\/?>$/i.test(html)) {
+        return (
+          <Text key={node.key} selectable>
+            {"\n"}
+          </Text>
+        );
+      }
+      return null;
+    },
     code_inline: (
       node: { key: string; content: string },
       _children: unknown,

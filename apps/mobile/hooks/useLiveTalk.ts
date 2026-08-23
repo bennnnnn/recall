@@ -1,0 +1,245 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert } from "react-native";
+
+import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { api } from "@/lib/api";
+import {
+  LIVE_TALK_ECHO_GUARD_MS,
+  liveTalkErrorGate,
+  liveTalkGate,
+  liveTalkSilenceDecision,
+  type LiveTalkGate,
+  type LiveTalkPhase,
+  type LiveTalkStatus,
+} from "@/lib/liveTalkLogic";
+import { playSpeechAudio, stopSpeaking } from "@/lib/pronunciation";
+import { isVoiceInputAvailable, readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
+
+type Options = {
+  token: string | null;
+  isOffline: boolean;
+  onUpgrade: () => void;
+  t: (key: string) => string;
+};
+
+export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
+  const [visible, setVisible] = useState(false);
+  const [phase, setPhase] = useState<LiveTalkPhase>("idle");
+  const [status, setStatus] = useState<LiveTalkStatus | null>(null);
+  const phaseRef = useRef(phase);
+  const visibleRef = useRef(false);
+  const sessionGen = useRef(0);
+  const heardSpeechRef = useRef(false);
+  const silenceStartedAtRef = useRef<number | null>(null);
+  const recordingStartedAtRef = useRef(0);
+  const endingUtteranceRef = useRef(false);
+  const autoListenRef = useRef(false);
+  const emptyStreakRef = useRef(0);
+
+  phaseRef.current = phase;
+  visibleRef.current = visible;
+
+  const alertForGate = useCallback(
+    (gate: LiveTalkGate) => {
+      if (gate === "upgrade") {
+        onUpgrade();
+        return;
+      }
+      if (gate === "limit") {
+        Alert.alert(t("chat.live_talk_limit_title"), t("chat.live_talk_limit_body"));
+        return;
+      }
+      if (gate === "offline") {
+        Alert.alert(t("common.error"), t("chat.offline_body"));
+        return;
+      }
+      Alert.alert(t("chat.live_talk_unavailable_title"), t("chat.live_talk_unavailable_body"));
+    },
+    [onUpgrade, t],
+  );
+
+  const voice = useVoiceInput({
+    token,
+    t,
+    recordingFormat: "wav",
+    onTranscript: () => undefined,
+    onTranscribeError: () => undefined,
+  });
+
+  const startRecordingRef = useRef(voice.startRecording);
+  const cancelRecordingRef = useRef(voice.cancelRecording);
+  startRecordingRef.current = voice.startRecording;
+  cancelRecordingRef.current = voice.cancelRecording;
+
+  const beginListen = useCallback(async () => {
+    if (!token || isOffline || !visibleRef.current) return;
+    if (phaseRef.current === "recording" || phaseRef.current === "thinking") return;
+    heardSpeechRef.current = false;
+    silenceStartedAtRef.current = null;
+    recordingStartedAtRef.current = Date.now();
+    const started = await startRecordingRef.current();
+    if (!started) return;
+    if (!visibleRef.current) {
+      void cancelRecordingRef.current();
+      return;
+    }
+    setPhase("recording");
+  }, [token, isOffline]);
+
+  const finishListen = useCallback(async () => {
+    if (!token || endingUtteranceRef.current) return;
+    endingUtteranceRef.current = true;
+    const gen = sessionGen.current;
+    setPhase("thinking");
+    const uri = await cancelRecordingRef.current();
+    if (sessionGen.current !== gen) {
+      endingUtteranceRef.current = false;
+      return;
+    }
+    if (!uri) {
+      endingUtteranceRef.current = false;
+      emptyStreakRef.current += 1;
+      autoListenRef.current = emptyStreakRef.current < 3;
+      setPhase("idle");
+      return;
+    }
+    const audioBase64 = await readRecordingBase64(uri);
+    if (sessionGen.current !== gen) {
+      endingUtteranceRef.current = false;
+      return;
+    }
+    if (!audioBase64) {
+      endingUtteranceRef.current = false;
+      emptyStreakRef.current += 1;
+      autoListenRef.current = emptyStreakRef.current < 3;
+      setPhase("idle");
+      return;
+    }
+    emptyStreakRef.current = 0;
+    try {
+      const spoken = await api.liveTalkSpeak(token, audioBase64, speechUploadFromUri(uri).name);
+      if (sessionGen.current !== gen) {
+        endingUtteranceRef.current = false;
+        return;
+      }
+      setStatus({
+        enabled: true,
+        entitled: true,
+        remaining: spoken.remaining,
+        limit: spoken.limit,
+      });
+      setPhase("speaking");
+      const played = await playSpeechAudio(spoken.audio_base64, spoken.content_type);
+      if (sessionGen.current !== gen) {
+        endingUtteranceRef.current = false;
+        return;
+      }
+      if (!played.ok) {
+        Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, LIVE_TALK_ECHO_GUARD_MS));
+        if (sessionGen.current !== gen) {
+          endingUtteranceRef.current = false;
+          return;
+        }
+      }
+      autoListenRef.current = true;
+      setPhase("idle");
+    } catch (error) {
+      if (sessionGen.current !== gen) {
+        endingUtteranceRef.current = false;
+        return;
+      }
+      alertForGate(liveTalkErrorGate(error));
+      setPhase("idle");
+    } finally {
+      endingUtteranceRef.current = false;
+    }
+  }, [token, alertForGate, t]);
+
+  const close = useCallback(() => {
+    sessionGen.current += 1;
+    stopSpeaking();
+    endingUtteranceRef.current = false;
+    autoListenRef.current = false;
+    void cancelRecordingRef.current();
+    setPhase("idle");
+    setVisible(false);
+  }, []);
+
+  const open = useCallback(async () => {
+    if (!token) return;
+    if (!isVoiceInputAvailable() || !voice.voiceInputAvailable) {
+      Alert.alert(t("chat.live_talk_unavailable_title"), t("chat.live_talk_unavailable_body"));
+      return;
+    }
+    try {
+      const next = await api.liveTalkStatus(token);
+      setStatus(next);
+      const gate = liveTalkGate(next, isOffline);
+      if (gate !== "ok") {
+        alertForGate(gate);
+        return;
+      }
+      sessionGen.current += 1;
+      emptyStreakRef.current = 0;
+      autoListenRef.current = true;
+      setPhase("idle");
+      setVisible(true);
+    } catch (error) {
+      alertForGate(liveTalkErrorGate(error));
+    }
+  }, [token, isOffline, voice.voiceInputAvailable, t, alertForGate]);
+
+  const toggle = useCallback(async () => {
+    if (phase === "thinking") return;
+    if (phase === "speaking") {
+      sessionGen.current += 1;
+      stopSpeaking();
+      autoListenRef.current = true;
+      setPhase("idle");
+      return;
+    }
+    if (phase === "recording") {
+      await finishListen();
+      return;
+    }
+    await beginListen();
+  }, [phase, finishListen, beginListen]);
+
+  useEffect(() => {
+    if (!visible || phase !== "idle" || !autoListenRef.current) return;
+    autoListenRef.current = false;
+    void beginListen();
+  }, [visible, phase, beginListen]);
+
+  useEffect(() => {
+    if (phase !== "recording") return;
+    const next = liveTalkSilenceDecision({
+      meter: voice.voiceMeterLevel,
+      now: Date.now(),
+      recordingStartedAt: recordingStartedAtRef.current,
+      heardSpeech: heardSpeechRef.current,
+      silenceStartedAt: silenceStartedAtRef.current,
+    });
+    heardSpeechRef.current = next.heardSpeech;
+    silenceStartedAtRef.current = next.silenceStartedAt;
+    if (next.shouldStop) void finishListen();
+  }, [phase, voice.voiceMeterLevel, finishListen]);
+
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  return {
+    visible,
+    phase,
+    meterLevel: voice.voiceMeterLevel,
+    recording: phase === "recording",
+    open,
+    close,
+    toggle,
+  };
+}

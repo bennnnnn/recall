@@ -46,6 +46,12 @@ IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
     "You've reached today's image generation limit. Try again after midnight UTC."
 )
 
+LIVE_TALK_REQUIRES_PRO_MESSAGE = "Live talk is a Pro feature. Upgrade to talk with Recall out loud."
+LIVE_TALK_LIMIT_EXCEEDED_MESSAGE = (
+    "You've reached today's live talk limit. Try again after midnight UTC."
+)
+LIVE_TALK_RATE_LIMIT_MESSAGE = "Too many live talk requests. Please wait a moment and try again."
+
 
 def _plan_limit(user: User, *, free: int, pro: int) -> int:
     return pro if user.plan == "pro" else free
@@ -406,6 +412,57 @@ async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -
 
 async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
     await _refund_daily(redis, _daily_key("imggen", user_id))
+
+
+# ── Live talk turns (Pro-only via limit=0 for free) ──────────────────────────
+# One slot = one user utterance that is sent as a chat turn. Pending key lets
+# the client refund if STT/send fails before the model starts.
+
+_LIVE_TALK_PENDING_TTL_SECONDS = 90
+
+
+def live_talk_limit_for_user(user: User, settings: Settings) -> int:
+    return _plan_limit(user, free=settings.daily_live_talk, pro=settings.daily_live_talk_pro)
+
+
+def live_talk_limit_exceeded_message(user: User) -> str:
+    if user.plan == "pro":
+        return LIVE_TALK_LIMIT_EXCEEDED_MESSAGE
+    return LIVE_TALK_REQUIRES_PRO_MESSAGE
+
+
+def _live_talk_pending_key(user_id: UUID) -> str:
+    return f"livetalk_pending:{user_id}"
+
+
+async def live_talk_used(redis: Redis, user_id: UUID) -> int:
+    value = await redis.get(_daily_key("livetalk", user_id))
+    return int(value or 0)
+
+
+async def reserve_live_talk(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    ok = await _reserve_daily_slot(redis, _daily_key("livetalk", user_id), limit=limit)
+    if ok:
+        await redis.set(_live_talk_pending_key(user_id), "1", ex=_LIVE_TALK_PENDING_TTL_SECONDS)
+    return ok
+
+
+async def refund_live_talk(redis: Redis, user_id: UUID) -> None:
+    await _refund_daily(redis, _daily_key("livetalk", user_id))
+
+
+async def refund_live_talk_if_pending(redis: Redis, user_id: UUID) -> bool:
+    """Give back the slot only if this turn never made it into a chat send."""
+    pending = await redis.get(_live_talk_pending_key(user_id))
+    if not pending:
+        return False
+    await redis.delete(_live_talk_pending_key(user_id))
+    await refund_live_talk(redis, user_id)
+    return True
+
+
+async def clear_live_talk_pending(redis: Redis, user_id: UUID) -> None:
+    await redis.delete(_live_talk_pending_key(user_id))
 
 
 # ── Global UTC-day spend kill-switch (OpenRouter $) ──────────────────────────

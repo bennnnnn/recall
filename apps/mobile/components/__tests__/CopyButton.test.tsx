@@ -16,6 +16,10 @@ jest.mock("expo-haptics", () => ({
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
+jest.mock("react-native-svg", () => {
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
+  return { __esModule: true, default: View, Svg: View, Path: View };
+});
 // i18next isn't initialized in the component jest preset; return the key so the
 // label is deterministic and decoupled from the English copy.
 jest.mock("react-i18next", () => ({
@@ -83,5 +87,15 @@ describe("CopyButton", () => {
     await flushCopied();
 
     expect(setStringAsync).not.toHaveBeenCalled();
+  });
+
+  it("icon variant has no Copy label — ChatGPT overlapping-squares only", async () => {
+    const { getByLabelText, queryByText } = await render(
+      <CopyButton text="hello" variant="icon" />,
+    );
+    expect(queryByText("common.copy")).toBeNull();
+    await fireEvent.press(getByLabelText("common.copy"));
+    await flushCopied();
+    expect(setStringAsync).toHaveBeenCalledWith("hello");
   });
 });

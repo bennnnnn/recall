@@ -13,6 +13,7 @@ import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { LiveTalkButton } from "@/components/chat/LiveTalkButton";
 import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
 import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
 import {
@@ -79,6 +80,7 @@ type Props = {
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
+  onLiveTalkPress?: () => void;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
   docked?: boolean;
   onOpenMathScanner?: () => void;
@@ -113,6 +115,7 @@ export const ChatComposer = memo(function ChatComposer({
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
   onVoicePress,
+  onLiveTalkPress,
   docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
@@ -336,6 +339,16 @@ export const ChatComposer = memo(function ChatComposer({
                         transcribing={voiceTranscribing}
                         disabled={attachBusy || attachPicking || sendBusy || isOffline}
                         onPress={onVoicePress}
+                      />
+                    ) : null}
+                    {onLiveTalkPress &&
+                    !voiceRecording &&
+                    !voiceTranscribing &&
+                    !showSend &&
+                    !sendBusy ? (
+                      <LiveTalkButton
+                        disabled={attachBusy || attachPicking || isOffline}
+                        onPress={onLiveTalkPress}
                       />
                     ) : null}
                     {showSend || sendBusy ? (

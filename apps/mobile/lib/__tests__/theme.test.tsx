@@ -1,17 +1,19 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
-  it("keeps chat-app hierarchy: grouped canvas, white chrome, branded user bubble", () => {
-    expect(lightTheme.bg).toBe("#F2F2F7");
+  it("uses ChatGPT-mobile hierarchy: gray page, white cards, mint user chip", () => {
+    expect(lightTheme.bg).toBe("#F7F7F7");
     expect(lightTheme.surface).toBe("#FFFFFF");
     expect(lightTheme.inputBg).toBe("#FFFFFF");
-    expect(lightTheme.userBubble).toBe("#D6EBFF");
+    expect(lightTheme.userBubble).toBe("#E8F5E9");
+    expect(lightTheme.assistantBubble).toBe(lightTheme.bg);
     expect(lightTheme.primary).toBe("#007AFF");
     expect(lightTheme.accent).toBe("#0D9488");
-    expect(lightTheme.textTertiary).toBe("#6E6E73");
-    expect(lightTheme.codeLang).toBe("#6E6E73");
+    expect(lightTheme.text).toBe("#0D0D0D");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);
+    expect(darkTheme.bg).toBe("#212121");
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
+    expect(darkTheme.composerBg).toBe(darkTheme.bg);
     expect(darkTheme.inputBg).toBe(darkTheme.surface);
     expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
   });

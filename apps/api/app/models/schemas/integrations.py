@@ -41,6 +41,27 @@ class SpeechTtsOut(BaseModel):
     model: str = "speech-tts-model"
 
 
+class SpeechLiveSpeakIn(BaseModel):
+    audio_base64: str = Field(max_length=SPEECH_MAX_B64_CHARS)
+    filename: str = "speech.m4a"
+
+
+class SpeechLiveSpeakOut(BaseModel):
+    audio_base64: str
+    content_type: str = "audio/wav"
+    transcript: str = ""
+    remaining: int
+    limit: int
+
+
+class SpeechLiveStatusOut(BaseModel):
+    enabled: bool
+    entitled: bool
+    remaining: int
+    limit: int
+    refunded: bool = False
+
+
 class GoogleCalendarConnectRequest(BaseModel):
     server_auth_code: str = Field(min_length=8, max_length=4096)
 

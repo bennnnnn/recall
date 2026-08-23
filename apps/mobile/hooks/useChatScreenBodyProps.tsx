@@ -118,6 +118,7 @@ export type UseChatScreenBodyPropsParams = {
     voiceTranscribing: boolean;
     voiceMeterLevel: number;
     toggleVoiceInput: () => void | Promise<void>;
+    onLiveTalkPress?: () => void;
   };
   listFooter?: ReactElement | null;
   hideHomeStarters?: boolean;
@@ -193,6 +194,7 @@ export function useChatScreenBodyProps({
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
+    onLiveTalkPress,
   },
   listFooter = null,
   hideHomeStarters = false,
@@ -368,6 +370,7 @@ export function useChatScreenBodyProps({
       voiceTranscribing,
       voiceMeterLevel,
       onVoicePress,
+      onLiveTalkPress,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,
@@ -434,6 +437,7 @@ export function useChatScreenBodyProps({
       voiceTranscribing,
       voiceMeterLevel,
       onVoicePress,
+      onLiveTalkPress,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,

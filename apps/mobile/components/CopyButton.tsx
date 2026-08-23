@@ -4,13 +4,15 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { CopySquaresIcon } from "@/components/rich/chatgptDraftIcons";
 import { notifySuccess, tap } from "@/lib/haptics";
+import { inkIconColor } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   text: string;
-  /** "pill" = compact icon+label for code/copy/card headers; "action" = larger button for chart/mermaid rows. */
-  variant?: "pill" | "action";
+  /** "pill" = compact icon+label for code/copy/card headers; "action" = larger button for chart/mermaid rows; "icon" = ChatGPT-style icon only. */
+  variant?: "pill" | "action" | "icon";
   /** Disable haptic feedback if a parent already fired one. */
   haptic?: boolean;
   style?: ViewStyle;
@@ -52,8 +54,9 @@ export function CopyButton({
     timerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
   };
 
-  const iconSize = variant === "action" ? 18 : 14;
+  const iconSize = variant === "action" ? 18 : variant === "icon" ? 20 : 14;
   const label = copied ? t("common.copied") : t("common.copy");
+  const ink = copied ? theme.primary : inkIconColor(theme);
 
   return (
     <Pressable
@@ -64,17 +67,39 @@ export function CopyButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={copied ? { selected: true } : undefined}
     >
-      <Icon
-        name={copied ? (variant === "action" ? "checkmark-circle" : "checkmark-outline") : "copy-outline"}
-        size={iconSize}
-        color={copied ? theme.primary : theme.textSecondary}
-      />
-      <Text style={[s.label, copied && s.labelDone]}>{label}</Text>
+      {variant === "icon" ? (
+        copied ? (
+          <Icon name="checkmark-outline" size={iconSize} color={ink} />
+        ) : (
+          <CopySquaresIcon size={iconSize} color={ink} />
+        )
+      ) : (
+        <Icon
+          name={copied ? (variant === "action" ? "checkmark-circle" : "checkmark-outline") : "copy-outline"}
+          size={iconSize}
+          color={copied ? theme.primary : theme.textSecondary}
+        />
+      )}
+      {variant === "icon" ? null : (
+        <Text style={[s.label, copied && s.labelDone]}>{label}</Text>
+      )}
     </Pressable>
   );
 }
 
-function makeStyles(t: Theme, variant: "pill" | "action") {
+function makeStyles(t: Theme, variant: "pill" | "action" | "icon") {
+  if (variant === "icon") {
+    return StyleSheet.create({
+      btn: {
+        width: 32,
+        height: 32,
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      label: {},
+      labelDone: {},
+    });
+  }
   if (variant === "action") {
     return StyleSheet.create({
       btn: {

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { CopyButton } from "@/components/CopyButton";
+import { CardShell } from "@/components/rich/CardShell";
+import { GmailMark } from "@/components/rich/chatgptDraftIcons";
 import { fullEmailText } from "@/lib/emailCompose";
 import { openGmailCompose } from "@/lib/openGmailCompose";
 import { EmailDraft } from "@/lib/richBlocks";
@@ -35,34 +37,17 @@ export function EmailCard({ draft }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [copied, setCopied] = useState(false);
   const [gmailOpening, setGmailOpening] = useState(false);
   const [editing, setEditing] = useState(false);
   const [fields, setFields] = useState(() => draftFields(draft));
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setFields(draftFields(draft));
     setEditing(false);
   }, [draft.to, draft.subject, draft.body]);
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
   const currentDraft = useMemo(() => toDraft(fields), [fields]);
   const copyPayload = fullEmailText(currentDraft);
-
-  const onCopy = async () => {
-    tap();
-    await Clipboard.setStringAsync(copyPayload);
-    setCopied(true);
-    notifySuccess();
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), 1500);
-  };
 
   const onGmail = async () => {
     if (gmailOpening) return;
@@ -95,10 +80,12 @@ export function EmailCard({ draft }: Props) {
   };
 
   return (
-    <View style={s.wrap}>
-      <View style={s.header}>
-        <Text style={s.headerTitle}>{t("chat.email_card_title")}</Text>
-        <View style={s.actions}>
+    <CardShell
+      label={t("chat.email_card_title")}
+      icon="mail-outline"
+      accent={false}
+      headerActions={
+        <>
           <Pressable
             style={[s.iconBtn, editing && s.iconBtnActive]}
             onPress={toggleEditing}
@@ -109,38 +96,28 @@ export function EmailCard({ draft }: Props) {
             }
           >
             <Icon
-              name={editing ? "checkmark-outline" : "create-outline"}
+              name={editing ? "checkmark-outline" : "pencil-outline"}
               size={20}
-              color={editing ? theme.primary : theme.textSecondary}
             />
           </Pressable>
-          <Pressable
-            style={s.iconBtn}
-            onPress={() => void onCopy()}
-            hitSlop={6}
-            accessibilityRole="button"
+          <CopyButton
+            text={copyPayload}
+            variant="icon"
             accessibilityLabel={t("chat.email_card_copy")}
-            disabled={editing}
-          >
-            <Icon
-              name={copied ? "checkmark-outline" : "copy-outline"}
-              size={20}
-              color={copied ? theme.primary : theme.textSecondary}
-            />
-          </Pressable>
+          />
           <Pressable
-            style={[s.gmailBtn, gmailOpening && s.gmailBtnBusy]}
+            style={[s.iconBtn, gmailOpening && s.gmailBtnBusy]}
             onPress={() => void onGmail()}
             hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={t("chat.email_card_gmail")}
             disabled={gmailOpening || editing}
           >
-            <Icon name="mail-outline" size={16} color={theme.brand.gmail} />
-            <Text style={s.gmailBtnText}>{t("rich.gmail")}</Text>
+            <GmailMark size={18} />
           </Pressable>
-        </View>
-      </View>
+        </>
+      }
+    >
       <View style={s.body}>
         {editing ? (
           <>
@@ -192,54 +169,22 @@ export function EmailCard({ draft }: Props) {
           </>
         )}
       </View>
-    </View>
+    </CardShell>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      alignSelf: "stretch",
-      backgroundColor: t.surface,
-      borderRadius: 16,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      marginVertical: 8,
-      overflow: "hidden",
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-    },
-    headerTitle: { fontSize: 16, fontWeight: "700", color: t.text },
-    actions: { flexDirection: "row", alignItems: "center", gap: 4 },
     iconBtn: {
-      width: 36,
-      height: 36,
+      width: 32,
+      height: 32,
       alignItems: "center",
       justifyContent: "center",
       borderRadius: 8,
     },
     iconBtnActive: { backgroundColor: t.primaryLight },
-    gmailBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      backgroundColor: t.bg,
-    },
     gmailBtnBusy: { opacity: 0.6 },
-    gmailBtnText: { fontSize: 13, fontWeight: "700", color: t.text },
-    body: { paddingHorizontal: 14, paddingVertical: 14, gap: 8 },
+    body: { gap: 8 },
     fieldLabel: {
       fontSize: 12,
       fontWeight: "700",
@@ -260,7 +205,16 @@ function makeStyles(t: Theme) {
     bodyInput: { minHeight: 140, lineHeight: 24 },
     meta: { fontSize: 14, lineHeight: 20, color: t.textSecondary },
     metaKey: { fontWeight: "600", color: t.textTertiary },
-    subject: { fontSize: 16, fontWeight: "700", lineHeight: 22, color: t.text },
-    bodyText: { fontSize: 16, lineHeight: 24, color: t.text },
+    subject: {
+      fontSize: 16,
+      fontWeight: "700",
+      lineHeight: 22,
+      color: t.text,
+    },
+    bodyText: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: t.text,
+    },
   });
 }

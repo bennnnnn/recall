@@ -104,7 +104,71 @@ export async function requestVoicePermission(
   return mod.requestRecordingPermissionsAsync();
 }
 
-export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
+/** Switch the session to playback so TTS works after the mic (incl. silent switch). */
+export async function preparePlaybackAudioMode(): Promise<void> {
+  const mod = loadExpoAudio();
+  if (!mod) return;
+  try {
+    await mod.setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+    });
+  } catch {
+    /* native module can throw if audio is already tearing down */
+  }
+}
+
+export type VoiceRecordingFormat = "aac" | "wav";
+
+type RecordingPreset = {
+  extension?: string;
+  sampleRate?: number;
+  numberOfChannels?: number;
+  bitRate?: number;
+  isMeteringEnabled?: boolean;
+  ios?: Record<string, unknown>;
+  android?: Record<string, unknown>;
+  web?: Record<string, unknown>;
+};
+
+/** Live talk needs wav/mp3 — OpenAI gpt-audio rejects Expo's default m4a. */
+export function recordingOptionsForFormat(
+  highQuality: RecordingPreset,
+  format: VoiceRecordingFormat,
+): RecordingPreset {
+  const metered: RecordingPreset = { ...highQuality, isMeteringEnabled: true };
+  if (format !== "wav") return metered;
+  return {
+    ...metered,
+    extension: ".wav",
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 256000,
+    ios: {
+      ...(highQuality.ios ?? {}),
+      outputFormat: "lpcm",
+      audioQuality: 0x7f,
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      linearPCMBitDepth: 16,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false,
+    },
+    android: {
+      ...(highQuality.android ?? {}),
+      extension: ".wav",
+      outputFormat: "default",
+      audioEncoder: "default",
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      bitRate: 256000,
+    },
+  };
+}
+
+export async function startVoiceRecording(
+  format: VoiceRecordingFormat = "aac",
+): Promise<VoiceRecorder | null> {
   const mod = loadExpoAudio();
   if (!mod) return null;
 
@@ -114,11 +178,10 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
   });
 
   const recorder = new mod.AudioModule.AudioRecorder({});
-  const preset = {
-    ...mod.RecordingPresets.HIGH_QUALITY,
-    isMeteringEnabled: true,
-  };
-  await recorder.prepareToRecordAsync(preset);
+  const preset = recordingOptionsForFormat(mod.RecordingPresets.HIGH_QUALITY, format);
+  await recorder.prepareToRecordAsync(
+    preset as Parameters<typeof recorder.prepareToRecordAsync>[0],
+  );
   recorder.record();
 
   const listeners = new Set<MeterListener>();
@@ -141,7 +204,7 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
         }
       } finally {
         try {
-          await mod.setAudioModeAsync({ allowsRecording: false });
+          await preparePlaybackAudioMode();
         } catch {
           /* best-effort: TTS should not stay in record mode */
         }

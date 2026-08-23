@@ -88,6 +88,7 @@ export type ChatScreenBodyProps = {
   voiceTranscribing: boolean;
   voiceMeterLevel: number;
   onVoicePress?: () => void;
+  onLiveTalkPress?: () => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
   listFooter?: ReactElement | null;
@@ -156,6 +157,7 @@ export function ChatScreenBody({
   voiceTranscribing,
   voiceMeterLevel,
   onVoicePress,
+  onLiveTalkPress,
   upgradeVisible,
   onCloseUpgrade,
   listFooter = null,
@@ -249,6 +251,7 @@ export function ChatScreenBody({
         voiceTranscribing={voiceTranscribing}
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
+        onLiveTalkPress={onLiveTalkPress}
         onOpenMathScanner={onOpenMathScanner}
         onMathChromeHeightChange={onMathChromeHeightChange}
         mathContext={mathContext}
