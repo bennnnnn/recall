@@ -4,12 +4,6 @@ import sys
 
 from app.services.learning import path as _impl
 from app.services.learning.path import (
-    CHAPTER_COMPLETE_RATIO as CHAPTER_COMPLETE_RATIO,
-)
-from app.services.learning.path import (
-    CHAPTER_MIN_WORDS as CHAPTER_MIN_WORDS,
-)
-from app.services.learning.path import (
     DEFAULT_LIST as DEFAULT_LIST,
 )
 from app.services.learning.path import (

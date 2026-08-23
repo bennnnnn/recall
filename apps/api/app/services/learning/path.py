@@ -19,8 +19,6 @@ logger = logging.getLogger(__name__)
 PATH_MIN_CHAPTERS = 8
 PATH_MAX_CHAPTERS = 80
 PATH_SEED_WORD_CAP = 10
-CHAPTER_COMPLETE_RATIO = 0.8
-CHAPTER_MIN_WORDS = 5
 
 
 def is_unspecified_list(title: str) -> bool:
@@ -52,10 +50,12 @@ def parse_learning_path(project: object) -> list[str]:
 
 
 def chapter_is_complete(*, mastered: int, total: int, daily_goal: int) -> bool:
-    min_total = min(max(daily_goal, 1), CHAPTER_MIN_WORDS)
-    if total < min_total:
-        return False
-    return (mastered / total) >= CHAPTER_COMPLETE_RATIO
+    """True when every word in the chapter is mastered.
+
+    ``daily_goal`` is kept so callers stay stable; it does not gate completion.
+    """
+    del daily_goal
+    return total > 0 and mastered >= total
 
 
 def build_path_progress(

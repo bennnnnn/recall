@@ -75,10 +75,10 @@ def test_parse_learning_path_ignores_non_lists():
     assert parse_learning_path(MagicMock()) == []
 
 
-def test_chapter_complete_needs_floor_and_ratio():
-    assert not chapter_is_complete(mastered=4, total=4, daily_goal=10)
-    assert chapter_is_complete(mastered=4, total=5, daily_goal=10)
-    assert not chapter_is_complete(mastered=3, total=5, daily_goal=10)
+def test_chapter_complete_requires_every_word():
+    assert not chapter_is_complete(mastered=0, total=0, daily_goal=10)
+    assert chapter_is_complete(mastered=4, total=4, daily_goal=10)
+    assert not chapter_is_complete(mastered=4, total=5, daily_goal=10)
     assert chapter_is_complete(mastered=3, total=3, daily_goal=3)
 
 
