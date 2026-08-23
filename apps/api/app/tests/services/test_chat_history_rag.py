@@ -1,5 +1,6 @@
 """Chat-history semantic RAG: index past turns, retrieve a small top-k."""
 
+import asyncio
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -8,6 +9,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services.chat_history_rag import (
+    embed_query_for_prompt,
     index_message,
     index_turn_messages,
     prepare_message_text,
@@ -158,6 +160,115 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
     assert "blue couch" in block
     assert "not the full history" in block
     assert search.await_args.kwargs["exclude_message_ids"] == exclude
+
+
+@pytest.mark.asyncio
+async def test_embed_query_for_prompt_degrades_on_timeout():
+    with (
+        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        vec = await embed_query_for_prompt(
+            Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
+            user_id=uuid4(),
+            query="what did we decide about the lease?",
+        )
+    assert vec is None
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
+    row = MagicMock()
+    row.text = "User: we picked the blue couch"
+    exclude = {uuid4()}
+    embed = AsyncMock(return_value=[0.1] * 8)
+    with (
+        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            embed,
+        ),
+        patch(
+            "app.services.chat_history_rag.chunks_repo.search_semantic",
+            AsyncMock(return_value=[row]),
+        ) as search,
+        patch(
+            "app.services.chat_history_rag.embedding_gateway.parse_embedding",
+            return_value=[0.1] * 8,
+        ),
+        patch(
+            "app.services.chat_history_rag.embedding_gateway.cosine_similarity",
+            return_value=0.9,
+        ),
+        patch("app.services.chat_history_rag.chunks_repo.EMBEDDING_DIM", 1536),
+    ):
+        block = await retrieve_for_prompt(
+            Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
+            user_id=uuid4(),
+            query="which couch",
+            exclude_message_ids=exclude,
+            query_vec=[0.2] * 8,
+        )
+    assert "blue couch" in block
+    embed.assert_not_awaited()
+    assert search.await_args.kwargs["exclude_message_ids"] == exclude
+    assert search.await_args.args[2] == [0.2] * 8
+
+
+@pytest.mark.asyncio
+async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent():
+    """Recent-window load must not sit behind the RAG query embed."""
+    import time
+
+    from app.services.chat.prompt_builder import _load_context_blocks
+
+    async def slow_embed(*_args, **_kwargs):
+        await asyncio.sleep(0.2)
+        return [0.2]
+
+    recent_at: dict[str, float] = {}
+
+    async def fast_recent(*_args, **_kwargs):
+        recent_at["t"] = time.perf_counter()
+        return []
+
+    t0 = time.perf_counter()
+    user = MagicMock()
+    user.id = uuid4()
+    with (
+        patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
+        patch("app.services.chat.prompt_builder.messages_repo.list_recent", fast_recent),
+        patch(
+            "app.services.chat_history_rag.embed_query_for_prompt",
+            slow_embed,
+        ),
+    ):
+        blocks = await _load_context_blocks(
+            user,
+            uuid4(),
+            Settings(chat_history_rag_enabled=True),
+            chat=None,
+            query_text="which couch did we pick last year",
+            recent_limit=20,
+            is_day_plan=False,
+            slim_context=True,
+            client_timezone=None,
+            out=None,
+            history_rag=True,
+        )
+    assert recent_at["t"] - t0 < 0.1
+    assert blocks.history_rag_query_vec == [0.2]
 
 
 @pytest.mark.asyncio
