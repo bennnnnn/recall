@@ -235,14 +235,16 @@ async def extract_text_from_bytes_async(
     settings: Settings,
     *,
     max_chars: int = MAX_EXTRACT_CHARS,
+    allow_ocr: bool = True,
 ) -> str | None:
     """Offload the sync, CPU-bound parse to a worker thread with a timeout,
     so a large or adversarially crafted PDF/DOCX can't block the event loop —
     same pattern as the SymPy math solve offload.
 
     When a PDF has no text layer, fall through to vision OCR (scanned /
-    photographed pages) using a separate network timeout. A CPU-extract
-    timeout does not then spend another 30s on vision.
+    photographed pages) using a separate network timeout — unless
+    *allow_ocr* is False (turn prepare; OCR belongs on the index job).
+    A CPU-extract timeout does not then spend another 30s on vision.
     """
     timed_out = False
     try:
@@ -258,7 +260,7 @@ async def extract_text_from_bytes_async(
         return text
     if timed_out:
         return None
-    if content_type == "application/pdf" and settings.attachment_ocr_enabled:
+    if allow_ocr and content_type == "application/pdf" and settings.attachment_ocr_enabled:
         from app.services.attachment_ocr import ocr_scanned_pdf
 
         return await ocr_scanned_pdf(settings, data)
@@ -370,7 +372,7 @@ async def format_attachment_lines(
         data = await read_attachment_bytes(gateway, storage_key)
     file_ref = f"[File: /attachments/{attachment_id}/file]"
     if data:
-        excerpt = await extract_text_from_bytes_async(content_type, data, settings)
+        excerpt = await extract_text_from_bytes_async(content_type, data, settings, allow_ocr=False)
         if excerpt:
             return [file_ref, f"[File ({content_type})]\n{excerpt}"], False
         if content_type not in EXTRACTABLE_CONTENT_TYPES:
@@ -386,9 +388,9 @@ async def format_attachment_lines(
             return (
                 [
                     file_ref,
-                    "[File attached: application/pdf. No extractable text — this is likely a "
-                    "scanned or image-only PDF. OCR did not recover text; "
-                    "suggest a text-based PDF or pasting the text.]",
+                    "[File attached: application/pdf. No extractable text layer — this is likely a "
+                    "scanned or image-only PDF. OCR runs in the background and will be available "
+                    "on later turns; suggest a text-based PDF or pasting the text if needed.]",
                 ],
                 False,
             )
