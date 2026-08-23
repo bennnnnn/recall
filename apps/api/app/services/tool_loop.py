@@ -1,8 +1,9 @@
 """Model-initiated MCP tool rounds via LiteLLM ``tools=``.
 
 When ``mcp_tool_loop_enabled`` is on, run bounded non-streaming tool rounds
-before the user-visible stream. Pre-stream heuristic MCP / web-search
-injection is skipped for those turns (see prompt_builder).
+before the user-visible stream — **only if the turn likely needs a tool**.
+Ordinary Q&A streams immediately. A leftover complete-without-tools answer is
+returned so the stream path can show it instead of calling the model again.
 
 SymPy tool results that carry a ``canonical_fence`` in ``ToolResult.data`` are
 collected so ``validate_math_fences`` can still overwrite/densify geometry and
@@ -101,6 +102,55 @@ def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
     return clip_status_detail(value) if isinstance(value, str) else None
 
 
+def turn_needs_tool_loop(
+    content: str,
+    *,
+    lightweight: bool = False,
+    has_instant_reply: bool = False,
+    has_verified_math: bool = False,
+    has_search_sources: bool = False,
+    settings: Settings | None = None,
+    user: User | None = None,
+) -> bool:
+    """True when a pre-stream ``complete_with_tools`` round is worth the TTFT cost.
+
+    Heuristic SymPy / Tavily already inject on the prompt path. Paying a full
+    non-streaming LLM round on every other turn (then discarding the answer and
+    streaming a second call) is what made ordinary chat sit on typing dots for
+    ~6s. Skip unless this message still looks like search, unsolved math,
+    calendar create, or Pro image gen.
+    """
+    if settings is not None and not settings.mcp_tool_loop_enabled:
+        return False
+    if has_instant_reply or lightweight or has_verified_math:
+        return False
+    text = content.strip() if isinstance(content, str) else ""
+    if not text:
+        return False
+
+    from app.services import calendar as calendar_service
+    from app.services.image_gen_intent import extract_image_gen_prompt
+    from app.services.math_tools import needs_symbolic_math
+    from app.services.web_search.detection import needs_web_search
+
+    if not has_search_sources and needs_web_search(text):
+        return True
+    math_on = settings is None or settings.math_tools_enabled
+    if math_on and needs_symbolic_math(text):
+        return True
+    if calendar_service.is_calendar_create_request(text):
+        return True
+    image_on = settings is None or settings.image_generation_enabled
+    if (
+        image_on
+        and user is not None
+        and plan_service.is_pro(user)
+        and extract_image_gen_prompt(text)
+    ):
+        return True
+    return False
+
+
 def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any]]:
     """OpenAI tool payloads; omit image gen for free users / when disabled."""
     tools = mcp_registry.build_openai_tools()
@@ -120,17 +170,24 @@ async def run_tool_rounds(
     user: User | None = None,
     redis: Redis | None = None,
     chat_id: UUID | None = None,
-) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None, TerminalImageResult | None]:
+) -> tuple[
+    list[dict[str, Any]],
+    VerifiedMathBlock | None,
+    TerminalImageResult | None,
+    str | None,
+]:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
-    Returns ``(messages, verified_math, terminal_image)``.
+    Returns ``(messages, verified_math, terminal_image, unused_final_content)``.
+    ``unused_final_content`` is a complete answer from a round that did not
+    call tools — the stream should show it instead of calling the model again.
     """
     if not settings.mcp_tool_loop_enabled:
-        return messages, None, None
+        return messages, None, None, None
 
     tools = _tools_for_user(settings, user)
     if not tools:
-        return messages, None, None
+        return messages, None, None, None
 
     with (
         bind_search_quota_context(user=user, redis=redis),
@@ -157,13 +214,19 @@ async def _run_tool_rounds_bound(
     tools: list[dict[str, Any]],
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
-) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None, TerminalImageResult | None]:
+) -> tuple[
+    list[dict[str, Any]],
+    VerifiedMathBlock | None,
+    TerminalImageResult | None,
+    str | None,
+]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     # Collect canonical fences across rounds keyed by type so a geometry
     # fence from round 1 isn't lost when round 2 produces a graph fence.
     canonical_by_type: dict[str, dict[str, Any]] = {}
     terminal_image: TerminalImageResult | None = None
+    unused_final_content: str | None = None
 
     for _ in range(max_rounds):
         if should_cancel and should_cancel():
@@ -184,9 +247,10 @@ async def _run_tool_rounds_bound(
 
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
-            # Model produced a final answer without tools — keep any content
-            # out of the stream path (stream will regenerate). Drop assistant
-            # content here so we don't double-answer.
+            # Model finished without tools. Hand the text to the stream path
+            # instead of throwing it away and paying for a second completion.
+            raw = msg.get("content")
+            unused_final_content = raw.strip() if isinstance(raw, str) and raw.strip() else None
             break
 
         assistant_msg: dict[str, Any] = {
@@ -250,7 +314,7 @@ async def _run_tool_rounds_bound(
         if all_fences
         else None
     )
-    return working, verified, terminal_image
+    return working, verified, terminal_image, unused_final_content
 
 
 def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:

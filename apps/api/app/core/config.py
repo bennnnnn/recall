@@ -66,10 +66,9 @@ class Settings(BaseSettings):
     attachment_ocr_render_scale: float = 1.5
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
-    # Model-initiated LiteLLM tools= loop (bounded rounds before stream).
-    # On by default for owned adapters (web_search / sympy / calendar / image_gen).
-    # Heuristic SymPy + web-search inject still run so homework and first-turn
-    # search do not depend on the model choosing a tool.
+    # Model-initiated LiteLLM tools= loop. Ordinary chat streams immediately;
+    # the loop runs only when the turn still looks like search / unsolved math /
+    # calendar create / Pro image gen after heuristic inject.
     mcp_tool_loop_enabled: bool = True
     mcp_tool_loop_max_rounds: int = 3
     mcp_tool_loop_timeout_seconds: float = 30.0

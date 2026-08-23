@@ -50,11 +50,18 @@ async def run_tool_loop_path(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
 ) -> None:
-    if not (
-        settings.mcp_tool_loop_enabled
-        and not ctx.instant_reply
-        and not ctx.lightweight_turn
-        and ctx.verified_math is None
+    from app.services import tool_loop as tool_loop_service
+
+    content = ctx.user_message_content if isinstance(ctx.user_message_content, str) else ""
+    sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
+    if not tool_loop_service.turn_needs_tool_loop(
+        content,
+        lightweight=bool(ctx.lightweight_turn),
+        has_instant_reply=ctx.instant_reply is not None,
+        has_verified_math=ctx.verified_math is not None,
+        has_search_sources=bool(sources),
+        settings=settings,
+        user=ctx.user,
     ):
         return
     if await seams.quota_service.global_spend_exceeded(redis, settings):
@@ -64,12 +71,11 @@ async def run_tool_loop_path(
             ctx.chat_id,
         )
         return
-    from app.services import tool_loop as tool_loop_service
-
     (
         ctx.prompt_messages,
         tool_verified,
         terminal_image,
+        unused_final,
     ) = await tool_loop_service.run_tool_rounds(
         settings=settings,
         model_alias=ctx.model,
@@ -87,6 +93,9 @@ async def run_tool_loop_path(
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
         ctx.terminal_image_model = terminal_image.resolved_model
+    elif unused_final and ctx.instant_reply is None:
+        # Reuse the no-tools completion instead of streaming a second call.
+        ctx.instant_reply = unused_final
 
 
 async def run_llm_token_stream(
@@ -421,18 +430,24 @@ async def stream_and_finalize(
                         )
                     await finalize_terminal_image_turn(seams, redis, settings, ctx, result)
                     return
-                async for token in run_llm_token_stream(
-                    seams,
-                    redis,
-                    settings,
-                    ctx,
-                    usage=usage,
-                    should_cancel=should_cancel,
-                    result=result,
-                    on_reasoning=on_reasoning,
-                    accum=accum,
-                ):
-                    yield token
+                if ctx.instant_reply:
+                    async for token in run_instant_reply_path(
+                        ctx, should_cancel=should_cancel, accum=accum
+                    ):
+                        yield token
+                else:
+                    async for token in run_llm_token_stream(
+                        seams,
+                        redis,
+                        settings,
+                        ctx,
+                        usage=usage,
+                        should_cancel=should_cancel,
+                        result=result,
+                        on_reasoning=on_reasoning,
+                        accum=accum,
+                    ):
+                        yield token
         except asyncio.CancelledError:
             if not accum.parts:
                 raise
