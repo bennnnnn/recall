@@ -33,6 +33,9 @@ def _should_augment_web_and_tools(
     ambiguous_nearby: bool,
     is_external_calendar_question: bool,
     is_external_email_question: bool,
+    needs_math: bool = False,
+    needs_chemistry: bool = False,
+    needs_search: bool = False,
 ) -> bool:
     """Shared gate for routing-context prefetch and web/tools augmentation.
 
@@ -45,17 +48,53 @@ def _should_augment_web_and_tools(
     letter-answer path; ``active_vocab_turn`` also covers the open-ended
     answer path (``minimal_vocab_answer``), which sets neither
     ``minimal_quiz`` nor ``lightweight``.
+
+    Casual explains / social chat skip Phase B unless math, chemistry, or
+    search actually needs the SymPy / PubChem / tool-loop path.
     """
+    if (
+        instant_reply is not None
+        or lightweight
+        or minimal_personal
+        or minimal_quiz
+        or active_vocab_turn
+        or day_planning
+        or ambiguous_nearby
+        or is_external_calendar_question
+        or is_external_email_question
+    ):
+        return False
+    return needs_math or needs_chemistry or needs_search
+
+
+def _should_fetch_integrations(
+    *,
+    instant_reply: str | None,
+    lightweight: bool,
+    minimal_personal: bool,
+    minimal_quiz: bool,
+    active_vocab_turn: bool,
+    rich_context: bool,
+    day_planning: bool,
+    is_external_calendar_question: bool,
+    is_external_email_question: bool,
+    implies_todos: bool,
+) -> bool:
+    """Calendar / Gmail / email-nudge fetch — not every casual explain."""
+    if (
+        instant_reply is not None
+        or lightweight
+        or minimal_personal
+        or minimal_quiz
+        or active_vocab_turn
+    ):
+        return False
     return (
-        instant_reply is None
-        and not lightweight
-        and not minimal_personal
-        and not minimal_quiz
-        and not active_vocab_turn
-        and not day_planning
-        and not ambiguous_nearby
-        and not is_external_calendar_question
-        and not is_external_email_question
+        rich_context
+        or day_planning
+        or is_external_calendar_question
+        or is_external_email_question
+        or implies_todos
     )
 
 

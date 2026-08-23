@@ -42,12 +42,15 @@ from app.services.chat.turn_prep.mode import (
     _classify_turn_mode,
     _resolve_instant_reply,
     _should_augment_web_and_tools,
+    _should_fetch_integrations,
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
-from app.services.math_tools import VerifiedMathBlock
+from app.services.chemistry.context import is_chemistry_question
+from app.services.math_tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.prompt_inject import inject_before_last_user
 from app.services.settings_intent import extract_settings_changes
+from app.services.todos import query_implies_todos
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
@@ -407,6 +410,18 @@ async def build_stream_prompt_context(
 
     is_external_calendar = calendar_service.is_external_calendar_question(content)
     is_external_email = email_service.is_external_email_question(content)
+    needs_math = settings.math_tools_enabled and needs_symbolic_math(
+        content, has_image_attachment=has_image_attachment
+    )
+    needs_chemistry = settings.chemistry_enabled and is_chemistry_question(content)
+    if needs_web_search is True:
+        needs_search = True
+    elif needs_web_search is False:
+        needs_search = False
+    else:
+        needs_search = settings.web_search_enabled and web_search_service.needs_web_search(
+            content, prior_user_messages=prior_user_messages
+        )
     augment = _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -417,13 +432,21 @@ async def build_stream_prompt_context(
         ambiguous_nearby=geo.ambiguous_nearby,
         is_external_calendar_question=is_external_calendar,
         is_external_email_question=is_external_email,
+        needs_math=needs_math,
+        needs_chemistry=needs_chemistry,
+        needs_search=needs_search,
     )
-    integration_gate = (
-        instant_reply is None
-        and not mode.minimal_personal
-        and not mode.minimal_quiz
-        and not mode.active_vocab_turn
-        and not mode.lightweight
+    integration_gate = _should_fetch_integrations(
+        instant_reply=instant_reply,
+        lightweight=mode.lightweight,
+        minimal_personal=mode.minimal_personal,
+        minimal_quiz=mode.minimal_quiz,
+        active_vocab_turn=mode.active_vocab_turn,
+        rich_context=mode.rich_context,
+        day_planning=mode.day_planning,
+        is_external_calendar_question=is_external_calendar,
+        is_external_email_question=is_external_email,
+        implies_todos=query_implies_todos(content),
     )
 
     # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
@@ -443,14 +466,17 @@ async def build_stream_prompt_context(
     # concurrent external fetches so all inputs are ready, then overlap the
     # slow I/O (calendar/gmail API | Tavily/SymPy) below.
     # (prior_user_messages / has_calendar_write are initialized above.)
-    if augment:
-        if _prior_loaded:
-            has_calendar_write = await _load_has_calendar_write(user.id)
-        else:
-            prior_user_messages, has_calendar_write = await asyncio.gather(
-                _load_prior_user_messages(chat.id),
-                _load_has_calendar_write(user.id),
-            )
+    need_prior = augment and not _prior_loaded
+    need_calendar_write = augment or integration_gate
+    if need_prior and need_calendar_write:
+        prior_user_messages, has_calendar_write = await asyncio.gather(
+            _load_prior_user_messages(chat.id),
+            _load_has_calendar_write(user.id),
+        )
+    elif need_prior:
+        prior_user_messages = await _load_prior_user_messages(chat.id)
+    elif need_calendar_write:
+        has_calendar_write = await _load_has_calendar_write(user.id)
 
     # Phase B: gather the independent external fetches concurrently.
     # Integration fetch (calendar/gmail/nudge) and web+tools fetch
@@ -472,13 +498,14 @@ async def build_stream_prompt_context(
             gmail_context=None,
             on_status=on_status,
             client_timezone=client_timezone,
+            allow_email_nudge=True,
         )
     web_coro: (
         Awaitable[tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]]
         | None
     ) = None
     chem_coro: Awaitable[str | None] | None = None
-    if augment and settings.chemistry_enabled:
+    if augment:
         web_coro = fetch_web_and_tools(
             content,
             settings,
@@ -494,7 +521,8 @@ async def build_stream_prompt_context(
             user=user,
             redis=redis,
         )
-        chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
+        if needs_chemistry:
+            chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
 
     integration_blocks: list[str] = []
     web_block: str | None = None

@@ -65,6 +65,20 @@ def _rich_turn_mode() -> _TurnMode:
     )
 
 
+def _slim_turn_mode() -> _TurnMode:
+    return _TurnMode(
+        lightweight=False,
+        rich_context=False,
+        minimal_personal=False,
+        minimal_quiz=False,
+        minimal_vocab_answer=False,
+        active_vocab_turn=False,
+        day_planning=False,
+        day_reflection=False,
+        quiz_assistant=None,
+    )
+
+
 @pytest.mark.asyncio
 async def test_fetches_run_concurrently_not_serially():
     """Phase A (build_prompt | instant_reply) and Phase B (integration | web+tools)
@@ -133,7 +147,7 @@ async def test_fetches_run_concurrently_not_serially():
         bundle = await build_stream_prompt_context(
             user.id,
             chat.id,
-            "explain photosynthesis",
+            "differentiate x^2",
             "free-chat",
             Settings(
                 max_output_tokens=1000,
@@ -211,7 +225,7 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
         bundle = await build_stream_prompt_context(
             user.id,
             chat.id,
-            "explain photosynthesis",
+            "differentiate x^2",
             "free-chat",
             Settings(
                 max_output_tokens=1000,
@@ -579,3 +593,102 @@ async def test_model_health_overlaps_prompt_build():
 
     health.assert_awaited()
     assert elapsed < 0.90, f"model health sat on the critical path (elapsed={elapsed:.2f}s)"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["explain photosynthesis", "how are you"])
+async def test_casual_slim_skips_phase_b_and_email_nudge(text: str):
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": text},
+    ]
+    fetch_integration = AsyncMock(return_value=[])
+    fetch_web = AsyncMock(return_value=(None, None, [], None))
+    load_nudge = AsyncMock(return_value="- Amazon delivery")
+    with ExitStack() as stack:
+        for p in _prep_patches(prompt=messages):
+            stack.enter_context(p)
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.context.fetch_integration_blocks",
+                fetch_integration,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.context.fetch_web_and_tools",
+                fetch_web,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+                load_nudge,
+            )
+        )
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            text,
+            "free-chat",
+            _tool_loop_settings(gmail_enabled=True),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+    fetch_integration.assert_not_awaited()
+    fetch_web.assert_not_awaited()
+    load_nudge.assert_not_awaited()
+    assert bundle.needs_web_search is False
+    assert bundle.verified_math is None
+
+
+@pytest.mark.asyncio
+async def test_math_turn_still_runs_phase_b_web():
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "differentiate x^2"},
+    ]
+    fetch_web = AsyncMock(return_value=(None, None, [], None))
+    fetch_integration = AsyncMock(return_value=[])
+    with ExitStack() as stack:
+        for p in _prep_patches(prompt=messages):
+            stack.enter_context(p)
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.context.fetch_web_and_tools",
+                fetch_web,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.turn_prep.context.fetch_integration_blocks",
+                fetch_integration,
+            )
+        )
+        await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "differentiate x^2",
+            "free-chat",
+            _tool_loop_settings(),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+    fetch_web.assert_awaited()
+    fetch_integration.assert_not_awaited()

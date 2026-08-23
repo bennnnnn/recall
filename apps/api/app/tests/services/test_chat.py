@@ -1355,7 +1355,7 @@ def test_should_augment_web_and_tools_skips_active_vocab_turn():
         )
         is False
     )
-    # Sanity: a normal rich turn still augments.
+    # Casual explain without math/chem/search must not pay Phase B.
     assert (
         _should_augment_web_and_tools(
             instant_reply=None,
@@ -1367,6 +1367,57 @@ def test_should_augment_web_and_tools_skips_active_vocab_turn():
             ambiguous_nearby=False,
             is_external_calendar_question=False,
             is_external_email_question=False,
+        )
+        is False
+    )
+    # Math / search intent still augments.
+    assert (
+        _should_augment_web_and_tools(
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            active_vocab_turn=False,
+            day_planning=False,
+            ambiguous_nearby=False,
+            is_external_calendar_question=False,
+            is_external_email_question=False,
+            needs_math=True,
+        )
+        is True
+    )
+
+
+def test_should_fetch_integrations_skips_casual_explain():
+    from app.services.chat.turn_prep.mode import _should_fetch_integrations
+
+    assert (
+        _should_fetch_integrations(
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            active_vocab_turn=False,
+            rich_context=False,
+            day_planning=False,
+            is_external_calendar_question=False,
+            is_external_email_question=False,
+            implies_todos=False,
+        )
+        is False
+    )
+    assert (
+        _should_fetch_integrations(
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            active_vocab_turn=False,
+            rich_context=True,
+            day_planning=False,
+            is_external_calendar_question=False,
+            is_external_email_question=False,
+            implies_todos=False,
         )
         is True
     )
