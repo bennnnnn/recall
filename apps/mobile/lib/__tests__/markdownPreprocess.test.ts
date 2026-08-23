@@ -9,6 +9,7 @@ import {
   unwrapProseMathBackticks,
   mergeStrandedColons,
   stripBoldListLabelContinuationColons,
+  breakMidlineAtxHeadings,
 } from "@/lib/markdown/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
@@ -104,6 +105,15 @@ $)
     );
   });
 
+  it("keeps mid-span math inside bold so list labels stay one line", () => {
+    // Unwrapping produced **Slope (**$m$**):** which stacked as
+    // "Slope (" / "m" / "): 3" in list items.
+    expect(normalizeBoldInlineMath("**Slope ($m$):** 3")).toBe("**Slope ($m$):** 3");
+    expect(normalizeBoldInlineMath("**Y-intercept ($b$):** 4")).toBe(
+      "**Y-intercept ($b$):** 4",
+    );
+  });
+
   it("splitInlineMath handles final answer line", () => {
     const parts = splitInlineMath("Final Answer: $x = 2 or x = -2$");
     expect(parts).toEqual([
@@ -159,6 +169,19 @@ $)
 
   it("mergeStrandedColons: does not merge a colon as the first line", () => {
     expect(mergeStrandedColons(":\nHello")).toBe(":\nHello");
+  });
+
+  it("breakMidlineAtxHeadings: pulls ### off the previous sentence", () => {
+    expect(breakMidlineAtxHeadings("Here's a breakdown: ### Explanation")).toBe(
+      "Here's a breakdown:\n\n### Explanation",
+    );
+    expect(breakMidlineAtxHeadings("$y = 3x + 4$: ### Explanation")).toBe(
+      "$y = 3x + 4$:\n\n### Explanation",
+    );
+    // Already a real heading — leave it.
+    expect(breakMidlineAtxHeadings("### Explanation\n\nHello")).toBe(
+      "### Explanation\n\nHello",
+    );
   });
 
   it("BUG FIX regression: mergeStrandedColons also merges stranded semicolons", () => {

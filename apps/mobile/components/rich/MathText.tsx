@@ -10,6 +10,7 @@ import {
 } from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   latex: string;
@@ -273,7 +274,9 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false) => {
   return StyleSheet.create({
     base: {
       fontSize: 16,
-      lineHeight: compact ? SQRT_LINE_HEIGHT : 28,
+      // Match body lineHeight (22). 28 made nested `$m$` / `$y=mx+b$` Text
+      // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
+      lineHeight: compact ? SQRT_LINE_HEIGHT : Type.body.lineHeight,
       color,
     },
     glyph: {

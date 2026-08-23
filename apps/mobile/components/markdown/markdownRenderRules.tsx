@@ -392,10 +392,12 @@ function makeSharedRules(
         {"\n"}
       </Text>
     ),
-    softbreak: (node: { key: string }, _c: unknown, _p: unknown, styles: StyleMap) => (
-      <Text key={node.key} style={styles.softbreak} selectable>
-        {"\n"}
-      </Text>
+    softbreak: (node: { key: string }) => (
+      // CommonMark softbreak is a newline in source. HTML treats it as a
+      // space; RN Text treats "\n" as a hard line break — that's why list
+      // items like "It's a\n**linear equation**\nin slope-intercept form"
+      // stacked every phrase. Render a space so the paragraph wraps naturally.
+      <Text key={node.key}> </Text>
     ),
     inline: (node: AstNode, children: ReactNode, _p: unknown, styles: StyleMap) => {
       const runHeight = mathRunLineHeight(astText(node));
