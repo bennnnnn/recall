@@ -1,5 +1,4 @@
 import {
-  buildLanguageOnboardingPrompt,
   buildProjectAskPrompt,
   buildProjectAskPromptFromProject,
   buildProjectBonusWordsPrompt,
@@ -67,13 +66,6 @@ describe("projectChat daily goal helpers", () => {
     );
     expect(prompt).toContain("finished my daily goal");
     expect(prompt).toContain("Do NOT add or sync new words");
-  });
-
-  it("onboarding prompt names the target language", () => {
-    const prompt = buildLanguageOnboardingPrompt("Español · Beginner", "level1", 10, "es");
-    expect(prompt).toContain("Español vocabulary");
-    expect(prompt).toContain("You're my Español tutor");
-    expect(prompt).not.toContain("English tutor");
   });
 
   it("language ask prompt uses the target language as the screen title", () => {

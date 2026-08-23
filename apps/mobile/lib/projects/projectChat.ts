@@ -1,4 +1,4 @@
-import type { HomeProjectHighlight, LanguageLevel, Project, ProjectDetail, ProjectStats } from "@/lib/api";
+import type { HomeProjectHighlight, Project, ProjectDetail, ProjectStats } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
@@ -102,27 +102,6 @@ function progressLine(project: ProjectDetail): string {
   return (
     `${stats.mastered_count} mastered, ${stats.new_count} new, ` +
     `${stats.learning_count} in progress, ${stats.due_for_review} due for review.`
-  );
-}
-
-/** Opens chat after a new vocabulary project is created. */
-export function buildLanguageOnboardingPrompt(
-  title: string,
-  level: LanguageLevel,
-  dailyGoal: number,
-  targetLanguage = "en",
-): string {
-  const lvl = levelLabel(level);
-  const name = languageLabel(targetLanguage);
-  return (
-    `I just set up my "${title}" ${name} vocabulary project.\n` +
-    `My level: ${lvl}. My daily goal: ${dailyGoal} new words per session.\n\n` +
-    `You're my ${name} tutor. Generate exactly ${dailyGoal} new vocabulary words matched to ${lvl} ` +
-    `(high-frequency words I'll actually use). Save them to this project with ` +
-    `definition and example_sentence.\n\n` +
-    `Then teach each word briefly and quiz me one at a time until I master all ${dailyGoal}. ` +
-    `When I'm done, I'll come back tomorrow for the next batch.\n\n` +
-    `Check in: does this level feel too easy, too hard, or about right?`
   );
 }
 
