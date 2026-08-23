@@ -360,6 +360,9 @@ export function useChatSend({
         model: selectedModel,
       });
       sendMessage(pending.text, pending);
+      // Hand off to useChat.sendingMessageId so the bubble does not stay
+      // "Sending" after start/done (index falls back to pendingOutboundId).
+      setPendingOutboundId(null);
       sendInFlightRef.current = false;
       setSendPhase("idle");
     },

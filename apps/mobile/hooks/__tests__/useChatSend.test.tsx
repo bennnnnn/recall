@@ -171,6 +171,7 @@ describe("useChatSend", () => {
     const appended = setMessages.mock.calls[0][0]([{ id: "prior", role: "assistant" }]);
     expect(appended.at(-1)).toMatchObject({ role: "user", content: "hello" });
     expect(sendMessage).not.toHaveBeenCalled();
+    expect(current.pendingOutboundId).toBeTruthy();
 
     await act(async () => {
       finishGeo({ ok: true, clientGeo: null });
@@ -181,6 +182,7 @@ describe("useChatSend", () => {
       expect.any(String),
       expect.objectContaining({ skipUserBubble: true }),
     );
+    expect(current.pendingOutboundId).toBeNull();
   });
 
   it("rolls back the bubble and restores the draft when geo is cancelled", async () => {

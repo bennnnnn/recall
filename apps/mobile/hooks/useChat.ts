@@ -279,6 +279,7 @@ export function useChat(
       if (payload.type === "done") {
         regenerateBackupRef.current = null;
         editBackupRef.current = null;
+        setSendingMessageId(null);
         const stoppedId = stoppedStreamedIdRef.current;
         stoppedStreamedIdRef.current = null;
         setStreaming(false);
