@@ -1,5 +1,9 @@
 import type { ProjectItem } from "@/lib/api";
-import { buildChapterDrills, lessonWordProgress } from "@/lib/projects/chapterDrill";
+import {
+  blankTargetWord,
+  buildChapterDrills,
+  lessonWordProgress,
+} from "@/lib/projects/chapterDrill";
 
 function item(id: string, content: string, definition: string): ProjectItem {
   return {
@@ -20,12 +24,18 @@ function item(id: string, content: string, definition: string): ProjectItem {
 }
 
 const labels = {
-  useQuestion: (meaning: string) => `Which word means "${meaning}"?`,
-  meaningQuestion: (word: string) => `What does "${word}" mean?`,
+  useQuestion: (sentence: string) => `Which word completes this sentence?\n${sentence}`,
+  meaningQuestion: (sentence: string) => `In this sentence, it means:\n${sentence}`,
 };
 
 describe("buildChapterDrills", () => {
-  it("teaches a word, then quizzes use, then meaning", () => {
+  it("blanks the target word in the example sentence", () => {
+    expect(blankTargetWord("Hello, how are you?", "hello")).toBe("_____, how are you?");
+    expect(blankTargetWord("See you later.", "see you later")).toBe("_____.");
+    expect(blankTargetWord("No match here.", "hola")).toBe("No match here. (_____)");
+  });
+
+  it("teaches a word, then quizzes a gapped sentence, then meaning in context", () => {
     const hola = item("1", "hola", "hello");
     const adios = item("2", "adiós", "goodbye");
     const gracias = item("3", "gracias", "thank you");
@@ -43,13 +53,16 @@ describe("buildChapterDrills", () => {
     if (use?.kind !== "use" || meaning?.kind !== "meaning") {
       throw new Error("expected quiz steps");
     }
+    expect(use.question).toContain("_____");
+    expect(use.question).not.toMatch(/what does/i);
     expect(use.quiz.choices).toHaveLength(4);
     expect(use.quiz.choices.map((choice) => choice.text)).toContain("hola");
     expect(use.quiz.correct).toBe(
       use.quiz.choices.find((choice) => choice.text === "hola")?.letter,
     );
     expect(meaning.quiz.choices.map((choice) => choice.text)).toContain("hello");
-    expect(meaning.question).toContain("hola");
+    expect(meaning.question).toContain("_____");
+    expect(meaning.question).not.toMatch(/what does/i);
   });
 
   it("counts words in the chapter, not teach/quiz steps", () => {

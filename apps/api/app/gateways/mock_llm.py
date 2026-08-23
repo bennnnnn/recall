@@ -16,14 +16,14 @@ MOCK_REPLY = (
 
 MOCK_QUIZ_QUESTION = (
     "**Word:** ubiquitous\n\n"
-    "What does it mean?\n\n"
+    "Cafés are _____ in this city — you see one on every corner.\n\n"
     "A) Extremely rare and hard to find\n"
     "B) Present or found everywhere\n"
     "C) Related to transportation\n"
     "D) A type of musical instrument\n\n"
     "Tap A, B, C, or D — I'll wait for your answer before revealing it.\n\n"
     "```vocab_quiz\n"
-    '{"word":"ubiquitous","question":"What does it mean?",'
+    '{"word":"ubiquitous","question":"Cafés are _____ in this city — you see one on every corner.",'
     '"correct":"B",'
     '"choices":[{"letter":"A","text":"Extremely rare and hard to find"},'
     '{"letter":"B","text":"Present or found everywhere"},'
@@ -42,13 +42,13 @@ MOCK_QUIZ_EXHAUSTED = (
     "We'll revisit it later.\n\n"
     "Next word:\n\n"
     "**Word:** ephemeral\n\n"
-    "What does it mean?\n\n"
+    "Rainbows are _____ — they fade almost as soon as they appear.\n\n"
     "A) Lasting a very short time\n"
     "B) Extremely large\n"
     "C) Very noisy\n"
     "D) Deeply emotional\n\n"
     "```vocab_quiz\n"
-    '{"word":"ephemeral","question":"What does it mean?",'
+    '{"word":"ephemeral","question":"Rainbows are _____ — they fade almost as soon as they appear.",'
     '"correct":"A",'
     '"choices":[{"letter":"A","text":"Lasting a very short time"},'
     '{"letter":"B","text":"Extremely large"},'
@@ -61,13 +61,13 @@ MOCK_QUIZ_CORRECT_NEXT = (
     "Nice work — **correct!** *Ubiquitous* means present or found everywhere.\n\n"
     "Next word:\n\n"
     "**Word:** ephemeral\n\n"
-    "What does it mean?\n\n"
+    "Rainbows are _____ — they fade almost as soon as they appear.\n\n"
     "A) Lasting a very short time\n"
     "B) Extremely large\n"
     "C) Very noisy\n"
     "D) Deeply emotional\n\n"
     "```vocab_quiz\n"
-    '{"word":"ephemeral","question":"What does it mean?",'
+    '{"word":"ephemeral","question":"Rainbows are _____ — they fade almost as soon as they appear.",'
     '"correct":"A",'
     '"choices":[{"letter":"A","text":"Lasting a very short time"},'
     '{"letter":"B","text":"Extremely large"},'

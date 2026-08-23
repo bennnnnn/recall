@@ -52,8 +52,8 @@ export function useLessonSession(projectId: string) {
 
   const labels = useMemo(
     () => ({
-      useQuestion: (meaning: string) => t("lesson.quiz_use", { meaning }),
-      meaningQuestion: (word: string) => t("lesson.quiz_meaning", { word }),
+      useQuestion: (sentence: string) => t("lesson.quiz_use", { sentence }),
+      meaningQuestion: (sentence: string) => t("lesson.quiz_meaning", { sentence }),
     }),
     [t],
   );

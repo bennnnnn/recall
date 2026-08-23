@@ -65,10 +65,11 @@ LEVEL_GUIDANCE: dict[str, str] = {
 
 VOCAB_QUIZ_FENCE_EXAMPLE = (
     "```vocab_quiz\n"
-    '{"word":"apple","question":"What does it mean?",'
+    '{"word":"see you later",'
+    '"question":"Which word completes this sentence? _____ — I have a meeting now.",'
     '"correct":"A",'
-    '"choices":[{"letter":"A","text":"a red fruit"},{"letter":"B","text":"a vehicle"},'
-    '{"letter":"C","text":"a feeling"},{"letter":"D","text":"a color"}]}\n'
+    '"choices":[{"letter":"A","text":"see you later"},{"letter":"B","text":"water"},'
+    '{"letter":"C","text":"yesterday"},{"letter":"D","text":"expensive"}]}\n'
     "```"
 )
 
@@ -88,18 +89,20 @@ VOCAB_CARD_FENCE_EXAMPLE = (
 # Learning-oriented rotation for vocabulary.
 VOCAB_LEARNING_FORMATS_BLOCK = (
     "Rotate these formats across turns (vary; do **not** default to MCQ every time):\n"
-    "1) **Teach → use:** show a ```vocab_card``` with **word + definition only** "
-    "(do **NOT** include example_sentence — that spoils the exercise). Then ask the user to "
-    "write their **own** sentence using the word. Example card:\n"
+    "1) **Teach → use:** show a ```vocab_card``` with **word + short L1 gloss** "
+    "and one example sentence. Then ask the user to pick or write a sentence that uses it. "
+    "Example card:\n"
     f"{VOCAB_CARD_FENCE_EXAMPLE}\n"
-    "Then: *Write your own sentence with **serendipity**.* "
-    "Only after they answer may you share an example sentence.\n"
-    "2) **Use → define:** give one clear example sentence with the target word in **bold**, "
-    "then ask what it means in their own words (open-ended — no A–D). "
+    "Then: *Which sentence uses **serendipity** correctly?* "
+    'Do **not** ask "what does X mean?".\n'
+    "2) **Use in context:** give one clear example with the target word blanked (_____), "
+    "then ask which word belongs in the blank (open-ended or A–D lemmas). "
     "Do **not** show the definition until after they answer.\n"
-    "3) **Quick check (MCQ):** about **one turn in three**, use A–D tap chips:\n"
+    "3) **Quick check (MCQ):** about **one turn in three**, use A–D tap chips for a "
+    "**situation or gapped sentence**, never a bare dictionary prompt:\n"
     f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "One word per turn. Prefer teach→use and use→define for learning; MCQ is a quick check only."
+    "One word per turn. Prefer teach→use and gapped sentences; MCQ is a quick check only. "
+    'Never ask "What does [word] mean?" for high-frequency words.'
 )
 
 
