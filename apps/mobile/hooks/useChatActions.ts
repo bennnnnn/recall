@@ -8,6 +8,7 @@ type Router = ReturnType<typeof useRouter>;
 
 import { insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 import { api, type Chat, type Message } from "@/lib/api";
+import { FREE_CHAT_MODEL_ID } from "@/lib/modelCatalogFallback";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
@@ -190,7 +191,8 @@ export function useChatActions({
               id: chatId,
               title: chatTitle,
               model:
-                [...messages].reverse().find((m) => m.model)?.model ?? "free-chat",
+                [...messages].reverse().find((m) => m.model)?.model ??
+                FREE_CHAT_MODEL_ID,
               pinned,
               archived,
               created_at: new Date().toISOString(),

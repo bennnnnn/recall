@@ -40,17 +40,19 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@/lib/cache/suggestedRemindersCache", () => ({
-  fetchSuggestedReminders: jest.fn(async () => ({ reminders: [] })),
-  getCachedSuggestedReminders: jest.fn(() => ({
-    reminders: [
-      { id: "sug-1", title: "Package arriving", due_at: "2026-08-24T18:00:00Z" },
-    ],
-    pending_count: 1,
-  })),
-  removeSuggestedReminderFromCache: jest.fn(),
-  restoreSuggestedReminderToCache: jest.fn(),
-}));
+jest.mock("@/lib/cache/suggestedRemindersCache", () => {
+  const actual = jest.requireActual("@/lib/cache/suggestedRemindersCache") as typeof import("@/lib/cache/suggestedRemindersCache");
+  return {
+    ...actual,
+    fetchSuggestedReminders: jest.fn(async () => ({ reminders: [] })),
+    getCachedSuggestedReminders: jest.fn(() => ({
+      reminders: [
+        { id: "sug-1", title: "Package arriving", due_at: "2026-08-24T18:00:00Z" },
+      ],
+      pending_count: 1,
+    })),
+  };
+});
 
 jest.mock("@/lib/todos/todoReminders", () => ({
   syncTodoReminders: jest.fn(async () => undefined),

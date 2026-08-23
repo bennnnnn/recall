@@ -14,6 +14,11 @@ import {
   ensureNotificationPermission,
   syncTodoReminders,
 } from "@/lib/todos/todoReminders";
+import {
+  buildOptimisticTodo,
+  removeTodoById,
+  replaceTodoById,
+} from "@/lib/todos/optimisticTodo";
 import { DEFAULT_TOPIC, normalizeTopic } from "@/lib/todoTopics";
 
 type Params = {
@@ -41,6 +46,10 @@ export function useTodosActions({
 }: Params) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
+  const reportError = useCallback((bodyKey: string) => {
+    if (feedback) feedback.error(t(bodyKey));
+    else Alert.alert(t("todos.error"), t(bodyKey));
+  }, [feedback, t]);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [duePicker, setDuePicker] = useState<{ todo: Todo; date: Date } | null>(null);
   const [savingReminder, setSavingReminder] = useState(false);
@@ -83,38 +92,26 @@ export function useTodosActions({
           (max, item) => Math.max(max, item.sort_order ?? Number.MAX_SAFE_INTEGER),
           -1,
         ) + 1;
-      const optimisticId = `local-todo-${Date.now()}`;
-      const now = new Date().toISOString();
-      const optimistic: Todo = {
-        id: optimisticId,
+      const optimistic = buildOptimisticTodo({
         content: trimmed,
         topic: normalizedTopic,
-        checked: false,
-        due_at: null,
-        sort_order: nextSort,
-        chat_id: null,
-        project_id: null,
-        created_at: now,
-        updated_at: now,
-      };
-      setPending(optimisticId, true);
+        sortOrder: nextSort,
+      });
+      setPending(optimistic.id, true);
       setTodos((prev) => [...prev, optimistic]);
       void persistGroupOrder(mergeGroupOrder(groupOrder, [normalizedTopic]));
       try {
         const created = await api.createTodo(token, trimmed, topic);
-        setTodos((prev) =>
-          prev.map((item) => (item.id === optimisticId ? created : item)),
-        );
+        setTodos((prev) => replaceTodoById(prev, optimistic.id, created));
       } catch {
-        setTodos((prev) => prev.filter((item) => item.id !== optimisticId));
-        if (feedback) feedback.error(t("todos.error_create"));
-        else Alert.alert(t("todos.error"), t("todos.error_create"));
+        setTodos((prev) => removeTodoById(prev, optimistic.id));
+        reportError("todos.error_create");
       } finally {
         creatingItemRef.current = false;
-        setPending(optimisticId, false);
+        setPending(optimistic.id, false);
       }
     },
-    [feedback, groupOrder, persistGroupOrder, setPending, setTodos, t, todos, token],
+    [groupOrder, persistGroupOrder, reportError, setPending, setTodos, todos, token],
   );
 
   const handleCreateList = useCallback(
@@ -133,14 +130,13 @@ export function useTodosActions({
         await persistGroupOrder(nextOrder);
         onCreated();
       } catch {
-        if (feedback) feedback.error(t("todos.error_create"));
-        else Alert.alert(t("todos.error"), t("todos.error_create"));
+        reportError("todos.error_create");
       } finally {
         creatingListRef.current = false;
         setCreatingList(false);
       }
     },
-    [feedback, groupOrder, persistGroupOrder, t],
+    [groupOrder, persistGroupOrder, reportError],
   );
 
   const handleReorderGroups = useCallback(
@@ -150,13 +146,12 @@ export function useTodosActions({
       try {
         await persistGroupOrder(topics);
       } catch {
-        if (feedback) feedback.error(t("todos.error_toggle"));
-        else Alert.alert(t("todos.error"), t("todos.error_toggle"));
+        reportError("todos.error_toggle");
       } finally {
         reorderRef.current = false;
       }
     },
-    [feedback, persistGroupOrder, t],
+    [persistGroupOrder, reportError],
   );
 
   const handleReorderItems = useCallback(
@@ -188,8 +183,7 @@ export function useTodosActions({
         });
       } catch {
         setTodos(original);
-        if (feedback) feedback.error(t("todos.error_toggle"));
-        else Alert.alert(t("todos.error"), t("todos.error_toggle"));
+        reportError("todos.error_toggle");
       } finally {
         const withoutPending = new Set(pendingIdsRef.current);
         orderedIds.forEach((id) => withoutPending.delete(id));
@@ -198,7 +192,7 @@ export function useTodosActions({
         reorderRef.current = false;
       }
     },
-    [feedback, setTodos, t, todos, token],
+    [reportError, setTodos, todos, token],
   );
 
   const handleCreateReminder = useCallback(
@@ -209,22 +203,13 @@ export function useTodosActions({
       savingReminderRef.current = true;
       setSavingReminder(true);
       const dueIso = toDueAtIso(dueDate);
-      const optimisticId = `local-todo-${Date.now()}`;
-      const now = new Date().toISOString();
-      const optimistic: Todo = {
-        id: optimisticId,
+      const optimistic = buildOptimisticTodo({
         content: trimmed,
         topic: DEFAULT_TOPIC,
-        checked: false,
-        due_at: dueIso,
-        sort_order: null,
-        chat_id: null,
-        project_id: null,
-        created_at: now,
-        updated_at: now,
-      };
+        dueAt: dueIso,
+      });
       goToDay(dayKeyForDue(dueDate, dueIso));
-      setPending(optimisticId, true);
+      setPending(optimistic.id, true);
       setTodos((prev) => {
         const next = [optimistic, ...prev];
         void syncTodoReminders(next);
@@ -235,22 +220,19 @@ export function useTodosActions({
         const created = await api.createTodo(token, trimmed, DEFAULT_TOPIC, {
           dueAt: dueIso,
         });
-        setTodos((prev) =>
-          prev.map((item) => (item.id === optimisticId ? created : item)),
-        );
+        setTodos((prev) => replaceTodoById(prev, optimistic.id, created));
         if (userId) void markReminderIdsSeen(userId, [created.id]);
         void refresh({ silent: true, force: true });
       } catch {
-        setTodos((prev) => prev.filter((item) => item.id !== optimisticId));
-        if (feedback) feedback.error(t("todos.error_create"));
-        else Alert.alert(t("todos.error"), t("todos.error_create"));
+        setTodos((prev) => removeTodoById(prev, optimistic.id));
+        reportError("todos.error_create");
       } finally {
-        setPending(optimisticId, false);
+        setPending(optimistic.id, false);
         savingReminderRef.current = false;
         setSavingReminder(false);
       }
     },
-    [feedback, goToDay, refresh, setPending, setTodos, t, token, userId],
+    [goToDay, refresh, reportError, setPending, setTodos, token, userId],
   );
 
   const handleToggle = useCallback(
@@ -276,15 +258,14 @@ export function useTodosActions({
         });
       } catch {
         setTodos(original);
-        if (feedback) feedback.error(t("todos.error_toggle"));
-        else Alert.alert(t("todos.error"), t("todos.error_toggle"));
+        reportError("todos.error_toggle");
       } finally {
         setPending(todo.id, false);
         setTogglingId(null);
         void refresh({ silent: true, force: true });
       }
     },
-    [feedback, refresh, setPending, setTodos, t, todos, token],
+    [refresh, reportError, setPending, setTodos, todos, token],
   );
 
   const handleDeleteItem = useCallback(
@@ -309,8 +290,7 @@ export function useTodosActions({
             } catch {
               setTodos(snapshot);
               void syncTodoReminders(snapshot);
-              if (feedback) feedback.error(t("todos.error_delete"));
-              else Alert.alert(t("todos.error"), t("todos.error_delete"));
+              reportError("todos.error_delete");
             } finally {
               setPending(todo.id, false);
               void refresh({ silent: true, force: true });
@@ -319,7 +299,7 @@ export function useTodosActions({
         },
       ]);
     },
-    [feedback, refresh, setPending, setTodos, t, todos, token],
+    [refresh, reportError, setPending, setTodos, t, todos, token],
   );
 
   const handleDeleteList = useCallback(
@@ -369,8 +349,7 @@ export function useTodosActions({
                 setTodos(snapshot);
                 void syncTodoReminders(snapshot);
                 await persistGroupOrder(snapshotOrder).catch(() => {});
-                if (feedback) feedback.error(t("todos.error_delete"));
-                else Alert.alert(t("todos.error"), t("todos.error_delete"));
+                reportError("todos.error_delete");
               } finally {
                 items.forEach((item) => setPending(item.id, false));
                 void refresh({ silent: true, force: true });
@@ -380,7 +359,7 @@ export function useTodosActions({
         ],
       );
     },
-    [feedback, groupOrder, persistGroupOrder, refresh, setPending, setTodos, t, todos, token],
+    [groupOrder, persistGroupOrder, refresh, reportError, setPending, setTodos, t, todos, token],
   );
 
   const applyDueDate = useCallback(
@@ -421,14 +400,13 @@ export function useTodosActions({
         if (isRemindersPage && previousDay) {
           goToDay(previousDay);
         }
-        if (feedback) feedback.error(t("todos.error_due"));
-        else Alert.alert(t("todos.error"), t("todos.error_due"));
+        reportError("todos.error_due");
         return false;
       } finally {
         setPending(todo.id, false);
       }
     },
-    [feedback, goToDay, isRemindersPage, refresh, setPending, setTodos, t, todos, token],
+    [goToDay, isRemindersPage, refresh, reportError, setPending, setTodos, todos, token],
   );
 
   const openDuePicker = useCallback((todo: Todo) => {

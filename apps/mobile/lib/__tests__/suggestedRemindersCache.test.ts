@@ -1,12 +1,14 @@
-import { api } from "@/lib/api";
+import { api, type SuggestedReminder } from "@/lib/api";
 import {
   fetchSuggestedReminders,
   getCachedSuggestedReminders,
   invalidateSuggestedRemindersCache,
   isSuggestedRemindersFresh,
+  dropSuggestedReminder,
   removeSuggestedReminderFromCache,
   restoreSuggestedReminderToCache,
   setSuggestedRemindersCache,
+  undeleteSuggestedReminder,
 } from "@/lib/cache/suggestedRemindersCache";
 
 jest.mock("@/lib/api", () => ({
@@ -83,5 +85,20 @@ describe("suggestedRemindersCache", () => {
     restoreSuggestedReminderToCache(reminder);
     expect(getCachedSuggestedReminders()?.reminders).toEqual(sample.reminders);
     expect(getCachedSuggestedReminders()?.pending_count).toBe(1);
+  });
+
+  it("drops and undeletes cache plus list together", () => {
+    setSuggestedRemindersCache(sample);
+    const reminder = sample.reminders[0]!;
+    let list: SuggestedReminder[] = sample.reminders;
+    const setReminders = (updater: (prev: SuggestedReminder[]) => SuggestedReminder[]) => {
+      list = updater(list);
+    };
+    dropSuggestedReminder("r1", setReminders);
+    expect(list).toEqual([]);
+    expect(getCachedSuggestedReminders()?.reminders).toEqual([]);
+    undeleteSuggestedReminder(reminder, setReminders);
+    expect(list).toEqual(sample.reminders);
+    expect(getCachedSuggestedReminders()?.reminders).toEqual(sample.reminders);
   });
 });

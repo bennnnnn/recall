@@ -6,10 +6,10 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { api, type SuggestedReminder } from "@/lib/api";
 import {
+  dropSuggestedReminder,
   fetchSuggestedReminders,
   getCachedSuggestedReminders,
-  removeSuggestedReminderFromCache,
-  restoreSuggestedReminderToCache,
+  undeleteSuggestedReminder,
 } from "@/lib/cache/suggestedRemindersCache";
 import { syncTodoReminders } from "@/lib/todos/todoReminders";
 
@@ -46,8 +46,7 @@ export function useSuggestedReminders(
     busyRef.current = id;
     setBusyId(id);
     const removed = reminders.find((reminder) => reminder.id === id) ?? null;
-    removeSuggestedReminderFromCache(id);
-    setReminders((current) => current.filter((reminder) => reminder.id !== id));
+    dropSuggestedReminder(id, setReminders);
     try {
       if (action === "add") {
         const created = await api.addSuggestedReminder(token, id);
@@ -63,14 +62,7 @@ export function useSuggestedReminders(
       }
       return true;
     } catch {
-      if (removed) {
-        restoreSuggestedReminderToCache(removed);
-        setReminders((current) =>
-          current.some((reminder) => reminder.id === removed.id)
-            ? current
-            : [removed, ...current],
-        );
-      }
+      if (removed) undeleteSuggestedReminder(removed, setReminders);
       feedback?.error(t("common.error"));
       return false;
     } finally {

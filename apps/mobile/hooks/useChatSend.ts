@@ -33,7 +33,6 @@ import {
   pickFromCamera,
   pickFromPhotoLibrary,
   uploadChatAttachment,
-  messageTextForSend,
   defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
@@ -352,17 +351,15 @@ export function useChatSend({
         }
         return;
       }
-      sendMessage(messageTextForSend(text, attached), {
-        skipUserBubble: true,
-        trackSendingMessageId: optimisticId,
+      const pending = buildPendingSendAfterCreate({
+        text,
+        attached,
         attachmentIds,
-        localImageUri: attached?.kind === "image" ? attached.localUri : null,
-        localFileUri: attached?.kind === "file" ? attached.localUri : null,
-        localFileName: attached?.kind === "file" ? attached.fileName : null,
-        localFileContentType: attached?.kind === "file" ? attached.contentType : null,
-        model: selectedModel,
+        optimisticId,
         clientGeo,
+        model: selectedModel,
       });
+      sendMessage(pending.text, pending);
       sendInFlightRef.current = false;
       setSendPhase("idle");
     },

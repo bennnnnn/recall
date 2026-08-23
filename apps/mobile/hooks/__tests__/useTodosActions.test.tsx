@@ -156,7 +156,7 @@ describe("useTodosActions reminders", () => {
       content: "Call mom",
       due_at: due.toISOString(),
     });
-    expect(added[0].id).toMatch(/^local-todo-/);
+    expect(added[0].id).toMatch(/^local-todo-\d+-\d+$/);
     expect(api.createTodo).toHaveBeenCalled();
 
     const created = todo({

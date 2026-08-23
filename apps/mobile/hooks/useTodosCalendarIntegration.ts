@@ -7,9 +7,9 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { isReminder } from "@/components/todos/todoHelpers";
 import { api, GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
 import {
+  dropSuggestedReminder,
   fetchSuggestedReminders,
-  removeSuggestedReminderFromCache,
-  restoreSuggestedReminderToCache,
+  undeleteSuggestedReminder,
 } from "@/lib/cache/suggestedRemindersCache";
 import {
   buildCalendarOverlapNotes,
@@ -49,6 +49,10 @@ export function useTodosCalendarIntegration({
 }: Params) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
+  const reportError = useCallback((bodyKey: string) => {
+    if (feedback) feedback.error(t(bodyKey));
+    else Alert.alert(t("todos.error"), t(bodyKey));
+  }, [feedback, t]);
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
@@ -171,26 +175,21 @@ export function useTodosCalendarIntegration({
       if (!token || suggestionBusyRef.current) return;
       suggestionBusyRef.current = reminder.id;
       setSuggestionBusyId(reminder.id);
-      removeSuggestedReminderFromCache(reminder.id);
-      setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
+      dropSuggestedReminder(reminder.id, setSuggestedReminders);
       try {
         const created = await api.addSuggestedReminder(token, reminder.id);
         setTodos((prev) => [created, ...prev]);
         void syncTodoReminders([created, ...todos]);
         void refresh({ silent: true, force: true });
       } catch {
-        restoreSuggestedReminderToCache(reminder);
-        setSuggestedReminders((prev) =>
-          prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev],
-        );
-        if (feedback) feedback.error(t("todos.error_create"));
-        else Alert.alert(t("todos.error"), t("todos.error_create"));
+        undeleteSuggestedReminder(reminder, setSuggestedReminders);
+        reportError("todos.error_create");
       } finally {
         suggestionBusyRef.current = null;
         setSuggestionBusyId(null);
       }
     },
-    [feedback, refresh, setTodos, t, todos, token],
+    [refresh, reportError, setTodos, todos, token],
   );
 
   const handleDismissSuggestion = useCallback(
@@ -198,23 +197,18 @@ export function useTodosCalendarIntegration({
       if (!token || suggestionBusyRef.current) return;
       suggestionBusyRef.current = reminder.id;
       setSuggestionBusyId(reminder.id);
-      removeSuggestedReminderFromCache(reminder.id);
-      setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
+      dropSuggestedReminder(reminder.id, setSuggestedReminders);
       try {
         await api.dismissSuggestedReminder(token, reminder.id);
       } catch {
-        restoreSuggestedReminderToCache(reminder);
-        setSuggestedReminders((prev) =>
-          prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev],
-        );
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("todos.error"), t("common.error"));
+        undeleteSuggestedReminder(reminder, setSuggestedReminders);
+        reportError("common.error");
       } finally {
         suggestionBusyRef.current = null;
         setSuggestionBusyId(null);
       }
     },
-    [feedback, t, token],
+    [reportError, token],
   );
 
   return {
