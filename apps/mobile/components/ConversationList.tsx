@@ -30,9 +30,9 @@ import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";
 import { DrawerHeader } from "@/components/drawer/DrawerHeader";
+import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import { DrawerSelectionBar } from "@/components/drawer/DrawerSelectionBar";
 import {
-  DRAWER_NAV_CHROME,
   FADE_EXTRA,
   FOOTER_CHROME,
   makeConversationListStyles,
@@ -215,9 +215,8 @@ export function ConversationList(_props: unknown) {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Logo row + nav links are fixed chrome; list content starts below both so the
-  // top fade can soften scrolling chats without washing out Learning/Lists/Reminders.
-  const topInset = insets.top + 8 + TOP_CHROME + DRAWER_NAV_CHROME;
+  // Only the logo / search row is fixed; Learning/Lists/Reminders scroll with titles.
+  const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
@@ -232,19 +231,39 @@ export function ConversationList(_props: unknown) {
 
   const listHeader = useMemo(
     () => (
-      <DrawerListHeader
-        loading={loading}
-        error={error}
-        activeChatCount={allChats.length}
-        searchOpen={searchOpen}
-        onRetry={onRetryLoad}
-        hasSearchQuery={hasSearchQuery}
-        searchLoading={searchLoading}
-        searchError={searchError}
-        searchResultCount={searchResults.length}
-      />
+      <>
+        <DrawerNavLinks
+          styles={s}
+          theme={theme}
+          showIndicator={showIndicator}
+          unseenCount={unseenCount}
+          onProjects={openProjects}
+          onLists={openLists}
+          onReminders={openReminders}
+          onGallery={openGallery}
+        />
+        <DrawerListHeader
+          loading={loading}
+          error={error}
+          activeChatCount={allChats.length}
+          searchOpen={searchOpen}
+          onRetry={onRetryLoad}
+          hasSearchQuery={hasSearchQuery}
+          searchLoading={searchLoading}
+          searchError={searchError}
+          searchResultCount={searchResults.length}
+        />
+      </>
     ),
     [
+      s,
+      theme,
+      showIndicator,
+      unseenCount,
+      openProjects,
+      openLists,
+      openReminders,
+      openGallery,
       loading,
       error,
       allChats.length,
@@ -358,12 +377,6 @@ export function ConversationList(_props: unknown) {
         selectedCount={selectedCount}
         onExitSelection={exitSelectionMode}
         onSelectAll={selectAllListed}
-        showIndicator={showIndicator}
-        unseenCount={unseenCount}
-        onProjects={openProjects}
-        onLists={openLists}
-        onReminders={openReminders}
-        onGallery={openGallery}
       />
 
       {selectionMode ? (
