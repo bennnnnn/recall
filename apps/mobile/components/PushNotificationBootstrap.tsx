@@ -8,6 +8,13 @@ import {
   configurePushNotificationHandler,
   handlePushNotificationResponse,
 } from "@/lib/pushNotifications";
+import {
+  cancelTodoReminder,
+} from "@/lib/todos/todoReminders";
+import {
+  isRemotePushTrigger,
+  todoIdFromNotificationData,
+} from "@/lib/todos/todoReminderPush";
 
 /** Handles push notification taps and configures foreground display. */
 export function PushNotificationBootstrap() {
@@ -40,10 +47,20 @@ export function PushNotificationBootstrap() {
       }
     });
 
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       navigate(response.notification.request.content.data as Record<string, unknown>);
     });
-    return () => sub.remove();
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      if (!isRemotePushTrigger(notification.request.trigger)) return;
+      const todoId = todoIdFromNotificationData(
+        notification.request.content.data as Record<string, unknown>,
+      );
+      if (todoId) void cancelTodoReminder(todoId);
+    });
+    return () => {
+      responseSub.remove();
+      receivedSub.remove();
+    };
   }, [router, token]);
 
   return null;
