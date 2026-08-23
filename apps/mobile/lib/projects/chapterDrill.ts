@@ -15,8 +15,8 @@ export type DrillStep =
     };
 
 export type DrillLabels = {
-  useQuestion: (meaning: string) => string;
-  meaningQuestion: (word: string) => string;
+  useQuestion: (sentence: string) => string;
+  meaningQuestion: (sentence: string) => string;
 };
 
 function hashSeed(value: string): number {
@@ -45,6 +45,16 @@ export function seededShuffle<T>(items: T[], seed: string): T[] {
 
 function definitionOf(item: ProjectItem): string {
   return item.definition?.trim() || item.content;
+}
+
+export function blankTargetWord(sentence: string, word: string): string {
+  const trimmed = sentence.trim() || word;
+  const target = word.trim();
+  if (!target) return `${trimmed} (_____)`;
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(escaped, "i");
+  if (!re.test(trimmed)) return `${trimmed} (_____)`;
+  return trimmed.replace(re, "_____");
 }
 
 function pickTexts(
@@ -114,14 +124,16 @@ export function buildChapterDrills(
     const word = item.content.trim();
     const meaning = definitionOf(item);
     if (!word) continue;
+    const example = item.example_sentence?.trim() || item.note?.trim() || word;
+    const gap = blankTargetWord(example, word);
     drills.push({ kind: "teach", itemId: item.id, card: itemToCard(item) });
     drills.push({
       kind: "use",
       itemId: item.id,
-      question: labels.useQuestion(meaning),
+      question: labels.useQuestion(gap),
       quiz: quizFromChoices(
         word,
-        labels.useQuestion(meaning),
+        labels.useQuestion(gap),
         pickTexts(wordPool, word, `${item.id}:use`, []),
         word,
       ),
@@ -129,10 +141,10 @@ export function buildChapterDrills(
     drills.push({
       kind: "meaning",
       itemId: item.id,
-      question: labels.meaningQuestion(word),
+      question: labels.meaningQuestion(gap),
       quiz: quizFromChoices(
         word,
-        labels.meaningQuestion(word),
+        labels.meaningQuestion(gap),
         pickTexts(meaningPool, meaning, `${item.id}:meaning`, []),
         meaning,
       ),

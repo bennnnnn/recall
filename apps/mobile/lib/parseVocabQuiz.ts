@@ -35,7 +35,7 @@ export function formatVocabQuizAsMarkdown(quiz: ParsedVocabQuiz): string {
   const isTrivia = quiz.quizType === "trivia";
   const header = `**${word}**`;
   const question =
-    quiz.question?.trim() || (isTrivia ? "" : `What does "${word}" mean?`);
+    quiz.question?.trim() || (isTrivia ? "" : "Choose the meaning that fits the sentence.");
   const lines: string[] = [];
   if (quiz.dailyProgress) {
     lines.push(
@@ -57,7 +57,7 @@ export function formatVocabQuizPromptOnly(quiz: ParsedVocabQuiz): string {
   const isTrivia = quiz.quizType === "trivia";
   const header = `**${word}**`;
   const question =
-    quiz.question?.trim() || (isTrivia ? "" : `What does "${word}" mean?`);
+    quiz.question?.trim() || (isTrivia ? "" : "Choose the meaning that fits the sentence.");
   const lines: string[] = [];
   if (quiz.dailyProgress) {
     lines.push(
@@ -134,7 +134,7 @@ const SESSION_METADATA_KEYS = new Set([
   "dailyGoalMet",
 ]);
 const QUESTION_LINE =
-  /^(?:What does it mean\??|Choose the best meaning:?|Which definition is correct:?)\s*$/i;
+  /^(?:What does it mean\??|Choose the best meaning:?|Which definition is correct:?|Choose the meaning that fits the sentence\.?)\s*$/i;
 const QUIZ_ANSWER_PROMPT_LINE =
   /^\(?\s*Answer\s+[A-D](?:\s*,\s*(?:or\s+)?[A-D])*\s*[!?).]/i;
 

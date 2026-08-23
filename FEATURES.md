@@ -441,6 +441,8 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
   interaction runs in a dedicated lesson window (MCQ, vocab cards, typed answers, result sheet).
+  Lesson drills teach the word, then a gapped example, then meaning in that sentence — never
+  “What does X mean?”. Chat prompts use the same gapped-sentence format.
   The teaching window shows only those fences plus pronunciation — not tutor markdown.
   Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
   grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.

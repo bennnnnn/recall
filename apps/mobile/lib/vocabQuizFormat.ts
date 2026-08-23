@@ -1,25 +1,26 @@
 /** Shared quiz card format — keep in sync with apps/api/app/services/projects.py */
 
 export const VOCAB_QUIZ_MARKDOWN_EXAMPLE = [
-  "**Word:** apple",
-  "What does it mean?",
-  "A) a red fruit",
-  "B) a vehicle",
-  "C) a feeling",
-  "D) a color",
+  "**Word:** see you later",
+  "Which word completes this sentence?",
+  "_____ — I have a meeting now.",
+  "A) see you later",
+  "B) water",
+  "C) yesterday",
+  "D) expensive",
 ].join("\n");
 
 export const VOCAB_QUIZ_FENCE_EXAMPLE = [
   "```vocab_quiz",
   JSON.stringify({
-    word: "apple",
-    question: "What does it mean?",
+    word: "see you later",
+    question: "Which word completes this sentence? _____ — I have a meeting now.",
     correct: "A",
     choices: [
-      { letter: "A", text: "a red fruit" },
-      { letter: "B", text: "a vehicle" },
-      { letter: "C", text: "a feeling" },
-      { letter: "D", text: "a color" },
+      { letter: "A", text: "see you later" },
+      { letter: "B", text: "water" },
+      { letter: "C", text: "yesterday" },
+      { letter: "D", text: "expensive" },
     ],
   }),
   "```",
