@@ -204,31 +204,53 @@ export function useTodosActions({
   const handleCreateReminder = useCallback(
     async (content: string, dueDate: Date, onCreated: () => void) => {
       if (!token || savingReminderRef.current) return;
+      const trimmed = content.trim();
+      if (!trimmed) return;
       savingReminderRef.current = true;
       setSavingReminder(true);
+      const dueIso = toDueAtIso(dueDate);
+      const optimisticId = `local-todo-${Date.now()}`;
+      const now = new Date().toISOString();
+      const optimistic: Todo = {
+        id: optimisticId,
+        content: trimmed,
+        topic: DEFAULT_TOPIC,
+        checked: false,
+        due_at: dueIso,
+        sort_order: null,
+        chat_id: null,
+        project_id: null,
+        created_at: now,
+        updated_at: now,
+      };
+      goToDay(dayKeyForDue(dueDate, dueIso));
+      setPending(optimisticId, true);
+      setTodos((prev) => {
+        const next = [optimistic, ...prev];
+        void syncTodoReminders(next);
+        return next;
+      });
+      onCreated();
       try {
-        const dueIso = toDueAtIso(dueDate);
-        const created = await api.createTodo(token, content.trim(), DEFAULT_TOPIC, {
+        const created = await api.createTodo(token, trimmed, DEFAULT_TOPIC, {
           dueAt: dueIso,
         });
-        goToDay(dayKeyForDue(dueDate, created.due_at ?? dueIso));
-        setTodos((prev) => {
-          const next = [created, ...prev];
-          void syncTodoReminders(next);
-          return next;
-        });
-        onCreated();
+        setTodos((prev) =>
+          prev.map((item) => (item.id === optimisticId ? created : item)),
+        );
         if (userId) void markReminderIdsSeen(userId, [created.id]);
         void refresh({ silent: true, force: true });
       } catch {
+        setTodos((prev) => prev.filter((item) => item.id !== optimisticId));
         if (feedback) feedback.error(t("todos.error_create"));
         else Alert.alert(t("todos.error"), t("todos.error_create"));
       } finally {
+        setPending(optimisticId, false);
         savingReminderRef.current = false;
         setSavingReminder(false);
       }
     },
-    [feedback, goToDay, refresh, setTodos, t, token, userId],
+    [feedback, goToDay, refresh, setPending, setTodos, t, token, userId],
   );
 
   const handleToggle = useCallback(
@@ -364,9 +386,23 @@ export function useTodosActions({
   const applyDueDate = useCallback(
     async (todo: Todo, date: Date) => {
       if (!token || pendingIdsRef.current.has(todo.id)) return false;
+      const dueIso = toDueAtIso(date);
+      const original = [...todos];
+      const previousDay = todo.due_at
+        ? dayKeyForDue(new Date(todo.due_at), todo.due_at)
+        : null;
       setPending(todo.id, true);
+      if (isRemindersPage) {
+        goToDay(dayKeyForDue(date, dueIso));
+      }
+      setTodos((prev) => {
+        const next = prev.map((item) =>
+          item.id === todo.id ? { ...item, due_at: dueIso } : item,
+        );
+        void syncTodoReminders(next);
+        return next;
+      });
       try {
-        const dueIso = toDueAtIso(date);
         const updated = await api.updateTodo(token, todo.id, {
           due_at: dueIso,
         });
@@ -381,6 +417,10 @@ export function useTodosActions({
         void refresh({ silent: true, force: true });
         return true;
       } catch {
+        setTodos(original);
+        if (isRemindersPage && previousDay) {
+          goToDay(previousDay);
+        }
         if (feedback) feedback.error(t("todos.error_due"));
         else Alert.alert(t("todos.error"), t("todos.error_due"));
         return false;
@@ -388,7 +428,7 @@ export function useTodosActions({
         setPending(todo.id, false);
       }
     },
-    [feedback, goToDay, isRemindersPage, refresh, setPending, setTodos, t, token],
+    [feedback, goToDay, isRemindersPage, refresh, setPending, setTodos, t, todos, token],
   );
 
   const openDuePicker = useCallback((todo: Todo) => {

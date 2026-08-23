@@ -5,6 +5,7 @@ import {
   invalidateSuggestedRemindersCache,
   isSuggestedRemindersFresh,
   removeSuggestedReminderFromCache,
+  restoreSuggestedReminderToCache,
   setSuggestedRemindersCache,
 } from "@/lib/cache/suggestedRemindersCache";
 
@@ -73,5 +74,14 @@ describe("suggestedRemindersCache", () => {
     removeSuggestedReminderFromCache("r1");
     expect(getCachedSuggestedReminders()?.reminders).toEqual([]);
     expect(getCachedSuggestedReminders()?.pending_count).toBe(0);
+  });
+
+  it("restores a reminder after a failed add/dismiss", () => {
+    setSuggestedRemindersCache(sample);
+    const reminder = sample.reminders[0]!;
+    removeSuggestedReminderFromCache("r1");
+    restoreSuggestedReminderToCache(reminder);
+    expect(getCachedSuggestedReminders()?.reminders).toEqual(sample.reminders);
+    expect(getCachedSuggestedReminders()?.pending_count).toBe(1);
   });
 });

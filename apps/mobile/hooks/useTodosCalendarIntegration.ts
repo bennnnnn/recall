@@ -9,6 +9,7 @@ import { api, GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
 import {
   fetchSuggestedReminders,
   removeSuggestedReminderFromCache,
+  restoreSuggestedReminderToCache,
 } from "@/lib/cache/suggestedRemindersCache";
 import {
   buildCalendarOverlapNotes,
@@ -170,14 +171,18 @@ export function useTodosCalendarIntegration({
       if (!token || suggestionBusyRef.current) return;
       suggestionBusyRef.current = reminder.id;
       setSuggestionBusyId(reminder.id);
+      removeSuggestedReminderFromCache(reminder.id);
+      setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
       try {
         const created = await api.addSuggestedReminder(token, reminder.id);
-        removeSuggestedReminderFromCache(reminder.id);
-        setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
         setTodos((prev) => [created, ...prev]);
         void syncTodoReminders([created, ...todos]);
         void refresh({ silent: true, force: true });
       } catch {
+        restoreSuggestedReminderToCache(reminder);
+        setSuggestedReminders((prev) =>
+          prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev],
+        );
         if (feedback) feedback.error(t("todos.error_create"));
         else Alert.alert(t("todos.error"), t("todos.error_create"));
       } finally {
@@ -193,11 +198,15 @@ export function useTodosCalendarIntegration({
       if (!token || suggestionBusyRef.current) return;
       suggestionBusyRef.current = reminder.id;
       setSuggestionBusyId(reminder.id);
+      removeSuggestedReminderFromCache(reminder.id);
+      setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
       try {
         await api.dismissSuggestedReminder(token, reminder.id);
-        removeSuggestedReminderFromCache(reminder.id);
-        setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
       } catch {
+        restoreSuggestedReminderToCache(reminder);
+        setSuggestedReminders((prev) =>
+          prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev],
+        );
         if (feedback) feedback.error(t("common.error"));
         else Alert.alert(t("todos.error"), t("common.error"));
       } finally {

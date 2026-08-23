@@ -6,8 +6,8 @@ import { type IoniconName } from "@/lib/icons";
 
 type Router = ReturnType<typeof useRouter>;
 
-import { moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
-import { api, type Message } from "@/lib/api";
+import { insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
+import { api, type Chat, type Message } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
@@ -123,16 +123,21 @@ export function useChatActions({
       setRenameVisible(false);
       return;
     }
+    const prevTitle = chatTitle;
+    setChatTitle(title);
+    patchChatGlobal(chatId, { title });
+    setRenameVisible(false);
     try {
       const u = await api.renameChat(token, chatId, title);
       setChatTitle(u.title);
       patchChatGlobal(chatId, { title: u.title });
       showActionBanner(t("chat.renamed_toast"), "pencil-outline");
     } catch {
+      setChatTitle(prevTitle);
+      patchChatGlobal(chatId, { title: prevTitle });
       Alert.alert(t("common.error"), t("chat.rename_failed"));
     }
-    setRenameVisible(false);
-  }, [renameText, chatId, token, setChatTitle, showActionBanner, t]);
+  }, [renameText, chatId, chatTitle, token, setChatTitle, showActionBanner, t]);
 
   const togglePin = useCallback(async () => {
     if (!chatId || !token) return;
@@ -181,8 +186,18 @@ export function useChatActions({
           style: "destructive",
           onPress: async () => {
             if (!chatId || !token) return;
+            const snapshot: Chat = {
+              id: chatId,
+              title: chatTitle,
+              model:
+                [...messages].reverse().find((m) => m.model)?.model ?? "free-chat",
+              pinned,
+              archived,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            removeChatGlobal(chatId);
             try {
-              removeChatGlobal(chatId);
               await api.deleteChat(token, chatId);
               void clearCachedChatMessages(chatId);
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
@@ -194,13 +209,14 @@ export function useChatActions({
                 }
               }, 700);
             } catch {
+              insertChatGlobal(snapshot);
               Alert.alert(t("common.error"), t("chat.delete_failed"));
             }
           },
         },
       ],
     );
-  }, [chatId, token, router, showActionBanner, t]);
+  }, [archived, chatId, chatTitle, messages, pinned, token, router, showActionBanner, t]);
 
   const onShareFromMenu = useCallback(() => {
     tap();

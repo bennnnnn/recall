@@ -242,12 +242,42 @@ export function useChatSend({
       const attached = pendingAttachment;
       sendInFlightRef.current = true;
       setSendPhase(attached ? "uploading" : "preparing");
-      // Clear the text input immediately so the composer is ready for the next
-      // message, but keep the attachment preview visible during upload — the
-      // `attachBusy` state drives a spinner on the preview so the user sees
-      // progress instead of the preview vanishing before upload starts.
+      // Clear the composer immediately. The user bubble (when this is a new
+      // send, not an edit) appears before upload/geo so the thread doesn't
+      // sit empty behind permission prompts.
       setInput("");
       Keyboard.dismiss();
+
+      const isEdit = Boolean(editingMessageId && chatId);
+      const optimisticId = `local-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+      let addedOptimistic = false;
+      if (!isEdit) {
+        addedOptimistic = true;
+        setPendingOutboundId(optimisticId);
+        setMessages((prev) => [
+          ...prev,
+          buildOptimisticUserMessage({
+            text,
+            attached,
+            optimisticId,
+            createdAt,
+          }),
+        ]);
+        newMessageCountRef.current += 1;
+      }
+
+      const restoreDraft = () => {
+        if (addedOptimistic) {
+          setPendingOutboundId(null);
+          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+          newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
+        }
+        setInput(text);
+        setPendingAttachment(attached);
+        sendInFlightRef.current = false;
+        setSendPhase("idle");
+      };
 
       let attachmentIds: string[] | undefined;
       if (attached) {
@@ -257,13 +287,10 @@ export function useChatSend({
           attachmentIds = [id];
         } catch (error) {
           setAttachBusy(false);
-          setInput(text);
-          setPendingAttachment(attached);
+          restoreDraft();
           feedback?.error(
             error instanceof Error ? error.message : t("chat.attach_failed"),
           );
-          sendInFlightRef.current = false;
-          setSendPhase("idle");
           return;
         }
         setAttachBusy(false);
@@ -273,7 +300,6 @@ export function useChatSend({
         setPendingAttachment(null);
       }
 
-      let clientGeo: ClientGeo | null = null;
       const geoResult = await resolveClientGeoForQuery(
         authToken,
         text,
@@ -282,14 +308,10 @@ export function useChatSend({
         user?.location_enabled ?? false,
       );
       if (!geoResult.ok) {
-        setInput(text);
-        setPendingAttachment(attached);
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
+        restoreDraft();
         return;
       }
-      clientGeo = geoResult.clientGeo;
-      newMessageCountRef.current += 1;
+      const clientGeo = geoResult.clientGeo;
 
       if (editingMessageId && chatId) {
         const editId = editingMessageId;
@@ -303,18 +325,6 @@ export function useChatSend({
       if (!chatId) {
         creatingRef.current = true;
         setSendPhase("creating");
-        const optimisticId = `local-${Date.now()}`;
-        const createdAt = new Date().toISOString();
-        setPendingOutboundId(optimisticId);
-        setMessages((prev) => [
-          ...prev,
-          buildOptimisticUserMessage({
-            text,
-            attached,
-            optimisticId,
-            createdAt,
-          }),
-        ]);
         try {
           const id = await prepareDraftChat(undefined, selectedModel);
           if (!id) throw new Error("Could not create chat");
@@ -335,19 +345,16 @@ export function useChatSend({
             }),
           );
         } catch {
-          setPendingOutboundId(null);
-          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-          setInput(text);
-          setPendingAttachment(attached);
+          restoreDraft();
           feedback?.error(t("chat.error_generic"));
-          sendInFlightRef.current = false;
-          setSendPhase("idle");
         } finally {
           creatingRef.current = false;
         }
         return;
       }
       sendMessage(messageTextForSend(text, attached), {
+        skipUserBubble: true,
+        trackSendingMessageId: optimisticId,
         attachmentIds,
         localImageUri: attached?.kind === "image" ? attached.localUri : null,
         localFileUri: attached?.kind === "file" ? attached.localUri : null,

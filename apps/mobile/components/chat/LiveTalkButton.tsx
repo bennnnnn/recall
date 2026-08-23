@@ -47,8 +47,8 @@ export function LiveTalkButton({ disabled, onPress }: Props) {
       accessibilityLabel={t("chat.live_talk_a11y")}
       testID="live-talk-button"
     >
-      <View style={[styles.btn, { backgroundColor: theme.text }]}>
-        <LiveTalkWaveformIcon size={18} color={theme.isDark ? theme.bg : "#FFFFFF"} />
+      <View style={[styles.btn, { backgroundColor: theme.primary }]}>
+        <LiveTalkWaveformIcon size={18} color={theme.onPrimary} />
       </View>
     </Pressable>
   );

@@ -45,10 +45,14 @@ function Probe({
   messages,
   regenerateResponse,
   regenerateImage,
+  beginRegenerateUi,
+  cancelRegenerateUi,
 }: {
   messages: Message[];
   regenerateResponse: jest.Mock;
   regenerateImage?: jest.Mock;
+  beginRegenerateUi?: jest.Mock;
+  cancelRegenerateUi?: jest.Mock;
 }) {
   const result = useChatRegenerate({
     token: "tok",
@@ -56,6 +60,8 @@ function Probe({
     user,
     updateUser: jest.fn(),
     regenerateResponse,
+    beginRegenerateUi,
+    cancelRegenerateUi,
     regenerateImage,
   });
   currentRegenerate = result.regenerate;
@@ -184,5 +190,67 @@ describe("useChatRegenerate", () => {
       await first;
     });
     expect(currentRegenerating).toBe(false);
+  });
+
+  it("shows the typing placeholder before geo resolves", async () => {
+    let finishGeo: (value: { ok: true; clientGeo: null }) => void = () => undefined;
+    resolveGeo.mockReturnValue(
+      new Promise((resolve) => {
+        finishGeo = resolve;
+      }),
+    );
+    const beginRegenerateUi = jest.fn();
+    const regenerateResponse = jest.fn();
+    const messages = [msg("user", "Hello", "u1"), msg("assistant", "Hi", "a1")];
+    await act(async () => {
+      render(
+        <Probe
+          messages={messages}
+          regenerateResponse={regenerateResponse}
+          beginRegenerateUi={beginRegenerateUi}
+        />,
+      );
+    });
+
+    let regenPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      regenPromise = currentRegenerate("free-chat");
+      await Promise.resolve();
+    });
+
+    expect(beginRegenerateUi).toHaveBeenCalledTimes(1);
+    expect(regenerateResponse).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishGeo({ ok: true, clientGeo: null });
+      await regenPromise;
+    });
+    expect(regenerateResponse).toHaveBeenCalledWith("free-chat", null);
+  });
+
+  it("restores the prior assistant when geo is cancelled", async () => {
+    resolveGeo.mockResolvedValue({ ok: false });
+    const beginRegenerateUi = jest.fn();
+    const cancelRegenerateUi = jest.fn();
+    const regenerateResponse = jest.fn();
+    const messages = [msg("user", "Hello", "u1"), msg("assistant", "Hi", "a1")];
+    await act(async () => {
+      render(
+        <Probe
+          messages={messages}
+          regenerateResponse={regenerateResponse}
+          beginRegenerateUi={beginRegenerateUi}
+          cancelRegenerateUi={cancelRegenerateUi}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await currentRegenerate("free-chat");
+    });
+
+    expect(beginRegenerateUi).toHaveBeenCalledTimes(1);
+    expect(cancelRegenerateUi).toHaveBeenCalledTimes(1);
+    expect(regenerateResponse).not.toHaveBeenCalled();
   });
 });
