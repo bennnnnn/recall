@@ -260,3 +260,7 @@ async def test_list_for_gallery_q_matches_filename_and_prompt(fake_session):
     assert "original_filename" in combined
     assert "100" in combined
     assert "\\\\%" in combined or "\\%" in combined
+    # Generated images are linked to the assistant [Image:] row; search the
+    # previous user message in that chat so the draw prompt matches.
+    assert "messages" in combined
+    assert "role" in combined
