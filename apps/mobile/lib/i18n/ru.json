@@ -324,7 +324,6 @@
   "gallery.share_file_a11y": "Поделиться файлом",
   "gallery.filter.all": "Все",
   "gallery.filter.files": "Файлы",
-  "gallery.filter.images": "Изображения",
   "gallery.title": "Галерея",
   "lesson.chapter_complete": "Глава пройдена",
   "lesson.chapter_empty": "В этой главе пока нет слов.",
@@ -958,5 +957,10 @@
   "upgrade.restore_empty": "Активная подписка для этого аккаунта не найдена.",
   "upgrade.subscribe": "Pro — {{price}}/мес",
   "upgrade.subscription_terms": "Подписка автоматически продлевается каждый месяц, если ее не отменить в учетной записи App Store или Google Play.",
-  "upgrade.title": "Перейти на Pro"
+  "upgrade.title": "Перейти на Pro",
+  "gallery.empty_generated": "Пока нет сгенерированных изображений",
+  "gallery.empty_uploaded": "Пока нет загруженных изображений",
+  "gallery.filter.generated": "Сгенерированные",
+  "gallery.filter.uploaded": "Загруженные",
+  "gallery.open_chat_a11y": "Открыть чат"
 }

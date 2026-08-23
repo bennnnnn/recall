@@ -46,8 +46,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (not started; do not assume we have them).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
 - ✅ **Gallery** — drawer **Gallery** → grid of generated and uploaded images plus files.
-  Tap an image to view; tap a file to share. Search and generated/uploaded filters
-  are follow-ups.
+  Tabs: All / Generated / Uploaded / Files. Tap an image to view (Open chat when the
+  attachment is linked to a conversation); tap a file to share. Search is a follow-up.
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or

@@ -31,6 +31,8 @@ type Props = {
   fileName?: string;
   /** Already-resolved display URI from the chat thumbnail (instant open). */
   previewUri?: string | null;
+  /** Open the originating chat (gallery). */
+  onOpenChat?: () => void;
 };
 
 const SHEET_RADIUS = 26;
@@ -43,6 +45,7 @@ export function AttachmentImageViewer({
   path,
   fileName = "image.jpg",
   previewUri = null,
+  onOpenChat,
 }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
@@ -175,6 +178,16 @@ export function AttachmentImageViewer({
             </Pressable>
 
             <View style={s.headerActions}>
+              {onOpenChat ? (
+                <Pressable
+                  style={s.iconBtn}
+                  onPress={onOpenChat}
+                  hitSlop={12}
+                  accessibilityLabel={t("gallery.open_chat_a11y")}
+                >
+                  <Icon name="chatbubble-outline" size={24} color={C.text} />
+                </Pressable>
+              ) : null}
               <Pressable
                 style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
                 onPress={() => void handleShare()}

@@ -33,6 +33,7 @@ class AttachmentListItemOut(BaseModel):
     source: str
     created_at: datetime
     chat_id: UUID | None = None
+    message_id: UUID | None = None
 
 
 class AttachmentListOut(BaseModel):

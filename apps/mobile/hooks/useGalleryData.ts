@@ -3,7 +3,7 @@ import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type AttachmentListItem } from "@/lib/api";
-import type { GalleryFilter } from "@/lib/gallery";
+import { galleryListParams, type GalleryFilter } from "@/lib/gallery";
 
 export type { GalleryFilter };
 
@@ -30,7 +30,7 @@ export function useGalleryData(filter: GalleryFilter) {
       try {
         const offset = reset ? 0 : offsetRef.current;
         const response = await api.listAttachments(token, {
-          category: filter === "all" ? undefined : filter,
+          ...galleryListParams(filter),
           limit: PAGE_SIZE,
           offset,
         });

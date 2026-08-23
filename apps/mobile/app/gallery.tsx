@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useFocusEffect, useNavigation } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -44,6 +44,7 @@ export default function GalleryScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const router = useRouter();
   const token = useAuthToken();
   const { width } = useWindowDimensions();
   const thumbSize = galleryThumbSize(width - Space.md * 2, NUM_COLUMNS, Space.xs);
@@ -70,7 +71,8 @@ export default function GalleryScreen() {
 
   const filters: { key: GalleryFilter; label: string }[] = [
     { key: "all", label: t("gallery.filter.all") },
-    { key: "images", label: t("gallery.filter.images") },
+    { key: "generated", label: t("gallery.filter.generated") },
+    { key: "uploaded", label: t("gallery.filter.uploaded") },
     { key: "files", label: t("gallery.filter.files") },
   ];
 
@@ -102,6 +104,19 @@ export default function GalleryScreen() {
     },
     [t, token],
   );
+
+  const openChat = useCallback(() => {
+    if (!viewerItem?.chat_id) return;
+    router.replace({
+      pathname: "/",
+      params: {
+        chatId: viewerItem.chat_id,
+        ...(viewerItem.message_id
+          ? { highlightMessage: viewerItem.message_id }
+          : {}),
+      },
+    });
+  }, [router, viewerItem]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: AttachmentListItem; index: number }) => {
@@ -221,6 +236,7 @@ export default function GalleryScreen() {
         onClose={() => setViewerIndex(null)}
         attachmentId={viewerItem?.id}
         path={viewerItem?.download_url ?? null}
+        onOpenChat={viewerItem?.chat_id ? openChat : undefined}
       />
     </View>
   );
@@ -246,7 +262,7 @@ function makeStyles(C: Theme) {
     },
     tab: {
       paddingVertical: 7,
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
       borderRadius: 20,
     },
     tabActive: {
