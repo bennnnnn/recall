@@ -1,8 +1,10 @@
 import type { ProjectDetail, ProjectItem } from "@/lib/api";
 import {
+  chapterIsComplete,
   chapterItems,
   chapterQueue,
   itemToCard,
+  overlayItemOutcomes,
   resolveLessonChapter,
 } from "@/lib/projects/chapterLesson";
 
@@ -41,6 +43,26 @@ describe("chapterLesson", () => {
     const items = chapterItems(project, "Greetings");
     expect(items.map((row) => row.content)).toEqual(["hola", "adios"]);
     expect(chapterQueue(items).map((row) => row.content)).toEqual(["hola"]);
+  });
+
+  it("caps the pending queue to the daily goal", () => {
+    const items = [item("a"), item("b"), item("c"), item("d")];
+    expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b"]);
+  });
+
+  it("treats a chapter complete only when every word is mastered", () => {
+    const items = chapterItems(project, "Greetings");
+    expect(chapterIsComplete(items)).toBe(false);
+    expect(chapterIsComplete([item("hola", "mastered"), item("adios", "mastered")])).toBe(
+      true,
+    );
+  });
+
+  it("overlays in-session outcomes without waiting on the server", () => {
+    const items = chapterItems(project, "Greetings");
+    const next = overlayItemOutcomes(items, { hola: false });
+    expect(chapterIsComplete(next)).toBe(true);
+    expect(overlayItemOutcomes(items, { hola: true })[0]?.status).toBe("learning");
   });
 
   it("uses the requested chapter, then up next", () => {

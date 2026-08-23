@@ -456,7 +456,7 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived
-  (mastered/total; chapter complete at ≥80% and a small word floor). The lesson
+  (mastered/total; a chapter is complete when every word is mastered). The lesson
   map lists each domain as a parent with its branches nested under it; tap an
   unlocked branch to open the teaching window. The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats

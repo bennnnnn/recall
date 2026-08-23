@@ -8,9 +8,44 @@ export function chapterItems(project: ProjectDetail, title: string): ProjectItem
   return group?.items ?? [];
 }
 
-export function chapterQueue(items: ProjectItem[]): ProjectItem[] {
-  const pending = items.filter((item) => item.status !== "mastered" && !item.mastered);
-  return pending.length > 0 ? pending : items;
+export function isItemMastered(item: Pick<ProjectItem, "status" | "mastered">): boolean {
+  return item.status === "mastered" || item.mastered;
+}
+
+export function chapterIsComplete(items: Pick<ProjectItem, "status" | "mastered">[]): boolean {
+  return items.length > 0 && items.every(isItemMastered);
+}
+
+export function applyItemOutcome(
+  items: ProjectItem[],
+  itemId: string,
+  failed: boolean,
+): ProjectItem[] {
+  return items.map((item) =>
+    item.id === itemId
+      ? { ...item, status: failed ? "learning" : "mastered", mastered: !failed }
+      : item,
+  );
+}
+
+/** Overlay in-session save results onto chapter items (`failed` = keep learning). */
+export function overlayItemOutcomes(
+  items: ProjectItem[],
+  outcomes: Record<string, boolean>,
+): ProjectItem[] {
+  let next = items;
+  for (const [itemId, failed] of Object.entries(outcomes)) {
+    next = applyItemOutcome(next, itemId, failed);
+  }
+  return next;
+}
+
+/** Pending words only, capped so one sitting matches the daily goal. */
+export function chapterQueue(items: ProjectItem[], limit?: number): ProjectItem[] {
+  const pending = items.filter((item) => !isItemMastered(item));
+  const queue = pending.length > 0 ? pending : items;
+  if (limit != null && limit > 0) return queue.slice(0, limit);
+  return queue;
 }
 
 export function resolveLessonChapter(
