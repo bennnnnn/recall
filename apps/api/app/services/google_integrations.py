@@ -84,34 +84,40 @@ async def revoke_on_disconnect(
     user_id: UUID,
     *,
     disconnect: Literal["calendar", "gmail"],
-) -> None:
-    """Revoke the disconnected integration's refresh token unless Gmail/Calendar share it."""
+) -> bool:
+    """Revoke the Google refresh token for the product being disconnected.
+
+    Returns True when Calendar and Gmail shared that token so the sibling
+    product must also be disconnected locally (Google revoke is all-or-nothing;
+    the remaining product has to reconnect with only its scopes).
+    """
     calendar = await calendar_repo.get_for_user(session, user_id)
     gmail = await gmail_repo.get_for_user(session, user_id)
 
     if disconnect == "calendar":
         if calendar is None:
-            return
+            return False
         cal_token = _decrypt_token(settings, calendar.refresh_token)
         if not cal_token:
-            return
+            return False
+        shared = False
         if gmail is not None:
             gmail_token = _decrypt_token(settings, gmail.refresh_token)
-            if gmail_token and gmail_token == cal_token:
-                return
+            shared = bool(gmail_token and gmail_token == cal_token)
         await google_oauth_revoke.revoke_refresh_token(cal_token)
-        return
+        return shared
 
     if gmail is None:
-        return
+        return False
     gmail_token = _decrypt_token(settings, gmail.refresh_token)
     if not gmail_token:
-        return
+        return False
+    shared = False
     if calendar is not None:
         cal_token = _decrypt_token(settings, calendar.refresh_token)
-        if cal_token and cal_token == gmail_token:
-            return
+        shared = bool(cal_token and cal_token == gmail_token)
     await google_oauth_revoke.revoke_refresh_token(gmail_token)
+    return shared
 
 
 async def revoke_all_google_tokens_for_user(
@@ -197,7 +203,7 @@ async def disconnect_calendar(
     user_id: UUID,
 ) -> None:
     try:
-        await revoke_on_disconnect(session, settings, user_id, disconnect="calendar")
+        shared = await revoke_on_disconnect(session, settings, user_id, disconnect="calendar")
     except GoogleConnectError:
         # Decrypt/key-rotation failures must not block disconnect — revocation
         # is best-effort; leaving the row would make reconnect re-store the
@@ -207,8 +213,13 @@ async def disconnect_calendar(
             user_id,
             exc_info=True,
         )
+        shared = False
     await calendar_repo.delete_for_user(session, user_id)
     await calendar_service.clear_events_cache(redis, user_id)
+    if shared is True:
+        await suggested_repo.delete_for_user(session, user_id)
+        await gmail_repo.delete_for_user(session, user_id)
+        await email_service.clear_gmail_cache(redis, user_id)
     await home_service.invalidate_home_cache(user_id)
 
 
@@ -269,14 +280,18 @@ async def disconnect_gmail(
     user_id: UUID,
 ) -> None:
     try:
-        await revoke_on_disconnect(session, settings, user_id, disconnect="gmail")
+        shared = await revoke_on_disconnect(session, settings, user_id, disconnect="gmail")
     except GoogleConnectError:
         logger.warning(
             "Google token revoke failed during Gmail disconnect; continuing delete user_id=%s",
             user_id,
             exc_info=True,
         )
+        shared = False
     await suggested_repo.delete_for_user(session, user_id)
     await gmail_repo.delete_for_user(session, user_id)
     await email_service.clear_gmail_cache(redis, user_id)
+    if shared is True:
+        await calendar_repo.delete_for_user(session, user_id)
+        await calendar_service.clear_events_cache(redis, user_id)
     await home_service.invalidate_home_cache(user_id)

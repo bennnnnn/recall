@@ -8,7 +8,7 @@ from app.services import google_integrations as google_integrations_service
 
 
 @pytest.mark.asyncio
-async def test_revoke_on_disconnect_calendar_skips_shared_token():
+async def test_revoke_on_disconnect_calendar_revokes_shared_token():
     user_id = uuid4()
     session = AsyncMock()
     settings = Settings()
@@ -30,17 +30,18 @@ async def test_revoke_on_disconnect_calendar_skips_shared_token():
         ),
         patch(
             "app.services.google_integrations.google_oauth_revoke.revoke_refresh_token",
-            AsyncMock(),
+            AsyncMock(return_value=True),
         ) as revoke_mock,
     ):
-        await google_integrations_service.revoke_on_disconnect(
+        shared = await google_integrations_service.revoke_on_disconnect(
             session,
             settings,
             user_id,
             disconnect="calendar",
         )
 
-    revoke_mock.assert_not_awaited()
+    assert shared is True
+    revoke_mock.assert_awaited_once_with("shared-token")
 
 
 @pytest.mark.asyncio
@@ -68,7 +69,7 @@ async def test_revoke_on_disconnect_calendar_revokes_unique_token():
             AsyncMock(return_value=True),
         ) as revoke_mock,
     ):
-        await google_integrations_service.revoke_on_disconnect(
+        shared = await google_integrations_service.revoke_on_disconnect(
             session,
             settings,
             user_id,
@@ -76,6 +77,7 @@ async def test_revoke_on_disconnect_calendar_revokes_unique_token():
         )
 
     revoke_mock.assert_awaited_once_with("calendar-only-token")
+    assert shared is False
 
 
 @pytest.mark.asyncio
@@ -312,6 +314,50 @@ async def test_disconnect_calendar_deletes_row_when_revoke_decrypt_fails():
         await google_integrations_service.disconnect_calendar(session, redis, settings, user_id)
 
     delete_mock.assert_awaited_once_with(session, user_id)
+
+
+@pytest.mark.asyncio
+async def test_disconnect_calendar_drops_gmail_when_token_was_shared():
+    user_id = uuid4()
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    with (
+        patch(
+            "app.services.google_integrations.revoke_on_disconnect",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.delete_for_user",
+            AsyncMock(),
+        ) as cal_delete,
+        patch(
+            "app.services.google_integrations.gmail_repo.delete_for_user",
+            AsyncMock(),
+        ) as gmail_delete,
+        patch(
+            "app.services.google_integrations.suggested_repo.delete_for_user",
+            AsyncMock(),
+        ) as suggested_delete,
+        patch(
+            "app.services.google_integrations.calendar_service.clear_events_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.email_service.clear_gmail_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await google_integrations_service.disconnect_calendar(session, redis, settings, user_id)
+
+    cal_delete.assert_awaited_once_with(session, user_id)
+    gmail_delete.assert_awaited_once_with(session, user_id)
+    suggested_delete.assert_awaited_once_with(session, user_id)
 
 
 @pytest.mark.asyncio
