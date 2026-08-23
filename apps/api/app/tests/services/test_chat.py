@@ -845,6 +845,16 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
     assert "Fluffy" not in system
 
 
+class _FakeSessionCM:
+    """Keep this unit test off the process-wide asyncpg pool."""
+
+    async def __aenter__(self):
+        return AsyncMock()
+
+    async def __aexit__(self, *args):
+        return False
+
+
 @pytest.mark.asyncio
 async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks():
     """A casual follow-up after uploading a PDF may not trigger needs_rich_context,
@@ -867,7 +877,16 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
     rag_block = "ATTACHED DOCUMENT CONTEXT"
 
     with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.prompt_builder.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat_history_rag.embed_query_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
         patch(
             "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
@@ -875,6 +894,10 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
         patch(
             "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value=""),
         ),
         patch(
             "app.repositories.attachment_chunks.has_chunks_for_chat",
