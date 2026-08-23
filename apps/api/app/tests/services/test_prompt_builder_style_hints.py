@@ -60,6 +60,7 @@ def test_balanced_style_injects_universal_format_baseline():
     assert "Lead with the answer; explanation after." in joined
     assert "Do not decorate with emoji unless the user used them." in joined
     assert "[OpenAI docs](url)" in joined
+    assert "do not add sections just to look structured" in joined
 
 
 def test_balanced_style_keeps_full_math_solver_hint():

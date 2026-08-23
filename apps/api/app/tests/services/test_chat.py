@@ -211,6 +211,8 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     assert "[OpenAI docs](url)" in UNIVERSAL_FORMAT_BASELINE
     assert "not raw URLs" in UNIVERSAL_FORMAT_BASELINE
     assert "Do not restate the question." in UNIVERSAL_FORMAT_BASELINE
+    assert "simplest structure" in UNIVERSAL_FORMAT_BASELINE
+    assert "do not add sections just to look structured" in UNIVERSAL_FORMAT_BASELINE
     assert "Lead with the answer; explanation after." in STYLE_HINTS["balanced"]
 
 

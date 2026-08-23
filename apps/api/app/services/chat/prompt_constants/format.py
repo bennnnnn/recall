@@ -151,7 +151,8 @@ UNIVERSAL_FORMAT_BASELINE = (
     '"Let\'s dive in"). Headings only when they group real sections. '
     "Do not decorate with emoji unless the user used them. "
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
-    "Do not restate the question."
+    "Do not restate the question. "
+    "Use the simplest structure that answers; do not add sections just to look structured."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the
