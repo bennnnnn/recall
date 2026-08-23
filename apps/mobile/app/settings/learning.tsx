@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -50,9 +50,7 @@ export default function LearningSettingsScreen() {
   const { updateProject, deleteProject, getExportProject } = useProjectActions();
   const feedback = useActionFeedbackOptional();
 
-  const [saving, setSaving] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
@@ -71,43 +69,48 @@ export default function LearningSettingsScreen() {
   const languageProjects = projects.filter((p) => isLanguageProject(p.kind));
 
   const saveDailyGoal = async (project: Project, nextGoal: number) => {
-    if (!token || savingRef.current) return;
-    savingRef.current = true;
-    setSavingKey(`${project.id}-daily`);
-    setSaving(true);
+    if (!token) return;
+    const key = `${project.id}-daily`;
+    if (savingKey === key) return;
+    setSavingKey(key);
+    setProjects((prev) => mergeProjectRow(prev, { ...project, daily_goal: nextGoal }));
     try {
       const updated = await updateProject(project.id, { daily_goal: nextGoal });
       setProjects((prev) => mergeProjectRow(prev, updated));
       void refresh({ silent: true, force: true });
     } catch {
+      setProjects((prev) => mergeProjectRow(prev, project));
       if (feedback) feedback.error(t("settings.learning.save_failed"));
       else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
-      savingRef.current = false;
-      setSaving(false);
-      setSavingKey(null);
+      setSavingKey((cur) => (cur === key ? null : cur));
     }
   };
 
   const saveLevel = async (project: Project, level: LanguageLevel) => {
-    if (!token || savingRef.current) return;
-    savingRef.current = true;
-    setSavingKey(`${project.id}-level`);
-    setSaving(true);
+    if (!token) return;
+    const key = `${project.id}-level`;
+    if (savingKey === key) return;
+    const draft: Project = {
+      ...project,
+      level,
+      title: languageProjectTitle(level, project.target_language),
+    };
+    setSavingKey(key);
+    setProjects((prev) => mergeProjectRow(prev, draft));
     try {
       const updated = await updateProject(project.id, {
         level,
-        title: languageProjectTitle(level, project.target_language),
+        title: draft.title,
       });
       setProjects((prev) => mergeProjectRow(prev, updated));
       void refresh({ silent: true, force: true });
     } catch {
+      setProjects((prev) => mergeProjectRow(prev, project));
       if (feedback) feedback.error(t("settings.learning.save_failed"));
       else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
-      savingRef.current = false;
-      setSaving(false);
-      setSavingKey(null);
+      setSavingKey((cur) => (cur === key ? null : cur));
     }
   };
 
@@ -220,7 +223,6 @@ export default function LearningSettingsScreen() {
                     options={levelPickerOptions(t)}
                     selectedKey={languageProject.level}
                     expanded={openPicker === `${languageProject.id}-level`}
-                    disabled={saving}
                     busy={savingKey === `${languageProject.id}-level`}
                     onToggle={() => togglePicker(`${languageProject.id}-level`)}
                     onSelect={(key) => void saveLevel(languageProject, key as LanguageLevel)}
@@ -235,7 +237,6 @@ export default function LearningSettingsScreen() {
                     options={dailyGoalPickerOptions("language", t)}
                     selectedKey={String(resolveDailyGoal(languageProject.daily_goal))}
                     expanded={openPicker === `${languageProject.id}-daily`}
-                    disabled={saving}
                     busy={savingKey === `${languageProject.id}-daily`}
                     onToggle={() => togglePicker(`${languageProject.id}-daily`)}
                     onSelect={(key) => {

@@ -488,7 +488,7 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
       marginTop: 2,
     },
-    link: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
+    link: { ...Type.caption, fontWeight: "400", color: theme.primary },
     linkPressable: { textDecorationLine: "underline" },
     dot: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
   });

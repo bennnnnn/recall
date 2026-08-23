@@ -1,14 +1,15 @@
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/components/AddFab";
+import { ListGroupsView } from "@/components/ListGroupsView";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
 import { NewListComposer } from "@/components/todos/NewListComposer";
-import { TodosFlashList } from "@/components/todos/TodosFlashList";
+import { TodosFlashList, TodosRemindersTail } from "@/components/todos/TodosFlashList";
 import { TodosScreenHeader } from "@/components/todos/TodosScreenHeader";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import { useTodosActions } from "@/hooks/useTodosActions";
@@ -97,70 +98,101 @@ export default function TodosScreen() {
     });
   }, [focusSection, navigation, t]);
 
-  if (!token) return <Redirect href="/login" />;
+  const onPullRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    await refresh({ silent: true, force: true });
+    setPullRefreshing(false);
+  }, [refresh]);
 
-  if (loading && todos.length === 0) {
-    return <SkeletonList />;
-  }
+  const listsOwnScroll = showList && listGroups.length > 0 && !isRemindersPage;
 
-  const openReminderSheet = () => {
-    void ensureNotificationPermission();
-    setReminderSheetOpen(true);
-  };
-
-  const listHeader = (
-    <TodosScreenHeader
-      error={Boolean(error)}
-      onRetry={() => void refresh()}
-      focusSection={focusSection}
-      showReminders={showReminders}
-      showList={showList}
-      showRemindersEmptyHero={showRemindersEmptyHero}
-      isRemindersPage={isRemindersPage}
-      openReminders={openReminders}
-      calendarEvents={calendar.calendarEvents}
-      suggestedReminders={calendar.suggestedReminders}
-      selectedDay={calendar.selectedDay}
-      visibleMonth={calendar.visibleMonth}
-      onSelectDay={calendar.goToDay}
-      onVisibleMonthChange={calendar.setVisibleMonth}
-      calendarLoadError={calendar.calendarLoadError}
-      onRetryCalendar={() => void calendar.loadCalendarEvents()}
-      suggestedLoadError={calendar.suggestedLoadError}
-      onRetrySuggested={() => void calendar.loadSuggestedReminders()}
-      selectedDaySuggestions={calendar.selectedDaySuggestions}
-      selectedDayHeading={calendar.selectedDayHeading}
-      selectedDayMeetings={calendar.selectedDayMeetings}
-      selectedDayReminders={calendar.selectedDayReminders}
-      suggestionBusyId={calendar.suggestionBusyId}
-      onAddSuggestion={(reminder) => void calendar.handleAddSuggestion(reminder)}
-      onDismissSuggestion={(reminder) => void calendar.handleDismissSuggestion(reminder)}
-      highlight={highlight}
-      overlapNotes={calendar.overlapNotes}
-      busyTodoIds={actions.busyTodoIds}
-      onToggle={(todo) => void actions.handleToggle(todo)}
-      onDue={actions.openDuePicker}
-      onDeleteItem={actions.handleDeleteItem}
-      listGroups={listGroups}
-      focusTopic={focusTopic}
-      onReorderGroups={(topics) => void actions.handleReorderGroups(topics)}
-      onReorderItems={(topic, ordered) => void actions.handleReorderItems(topic, ordered)}
-      onAddListItem={(topic, text) => void actions.handleCreateListItem(topic, text)}
-      onDeleteList={actions.handleDeleteList}
-    />
+  const listHeader = useMemo(
+    () => (
+      <TodosScreenHeader
+        error={Boolean(error)}
+        onRetry={refresh}
+        focusSection={focusSection}
+        showReminders={showReminders}
+        showList={!listsOwnScroll && showList}
+        showRemindersEmptyHero={showRemindersEmptyHero}
+        isRemindersPage={isRemindersPage}
+        openReminders={openReminders}
+        calendarEvents={calendar.calendarEvents}
+        suggestedReminders={calendar.suggestedReminders}
+        selectedDay={calendar.selectedDay}
+        visibleMonth={calendar.visibleMonth}
+        onSelectDay={calendar.goToDay}
+        onVisibleMonthChange={calendar.setVisibleMonth}
+        calendarLoadError={calendar.calendarLoadError}
+        onRetryCalendar={calendar.loadCalendarEvents}
+        suggestedLoadError={calendar.suggestedLoadError}
+        onRetrySuggested={calendar.loadSuggestedReminders}
+        selectedDaySuggestions={calendar.selectedDaySuggestions}
+        selectedDayHeading={calendar.selectedDayHeading}
+        selectedDayMeetings={calendar.selectedDayMeetings}
+        selectedDayReminders={calendar.selectedDayReminders}
+        suggestionBusyId={calendar.suggestionBusyId}
+        onAddSuggestion={calendar.handleAddSuggestion}
+        onDismissSuggestion={calendar.handleDismissSuggestion}
+        highlight={highlight}
+        overlapNotes={calendar.overlapNotes}
+        busyTodoIds={actions.busyTodoIds}
+        onToggle={actions.handleToggle}
+        onDue={actions.openDuePicker}
+        onDeleteItem={actions.handleDeleteItem}
+        listGroups={listGroups}
+        focusTopic={focusTopic}
+        onReorderGroups={actions.handleReorderGroups}
+        onReorderItems={actions.handleReorderItems}
+        onAddListItem={actions.handleCreateListItem}
+        onDeleteList={actions.handleDeleteList}
+      />
+    ),
+    [
+      actions.busyTodoIds,
+      actions.handleCreateListItem,
+      actions.handleDeleteItem,
+      actions.handleDeleteList,
+      actions.handleReorderGroups,
+      actions.handleReorderItems,
+      actions.handleToggle,
+      actions.openDuePicker,
+      calendar.calendarEvents,
+      calendar.calendarLoadError,
+      calendar.goToDay,
+      calendar.handleAddSuggestion,
+      calendar.handleDismissSuggestion,
+      calendar.loadCalendarEvents,
+      calendar.loadSuggestedReminders,
+      calendar.overlapNotes,
+      calendar.selectedDay,
+      calendar.selectedDayHeading,
+      calendar.selectedDayMeetings,
+      calendar.selectedDayReminders,
+      calendar.selectedDaySuggestions,
+      calendar.setVisibleMonth,
+      calendar.suggestedLoadError,
+      calendar.suggestedReminders,
+      calendar.suggestionBusyId,
+      calendar.visibleMonth,
+      error,
+      focusSection,
+      focusTopic,
+      highlight,
+      isRemindersPage,
+      listGroups,
+      listsOwnScroll,
+      openReminders,
+      refresh,
+      showList,
+      showReminders,
+      showRemindersEmptyHero,
+    ],
   );
 
-  return (
-    <GestureHandlerRootView style={s.root}>
-      {showList && newListOpen ? (
-        <NewListComposer
-          saving={actions.creatingList}
-          onCancel={() => setNewListOpen(false)}
-          onSave={(name) => void actions.handleCreateList(name, () => setNewListOpen(false))}
-        />
-      ) : null}
-
-      <TodosFlashList
+  const remindersTail = useMemo(
+    () => (
+      <TodosRemindersTail
         showReminders={showReminders}
         isRemindersPage={isRemindersPage}
         openReminders={openReminders}
@@ -172,16 +204,81 @@ export default function TodosScreen() {
         onToggle={actions.handleToggle}
         onDue={actions.openDuePicker}
         onDeleteItem={actions.handleDeleteItem}
-        showRemindersEmptyHero={showRemindersEmptyHero}
-        error={Boolean(error)}
-        listHeader={listHeader}
-        refreshing={pullRefreshing}
-        onRefresh={async () => {
-          setPullRefreshing(true);
-          await refresh({ silent: true, force: true });
-          setPullRefreshing(false);
-        }}
       />
+    ),
+    [
+      actions.busyTodoIds,
+      actions.handleDeleteItem,
+      actions.handleToggle,
+      actions.openDuePicker,
+      calendar.overlapNotes,
+      focusSection,
+      highlight,
+      isRemindersPage,
+      openReminders,
+      showReminders,
+      visibleDone,
+    ],
+  );
+
+  if (!token) return <Redirect href="/login" />;
+
+  if (loading && todos.length === 0) {
+    return <SkeletonList />;
+  }
+
+  const openReminderSheet = () => {
+    void ensureNotificationPermission();
+    setReminderSheetOpen(true);
+  };
+
+  return (
+    <GestureHandlerRootView style={s.root}>
+      {showList && newListOpen ? (
+        <NewListComposer
+          saving={actions.creatingList}
+          onCancel={() => setNewListOpen(false)}
+          onSave={(name) => void actions.handleCreateList(name, () => setNewListOpen(false))}
+        />
+      ) : null}
+
+      {listsOwnScroll ? (
+        <ListGroupsView
+          scrollEnabled
+          groups={listGroups}
+          initialExpandedTopic={focusTopic}
+          busyTodoIds={actions.busyTodoIds}
+          onReorderGroups={actions.handleReorderGroups}
+          onReorderItems={actions.handleReorderItems}
+          onToggle={actions.handleToggle}
+          onAddItem={actions.handleCreateListItem}
+          onDeleteItem={actions.handleDeleteItem}
+          onDeleteList={actions.handleDeleteList}
+          listHeader={listHeader}
+          listFooter={showReminders ? remindersTail : null}
+          refreshing={pullRefreshing}
+          onRefresh={onPullRefresh}
+        />
+      ) : (
+        <TodosFlashList
+          showReminders={showReminders}
+          isRemindersPage={isRemindersPage}
+          openReminders={openReminders}
+          visibleDone={visibleDone}
+          focusSection={focusSection}
+          busyTodoIds={actions.busyTodoIds}
+          highlight={highlight}
+          overlapNotes={calendar.overlapNotes}
+          onToggle={actions.handleToggle}
+          onDue={actions.openDuePicker}
+          onDeleteItem={actions.handleDeleteItem}
+          showRemindersEmptyHero={showRemindersEmptyHero}
+          error={Boolean(error)}
+          listHeader={listHeader}
+          refreshing={pullRefreshing}
+          onRefresh={onPullRefresh}
+        />
+      )}
 
       {isRemindersPage ? (
         <AddFab

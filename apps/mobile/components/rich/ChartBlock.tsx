@@ -39,9 +39,9 @@ function isChartErrorMessage(data: unknown): data is ChartErrorMessage {
 function buildVegaHtml(spec: string, theme: Theme): string {
   const safeSpec = escapeForInlineJsTemplate(spec);
   const vegaTheme = theme.isDark ? "dark" : "vox";
-  const axisColor = theme.isDark ? theme.border : "#888";
-  const textColor = theme.isDark ? theme.text : "#333";
-  const gridColor = theme.isDark ? theme.border : "#eee";
+  const axisColor = theme.textSecondary;
+  const textColor = theme.text;
+  const gridColor = theme.border;
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>

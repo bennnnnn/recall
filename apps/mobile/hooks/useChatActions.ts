@@ -101,17 +101,24 @@ export function useChatActions({
   }, [token, chatId, messages]);
 
   const handleShare = useCallback(async () => {
-    await shareConversation(chatTitle, await loadTranscriptMessages());
-  }, [chatTitle, loadTranscriptMessages]);
+    showActionBanner(t("chat.status.preparing"), "share-outline");
+    const transcript = await loadTranscriptMessages();
+    dismissActionBanner();
+    await shareConversation(chatTitle, transcript);
+  }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, t]);
 
   const handleExportPdf = useCallback(async () => {
+    showActionBanner(t("chat.status.preparing"), "document-text-outline");
     try {
-      await exportConversationAsPdf(chatTitle, await loadTranscriptMessages());
+      const transcript = await loadTranscriptMessages();
+      dismissActionBanner();
+      await exportConversationAsPdf(chatTitle, transcript);
     } catch (error) {
+      dismissActionBanner();
       if (isShareCancelled(error)) return;
       Alert.alert(t("common.error"), t("chat.export_pdf_failed"));
     }
-  }, [chatTitle, loadTranscriptMessages, t]);
+  }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, t]);
 
   const openRename = useCallback(() => {
     setRenameText(chatTitle ?? "");
