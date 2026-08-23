@@ -515,6 +515,48 @@ async def _quiz_hints(
     return parts, chat
 
 
+_DIAGRAM_INTENT_KINDS = frozenset(
+    {
+        "rectangle",
+        "square",
+        "triangle",
+        "right_triangle",
+        "circle",
+        "point",
+        "graph",
+        "vertical",
+        "triangle_sides",
+        "trapezoid",
+        "parallelogram",
+        "sector",
+        "graph_pair",
+        "solid",
+        "coord",
+    }
+)
+_EXPLICIT_DIAGRAM_REQUEST = re.compile(
+    r"\b(?:mermaid|flowchart|sequence diagram|architecture diagram|"
+    r"vega(?:-?lite)?|bar chart|line chart|pie chart|scatter plot)\b|"
+    r"```(?:html|mermaid|chart)\b",
+    re.IGNORECASE,
+)
+
+
+def _wants_math_format_hints(query_text: str | None) -> bool:
+    if not query_text:
+        return False
+    return math_tools_service.needs_symbolic_math(query_text)
+
+
+def _wants_visualization_hints(query_text: str | None) -> bool:
+    if not query_text:
+        return False
+    if _EXPLICIT_DIAGRAM_REQUEST.search(query_text):
+        return True
+    intent = math_tools_service.extract_math_intent(query_text)
+    return intent is not None and intent.kind in _DIAGRAM_INTENT_KINDS
+
+
 def _style_format_hints(
     *,
     query_text: str | None,
@@ -540,15 +582,13 @@ def _style_format_hints(
         parts.append(SHORT_MATH_SAFETY_HINT)
     elif not is_day_plan:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.extend(
-            [
-                INTENT_FORMAT_HINT,
-                MATH_SOLVER_HINT,
-                MATH_TUTORING_HINT,
-                RESPONSE_FORMAT_HINT,
-                VISUALIZATION_HINTS,
-            ]
-        )
+        parts.append(INTENT_FORMAT_HINT)
+        if _wants_math_format_hints(query_text):
+            parts.append(MATH_SOLVER_HINT)
+            parts.append(MATH_TUTORING_HINT)
+        parts.append(RESPONSE_FORMAT_HINT)
+        if _wants_visualization_hints(query_text):
+            parts.append(VISUALIZATION_HINTS)
     else:
         # Day-plan turns used to get only RESPONSE_FORMAT_HINT, so a math
         # question that landed in day-plan mode lost every guardrail against
@@ -560,8 +600,8 @@ def _style_format_hints(
     # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
     if query_text and is_comparison_question(query_text):
         parts.append(COMPARISON_FORMAT_HINT)
-    parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
+        parts.append(COPY_DELIVERABLE_HINT)
         parts.append(EMAIL_DRAFT_HINT)
     return parts
 

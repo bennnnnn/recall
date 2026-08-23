@@ -106,3 +106,60 @@ def test_integration_hints_wraps_todos_section():
     joined = "\n".join(parts)
     assert "[BEGIN UNTRUSTED CONTENT — reminders and lists]" in joined
     assert "○ Milk" in joined
+
+
+def test_explain_turn_keeps_baseline_without_math_viz_or_copy_hints():
+    from app.services.chat.prompt_constants import (
+        COPY_DELIVERABLE_HINT,
+        MATH_SOLVER_HINT,
+        MATH_TUTORING_HINT,
+        UNIVERSAL_FORMAT_BASELINE,
+        VISUALIZATION_HINTS,
+    )
+
+    parts = _style_format_hints(
+        query_text="Explain how recursion works in Python",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert UNIVERSAL_FORMAT_BASELINE in parts
+    assert MATH_SOLVER_HINT not in parts
+    assert MATH_TUTORING_HINT not in parts
+    assert VISUALIZATION_HINTS not in parts
+    assert COPY_DELIVERABLE_HINT not in parts
+
+
+def test_graph_turn_includes_math_and_visualization_hints():
+    from app.services.chat.prompt_constants import MATH_SOLVER_HINT, VISUALIZATION_HINTS
+
+    parts = _style_format_hints(
+        query_text="graph y = x^2",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert MATH_SOLVER_HINT in parts
+    assert VISUALIZATION_HINTS in parts
+
+
+def test_copy_hint_only_on_writing_deliverable():
+    from app.services.chat.prompt_constants import COPY_DELIVERABLE_HINT, EMAIL_DRAFT_HINT
+
+    writing = _style_format_hints(
+        query_text="draft an email to my boss",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert COPY_DELIVERABLE_HINT in writing
+    assert EMAIL_DRAFT_HINT in writing
+
+    other = _style_format_hints(
+        query_text="Explain how recursion works in Python",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert COPY_DELIVERABLE_HINT not in other
+    assert EMAIL_DRAFT_HINT not in other
