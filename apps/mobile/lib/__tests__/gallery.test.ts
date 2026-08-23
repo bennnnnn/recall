@@ -5,6 +5,7 @@ import {
   galleryPressAction,
   galleryThumbSize,
   isGalleryImage,
+  mergeGalleryItems,
 } from "@/lib/gallery";
 
 describe("gallery helpers", () => {
@@ -49,5 +50,19 @@ describe("gallery helpers", () => {
   it("fills the row across three columns", () => {
     expect(galleryThumbSize(390 - 32, 3, 12)).toBe(111);
     expect(galleryThumbSize(0, 3, 12)).toBe(1);
+  });
+
+  it("dedupes ids when appending a gallery page", () => {
+    const current = [{ id: "a" }, { id: "b" }] as never;
+    const incoming = [{ id: "b" }, { id: "c" }] as never;
+    expect(mergeGalleryItems(current, incoming, false).map((item) => item.id)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(mergeGalleryItems(current, incoming, true).map((item) => item.id)).toEqual([
+      "b",
+      "c",
+    ]);
   });
 });

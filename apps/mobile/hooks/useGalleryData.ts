@@ -6,6 +6,7 @@ import { api, type AttachmentListItem } from "@/lib/api";
 import {
   GALLERY_SEARCH_DEBOUNCE_MS,
   galleryListParams,
+  mergeGalleryItems,
   type GalleryFilter,
 } from "@/lib/gallery";
 
@@ -24,6 +25,8 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const [hasMore, setHasMore] = useState(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const offsetRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const genRef = useRef(0);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(trimmedQuery), GALLERY_SEARCH_DEBOUNCE_MS);
@@ -34,6 +37,10 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     async (options: { reset?: boolean; silent?: boolean } = {}) => {
       if (!token) return;
       const reset = options.reset ?? true;
+      if (!reset && inFlightRef.current) return;
+      if (reset) genRef.current += 1;
+      const gen = genRef.current;
+      inFlightRef.current = true;
       if (!options.silent) {
         if (reset) setLoading(true);
         else setLoadingMore(true);
@@ -46,15 +53,20 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
           limit: PAGE_SIZE,
           offset,
         });
-        setItems((current) => (reset ? response.items : [...current, ...response.items]));
+        if (gen !== genRef.current) return;
+        setItems((current) => mergeGalleryItems(current, response.items, reset));
         setHasMore(response.has_more);
         offsetRef.current = offset + response.items.length;
         setError(false);
       } catch {
-        setError(true);
+        if (gen !== genRef.current) return;
+        if (reset) setError(true);
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (gen === genRef.current) {
+          inFlightRef.current = false;
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [debouncedQuery, filter, token],
@@ -73,8 +85,8 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   }, [load]);
 
   const loadMore = useCallback(() => {
-    if (!hasMore || loadingMore || loading) return;
-    void load({ reset: false, silent: true });
+    if (!hasMore || loadingMore || loading || inFlightRef.current) return;
+    void load({ reset: false });
   }, [hasMore, load, loading, loadingMore]);
 
   return {

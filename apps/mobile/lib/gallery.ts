@@ -1,3 +1,5 @@
+import type { AttachmentListItem } from "@/lib/api";
+
 export const GALLERY_SEARCH_DEBOUNCE_MS = 300;
 
 export type GalleryFilter = "all" | "generated" | "uploaded" | "files";
@@ -46,4 +48,14 @@ export function galleryFileName(
 export function galleryThumbSize(listWidth: number, columns: number, gap: number): number {
   if (listWidth <= 0 || columns <= 0) return 1;
   return Math.max(1, Math.floor((listWidth - gap * (columns - 1)) / columns));
+}
+
+export function mergeGalleryItems(
+  current: AttachmentListItem[],
+  incoming: AttachmentListItem[],
+  reset: boolean,
+): AttachmentListItem[] {
+  if (reset) return incoming;
+  const seen = new Set(current.map((item) => item.id));
+  return [...current, ...incoming.filter((item) => !seen.has(item.id))];
 }

@@ -206,7 +206,7 @@ export default function GalleryScreen() {
 
       {loading && items.length === 0 && !error ? (
         <SkeletonList />
-      ) : error ? (
+      ) : error && items.length === 0 ? (
         <StateView
           variant="error"
           title={t("common.error")}
