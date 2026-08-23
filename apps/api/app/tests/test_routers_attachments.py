@@ -508,6 +508,49 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
     mark_verified.assert_awaited_once()
 
 
+def test_upload_rejects_body_larger_than_declared_size_without_writing():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.message_id = None
+    row.content_type = "image/png"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    row.size_bytes = 8
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.write_bytes = AsyncMock()
+    gateway.delete_bytes = AsyncMock()
+
+    png_prefix = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_workflow.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            AsyncMock(),
+        ),
+        patch(
+            "app.repositories.attachments.delete_rows",
+            AsyncMock(return_value=1),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=png_prefix,
+        )
+
+    assert r.status_code == 400
+    gateway.write_bytes.assert_not_awaited()
+
+
 def test_serve_file_rejects_spoofed_r2_bytes():
     user = _fake_user()
     app = _app_with_user(user)
