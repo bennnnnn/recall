@@ -1,5 +1,6 @@
 """Attachment gallery, upload verification, and download policy."""
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -115,12 +116,30 @@ async def list_attachments(
     return AttachmentListOut(items=items, has_more=has_more)
 
 
+class _UploadTooLarge(Exception):
+    pass
+
+
+async def _read_upload_capped(stream: AsyncIterator[bytes], max_bytes: int) -> bytes:
+    """Read the body without buffering past the declared/max size."""
+    parts: list[bytes] = []
+    size = 0
+    async for chunk in stream:
+        if not chunk:
+            continue
+        size += len(chunk)
+        if size > max_bytes:
+            raise _UploadTooLarge
+        parts.append(chunk)
+    return b"".join(parts)
+
+
 async def store_local_upload(
     session: AsyncSession,
     settings: Settings,
     user: User,
     attachment_id: UUID,
-    data: bytes,
+    stream: AsyncIterator[bytes],
 ) -> None:
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
     if row is None:
@@ -131,13 +150,20 @@ async def store_local_upload(
     if row.message_id is not None:
         raise AttachmentWorkflowError(409, "Attachment is already linked to a message")
 
+    cap = min(MAX_ATTACHMENT_SIZE, max(row.size_bytes, 0))
     detail: str | None = None
-    if not data or len(data) > MAX_ATTACHMENT_SIZE:
+    try:
+        data = await _read_upload_capped(stream, cap)
+    except _UploadTooLarge:
+        data = b""
         detail = "Invalid upload size"
-    elif len(data) != row.size_bytes:
-        detail = "Uploaded size does not match the declared size"
-    elif not bytes_match_claimed(row.content_type, data):
-        detail = "Uploaded bytes do not match the declared content type"
+    if detail is None:
+        if not data or len(data) > MAX_ATTACHMENT_SIZE:
+            detail = "Invalid upload size"
+        elif len(data) != row.size_bytes:
+            detail = "Uploaded size does not match the declared size"
+        elif not bytes_match_claimed(row.content_type, data):
+            detail = "Uploaded bytes do not match the declared content type"
     if detail:
         await purge_invalid_upload(
             gateway,

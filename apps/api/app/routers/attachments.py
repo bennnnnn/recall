@@ -107,14 +107,13 @@ async def upload_attachment_bytes(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    data = await request.body()
     try:
         await attachment_workflow.store_local_upload(
             session,
             settings,
             user,
             attachment_id,
-            data,
+            request.stream(),
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
