@@ -2,6 +2,7 @@
 
 from app.services.web_search.augment import augment_prompt_messages, build_search_augmentation
 from app.services.web_search.detection import (
+    WEB_SEARCH_TOOL_NUDGE,
     needs_web_search,
     needs_web_search_heuristic,
     should_web_search,
@@ -43,6 +44,7 @@ __all__ = [
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
+    "WEB_SEARCH_TOOL_NUDGE",
     "augment_prompt_messages",
     "build_search_augmentation",
     "build_search_queries",

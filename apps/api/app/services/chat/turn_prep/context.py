@@ -46,6 +46,7 @@ from app.services.chat.turn_prep.mode import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.math_tools import VerifiedMathBlock
+from app.services.prompt_inject import inject_before_last_user
 from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
 
@@ -116,6 +117,8 @@ class StreamContext:
     terminal_image_message_id: str | None = None
     terminal_image_content: str | None = None
     terminal_image_model: str | None = None
+    # Classifier override for the tool-loop gate (None = sync heuristic).
+    needs_web_search: bool | None = None
 
 
 @dataclass
@@ -136,6 +139,7 @@ class TurnPromptBundle:
     geo: ClientGeoContext
     local_tz: str
     verified_math: VerifiedMathBlock | None = None
+    needs_web_search: bool | None = None
 
 
 def stream_context_from_bundle(
@@ -197,6 +201,7 @@ def stream_context_from_bundle(
         ),
         rich_context_turn=bundle.rich_context,
         indexable_attachment_ids=list(indexable_attachment_ids or []),
+        needs_web_search=bundle.needs_web_search,
     )
 
 
@@ -329,12 +334,34 @@ async def build_stream_prompt_context(
             await session.commit()
         return reply
 
+    async def _classify_web_search_task() -> tuple[bool | None, list[str], bool]:
+        if (
+            mode.lightweight
+            or mode.minimal_quiz
+            or mode.minimal_vocab_answer
+            or mode.active_vocab_turn
+        ):
+            return False, [], False
+        if not settings.web_search_enabled:
+            return False, [], False
+        if not settings.mcp_tool_loop_enabled:
+            return None, [], False
+        prior = await _load_prior_user_messages(chat.id)
+        if not settings.web_search_classifier_enabled:
+            return None, prior, True
+        needed = await web_search_service.should_web_search(
+            content,
+            settings,
+            prior_user_messages=prior,
+        )
+        return needed, prior, True
+
     # Phase A: build the prompt (memory/RAG embed) while resolving the
     # instant-reply short-circuit (time/location/calendar/email checks).
     # The two share no data -- overlap them so memory embed does not wait
     # behind a fast DB classification, and the classifier does not wait
     # behind a multi-second embedding round-trip.
-    prompt_messages, instant_reply = await asyncio.gather(
+    prompt_messages, instant_reply, _classify_result = await asyncio.gather(
         build_prompt_messages(
             user,
             chat.id,
@@ -355,7 +382,12 @@ async def build_stream_prompt_context(
             omit_message_ids=omit_message_ids,
         ),
         _resolve_instant_reply_task(),
+        _classify_web_search_task(),
     )
+
+    needs_web_search, _classified_prior, _prior_loaded = _classify_result
+    if _prior_loaded:
+        prior_user_messages = _classified_prior
 
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
@@ -411,10 +443,13 @@ async def build_stream_prompt_context(
     # slow I/O (calendar/gmail API | Tavily/SymPy) below.
     # (prior_user_messages / has_calendar_write are initialized above.)
     if augment:
-        prior_user_messages, has_calendar_write = await asyncio.gather(
-            _load_prior_user_messages(chat.id),
-            _load_has_calendar_write(user.id),
-        )
+        if _prior_loaded:
+            has_calendar_write = await _load_has_calendar_write(user.id)
+        else:
+            prior_user_messages, has_calendar_write = await asyncio.gather(
+                _load_prior_user_messages(chat.id),
+                _load_has_calendar_write(user.id),
+            )
 
     # Phase B: gather the independent external fetches concurrently.
     # Integration fetch (calendar/gmail/nudge) and web+tools fetch
@@ -505,6 +540,11 @@ async def build_stream_prompt_context(
     if chem_block:
         prompt_messages.append({"role": "system", "content": chem_block})
 
+    if needs_web_search is True and instant_reply is None:
+        prompt_messages = inject_before_last_user(
+            prompt_messages, web_search_service.WEB_SEARCH_TOOL_NUDGE
+        )
+
     if timing is not None:
         timing.mark_prompt_ready()
 
@@ -525,4 +565,5 @@ async def build_stream_prompt_context(
         geo=geo,
         local_tz=local_tz,
         verified_math=verified_math,
+        needs_web_search=needs_web_search,
     )

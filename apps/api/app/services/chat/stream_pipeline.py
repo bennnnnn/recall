@@ -54,12 +54,15 @@ async def run_tool_loop_path(
 
     content = ctx.user_message_content if isinstance(ctx.user_message_content, str) else ""
     sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
+    classified = ctx.needs_web_search
+    web_search = classified if isinstance(classified, bool) else None
     if not tool_loop_service.turn_needs_tool_loop(
         content,
         lightweight=bool(ctx.lightweight_turn),
         has_instant_reply=ctx.instant_reply is not None,
         has_verified_math=ctx.verified_math is not None,
         has_search_sources=bool(sources),
+        web_search=web_search,
         settings=settings,
         user=ctx.user,
     ):

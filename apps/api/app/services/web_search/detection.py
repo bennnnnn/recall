@@ -31,6 +31,13 @@ from app.services.web_search.subject import (
     resolve_search_subject,
 )
 
+# Tool-loop nudge when the classifier says this turn needs live facts.
+# Heuristic Tavily inject stays off while mcp_tool_loop_enabled (no double search).
+WEB_SEARCH_TOOL_NUDGE = (
+    "This question needs current or look-up facts. Call the web_search tool "
+    "before answering; do not rely on training memory for live data."
+)
+
 
 def web_search_skip(
     text: str,

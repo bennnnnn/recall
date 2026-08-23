@@ -221,3 +221,65 @@ async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
     run.assert_awaited_once()
     assert ctx.instant_reply is None
     assert ctx.prompt_messages == tool_messages
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_runs_when_classifier_says_search():
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "Explain how recursion works in Python"
+    ctx.search_sources = []
+    ctx.needs_web_search = True
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = []
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch(
+            "app.services.tool_loop.run_tool_rounds", AsyncMock(return_value=([], None, None))
+        ) as run,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            Settings(mcp_tool_loop_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_skips_when_classifier_says_no():
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "What's the latest news on SpaceX?"
+    ctx.search_sources = []
+    ctx.needs_web_search = False
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = []
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            Settings(mcp_tool_loop_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    run.assert_not_awaited()

@@ -10,6 +10,7 @@ Guards the refactor that split fetch from inject in ``build_stream_prompt_contex
 from __future__ import annotations
 
 import asyncio
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -238,3 +239,255 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
     assert messages[1] == {"role": "system", "content": "WEB_BLOCK"}
     assert messages[2] == {"role": "system", "content": "MATH_BLOCK"}
     assert messages[3] == {"role": "user", "content": "hi"}
+
+
+def _vocab_turn_mode() -> _TurnMode:
+    return _TurnMode(
+        lightweight=False,
+        rich_context=True,
+        minimal_personal=False,
+        minimal_quiz=False,
+        minimal_vocab_answer=False,
+        active_vocab_turn=True,
+        day_planning=False,
+        day_reflection=False,
+        quiz_assistant=None,
+    )
+
+
+def _tool_loop_settings(**kwargs) -> Settings:
+    values = dict(
+        max_output_tokens=1000,
+        mcp_tool_loop_enabled=True,
+        mcp_tools_enabled=False,
+        math_tools_enabled=True,
+        web_search_enabled=True,
+        web_search_classifier_enabled=True,
+        gmail_enabled=False,
+        google_calendar_enabled=False,
+    )
+    values.update(kwargs)
+    return Settings(**values)
+
+
+def _prep_patches(*, prompt, instant=None, classify=None):
+    patches = [
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(side_effect=prompt)
+            if not isinstance(prompt, list)
+            else AsyncMock(return_value=list(prompt)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=instant),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, None, [], None)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_has_calendar_write",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+    ]
+    if classify is not None:
+        patches.append(
+            patch(
+                "app.services.chat.turn_prep.context.web_search_service.should_web_search",
+                classify,
+            )
+        )
+    return patches
+
+
+@pytest.mark.asyncio
+async def test_classifier_yes_nudges_and_flags_search():
+    from app.services.web_search.detection import WEB_SEARCH_TOOL_NUDGE
+
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "Who is the CEO of Anthropic?"},
+    ]
+    classify = AsyncMock(return_value=True)
+    with ExitStack() as stack:
+        for p in _prep_patches(prompt=messages, classify=classify):
+            stack.enter_context(p)
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "Who is the CEO of Anthropic?",
+            "free-chat",
+            _tool_loop_settings(),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_rich_turn_mode(),
+        )
+    classify.assert_awaited()
+    assert bundle.needs_web_search is True
+    assert any(
+        m.get("role") == "system" and WEB_SEARCH_TOOL_NUDGE in (m.get("content") or "")
+        for m in bundle.prompt_messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_classifier_no_skips_nudge_for_stable_topic():
+    from app.services.web_search.detection import WEB_SEARCH_TOOL_NUDGE
+
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "Explain how recursion works in Python"},
+    ]
+    classify = AsyncMock(return_value=False)
+    with ExitStack() as stack:
+        for p in _prep_patches(prompt=messages, classify=classify):
+            stack.enter_context(p)
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "Explain how recursion works in Python",
+            "free-chat",
+            _tool_loop_settings(),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_rich_turn_mode(),
+        )
+    classify.assert_awaited()
+    assert bundle.needs_web_search is False
+    assert all(
+        WEB_SEARCH_TOOL_NUDGE not in (m.get("content") or "") for m in bundle.prompt_messages
+    )
+
+
+@pytest.mark.asyncio
+async def test_vocab_quiz_skips_search_classifier():
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "B"},
+    ]
+    classify = AsyncMock(return_value=True)
+    with ExitStack() as stack:
+        for p in _prep_patches(prompt=messages, classify=classify):
+            stack.enter_context(p)
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "B",
+            "free-chat",
+            _tool_loop_settings(),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_vocab_turn_mode(),
+        )
+    classify.assert_not_awaited()
+    assert bundle.needs_web_search is False
+
+
+@pytest.mark.asyncio
+async def test_search_classifier_overlaps_prompt_build():
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "Who is the CEO of Anthropic?"},
+    ]
+
+    async def slow_prompt(*_a, **_kw):
+        await asyncio.sleep(0.25)
+        return list(messages)
+
+    async def slow_classify(*_a, **_kw):
+        await asyncio.sleep(0.25)
+        return True
+
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(side_effect=slow_prompt),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, None, [], None)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_has_calendar_write",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.web_search_service.should_web_search",
+            AsyncMock(side_effect=slow_classify),
+        ),
+    ):
+        loop = asyncio.get_event_loop()
+        start = loop.time()
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "Who is the CEO of Anthropic?",
+            "free-chat",
+            _tool_loop_settings(),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_rich_turn_mode(),
+        )
+        elapsed = loop.time() - start
+
+    assert bundle.needs_web_search is True
+    assert elapsed < 0.90, f"classifier sat on the critical path (elapsed={elapsed:.2f}s)"
