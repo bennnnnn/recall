@@ -96,9 +96,6 @@ def test_up_next_is_first_incomplete_chapter():
     assert progress[0].complete is True
     assert progress[1].complete is False
     assert progress[0].domain == "Greetings"
-    # Regression: "Food" (min_level=3) sits in this level1 project's path from
-    # before the level gate existed. Its domain must still resolve correctly —
-    # not fall back to its own title — even though level1 wouldn't seed it today.
     assert progress[1].domain == "Food"
     assert up_next_chapter(project, items) == "Food"
 
@@ -181,8 +178,9 @@ async def test_seed_language_path_copies_catalog_words():
     ):
         await seed_language_path(MagicMock(), user_id=user_id, project_id=project_id)
 
-    assert project.learning_path == catalog_path_titles("es", level=1)
-    assert created.await_count == catalog_word_count("es", level=1)
+    assert project.learning_path == catalog_path_titles("es")
+    assert "Immediate family" in project.learning_path
+    assert created.await_count == catalog_word_count("es")
     assert created.await_count > 0
 
 
@@ -193,12 +191,10 @@ def test_needs_catalog_sync_when_path_is_old_llm_titles():
     project = _project(learning_path=["Greetings and Introductions", "Everyday Objects"])
     assert needs_catalog_sync(project, [_item("hola", "Greetings and Introductions")]) is True
 
-    project = _project(learning_path=catalog_path_titles("es", level=1))
+    project = _project(learning_path=catalog_path_titles("es"))
 
     items = [
-        _item(word.content, deck.title)
-        for deck in decks_for_language("es", level=1)
-        for word in deck.words
+        _item(word.content, deck.title) for deck in decks_for_language("es") for word in deck.words
     ]
     assert needs_catalog_sync(project, items) is False
 
@@ -207,14 +203,32 @@ def test_needs_catalog_sync_when_word_sits_on_old_list_title():
     from app.content.vocab_catalog import catalog_path_titles, decks_for_language
     from app.services.learning.path_seed import needs_catalog_sync
 
-    first = decks_for_language("es", level=1)[0]
+    first = decks_for_language("es")[0]
     word = first.words[0]
-    project = _project(learning_path=catalog_path_titles("es", level=1))
+    project = _project(learning_path=catalog_path_titles("es"))
     leftover = [_item(word.content, "Family")]
     leftover.extend(
         _item(other.content, deck.title)
-        for deck in decks_for_language("es", level=1)
+        for deck in decks_for_language("es")
         for other in deck.words
         if not (deck.title == first.title and other.content == word.content)
     )
     assert needs_catalog_sync(project, leftover) is True
+
+
+def test_apply_full_catalog_path_puts_every_group_on_the_map():
+    from app.services.learning.path_seed import apply_full_catalog_path
+
+    project = _project(learning_path=["Hello and goodbye"])
+    titles = apply_full_catalog_path(project)
+    assert "Immediate family" in titles
+    assert len(titles) > 10
+    assert project.learning_path == titles
+
+
+def test_needs_catalog_sync_when_path_was_level_gated():
+    from app.content.vocab_catalog import catalog_path_titles
+    from app.services.learning.path_seed import needs_catalog_sync
+
+    greetings_only = catalog_path_titles("es")[:2]
+    assert needs_catalog_sync(_project(learning_path=greetings_only), []) is True

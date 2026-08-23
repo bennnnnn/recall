@@ -7,7 +7,6 @@ import type { ProjectDetail } from "@/lib/api";
 import {
   fetchProjectDetail,
   getCachedProjectDetail,
-  isProjectDetailFresh,
 } from "@/lib/cache/projectDetailCache";
 
 export function useProjectDetail(projectId: string | undefined) {
@@ -46,7 +45,7 @@ export function useProjectDetail(projectId: string | undefined) {
       const hasPaint = Boolean(projectRef.current || getCachedProjectDetail(projectId));
       void load({
         silent: hasPaint,
-        force: !isProjectDetailFresh(projectId),
+        force: true,
       });
       void refreshHome({ silent: true });
     }, [load, projectId, refreshHome]),

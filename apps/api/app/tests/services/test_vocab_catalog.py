@@ -6,6 +6,7 @@ from app.content.vocab_catalog import (
     catalog_word_count,
     decks_for_language,
     level_to_int,
+    path_decks_for_language,
     word_id,
 )
 
@@ -34,7 +35,7 @@ def test_spanish_catalog_is_a_domain_tree():
 
 
 def test_english_catalog_includes_sat_domain():
-    # SAT is excluded from the default path; opt in explicitly via decks_for_language.
+    # SAT is on the English lesson map; catalog_path_titles still defaults off.
     titles = catalog_path_titles("en")
     assert "Hotel services" in titles
     assert "SAT" not in titles
@@ -67,35 +68,25 @@ def test_unknown_language_falls_back_to_english():
     assert catalog_path_titles("xx") == catalog_path_titles("en")
 
 
-def test_level_filters_domains():
-    # Level 1 (beginner): only Greetings + Numbers
-    l1 = catalog_domains("en", level=1)
-    assert l1 == ["Greetings", "Numbers and time"]
-    l1_titles = catalog_path_titles("en", level=1)
-    assert "Hello and goodbye" in l1_titles
-    assert "Immediate family" not in l1_titles
-
-    # Level 2: adds Family
-    l2 = catalog_domains("en", level=2)
-    assert l2 == ["Greetings", "Family", "Numbers and time"]
-
-    # Level 3: adds Food + Home
-    l3 = catalog_domains("en", level=3)
-    assert "Food" in l3 and "Home" in l3 and "Hotel" not in l3
-
-    # Level 5: everything except SAT
-    l5 = catalog_domains("en", level=5)
-    assert "Daily life" in l5 and "SAT" not in l5
-
-    # Level 6: SAT unlocks (fluent users get SAT via include_sat)
-    l6 = catalog_domains("en", level=6, include_sat=True)
-    assert "SAT" in l6
-    l6_no_sat = catalog_domains("en", level=6)
-    assert "SAT" not in l6_no_sat  # default still excludes SAT
-
-    # Spanish follows the same gating
-    assert catalog_domains("es", level=1) == ["Greetings", "Numbers and time"]
-    assert "Family" not in catalog_domains("es", level=1)
+def test_lesson_map_is_the_full_tree_not_level_gated():
+    assert "Family" in catalog_domains("es")
+    assert "Immediate family" in catalog_path_titles("es")
+    assert catalog_domains("en") == [
+        "Greetings",
+        "Family",
+        "Food",
+        "Home",
+        "Hotel",
+        "Travel",
+        "Daily life",
+        "Numbers and time",
+    ]
+    assert "SAT" in catalog_domains("en", include_sat=True)
+    en_path = [deck.domain for deck in path_decks_for_language("en")]
+    assert "SAT" in en_path
+    es_path = [deck.domain for deck in path_decks_for_language("es")]
+    assert "SAT" not in es_path
+    assert "Family" in es_path
 
 
 def test_level_to_int():
@@ -107,6 +98,6 @@ def test_level_to_int():
     assert level_to_int("level0") == 1  # clamped
 
 
-def test_word_count_shrinks_with_level():
-    assert catalog_word_count("en", level=1) < catalog_word_count("en", level=3)
-    assert catalog_word_count("en", level=3) < catalog_word_count("en", level=6)
+def test_word_count_covers_the_full_bank():
+    assert catalog_word_count("en") == sum(len(deck.words) for deck in decks_for_language("en"))
+    assert catalog_word_count("en", include_sat=True) > catalog_word_count("en")

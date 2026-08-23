@@ -322,6 +322,23 @@ async def get_project_detail(
     project_items = await project_items_repo.list_for_user(
         session, user.id, project_id=project_id, limit=5000
     )
+    if _is_language_project(item):
+        from app.services.learning.path_seed import (
+            apply_full_catalog_path,
+            needs_catalog_sync,
+            seed_language_path,
+        )
+
+        if needs_catalog_sync(item, project_items):
+            await seed_language_path(None, user_id=user.id, project_id=item.id)
+            session.expire_all()
+            reloaded = await projects_repo.get_by_id(session, project_id, user.id)
+            if reloaded is not None:
+                item = reloaded
+            project_items = await project_items_repo.list_for_user(
+                session, user.id, project_id=project_id, limit=5000
+            )
+        apply_full_catalog_path(item)
     # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
     # mutable column, so a later miss on an item silently erased which day an earlier
     # miss belonged to. Load the append-only miss-event log so past days stay stable.
@@ -367,11 +384,6 @@ async def get_project_detail(
     if include_lists:
         lists = group_items(project_items, learning_path=path)
     path_progress = build_path_progress(item, project_items)
-    if _is_language_project(item):
-        from app.services.learning.path_seed import needs_catalog_sync
-
-        if needs_catalog_sync(item, project_items):
-            await enqueue_language_path_job(user.id, item.id)
     return {
         **ProjectOut.model_validate(item).model_dump(),
         "kind": normalize_project_kind(item.kind),

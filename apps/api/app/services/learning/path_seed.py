@@ -10,9 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.content.vocab_catalog import (
-    catalog_path_titles,
-    decks_for_language,
-    level_to_int,
+    path_decks_for_language,
     word_id,
 )
 from app.services.learning.path import parse_learning_path
@@ -35,24 +33,30 @@ class _ProjectRow(BaseModel):
     item_count: int
 
 
-def _project_level_int(project: object) -> int:
-    return level_to_int(getattr(project, "level", None))
+def apply_full_catalog_path(project: object) -> list[str]:
+    """Put every catalog chapter on the lesson map. Returns the titles used."""
+    lang = (getattr(project, "target_language", None) or "en").strip().lower()
+    if lang not in _CATALOG_LANGUAGES:
+        return parse_learning_path(project)
+    titles = [deck.title for deck in path_decks_for_language(lang)]
+    project_any: Any = project
+    project_any.learning_path = titles
+    return titles
 
 
 def needs_catalog_sync(project: object, items: Sequence[Any]) -> bool:
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if lang not in _CATALOG_LANGUAGES:
         return False
-    level = _project_level_int(project)
-    include_sat = level >= 6
-    titles = catalog_path_titles(lang, level=level, include_sat=include_sat)
+    decks = path_decks_for_language(lang)
+    titles = [deck.title for deck in decks]
     if parse_learning_path(project) != titles:
         return True
     have_pairs = {
         (_list_key(getattr(item, "list_title", "")), _list_key(getattr(item, "content", "")))
         for item in items
     }
-    for deck in decks_for_language(lang, level=level, include_sat=include_sat):
+    for deck in decks:
         for word in deck.words:
             if (_list_key(deck.title), _list_key(word.content)) not in have_pairs:
                 return True
@@ -72,7 +76,7 @@ async def _load_seed_row(project_id: UUID, user_id: UUID) -> _ProjectRow | None:
         if project is None or not _is_language_project(project):
             return None
         items = await project_items_repo.list_for_user(
-            session, user_id, project_id=project_id, limit=2000
+            session, user_id, project_id=project_id, limit=5000
         )
         return _ProjectRow(
             id=project.id,
@@ -103,9 +107,7 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
         lang = (row.target_language or "en").strip().lower()
         if lang not in _CATALOG_LANGUAGES:
             return
-        level = level_to_int(row.level)
-        include_sat = level >= 6
-        decks = decks_for_language(lang, level=level, include_sat=include_sat)
+        decks = path_decks_for_language(lang)
         if not decks:
             return
         path = [deck.title for deck in decks]
@@ -115,7 +117,7 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
             if project is None or not _is_language_project(project):
                 return
             existing = await project_items_repo.list_for_user(
-                session, user_id, project_id=project_id, limit=2000
+                session, user_id, project_id=project_id, limit=5000
             )
             if not needs_catalog_sync(project, existing):
                 return
