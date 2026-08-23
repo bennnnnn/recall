@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import ExitStack
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -255,17 +256,17 @@ def _vocab_turn_mode() -> _TurnMode:
     )
 
 
-def _tool_loop_settings(**kwargs) -> Settings:
-    values = dict(
-        max_output_tokens=1000,
-        mcp_tool_loop_enabled=True,
-        mcp_tools_enabled=False,
-        math_tools_enabled=True,
-        web_search_enabled=True,
-        web_search_classifier_enabled=True,
-        gmail_enabled=False,
-        google_calendar_enabled=False,
-    )
+def _tool_loop_settings(**kwargs: Any) -> Settings:
+    values: dict[str, Any] = {
+        "max_output_tokens": 1000,
+        "mcp_tool_loop_enabled": True,
+        "mcp_tools_enabled": False,
+        "math_tools_enabled": True,
+        "web_search_enabled": True,
+        "web_search_classifier_enabled": True,
+        "gmail_enabled": False,
+        "google_calendar_enabled": False,
+    }
     values.update(kwargs)
     return Settings(**values)
 
