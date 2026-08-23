@@ -459,7 +459,8 @@ general knowledge quizzes, courses, habits, and anything else that needs structu
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
   (`vocab_decks` / `vocab_entries`: domain → branch tree — Family, Food, Hotel, …
-  plus SAT banks for English). Main chat gets a progress overview (class, daily
+  plus SAT banks for English). **Every class sees the full tree** — class level
+  does not hide later groups. Main chat gets a progress overview (class, daily
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived

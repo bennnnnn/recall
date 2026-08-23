@@ -23,13 +23,11 @@ jest.mock("@/contexts/HomeContext", () => ({
 jest.mock("@/lib/cache/projectDetailCache", () => ({
   fetchProjectDetail: jest.fn(),
   getCachedProjectDetail: jest.fn(),
-  isProjectDetailFresh: jest.fn(),
 }));
 
 import {
   fetchProjectDetail,
   getCachedProjectDetail,
-  isProjectDetailFresh,
 } from "@/lib/cache/projectDetailCache";
 
 let current: ReturnType<typeof useProjectDetail>;
@@ -44,7 +42,6 @@ describe("useProjectDetail", () => {
     jest.clearAllMocks();
     mockFocusApplied = false;
     (getCachedProjectDetail as jest.Mock).mockReturnValue({ id: "p1", title: "Cached" });
-    (isProjectDetailFresh as jest.Mock).mockReturnValue(false);
     (fetchProjectDetail as jest.Mock).mockResolvedValue({ id: "p1", title: "Fresh" });
   });
 
