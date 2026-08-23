@@ -295,6 +295,32 @@ async def test_format_attachment_lines_scanned_pdf_empty_text():
     assert is_image is False
     assert "scanned" in lines[1].lower() or "OCR" in lines[1]
     assert "bytes]" not in lines[1]
+    # Turn prepare must not claim OCR already ran.
+    assert "did not recover" not in lines[1].lower()
+    assert "background" in lines[1].lower()
+
+
+@pytest.mark.asyncio
+async def test_format_attachment_lines_skips_ocr_on_prepare():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.services.attachment_content import format_attachment_lines
+
+    extract = AsyncMock(return_value=None)
+    with patch(
+        "app.services.attachment_content.extract_text_from_bytes_async",
+        extract,
+    ):
+        await format_attachment_lines(
+            MagicMock(),
+            attachment_id="550e8400-e29b-41d4-a716-446655440000",
+            content_type="application/pdf",
+            storage_key="key",
+            size_bytes=1200,
+            settings=Settings(),
+            data=b"%PDF-1.4",
+        )
+    assert extract.await_args.kwargs.get("allow_ocr") is False
 
 
 @pytest.mark.asyncio

@@ -130,6 +130,24 @@ async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
+    from app.services.attachment_content import extract_text_from_bytes_async
+
+    monkeypatch.setattr(
+        "app.services.attachment_content.extract_text_from_bytes",
+        lambda *_a, **_k: None,
+    )
+    ocr_mock = AsyncMock(return_value="should-not-run")
+    monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", ocr_mock)
+    settings = Settings(attachment_ocr_enabled=True)
+    result = await extract_text_from_bytes_async(
+        "application/pdf", b"%PDF", settings, allow_ocr=False
+    )
+    assert result is None
+    ocr_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
     from app.services.attachment_content import extract_text_from_bytes_async
 
