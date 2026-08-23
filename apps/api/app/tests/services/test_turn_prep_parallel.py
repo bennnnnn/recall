@@ -491,3 +491,90 @@ async def test_search_classifier_overlaps_prompt_build():
 
     assert bundle.needs_web_search is True
     assert elapsed < 0.90, f"classifier sat on the critical path (elapsed={elapsed:.2f}s)"
+
+
+@pytest.mark.asyncio
+async def test_model_health_overlaps_prompt_build():
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "explain photosynthesis"},
+    ]
+
+    async def slow_prompt(*_a, **_kw):
+        await asyncio.sleep(0.25)
+        return list(messages)
+
+    async def slow_health(*_a, **_kw):
+        await asyncio.sleep(0.25)
+        return {}
+
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(side_effect=slow_prompt),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, None, [], None)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_has_calendar_write",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.model_pool",
+            return_value=["free-chat"],
+        ),
+        patch(
+            "app.services.model_health.enrich_models_health",
+            AsyncMock(side_effect=slow_health),
+        ) as health,
+    ):
+        loop = asyncio.get_event_loop()
+        start = loop.time()
+        await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "explain photosynthesis",
+            "free-chat",
+            Settings(
+                max_output_tokens=1000,
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                web_search_enabled=True,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_rich_turn_mode(),
+        )
+        elapsed = loop.time() - start
+
+    health.assert_awaited()
+    assert elapsed < 0.90, f"model health sat on the critical path (elapsed={elapsed:.2f}s)"

@@ -356,12 +356,23 @@ async def build_stream_prompt_context(
         )
         return needed, prior, True
 
+    async def _load_unhealthy_models_task() -> set[str]:
+        try:
+            from app.services import model_health as model_health_service
+
+            pool = plan_service.model_pool(user, settings)
+            snaps = await model_health_service.enrich_models_health(redis, settings, pool)
+            return {mid for mid, snap in snaps.items() if not snap.healthy}
+        except Exception:
+            logger.debug("model health read failed during fallback selection", exc_info=True)
+            return set()
+
     # Phase A: build the prompt (memory/RAG embed) while resolving the
     # instant-reply short-circuit (time/location/calendar/email checks).
     # The two share no data -- overlap them so memory embed does not wait
     # behind a fast DB classification, and the classifier does not wait
     # behind a multi-second embedding round-trip.
-    prompt_messages, instant_reply, _classify_result = await asyncio.gather(
+    prompt_messages, instant_reply, _classify_result, unhealthy = await asyncio.gather(
         build_prompt_messages(
             user,
             chat.id,
@@ -383,6 +394,7 @@ async def build_stream_prompt_context(
         ),
         _resolve_instant_reply_task(),
         _classify_web_search_task(),
+        _load_unhealthy_models_task(),
     )
 
     needs_web_search, _classified_prior, _prior_loaded = _classify_result
@@ -418,18 +430,7 @@ async def build_stream_prompt_context(
     # prompt guidance, not a hard token cap. Capping by style truncated large
     # deliverables (HTML pages, graph JSON) mid-fence.
     max_out = settings.max_output_tokens
-    # M6: filter out unhealthy models from the fallback pool so we don't
-    # repeatedly hit a degraded provider. Best-effort — if health read
-    # fails (Redis down), treat all as healthy (fail open).
-    unhealthy: set[str] = set()
-    try:
-        from app.services import model_health as model_health_service
-
-        pool = plan_service.model_pool(user, settings)
-        snaps = await model_health_service.enrich_models_health(redis, settings, pool)
-        unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
-    except Exception:
-        logger.debug("model health read failed during fallback selection", exc_info=True)
+    # Unhealthy-model filter was started in Phase A (Redis health read).
     fallback_models = plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
 
     local_places = geo.local_places
