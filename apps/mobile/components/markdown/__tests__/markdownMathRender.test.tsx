@@ -57,4 +57,23 @@ describe("MarkdownContent math rendering", () => {
     );
     expect(getByText("x²")).toBeOnTheScreen();
   });
+
+  it("keeps a bold math label and its value on one list line", async () => {
+    const { queryByText } = await render(
+      <MarkdownContent content={"- **Slope ($m$):** 3, meaning y increases by 3."} />,
+    );
+    expect(queryByText(/^:$/)).toBeNull();
+    expect(queryByText(")")).toBeNull();
+    expect(queryByText("m")).toBeOnTheScreen();
+  });
+
+  it("treats a single newline in a list item as a space, not a stacked line", async () => {
+    const { queryByText } = await render(
+      <MarkdownContent
+        content={"- It's a\n**linear equation**\nin slope-intercept form."}
+      />,
+    );
+    expect(queryByText(/^It's a$/)).toBeNull();
+    expect(queryByText(/linear equation/)).toBeOnTheScreen();
+  });
 });

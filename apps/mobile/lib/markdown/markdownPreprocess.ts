@@ -718,6 +718,36 @@ export function stripBoldListLabelContinuationColons(content: string): string {
   return out.join("\n");
 }
 
+/**
+ * Models glue an ATX heading onto the previous sentence
+ * (``$y=3x+4$: ### Explanation``). CommonMark only recognizes headings at
+ * line start, so the hashes leak as literal ``###``. Break them out.
+ */
+export function breakMidlineAtxHeadings(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^(?:```|~~~)/.test(trimmed)) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence || !line.includes("#")) {
+      out.push(line);
+      continue;
+    }
+    const split = line.replace(/([^\n#])[ \t]*(#{1,6}[ \t]+\S)/g, "$1\n\n$2");
+    if (split === line) {
+      out.push(line);
+    } else {
+      out.push(...split.split("\n"));
+    }
+  }
+  return out.join("\n");
+}
+
 function splitPackedCheckLine(line: string): string {
   const colon = indexOfCheckLabelColon(line);
   if (colon < 0) return line;
@@ -981,11 +1011,13 @@ export function preprocessMarkdown(
   out = protectMathEscapes(out);
   out = layoutCheckVerificationLines(out);
   out = mergeStrandedColons(out);
+  out = breakMidlineAtxHeadings(out);
   out = breakAttachedMathFences(out);
 
   out = protectMathEscapes(out);
   out = layoutCheckVerificationLines(out);
   out = mergeStrandedColons(out);
+  out = breakMidlineAtxHeadings(out);
   out = breakAttachedMathFences(out);
   out = liftMathFencesOutOfLists(out);
   out = inlineShortMathFences(out);
@@ -994,12 +1026,33 @@ export function preprocessMarkdown(
   return out;
 }
 
-/** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters. */
+/** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.
+
+ * Keep the original span when math sits in the *middle* of the bold (text
+ * both before and after) — e.g. ``**Slope ($m$):** 3``. Unwrapping that
+ * produces ``**Slope (**$m$**):**`` which markdown-it splits into three
+ * inline nodes; in a list item those stack vertically as
+ * "Slope (" / "m" / "): 3" — the colon-on-its-own-line the user keeps
+ * seeing. Trailing-formula bold (``**Answer: $x = 2$**``) still unwraps.
+ */
 export function normalizeBoldInlineMath(content: string): string {
   return content.replace(/\*\*((?:(?!\*\*).)+)\*\*/g, (full, inner: string) => {
     if (!/\$[^$\n]+?\$/.test(inner)) return full;
     const parts = splitInlineMath(inner);
     if (!parts.some((part) => part.type === "math")) return full;
+
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    if (
+      first &&
+      last &&
+      first.type === "text" &&
+      last.type === "text" &&
+      first.value.trim() !== "" &&
+      last.value.trim() !== ""
+    ) {
+      return full;
+    }
 
     let out = "";
     for (const part of parts) {
