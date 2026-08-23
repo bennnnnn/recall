@@ -51,6 +51,17 @@ def test_short_style_still_includes_math_safety_guardrails():
     assert "```latex" in joined
 
 
+def test_balanced_style_injects_universal_format_baseline():
+    from app.services.chat.prompt_constants import UNIVERSAL_FORMAT_BASELINE
+
+    parts = _hints("balanced")
+    assert UNIVERSAL_FORMAT_BASELINE in parts
+    joined = "\n".join(parts)
+    assert "Lead with the answer; explanation after." in joined
+    assert "Do not decorate with emoji unless the user used them." in joined
+    assert "[OpenAI docs](url)" in joined
+
+
 def test_balanced_style_keeps_full_math_solver_hint():
     parts = _hints("balanced")
     joined = "\n".join(parts)

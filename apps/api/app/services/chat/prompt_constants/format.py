@@ -125,7 +125,8 @@ STYLE_HINTS = {
     ),
     "balanced": (
         "Response length: BALANCED. Be clear and complete without rambling — use short headings and "
-        "bullets when helpful, but keep the overall reply moderate in length."
+        "bullets when helpful, but keep the overall reply moderate in length. "
+        "Lead with the answer; explanation after."
     ),
     "detailed": (
         "Response length: DETAILED. Be thorough but stay scannable: sections, headings, "
@@ -144,7 +145,13 @@ SHORT_RESPONSE_FORMAT_HINT = (
 UNIVERSAL_FORMAT_BASELINE = (
     "Never put a colon on its own line — it strands as a lone punctuation mark. "
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
-    "Keep paragraphs to 2-3 sentences. Avoid 3+ consecutive blank lines."
+    "Keep paragraphs to 2-3 sentences. Avoid 3+ consecutive blank lines. "
+    "Lead with the answer; explanation after. No intro paragraph before the conclusion. "
+    "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
+    '"Let\'s dive in"). Headings only when they group real sections. '
+    "Do not decorate with emoji unless the user used them. "
+    "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
+    "Do not restate the question."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the
