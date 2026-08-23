@@ -59,7 +59,7 @@
   "chat.error_generic": "Что-то пошло не так. Попробуйте снова.",
   "chat.error_title": "Не удалось получить ответ",
   "chat.error_unreachable": "Не удалось связаться с сервером. Проверьте сеть и попробуйте снова.",
-  "chat.export_pdf_a11y": "Export as PDF",
+  "chat.export_pdf": "Экспорт PDF",
   "chat.export_pdf_default_title": "Recall report",
   "chat.export_pdf_failed": "Could not create the PDF. Try again.",
   "chat.feedback_failed": "Не удалось сохранить отзыв.",

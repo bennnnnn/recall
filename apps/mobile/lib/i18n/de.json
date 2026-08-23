@@ -59,7 +59,7 @@
   "chat.error_generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
   "chat.error_title": "Keine Antwort erhalten",
   "chat.error_unreachable": "Server nicht erreichbar. Verbindung prüfen und erneut versuchen.",
-  "chat.export_pdf_a11y": "Export as PDF",
+  "chat.export_pdf": "PDF exportieren",
   "chat.export_pdf_default_title": "Recall report",
   "chat.export_pdf_failed": "Could not create the PDF. Try again.",
   "chat.feedback_failed": "Feedback konnte nicht gespeichert werden.",

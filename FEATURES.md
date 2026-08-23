@@ -39,8 +39,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
-  share sheet** (Messages, Mail, Files, …); export an assistant reply as PDF; export a
-  learning topic as PDF. Chat `⋯` + drawer long-press; no backend. This is **not** a
+  share sheet** (Messages, Mail, Files, …); export a chat as PDF from the in-chat `⋯` menu;
+  export a learning topic as PDF. Chat `⋯` + drawer long-press (share/pin/archive/delete);
+  no backend. This is **not** a
   ChatGPT-style public `chatgpt.com/share/…` URL — anyone with that kind of link could
   read the thread without signing in. Public web links are a separate privacy feature
   (not started; do not assume we have them).

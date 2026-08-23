@@ -59,7 +59,7 @@
   "chat.error_generic": "Qualcosa è andato storto. Riprova.",
   "chat.error_title": "Impossibile ottenere una risposta",
   "chat.error_unreachable": "Impossibile raggiungere il server. Controlla la connessione e riprova.",
-  "chat.export_pdf_a11y": "Export as PDF",
+  "chat.export_pdf": "Esporta PDF",
   "chat.export_pdf_default_title": "Recall report",
   "chat.export_pdf_failed": "Could not create the PDF. Try again.",
   "chat.feedback_failed": "Impossibile salvare il feedback.",

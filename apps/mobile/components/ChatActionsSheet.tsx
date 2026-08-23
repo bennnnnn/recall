@@ -16,6 +16,8 @@ type Props = {
   archived?: boolean;
   onClose: () => void;
   onShare: () => void;
+  /** Chat ⋮ menu only — export the thread as PDF. */
+  onExportPdf?: () => void;
   onRename: () => void;
   onTogglePin: () => void;
   onToggleArchive?: () => void;
@@ -41,6 +43,7 @@ export function ChatActionsSheet({
   archived = false,
   onClose,
   onShare,
+  onExportPdf,
   onRename,
   onTogglePin,
   onToggleArchive,
@@ -60,6 +63,16 @@ export function ChatActionsSheet({
   const actions = useMemo(() => {
     const rows: Action[] = [
       { key: "share", icon: "share-outline", label: t("chat.share"), onPress: onShare },
+    ];
+    if (onExportPdf) {
+      rows.push({
+        key: "export-pdf",
+        icon: "document-text-outline",
+        label: t("chat.export_pdf"),
+        onPress: onExportPdf,
+      });
+    }
+    rows.push(
       { key: "rename", icon: "pencil-outline", label: t("chat.rename"), onPress: onRename },
       {
         key: "pin",
@@ -67,7 +80,7 @@ export function ChatActionsSheet({
         label: pinned ? t("chat.unpin") : t("chat.pin"),
         onPress: onTogglePin,
       },
-    ];
+    );
     if (onToggleArchive) {
       rows.push({
         key: "archive",
@@ -104,6 +117,7 @@ export function ChatActionsSheet({
   }, [
     archived,
     onDelete,
+    onExportPdf,
     onOpenModels,
     onRename,
     onSelectChats,

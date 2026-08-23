@@ -8,6 +8,7 @@ type Props = {
   archived: boolean;
   onCloseMenu: () => void;
   onShare: () => void;
+  onExportPdf: () => void;
   onRename: () => void;
   onTogglePin: () => void;
   onToggleArchive: () => void;
@@ -27,6 +28,7 @@ export function ChatScreenMenuSheets({
   archived,
   onCloseMenu,
   onShare,
+  onExportPdf,
   onRename,
   onTogglePin,
   onToggleArchive,
@@ -47,6 +49,7 @@ export function ChatScreenMenuSheets({
         archived={archived}
         onClose={onCloseMenu}
         onShare={onShare}
+        onExportPdf={onExportPdf}
         onRename={onRename}
         onTogglePin={onTogglePin}
         onToggleArchive={onToggleArchive}
