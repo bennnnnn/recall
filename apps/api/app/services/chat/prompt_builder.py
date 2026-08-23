@@ -303,7 +303,6 @@ async def _load_context_blocks(
     slim_context: bool,
     client_timezone: str | None,
     out: dict[str, object] | None,
-    on_status: StreamStatusFn | None,
 ) -> _PromptContextBlocks:
     """Load memory/todos/projects/RAG + recent messages for the system prompt.
 
@@ -328,9 +327,6 @@ async def _load_context_blocks(
     if chat is None:
         async with SessionLocal() as s:
             chat = await chats_repo.get_by_id(s, chat_id, user.id)
-
-    if on_status is not None and user.memory_enabled:
-        await on_status("remembering")
 
     # Each of these is an independent read with no dependency on the others'
     # output — give each its own short-lived session (a single AsyncSession
@@ -652,7 +648,6 @@ async def build_prompt_messages(
         slim_context=slim_context,
         client_timezone=client_timezone,
         out=out,
-        on_status=on_status,
     )
     chat = blocks.chat
     recent_source = blocks.recent_all

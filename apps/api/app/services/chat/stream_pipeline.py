@@ -397,9 +397,6 @@ async def stream_and_finalize(
                 ):
                     yield token
             else:
-                quiet_status = ctx.lightweight_turn or not ctx.rich_context_turn
-                if on_status is not None and not quiet_status:
-                    await on_status("thinking")
                 await run_tool_loop_path(
                     seams,
                     redis,
@@ -424,12 +421,6 @@ async def stream_and_finalize(
                         )
                     await finalize_terminal_image_turn(seams, redis, settings, ctx, result)
                     return
-                if (
-                    on_status is not None
-                    and not quiet_status
-                    and not seams.model_catalog.is_reasoning_alias(ctx.model)
-                ):
-                    await on_status("composing")
                 async for token in run_llm_token_stream(
                     seams,
                     redis,

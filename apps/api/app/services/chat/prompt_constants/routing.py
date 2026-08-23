@@ -57,7 +57,7 @@ def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> b
     return False
 
 
-# Opt-in cues for loading memory / todos / projects / "remembering…" status.
+# Opt-in cues for loading memory / todos / projects.
 # Default is fast (no personal context) — do not grow a greeting allowlist.
 _PERSONAL_CONTEXT_CUE = re.compile(
     r"(?:"

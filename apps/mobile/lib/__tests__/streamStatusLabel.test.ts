@@ -13,6 +13,10 @@ const t = ((key: string, options?: { detail?: string }) => {
     "chat.status.searching": "Searching the web…",
     "chat.status.searching_1": "Checking sources…",
     "chat.status.searching_detail": "Searching — “{{detail}}”",
+    "chat.status.preparing": "Getting ready…",
+    "chat.status.remembering": "Recalling what I know about you…",
+    "chat.status.thinking": "Thinking…",
+    "chat.status.composing": "Writing a reply…",
     "chat.status.unknown": "missing",
   };
   const raw = map[key];
@@ -32,6 +36,13 @@ describe("streamStatusLabels", () => {
 
   it("returns empty when phase is unknown", () => {
     expect(streamStatusLabels(t, "not_a_real_phase")).toEqual([]);
+  });
+
+  it("hides preparing/remembering/thinking/composing — typing dots only", () => {
+    expect(streamStatusLabels(t, "preparing")).toEqual([]);
+    expect(streamStatusLabels(t, "remembering")).toEqual([]);
+    expect(streamStatusLabels(t, "thinking")).toEqual([]);
+    expect(streamStatusLabels(t, "composing")).toEqual([]);
   });
 
   it("leads with the detail label when detail is provided", () => {

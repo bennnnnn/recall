@@ -105,7 +105,9 @@ class StreamContext:
     verified_math: VerifiedMathBlock | None = None
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
-    # False = casual chat; skip preparing/remembering/thinking/composing theater.
+    # False = casual chat (skip memory/todos/projects). Status theater
+    # (preparing/remembering/thinking/composing) is never shown; activity
+    # chips remain for search, files, calendar, inbox, math, image gen.
     rich_context_turn: bool = True
     # Attachment ids to index after the turn finalizes (post-turn jobs path).
     indexable_attachment_ids: list[str] = field(default_factory=list)
@@ -304,10 +306,9 @@ async def build_stream_prompt_context(
         local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
     # No outer session during prompt gather (RAG/memory embeds use short-lived
-    # sessions inside build_prompt_messages). Status theater only when the turn
-    # actually loads personal/tool context — not every casual chat line.
-    if on_status is not None and mode.rich_context and not mode.lightweight:
-        await on_status("preparing")
+    # sessions inside build_prompt_messages). Do not emit preparing/remembering
+    # theater — casual chat should look like TTS: tap, then tokens. Real work
+    # (search, files, calendar, inbox, math) still emits its own activity chip.
 
     async def _resolve_instant_reply_task() -> str | None:
         async with SessionLocal() as session:
@@ -350,10 +351,6 @@ async def build_stream_prompt_context(
             quiz_grade=quiz_grade,
             client_timezone=client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
-            # Suppress the "remembering" chip here: memory recall now runs
-            # concurrently with the other fetches, so a per-phase chip would
-            # fire out of order. The user sees one "preparing" (emitted above)
-            # then the stream's "thinking"/"composing" — no staircase.
             on_status=None,
             omit_message_ids=omit_message_ids,
         ),
@@ -396,10 +393,9 @@ async def build_stream_prompt_context(
     try:
         from app.services import model_health as model_health_service
 
-        for mid in plan_service.model_pool(user, settings):
-            snap = await model_health_service.get_health(redis, mid)
-            if not snap.healthy:
-                unhealthy.add(mid)
+        pool = plan_service.model_pool(user, settings)
+        snaps = await model_health_service.enrich_models_health(redis, settings, pool)
+        unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
     except Exception:
         logger.debug("model health read failed during fallback selection", exc_info=True)
     fallback_models = plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
@@ -438,10 +434,7 @@ async def build_stream_prompt_context(
             day_reflection=mode.day_reflection,
             has_calendar_write=has_calendar_write,
             gmail_context=None,
-            # Parallel fetch — suppress per-phase chips (loading_calendar /
-            # checking_inbox); they would fire out of order. One "preparing"
-            # already covers this region.
-            on_status=None,
+            on_status=on_status,
             client_timezone=client_timezone,
         )
     web_coro: (
@@ -461,8 +454,7 @@ async def build_stream_prompt_context(
             prior_user_messages=prior_user_messages,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
-            # Parallel fetch — suppress calculating/searching chips.
-            on_status=None,
+            on_status=on_status,
             user=user,
             redis=redis,
         )

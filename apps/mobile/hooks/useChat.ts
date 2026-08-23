@@ -670,11 +670,11 @@ export function useChat(
       if (!streamingRef.current) {
         setStreaming(true);
         streamingRef.current = true;
-        // Instant local status: attachments will be read for sure, everything
-        // else opens with "preparing" until server phases refine it.
+        // Typing dots immediately (parity with regenerate / TTS). Only label
+        // real extra work (attachments); no "preparing / recalling" theater.
         updateStreamingDraft({
           content: "",
-          status: options?.attachmentIds?.length ? "reading_files" : "preparing",
+          status: options?.attachmentIds?.length ? "reading_files" : undefined,
         });
         appendStreamingPlaceholder();
       }
@@ -719,7 +719,7 @@ export function useChat(
       streamingRef.current = true;
       assistantBuffer.current = "";
       reasoningBuffer.current = "";
-      updateStreamingDraft({ content: "", status: "preparing" });
+      updateStreamingDraft({ content: "" });
       appendStreamingPlaceholder();
 
       await ensureConnected();
@@ -774,7 +774,7 @@ export function useChat(
       streamingRef.current = true;
       assistantBuffer.current = "";
       reasoningBuffer.current = "";
-      updateStreamingDraft({ content: "", status: "preparing" });
+      updateStreamingDraft({ content: "" });
       appendStreamingPlaceholder();
 
       await ensureConnected();
