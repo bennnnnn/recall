@@ -102,7 +102,6 @@ export function EmailCard({ draft }: Props) {
           </Pressable>
           <CopyButton
             text={copyPayload}
-            variant="icon"
             accessibilityLabel={t("chat.email_card_copy")}
           />
           <Pressable

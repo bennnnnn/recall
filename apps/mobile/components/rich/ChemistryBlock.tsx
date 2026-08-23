@@ -204,7 +204,7 @@ export function ChemistryBlock({ content }: Props) {
       )}
 
       <View style={s.actions}>
-        <CopyButton text={smiles} variant="action" />
+        <CopyButton text={smiles} />
       </View>
     </View>
   );

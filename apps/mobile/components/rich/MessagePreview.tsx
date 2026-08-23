@@ -19,7 +19,7 @@ export function MessagePreview({ text, label }: Props) {
       label={resolvedLabel}
       icon="chatbubble-outline"
       accent={false}
-      headerActions={<CopyButton text={text} variant="icon" />}
+      headerActions={<CopyButton text={text} />}
     >
       <Text style={s.body} selectable>
         {text}

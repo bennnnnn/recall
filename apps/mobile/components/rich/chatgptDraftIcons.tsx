@@ -11,23 +11,3 @@ export function GmailMark({ size = 18 }: { size?: number }) {
     </Svg>
   );
 }
-
-/** Material content_copy / ChatGPT overlapping squares — not a clipboard. */
-export function CopySquaresIcon({ size = 20, color }: { size?: number; color: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M8.5 8.5h10A1.5 1.5 0 0 1 20 10v10a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 7 20V10a1.5 1.5 0 0 1 1.5-1.5Z"
-        stroke={color}
-        strokeWidth={1.75}
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 14.5H3.5A1.5 1.5 0 0 1 2 13V3.5A1.5 1.5 0 0 1 3.5 2H13A1.5 1.5 0 0 1 14.5 3.5V4"
-        stroke={color}
-        strokeWidth={1.75}
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}

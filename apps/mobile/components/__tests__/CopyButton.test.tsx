@@ -16,12 +16,8 @@ jest.mock("expo-haptics", () => ({
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
-jest.mock("react-native-svg", () => {
-  const { View } = jest.requireActual("react-native") as typeof import("react-native");
-  return { __esModule: true, default: View, Svg: View, Path: View };
-});
 // i18next isn't initialized in the component jest preset; return the key so the
-// label is deterministic and decoupled from the English copy.
+// a11y label is deterministic and decoupled from the English copy.
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -40,62 +36,51 @@ describe("CopyButton", () => {
     setStringAsync.mockClear();
   });
 
-  it("renders the Copy label and copies on press", async () => {
-    const { getByText } = await render(<CopyButton text="hello" />);
+  it("is icon-only and copies on press", async () => {
+    const { getByLabelText, queryByText } = await render(<CopyButton text="hello" />);
 
-    expect(getByText("common.copy")).toBeOnTheScreen();
-
-    await fireEvent.press(getByText("common.copy"));
+    expect(queryByText("common.copy")).toBeNull();
+    await fireEvent.press(getByLabelText("common.copy"));
     await flushCopied();
 
     expect(setStringAsync).toHaveBeenCalledWith("hello");
   });
 
-  it("shows the Copied label after a successful press", async () => {
-    const { getByText } = await render(<CopyButton text="hi" />);
+  it("announces Copied after a successful press", async () => {
+    const { getByLabelText } = await render(<CopyButton text="hi" />);
 
-    await fireEvent.press(getByText("common.copy"));
+    await fireEvent.press(getByLabelText("common.copy"));
     await flushCopied();
 
-    expect(getByText("common.copied")).toBeOnTheScreen();
+    expect(getByLabelText("common.copied")).toBeOnTheScreen();
   });
 
   it("resets back to Copy after the timeout", async () => {
     jest.useFakeTimers();
     try {
-      const { getByText, queryByText } = await render(<CopyButton text="hi" />);
+      const { getByLabelText, queryByLabelText } = await render(<CopyButton text="hi" />);
 
-      await fireEvent.press(getByText("common.copy"));
+      await fireEvent.press(getByLabelText("common.copy"));
       await flushCopied();
-      expect(getByText("common.copied")).toBeOnTheScreen();
+      expect(getByLabelText("common.copied")).toBeOnTheScreen();
 
       await act(async () => {
         jest.advanceTimersByTime(1500);
       });
 
-      expect(queryByText("common.copied")).toBeNull();
-      expect(getByText("common.copy")).toBeOnTheScreen();
+      expect(queryByLabelText("common.copied")).toBeNull();
+      expect(getByLabelText("common.copy")).toBeOnTheScreen();
     } finally {
       jest.useRealTimers();
     }
   });
 
   it("does not copy when the text is blank", async () => {
-    const { getByText } = await render(<CopyButton text="   " />);
+    const { getByLabelText } = await render(<CopyButton text="   " />);
 
-    await fireEvent.press(getByText("common.copy"));
+    await fireEvent.press(getByLabelText("common.copy"));
     await flushCopied();
 
     expect(setStringAsync).not.toHaveBeenCalled();
-  });
-
-  it("icon variant has no Copy label — ChatGPT overlapping-squares only", async () => {
-    const { getByLabelText, queryByText } = await render(
-      <CopyButton text="hello" variant="icon" />,
-    );
-    expect(queryByText("common.copy")).toBeNull();
-    await fireEvent.press(getByLabelText("common.copy"));
-    await flushCopied();
-    expect(setStringAsync).toHaveBeenCalledWith("hello");
   });
 });
