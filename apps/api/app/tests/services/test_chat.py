@@ -193,6 +193,29 @@ def test_format_hints_discourage_tables_for_how_tos():
         assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
 
 
+def test_universal_format_baseline_pins_answer_first_and_no_decoration():
+    """Balanced/detailed turns must stay answer-first and skip decorative
+    headings, emoji, raw URLs, and restating the question. These live in
+    UNIVERSAL_FORMAT_BASELINE so they cannot silently drop from the prompt."""
+    from app.services.chat.prompt_constants import (
+        STYLE_HINTS,
+        UNIVERSAL_FORMAT_BASELINE,
+    )
+
+    assert "Lead with the answer; explanation after." in UNIVERSAL_FORMAT_BASELINE
+    assert "No intro paragraph before the conclusion." in UNIVERSAL_FORMAT_BASELINE
+    assert "Never use decorative headings" in UNIVERSAL_FORMAT_BASELINE
+    assert "Introduction, Background, Overview, Conclusion" in UNIVERSAL_FORMAT_BASELINE
+    assert "Let's dive in" in UNIVERSAL_FORMAT_BASELINE
+    assert "Do not decorate with emoji unless the user used them." in UNIVERSAL_FORMAT_BASELINE
+    assert "[OpenAI docs](url)" in UNIVERSAL_FORMAT_BASELINE
+    assert "not raw URLs" in UNIVERSAL_FORMAT_BASELINE
+    assert "Do not restate the question." in UNIVERSAL_FORMAT_BASELINE
+    assert "simplest structure" in UNIVERSAL_FORMAT_BASELINE
+    assert "do not add sections just to look structured" in UNIVERSAL_FORMAT_BASELINE
+    assert "Lead with the answer; explanation after." in STYLE_HINTS["balanced"]
+
+
 def test_format_hints_include_rich_fence_guidance():
     """The model must be told about callouts, steps, and details fences so
     output is visually clear and attractive — the renderers exist in the app
