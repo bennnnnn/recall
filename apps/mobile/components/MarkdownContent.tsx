@@ -169,7 +169,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
     return () => clearTimeout(id);
   }, [content, streaming]);
   const renderContent = streaming ? throttled : content;
-  const previewFiles = useMemo(() => collectPreviewFiles(content), [content]);
+  const previewFiles = useMemo(() => collectPreviewFiles(renderContent), [renderContent]);
   const prepared = useMemo(() => {
     try {
       if (streaming) {

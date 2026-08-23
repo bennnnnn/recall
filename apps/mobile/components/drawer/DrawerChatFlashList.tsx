@@ -191,7 +191,7 @@ export function DrawerChatFlashList({
           highlighted={highlightedIds?.has(item.chat.id) ?? false}
           active={activeChatId != null && item.chat.id === activeChatId}
           titleGenerating={isChatTitleGenerating(item.chat.id)}
-          onOpen={(id) => onOpenChat(id)}
+          onOpen={onOpenChat}
           onLongPress={onShowRowMenu}
           onDelete={selectionMode ? undefined : onDeleteChat}
           selectionMode={selectionMode}

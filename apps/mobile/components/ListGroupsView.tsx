@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -33,6 +34,12 @@ type Props = {
   onAddItem: (topic: string, text: string) => void;
   onDeleteItem: (todo: Todo) => void;
   onDeleteList: (topic: string) => void;
+  /** When true this list is the page scroller and virtualizes groups. */
+  scrollEnabled?: boolean;
+  listHeader?: ReactNode;
+  listFooter?: ReactNode;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
 export function ListGroupsView({
@@ -45,6 +52,11 @@ export function ListGroupsView({
   onAddItem,
   onDeleteItem,
   onDeleteList,
+  scrollEnabled = false,
+  listHeader,
+  listFooter,
+  refreshing = false,
+  onRefresh,
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -222,11 +234,23 @@ export function ListGroupsView({
     <DraggableFlatList
       data={listData}
       keyExtractor={(group) => group.topic}
-      scrollEnabled={false}
+      scrollEnabled={scrollEnabled}
+      style={scrollEnabled ? s.scroll : undefined}
       keyboardShouldPersistTaps="handled"
       onDragEnd={({ data }) => onReorderGroups(data.map((group) => group.topic))}
       renderItem={renderGroup}
       contentContainerStyle={s.container}
+      ListHeaderComponent={listHeader ? <>{listHeader}</> : null}
+      ListFooterComponent={listFooter ? <>{listFooter}</> : null}
+      refreshControl={
+        scrollEnabled && onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.primary}
+          />
+        ) : undefined
+      }
     />
   );
 }
@@ -330,6 +354,9 @@ function makeStyles(C: Theme) {
       // Clear the shared AddFab (56 + margin) so the last inline Add row stays tappable.
       paddingBottom: 96,
       backgroundColor: C.bg,
+    },
+    scroll: {
+      flex: 1,
     },
     groupWrap: {
       paddingHorizontal: 16,

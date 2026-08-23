@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -13,12 +13,12 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = {
   project: Project;
   icon: IoniconName;
-  onOpen: () => void;
+  onOpen: (projectId: string) => void;
   levelLabel: string;
   dailyLabel: string;
 };
 
-export function LearningProjectCard({
+export const LearningProjectCard = memo(function LearningProjectCard({
   project,
   icon,
   onOpen,
@@ -52,7 +52,7 @@ export function LearningProjectCard({
   return (
     <View style={s.section}>
       <View style={s.card}>
-        <Pressable style={s.mainTap} onPress={onOpen}>
+        <Pressable style={s.mainTap} onPress={() => onOpen(project.id)}>
           <View style={s.header}>
             <View style={s.iconWrap}>
               <Icon name={icon} size={22} color={theme.primary} />
@@ -111,7 +111,7 @@ export function LearningProjectCard({
       </View>
     </View>
   );
-}
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({

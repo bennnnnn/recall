@@ -117,6 +117,13 @@ export default function ProjectsScreen() {
     setCreateStep("language");
   }, [resetCreate]);
 
+  const openProject = useCallback(
+    (projectId: string) => {
+      router.push(lessonMapPath(projectId));
+    },
+    [router],
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   const selectTargetLanguage = (code: string) => {
@@ -134,9 +141,26 @@ export default function ProjectsScreen() {
     if (!token || kind !== "language" || creatingRef.current) return;
 
     const title = languageProjectTitle(level, targetLanguage);
+    const optimisticId = `local-project-${Date.now()}`;
+    const now = new Date().toISOString();
+    const optimistic = {
+      id: optimisticId,
+      title,
+      description: "",
+      kind: "language" as const,
+      target_language: targetLanguage,
+      native_language: null,
+      level,
+      daily_goal: dailyGoal,
+      archived: false,
+      created_at: now,
+      updated_at: now,
+    };
 
     creatingRef.current = true;
     setCreating(true);
+    resetCreate();
+    setProjects((prev) => [optimistic, ...prev]);
     try {
       const project = await createProject({
         title,
@@ -146,10 +170,12 @@ export default function ProjectsScreen() {
         target_language: targetLanguage,
         daily_goal: dailyGoal,
       });
-      resetCreate();
-      setProjects((prev) => [project, ...prev]);
+      setProjects((prev) =>
+        prev.map((row) => (row.id === optimisticId ? project : row)),
+      );
       router.push(lessonMapPath(project.id));
     } catch {
+      setProjects((prev) => prev.filter((row) => row.id !== optimisticId));
       feedback?.error(t("projects.create_failed"));
     } finally {
       creatingRef.current = false;
@@ -235,7 +261,7 @@ export default function ProjectsScreen() {
         <SkeletonList />
       ) : (
         <FlashList
-          data={error ? [] : visibleProjects}
+          data={visibleProjects}
           keyExtractor={(project) => project.id}
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
@@ -274,7 +300,7 @@ export default function ProjectsScreen() {
                 icon={kindIcon(project.kind)}
                 levelLabel={levelLabelT(project.level, t)}
                 dailyLabel={dailyValue}
-                onOpen={() => router.push(lessonMapPath(project.id))}
+                onOpen={openProject}
               />
             );
           }}

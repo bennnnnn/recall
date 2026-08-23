@@ -92,17 +92,17 @@ export function LiveTalkOrb({ theme, phase, meterLevel, recording, reduceMotion 
   const cloudC = useBlobStyle(drift, voice, pulse, listening, 0.8, 14, -24);
 
   const inner = theme.isDark
-    ? ([theme.primaryDark, theme.primary, "#9CC9FF"] as const)
-    : ([theme.primaryLight, "#7AB8FF", theme.primary] as const);
+    ? ([theme.primaryDark, theme.primary, theme.primaryLight] as const)
+    : ([theme.primaryLight, theme.primary, theme.primary] as const);
   const mid = theme.isDark
-    ? ([theme.primary, "#4DA3FF", "#E8F3FF"] as const)
-    : (["#B7D9FF", theme.primary, theme.primaryDark] as const);
+    ? ([theme.primary, theme.primaryDark, theme.bg] as const)
+    : ([theme.primaryLight, theme.primary, theme.primaryDark] as const);
   const shine = theme.isDark
-    ? (["#E8F3FF", theme.primaryLight] as const)
-    : (["#FFFFFF", theme.primaryLight] as const);
+    ? ([theme.primaryDark, theme.primaryLight] as const)
+    : ([theme.bg, theme.primaryLight] as const);
 
   return (
-    <View style={[s.orbClip, { backgroundColor: theme.isDark ? "#0A2540" : "#D6E8FF" }]}>
+    <View style={[s.orbClip, { backgroundColor: theme.primaryLight }]}>
       <Animated.View style={[s.blob, s.blobA, cloudA]}>
         <LinearGradient
           colors={[...inner]}

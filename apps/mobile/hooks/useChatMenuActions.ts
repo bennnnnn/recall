@@ -62,13 +62,16 @@ export function useChatMenuActions({
     if (!token || !menuChat) return;
     const chat = menuChat;
     closeMenu();
+    showActionBanner(t("chat.status.preparing"), "share-outline");
     try {
       const msgs = await api.listAllMessages(token, chat.id);
+      dismissActionBanner();
       await shareConversation(chat.title, msgs);
     } catch {
+      dismissActionBanner();
       Alert.alert(t("common.error"), t("chat.share_failed"));
     }
-  }, [token, menuChat, closeMenu, t]);
+  }, [token, menuChat, closeMenu, dismissActionBanner, showActionBanner, t]);
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat) return;
