@@ -108,6 +108,8 @@ function ChatScreen() {
     finalizing,
     sendingMessageId,
     sendMessage,
+    beginRegenerateUi,
+    cancelRegenerateUi,
     regenerateResponse,
     editMessage,
     stopGeneration,
@@ -398,6 +400,8 @@ function ChatScreen() {
     user,
     updateUser,
     regenerateResponse,
+    beginRegenerateUi,
+    cancelRegenerateUi,
     regenerateImage: useCallback(
       (lastUserContent: string) => {
         const prompt = subjectFromImageGenUserMessage(lastUserContent);

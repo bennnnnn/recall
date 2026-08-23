@@ -254,7 +254,7 @@ function AssistantActions({
         <Icon
           name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
           size={20}
-          color={feedback === "down" ? theme.primary : theme.textSecondary}
+          color={feedback === "down" ? theme.danger : theme.textSecondary}
         />
       </Pressable>
       {!thumbsOnly && onRegenerate ? (
