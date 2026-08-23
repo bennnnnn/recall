@@ -17,6 +17,8 @@ type Props = {
 
 const LOAD_TIMEOUT_MS = 10_000;
 
+export { LOAD_TIMEOUT_MS };
+
 function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -25,30 +27,34 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // downloadUrl may be a relative "/attachments/{id}/file" (local backend) or
-  // an absolute presigned R2 URL. Relative paths need the API base + auth.
-  const isRelative = Boolean(downloadUrl && downloadUrl.startsWith("/"));
   const uri = resolveAttachmentUri({ attachmentId, path: downloadUrl })!;
 
-  // Always add auth for local API URLs — the /file endpoint requires a Bearer token.
-  const needsAuth = isRelative || !downloadUrl;
-  const source = token && needsAuth
+  // resolveAttachmentUri prefers /file when attachmentId is set. That
+  // endpoint always needs Bearer — including when the list also returned a
+  // presigned R2 URL (ChatMessageImage sends auth the same way).
+  const source = token
     ? { uri, headers: { Authorization: `Bearer ${token}` } }
     : { uri };
 
   const dimension = { width: size, height: size };
+
+  const clearLoadTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
 
   // Fallback: if onLoad doesn't fire within the timeout, mark as failed.
   // React Native's Image doesn't always call onError for corrupt/missing data.
   useEffect(() => {
     setFailed(false);
     setLoaded(false);
+    clearLoadTimer();
     timerRef.current = setTimeout(() => {
       setFailed(true);
     }, LOAD_TIMEOUT_MS);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return clearLoadTimer;
   }, [attachmentId, uri]);
 
   return (
@@ -70,8 +76,14 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
             source={source}
             style={[dimension, s.image]}
             resizeMode="cover"
-            onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
+            onLoad={() => {
+              clearLoadTimer();
+              setLoaded(true);
+            }}
+            onError={() => {
+              clearLoadTimer();
+              setFailed(true);
+            }}
           />
         </>
       )}
