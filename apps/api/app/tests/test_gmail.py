@@ -107,6 +107,108 @@ async def test_dismiss_suggested_reminder():
     mark_mock.assert_awaited_once()
 
 
+def test_suggested_reminder_due_at_keeps_explicit_time():
+    from app.services import email as email_service
+
+    due = datetime(2026, 7, 1, 14, 0, tzinfo=UTC)
+    assert email_service.suggested_reminder_due_at(due, "UTC") == due
+
+
+def test_suggested_reminder_due_at_defaults_to_local_evening():
+    from app.services import email as email_service
+
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)  # 08:00 America/New_York
+    result = email_service.suggested_reminder_due_at(None, "America/New_York", now=now)
+    assert result == datetime(2026, 7, 1, 22, 0, tzinfo=UTC)
+
+
+def test_suggested_reminder_due_at_after_evening_is_one_hour_ahead():
+    from app.services import email as email_service
+
+    now = datetime(2026, 7, 1, 23, 0, tzinfo=UTC)  # 19:00 America/New_York
+    result = email_service.suggested_reminder_due_at(None, "America/New_York", now=now)
+    assert result == datetime(2026, 7, 2, 0, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_add_suggested_reminder_defaults_due_when_missing():
+    from app.models.orm import SuggestedReminder
+    from app.services import email as email_service
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    reminder_id = uuid4()
+    row = SuggestedReminder(
+        id=reminder_id,
+        user_id=user.id,
+        gmail_message_id="g1",
+        title="Amazon delivery",
+        status="pending",
+        due_at=None,
+    )
+    created = MagicMock()
+    created.id = uuid4()
+    session = MagicMock()
+    settings = Settings()
+    with (
+        patch(
+            "app.services.email.suggested_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.email.todos_repo.create",
+            AsyncMock(return_value=created),
+        ) as create_mock,
+        patch("app.services.email.suggested_repo.mark_added", AsyncMock()),
+        patch("app.services.email.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        todo, error = await email_service.add_suggested_reminder(
+            session, settings, user, reminder_id
+        )
+    assert error is None
+    assert todo is created
+    due_at = create_mock.await_args.kwargs["due_at"]
+    assert due_at is not None
+    assert due_at.tzinfo is not None
+
+
+@pytest.mark.asyncio
+async def test_add_suggested_reminder_keeps_extracted_due():
+    from app.models.orm import SuggestedReminder
+    from app.services import email as email_service
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    reminder_id = uuid4()
+    extracted_due = datetime(2026, 8, 1, 15, 0, tzinfo=UTC)
+    row = SuggestedReminder(
+        id=reminder_id,
+        user_id=user.id,
+        gmail_message_id="g2",
+        title="Interview",
+        status="pending",
+        due_at=extracted_due,
+    )
+    created = MagicMock()
+    session = MagicMock()
+    with (
+        patch(
+            "app.services.email.suggested_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.email.todos_repo.create",
+            AsyncMock(return_value=created),
+        ) as create_mock,
+        patch("app.services.email.suggested_repo.mark_added", AsyncMock()),
+        patch("app.services.email.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        await email_service.add_suggested_reminder(session, Settings(), user, reminder_id)
+    assert create_mock.await_args.kwargs["due_at"] == extracted_due
+
+
 def test_format_not_connected_answer_mentions_settings():
     from app.services import email as email_service
 

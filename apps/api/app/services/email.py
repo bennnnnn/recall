@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.secrets import OAuthTokenDecryptError, decrypt_refresh_token
+from app.core.timezone import resolve_timezone
 from app.gateways import google_gmail_gateway as gmail_gateway
 from app.gateways import litellm_gateway
 from app.gateways.google_gmail_gateway import GmailMessage
@@ -26,10 +27,14 @@ from app.services import day_planning as day_planning_service
 from app.services import email_triage as email_triage_service
 from app.services import home as home_service
 from app.services.ics_parser import parse_ics_invite
+from app.services.time_context import normalize_due_at
 
 logger = logging.getLogger(__name__)
 
 REMINDER_TOPIC = "From email"
+# Undated Gmail suggestions (sender templates) become this local hour on confirm
+# so they land on Reminders (`due_at` set), not Lists.
+_SUGGESTION_DEFAULT_HOUR = 18
 # Fan-out bound for per-message LLM extraction during sync (HTTP + periodic).
 _GMAIL_EXTRACT_CONCURRENCY = 5
 
@@ -480,14 +485,35 @@ async def sync_gmail_for_user(
     return len(messages), created
 
 
+def suggested_reminder_due_at(
+    due_at: datetime | None,
+    user_timezone: str | None,
+    *,
+    now: datetime | None = None,
+) -> datetime:
+    """Always produce a due time so confirm creates a Reminders row, not a Lists item."""
+    if due_at is not None:
+        normalized = normalize_due_at(due_at, user_timezone)
+        if normalized is not None:
+            return normalized
+    tz = resolve_timezone(user_timezone)
+    current = (now or datetime.now(UTC)).astimezone(tz)
+    default_local = current.replace(
+        hour=_SUGGESTION_DEFAULT_HOUR, minute=0, second=0, microsecond=0
+    )
+    if default_local > current:
+        return default_local.astimezone(UTC)
+    return (current + timedelta(hours=1)).astimezone(UTC)
+
+
 async def add_suggested_reminder(
     session: AsyncSession,
     settings: Settings,
-    user_id: UUID,
+    user: User,
     reminder_id: UUID,
 ) -> tuple[object | None, str | None]:
-    """Convert a pending suggestion into a todo. Returns (todo, error)."""
-    row = await suggested_repo.get_by_id(session, reminder_id, user_id)
+    """Convert a pending suggestion into a dated reminder todo. Returns (todo, error)."""
+    row = await suggested_repo.get_by_id(session, reminder_id, user.id)
     if row is None:
         return None, "Not found"
     if row.status != "pending":
@@ -499,13 +525,13 @@ async def add_suggested_reminder(
 
     todo = await todos_repo.create(
         session,
-        user_id=user_id,
+        user_id=user.id,
         content=content[:2000],
         topic=REMINDER_TOPIC,
-        due_at=row.due_at,
+        due_at=suggested_reminder_due_at(row.due_at, user.timezone),
     )
     await suggested_repo.mark_added(session, row, todo.id)
-    await home_service.invalidate_home_cache(user_id)
+    await home_service.invalidate_home_cache(user.id)
     return todo, None
 
 
