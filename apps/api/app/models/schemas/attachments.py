@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class AttachmentPresignIn(BaseModel):
     content_type: str = Field(min_length=3, max_length=128)
     size_bytes: int = Field(gt=0, le=10_485_760)
+    filename: str | None = Field(default=None, max_length=255)
 
 
 class AttachmentPresignOut(BaseModel):
@@ -34,6 +35,7 @@ class AttachmentListItemOut(BaseModel):
     created_at: datetime
     chat_id: UUID | None = None
     message_id: UUID | None = None
+    original_filename: str | None = None
 
 
 class AttachmentListOut(BaseModel):

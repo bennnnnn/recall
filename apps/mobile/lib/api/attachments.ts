@@ -16,7 +16,7 @@ export const attachmentsApi = {
     }),
   presignAttachment: (
     token: string,
-    body: { content_type: string; size_bytes: number },
+    body: { content_type: string; size_bytes: number; filename?: string },
   ) =>
     request<{
       attachment_id: string;
@@ -49,6 +49,7 @@ export const attachmentsApi = {
     params: {
       category?: "images" | "files";
       source?: "upload" | "generated";
+      q?: string;
       limit?: number;
       offset?: number;
     } = {},
@@ -56,6 +57,7 @@ export const attachmentsApi = {
     const search = new URLSearchParams();
     if (params.category) search.set("category", params.category);
     if (params.source) search.set("source", params.source);
+    if (params.q) search.set("q", params.q);
     if (params.limit !== undefined) search.set("limit", String(params.limit));
     if (params.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();
@@ -75,6 +77,7 @@ export type AttachmentListItem = {
   created_at: string;
   chat_id?: string | null;
   message_id?: string | null;
+  original_filename?: string | null;
 };
 
 export type AttachmentListResponse = {

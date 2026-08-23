@@ -39,6 +39,8 @@ describe("gallery helpers", () => {
   it("derives a share filename from the content type", () => {
     expect(galleryFileName("application/pdf")).toBe("attachment.pdf");
     expect(galleryFileName("image/png")).toBe("attachment.png");
+    expect(galleryFileName("application/pdf", "notes.pdf")).toBe("notes.pdf");
+    expect(galleryFileName("application/pdf", "folder/notes.pdf")).toBe("notes.pdf");
     expect(galleryFileName("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).toBe(
       "attachment.document",
     );

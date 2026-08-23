@@ -50,6 +50,14 @@ describe("domain API contracts", () => {
     );
   });
 
+  it("encodes gallery search query", async () => {
+    await attachmentsApi.listAttachments("token", { q: "see you later" });
+    expect(mockRequest).toHaveBeenCalledWith(
+      "/attachments?q=see+you+later",
+      "token",
+    );
+  });
+
   it("uses PATCH for project item status updates", async () => {
     await projectsApi.updateProjectItem("token", "p1", "i1", { status: "mastered" });
     expect(mockRequest).toHaveBeenCalledWith("/projects/p1/items/i1", "token", {

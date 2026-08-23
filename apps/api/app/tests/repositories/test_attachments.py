@@ -228,3 +228,35 @@ async def test_chat_ids_for_message_ids_maps_rows(fake_session):
 
     assert result == {message_id: chat_id}
     fake_session.execute.assert_awaited_once()
+
+
+def test_sanitize_original_filename():
+    from app.services.attachment_upload import sanitize_original_filename
+
+    assert sanitize_original_filename("notes.pdf") == "notes.pdf"
+    assert sanitize_original_filename("folder/../notes.pdf") == "notes.pdf"
+    assert sanitize_original_filename("..") is None
+    assert sanitize_original_filename("  ") is None
+    assert sanitize_original_filename(None) is None
+
+
+@pytest.mark.asyncio
+async def test_list_for_gallery_q_matches_filename_and_prompt(fake_session):
+    from sqlalchemy.dialects import postgresql
+
+    from app.repositories.attachments import list_for_gallery
+
+    captured: dict = {}
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        return MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))))
+
+    fake_session.execute = _capture
+    await list_for_gallery(fake_session, uuid4(), q="100%", limit=30, offset=0)
+
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    combined = f"{compiled} {compiled.params}".lower()
+    assert "original_filename" in combined
+    assert "100" in combined
+    assert "\\\\%" in combined or "\\%" in combined

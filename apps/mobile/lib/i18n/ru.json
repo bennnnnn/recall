@@ -325,6 +325,7 @@
   "gallery.filter.all": "Все",
   "gallery.filter.files": "Файлы",
   "gallery.title": "Галерея",
+  "gallery.search_placeholder": "Поиск изображений и файлов...",
   "lesson.chapter_complete": "Глава пройдена",
   "lesson.chapter_empty": "В этой главе пока нет слов.",
   "lesson.close": "Закрыть",

@@ -1,16 +1,22 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type AttachmentListItem } from "@/lib/api";
-import { galleryListParams, type GalleryFilter } from "@/lib/gallery";
+import {
+  GALLERY_SEARCH_DEBOUNCE_MS,
+  galleryListParams,
+  type GalleryFilter,
+} from "@/lib/gallery";
 
 export type { GalleryFilter };
 
 const PAGE_SIZE = 30;
 
-export function useGalleryData(filter: GalleryFilter) {
+export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const { token } = useAuth();
+  const trimmedQuery = searchQuery.trim();
+  const [debouncedQuery, setDebouncedQuery] = useState(trimmedQuery);
   const [items, setItems] = useState<AttachmentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -18,6 +24,11 @@ export function useGalleryData(filter: GalleryFilter) {
   const [hasMore, setHasMore] = useState(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const offsetRef = useRef(0);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(trimmedQuery), GALLERY_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [trimmedQuery]);
 
   const load = useCallback(
     async (options: { reset?: boolean; silent?: boolean } = {}) => {
@@ -31,6 +42,7 @@ export function useGalleryData(filter: GalleryFilter) {
         const offset = reset ? 0 : offsetRef.current;
         const response = await api.listAttachments(token, {
           ...galleryListParams(filter),
+          ...(debouncedQuery ? { q: debouncedQuery } : {}),
           limit: PAGE_SIZE,
           offset,
         });
@@ -45,7 +57,7 @@ export function useGalleryData(filter: GalleryFilter) {
         setLoadingMore(false);
       }
     },
-    [filter, token],
+    [debouncedQuery, filter, token],
   );
 
   useFocusEffect(
