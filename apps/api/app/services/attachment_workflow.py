@@ -87,6 +87,8 @@ async def list_attachments(
         limit=limit,
         offset=offset,
     )
+    message_ids = [row.message_id for row in rows if row.message_id is not None]
+    chat_by_message = await attachments_repo.chat_ids_for_message_ids(session, message_ids)
     gateway = get_storage_gateway(settings)
     items: list[AttachmentListItemOut] = []
     for row in rows:
@@ -103,7 +105,8 @@ async def list_attachments(
                 download_url=url,
                 source=row.source,
                 created_at=row.created_at,
-                chat_id=None,
+                chat_id=chat_by_message.get(row.message_id) if row.message_id else None,
+                message_id=row.message_id,
             )
         )
     return AttachmentListOut(items=items, has_more=has_more)

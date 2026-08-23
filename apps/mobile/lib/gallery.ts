@@ -1,4 +1,9 @@
-export type GalleryFilter = "all" | "images" | "files";
+export type GalleryFilter = "all" | "generated" | "uploaded" | "files";
+
+export type GalleryListParams = {
+  category?: "images" | "files";
+  source?: "upload" | "generated";
+};
 
 export function isGalleryImage(contentType: string): boolean {
   return contentType.startsWith("image/");
@@ -8,8 +13,20 @@ export function galleryPressAction(contentType: string): "view-image" | "share-f
   return isGalleryImage(contentType) ? "view-image" : "share-file";
 }
 
-export function galleryEmptyKey(filter: GalleryFilter): "gallery.empty" | "gallery.empty_files" {
-  return filter === "files" ? "gallery.empty_files" : "gallery.empty";
+export function galleryEmptyKey(
+  filter: GalleryFilter,
+): "gallery.empty" | "gallery.empty_files" | "gallery.empty_generated" | "gallery.empty_uploaded" {
+  if (filter === "files") return "gallery.empty_files";
+  if (filter === "generated") return "gallery.empty_generated";
+  if (filter === "uploaded") return "gallery.empty_uploaded";
+  return "gallery.empty";
+}
+
+export function galleryListParams(filter: GalleryFilter): GalleryListParams {
+  if (filter === "files") return { category: "files" };
+  if (filter === "generated") return { category: "images", source: "generated" };
+  if (filter === "uploaded") return { category: "images", source: "upload" };
+  return {};
 }
 
 export function galleryFileName(contentType: string): string {

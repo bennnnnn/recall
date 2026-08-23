@@ -338,7 +338,6 @@
   "gallery.share_file_a11y": "ፋይል አጋራ",
   "gallery.filter.all": "ሁሉም",
   "gallery.filter.files": "ፋይሎች",
-  "gallery.filter.images": "ምስሎች",
   "gallery.title": "ማዕከለ-ስዕሎች",
   "lesson.chapter_complete": "ምዕራፉ ተጠናቋል",
   "lesson.chapter_empty": "በዚህ ምዕራፍ ገና ቃላት የሉም።",
@@ -971,5 +970,10 @@
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
   "upgrade.subscription_terms": "የደንበኝነት ምዝገባው በApp Store ወይም Google Play መለያዎ ውስጥ ካልተሰረዘ በየወሩ በራሱ ይታደሳል።",
-  "upgrade.title": "ወደ Pro ይሂዱ"
+  "upgrade.title": "ወደ Pro ይሂዱ",
+  "gallery.empty_generated": "እስካሁን የተፈጠረ ምስል የለም",
+  "gallery.empty_uploaded": "እስካሁን የተሰቀለ ምስል የለም",
+  "gallery.filter.generated": "የተፈጠሩ",
+  "gallery.filter.uploaded": "የተሰቀሉ",
+  "gallery.open_chat_a11y": "ውይይት ክፈት"
 }

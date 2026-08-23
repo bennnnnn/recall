@@ -338,7 +338,6 @@
   "gallery.share_file_a11y": "Datei teilen",
   "gallery.filter.all": "Alle",
   "gallery.filter.files": "Dateien",
-  "gallery.filter.images": "Bilder",
   "gallery.title": "Galerie",
   "lesson.chapter_complete": "Kapitel abgeschlossen",
   "lesson.chapter_empty": "In diesem Kapitel gibt es noch keine Wörter.",
@@ -971,5 +970,10 @@
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
   "upgrade.subscription_terms": "Das Abo verlängert sich jeden Monat automatisch, sofern es nicht im App-Store- oder Google-Play-Konto gekündigt wird.",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "gallery.empty_generated": "Noch keine generierten Bilder",
+  "gallery.empty_uploaded": "Noch keine hochgeladenen Bilder",
+  "gallery.filter.generated": "Generiert",
+  "gallery.filter.uploaded": "Hochgeladen",
+  "gallery.open_chat_a11y": "Chat öffnen"
 }

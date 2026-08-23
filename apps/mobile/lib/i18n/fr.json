@@ -338,7 +338,6 @@
   "gallery.share_file_a11y": "Partager le fichier",
   "gallery.filter.all": "Tout",
   "gallery.filter.files": "Fichiers",
-  "gallery.filter.images": "Images",
   "gallery.title": "Galerie",
   "lesson.chapter_complete": "Chapitre terminé",
   "lesson.chapter_empty": "Pas encore de mots dans ce chapitre.",
@@ -971,5 +970,10 @@
   "upgrade.restore_empty": "Aucun abonnement actif trouvé pour ce compte.",
   "upgrade.subscribe": "Passer à Pro — {{price}}/mois",
   "upgrade.subscription_terms": "L'abonnement se renouvelle automatiquement chaque mois, sauf annulation dans votre compte App Store ou Google Play.",
-  "upgrade.title": "Passer à Pro"
+  "upgrade.title": "Passer à Pro",
+  "gallery.empty_generated": "Aucune image générée",
+  "gallery.empty_uploaded": "Aucune image importée",
+  "gallery.filter.generated": "Générées",
+  "gallery.filter.uploaded": "Importées",
+  "gallery.open_chat_a11y": "Ouvrir le chat"
 }

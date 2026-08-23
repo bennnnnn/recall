@@ -46,10 +46,16 @@ export const attachmentsApi = {
     }>(`/attachments/${attachmentId}/url`, token),
   listAttachments: (
     token: string,
-    params: { category?: "images" | "files"; limit?: number; offset?: number } = {},
+    params: {
+      category?: "images" | "files";
+      source?: "upload" | "generated";
+      limit?: number;
+      offset?: number;
+    } = {},
   ) => {
     const search = new URLSearchParams();
     if (params.category) search.set("category", params.category);
+    if (params.source) search.set("source", params.source);
     if (params.limit !== undefined) search.set("limit", String(params.limit));
     if (params.offset !== undefined) search.set("offset", String(params.offset));
     const qs = search.toString();
@@ -68,6 +74,7 @@ export type AttachmentListItem = {
   source: "upload" | "generated";
   created_at: string;
   chat_id?: string | null;
+  message_id?: string | null;
 };
 
 export type AttachmentListResponse = {

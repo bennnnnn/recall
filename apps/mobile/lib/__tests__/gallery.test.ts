@@ -1,6 +1,7 @@
 import {
   galleryEmptyKey,
   galleryFileName,
+  galleryListParams,
   galleryPressAction,
   galleryThumbSize,
   isGalleryImage,
@@ -18,7 +19,21 @@ describe("gallery helpers", () => {
   it("uses file empty copy on the files tab", () => {
     expect(galleryEmptyKey("files")).toBe("gallery.empty_files");
     expect(galleryEmptyKey("all")).toBe("gallery.empty");
-    expect(galleryEmptyKey("images")).toBe("gallery.empty");
+    expect(galleryEmptyKey("generated")).toBe("gallery.empty_generated");
+    expect(galleryEmptyKey("uploaded")).toBe("gallery.empty_uploaded");
+  });
+
+  it("maps tabs to category and source query params", () => {
+    expect(galleryListParams("all")).toEqual({});
+    expect(galleryListParams("generated")).toEqual({
+      category: "images",
+      source: "generated",
+    });
+    expect(galleryListParams("uploaded")).toEqual({
+      category: "images",
+      source: "upload",
+    });
+    expect(galleryListParams("files")).toEqual({ category: "files" });
   });
 
   it("derives a share filename from the content type", () => {

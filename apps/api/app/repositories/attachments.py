@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Attachment
+from app.models.orm import Attachment, Message
 
 
 async def create_pending(
@@ -158,6 +158,19 @@ async def list_for_gallery(
     rows = list(result.scalars().all())
     has_more = len(rows) > page_size
     return rows[:page_size], has_more
+
+
+async def chat_ids_for_message_ids(
+    session: AsyncSession,
+    message_ids: list[UUID],
+) -> dict[UUID, UUID]:
+    """Map message id → chat id for gallery 'open chat'. Empty input skips IO."""
+    if not message_ids:
+        return {}
+    result = await session.execute(
+        select(Message.id, Message.chat_id).where(Message.id.in_(message_ids))
+    )
+    return {row[0]: row[1] for row in result.all()}
 
 
 async def list_orphans(
