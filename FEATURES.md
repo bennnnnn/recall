@@ -407,14 +407,18 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 - ✅ **MCP gateway skeleton** — `gateways/mcp/` with registry + adapters (`web_search`, `calendar`).
 - ⚠️ **Pre-stream tool round** — when `MCP_TOOLS_ENABLED=true`, `chat_tools.py` invokes matching
   adapters once before streaming (legacy; skipped when the tool loop is on).
-- ✅ **Full tool-calling loop** — **on by default.** Model-initiated LiteLLM `tools=` rounds
-  (`web_search` / `sympy` / `calendar` / `image_gen`) with Pydantic-validated args, bounded by
-  `mcp_tool_loop_max_rounds`. The **calendar** adapter **conflict-checks Google Calendar**
-  (`fetch_upcoming_events`, same as Reminders/chat) and may merge caller-supplied stubs
-  (proposed times). It does **not** create Google events — create stays the
-  `calendar_proposal` fence + confirm card. Heuristic SymPy + web-search inject
-  still run so homework and first-turn search do not wait on a tool call. Legacy
-  `mcp_tools_enabled` stays off.
+- ✅ **Full tool-calling loop** — **on by default**, but **not on every turn.**
+  Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
+  when the turn still looks like web search (and heuristic search did not already
+  fill sources), unsolved math, calendar create, or Pro image gen. If that round
+  finishes without tools, the text is shown — the stream does not call the model
+  a second time. Adapters: `web_search` / `sympy` / `calendar` / `image_gen`,
+  Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`. The **calendar**
+  adapter **conflict-checks Google Calendar** (`fetch_upcoming_events`, same as
+  Reminders/chat) and may merge caller-supplied stubs (proposed times). It does
+  **not** create Google events — create stays the `calendar_proposal` fence +
+  confirm card. Heuristic SymPy + web-search inject still run so homework and
+  first-turn search do not wait on a tool call. Legacy `mcp_tools_enabled` stays off.
 - ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
   Pydantic before DB writes (already enforced for calendar proposals and email extraction).
 
@@ -771,7 +775,7 @@ structured Learning topic type.
 | Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | 🔜 Future |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
-chat-history RAG ✅, LiteLLM tool loop **on by default** ✅, structured profile ✅,
+chat-history RAG ✅, LiteLLM tool loop **on by default** (ordinary chat skips the pre-stream round) ✅, structured profile ✅,
 drawer FTS search ✅.
 
 ### Learning (not “programming projects”)
@@ -823,7 +827,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail (future) |
 | Gmail → suggested **dated** reminders (`last_sync_at`, 7-day query) | Gmail History API cursor; Google Docs, GitHub |
-| MCP adapters + LiteLLM tool loop **on by default**; calendar MCP conflicts vs Google | Calendar MCP creating Google events; user MCP servers |
+| MCP adapters + LiteLLM tool loop **on by default** (not every turn); calendar MCP conflicts vs Google | Calendar MCP creating Google events; user MCP servers |
 
 ### Future — launch ops (owner, not product code)
 1. Cost guards (speech, Tavily, R1 weight) ✅
