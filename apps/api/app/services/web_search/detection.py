@@ -25,6 +25,7 @@ from app.services.web_search.patterns import (
     _YESTERDAY,
     collapse_ws,
     has_recency,
+    looks_like_stable_or_social,
 )
 from app.services.web_search.subject import (
     _prior_searchable_topic,
@@ -99,6 +100,12 @@ def web_search_fast_yes(
     return False
 
 
+def web_search_fast_no(text: str) -> bool:
+    """Obvious no — skip the classifier for stable knowledge and social chat."""
+    cleaned = collapse_ws(text)
+    return looks_like_stable_or_social(cleaned)
+
+
 def needs_web_search_heuristic(
     text: str,
     *,
@@ -162,6 +169,12 @@ async def should_web_search(
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
+    # Fast-no only when the recency heuristic is also false — leftover
+    # ambiguous factual (CEO, prices, sports) still hits the classifier.
+    if not needs_web_search_heuristic(
+        text, prior_user_messages=prior_user_messages
+    ) and web_search_fast_no(text):
+        return False
     classification = await classify_web_search(
         text,
         settings,

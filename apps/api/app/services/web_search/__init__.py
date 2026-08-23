@@ -6,6 +6,7 @@ from app.services.web_search.detection import (
     needs_web_search,
     needs_web_search_heuristic,
     should_web_search,
+    web_search_fast_no,
     web_search_fast_yes,
     web_search_skip,
 )
@@ -70,6 +71,7 @@ __all__ = [
     "sources_payload",
     "strip_duplicate_venue_list",
     "strip_sources_from_text",
+    "web_search_fast_no",
     "web_search_fast_yes",
     "web_search_skip",
 ]

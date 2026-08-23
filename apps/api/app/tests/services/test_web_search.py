@@ -4,6 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit, mock_search_results, search_web
+from app.models.schemas import WebSearchClassification
 from app.services.web_search import (
     augment_prompt_messages,
     build_search_queries,
@@ -814,17 +815,55 @@ async def test_should_web_search_classifier_yes_for_factual_lookup():
         openrouter_api_key="",
         web_search_classifier_enabled=True,
     )
-    assert await should_web_search("Who is the CEO of Anthropic?", settings) is True
+    with patch(
+        "app.services.web_search.classify.classify_web_search_need",
+        AsyncMock(
+            return_value=WebSearchClassification(needs_search=True, query="CEO of Anthropic")
+        ),
+    ) as classify:
+        assert await should_web_search("Who is the CEO of Anthropic?", settings) is True
+        classify.assert_awaited()
 
 
 @pytest.mark.asyncio
-async def test_should_web_search_classifier_no_for_stable_topic():
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Explain how recursion works in Python",
+        "explain photosynthesis",
+        "how are you",
+        "tell me a joke",
+    ],
+)
+async def test_should_web_search_classifier_no_for_stable_topic(text: str):
     settings = Settings(
         mock_llm_enabled=True,
         openrouter_api_key="",
         web_search_classifier_enabled=True,
     )
-    assert await should_web_search("Explain how recursion works in Python", settings) is False
+    with patch(
+        "app.services.web_search.classify.classify_web_search_need",
+        AsyncMock(),
+    ) as classify:
+        assert await should_web_search(text, settings) is False
+        classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_recency_explain_still_classifies():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    with patch(
+        "app.services.web_search.classify.classify_web_search_need",
+        AsyncMock(
+            return_value=WebSearchClassification(needs_search=True, query="latest iPhone rumors")
+        ),
+    ) as classify:
+        assert await should_web_search("explain the latest iPhone rumors today?", settings) is True
+        classify.assert_awaited()
 
 
 @pytest.mark.asyncio

@@ -68,6 +68,82 @@ _RECENCY_PHRASES = (
 )
 
 
+# Cheap no — stable knowledge / social. Used only when the recency heuristic
+# is also false, so "explain the latest …" still reaches the classifier.
+_POLITE_PREFIXES = ("please ", "can you ", "could you ", "would you ", "will you ")
+_STABLE_PREFIXES = (
+    "explain",
+    "how does ",
+    "how do ",
+    "how did ",
+    "how would ",
+    "how can ",
+    "how to ",
+    "what is a ",
+    "what is an ",
+    "why is ",
+    "why are ",
+    "why does ",
+    "why do ",
+    "why did ",
+    "why would ",
+    "why can ",
+)
+_SOCIAL_EXACT = frozenset(
+    {
+        "how are you",
+        "how are you doing",
+        "how's it going",
+        "how is it going",
+        "how's your day",
+        "how is your day",
+        "how's your day going",
+        "how is your day going",
+    }
+)
+_JOKE_STORY_PREFIXES = (
+    "tell me a joke",
+    "tell me a story",
+    "tell me a riddle",
+    "tell a joke",
+    "tell a story",
+)
+
+
+def _strip_polite_prefix(low: str) -> str:
+    """Drop stacked 'can you please' lead-ins. Linear, no regex."""
+    changed = True
+    while changed:
+        changed = False
+        for prefix in _POLITE_PREFIXES:
+            if low.startswith(prefix):
+                low = low[len(prefix) :]
+                changed = True
+                break
+    return low
+
+
+def looks_like_stable_or_social(text: str) -> bool:
+    """True for explain / how-does / what-is-a, greetings, and joke/story asks.
+
+    Input should already be ``collapse_ws``-normalized. Recency is checked by
+    the caller so current-events phrasing still reaches the classifier.
+    """
+    low = _strip_polite_prefix(text.lower())
+    stripped = low.rstrip(".!?…")
+    if stripped in _SOCIAL_EXACT:
+        return True
+    if any(stripped.startswith(p) for p in _JOKE_STORY_PREFIXES):
+        return True
+    if any(low.startswith(p) for p in _STABLE_PREFIXES):
+        return True
+    # "what does X mean" — bounded find, not ``.+``
+    if stripped.startswith("what does "):
+        rest = stripped[10:]
+        return rest.endswith(" mean") or " mean " in f"{rest} "
+    return False
+
+
 def has_recency(text: str) -> bool:
     """True when ``text`` (already ``collapse_ws``-normalized) looks time-sensitive.
 

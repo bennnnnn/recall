@@ -161,6 +161,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
             rich_context=True,
             quiz_grade=None,
             verified_math=None,
+            needs_web_search=False,
         )
 
     with (
@@ -292,6 +293,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             rich_context=True,
             quiz_grade=None,
             verified_math=None,
+            needs_web_search=False,
         )
 
     with (
