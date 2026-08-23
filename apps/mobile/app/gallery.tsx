@@ -6,6 +6,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -50,6 +51,7 @@ export default function GalleryScreen() {
   const thumbSize = galleryThumbSize(width - Space.md * 2, NUM_COLUMNS, Space.xs);
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const sharingRef = useRef(false);
   const {
@@ -61,7 +63,7 @@ export default function GalleryScreen() {
     refresh,
     loadMore,
     retry,
-  } = useGalleryData(filter);
+  } = useGalleryData(filter, searchQuery);
 
   useFocusEffect(
     useCallback(() => {
@@ -91,7 +93,7 @@ export default function GalleryScreen() {
         await shareChatAttachment({
           uri,
           token,
-          fileName: galleryFileName(item.content_type),
+          fileName: galleryFileName(item.content_type, item.original_filename),
         });
       } catch (shareError) {
         Alert.alert(
@@ -151,7 +153,9 @@ export default function GalleryScreen() {
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
             <Icon name="document-outline" size={32} color={C.textTertiary} />
             <Text style={s.fileLabel} numberOfLines={1}>
-              {item.content_type.split("/").pop() ?? "file"}
+              {item.original_filename?.trim() ||
+                item.content_type.split("/").pop() ||
+                "file"}
             </Text>
           </View>
         </Pressable>
@@ -164,6 +168,18 @@ export default function GalleryScreen() {
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + Space.sm }]}>
         <Text style={s.title}>{t("gallery.title")}</Text>
+        <View style={s.searchBar}>
+          <Icon name="search-outline" size={16} color={C.textTertiary} />
+          <TextInput
+            style={s.searchInput}
+            placeholder={t("gallery.search_placeholder")}
+            placeholderTextColor={C.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+        </View>
         <View style={s.tabs}>
           {filters.map((tab) => {
             const active = tab.key === filter;
@@ -255,6 +271,25 @@ function makeStyles(C: Theme) {
       lineHeight: 34,
       color: C.text,
       marginBottom: Space.sm,
+    },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      height: 40,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.border,
+      backgroundColor: C.surface,
+      marginBottom: Space.sm,
+    },
+    searchInput: {
+      flex: 1,
+      ...Type.body,
+      fontSize: 15,
+      padding: 0,
+      color: C.text,
     },
     tabs: {
       flexDirection: "row",

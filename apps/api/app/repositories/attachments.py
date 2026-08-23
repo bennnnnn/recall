@@ -2,11 +2,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Attachment, Message
+
+
+def _contains(column: Any, query: str) -> Any:
+    """Case-insensitive substring match with LIKE wildcards escaped."""
+    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return column.ilike(f"%{escaped}%", escape="\\")
 
 
 async def create_pending(
@@ -18,6 +24,7 @@ async def create_pending(
     content_type: str,
     size_bytes: int,
     source: str = "upload",
+    original_filename: str | None = None,
 ) -> Attachment:
     row = Attachment(
         id=attachment_id,
@@ -26,6 +33,7 @@ async def create_pending(
         content_type=content_type,
         size_bytes=size_bytes,
         source=source,
+        original_filename=original_filename,
     )
     session.add(row)
     await session.commit()
@@ -128,6 +136,7 @@ async def list_for_gallery(
     *,
     category: str | None = None,
     source: str | None = None,
+    q: str | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> tuple[list[Attachment], bool]:
@@ -140,6 +149,8 @@ async def list_for_gallery(
     * ``None``     — all attachments
 
     Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
+    Optional ``q`` matches original filename, content type, or linked message
+    content (image-gen prompts).
     """
     stmt = select(Attachment).where(
         Attachment.user_id == user_id,
@@ -151,6 +162,15 @@ async def list_for_gallery(
         stmt = stmt.where(Attachment.content_type.notlike("image/%"))
     if source in ("upload", "generated"):
         stmt = stmt.where(Attachment.source == source)
+    if q:
+        stmt = stmt.outerjoin(Message, Attachment.message_id == Message.id)
+        stmt = stmt.where(
+            or_(
+                _contains(Attachment.original_filename, q),
+                _contains(Attachment.content_type, q),
+                _contains(Message.content, q),
+            )
+        )
     stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())
     page_size = max(limit, 1)
     stmt = stmt.offset(max(offset, 0)).limit(page_size + 1)

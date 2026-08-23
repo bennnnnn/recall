@@ -339,6 +339,7 @@
   "gallery.filter.all": "Todo",
   "gallery.filter.files": "Archivos",
   "gallery.title": "Galería",
+  "gallery.search_placeholder": "Buscar imágenes y archivos...",
   "lesson.chapter_complete": "Capítulo completado",
   "lesson.chapter_empty": "Aún no hay palabras en este capítulo.",
   "lesson.close": "Cerrar",

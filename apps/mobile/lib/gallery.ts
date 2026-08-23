@@ -1,3 +1,5 @@
+export const GALLERY_SEARCH_DEBOUNCE_MS = 300;
+
 export type GalleryFilter = "all" | "generated" | "uploaded" | "files";
 
 export type GalleryListParams = {
@@ -29,7 +31,12 @@ export function galleryListParams(filter: GalleryFilter): GalleryListParams {
   return {};
 }
 
-export function galleryFileName(contentType: string): string {
+export function galleryFileName(
+  contentType: string,
+  originalFilename?: string | null,
+): string {
+  const named = originalFilename?.trim().replace(/\\/g, "/").split("/").pop();
+  if (named) return named;
   const subtype = contentType.split("/")[1]?.split("+")[0]?.split(";")[0]?.trim();
   if (!subtype) return "attachment";
   const ext = subtype.includes(".") ? subtype.slice(subtype.lastIndexOf(".") + 1) : subtype;

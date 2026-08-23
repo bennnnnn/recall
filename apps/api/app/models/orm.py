@@ -601,6 +601,7 @@ class Attachment(Base):
     source: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="upload", default="upload"
     )
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Set once bytes have been verified against the declared type/size.
     # Subsequent /file and /url reads skip the full-object download.
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

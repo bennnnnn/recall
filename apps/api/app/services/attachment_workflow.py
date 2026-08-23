@@ -76,6 +76,7 @@ async def list_attachments(
     *,
     category: str | None,
     source: str | None,
+    q: str | None,
     limit: int,
     offset: int,
 ) -> AttachmentListOut:
@@ -84,6 +85,7 @@ async def list_attachments(
         user.id,
         category=category,
         source=source,
+        q=q,
         limit=limit,
         offset=offset,
     )
@@ -107,6 +109,7 @@ async def list_attachments(
                 created_at=row.created_at,
                 chat_id=chat_by_message.get(row.message_id) if row.message_id else None,
                 message_id=row.message_id,
+                original_filename=row.original_filename,
             )
         )
     return AttachmentListOut(items=items, has_more=has_more)

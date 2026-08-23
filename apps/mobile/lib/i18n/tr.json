@@ -339,6 +339,7 @@
   "gallery.filter.all": "Tümü",
   "gallery.filter.files": "Dosyalar",
   "gallery.title": "Galeri",
+  "gallery.search_placeholder": "Görsel ve dosya ara...",
   "lesson.chapter_complete": "Bölüm tamamlandı",
   "lesson.chapter_empty": "Bu bölümde henüz sözcük yok.",
   "lesson.close": "Kapat",

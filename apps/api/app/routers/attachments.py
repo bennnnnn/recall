@@ -44,6 +44,7 @@ def _workflow_http_error(exc: attachment_workflow.AttachmentWorkflowError) -> HT
 async def list_attachments(
     category: str | None = Query(default=None, pattern="^(images|files)$"),
     source: str | None = Query(default=None, pattern="^(upload|generated)$"),
+    q: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     user: User = Depends(get_current_user),
@@ -52,15 +53,19 @@ async def list_attachments(
 ) -> AttachmentListOut:
     """List the user's attachments with pagination.
 
-    ``category`` narrows by content family: ``images`` (image/*) or ``files``
-    (non-image). Omit it to list everything.
+    ``q`` is a case-insensitive substring over filename, content type, and
+    the linked message (covers image-gen prompts).
     """
+    query = q.strip() if q else None
+    if not query:
+        query = None
     return await attachment_workflow.list_attachments(
         session,
         settings,
         user,
         category=category,
         source=source,
+        q=query,
         limit=limit,
         offset=offset,
     )
@@ -84,6 +89,7 @@ async def presign_upload(
             user=user,
             content_type=body.content_type,
             size_bytes=body.size_bytes,
+            filename=body.filename,
         )
     except AttachmentUploadError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
