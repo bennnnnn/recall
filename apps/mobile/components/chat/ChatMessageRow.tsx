@@ -7,6 +7,8 @@ type Props = {
   item: Message;
   /** Content of the immediately preceding user message, when `item` is the assistant reply to it. */
   priorUserText: string | null;
+  /** User row: this letter is answering an in-progress A–D quiz. */
+  isQuizReply: boolean;
   /**
    * Whether THIS row's own output depends on the active stream state — see
    * streamVisualActiveForRow. Always the real streaming/finalizing value for
@@ -39,6 +41,7 @@ type Props = {
 export const ChatMessageRow = memo(function ChatMessageRow({
   item,
   priorUserText,
+  isQuizReply,
   streamVisualActive,
   chatStreamActive,
   lastAssistantId,
@@ -66,6 +69,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
     <MessageBubble
       message={item}
       priorUserText={priorUserText}
+      isQuizReply={isQuizReply}
       isGenerating={false}
       liveContent={undefined}
       liveSearchSources={undefined}

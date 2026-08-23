@@ -4,6 +4,7 @@ import {
   findLastLocalUserMessageId,
   isChatStreamActive,
   isLocalPendingMessageId,
+  priorAssistantIsQuizFor,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
@@ -162,6 +163,64 @@ describe("chatMessageLogic", () => {
 
     it("returns null for an out-of-range index", () => {
       expect(priorUserTextFor(messages, 99)).toBeNull();
+    });
+  });
+
+  describe("priorAssistantIsQuizFor", () => {
+    const quiz = [
+      "```vocab_quiz",
+      JSON.stringify({
+        quiz_type: "vocab",
+        word: "serendipity",
+        question: "What word means a happy coincidence?",
+        correct: "A",
+        choices: [
+          { letter: "A", text: "serendipity" },
+          { letter: "B", text: "ephemeral" },
+          { letter: "C", text: "ubiquitous" },
+          { letter: "D", text: "candid" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+
+    it("is false for a letter after a normal assistant reply", () => {
+      const messages = [
+        { id: "u1", role: "user", content: "Hi" },
+        { id: "a1", role: "assistant", content: "Hello!" },
+        { id: "u2", role: "user", content: "c" },
+      ] as Message[];
+      expect(priorAssistantIsQuizFor(messages, 2)).toBe(false);
+    });
+
+    it("is true for a letter immediately after a quiz fence", () => {
+      const messages = [
+        { id: "q1", role: "assistant", content: quiz },
+        { id: "u1", role: "user", content: "C" },
+      ] as Message[];
+      expect(priorAssistantIsQuizFor(messages, 1)).toBe(true);
+    });
+
+    it("is true for a letter after a wrong-answer hint", () => {
+      const messages = [
+        { id: "q1", role: "assistant", content: quiz },
+        { id: "u1", role: "user", content: "D" },
+        { id: "h1", role: "assistant", content: "Not quite — think coincidence." },
+        { id: "u2", role: "user", content: "A" },
+      ] as Message[];
+      expect(priorAssistantIsQuizFor(messages, 3)).toBe(true);
+    });
+
+    it("is false for a later letter once the chat has moved on", () => {
+      const messages = [
+        { id: "q1", role: "assistant", content: quiz },
+        { id: "u1", role: "user", content: "A" },
+        { id: "a1", role: "assistant", content: "Nice — that's it." },
+        { id: "u2", role: "user", content: "thanks" },
+        { id: "a2", role: "assistant", content: "Anytime." },
+        { id: "u3", role: "user", content: "c" },
+      ] as Message[];
+      expect(priorAssistantIsQuizFor(messages, 5)).toBe(false);
     });
   });
 });

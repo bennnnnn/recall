@@ -85,6 +85,15 @@ export function isVocabQuizAnswer(content: string): boolean {
   return parseQuizAnswerLetter(content) != null;
 }
 
+/** True only when a letter-shaped user message is actually answering a quiz. */
+export function userMessageIsQuizReply(
+  content: string,
+  priorAssistantContent: string | null | undefined,
+): boolean {
+  if (!priorAssistantContent || !isVocabQuizAnswer(content)) return false;
+  return isRenderableVocabQuiz(parseVocabQuiz(priorAssistantContent));
+}
+
 export function parseQuizAnswerLetter(
   content: string,
 ): QuizChoice["letter"] | null {

@@ -3,6 +3,7 @@ import {
   inferQuizAnswersFromMessages,
   isVocabQuizAnswer,
   parseQuizAnswerLetter,
+  userMessageIsQuizReply,
   formatVocabQuizAsMarkdown,
   markdownHasQuizChoices,
   parseVocabQuiz,
@@ -141,6 +142,28 @@ describe("parseVocabQuiz", () => {
     expect(isVocabQuizAnswer("Is it a?")).toBe(true);
     expect(isVocabQuizAnswer("A bit more help")).toBe(false);
     expect(isVocabQuizAnswer("Hi")).toBe(false);
+  });
+
+  it("userMessageIsQuizReply requires a prior quiz, not just a letter", () => {
+    expect(userMessageIsQuizReply("c", "C is a programming language.")).toBe(false);
+    const quizBody = [
+      "```vocab_quiz",
+      JSON.stringify({
+        word: "apple",
+        question: "What does it mean?",
+        correct: "A",
+        choices: [
+          { letter: "A", text: "a red fruit" },
+          { letter: "B", text: "a vehicle" },
+          { letter: "C", text: "a feeling" },
+          { letter: "D", text: "a color" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+    expect(userMessageIsQuizReply("C", quizBody)).toBe(true);
+    expect(userMessageIsQuizReply("c", quizBody)).toBe(true);
+    expect(userMessageIsQuizReply("Hi", quizBody)).toBe(false);
   });
 
   it("infers quiz answers from message pairs", () => {

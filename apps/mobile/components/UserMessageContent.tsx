@@ -29,16 +29,21 @@ const ChatMessagePdfLazy = React.lazy(() =>
 
 type Props = {
   message: Message;
+  /** True when this letter is answering an in-progress A–D quiz. */
+  isQuizReply?: boolean;
 };
 
-export function UserMessageContent({ message }: Props) {
+export function UserMessageContent({ message, isQuizReply = false }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   const parsed = useMemo(() => parseUserMessageContent(message.content), [message.content]);
   const quizLetter = useMemo(
-    () => (isVocabQuizAnswer(message.content) ? parseQuizAnswerLetter(message.content) : null),
-    [message.content],
+    () =>
+      isQuizReply && isVocabQuizAnswer(message.content)
+        ? parseQuizAnswerLetter(message.content)
+        : null,
+    [isQuizReply, message.content],
   );
   const hasImages = parsed.images.length > 0 || Boolean(message.local_image_uri);
   const pdfFile = parsed.files.find((file) => isPdfContentType(file.contentType));
