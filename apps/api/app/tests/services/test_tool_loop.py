@@ -34,7 +34,7 @@ def web_search_registered():
 @pytest.mark.asyncio
 async def test_tool_loop_disabled_passthrough():
     messages = [{"role": "user", "content": "hi"}]
-    out, verified, terminal, unused = await tool_loop.run_tool_rounds(
+    out, verified, terminal = await tool_loop.run_tool_rounds(
         settings=_settings(mcp_tool_loop_enabled=False),
         model_alias="free-chat",
         messages=messages,
@@ -43,7 +43,6 @@ async def test_tool_loop_disabled_passthrough():
     assert out == messages
     assert verified is None
     assert terminal is None
-    assert unused is None
 
 
 @pytest.mark.asyncio
@@ -66,7 +65,6 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
                     }
                 ],
             },
-            {"content": "Here are the results.", "tool_calls": []},
         ]
     )
     invoke = AsyncMock(return_value=MagicMock(content="- Example: https://example.com\n  snippet"))
@@ -79,7 +77,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out, verified, terminal, unused = await tool_loop.run_tool_rounds(
+        out, verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -87,7 +85,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
             on_status=on_status,
         )
 
-    assert complete.await_count == 2
+    assert complete.await_count == 1
     invoke.assert_awaited_once()
     # The search query rides along as status detail for the client label.
     assert statuses == [("searching", "latest news")]
@@ -95,7 +93,6 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
     assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
     assert verified is None
     assert terminal is None
-    assert unused == "Here are the results."
 
 
 @pytest.mark.asyncio
@@ -122,8 +119,8 @@ async def test_tool_loop_max_rounds(web_search_registered):
             usage={},
         )
 
-    assert complete.await_count == 2
-    assert invoke.await_count == 2
+    assert complete.await_count == 1
+    assert invoke.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -155,7 +152,6 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
                     }
                 ],
             },
-            {"content": "plotted", "tool_calls": []},
         ]
     )
     invoke = AsyncMock(
@@ -169,7 +165,7 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        _out, verified, terminal, unused = await tool_loop.run_tool_rounds(
+        _out, verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -179,7 +175,6 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
     assert verified is not None
     assert verified.canonical_fence == fence
     assert terminal is None
-    assert unused == "plotted"
 
 
 @pytest.mark.asyncio
@@ -217,7 +212,7 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out, _verified, terminal, unused = await tool_loop.run_tool_rounds(
+        out, _verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -229,7 +224,6 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
     invoke.assert_not_awaited()
     assert out == messages
     assert terminal is None
-    assert unused is None
     assert not any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
 
 
@@ -313,7 +307,7 @@ async def test_tool_loop_generate_image_is_terminal():
             patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
             patch("app.services.tool_loop.plan_service.is_pro", return_value=True),
         ):
-            _out, verified, terminal, unused = await tool_loop.run_tool_rounds(
+            _out, verified, terminal = await tool_loop.run_tool_rounds(
                 settings=_settings(
                     mcp_tool_loop_enabled=True,
                     mcp_tool_loop_max_rounds=3,
@@ -332,7 +326,6 @@ async def test_tool_loop_generate_image_is_terminal():
         assert statuses == [("image_gen", "watercolor fox")]
         assert verified is None
         assert terminal is not None
-        assert unused is None
         assert terminal.final_content == marker
         assert terminal.message_id == "01900000-0000-7000-8000-000000000001"
     finally:
@@ -361,6 +354,8 @@ async def test_tools_for_user_omits_image_gen_for_free():
         ("hi", {"lightweight": True}, False),
         ("What's the latest news on SpaceX?", {}, True),
         ("What's the latest news on SpaceX?", {"has_search_sources": True}, False),
+        ("What's the latest news on SpaceX?", {"web_search": False}, False),
+        ("Explain photosynthesis in two sentences.", {"web_search": True}, True),
         ("differentiate x^2", {}, True),
         ("differentiate x^2", {"has_verified_math": True}, False),
         ("schedule a meeting with Sam tomorrow at 3", {}, True),
@@ -378,11 +373,12 @@ def test_turn_needs_tool_loop_gates_ordinary_chat(text: str, kwargs: dict, expec
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_no_tools_returns_unused_final_content(web_search_registered):
+async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search_registered):
+    """Probe found no tools — stream the answer; never complete_with_tools twice."""
     messages = [{"role": "user", "content": "search the latest news"}]
     complete = AsyncMock(return_value={"content": "Tokyo is the capital.", "tool_calls": []})
     with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
-        _out, verified, terminal, unused = await tool_loop.run_tool_rounds(
+        out, verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True),
             model_alias="free-chat",
             messages=messages,
@@ -390,5 +386,5 @@ async def test_tool_loop_no_tools_returns_unused_final_content(web_search_regist
         )
     assert verified is None
     assert terminal is None
-    assert unused == "Tokyo is the capital."
+    assert out == messages
     complete.assert_awaited_once()
