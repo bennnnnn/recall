@@ -59,6 +59,19 @@ describe("buildListGroups", () => {
 
     expect(listGroupTopics(groups)).toEqual(["Groceries", "Work"]);
   });
+
+  it("keeps empty saved list names with no items", () => {
+    const groups = buildListGroups(
+      [todo({ id: "1", content: "Milk", topic: "Groceries" })],
+      ["Shopping", "Groceries"],
+      "General",
+    );
+
+    expect(listGroupTopics(groups)).toEqual(["Shopping", "Groceries"]);
+    const shopping = groups.find((g) => g.topic === "Shopping");
+    expect(shopping?.open).toEqual([]);
+    expect(shopping?.done).toEqual([]);
+  });
 });
 
 describe("sortListItems", () => {
@@ -82,10 +95,19 @@ describe("displayGroupTitle", () => {
 });
 
 describe("mergeGroupOrder", () => {
-  it("drops removed topics and appends new ones", () => {
+  it("keeps saved empty names and appends newly seen topics", () => {
     expect(mergeGroupOrder(["Work", "Old"], ["Work", "Groceries"])).toEqual([
       "Work",
+      "Old",
       "Groceries",
+    ]);
+  });
+
+  it("appends a new list name without dropping existing ones", () => {
+    expect(mergeGroupOrder(["Work", "Groceries"], ["Shopping"])).toEqual([
+      "Work",
+      "Groceries",
+      "Shopping",
     ]);
   });
 });

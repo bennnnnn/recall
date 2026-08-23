@@ -64,8 +64,9 @@ export function buildListGroups(
   return groups;
 }
 
+/** Union: keep saved names (including empty lists) and append newly seen topics. */
 export function mergeGroupOrder(current: string[], topics: string[]): string[] {
-  const next = [...current.filter((topic) => topics.includes(topic))];
+  const next = [...current];
   for (const topic of topics) {
     if (!next.includes(topic)) next.push(topic);
   }

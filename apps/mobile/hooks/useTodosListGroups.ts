@@ -27,10 +27,9 @@ export function useTodosListGroups(
   );
 
   useEffect(() => {
-    if (todos.length > 0) {
-      void syncGroupOrder(todos);
-    }
-  }, [syncGroupOrder, todos]);
+    if (!userId) return;
+    void syncGroupOrder(todos);
+  }, [syncGroupOrder, todos, userId]);
 
   const persistGroupOrder = useCallback(
     async (order: string[]) => {
