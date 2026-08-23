@@ -8,6 +8,14 @@ from app.services import tool_loop
 from app.services.mcp.web_search_adapter import WebSearchAdapter
 
 
+def test_status_for_tool_omits_generic_thinking():
+    assert tool_loop._status_for_tool("web_search") == "searching"
+    assert tool_loop._status_for_tool("sympy") == "calculating"
+    assert tool_loop._status_for_tool("generate_image") == "image_gen"
+    assert tool_loop._status_for_tool("calendar") is None
+    assert tool_loop._status_for_tool("") is None
+
+
 def _settings(**kwargs: object) -> Settings:
     s = Settings()
     for key, value in kwargs.items():

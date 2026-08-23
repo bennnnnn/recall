@@ -45,14 +45,14 @@ class TerminalImageResult:
     resolved_model: str
 
 
-def _status_for_tool(name: str) -> str:
+def _status_for_tool(name: str) -> str | None:
     if name == "web_search":
         return "searching"
     if name == "sympy":
         return "calculating"
     if name == "generate_image":
         return "image_gen"
-    return "thinking"
+    return None
 
 
 def _canonical_from_tool_result(result: Any) -> dict[str, Any] | None:
@@ -201,8 +201,9 @@ async def _run_tool_rounds_bound(
             name = str(fn.get("name") or "")
             raw_args = fn.get("arguments") or "{}"
             call_id = str(call.get("id") or name)
-            if on_status is not None and name:
-                await on_status(_status_for_tool(name), _status_detail_for_tool(name, raw_args))
+            phase = _status_for_tool(name) if name else None
+            if on_status is not None and phase is not None:
+                await on_status(phase, _status_detail_for_tool(name, raw_args))
             result = await mcp_registry.invoke_validated(name, raw_args)
             content = result.content if result else f"Unknown tool: {name}"
             fence = _canonical_from_tool_result(result) if result else None

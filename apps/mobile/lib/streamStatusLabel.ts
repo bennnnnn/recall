@@ -5,6 +5,15 @@ const MAX_VARIANTS = 6;
 export const STREAM_STATUS_ROTATE_MS = 3200;
 const STATUS_DETAIL_MAX_CHARS = 44;
 
+/** Fake agent-progress chips. ChatGPT only labels long tools (search, files,
+ *  image gen, …). Ordinary wait is typing dots — same as our TTS path. */
+const THEATER_STREAM_PHASES = new Set([
+  "preparing",
+  "remembering",
+  "thinking",
+  "composing",
+]);
+
 /** Bound the inline detail so the label stays one line on small screens. */
 export function clipStreamStatusDetail(detail: string): string {
   const flattened = detail.replace(/\s+/g, " ").trim();
@@ -22,6 +31,9 @@ export function streamStatusLabels(
   phase: string,
   detail?: string,
 ): string[] {
+  if (THEATER_STREAM_PHASES.has(phase)) {
+    return [];
+  }
   const labels: string[] = [];
   const baseKey = `chat.status.${phase}`;
   if (detail) {
