@@ -6,8 +6,6 @@ import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 export const TOP_CHROME = 58;
-/** Fixed Learning / Lists / Reminders block under the logo row. */
-export const DRAWER_NAV_CHROME = 160;
 export const FOOTER_CHROME = 54;
 export const FADE_EXTRA = 40;
 
@@ -34,7 +32,6 @@ export function makeConversationListStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 100,
-      // Solid so Learning/Lists/Reminders sit above the scroll fade (not washed out).
       backgroundColor: theme.bg,
     },
     header: { paddingHorizontal: Space.md, paddingBottom: Space.sm },
