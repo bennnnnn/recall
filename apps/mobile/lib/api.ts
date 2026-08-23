@@ -7,6 +7,7 @@ import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
 import { memoriesApi } from "@/lib/api/memories";
 import { projectsApi } from "@/lib/api/projects";
+import { speechApi } from "@/lib/api/speech";
 import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
@@ -39,4 +40,5 @@ export const api = {
   ...integrationsApi,
   ...attachmentsApi,
   ...imagesApi,
+  ...speechApi,
 };

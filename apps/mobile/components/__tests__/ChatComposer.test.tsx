@@ -54,6 +54,15 @@ jest.mock("@/components/chat/VoiceMicButton", () => ({
   VoiceMicButton: () => null,
 }));
 
+jest.mock("@/components/chat/LiveTalkButton", () => {
+  const { Pressable } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    LiveTalkButton: ({ onPress }: { onPress: () => void }) => (
+      <Pressable testID="live-talk-button" onPress={onPress} />
+    ),
+  };
+});
+
 jest.mock("@/components/ComposerAttachmentPreview", () => ({
   ComposerAttachmentPreview: () => null,
 }));
@@ -533,5 +542,21 @@ describe("ChatComposer math keyboard", () => {
       <ChatComposer {...baseProps} input={"a".repeat(400)} />,
     );
     expect(getByTestId("composer-token-hint")).toBeTruthy();
+  });
+
+  it("shows live talk when a handler is provided", async () => {
+    const onLiveTalkPress = jest.fn();
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} onLiveTalkPress={onLiveTalkPress} />,
+    );
+    fireEvent.press(getByTestId("live-talk-button"));
+    expect(onLiveTalkPress).toHaveBeenCalled();
+  });
+
+  it("hides live talk when the send button is showing", async () => {
+    const { queryByTestId } = await render(
+      <ChatComposer {...baseProps} input="hello" onLiveTalkPress={jest.fn()} />,
+    );
+    expect(queryByTestId("live-talk-button")).toBeNull();
   });
 });

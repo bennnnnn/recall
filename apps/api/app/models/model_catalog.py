@@ -287,6 +287,15 @@ CATALOG: tuple[ChatModel, ...] = (
         selectable=False,
         description="Lower-cost read-aloud.",
     ),
+    _or(
+        id="live-talk-model",
+        label="Live talk",
+        # OpenAI speech-to-speech (audio in → audio out). Not Whisper STT.
+        model="openai/gpt-audio-mini",
+        provider="openai",
+        selectable=False,
+        description="Speech-to-speech for live talk.",
+    ),
 )
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}

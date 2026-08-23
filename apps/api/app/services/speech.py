@@ -19,6 +19,7 @@ _MOCK_MP3_BYTES = b"\xff\xfb\x90\x00" + b"\x00" * 64
 _STT_ALIAS = "speech-stt-model"
 TTS_QUALITY_ALIAS = "speech-tts-model"
 TTS_FAST_ALIAS = "speech-tts-fast-model"
+LIVE_TALK_ALIAS = "live-talk-model"
 # OpenAI GPT TTS is not listed on OpenRouter anymore (400 "does not exist").
 _RETIRED_TTS_SLUGS = frozenset(
     {
@@ -247,3 +248,39 @@ async def iter_tts_pcm(
                 await rest_task
             except asyncio.CancelledError:
                 logger.debug("Cancelled in-flight rest TTS after stream close")
+
+
+def resolve_live_talk_model(settings: Settings) -> str:
+    raw = (settings.speech_live_talk_model or "").strip()
+    if raw:
+        return raw
+    return openrouter_slug(LIVE_TALK_ALIAS)
+
+
+async def speech_to_speech(
+    settings: Settings,
+    audio_bytes: bytes,
+    *,
+    filename: str = "speech.m4a",
+) -> tuple[bytes, str, str] | None:
+    """Spoken reply from user audio. Uses the live-talk audio model, not Whisper."""
+    if not settings.speech_live_talk_enabled:
+        return None
+    if not audio_bytes or len(audio_bytes) > SPEECH_MAX_AUDIO_BYTES:
+        logger.warning(
+            "Live talk rejected: payload size=%s",
+            len(audio_bytes) if audio_bytes else 0,
+        )
+        return None
+    if mock_llm.should_mock_llm(settings) and not settings.openrouter_api_key:
+        wav = speech_gateway.pcm_to_wav(b"\x00\x00" * 1200)
+        return wav, "audio/wav", "This is a mock spoken reply."
+    if not settings.openrouter_api_key:
+        return None
+    model = resolve_live_talk_model(settings)
+    return await speech_gateway.speech_to_speech_via_openrouter(
+        settings,
+        audio_bytes,
+        filename=filename,
+        model=model,
+    )

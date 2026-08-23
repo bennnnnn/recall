@@ -6,8 +6,8 @@ import { requestRaw } from "@/lib/api/client";
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import { markdownToPlainText } from "@/lib/markdownPlain";
 import { splitTtsChunks } from "@/lib/ttsLead";
-import { getTtsModel, TTS_DEVICE_MODEL } from "@/lib/ttsPreference";
-import { loadExpoAudio } from "@/lib/voiceAudio";
+import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
+import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/voiceAudio";
 
 type SpeechModule = typeof import("expo-speech");
 
@@ -219,6 +219,19 @@ async function playCloudBase64(
   }
 }
 
+/** Play a cloud WAV/MP3 (live talk speech-to-speech). */
+export async function playSpeechAudio(
+  audioBase64: string,
+  contentType: string,
+): Promise<SpeakResult> {
+  markTtsTap();
+  stopSpeaking();
+  const generation = speakGeneration;
+  await preparePlaybackAudioMode();
+  if (!isCurrentSpeak(generation)) return { ok: true };
+  return playCloudBase64(audioBase64, contentType, generation);
+}
+
 async function playRemoteAudio(url: string): Promise<SpeakResult> {
   const Audio = loadExpoAudio();
   if (!Audio) return { ok: false, reason: "unavailable" };
@@ -415,7 +428,7 @@ async function playChunkPipeline(
 export async function speakPlainText(
   text: string,
   language = "en-US",
-  options?: { token?: string | null },
+  options?: { token?: string | null; preferCloud?: boolean; preferFast?: boolean },
 ): Promise<SpeakResult> {
   markTtsTap();
   logTtsLatency("tap");
@@ -428,8 +441,14 @@ export async function speakPlainText(
   if (!isCurrentSpeak(generation)) return { ok: true };
 
   const token = options?.token ?? null;
-  const useCloud =
-    Boolean(token && canUseVoiceInput()) && ttsModel !== TTS_DEVICE_MODEL;
+  await preparePlaybackAudioMode();
+  if (!isCurrentSpeak(generation)) return { ok: true };
+  const cloudModel = options?.preferFast
+    ? TTS_FAST_MODEL
+    : options?.preferCloud && ttsModel === TTS_DEVICE_MODEL
+      ? TTS_QUALITY_MODEL
+      : ttsModel;
+  const useCloud = Boolean(token && canUseVoiceInput()) && cloudModel !== TTS_DEVICE_MODEL;
   if (!useCloud || !token) {
     return beginDeviceSpeech(plain, language, generation);
   }
@@ -437,17 +456,22 @@ export async function speakPlainText(
   const ac = new AbortController();
   ttsAbort = ac;
   try {
-    return await playChunkPipeline(
+    const played = await playChunkPipeline(
       token,
       plain,
       language,
-      ttsModel,
+      cloudModel,
       generation,
       ac.signal,
     );
+    if (played.ok || !isCurrentSpeak(generation) || !options?.preferCloud) return played;
+    return beginDeviceSpeech(plain, language, generation);
   } catch (error) {
     if (isAbortError(error) || !isCurrentSpeak(generation)) {
       return { ok: true };
+    }
+    if (options?.preferCloud) {
+      return beginDeviceSpeech(plain, language, generation);
     }
     return { ok: false, reason: "error" };
   } finally {

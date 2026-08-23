@@ -2318,3 +2318,160 @@ def test_speech_tts_stream_empty_refunds():
     assert r.status_code == 200
     assert r.content == b""
     refund.assert_awaited()
+
+
+def test_speech_live_status_free_not_entitled():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="free")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["enabled"] is True
+    assert body["entitled"] is False
+    assert body["remaining"] == 0
+    assert body["limit"] == 0
+
+
+def test_speech_live_status_pro_remaining():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="pro")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["entitled"] is True
+    assert body["remaining"] == 30
+    assert body["limit"] == 30
+
+
+def test_speech_live_turn_requires_pro():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="free")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 403
+    assert "Pro" in r.json()["detail"]
+
+
+def test_speech_live_turn_pro_ok_then_cap():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user(plan="pro")
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_live_talk_pro=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        ok = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+        capped = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+    assert ok.status_code == 200
+    assert ok.json()["remaining"] == 0
+    assert capped.status_code == 429
+
+
+def test_speech_live_refund_pending_slot():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="pro")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        turn = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+        refund = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
+        again = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
+    assert turn.status_code == 200
+    assert refund.status_code == 200
+    assert refund.json()["refunded"] is True
+    assert refund.json()["remaining"] == 30
+    assert again.json()["refunded"] is False
+
+
+def test_speech_live_commit_blocks_refund():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="pro")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        turn = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+        commit = client.post("/speech/live/commit", headers={"Authorization": "Bearer tok"})
+        refund = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
+    assert turn.status_code == 200
+    assert commit.status_code == 200
+    assert refund.json()["refunded"] is False
+    assert refund.json()["remaining"] == 29
+
+
+def test_speech_live_speak_requires_pro():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="free")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+        r = client.post(
+            "/speech/live/speak",
+            headers={"Authorization": "Bearer tok"},
+            json={"audio_base64": "YWJj", "filename": "speech.m4a"},
+        )
+    assert r.status_code == 403
+
+
+def test_speech_live_speak_pro_returns_audio():
+    import base64
+
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="pro")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    wav = b"RIFF" + b"\x00" * 12
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.speech_to_speech",
+            AsyncMock(return_value=(wav, "audio/wav", "Hello")),
+        ),
+    ):
+        r = client.post(
+            "/speech/live/speak",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "audio_base64": base64.b64encode(b"abc").decode("ascii"),
+                "filename": "speech.m4a",
+            },
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["transcript"] == "Hello"
+    assert body["content_type"] == "audio/wav"
+    assert body["remaining"] == 29
+    assert base64.b64decode(body["audio_base64"]) == wav
+
+
+def test_speech_live_disabled():
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user(plan="pro")
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(speech_live_talk_enabled=False)
+    client = TestClient(app)
+    r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    assert r.json()["enabled"] is False
+    denied = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+    assert denied.status_code == 404

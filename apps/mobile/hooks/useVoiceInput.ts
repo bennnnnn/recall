@@ -8,15 +8,27 @@ import {
   requestVoicePermission,
   startVoiceRecording,
   type VoiceRecorder,
+  type VoiceRecordingFormat,
 } from "@/lib/voiceAudio";
+
+type TranscribeFail = "empty" | "network" | "failed";
 
 type Options = {
   token: string | null;
   onTranscript: (text: string) => void;
   t: (key: string) => string;
+  recordingFormat?: VoiceRecordingFormat;
+  /** When set, skip default alerts so the caller can refund / show live-talk copy. */
+  onTranscribeError?: (reason: TranscribeFail) => void;
 };
 
-export function useVoiceInput({ token, onTranscript, t }: Options) {
+export function useVoiceInput({
+  token,
+  onTranscript,
+  t,
+  recordingFormat = "aac",
+  onTranscribeError,
+}: Options) {
   const recordingRef = useRef<VoiceRecorder | null>(null);
   const meterUnsubRef = useRef<(() => void) | null>(null);
   const [recording, setRecording] = useState(false);
@@ -47,60 +59,77 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     }
   }, []);
 
-  const startRecording = useCallback(async () => {
-    if (!token || recording || transcribing) return;
+  const startRecording = useCallback(async (): Promise<boolean> => {
+    if (!token || recording || transcribing) return false;
     try {
       const mod = loadExpoAudio();
       if (!mod) {
         showUnavailable();
-        return;
+        return false;
       }
       const permission = await requestVoicePermission(mod);
       if (!permission.granted) {
         Alert.alert(t("chat.voice_permission_title"), t("chat.voice_permission_body"));
-        return;
+        return false;
       }
-      const next = await startVoiceRecording();
+      const next = await startVoiceRecording(recordingFormat);
       if (!next) {
         showUnavailable();
-        return;
+        return false;
       }
       recordingRef.current = next;
       meterUnsubRef.current?.();
       meterUnsubRef.current = next.subscribeMetering((level) => setMeterLevel(level));
       setRecording(true);
+      return true;
     } catch {
       Alert.alert(t("common.error"), t("chat.voice_start_failed"));
+      return false;
     }
-  }, [token, recording, transcribing, t, showUnavailable]);
+  }, [token, recording, transcribing, t, showUnavailable, recordingFormat]);
 
-  const finishRecording = useCallback(async () => {
-    if (!token) return;
+  const finishRecording = useCallback(async (): Promise<string | null> => {
+    if (!token) return null;
     setTranscribing(true);
     const uri = await stopRecording();
     if (!uri) {
       setTranscribing(false);
-      Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
-      return;
+      onTranscribeError?.("empty");
+      if (!onTranscribeError) {
+        Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
+      }
+      return null;
     }
     try {
       const text = await transcribeSpeech(token, uri);
       onTranscript(text);
+      return text;
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (/network request failed|failed to fetch|timeout/i.test(message)) {
-        Alert.alert(t("common.error"), t("chat.voice_network_failed"));
-      } else if (message.includes("recording_empty")) {
-        Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
-      } else if (message.includes("transcribe_empty")) {
-        Alert.alert(t("common.error"), t("chat.voice_transcribe_empty"));
-      } else {
-        Alert.alert(t("common.error"), t("chat.voice_transcribe_failed"));
+      const reason: TranscribeFail = /network request failed|failed to fetch|timeout/i.test(
+        message,
+      )
+        ? "network"
+        : message.includes("recording_empty") || message.includes("transcribe_empty")
+          ? "empty"
+          : "failed";
+      onTranscribeError?.(reason);
+      if (!onTranscribeError) {
+        if (reason === "network") {
+          Alert.alert(t("common.error"), t("chat.voice_network_failed"));
+        } else if (message.includes("recording_empty")) {
+          Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
+        } else if (message.includes("transcribe_empty")) {
+          Alert.alert(t("common.error"), t("chat.voice_transcribe_empty"));
+        } else {
+          Alert.alert(t("common.error"), t("chat.voice_transcribe_failed"));
+        }
       }
+      return null;
     } finally {
       setTranscribing(false);
     }
-  }, [token, stopRecording, onTranscript, t]);
+  }, [token, stopRecording, onTranscript, onTranscribeError, t]);
 
   const toggleRecording = useCallback(async () => {
     if (transcribing) return;
@@ -140,5 +169,8 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     voiceTranscribing: transcribing,
     voiceMeterLevel: meterLevel,
     toggleVoiceInput: toggleRecording,
+    startRecording,
+    finishRecording,
+    cancelRecording: stopRecording,
   };
 }

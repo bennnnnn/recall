@@ -16,6 +16,7 @@ import {
   isVoiceInputAvailable,
   loadExpoAudio,
   normalizeRecordingUri,
+  recordingOptionsForFormat,
   speechUploadFromUri,
 } from "@/lib/voiceAudio";
 
@@ -53,5 +54,25 @@ describe("voiceAudio", () => {
       name: "recording.m4a",
       type: "audio/m4a",
     });
+    expect(speechUploadFromUri("file:///cache/speech.wav")).toEqual({
+      uri: "file:///cache/speech.wav",
+      name: "speech.wav",
+      type: "audio/wav",
+    });
+  });
+
+  it("uses linear PCM wav options for live talk", () => {
+    const options = recordingOptionsForFormat(
+      {
+        extension: ".m4a",
+        ios: { outputFormat: "aac " },
+        android: { outputFormat: "mpeg4", audioEncoder: "aac" },
+      },
+      "wav",
+    );
+    expect(options.extension).toBe(".wav");
+    expect(options.ios?.outputFormat).toBe("lpcm");
+    expect(options.android?.extension).toBe(".wav");
+    expect(recordingOptionsForFormat({ extension: ".m4a" }, "aac").extension).toBe(".m4a");
   });
 });

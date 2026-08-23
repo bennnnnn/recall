@@ -1,11 +1,8 @@
 /**
- * App theme — one palette via `useTheme()`. Strategy mirrors successful chat
- * apps (iMessage / WhatsApp chrome + modern AI products):
- *  - `primary` — one vivid action blue for buttons, links, send, selection
+ * App theme — one palette via `useTheme()`. Chat canvas follows ChatGPT
+ * mobile: light gray page, white cards, mint user chip.
+ *  - `primary` — Recall action blue for buttons, links, send, selection
  *  - `accent` — teal reserved for AI-in-progress (typing/streaming/reasoning)
- *    so it never competes with interactive blue
- *  - Soft blue `userBubble` — branded without forcing white-on-blue markdown
- *  - Neutral canvas/surfaces — hierarchy without color noise
  * Do not hardcode hex in components — add a token here instead.
  */
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
@@ -24,7 +21,7 @@ export type Theme = {
   accentLight: string;
   accentDark: string;
 
-  // Surfaces — `bg` is the canvas wash; `surface` / `inputBg` are raised planes
+  // Surfaces — `bg` is the chat page; `surface` / `inputBg` are raised planes
   bg: string;
   surface: string;
   surfaceAlt: string;
@@ -99,27 +96,27 @@ export const lightTheme: Theme = {
   accentLight: "#CCFBF1",
   accentDark: "#0F766E",
 
-  // iOS grouped-background hierarchy
-  bg: "#F2F2F7",
+  // ChatGPT mobile: gray page, white raised cards
+  bg: "#F7F7F7",
   surface: "#FFFFFF",
-  surfaceAlt: "#E5E5EA",
-  border: "#D1D1D6",
+  surfaceAlt: "#F0F0F0",
+  border: "#E5E5E5",
 
-  text: "#1C1C1E",
-  textSecondary: "#636366",
-  textTertiary: "#6E6E73",
+  text: "#0D0D0D",
+  textSecondary: "#5D5D5D",
+  textTertiary: "#8F8F8F",
 
-  // Soft brand wash — stands out vs gray assistant without white-on-blue markdown
-  userBubble: "#D6EBFF",
-  userText: "#1C1C1E",
-  assistantBubble: "#FFFFFF",
-  assistantText: "#1C1C1E",
+  // ChatGPT mobile user chip — mint on gray; assistant prose sits on the page
+  userBubble: "#E8F5E9",
+  userText: "#0D0D0D",
+  assistantBubble: "#F7F7F7",
+  assistantText: "#0D0D0D",
 
-  composerBg: "#F2F2F7",
-  composerBorder: "#D1D1D6",
+  composerBg: "#F7F7F7",
+  composerBorder: "#E5E5E5",
   inputBg: "#FFFFFF",
 
-  contentSurface: "#EFEFF4",
+  contentSurface: "#FFFFFF",
 
   danger: "#FF3B30",
   dangerLight: "#FFE5E3",
@@ -128,9 +125,9 @@ export const lightTheme: Theme = {
   successLight: "#D8F5E1",
   onPrimary: "#FFFFFF",
 
-  codeBg: "#F2F2F7",
-  codeText: "#1C1C1E",
-  codeLang: "#6E6E73",
+  codeBg: "#F0F0F0",
+  codeText: "#0D0D0D",
+  codeLang: "#8F8F8F",
 
   scrim: "rgba(0,0,0,0.40)",
 
@@ -152,25 +149,25 @@ export const darkTheme: Theme = {
   accentLight: "#0F2F2C",
   accentDark: "#5EEAD4",
 
-  bg: "#000000",
-  surface: "#1C1C1E",
-  surfaceAlt: "#2C2C2E",
-  border: "#38383A",
+  bg: "#212121",
+  surface: "#2F2F2F",
+  surfaceAlt: "#2F2F2F",
+  border: "#3E3E3E",
 
-  text: "#F5F5F7",
-  textSecondary: "#A1A1A6",
-  textTertiary: "#8E8E93",
+  text: "#ECECEC",
+  textSecondary: "#B4B4B4",
+  textTertiary: "#8F8F8F",
 
-  userBubble: "#0A335C",
-  userText: "#F5F5F7",
-  assistantBubble: "#1C1C1E",
-  assistantText: "#F5F5F7",
+  userBubble: "#2F2F2F",
+  userText: "#ECECEC",
+  assistantBubble: "#212121",
+  assistantText: "#ECECEC",
 
-  composerBg: "#000000",
-  composerBorder: "#38383A",
-  inputBg: "#1C1C1E",
+  composerBg: "#212121",
+  composerBorder: "#3E3E3E",
+  inputBg: "#2F2F2F",
 
-  contentSurface: "#1C1C1E",
+  contentSurface: "#2F2F2F",
 
   danger: "#FF453A",
   dangerLight: "#3B1513",

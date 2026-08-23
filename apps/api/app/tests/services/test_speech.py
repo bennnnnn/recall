@@ -6,6 +6,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.speech_gateway import (
+    live_talk_chat_payload,
+    openai_input_audio_format,
     openrouter_audio_format,
     pcm_to_wav,
     stream_pcm_via_openrouter,
@@ -58,6 +60,31 @@ def test_openrouter_audio_format_from_filename():
     assert openrouter_audio_format("speech.m4a") == "m4a"
     assert openrouter_audio_format("clip.wav") == "wav"
     assert openrouter_audio_format("clip.mp4") == "m4a"
+
+
+def test_openai_input_audio_format_sniffs_wav_not_m4a():
+    wav = pcm_to_wav(b"\x00\x00" * 16)
+    assert openai_input_audio_format("speech.m4a", wav) == "wav"
+    assert openai_input_audio_format("speech.mp3", b"ID3" + b"\x00" * 8) == "mp3"
+    assert openai_input_audio_format("speech.m4a", b"\x00\x00ftyp") is None
+
+
+def test_live_talk_chat_payload_streams_pcm16():
+    wav = pcm_to_wav(b"\x00\x00" * 16)
+    payload = live_talk_chat_payload(wav, filename="speech.wav", model="openai/gpt-audio-mini")
+    assert payload is not None
+    assert payload["stream"] is True
+    assert payload["audio"] == {"voice": "alloy", "format": "pcm16"}
+    user = payload["messages"][1]
+    assert isinstance(user, dict)
+    content = user["content"]
+    assert isinstance(content, list)
+    part = content[0]
+    assert isinstance(part, dict)
+    input_audio = part["input_audio"]
+    assert isinstance(input_audio, dict)
+    assert input_audio["format"] == "wav"
+    assert live_talk_chat_payload(b"not-audio", filename="speech.m4a", model="x") is None
 
 
 @pytest.mark.asyncio
@@ -349,3 +376,38 @@ async def test_iter_tts_pcm_yields_lead_before_rest_finishes():
     assert chunks == [b"LEAD", b"REST"]
     assert order.index("yielded-lead") < order.index("rest-done")
     assert "rest-start" in order
+
+
+def test_parse_audio_sse_delta_reads_stream_chunks():
+    from app.gateways.speech_gateway import parse_audio_sse_delta
+
+    audio, text = parse_audio_sse_delta(
+        {"choices": [{"delta": {"audio": {"data": "YWJj", "transcript": "Hi"}}}]}
+    )
+    assert audio == "YWJj"
+    assert text == "Hi"
+
+
+def test_decode_joined_audio_b64():
+    from app.gateways.speech_gateway import decode_joined_audio_b64
+
+    raw = decode_joined_audio_b64(["aGVs", "bG8="])
+    assert raw == b"hello"
+
+
+@pytest.mark.asyncio
+async def test_speech_to_speech_mock_without_key():
+    from app.services.speech import speech_to_speech
+
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        speech_live_talk_enabled=True,
+    )
+    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+        result = await speech_to_speech(settings, b"fake-audio")
+    assert result is not None
+    audio, content_type, transcript = result
+    assert content_type == "audio/wav"
+    assert audio[:4] == b"RIFF"
+    assert transcript.startswith("This is a mock")

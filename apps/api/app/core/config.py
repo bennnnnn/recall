@@ -178,6 +178,13 @@ class Settings(BaseSettings):
     speech_tts_voice: str = ""
     daily_speech_tts: int = 20
     daily_speech_tts_pro: int = 100
+    # Turn-taking live voice: OpenAI GPT Audio speech-to-speech (not Whisper).
+    # Free limit 0 = Pro-only; Pro still has a daily turn cap.
+    speech_live_talk_enabled: bool = True
+    # Operator override (raw OpenRouter slug). Empty → catalog `live-talk-model`.
+    speech_live_talk_model: str = ""
+    daily_live_talk: int = 0
+    daily_live_talk_pro: int = 30
 
     image_generation_enabled: bool = True
     # Operator override (raw OpenRouter slug); empty → catalog alias

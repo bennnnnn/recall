@@ -87,6 +87,45 @@ describe("markdown render rules", () => {
     });
   });
 
+  it("turns literal <br> in a table cell into a line break", async () => {
+    const md = [
+      "| Feature | Ethiopia | Kenya |",
+      "| --- | --- | --- |",
+      "| Famous For | Lucy fossils**<br>**Coffee | Safari<br>Runners |",
+    ].join("\n");
+    const { queryByText, getByText } = await render(
+      <MarkdownContent content={md} />,
+    );
+    expect(queryByText(/<br/i)).toBeNull();
+    expect(getByText(/Lucy fossils/)).toBeOnTheScreen();
+    expect(getByText(/Coffee/)).toBeOnTheScreen();
+  });
+
+  it("does not paint a fill that differs from the chat background", async () => {
+    const md = [
+      "| Feature | Ethiopia | Kenya |",
+      "| --- | --- | --- |",
+      "| Capital | Addis Ababa | Nairobi |",
+    ].join("\n");
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    const fills = new Set<string>();
+    const painted = [lightTheme.surface, lightTheme.surfaceAlt];
+    for (const label of ["Feature", "Addis Ababa"]) {
+      let node: { parent?: unknown; props?: { style?: unknown } } | undefined =
+        getByText(label);
+      while (node) {
+        const flat = StyleSheet.flatten(node.props?.style);
+        if (typeof flat?.backgroundColor === "string") {
+          fills.add(flat.backgroundColor);
+        }
+        node = node.parent as typeof node;
+      }
+    }
+    for (const color of painted) {
+      expect(fills.has(color)).toBe(false);
+    }
+  });
+
   it("drops a stranded trailing colon after a nested-View math formula", async () => {
     // A line ending in "$...$:" with a sqrt (nested View) used to strand the
     // trailing ":" onto its own line ("random two dots" between the rule and

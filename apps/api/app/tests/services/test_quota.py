@@ -353,6 +353,53 @@ async def test_refund_image_generation(fake_redis):
     assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
 
 
+def test_live_talk_limit_for_user():
+    settings = Settings(daily_live_talk=0, daily_live_talk_pro=30)
+    assert quota_service.live_talk_limit_for_user(_free_user(), settings) == 0
+    assert quota_service.live_talk_limit_for_user(_pro_user(), settings) == 30
+
+
+@pytest.mark.asyncio
+async def test_reserve_live_talk_blocks_free_plan(fake_redis):
+    from uuid import uuid4
+
+    settings = Settings(daily_live_talk=0, daily_live_talk_pro=30)
+    user_id = uuid4()
+    assert (
+        await quota_service.reserve_live_talk(
+            fake_redis,
+            user_id,
+            limit=quota_service.live_talk_limit_for_user(_free_user(), settings),
+        )
+        is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_reserve_live_talk_enforces_pro_limit(fake_redis):
+    from uuid import uuid4
+
+    settings = Settings(daily_live_talk_pro=2)
+    user_id = uuid4()
+    limit = quota_service.live_talk_limit_for_user(_pro_user(), settings)
+    for _ in range(limit):
+        assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit) is True
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit) is False
+
+
+@pytest.mark.asyncio
+async def test_refund_live_talk_if_pending(fake_redis):
+    from uuid import uuid4
+
+    settings = Settings(daily_live_talk_pro=5)
+    user_id = uuid4()
+    limit = quota_service.live_talk_limit_for_user(_pro_user(), settings)
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit)
+    assert await quota_service.refund_live_talk_if_pending(fake_redis, user_id) is True
+    assert await quota_service.refund_live_talk_if_pending(fake_redis, user_id) is False
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit)
+
+
 @pytest.mark.asyncio
 async def test_global_spend_unlimited_when_limit_zero(fake_redis):
     settings = Settings(daily_global_spend_usd=0)

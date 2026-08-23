@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import io
+import json
 import logging
 import wave
 from collections.abc import AsyncIterator
@@ -16,11 +18,22 @@ logger = logging.getLogger(__name__)
 
 _OPENROUTER_TRANSCRIBE_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
 _OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
+_OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
 _TRANSCRIBE_TIMEOUT = 60.0
 _TTS_TIMEOUT = 60.0
+_AUDIO_CHAT_TIMEOUT = 90.0
+_LIVE_TALK_VOICE = "alloy"
+# OpenAI gpt-audio-* streaming only accepts pcm16 (24 kHz, 16-bit, mono).
+_LIVE_TALK_STREAM_FORMAT = "pcm16"
+_OPENAI_INPUT_AUDIO_FORMATS = frozenset({"wav", "mp3"})
 _DEFAULT_PCM_RATE = 24000
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
+_MPEG_SYNC = frozenset({0xFB, 0xF3, 0xF2, 0xFA})
+_LIVE_TALK_INSTRUCTIONS = (
+    "You are Recall, a personal voice assistant. Reply in a natural spoken voice. "
+    "Keep answers short unless the user asks for more. No markdown or lists."
+)
 
 _OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".m4a": "m4a",
@@ -37,6 +50,52 @@ _OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
 def openrouter_audio_format(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
     return _OPENROUTER_FORMAT_BY_SUFFIX.get(suffix, suffix.lstrip(".") or "m4a")
+
+
+def openai_input_audio_format(filename: str, audio_bytes: bytes) -> str | None:
+    """OpenAI chat audio input accepts wav and mp3 only — not m4a/caf."""
+    if len(audio_bytes) >= 12 and audio_bytes[:4] == b"RIFF" and audio_bytes[8:12] == b"WAVE":
+        return "wav"
+    if audio_bytes[:3] == b"ID3":
+        return "mp3"
+    if len(audio_bytes) >= 2 and audio_bytes[0] == 0xFF and audio_bytes[1] in _MPEG_SYNC:
+        return "mp3"
+    suffix = openrouter_audio_format(filename)
+    if suffix in _OPENAI_INPUT_AUDIO_FORMATS:
+        return suffix
+    return None
+
+
+def live_talk_chat_payload(
+    audio_bytes: bytes,
+    *,
+    filename: str,
+    model: str,
+) -> dict[str, object] | None:
+    audio_format = openai_input_audio_format(filename, audio_bytes)
+    if audio_format is None:
+        return None
+    return {
+        "model": model,
+        "stream": True,
+        "modalities": ["text", "audio"],
+        "audio": {"voice": _LIVE_TALK_VOICE, "format": _LIVE_TALK_STREAM_FORMAT},
+        "messages": [
+            {"role": "system", "content": _LIVE_TALK_INSTRUCTIONS},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_audio",
+                        "input_audio": {
+                            "data": base64.b64encode(audio_bytes).decode("ascii"),
+                            "format": audio_format,
+                        },
+                    }
+                ],
+            },
+        ],
+    }
 
 
 def tts_response_format(model: str) -> str:
@@ -262,3 +321,126 @@ async def stream_pcm_via_openrouter(
     except Exception:
         logger.exception("Speech TTS stream failed model=%s chars=%s", model, len(text))
         return
+
+
+def parse_audio_sse_delta(payload: dict[str, object]) -> tuple[str, str]:
+    """Pull audio b64 + transcript fragments from one chat-completion SSE object."""
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return "", ""
+    first = choices[0]
+    if not isinstance(first, dict):
+        return "", ""
+    delta = first.get("delta")
+    if not isinstance(delta, dict):
+        delta = first.get("message")
+    if not isinstance(delta, dict):
+        return "", ""
+    audio = delta.get("audio")
+    if not isinstance(audio, dict):
+        return "", ""
+    data = audio.get("data")
+    transcript = audio.get("transcript")
+    return (
+        data if isinstance(data, str) else "",
+        transcript if isinstance(transcript, str) else "",
+    )
+
+
+def decode_joined_audio_b64(fragments: list[str]) -> bytes:
+    if not fragments:
+        return b""
+    joined = "".join(fragments)
+    try:
+        return base64.b64decode(joined, validate=False)
+    except (binascii.Error, ValueError):
+        chunks: list[bytes] = []
+        for part in fragments:
+            try:
+                decoded = base64.b64decode(part, validate=False)
+            except (binascii.Error, ValueError):
+                continue
+            if decoded:
+                chunks.append(decoded)
+        return b"".join(chunks)
+
+
+async def speech_to_speech_via_openrouter(
+    settings: Settings,
+    audio_bytes: bytes,
+    *,
+    filename: str,
+    model: str,
+) -> tuple[bytes, str, str] | None:
+    """Audio in → spoken audio out via an OpenRouter audio chat model. Not Whisper."""
+    payload = live_talk_chat_payload(audio_bytes, filename=filename, model=model)
+    if payload is None:
+        logger.warning(
+            "Live talk input format unsupported filename=%s size=%s magic=%s",
+            filename,
+            len(audio_bytes),
+            audio_bytes[:8].hex(),
+        )
+        return None
+    audio_parts: list[str] = []
+    transcript_parts: list[str] = []
+    try:
+        client = get_pooled_client(_AUDIO_CHAT_TIMEOUT)
+        async with client.stream(
+            "POST",
+            _OPENROUTER_CHAT_URL,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        ) as response:
+            if response.status_code >= 400:
+                error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
+                logger.warning(
+                    "OpenRouter speech-to-speech failed model=%s status=%s body=%s",
+                    model,
+                    response.status_code,
+                    error_body,
+                )
+                return None
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data or data == "[DONE]":
+                    continue
+                try:
+                    parsed = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                stream_error = parsed.get("error")
+                if stream_error:
+                    logger.warning(
+                        "OpenRouter speech-to-speech stream error model=%s body=%s",
+                        model,
+                        str(stream_error)[:500],
+                    )
+                    return None
+                audio_b64, transcript = parse_audio_sse_delta(parsed)
+                if audio_b64:
+                    audio_parts.append(audio_b64)
+                if transcript:
+                    transcript_parts.append(transcript)
+    except Exception:
+        logger.exception("Speech-to-speech failed model=%s size=%s", model, len(audio_bytes))
+        return None
+
+    raw = decode_joined_audio_b64(audio_parts)
+    if not raw:
+        logger.warning(
+            "OpenRouter speech-to-speech returned no audio model=%s transcript_chars=%s",
+            model,
+            len("".join(transcript_parts)),
+        )
+        return None
+    if raw[:4] != b"RIFF":
+        raw = pcm_to_wav(raw)
+    return raw, "audio/wav", "".join(transcript_parts).strip()

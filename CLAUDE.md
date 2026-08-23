@@ -45,7 +45,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Owned tool loop, on by default:** `gateways/mcp/` (sympy, calendar, image-gen, web-search) plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
-**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; duplex full-voice; arbitrary user MCP servers. A **web client sharing this same API** is planned later. Attachment RAG is shipped.
+**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. A **web client sharing this same API** is planned later. Attachment RAG is shipped. Live talk speech-to-speech (Pro + daily cap) is shipped.
 
 ## Architecture
 
@@ -121,7 +121,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Attachments + RAG | `routers/attachments.py`, `attachment_*.py`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
 | Image gen (Pro) | `routers/images.py`, `image_generation.py`, `image_gen_intent.py` | composer send only (no prompt sheet) |
-| Speech STT/TTS | `routers/speech.py`, `services/speech.py` | `useVoiceInput`, message speaker |
+| Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `math_tools/`, `math_service/`, `math_fence.py`, `sympy_executor.py` | `MathText` / `MathView` / `geometry` / `graph` |
 | Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `email.py` | `settings/integrations.tsx` |

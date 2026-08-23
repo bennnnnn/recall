@@ -12,6 +12,7 @@ import { type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
+import { LiveTalkOverlay } from "@/components/chat/LiveTalkOverlay";
 import { makeChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import {
   COMPOSER_HEIGHT,
@@ -36,6 +37,7 @@ import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoa
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useLiveTalk } from "@/hooks/useLiveTalk";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
@@ -334,6 +336,13 @@ function ChatScreen() {
     t,
   });
 
+  const liveTalk = useLiveTalk({
+    token,
+    isOffline,
+    onUpgrade: () => openUpgradeRef.current?.(),
+    t,
+  });
+
   closeAttachSheetRef.current = () => setAttachSheetOpen(false);
 
   const closeAttachSheet = useCallback(() => {
@@ -544,6 +553,7 @@ function ChatScreen() {
       voiceTranscribing,
       voiceMeterLevel,
       toggleVoiceInput,
+      onLiveTalkPress: liveTalk.open,
     },
   });
   openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
@@ -554,6 +564,14 @@ function ChatScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ChatScreenBody {...chatScreenBodyProps} />
+      <LiveTalkOverlay
+        visible={liveTalk.visible}
+        phase={liveTalk.phase}
+        meterLevel={liveTalk.meterLevel}
+        recording={liveTalk.recording}
+        onClose={liveTalk.close}
+        onToggle={() => void liveTalk.toggle()}
+      />
 
       <ChatScreenMenuSheets
         menuVisible={menuVisible}

@@ -31,6 +31,7 @@ KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
         "speech-stt-model",
         "speech-tts-model",
         "speech-tts-fast-model",
+        "live-talk-model",
     }
 )
 
