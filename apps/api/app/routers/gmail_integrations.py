@@ -129,9 +129,7 @@ async def add_suggested_reminder(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> TodoOut:
-    todo, error = await email_service.add_suggested_reminder(
-        session, settings, user.id, reminder_id
-    )
+    todo, error = await email_service.add_suggested_reminder(session, settings, user, reminder_id)
     if todo is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
