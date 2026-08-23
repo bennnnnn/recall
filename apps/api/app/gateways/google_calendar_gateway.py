@@ -202,11 +202,16 @@ async def list_upcoming_events(
     if not is_configured(settings):
         return CalendarFetchResult(events=[])
 
-    tz = timezone or "UTC"
+    tz = _safe_zoneinfo(timezone)
     access = await _access_token(settings, refresh_token)
-    now = datetime.now(UTC)
-    time_min = now.isoformat().replace("+00:00", "Z")
-    time_max = (now + timedelta(days=max(1, days))).isoformat().replace("+00:00", "Z")
+    now_local = datetime.now(tz)
+    day_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    time_min = day_start.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    time_max = (
+        (now_local.astimezone(UTC) + timedelta(days=max(1, days)))
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     headers = {"Authorization": f"Bearer {access}"}
     per_calendar_max = max(20, min(100, days * 2))
 
@@ -240,7 +245,7 @@ async def list_upcoming_events(
                     calendar_name=cal_name,
                     time_min=time_min,
                     time_max=time_max,
-                    timezone=tz,
+                    timezone=str(tz),
                     max_results=per_calendar_max,
                 )
 
