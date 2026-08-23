@@ -3,12 +3,14 @@ import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useTodosOptional } from "@/contexts/TodosContext";
 import { api, type SuggestedReminder } from "@/lib/api";
 import {
   fetchSuggestedReminders,
   getCachedSuggestedReminders,
   removeSuggestedReminderFromCache,
 } from "@/lib/cache/suggestedRemindersCache";
+import { syncTodoReminders } from "@/lib/todos/todoReminders";
 
 export function useSuggestedReminders(
   token: string | null,
@@ -16,6 +18,7 @@ export function useSuggestedReminders(
 ) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
+  const todosCtx = useTodosOptional();
   const [reminders, setReminders] = useState<SuggestedReminder[]>(
     () => getCachedSuggestedReminders()?.reminders.slice(0, 3) ?? [],
   );
@@ -42,8 +45,16 @@ export function useSuggestedReminders(
     busyRef.current = id;
     setBusyId(id);
     try {
-      if (action === "add") await api.addSuggestedReminder(token, id);
-      else await api.dismissSuggestedReminder(token, id);
+      if (action === "add") {
+        const created = await api.addSuggestedReminder(token, id);
+        if (todosCtx) {
+          const next = [created, ...todosCtx.todos.filter((item) => item.id !== created.id)];
+          todosCtx.setTodos(next);
+          void syncTodoReminders(next);
+        }
+      } else {
+        await api.dismissSuggestedReminder(token, id);
+      }
       removeSuggestedReminderFromCache(id);
       setReminders((current) => current.filter((reminder) => reminder.id !== id));
       if (action === "add") callbacks?.onAdded?.();
