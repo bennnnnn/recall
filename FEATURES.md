@@ -48,9 +48,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Gallery** — drawer **Gallery** → paginated grid of the user’s verified attachments
   (generated images, uploaded images, and files). Tabs: All / Generated / Uploaded / Files.
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
-  body** (user caption for uploads; for generated images that body is the assistant
-  `[Image: …]` marker, **not** the draw prompt). Tap an image to view, with **Open chat**
-  when the attachment is still linked; tap a file to share (no in-gallery preview).
+  body**. For generated images that includes the **previous user message** (the draw
+  prompt) and the prompt stored on `original_filename`, not only the assistant
+  `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
+  still linked; tap a file to share (no in-gallery preview).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
@@ -172,11 +173,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.
-- ✅ **Attachment RAG** — chunk + embed PDF/doc text (text-layer, or scanned-PDF OCR on
-  the **prepare** path and again in the index job) into pgvector; retrieve top chunks
-  into the system prompt on **later turns in the same chat** (`chat_id` on chunks — not
-  a user-wide corpus). First turn uses the inline excerpt. Invalidated on attachment
-  delete. Flag: `attachment_rag_enabled` (default on).
+- ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
+  into the system prompt on **later turns in the same chat** (`chat_id` on chunks — **not**
+  a user-wide file library). Prepare uses the **text layer only**; scanned-PDF vision OCR
+  runs on the **index job**, not the pre-stream path. First turn uses the inline
+  text-layer excerpt. Invalidated on attachment delete. Flag: `attachment_rag_enabled`
+  (default on).
 - ✅ **Chat-history semantic RAG** — background `message_index` embeds past turns into
   `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
   window. Golden Rule 3 still holds — never the full transcript. First index also
@@ -319,7 +321,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time; resyncs on
   login, foreground, and todo changes; tap opens **Reminders** (`/todos?focus=reminders`).
-  Lead time configurable (5 / 10 / 15 / 30 / **60 min** before due).
+  Lead time configurable (5 / 10 / 15 / 30 / **60 min** before due). A server todo-due
+  push cancels the matching local scheduled alert so both do not fire.
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
@@ -348,8 +351,10 @@ Mobile → Recall API → MCP / calendar gateway → Google Calendar
 - ✅ **Google Calendar OAuth** — separate opt-in from sign-in; scope `calendar.readonly`; refresh
   token stored server-side only.
 - ✅ **`user_calendar_connections` table** — refresh token, granted scopes, primary calendar id.
-- ✅ **`services/calendar.py`** — fetch events for a window (**now** → +60 days; prompt
-  inject uses 14 days); Redis cache (~5 min) so every chat turn doesn't hit Google.
+- ✅ **`services/calendar.py`** — fetch events for a window (**local midnight** → +60
+  days, not `timeMin=now`); prompt inject uses 14 days; Redis cache (~5 min) so every
+  chat turn doesn't hit Google. Morning meetings stay on the Reminders day view after
+  they end.
 - ✅ **Prompt injection** — compact calendar block next to todos/memory (title, start/end, optional
   location; minimal PII).
 - ✅ **Settings UI** — Connect / disconnect Google Calendar; shows connected email.
@@ -377,15 +382,16 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   USPS / DHL / OpenTable / Resy / Tock / Calendly) extract without the LLM when
   the subject looks like a delivery, reservation, or appointment. Suggestions
   store `source_sender`. Pending items inject into regular chat turns (not only
-  inbox questions) and the composer chip refreshes on focus. Flights stay a
-  later item.
+  inbox questions) and the composer chip refreshes on focus. Confirming from the
+  chip syncs local due notifications. Flights stay a later item.
 - 🔜 **Flight confirmations** — extract airline + flight number + departure into the
   suggested reminder (not a free-text “flight” title only). Live delay/cancel status is
   a later flight-API step, not inbox guessing.
 
 **Privacy & UX** (unchanged intent)
-- Clear copy: what is read, how long it is kept; disconnect stops Recall use (shared
-  Calendar/Gmail refresh token may skip Google revoke until the other product is disconnected)
+- Clear copy: what is read, how long it is kept. Disconnecting Calendar or Gmail
+  **revokes the Google grant** (they often share one refresh token) and **disconnects
+  the sibling product**. Reconnect the remaining product to grant only its scopes.
 - Minimal retention; user confirms every suggestion in v1
 
 **Out of scope for v1** (unchanged)
@@ -400,9 +406,10 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   adapters once before streaming (legacy; skipped when the tool loop is on).
 - ✅ **Full tool-calling loop** — **on by default.** Model-initiated LiteLLM `tools=` rounds
   (`web_search` / `sympy` / `calendar` / `image_gen`) with Pydantic-validated args, bounded by
-  `mcp_tool_loop_max_rounds`. The **calendar** adapter is a **conflict helper on
-  caller-supplied events** — it does not list or create Google Calendar events. Create
-  stays the `calendar_proposal` fence + confirm card. Heuristic SymPy + web-search inject
+  `mcp_tool_loop_max_rounds`. The **calendar** adapter **conflict-checks Google Calendar**
+  (`fetch_upcoming_events`, same as Reminders/chat) and may merge caller-supplied stubs
+  (proposed times). It does **not** create Google events — create stays the
+  `calendar_proposal` fence + confirm card. Heuristic SymPy + web-search inject
   still run so homework and first-turn search do not wait on a tool call. Legacy
   `mcp_tools_enabled` stays off.
 - ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
@@ -419,8 +426,8 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 
 ### Privacy & UX
 - Opt-in connect; disconnecting deletes Recall’s connection row and stops injection.
-  If Calendar and Gmail share a refresh token, Google revoke is skipped until the
-  remaining product is disconnected (grant may stay at Google until then).
+  If Calendar and Gmail share a refresh token, disconnect **revokes at Google** and
+  **drops the sibling product** so it must reconnect with only its scopes.
 - Minimal event data in prompts; no full attendee lists unless the user asks.
 - v1 non-goals: arbitrary user-configured MCP servers, syncing every on-device calendar locally,
   running MCP on the phone.
@@ -466,9 +473,11 @@ were removed. Programming help lives in main chat.
 - ❌ **Typed answers / hidden `vocab_quiz` lesson path** — not the shipped study UX.
   Lesson play is client-side catalog MCQ; do not treat chat `vocab_quiz` fences as the
   lesson product.
-- ❌ **Review queue / Settings deck browse** — SM-2 `due_at` is written, but mastered
+- ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
+  (`ease_factor`, `interval_days`, `due_at`) are written on status changes, but mastered
   words do not re-enter a map queue (`due_for_review` only counts `status=learning`).
-  Settings has PDF export, not a deck browser. `buildProjectReviewPrompt` is unused.
+  There is no due-queue screen. Settings has PDF export, not a deck browser.
+  `buildProjectReviewPrompt` is unused.
 - ⚠️ **Adaptive level hints** — computed server-side; Settings does not surface them.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).
@@ -517,7 +526,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
   defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar).
 - ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs **in that chat**
-  (`chat_id`); top-k into later turns. OCR can run on prepare as well as the index job.
+  (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
+  Text-layer extract on prepare; vision OCR on the index job only.
 - ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision → SymPy → LaTeX/steps.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
@@ -548,10 +558,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
-- ✅ **Scanned-PDF OCR** — text-layer `pypdf` first; empty PDFs render pages (`pypdfium2`)
-  and transcribe via `vision-chat`, then the same excerpt + attachment RAG path. OCR can
-  run on **turn prepare** as well as the index job (TTFT cost). Cap + timeout in
-  `attachment_ocr_*`. Not a second extract pipeline.
+- ✅ **Scanned-PDF OCR** — text-layer `pypdf` on **prepare** (no vision). Empty PDFs
+  render pages (`pypdfium2`) and transcribe via `vision-chat` on the **index job**,
+  then the same excerpt + attachment RAG path. Cap + timeout in `attachment_ocr_*`.
+  Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
   SymPy + web search kept. See [§29](#29-next-actions-product-decisions).
 - 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
@@ -574,7 +584,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Messaging | Reactions, read receipts; full duplex / interruptible voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
-| Learning | Generic `learning` kind; other target languages; certificates; review queue / deck browse / typed answers |
+| Learning | Generic `learning` kind; other target languages; certificates; **SM-2 review-queue UI**; Settings deck browse; typed-answer lesson path |
+| Attachments | **User-wide attachment RAG** (chunks are per `chat_id`; later turns in that chat only) |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; virus scan |
@@ -774,7 +785,7 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 secrets (future owner ops) |
-| Vision routing for images + scanned-PDF OCR (prepare + index) | — |
+| Vision routing for images + scanned-PDF OCR (**index job**, not prepare) | — |
 | PDF text extract + pgvector RAG **per conversation** | User-wide attachment corpus |
 | Chat-history corpus RAG (pgvector top-k, not full transcript) | — |
 | Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
@@ -802,7 +813,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail (future) |
 | Gmail → suggested **dated** reminders (`last_sync_at`, 7-day query) | Gmail History API cursor; Google Docs, GitHub |
-| MCP adapters + LiteLLM tool loop **on by default** | Calendar MCP listing/creating Google events; user MCP servers |
+| MCP adapters + LiteLLM tool loop **on by default**; calendar MCP conflicts vs Google | Calendar MCP creating Google events; user MCP servers |
 
 ### Future — launch ops (owner, not product code)
 1. Cost guards (speech, Tavily, R1 weight) ✅
@@ -821,7 +832,8 @@ streaks). **OpenRouter / product aliases are the intended model setup** — not 
 
 **Future (not implementing now):** launch ops (provision, landing page, Gmail OAuth, on-device
 QA, prod R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
-web client; locale prose + legal bodies; folders / family plans.
+web client; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**;
+**SM-2 review-queue UI / Settings deck browse / typed-answer lessons**.
 
 ---
 
@@ -835,12 +847,12 @@ weakness. No video generation. Native share is enough unless we later decide we 
 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
    `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
-   The calendar adapter conflict-checks **caller-supplied** events; it does not
-   list or create on Google. Heuristic SymPy + first-turn web search still run.
-   Add Docs/GitHub later as owned tools — not user MCP servers.
-2. ✅ **Scanned-PDF OCR** — text-layer extract first; empty PDFs render pages →
-   `vision-chat` transcription → same excerpt + chunk/embed RAG. May run on
-   prepare as well as index. No second pipeline.
+   The calendar adapter conflict-checks **Google Calendar** (plus optional caller
+   stubs); it does not create on Google. Heuristic SymPy + first-turn web search
+   still run. Add Docs/GitHub later as owned tools — not user MCP servers.
+2. ✅ **Scanned-PDF OCR** — text-layer extract on prepare (no vision); empty PDFs
+   render pages → `vision-chat` on the **index job** → same excerpt + chunk/embed
+   RAG. No second pipeline.
 3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
    start excluding the recent window. Golden Rule 3: never dump the full transcript.
 
@@ -849,6 +861,8 @@ weakness. No video generation. Native share is enough unless we later decide we 
 - Launch ops: provision Neon / Redis / R2 / Fly / EAS; landing page + support URL;
   Google OAuth verification (Gmail); on-device QA (iOS + Android); production R2 secrets.
 - Google Docs, GitHub (owned integrations).
+- **User-wide attachment RAG** — chunks stay per `chat_id`; later turns in that chat only.
+- **SM-2 review-queue UI / Settings deck browse / typed-answer lesson path.**
 - Full duplex / interruptible live voice.
 - Code execution beyond the sandboxed HTML/chart WebView.
 - Web client (same API).
