@@ -99,7 +99,7 @@ export function useTodosActions({
       };
       setPending(optimisticId, true);
       setTodos((prev) => [...prev, optimistic]);
-      void persistGroupOrder(mergeGroupOrder(groupOrder, [topic]));
+      void persistGroupOrder(mergeGroupOrder(groupOrder, [normalizedTopic]));
       try {
         const created = await api.createTodo(token, trimmed, topic);
         setTodos((prev) =>
@@ -126,7 +126,7 @@ export function useTodosActions({
         Alert.alert(t("todos.error"), t("lists.group_exists"));
         return;
       }
-      const nextOrder = mergeGroupOrder(groupOrder, [topic]);
+      const nextOrder = [...groupOrder, topic];
       creatingListRef.current = true;
       setCreatingList(true);
       try {
@@ -319,7 +319,8 @@ export function useTodosActions({
             text: t("common.delete"),
             style: "destructive",
             onPress: async () => {
-              if (!token || items.some((item) => pendingIdsRef.current.has(item.id))) return;
+              if (items.some((item) => pendingIdsRef.current.has(item.id))) return;
+              if (items.length > 0 && !token) return;
               const snapshot = [...todos];
               items.forEach((item) => setPending(item.id, true));
               for (const item of items) {
@@ -337,12 +338,11 @@ export function useTodosActions({
               const nextOrder = groupOrder.filter((entry) => entry !== topic);
               try {
                 await persistGroupOrder(nextOrder);
-                // One batched DELETE instead of N per-item requests. The
-                // server's delete_by_topic removes only items without a due_at
-                // (lists, not reminders), which matches the items filtered
-                // above. Local reminder cancels above are per-item (no batch
-                // API for expo-notifications) but stay local/non-network.
-                await api.deleteTodoTopic(token, topic);
+                // Empty list-first names are device order only — no server
+                // rows, and DELETE /todos/topic 404s when nothing is removed.
+                if (items.length > 0 && token) {
+                  await api.deleteTodoTopic(token, topic);
+                }
               } catch {
                 setTodos(snapshot);
                 void syncTodoReminders(snapshot);
