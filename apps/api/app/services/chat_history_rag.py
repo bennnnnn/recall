@@ -137,33 +137,31 @@ async def index_turn_messages(
     return total
 
 
-async def retrieve_for_prompt(
+async def embed_query_for_prompt(
     settings: Settings,
     *,
     user_id: UUID,
     query: str,
-    exclude_message_ids: set[UUID] | None = None,
-) -> str:
-    """Return a system-prompt block of past-turn snippets, or empty.
+) -> list[float] | None:
+    """Probe + embed the RAG query so turn prep can overlap it with other I/O.
 
-    Best-effort: DB/embed failures degrade to no block and never fail the turn.
+    Returns None when RAG is off, the query is empty, the user has no chunks,
+    or embed/probe fails. Never raises into the turn.
     """
     if not settings.chat_history_rag_enabled:
-        return ""
+        return None
     query = query.strip()
     if not query:
-        return ""
-
+        return None
     try:
         async with SessionLocal() as probe_session:
             if not await chunks_repo.has_chunks_for_user(probe_session, user_id):
-                return ""
+                return None
     except Exception:
         logger.warning("Chat-history RAG chunk probe failed user_id=%s", user_id, exc_info=True)
-        return ""
-
+        return None
     try:
-        query_vec = await embedding_gateway.get_or_embed_query(
+        return await embedding_gateway.get_or_embed_query(
             settings,
             user_id,
             query,
@@ -171,7 +169,30 @@ async def retrieve_for_prompt(
         )
     except Exception:
         logger.warning("Chat-history RAG embed failed user_id=%s", user_id, exc_info=True)
+        return None
+
+
+async def retrieve_for_prompt(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    query: str,
+    exclude_message_ids: set[UUID] | None = None,
+    query_vec: list[float] | None = None,
+) -> str:
+    """Return a system-prompt block of past-turn snippets, or empty.
+
+    Best-effort: DB/embed failures degrade to no block and never fail the turn.
+    Pass ``query_vec`` when the embed already ran in parallel with other prep.
+    """
+    if not settings.chat_history_rag_enabled:
         return ""
+    query = query.strip()
+    if not query:
+        return ""
+
+    if query_vec is None:
+        query_vec = await embed_query_for_prompt(settings, user_id=user_id, query=query)
     if not query_vec:
         return ""
 

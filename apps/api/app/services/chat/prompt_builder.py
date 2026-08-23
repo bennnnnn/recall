@@ -289,6 +289,7 @@ class _PromptContextBlocks:
     recent_all: list[Any]
     attachment_rag_block: str
     chat: Chat | None
+    history_rag_query_vec: list[float] | None = None
 
 
 async def _load_context_blocks(
@@ -303,15 +304,40 @@ async def _load_context_blocks(
     slim_context: bool,
     client_timezone: str | None,
     out: dict[str, object] | None,
+    history_rag: bool = False,
 ) -> _PromptContextBlocks:
     """Load memory/todos/projects/RAG + recent messages for the system prompt.
 
     Each gather branch opens a short-lived session so external HTTP (RAG/memory
     embed) cannot pin a caller's connection across the concurrent load.
+    Chat-history query embed overlaps the gather; recent-window excludes are
+    applied later when hits are filtered.
     """
+
+    async def _history_rag_embed() -> list[float] | None:
+        if not history_rag or not query_text or not query_text.strip():
+            return None
+        from app.services import chat_history_rag as chat_history_rag_service
+
+        return await chat_history_rag_service.embed_query_for_prompt(
+            settings, user_id=user.id, query=query_text
+        )
+
     if slim_context:
-        async with SessionLocal() as s:
-            recent_all = await messages_repo.list_recent(s, chat_id, limit=recent_limit)
+        if history_rag:
+
+            async def _slim_recent() -> list[Any]:
+                async with SessionLocal() as s:
+                    return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
+
+            recent_all, history_rag_query_vec = await asyncio.gather(
+                _slim_recent(),
+                _history_rag_embed(),
+            )
+        else:
+            async with SessionLocal() as s:
+                recent_all = await messages_repo.list_recent(s, chat_id, limit=recent_limit)
+            history_rag_query_vec = None
         if out is not None:
             out["recalled"] = 0
             out["memory_hints"] = []
@@ -322,6 +348,7 @@ async def _load_context_blocks(
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
+            history_rag_query_vec=history_rag_query_vec,
         )
 
     if chat is None:
@@ -411,12 +438,14 @@ async def _load_context_blocks(
         projects_block,
         recent_all,
         attachment_rag_block,
+        history_rag_query_vec,
     ) = await asyncio.gather(
         _memory_block(),
         _todos_section(),
         _projects_block(),
         _recent_messages(),
         _attachment_rag_block(),
+        _history_rag_embed(),
     )
     if out is not None:
         labels = set(memory_service.SECTION_LABELS.values())
@@ -434,6 +463,7 @@ async def _load_context_blocks(
         recent_all=recent_all,
         attachment_rag_block=attachment_rag_block,
         chat=chat,
+        history_rag_query_vec=history_rag_query_vec,
     )
 
 
@@ -637,6 +667,17 @@ async def build_prompt_messages(
         or lightweight
         or not rich_context
     )
+    # M9: enable chat-history RAG for quiz/vocab turns too — grading a quiz
+    # answer may need the original quiz context from older messages that
+    # fell out of the recent window. ``lightweight`` and ``not rich_context``
+    # stay excluded (ultra-brief / casual turns don't need RAG).
+    quiz_rag_eligible = minimal_quiz_context or minimal_vocab_answer_context
+    history_rag = bool(
+        (not slim_context or quiz_rag_eligible)
+        and settings.chat_history_rag_enabled
+        and query_text
+        and query_text.strip()
+    )
     blocks = await _load_context_blocks(
         user,
         chat_id,
@@ -648,6 +689,7 @@ async def build_prompt_messages(
         slim_context=slim_context,
         client_timezone=client_timezone,
         out=out,
+        history_rag=history_rag,
     )
     chat = blocks.chat
     recent_source = blocks.recent_all
@@ -656,17 +698,7 @@ async def build_prompt_messages(
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
     chat_history_rag_block = ""
-    # M9: enable chat-history RAG for quiz/vocab turns too — grading a quiz
-    # answer may need the original quiz context from older messages that
-    # fell out of the recent window. ``lightweight`` and ``not rich_context``
-    # stay excluded (ultra-brief / casual turns don't need RAG).
-    quiz_rag_eligible = minimal_quiz_context or minimal_vocab_answer_context
-    if (
-        (not slim_context or quiz_rag_eligible)
-        and settings.chat_history_rag_enabled
-        and query_text
-        and query_text.strip()
-    ):
+    if history_rag:
         from app.services import chat_history_rag as chat_history_rag_service
 
         exclude = {m.id for m in recent}
@@ -675,8 +707,9 @@ async def build_prompt_messages(
         chat_history_rag_block = await chat_history_rag_service.retrieve_for_prompt(
             settings,
             user_id=user.id,
-            query=query_text,
+            query=query_text or "",
             exclude_message_ids=exclude,
+            query_vec=blocks.history_rag_query_vec,
         )
     if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
         out["context_summarized"] = chat.summary_message_count
