@@ -167,6 +167,8 @@ async def _classify_turn_mode(
 
     Fetches the last quiz assistant once (same session) instead of the prior
     double lookup via ``_should_minimal_quiz_context`` + vocab-turn block.
+    Skip that read when the chat has no Learning project — the quiz cannot
+    be graded and the row is unused.
     """
     from app.services import vocab_quiz as vocab_quiz_service
 
@@ -177,9 +179,11 @@ async def _classify_turn_mode(
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
 
-    from app.services.chat.quiz_messages import get_last_quiz_assistant
+    quiz_assistant = None
+    if chat.project_id is not None:
+        from app.services.chat.quiz_messages import get_last_quiz_assistant
 
-    quiz_assistant = await get_last_quiz_assistant(session, chat.id)
+        quiz_assistant = await get_last_quiz_assistant(session, chat.id)
     parsed_quiz = None
     quiz_choices: tuple[tuple[str, str], ...] | None = None
     if quiz_assistant is not None:

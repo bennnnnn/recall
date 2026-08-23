@@ -1335,6 +1335,27 @@ async def test_classify_turn_mode_letter_on_mcq_fence_stays_minimal_quiz():
     assert mode.active_vocab_turn is True
 
 
+@pytest.mark.asyncio
+async def test_classify_turn_mode_skips_quiz_lookup_without_project():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    with patch(
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
+        AsyncMock(),
+    ) as get_last:
+        mode = await _classify_turn_mode(AsyncMock(), chat, "explain photosynthesis")
+
+    get_last.assert_not_awaited()
+    assert mode.quiz_assistant is None
+    assert mode.minimal_quiz is False
+    assert mode.active_vocab_turn is False
+
+
 def test_should_augment_web_and_tools_skips_active_vocab_turn():
     """``active_vocab_turn`` must suppress web/tools augmentation even when
     the turn is not lightweight and not minimal_quiz (open-ended vocab
