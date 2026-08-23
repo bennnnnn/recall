@@ -41,14 +41,15 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
   // Fallback: if onLoad doesn't fire within the timeout, mark as failed.
   // React Native's Image doesn't always call onError for corrupt/missing data.
   useEffect(() => {
-    if (failed || loaded) return;
+    setFailed(false);
+    setLoaded(false);
     timerRef.current = setTimeout(() => {
       setFailed(true);
     }, LOAD_TIMEOUT_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [failed, loaded]);
+  }, [attachmentId, uri]);
 
   return (
     <View style={[s.wrap, dimension]}>
@@ -59,11 +60,13 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
       ) : (
         <>
           {!loaded ? (
-            <View style={[s.loading, dimension]}>
+            <View style={[s.loading, dimension]} testID="gallery-thumb-loading">
               <ActivityIndicator size="small" color={C.textTertiary} />
             </View>
           ) : null}
           <Image
+            key={uri}
+            testID="gallery-thumb-image"
             source={source}
             style={[dimension, s.image]}
             resizeMode="cover"

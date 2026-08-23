@@ -152,11 +152,12 @@ async def list_for_gallery(
     if source in ("upload", "generated"):
         stmt = stmt.where(Attachment.source == source)
     stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())
-    stmt = stmt.offset(max(offset, 0)).limit(max(limit, 1))
+    page_size = max(limit, 1)
+    stmt = stmt.offset(max(offset, 0)).limit(page_size + 1)
     result = await session.execute(stmt)
     rows = list(result.scalars().all())
-    has_more = len(rows) >= limit
-    return rows, has_more
+    has_more = len(rows) > page_size
+    return rows[:page_size], has_more
 
 
 async def list_orphans(

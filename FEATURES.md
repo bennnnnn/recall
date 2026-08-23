@@ -45,6 +45,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   read the thread without signing in. Public web links are a separate privacy feature
   (not started; do not assume we have them).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
+- ✅ **Gallery** — drawer **Gallery** → grid of generated and uploaded images plus files.
+  Tap an image to view; tap a file to share. Search and generated/uploaded filters
+  are follow-ups.
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
@@ -651,6 +654,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
+| Gallery (drawer grid of generated + uploaded images and files) | ✅ Shipped |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |

@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -18,21 +19,24 @@ import { GalleryThumbnail } from "@/components/GalleryThumbnail";
 import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { type AttachmentListItem } from "@/lib/api";
-import { type GalleryFilter, useGalleryData } from "@/hooks/useGalleryData";
+import { resolveAttachmentUri } from "@/lib/attachmentUri";
+import { shareChatAttachment } from "@/lib/downloadChatAttachment";
+import {
+  galleryEmptyKey,
+  galleryFileName,
+  galleryPressAction,
+  galleryThumbSize,
+  type GalleryFilter,
+} from "@/lib/gallery";
+import { useGalleryData } from "@/hooks/useGalleryData";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type ViewMode = "grid" | "list";
-
 const NUM_COLUMNS = 3;
-const THUMB_SIZE = 112;
-
-function isImageType(contentType: string): boolean {
-  return contentType.startsWith("image/");
-}
 
 export default function GalleryScreen() {
   const { t } = useTranslation();
@@ -40,14 +44,15 @@ export default function GalleryScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const token = useAuthToken();
+  const { width } = useWindowDimensions();
+  const thumbSize = galleryThumbSize(width - Space.md * 2, NUM_COLUMNS, Space.xs);
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const sharingRef = useRef(false);
   const {
     items,
-    filteredItems,
     loading,
     loadingMore,
     error,
@@ -55,7 +60,7 @@ export default function GalleryScreen() {
     refresh,
     loadMore,
     retry,
-  } = useGalleryData(filter, searchQuery);
+  } = useGalleryData(filter);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,12 +74,39 @@ export default function GalleryScreen() {
     { key: "files", label: t("gallery.filter.files") },
   ];
 
-  const viewerItem =
-    viewerIndex != null ? filteredItems[viewerIndex] ?? null : null;
+  const viewerItem = viewerIndex != null ? items[viewerIndex] ?? null : null;
+
+  const shareFile = useCallback(
+    async (item: AttachmentListItem) => {
+      if (sharingRef.current) return;
+      const uri = resolveAttachmentUri({
+        attachmentId: item.id,
+        path: item.download_url,
+      });
+      if (!uri) return;
+      sharingRef.current = true;
+      try {
+        await shareChatAttachment({
+          uri,
+          token,
+          fileName: galleryFileName(item.content_type),
+        });
+      } catch (shareError) {
+        Alert.alert(
+          t("common.download_failed"),
+          shareError instanceof Error ? shareError.message : t("common.error"),
+        );
+      } finally {
+        sharingRef.current = false;
+      }
+    },
+    [t, token],
+  );
 
   const renderItem = useCallback(
     ({ item, index }: { item: AttachmentListItem; index: number }) => {
-      if (isImageType(item.content_type)) {
+      const action = galleryPressAction(item.content_type);
+      if (action === "view-image") {
         return (
           <Pressable
             onPress={() => {
@@ -87,22 +119,21 @@ export default function GalleryScreen() {
             <GalleryThumbnail
               attachmentId={item.id}
               downloadUrl={item.download_url}
-              size={THUMB_SIZE}
+              size={thumbSize}
             />
           </Pressable>
         );
       }
-      // File/document tile
       return (
         <Pressable
           onPress={() => {
             tap();
-            setViewerIndex(index);
+            void shareFile(item);
           }}
           accessibilityRole="button"
-          accessibilityLabel={t("chat.image_view_a11y")}
+          accessibilityLabel={t("gallery.share_file_a11y")}
         >
-          <View style={s.fileTile}>
+          <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
             <Icon name="document-outline" size={32} color={C.textTertiary} />
             <Text style={s.fileLabel} numberOfLines={1}>
               {item.content_type.split("/").pop() ?? "file"}
@@ -111,82 +142,34 @@ export default function GalleryScreen() {
         </Pressable>
       );
     },
-    [t, s, C],
+    [t, s, C, thumbSize, shareFile],
   );
 
   return (
     <View style={s.root}>
-      {/* Header: title on its own line, search bar below, then tabs + view toggle */}
       <View style={[s.header, { paddingTop: insets.top + Space.sm }]}>
         <Text style={s.title}>{t("gallery.title")}</Text>
-
-        <View style={s.searchBar}>
-          <Icon name="search-outline" size={16} color={C.textTertiary} />
-          <TextInput
-            style={s.searchInput}
-            placeholder={t("gallery.search_placeholder")}
-            placeholderTextColor={C.textTertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-        </View>
-
-        <View style={s.subRow}>
-          <View style={s.tabs}>
-            {filters.map((f) => {
-              const active = f.key === filter;
-              return (
-                <Pressable
-                  key={f.key}
-                  style={[s.tab, active && s.tabActive]}
-                  onPress={() => {
-                    tap();
-                    setFilter(f.key);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[s.tabText, active && s.tabTextActive]}>
-                    {f.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={s.viewToggles}>
-            <Pressable
-              style={[s.viewBtn, viewMode === "grid" && s.viewBtnActive]}
-              onPress={() => {
-                tap();
-                setViewMode("grid");
-              }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: viewMode === "grid" }}
-            >
-              <Icon
-                name="grid-outline"
-                size={16}
-                color={viewMode === "grid" ? C.text : C.textTertiary}
-              />
-            </Pressable>
-            <Pressable
-              style={[s.viewBtn, viewMode === "list" && s.viewBtnActive]}
-              onPress={() => {
-                tap();
-                setViewMode("list");
-              }}
-              accessibilityRole="button"
-              accessibilityState={{ selected: viewMode === "list" }}
-            >
-              <Icon
-                name="list-outline"
-                size={16}
-                color={viewMode === "list" ? C.text : C.textTertiary}
-              />
-            </Pressable>
-          </View>
+        <View style={s.tabs}>
+          {filters.map((tab) => {
+            const active = tab.key === filter;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[s.tab, active && s.tabActive]}
+                onPress={() => {
+                  tap();
+                  setViewerIndex(null);
+                  setFilter(tab.key);
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[s.tabText, active && s.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
@@ -201,9 +184,9 @@ export default function GalleryScreen() {
         />
       ) : (
         <FlashList
-          data={filteredItems}
+          data={items}
           keyExtractor={(item) => item.id}
-          numColumns={viewMode === "grid" ? NUM_COLUMNS : 1}
+          numColumns={NUM_COLUMNS}
           contentContainerStyle={s.content}
           ItemSeparatorComponent={() => <View style={s.gridGap} />}
           refreshControl={
@@ -226,7 +209,7 @@ export default function GalleryScreen() {
             <StateView
               variant="empty"
               icon="images-outline"
-              title={t("gallery.empty")}
+              title={t(galleryEmptyKey(filter))}
             />
           }
           renderItem={renderItem}
@@ -234,7 +217,7 @@ export default function GalleryScreen() {
       )}
 
       <AttachmentImageViewer
-        visible={viewerItem != null}
+        visible={viewerItem != null && galleryPressAction(viewerItem.content_type) === "view-image"}
         onClose={() => setViewerIndex(null)}
         attachmentId={viewerItem?.id}
         path={viewerItem?.download_url ?? null}
@@ -257,30 +240,6 @@ function makeStyles(C: Theme) {
       color: C.text,
       marginBottom: Space.sm,
     },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      height: 40,
-      paddingHorizontal: 14,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: C.border,
-      backgroundColor: C.surface,
-      marginBottom: Space.sm,
-    },
-    searchInput: {
-      flex: 1,
-      ...Type.body,
-      fontSize: 15,
-      padding: 0,
-      color: C.text,
-    },
-    subRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
     tabs: {
       flexDirection: "row",
       gap: Space.xs,
@@ -302,33 +261,16 @@ function makeStyles(C: Theme) {
       color: C.text,
       fontWeight: "600",
     },
-    viewToggles: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-    },
-    viewBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    viewBtnActive: {
-      backgroundColor: C.surfaceAlt,
-    },
     content: {
-      padding: Space.md,
+      paddingHorizontal: Space.md,
       paddingBottom: 96,
     },
-    gridGap: { height: Space.sm },
+    gridGap: { height: Space.xs },
     footer: {
       paddingVertical: Space.md,
       alignItems: "center",
     },
     fileTile: {
-      width: THUMB_SIZE,
-      height: THUMB_SIZE,
       borderRadius: 10,
       backgroundColor: C.surface,
       alignItems: "center",
