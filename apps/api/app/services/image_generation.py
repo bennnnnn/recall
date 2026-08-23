@@ -197,6 +197,7 @@ async def generate_for_chat(
                 content_type=content_type,
                 size_bytes=len(image_bytes),
                 source="generated",
+                original_filename=(cleaned.replace("\n", " ").strip()[:255] or None),
             )
 
             if create_user_message:

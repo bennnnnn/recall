@@ -142,6 +142,8 @@ def test_generate_image_success():
         )
     )
     gateway.write_bytes = AsyncMock()
+    gateway.delete_bytes = AsyncMock()
+    create_pending = AsyncMock()
 
     fake_redis = AsyncMock()
     fake_redis.incrby = AsyncMock(return_value=1)
@@ -167,7 +169,7 @@ def test_generate_image_success():
             AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
         ),
         patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
-        patch("app.services.image_generation.attachments_repo.create_pending", AsyncMock()),
+        patch("app.services.image_generation.attachments_repo.create_pending", create_pending),
         patch(
             "app.services.image_generation.messages_repo.create",
             AsyncMock(side_effect=[user_msg, assistant_msg]),
@@ -197,6 +199,7 @@ def test_generate_image_success():
     gateway.write_bytes.assert_awaited_once()
     mark_verified.assert_awaited_once()
     gateway.delete_bytes.assert_not_called()
+    assert create_pending.await_args.kwargs["original_filename"] == "a cat"
 
 
 def test_generate_image_passes_original_user_message():

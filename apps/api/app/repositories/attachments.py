@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.orm import Attachment, Message
 
@@ -149,8 +150,10 @@ async def list_for_gallery(
     * ``None``     — all attachments
 
     Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
-    Optional ``q`` matches original filename, content type, or linked message
-    content (image-gen prompts).
+    Optional ``q`` matches original filename, content type, the linked
+    message body, or the previous user message in that chat (the draw
+    prompt for generated images, which are linked to the assistant
+    ``[Image: …]`` marker rather than the user prompt).
     """
     stmt = select(Attachment).where(
         Attachment.user_id == user_id,
@@ -163,12 +166,26 @@ async def list_for_gallery(
     if source in ("upload", "generated"):
         stmt = stmt.where(Attachment.source == source)
     if q:
-        stmt = stmt.outerjoin(Message, Attachment.message_id == Message.id)
+        linked = aliased(Message)
+        prev_user_content = (
+            select(Message.content)
+            .where(
+                Message.chat_id == linked.chat_id,
+                Message.role == "user",
+                Message.created_at < linked.created_at,
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(1)
+            .correlate(linked)
+            .scalar_subquery()
+        )
+        stmt = stmt.outerjoin(linked, Attachment.message_id == linked.id)
         stmt = stmt.where(
             or_(
                 _contains(Attachment.original_filename, q),
                 _contains(Attachment.content_type, q),
-                _contains(Message.content, q),
+                _contains(linked.content, q),
+                _contains(prev_user_content, q),
             )
         )
     stmt = stmt.order_by(Attachment.created_at.desc(), Attachment.id.desc())
