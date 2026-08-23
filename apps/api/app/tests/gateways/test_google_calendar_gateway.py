@@ -107,3 +107,41 @@ async def test_list_upcoming_events_reports_partial_failures(monkeypatch):
 
     assert result.failed_calendars == 1
     assert len(result.events) == 2
+
+
+@pytest.mark.asyncio
+async def test_list_upcoming_events_time_min_is_local_midnight_not_now():
+    """Reminders day view needs this morning's meetings after they end.
+
+    Google ``timeMin=now`` dropped those events; the same fetch feeds chat.
+    """
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+
+    settings = Settings(google_client_id="x", google_client_secret="y")
+    captured: dict[str, str] = {}
+
+    async def fake_fetch(client, headers, *, calendar_id, calendar_name, **kwargs):
+        captured["time_min"] = kwargs["time_min"]
+        captured["timezone"] = kwargs["timezone"]
+        return [_event(calendar_name)]
+
+    with (
+        patch.object(gw, "_access_token", AsyncMock(return_value="token")),
+        patch.object(
+            gw, "_list_selected_calendars", AsyncMock(return_value=[("primary", "Primary")])
+        ),
+        patch.object(gw, "_fetch_events_for_calendar", fake_fetch),
+        patch.object(gw, "get_pooled_client", return_value=AsyncMock()),
+    ):
+        await gw.list_upcoming_events(settings, refresh_token="rt", timezone="America/New_York")
+
+    time_min = datetime.fromisoformat(captured["time_min"].replace("Z", "+00:00"))
+    local_midnight = datetime.now(ZoneInfo("America/New_York")).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    expected = local_midnight.astimezone(UTC)
+    assert captured["timezone"] == "America/New_York"
+    assert abs((time_min - expected).total_seconds()) < 2
+    assert time_min.hour == expected.hour
+    assert time_min < datetime.now(UTC)
