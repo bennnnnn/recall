@@ -47,7 +47,7 @@ export function CardShell({
         </View>
         <View style={s.headerActions}>
           {headerActions ??
-            (copyText ? <CopyButton text={copyText} variant="icon" /> : null)}
+            (copyText ? <CopyButton text={copyText} /> : null)}
         </View>
       </View>
       <View style={s.body}>{children}</View>

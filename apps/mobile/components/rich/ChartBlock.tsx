@@ -192,36 +192,34 @@ export function ChartBlock({ content }: Props) {
       )}
 
       <View style={s.actions}>
-        <CopyButton text={content} variant="action" />
+        <CopyButton text={content} />
 
         <Pressable
-          style={s.actionBtn}
+          style={s.iconBtn}
           onPress={() => setShowSource((v) => !v)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("rich.source")}
         >
           <Icon
             name={showSource ? "eye-off-outline" : "code-slash-outline"}
-            size={18}
+            size={20}
             color={showSource ? theme.primary : theme.textSecondary}
           />
-          <Text style={[s.actionLabel, showSource && s.actionLabelActive]}>
-            {t("rich.source")}
-          </Text>
         </Pressable>
 
         <Pressable
-          style={s.actionBtn}
+          style={s.iconBtn}
           onPress={() => setExpanded((v) => !v)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
         >
           <Icon
             name={expanded ? "contract-outline" : "expand-outline"}
-            size={18}
+            size={20}
             color={theme.textSecondary}
           />
-          <Text style={s.actionLabel}>
-            {expanded ? t("rich.collapse") : t("rich.expand")}
-          </Text>
         </Pressable>
 
         <Pressable style={s.openBtn} onPress={handleOpenVegaEditor} hitSlop={8}>
@@ -291,24 +289,18 @@ function makeStyles(t: Theme) {
     },
     actions: {
       flexDirection: "row",
-      gap: 8,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
       flexWrap: "wrap",
     },
-    actionBtn: {
-      flexDirection: "row",
+    iconBtn: {
+      width: 32,
+      height: 32,
       alignItems: "center",
-      gap: 6,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 10,
-      backgroundColor: t.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
+      justifyContent: "center",
     },
-    actionLabel: { fontSize: 14, fontWeight: "600", color: t.textSecondary },
-    actionLabelActive: { color: t.primary },
     openBtn: {
       flexDirection: "row",
       alignItems: "center",

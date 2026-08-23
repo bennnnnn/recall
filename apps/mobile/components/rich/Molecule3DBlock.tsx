@@ -289,7 +289,7 @@ export function Molecule3DBlock({ content }: Props) {
             </Pressable>
           ))}
         </View>
-        <CopyButton text={sdf} variant="action" />
+        <CopyButton text={sdf} />
       </View>
     </View>
   );

@@ -101,8 +101,17 @@ export function MermaidBlock({ content }: Props) {
           <Icon name="git-network-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.mermaid_diagram")}</Text>
         </View>
-        <Pressable onPress={() => setShowSource((v) => !v)} hitSlop={8}>
-          <Text style={s.toggleSource}>{showSource ? t("rich.diagram") : t("rich.source")}</Text>
+        <Pressable
+          onPress={() => setShowSource((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={showSource ? t("rich.diagram") : t("rich.source")}
+        >
+          <Icon
+            name={showSource ? "eye-off-outline" : "code-slash-outline"}
+            size={20}
+            color={theme.primary}
+          />
         </Pressable>
       </View>
 
@@ -147,20 +156,19 @@ export function MermaidBlock({ content }: Props) {
       )}
 
       <View style={s.actions}>
-        <CopyButton text={content} variant="action" />
+        <CopyButton text={content} />
         <Pressable
-          style={s.actionBtn}
+          style={s.iconBtn}
           onPress={() => setExpanded((v) => !v)}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
         >
           <Icon
             name={expanded ? "contract-outline" : "expand-outline"}
-            size={18}
+            size={20}
             color={theme.textSecondary}
           />
-          <Text style={s.actionLabel}>
-            {expanded ? t("rich.collapse") : t("rich.expand")}
-          </Text>
         </Pressable>
         <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
           <Icon name="open-outline" size={18} color={theme.onPrimary} />
@@ -193,7 +201,6 @@ function makeStyles(t: Theme) {
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
     headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
-    toggleSource: { fontSize: 13, fontWeight: "600", color: t.primary },
     webWrap: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
     webWrapExpanded: { height: PREVIEW_HEIGHT * 2 },
     webview: { flex: 1, backgroundColor: "transparent" },
@@ -212,19 +219,20 @@ function makeStyles(t: Theme) {
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
     fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
-    actions: { flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 10, flexWrap: "wrap" },
-    actionBtn: {
+    actions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 10,
-      backgroundColor: t.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      flexWrap: "wrap",
     },
-    actionLabel: { fontSize: 14, fontWeight: "600", color: t.textSecondary },
+    iconBtn: {
+      width: 32,
+      height: 32,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     openBtn: {
       flexDirection: "row",
       alignItems: "center",
