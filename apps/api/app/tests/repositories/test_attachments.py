@@ -87,7 +87,7 @@ async def test_link_message_sets_message_id(fake_session):
 async def test_list_for_gallery_images_returns_rows_and_has_more(fake_session):
     from app.repositories.attachments import list_for_gallery
 
-    rows = [MagicMock(), MagicMock(), MagicMock()]
+    rows = [MagicMock(), MagicMock(), MagicMock(), MagicMock()]
     fake_session.execute.return_value = MagicMock(
         scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
     )
@@ -96,9 +96,27 @@ async def test_list_for_gallery_images_returns_rows_and_has_more(fake_session):
         fake_session, uuid4(), category="images", source="generated", limit=3, offset=0
     )
 
-    assert result == rows
+    assert result == rows[:3]
     assert has_more is True
     fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_for_gallery_exact_page_is_not_has_more(fake_session):
+    """A full page with no extra row means there is nothing left to fetch."""
+    from app.repositories.attachments import list_for_gallery
+
+    rows = [MagicMock(), MagicMock(), MagicMock()]
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+    )
+
+    result, has_more = await list_for_gallery(
+        fake_session, uuid4(), category="images", limit=3, offset=0
+    )
+
+    assert result == rows
+    assert has_more is False
 
 
 @pytest.mark.asyncio
@@ -166,3 +184,23 @@ async def test_list_for_gallery_excludes_unverified(fake_session):
     sql = str(compiled)
     assert "verified_at" in sql
     assert "IS NOT NULL" in sql.upper() or "is not" in sql.lower()
+
+
+@pytest.mark.asyncio
+async def test_list_for_gallery_fetches_one_extra_row_for_has_more(fake_session):
+    from sqlalchemy.dialects import postgresql
+
+    from app.repositories.attachments import list_for_gallery
+
+    captured: dict = {}
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        return MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))))
+
+    fake_session.execute = _capture
+    await list_for_gallery(fake_session, uuid4(), limit=30, offset=0)
+
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    combined = f"{compiled} {compiled.params}"
+    assert "31" in combined

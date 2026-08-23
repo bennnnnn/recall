@@ -1,14 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type AttachmentListItem } from "@/lib/api";
+import type { GalleryFilter } from "@/lib/gallery";
 
-export type GalleryFilter = "all" | "images" | "files";
+export type { GalleryFilter };
 
 const PAGE_SIZE = 30;
 
-export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
+export function useGalleryData(filter: GalleryFilter) {
   const { token } = useAuth();
   const [items, setItems] = useState<AttachmentListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,20 +65,8 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     void load({ reset: false, silent: true });
   }, [hasMore, load, loading, loadingMore]);
 
-  const filteredItems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return items;
-    return items.filter(
-      (item) =>
-        item.source.toLowerCase().includes(query) ||
-        item.content_type.toLowerCase().includes(query) ||
-        item.id.toLowerCase().includes(query),
-    );
-  }, [items, searchQuery]);
-
   return {
     items,
-    filteredItems,
     loading,
     loadingMore,
     error,
