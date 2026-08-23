@@ -83,4 +83,20 @@ describe("ChatActionsSheet", () => {
     const { queryByText } = await render(<ChatActionsSheet {...baseProps} />);
     expect(queryByText("settings.model")).toBeNull();
   });
+
+  it("shows Export PDF when onExportPdf is provided", async () => {
+    const onExportPdf = jest.fn();
+    const { getByText } = await render(
+      <ChatActionsSheet {...baseProps} onExportPdf={onExportPdf} />,
+    );
+
+    expect(getByText("chat.export_pdf")).toBeTruthy();
+    await fireEvent.press(getByText("chat.export_pdf"));
+    expect(onExportPdf).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides Export PDF when onExportPdf is omitted", async () => {
+    const { queryByText } = await render(<ChatActionsSheet {...baseProps} />);
+    expect(queryByText("chat.export_pdf")).toBeNull();
+  });
 });

@@ -21,7 +21,6 @@ import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
 import { LearningLaunchButton } from "@/components/LearningLaunchButton";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
-import { isShareCancelled } from "@/lib/exportPdf";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
@@ -143,7 +142,7 @@ function AssistantActions({
   regenerating?: boolean;
   theme: Theme;
   hidden?: boolean;
-  /** Image-only replies: thumbs only (no copy / speak / PDF / regenerate). */
+  /** Image-only replies: thumbs only (no copy / speak / regenerate). */
   thumbsOnly?: boolean;
   /** Latest finished assistant reply — warm the first cloud TTS clip. */
   prefetchSpeech?: boolean;
@@ -152,7 +151,6 @@ function AssistantActions({
   const token = useAuthToken();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const speakGenRef = useRef(0);
 
   useEffect(() => {
@@ -183,23 +181,6 @@ function AssistantActions({
     setSpeaking(false);
     if (!result.ok) {
       Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
-    }
-  };
-
-  const handleExportPdf = async () => {
-    if (exporting || !content.trim()) return;
-    tap();
-    setExporting(true);
-    try {
-      const titleMatch = content.match(/^#\s+(.+)$/m);
-      const title = titleMatch?.[1]?.trim() || t("chat.export_pdf_default_title");
-      const { exportMessageAsPdf } = await import("@/lib/exportMessagePdf");
-      await exportMessageAsPdf(title, content);
-    } catch (error) {
-      if (isShareCancelled(error)) return;
-      Alert.alert(t("common.error"), t("chat.export_pdf_failed"));
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -246,20 +227,6 @@ function AssistantActions({
               name={speaking ? "volume-high" : "volume-high-outline"}
               size={20}
               color={speaking ? theme.primary : theme.textSecondary}
-            />
-          </Pressable>
-          <Pressable
-            style={a.btn}
-            onPress={() => void handleExportPdf()}
-            hitSlop={8}
-            disabled={!content.trim() || exporting}
-            accessibilityRole="button"
-            accessibilityLabel={t("chat.export_pdf_a11y")}
-          >
-            <Icon
-              name={exporting ? "hourglass-outline" : "document-text-outline"}
-              size={20}
-              color={theme.textSecondary}
             />
           </Pressable>
         </>

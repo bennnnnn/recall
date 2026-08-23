@@ -214,6 +214,7 @@ function ChatScreen() {
     handleFeedback,
     confirmRename,
     onShareFromMenu,
+    onExportPdfFromMenu,
     onRenameFromMenu,
     onTogglePinFromMenu,
     onToggleArchiveFromMenu,
@@ -580,6 +581,7 @@ function ChatScreen() {
         archived={archived}
         onCloseMenu={() => setMenuVisible(false)}
         onShare={onShareFromMenu}
+        onExportPdf={onExportPdfFromMenu}
         onRename={onRenameFromMenu}
         onTogglePin={onTogglePinFromMenu}
         onToggleArchive={onToggleArchiveFromMenu}

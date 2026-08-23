@@ -59,7 +59,7 @@
   "chat.error_generic": "የሆነ ችግር ተፈጥሯል። እንደገና ይሞክሩ።",
   "chat.error_title": "ምላሽ ማግኘት አልተቻለም",
   "chat.error_unreachable": "ሰርቨሩን ማግኘት አልተቻለም። ግንኙነትዎን ያረጋግጡና እንደገና ይሞክሩ።",
-  "chat.export_pdf_a11y": "Export as PDF",
+  "chat.export_pdf": "PDF ላክ",
   "chat.export_pdf_default_title": "Recall report",
   "chat.export_pdf_failed": "Could not create the PDF. Try again.",
   "chat.feedback_failed": "አስተያየትዎን ማስቀመጥ አልተቻለም።",

@@ -9,6 +9,8 @@ type Router = ReturnType<typeof useRouter>;
 import { moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
+import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
@@ -88,18 +90,27 @@ export function useChatActions({
     [token, chatId, setMessages, t],
   );
 
-  const handleShare = useCallback(async () => {
-    if (!token || !chatId) {
-      await shareConversation(chatTitle, messages);
-      return;
-    }
+  const loadTranscriptMessages = useCallback(async () => {
+    if (!token || !chatId) return messages;
     try {
-      const all = await api.listAllMessages(token, chatId);
-      await shareConversation(chatTitle, all);
+      return await api.listAllMessages(token, chatId);
     } catch {
-      await shareConversation(chatTitle, messages);
+      return messages;
     }
-  }, [token, chatId, chatTitle, messages]);
+  }, [token, chatId, messages]);
+
+  const handleShare = useCallback(async () => {
+    await shareConversation(chatTitle, await loadTranscriptMessages());
+  }, [chatTitle, loadTranscriptMessages]);
+
+  const handleExportPdf = useCallback(async () => {
+    try {
+      await exportConversationAsPdf(chatTitle, await loadTranscriptMessages());
+    } catch (error) {
+      if (isShareCancelled(error)) return;
+      Alert.alert(t("common.error"), t("chat.export_pdf_failed"));
+    }
+  }, [chatTitle, loadTranscriptMessages, t]);
 
   const openRename = useCallback(() => {
     setRenameText(chatTitle ?? "");
@@ -197,6 +208,12 @@ export function useChatActions({
     void handleShare();
   }, [closeMenu, handleShare]);
 
+  const onExportPdfFromMenu = useCallback(() => {
+    tap();
+    closeMenu();
+    void handleExportPdf();
+  }, [closeMenu, handleExportPdf]);
+
   const onRenameFromMenu = useCallback(() => {
     tap();
     closeMenu();
@@ -234,12 +251,14 @@ export function useChatActions({
     closeMenu,
     handleFeedback,
     handleShare,
+    handleExportPdf,
     openRename,
     confirmRename,
     togglePin,
     toggleArchive,
     confirmDelete,
     onShareFromMenu,
+    onExportPdfFromMenu,
     onRenameFromMenu,
     onTogglePinFromMenu,
     onToggleArchiveFromMenu,
