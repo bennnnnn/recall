@@ -338,8 +338,8 @@
   "gallery.share_file_a11y": "Compartilhar arquivo",
   "gallery.filter.all": "Tudo",
   "gallery.filter.files": "Arquivos",
-  "gallery.filter.images": "Imagens",
   "gallery.title": "Galeria",
+  "gallery.search_placeholder": "Buscar imagens e arquivos...",
   "lesson.chapter_complete": "Capítulo concluído",
   "lesson.chapter_empty": "Ainda não há palavras neste capítulo.",
   "lesson.close": "Fechar",
@@ -971,5 +971,10 @@
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
   "upgrade.subscription_terms": "A assinatura é renovada automaticamente todos os meses, a menos que seja cancelada na sua conta da App Store ou do Google Play.",
-  "upgrade.title": "Assinar o Pro"
+  "upgrade.title": "Assinar o Pro",
+  "gallery.empty_generated": "Nenhuma imagem gerada ainda",
+  "gallery.empty_uploaded": "Nenhuma imagem enviada ainda",
+  "gallery.filter.generated": "Geradas",
+  "gallery.filter.uploaded": "Enviadas",
+  "gallery.open_chat_a11y": "Abrir chat"
 }

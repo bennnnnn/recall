@@ -233,6 +233,7 @@ export async function uploadChatAttachment(
   const presign = await api.presignAttachment(token, {
     content_type: pending.contentType,
     size_bytes: sizeBytes,
+    filename: pending.fileName,
   });
 
   try {

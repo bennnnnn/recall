@@ -87,6 +87,43 @@ def test_presign_upload_success():
     assert r.json()["attachment_id"] == str(attachment_id)
 
 
+def test_presign_upload_stores_sanitized_filename():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.presign_upload = AsyncMock(
+        return_value=PresignedUpload(
+            attachment_id=str(attachment_id),
+            upload_url=f"/attachments/{attachment_id}/upload",
+            storage_key=f"{user.id}/{attachment_id}",
+            headers={"Content-Type": "application/pdf"},
+            api_upload=True,
+        )
+    )
+    fake_redis = AsyncMock()
+    create_pending = AsyncMock()
+
+    with (
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.attachments_repo.create_pending", create_pending),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "content_type": "application/pdf",
+                "size_bytes": 128,
+                "filename": "folder/notes.pdf",
+            },
+        )
+
+    assert r.status_code == 200
+    assert create_pending.await_args.kwargs["original_filename"] == "notes.pdf"
+
+
 def test_presign_upload_returns_503_when_storage_unconfigured():
     user = _fake_user()
     app = _app_with_user(user)
@@ -952,6 +989,8 @@ def _attachment_row(
     row.storage_key = storage_key
     row.created_at = created_at or datetime(2026, 1, 1, 12, 0, 0)
     row.verified_at = datetime(2026, 1, 1, 12, 0, 0)
+    row.message_id = None
+    row.original_filename = None
     return row
 
 
@@ -980,6 +1019,88 @@ def test_list_attachments_returns_images():
     assert body["items"][0]["source"] == "generated"
     assert body["items"][0]["download_url"] == "url1"
     assert body["items"][1]["source"] == "upload"
+    assert body["items"][0]["chat_id"] is None
+
+
+def test_list_attachments_includes_chat_id():
+    """Linked attachments expose the originating chat for Open chat."""
+    user = _fake_user()
+    message_id = uuid4()
+    chat_id = uuid4()
+    row = _attachment_row(source="generated")
+    row.message_id = message_id
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(return_value="url1")
+
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            AsyncMock(return_value=([row], False)),
+        ),
+        patch(
+            "app.services.attachment_workflow.attachments_repo.chat_ids_for_message_ids",
+            AsyncMock(return_value={message_id: chat_id}),
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    item = r.json()["items"][0]
+    assert item["chat_id"] == str(chat_id)
+    assert item["message_id"] == str(message_id)
+
+
+def test_list_attachments_source_filter():
+    """GET /attachments?source=generated is forwarded to the gallery query."""
+    user = _fake_user()
+    row = _attachment_row(source="generated")
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(return_value="url1")
+    mock_list = AsyncMock(return_value=([row], False))
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            mock_list,
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get(
+            "/attachments?category=images&source=generated",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    _, kwargs = mock_list.call_args
+    assert kwargs.get("category") == "images"
+    assert kwargs.get("source") == "generated"
+
+
+def test_list_attachments_q_filter():
+    """GET /attachments?q= is forwarded after stripping."""
+    user = _fake_user()
+    row = _attachment_row()
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(return_value="url1")
+    mock_list = AsyncMock(return_value=([row], False))
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            mock_list,
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get(
+            "/attachments?q=%20cat%20",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    _, kwargs = mock_list.call_args
+    assert kwargs.get("q") == "cat"
 
 
 def test_list_attachments_category_filter():

@@ -31,6 +31,16 @@ class AttachmentUploadError(Exception):
         super().__init__(detail)
 
 
+def sanitize_original_filename(name: str | None) -> str | None:
+    """Basename only, max 255. Reject empty / traversal names."""
+    if name is None:
+        return None
+    base = name.strip().replace("\\", "/").rsplit("/", 1)[-1].strip()
+    if not base or base in (".", ".."):
+        return None
+    return base[:255]
+
+
 async def create_presigned_upload(
     session: AsyncSession,
     settings: Settings,
@@ -38,6 +48,7 @@ async def create_presigned_upload(
     user: User,
     content_type: str,
     size_bytes: int,
+    filename: str | None = None,
 ) -> AttachmentPresignOut:
     """Validate, reserve image quota, presign storage, and create a pending row."""
     if not is_allowed_content_type(content_type):
@@ -79,6 +90,7 @@ async def create_presigned_upload(
             storage_key=presigned.storage_key,
             content_type=normalized,
             size_bytes=size_bytes,
+            original_filename=sanitize_original_filename(filename),
         )
     except Exception:
         if image_reserved:

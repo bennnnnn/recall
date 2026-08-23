@@ -6,11 +6,12 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useFocusEffect, useNavigation } from "expo-router";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -44,11 +45,13 @@ export default function GalleryScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const router = useRouter();
   const token = useAuthToken();
   const { width } = useWindowDimensions();
   const thumbSize = galleryThumbSize(width - Space.md * 2, NUM_COLUMNS, Space.xs);
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const sharingRef = useRef(false);
   const {
@@ -60,7 +63,7 @@ export default function GalleryScreen() {
     refresh,
     loadMore,
     retry,
-  } = useGalleryData(filter);
+  } = useGalleryData(filter, searchQuery);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,7 +73,8 @@ export default function GalleryScreen() {
 
   const filters: { key: GalleryFilter; label: string }[] = [
     { key: "all", label: t("gallery.filter.all") },
-    { key: "images", label: t("gallery.filter.images") },
+    { key: "generated", label: t("gallery.filter.generated") },
+    { key: "uploaded", label: t("gallery.filter.uploaded") },
     { key: "files", label: t("gallery.filter.files") },
   ];
 
@@ -89,7 +93,7 @@ export default function GalleryScreen() {
         await shareChatAttachment({
           uri,
           token,
-          fileName: galleryFileName(item.content_type),
+          fileName: galleryFileName(item.content_type, item.original_filename),
         });
       } catch (shareError) {
         Alert.alert(
@@ -102,6 +106,19 @@ export default function GalleryScreen() {
     },
     [t, token],
   );
+
+  const openChat = useCallback(() => {
+    if (!viewerItem?.chat_id) return;
+    router.replace({
+      pathname: "/",
+      params: {
+        chatId: viewerItem.chat_id,
+        ...(viewerItem.message_id
+          ? { highlightMessage: viewerItem.message_id }
+          : {}),
+      },
+    });
+  }, [router, viewerItem]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: AttachmentListItem; index: number }) => {
@@ -136,7 +153,9 @@ export default function GalleryScreen() {
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
             <Icon name="document-outline" size={32} color={C.textTertiary} />
             <Text style={s.fileLabel} numberOfLines={1}>
-              {item.content_type.split("/").pop() ?? "file"}
+              {item.original_filename?.trim() ||
+                item.content_type.split("/").pop() ||
+                "file"}
             </Text>
           </View>
         </Pressable>
@@ -149,6 +168,18 @@ export default function GalleryScreen() {
     <View style={s.root}>
       <View style={[s.header, { paddingTop: insets.top + Space.sm }]}>
         <Text style={s.title}>{t("gallery.title")}</Text>
+        <View style={s.searchBar}>
+          <Icon name="search-outline" size={16} color={C.textTertiary} />
+          <TextInput
+            style={s.searchInput}
+            placeholder={t("gallery.search_placeholder")}
+            placeholderTextColor={C.textTertiary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+        </View>
         <View style={s.tabs}>
           {filters.map((tab) => {
             const active = tab.key === filter;
@@ -221,6 +252,7 @@ export default function GalleryScreen() {
         onClose={() => setViewerIndex(null)}
         attachmentId={viewerItem?.id}
         path={viewerItem?.download_url ?? null}
+        onOpenChat={viewerItem?.chat_id ? openChat : undefined}
       />
     </View>
   );
@@ -240,13 +272,32 @@ function makeStyles(C: Theme) {
       color: C.text,
       marginBottom: Space.sm,
     },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      height: 40,
+      paddingHorizontal: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.border,
+      backgroundColor: C.surface,
+      marginBottom: Space.sm,
+    },
+    searchInput: {
+      flex: 1,
+      ...Type.body,
+      fontSize: 15,
+      padding: 0,
+      color: C.text,
+    },
     tabs: {
       flexDirection: "row",
       gap: Space.xs,
     },
     tab: {
       paddingVertical: 7,
-      paddingHorizontal: 16,
+      paddingHorizontal: 12,
       borderRadius: 20,
     },
     tabActive: {

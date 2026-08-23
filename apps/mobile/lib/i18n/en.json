@@ -338,8 +338,8 @@
   "gallery.share_file_a11y": "Share file",
   "gallery.filter.all": "All",
   "gallery.filter.files": "Files",
-  "gallery.filter.images": "Images",
   "gallery.title": "Gallery",
+  "gallery.search_placeholder": "Search images and files...",
   "lesson.chapter_complete": "Chapter complete",
   "lesson.chapter_empty": "No words in this chapter yet.",
   "lesson.close": "Close",
@@ -971,5 +971,10 @@
   "upgrade.restore_empty": "No active subscription found for this account.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
   "upgrade.subscription_terms": "Subscription renews automatically each month unless canceled in your App Store or Google Play account.",
-  "upgrade.title": "Upgrade to Pro"
+  "upgrade.title": "Upgrade to Pro",
+  "gallery.empty_generated": "No generated images yet",
+  "gallery.empty_uploaded": "No uploaded images yet",
+  "gallery.filter.generated": "Generated",
+  "gallery.filter.uploaded": "Uploaded",
+  "gallery.open_chat_a11y": "Open chat"
 }

@@ -338,8 +338,8 @@
   "gallery.share_file_a11y": "Dosyayı paylaş",
   "gallery.filter.all": "Tümü",
   "gallery.filter.files": "Dosyalar",
-  "gallery.filter.images": "Görseller",
   "gallery.title": "Galeri",
+  "gallery.search_placeholder": "Görsel ve dosya ara...",
   "lesson.chapter_complete": "Bölüm tamamlandı",
   "lesson.chapter_empty": "Bu bölümde henüz sözcük yok.",
   "lesson.close": "Kapat",
@@ -971,5 +971,10 @@
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
   "upgrade.subscription_terms": "Abonelik, App Store veya Google Play hesabınızdan iptal edilmediği sürece her ay otomatik olarak yenilenir.",
-  "upgrade.title": "Pro'ya yükselt"
+  "upgrade.title": "Pro'ya yükselt",
+  "gallery.empty_generated": "Henüz oluşturulmuş görsel yok",
+  "gallery.empty_uploaded": "Henüz yüklenmiş görsel yok",
+  "gallery.filter.generated": "Oluşturulan",
+  "gallery.filter.uploaded": "Yüklenen",
+  "gallery.open_chat_a11y": "Sohbeti aç"
 }
