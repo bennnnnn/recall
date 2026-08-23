@@ -1,0 +1,37 @@
+import {
+  OPTIMISTIC_TODO_ID_PREFIX,
+  buildOptimisticTodo,
+  removeTodoById,
+  replaceTodoById,
+} from "@/lib/todos/optimisticTodo";
+
+describe("optimisticTodo", () => {
+  it("builds a pending row with a local id prefix", () => {
+    const row = buildOptimisticTodo({
+      content: "Milk",
+      topic: "Groceries",
+      sortOrder: 2,
+    });
+    expect(row.id.startsWith(OPTIMISTIC_TODO_ID_PREFIX)).toBe(true);
+    expect(row).toMatchObject({
+      content: "Milk",
+      topic: "Groceries",
+      checked: false,
+      due_at: null,
+      sort_order: 2,
+      chat_id: null,
+      project_id: null,
+    });
+  });
+
+  it("replaces and removes by id", () => {
+    const first = buildOptimisticTodo({ content: "A", topic: "General" });
+    const second = buildOptimisticTodo({ content: "B", topic: "General" });
+    const swapped = { ...second, id: "server-1", content: "B done" };
+    expect(replaceTodoById([first, second], second.id, swapped)).toEqual([
+      first,
+      swapped,
+    ]);
+    expect(removeTodoById([first, second], first.id)).toEqual([second]);
+  });
+});

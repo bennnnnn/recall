@@ -12,6 +12,10 @@ type Params = {
   user: User | null;
   updateUser: (patch: Partial<User>) => Promise<void>;
   regenerateResponse: (model?: string | null, clientGeo?: ClientGeo | null) => Promise<void>;
+  /** Pop the last assistant + show typing immediately, before geo. */
+  beginRegenerateUi?: () => void;
+  /** Restore the prior assistant when geo is cancelled. */
+  cancelRegenerateUi?: () => void;
   /**
    * Called when the last assistant message is an image-gen turn. Receives the
    * last user message content (the prompt) so the caller can re-run image
@@ -26,6 +30,8 @@ export function useChatRegenerate({
   user,
   updateUser,
   regenerateResponse,
+  beginRegenerateUi,
+  cancelRegenerateUi,
   regenerateImage,
 }: Params) {
   const { t } = useTranslation();
@@ -50,6 +56,7 @@ export function useChatRegenerate({
       }
       inFlightRef.current = true;
       setRegenerating(true);
+      beginRegenerateUi?.();
       try {
         const lastUser = [...messages].reverse().find((m) => m.role === "user");
         const result = await resolveClientGeoForQuery(
@@ -59,7 +66,10 @@ export function useChatRegenerate({
           updateUser,
           user?.location_enabled ?? false,
         );
-        if (!result.ok) return;
+        if (!result.ok) {
+          cancelRegenerateUi?.();
+          return;
+        }
         await regenerateResponse(model, result.clientGeo);
       } finally {
         inFlightRef.current = false;
@@ -70,6 +80,8 @@ export function useChatRegenerate({
       token,
       messages,
       regenerateResponse,
+      beginRegenerateUi,
+      cancelRegenerateUi,
       regenerateImage,
       t,
       updateUser,

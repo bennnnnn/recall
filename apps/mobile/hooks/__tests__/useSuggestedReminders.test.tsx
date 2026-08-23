@@ -40,16 +40,19 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-jest.mock("@/lib/cache/suggestedRemindersCache", () => ({
-  fetchSuggestedReminders: jest.fn(async () => ({ reminders: [] })),
-  getCachedSuggestedReminders: jest.fn(() => ({
-    reminders: [
-      { id: "sug-1", title: "Package arriving", due_at: "2026-08-24T18:00:00Z" },
-    ],
-    pending_count: 1,
-  })),
-  removeSuggestedReminderFromCache: jest.fn(),
-}));
+jest.mock("@/lib/cache/suggestedRemindersCache", () => {
+  const actual = jest.requireActual("@/lib/cache/suggestedRemindersCache") as typeof import("@/lib/cache/suggestedRemindersCache");
+  return {
+    ...actual,
+    fetchSuggestedReminders: jest.fn(async () => ({ reminders: [] })),
+    getCachedSuggestedReminders: jest.fn(() => ({
+      reminders: [
+        { id: "sug-1", title: "Package arriving", due_at: "2026-08-24T18:00:00Z" },
+      ],
+      pending_count: 1,
+    })),
+  };
+});
 
 jest.mock("@/lib/todos/todoReminders", () => ({
   syncTodoReminders: jest.fn(async () => undefined),
@@ -104,5 +107,50 @@ describe("useSuggestedReminders", () => {
     expect(next[0]).toEqual(created);
     expect(next).toEqual(expect.arrayContaining([existingTodo]));
     expect(syncTodoReminders).toHaveBeenCalledWith(next);
+  });
+
+  it("removes the suggestion before the API returns", async () => {
+    let finish: (created: typeof existingTodo) => void = () => undefined;
+    mockApi.addSuggestedReminder.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await act(async () => {
+      render(<Probe />);
+    });
+    expect(current.reminders).toHaveLength(1);
+
+    let addPromise: Promise<boolean> = Promise.resolve(false);
+    await act(async () => {
+      addPromise = current.add("sug-1");
+      await Promise.resolve();
+    });
+    expect(current.reminders).toHaveLength(0);
+
+    await act(async () => {
+      finish({
+        ...existingTodo,
+        id: "todo-new",
+        content: "Package arriving",
+        due_at: "2026-08-24T18:00:00Z",
+      });
+      await addPromise;
+    });
+    expect(current.reminders).toHaveLength(0);
+  });
+
+  it("restores the suggestion when add fails", async () => {
+    mockApi.addSuggestedReminder.mockRejectedValue(new Error("fail"));
+    await act(async () => {
+      render(<Probe />);
+    });
+
+    await act(async () => {
+      await current.add("sug-1");
+    });
+
+    expect(current.reminders).toHaveLength(1);
+    expect(current.reminders[0]?.id).toBe("sug-1");
   });
 });

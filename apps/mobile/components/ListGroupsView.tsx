@@ -104,7 +104,7 @@ export function ListGroupsView({
                     accessibilityRole="button"
                     accessibilityLabel={t("lists.delete_group_confirm")}
                   >
-                    <Icon name="trash-outline" size={16} color={C.textTertiary} />
+                    <Icon name="trash-outline" size={16} danger />
                   </Pressable>
                 ) : null}
                 <Pressable hitSlop={8} onPress={() => toggleCollapsed(group.topic)}>
@@ -288,7 +288,7 @@ function ListItemRow({
           accessibilityLabel={t("common.delete")}
           disabled={busy}
         >
-          <Icon name="trash-outline" size={16} color={C.textTertiary} />
+          <Icon name="trash-outline" size={16} danger />
         </Pressable>
       ) : null}
     </Pressable>

@@ -100,7 +100,7 @@ function MemorySectionCard({
             accessibilityRole="button"
             accessibilityLabel={t("memory.delete_section_a11y")}
           >
-            <Icon name="trash-outline" size={16} color={theme.textTertiary} />
+            <Icon name="trash-outline" size={16} danger />
           </Pressable>
         </View>
       </View>
@@ -115,7 +115,7 @@ function MemorySectionCard({
                 accessibilityRole="button"
                 accessibilityLabel={t("memory.delete_fact_a11y")}
               >
-                <Icon name="close-circle-outline" size={18} color={theme.textTertiary} />
+                <Icon name="close-circle-outline" size={18} danger />
               </Pressable>
             </View>
           ))

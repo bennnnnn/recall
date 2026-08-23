@@ -40,6 +40,41 @@ export function removeSuggestedReminderFromCache(id: string): void {
   });
 }
 
+/** Put a dismissed/added suggestion back when the API call fails. */
+export function restoreSuggestedReminderToCache(reminder: SuggestedReminder): void {
+  const current = resource.get(SUGGESTED_REMINDERS_KEY);
+  if (!current) return;
+  if (current.reminders.some((item) => item.id === reminder.id)) return;
+  resource.update(SUGGESTED_REMINDERS_KEY, () => ({
+    reminders: [reminder, ...current.reminders],
+    pending_count: current.pending_count + 1,
+  }));
+}
+
+type ReminderListSetter = (
+  updater: (prev: SuggestedReminder[]) => SuggestedReminder[],
+) => void;
+
+/** Drop from cache + UI together (optimistic add/dismiss). */
+export function dropSuggestedReminder(
+  id: string,
+  setReminders: ReminderListSetter,
+): void {
+  removeSuggestedReminderFromCache(id);
+  setReminders((prev) => prev.filter((item) => item.id !== id));
+}
+
+/** Restore cache + UI together after a failed add/dismiss. */
+export function undeleteSuggestedReminder(
+  reminder: SuggestedReminder,
+  setReminders: ReminderListSetter,
+): void {
+  restoreSuggestedReminderToCache(reminder);
+  setReminders((prev) =>
+    prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev],
+  );
+}
+
 export async function fetchSuggestedReminders(
   token: string,
   opts?: { force?: boolean },

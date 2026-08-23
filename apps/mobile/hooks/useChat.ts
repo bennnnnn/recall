@@ -701,26 +701,33 @@ export function useChat(
     [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse],
   );
 
+  const beginRegenerateUi = useCallback(() => {
+    const popped = popLastAssistantMessage(messagesRef.current);
+    regenerateBackupRef.current = popped.backup;
+    messagesRef.current = popped.messages;
+    setMessages((prev) => {
+      const latest = popLastAssistantMessage(prev);
+      if (latest.backup) regenerateBackupRef.current = latest.backup;
+      messagesRef.current = latest.messages;
+      return latest.messages;
+    });
+
+    setStreaming(true);
+    streamingRef.current = true;
+    assistantBuffer.current = "";
+    reasoningBuffer.current = "";
+    updateStreamingDraft({ content: "" });
+    appendStreamingPlaceholder();
+  }, [appendStreamingPlaceholder, updateStreamingDraft]);
+
   const regenerateResponse = useCallback(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId) return;
 
-      const popped = popLastAssistantMessage(messagesRef.current);
-      regenerateBackupRef.current = popped.backup;
-      messagesRef.current = popped.messages;
-      setMessages((prev) => {
-        const latest = popLastAssistantMessage(prev);
-        if (latest.backup) regenerateBackupRef.current = latest.backup;
-        messagesRef.current = latest.messages;
-        return latest.messages;
-      });
-
-      setStreaming(true);
-      streamingRef.current = true;
-      assistantBuffer.current = "";
-      reasoningBuffer.current = "";
-      updateStreamingDraft({ content: "" });
-      appendStreamingPlaceholder();
+      const uiReady = messagesRef.current.some((m) => m.id === "streaming");
+      if (!uiReady) {
+        beginRegenerateUi();
+      }
 
       await ensureConnected();
       if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
@@ -736,14 +743,7 @@ export function useChat(
         }),
       );
     },
-    [
-      token,
-      chatId,
-      ensureConnected,
-      appendStreamingPlaceholder,
-      regenerateViaSse,
-      updateStreamingDraft,
-    ],
+    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse],
   );
 
   const editMessage = useCallback(
@@ -872,6 +872,8 @@ export function useChat(
     finalizing,
     sendingMessageId,
     sendMessage,
+    beginRegenerateUi,
+    cancelRegenerateUi: restoreRegenerateBackup,
     regenerateResponse,
     editMessage,
     stopGeneration,
