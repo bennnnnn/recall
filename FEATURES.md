@@ -45,9 +45,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   read the thread without signing in. Public web links are a separate privacy feature
   (not started; do not assume we have them).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
-- ✅ **Gallery** — drawer **Gallery** → grid of generated and uploaded images plus files.
-  Tabs: All / Generated / Uploaded / Files. Search matches filename, type, and the
-  linked chat prompt. Tap an image to view (Open chat when linked); tap a file to share.
+- ✅ **Gallery** — drawer **Gallery** → paginated grid of the user’s verified attachments
+  (generated images, uploaded images, and files). Tabs: All / Generated / Uploaded / Files.
+  Search is a case-insensitive substring on filename, MIME type, and the **linked message
+  body** (user caption for uploads; for generated images that body is the assistant
+  `[Image: …]` marker, **not** the draw prompt). Tap an image to view, with **Open chat**
+  when the attachment is still linked; tap a file to share (no in-gallery preview).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
@@ -169,9 +172,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.
-- ✅ **Attachment RAG** — chunk + embed PDF/doc text (text-layer, or scanned-PDF OCR) into
-  pgvector; retrieve top chunks into the system prompt on follow-up turns (capped;
-  invalidated on attachment delete).
+- ✅ **Attachment RAG** — chunk + embed PDF/doc text (text-layer, or scanned-PDF OCR on
+  the **prepare** path and again in the index job) into pgvector; retrieve top chunks
+  into the system prompt on **later turns in the same chat** (`chat_id` on chunks — not
+  a user-wide corpus). First turn uses the inline excerpt. Invalidated on attachment
+  delete. Flag: `attachment_rag_enabled` (default on).
 - ✅ **Chat-history semantic RAG** — background `message_index` embeds past turns into
   `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
   window. Golden Rule 3 still holds — never the full transcript. First index also
@@ -297,18 +302,24 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   production). Health probes and CORS preflight are skipped. No bodies or query
   strings.
 
-## 14. Todos & suggestions
-- ✅ **Todo lists** — named lists (topics) with a list-first UX: create a list title, then add items;
-  drawer shows a single **Todos** entry (not per-list submenus).
-- ✅ **Todos API** — create, check off, delete items; delete entire list by topic; optional `due_at`.
-- ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete / delete_list /
-  set_due / clear_due from chat; injects current lists + overdue summary into the system prompt.
-  “What time is my flight / meeting / …” loads Reminders (and Calendar) on the first turn.
-- ✅ **Due dates** — `due_at` on items; mobile date/time picker; relative labels in prompts
-  (overdue, due today, due in N days); user timezone synced from device (`users.timezone`).
-- ✅ **Local due reminders** — schedules a device notification at due time; resyncs on login,
-  foreground, and todo changes; tap opens Todos screen. Lead time configurable (5 / 10 / 15 / 30 /
-  **60 min** before due).
+## 14. Lists, Reminders & suggestions
+- ✅ **Lists** — named lists (topics) with a list-first UX: create a list title, then add
+  items. Drawer has separate **Lists** and **Reminders** entries (not a single Todos
+  item, and not per-list submenus). Empty named lists persist in on-device group order
+  until the user deletes them (no server list entity).
+- ✅ **Todos API** — create, check off, delete items; delete entire list by topic (items
+  without `due_at` only); optional `due_at`.
+- ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete /
+  set_due / clear_due from chat; injects current lists + overdue summary into the
+  system prompt. Whole-list delete from chat is **not** supported (`delete_list` is not
+  an action). “What time is my flight / meeting / …” loads Reminders (and Calendar) on
+  the first turn.
+- ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
+  labels in prompts (overdue, due today, due in N days); user timezone synced from
+  device (`users.timezone`).
+- ✅ **Local due reminders** — schedules a device notification at due time; resyncs on
+  login, foreground, and todo changes; tap opens **Reminders** (`/todos?focus=reminders`).
+  Lead time configurable (5 / 10 / 15 / 30 / **60 min** before due).
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
@@ -337,8 +348,8 @@ Mobile → Recall API → MCP / calendar gateway → Google Calendar
 - ✅ **Google Calendar OAuth** — separate opt-in from sign-in; scope `calendar.readonly`; refresh
   token stored server-side only.
 - ✅ **`user_calendar_connections` table** — refresh token, granted scopes, primary calendar id.
-- ✅ **`calendar_service.py`** — fetch events for a window (today → +60 days); Redis cache (~5 min)
-  so every chat turn doesn't hit Google.
+- ✅ **`services/calendar.py`** — fetch events for a window (**now** → +60 days; prompt
+  inject uses 14 days); Redis cache (~5 min) so every chat turn doesn't hit Google.
 - ✅ **Prompt injection** — compact calendar block next to todos/memory (title, start/end, optional
   location; minimal PII).
 - ✅ **Settings UI** — Connect / disconnect Google Calendar; shows connected email.
@@ -351,10 +362,12 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 ### Phase 1b — Gmail → suggested reminders
 - ✅ **Gmail OAuth** — opt-in from Settings (separate from Calendar); read-only inbox scope;
   refresh token server-side only.
-- ✅ **`user_gmail_connections` table** — scopes, sync cursor, connected email.
-- ✅ **`email_service.py`** — fetch recent mail, dedupe by message id, LLM extraction with Pydantic
+- ✅ **`user_gmail_connections` table** — scopes, `last_sync_at`, connected email (7-day
+  inbox query; not a Gmail History API cursor).
+- ✅ **`services/email.py`** — fetch recent mail, dedupe by message id, LLM extraction with Pydantic
   validation before DB writes.
-- ✅ **Suggested reminders API** — list / dismiss / confirm → create in-app todo.
+- ✅ **Suggested reminders API** — list / dismiss / confirm → create an in-app **dated**
+  reminder (`due_at` required; undated extracts default to 18:00 local or now + 1 hour).
 - ✅ **Suggested reminders UI** — Reminders screen "From email" section + chat nudge chip;
   confirm before add (no silent auto-add).
 - ✅ **Background sync** — periodic Gmail sync job enqueued after connect.
@@ -371,7 +384,8 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   a later flight-API step, not inbox guessing.
 
 **Privacy & UX** (unchanged intent)
-- Clear copy: what is read, how long it is kept, revoke = stop + delete tokens
+- Clear copy: what is read, how long it is kept; disconnect stops Recall use (shared
+  Calendar/Gmail refresh token may skip Google revoke until the other product is disconnected)
 - Minimal retention; user confirms every suggestion in v1
 
 **Out of scope for v1** (unchanged)
@@ -386,13 +400,17 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   adapters once before streaming (legacy; skipped when the tool loop is on).
 - ✅ **Full tool-calling loop** — **on by default.** Model-initiated LiteLLM `tools=` rounds
   (`web_search` / `sympy` / `calendar` / `image_gen`) with Pydantic-validated args, bounded by
-  `mcp_tool_loop_max_rounds`. Heuristic SymPy + web-search inject still run so homework
-  and first-turn search do not wait on a tool call. Legacy `mcp_tools_enabled` stays off.
+  `mcp_tool_loop_max_rounds`. The **calendar** adapter is a **conflict helper on
+  caller-supplied events** — it does not list or create Google Calendar events. Create
+  stays the `calendar_proposal` fence + confirm card. Heuristic SymPy + web-search inject
+  still run so homework and first-turn search do not wait on a tool call. Legacy
+  `mcp_tools_enabled` stays off.
 - ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
   Pydantic before DB writes (already enforced for calendar proposals and email extraction).
 
 ### Phase 3 — Smarter behavior
-- ✅ **Conflict detection** — todo due times vs calendar events (server-side helper).
+- ✅ **Conflict detection** — server helper + row notes on existing reminders after events
+  load. Add/edit sheets do not call `/conflicts`.
 - ✅ **Create calendar events (confirm flow)** — user asks to schedule → model emits
   `calendar_proposal` fence → backend stores Redis proposal + injects `proposal_id` → mobile
   **Add to Calendar** card → confirm creates the Google event (requires calendar **write** scope).
@@ -400,7 +418,9 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   events (default **15 min** lead; Redis dedupe per event). Tap opens Reminders calendar view.
 
 ### Privacy & UX
-- Opt-in connect; revoke clears tokens and stops injection.
+- Opt-in connect; disconnecting deletes Recall’s connection row and stops injection.
+  If Calendar and Gmail share a refresh token, Google revoke is skipped until the
+  remaining product is disconnected (grant may stay at Google until then).
 - Minimal event data in prompts; no full attendee lists unless the user asks.
 - v1 non-goals: arbitrary user-configured MCP servers, syncing every on-device calendar locally,
   running MCP on the phone.
@@ -420,57 +440,58 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 
 ## 17. Projects (utility workspaces)
 
-Recall is evolving from chat-only into a **holistic AI utility app**. **Learning** topics are
-user-created workspaces beside **Todos** — for vocabulary in any of the nine app languages,
-general knowledge quizzes, courses, habits, and anything else that needs structure over time.
+Recall is evolving from chat-only into a **holistic AI utility app**. **Learning** is
+**English and Spanish vocabulary only** (one class per target language). Other UI locales
+stay in the app; they are not Learning class types. Trivia / general-knowledge quizzes
+were removed. Programming help lives in main chat.
 
 ### v1 (shipped foundation)
-- ✅ **`projects` table** — title, description, `kind` (`general` | `vocabulary` | `language` |
-  `trivia` | `learning`), archive flag.
+- ✅ **`projects` table** — title, description, `kind` (`language` only; `vocabulary` is a
+  write alias), archive flag. DB CHECK rejects `general` / `trivia` / `learning` /
+  `programming`.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
-- ✅ **Mobile** — drawer **Learning** link → list → create → detail screen.
-- ✅ **Project kinds** — API + mobile support **vocabulary** (`language`, with `vocabulary` as
-  a write alias) for English and Spanish — one project per target language. Other UI locales
-  stay in the app; Learning create only offers `en` / `es`. Legacy kinds (`trivia`,
+- ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
+  there). Compact stats, PDF export, and delete live in Settings/Learning.
+- ✅ **Project kinds** — create only offers `en` / `es`. Legacy kinds (`trivia`,
   `programming`, `math`, …) are rejected on create.
 
 ### Phase 2 — Vocabulary (language learning)
-- ✅ **Decks / groups** — organize words by deck title on the detail screen.
-- ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
+- ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
+- ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), SM-2 fields.
 - ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
   lives in Settings/Learning, not the main lesson flow.
-- ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
-  interaction runs in a dedicated lesson window (MCQ, vocab cards, typed answers, result sheet).
-  The teaching window shows only those fences plus pronunciation — not tutor markdown.
-  Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
-  grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
-- ✅ **Tap-to-answer MCQ** — large choice cards in the lesson window on complete `vocab_quiz` fences.
-- ✅ **Review queue** — due-only spaced-repetition items surface in the lesson map; no
-  separate review CTA on the project card.
-- ✅ **Adaptive level hints** — suggests level up/down from mastery ratio + quiz accuracy.
+- ✅ **In-lesson MCQ** — study runs in a dedicated lesson window (tap-to-answer multiple
+  choice + result sheet + pronunciation). The teaching window does **not** show tutor
+  markdown. Regular chat must not quiz in-bubble.
+- ❌ **Typed answers / hidden `vocab_quiz` lesson path** — not the shipped study UX.
+  Lesson play is client-side catalog MCQ; do not treat chat `vocab_quiz` fences as the
+  lesson product.
+- ❌ **Review queue / Settings deck browse** — SM-2 `due_at` is written, but mastered
+  words do not re-enter a map queue (`due_for_review` only counts `status=learning`).
+  Settings has PDF export, not a deck browser. `buildProjectReviewPrompt` is unused.
+- ⚠️ **Adaptive level hints** — computed server-side; Settings does not surface them.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).
 - ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch.
 - ✅ **Pronunciation** — play button per word tries `pronunciation_url` when set, then cloud TTS,
   then on-device `expo-speech`.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
-  update on vocab status changes; due counts prefer `due_at` (falls back to 24h heuristic).
-- ✅ **Deck browse** — browse words by deck from Settings/Learning (PDF export per class).
+  update on vocab status changes. Due counts for the map are in-progress items, not a
+  mastered-word review queue.
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
   (`vocab_decks` / `vocab_entries`: domain → branch tree — Family, Food, Hotel, …
-  plus SAT banks for English). Main chat gets a progress overview (class, daily
-  counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
-  A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
-  ○ / ◐ words. The model must not invent or add words. Progress is derived
-  (mastered/total; a chapter is complete when every word is mastered). The lesson
-  map lists each domain as a parent with its branches nested under it; tap an
-  unlocked branch to open the teaching window. The main flow is
-  Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
-  screen). Compact stats, PDF export, and delete live in Settings/Learning. A
-  thin "today" progress line sits above the path tree. Locked chapters stay
-  visible until the current one is complete. No generic `learning` kind, lesson
-  notes, certificates, or marketplace.
+  plus SAT banks for English) and opens the **lesson map** (not a tutor chat that
+  invents words). Main chat gets a progress overview (class, daily counts, path
+  checkmarks) and today’s lemmas when asked — not the full word dump. The model
+  must not invent or add words. Progress is derived (mastered/total; a chapter is
+  complete when every word is mastered). The lesson map lists each domain as a
+  parent with its branches nested under it; tap an unlocked branch to open the
+  teaching window. The main flow is Sidebar → My Learning list → Lesson map →
+  Lesson page (no intermediate stats screen). Compact stats, PDF export, and
+  delete live in Settings/Learning. A thin "today" progress line sits above the
+  path tree. Locked chapters stay visible until the current one is complete. No
+  generic `learning` kind, lesson notes, certificates, or marketplace.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
@@ -495,7 +516,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 ### Already shipped (keep for audit trail)
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
   defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar).
-- ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs; top-k into the prompt.
+- ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs **in that chat**
+  (`chat_id`); top-k into later turns. OCR can run on prepare as well as the index job.
 - ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision → SymPy → LaTeX/steps.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
@@ -527,8 +549,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
 - ✅ **Scanned-PDF OCR** — text-layer `pypdf` first; empty PDFs render pages (`pypdfium2`)
-  and transcribe via `vision-chat`, then the same excerpt + attachment RAG path. Cap +
-  timeout in `attachment_ocr_*`. Not a second extract pipeline.
+  and transcribe via `vision-chat`, then the same excerpt + attachment RAG path. OCR can
+  run on **turn prepare** as well as the index job (TTFT cost). Cap + timeout in
+  `attachment_ocr_*`. Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
   SymPy + web search kept. See [§29](#29-next-actions-product-decisions).
 - 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
@@ -551,7 +574,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Messaging | Reactions, read receipts; full duplex / interruptible voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
-| Learning | Generic `learning` kind (lesson notes / richer tutor); other target languages; certificates |
+| Learning | Generic `learning` kind; other target languages; certificates; review queue / deck browse / typed answers |
 | Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; virus scan |
@@ -576,7 +599,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
 - 🔜 **Mobile gate + on-device pass** — **future.** `pnpm typecheck && pnpm lint && pnpm test`
   locally, then an iOS **and** Android dev-build pass (Google Sign-In, HTML/chart WebView,
   push, RevenueCat, deck Modal, autoscroll, markdown throttle).
-- ✅ **FlashList migration** — `ConversationList` and `Todos` now use `FlashList`
+- ✅ **FlashList migration** — `ConversationList` and Lists / Reminders now use `FlashList`
   (v2, auto-measured). Chat drawer rows and the flat reminders/done lists are
   virtualized; the calendar day-view and `ListGroupsView` render in the header
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
@@ -661,7 +684,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; not Whisper; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
-| pgvector RAG over attachment corpora | ✅ Shipped (`attachment_rag`; flag on by default) |
+| pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
 | Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |
 | Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
 | Full duplex voice mode | 🔜 Later |
@@ -703,8 +726,8 @@ Internal product snapshot for leadership, engineering, design, GTM, and App Stor
 
 ### Mission
 Recall is a **personal AI utility** — not a generic chatbot. It remembers who you are, helps you
-act (todos, calendar, email), and supports **Learning** (vocabulary in the nine app languages +
-general knowledge quizzes). One trusted assistant combining ChatGPT-grade conversation with durable memory and
+act (lists, reminders, calendar, email), and supports **Learning** (English and Spanish
+vocabulary). One trusted assistant combining ChatGPT-grade conversation with durable memory and
 everyday productivity. **Programming help lives in main chat** (code blocks, previews) — not as a
 structured Learning topic type.
 
@@ -713,14 +736,14 @@ structured Learning topic type.
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, reasoning visible |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
-| Utility beyond chat | Todos, Learning, integrations, home starters |
+| Utility beyond chat | Lists, Reminders, Learning, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
 
 ### Release plan
 | Phase | Scope | Status |
 |-------|--------|--------|
-| MVP (mobile) | Chat + memory + todos + Learning + calendar/Gmail + attachments | ~95% code-complete |
+| MVP (mobile) | Chat + memory + Lists/Reminders + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
 | v1.1 | Web client (same API), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
@@ -733,10 +756,10 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Language (`language`) — en/es catalog tree, decks, quiz, tutor, SM-2 | Other target languages |
-| Domain → branch lesson map | Certificates, GitHub linking |
+| Language (`language`) — en/es catalog tree, lesson-map MCQ, SM-2 fields | Other target languages; trivia |
+| Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
 | Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
-| ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |
+| ~~Programming curriculum kind~~ **removed** — use main chat for code help | Hidden chat `vocab_quiz` as the lesson path |
 
 ### Rich rendering (§4 summary)
 | Capability | Status |
@@ -751,8 +774,8 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 secrets (future owner ops) |
-| Vision routing for images + scanned-PDF OCR (page render → vision → RAG) | — |
-| PDF text extract + pgvector attachment RAG | — |
+| Vision routing for images + scanned-PDF OCR (prepare + index) | — |
+| PDF text extract + pgvector RAG **per conversation** | User-wide attachment corpus |
 | Chat-history corpus RAG (pgvector top-k, not full transcript) | — |
 | Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | — |
@@ -778,8 +801,8 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail (future) |
-| Gmail → suggested reminders | Google Docs, GitHub (later owned integrations) |
-| MCP adapters + LiteLLM tool loop **on by default** | Arbitrary user MCP servers |
+| Gmail → suggested **dated** reminders (`last_sync_at`, 7-day query) | Gmail History API cursor; Google Docs, GitHub |
+| MCP adapters + LiteLLM tool loop **on by default** | Calendar MCP listing/creating Google events; user MCP servers |
 
 ### Future — launch ops (owner, not product code)
 1. Cost guards (speech, Tavily, R1 weight) ✅
@@ -812,10 +835,12 @@ weakness. No video generation. Native share is enough unless we later decide we 
 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
    `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
-   Heuristic SymPy + first-turn web search still run. Add Docs/GitHub later as
-   owned tools — not user MCP servers.
+   The calendar adapter conflict-checks **caller-supplied** events; it does not
+   list or create on Google. Heuristic SymPy + first-turn web search still run.
+   Add Docs/GitHub later as owned tools — not user MCP servers.
 2. ✅ **Scanned-PDF OCR** — text-layer extract first; empty PDFs render pages →
-   `vision-chat` transcription → same excerpt + chunk/embed RAG. No second pipeline.
+   `vision-chat` transcription → same excerpt + chunk/embed RAG. May run on
+   prepare as well as index. No second pipeline.
 3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
    start excluding the recent window. Golden Rule 3: never dump the full transcript.
 
