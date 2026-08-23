@@ -1,5 +1,5 @@
 import { Message } from "@/lib/api";
-import { isRenderableVocabQuiz, parseVocabQuiz } from "@/lib/parseVocabQuiz";
+import { isRenderableVocabQuiz, isVocabQuizAnswer, parseVocabQuiz } from "@/lib/parseVocabQuiz";
 
 /** A user message that looks like a quiz letter answer (A–D, case-insensitive). */
 function isQuizAnswer(content: string): boolean {
@@ -68,6 +68,41 @@ export function priorUserTextFor(messages: Message[], index: number): string | n
   if (!item || item.role !== "assistant" || index <= 0) return null;
   const prior = messages[index - 1];
   return prior?.role === "user" ? prior.content : null;
+}
+
+/**
+ * True when this user row is a letter reply to an in-progress quiz — the
+ * previous assistant is a quiz, or a hint after a letter while chips still
+ * sit on that quiz. Ordinary "c" / "a" in normal chat stays a plain bubble.
+ */
+export function priorAssistantIsQuizFor(messages: Message[], index: number): boolean {
+  const item = messages[index];
+  if (!item || item.role !== "user" || !isVocabQuizAnswer(item.content)) return false;
+
+  for (let i = index - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === "user") {
+      if (!isVocabQuizAnswer(msg.content)) return false;
+      continue;
+    }
+    if (isRenderableVocabQuiz(parseVocabQuiz(msg.content))) {
+      if (i > 0) {
+        const prev = messages[i - 1];
+        if (prev.role === "user" && isQuizAnswer(prev.content)) {
+          continue;
+        }
+      }
+      return true;
+    }
+    if (i > 0) {
+      const prev = messages[i - 1];
+      if (prev.role === "user" && isVocabQuizAnswer(prev.content)) {
+        continue;
+      }
+    }
+    return false;
+  }
+  return false;
 }
 
 /** True while tokens are streaming or the server is persisting after stream_end. */

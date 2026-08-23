@@ -36,6 +36,8 @@ import { useTranslation } from "react-i18next";
 type Props = {
   message: Message;
   priorUserText?: string | null;
+  /** User row: this letter is answering an in-progress A–D quiz. */
+  isQuizReply?: boolean;
   isGenerating?: boolean;
   /** Live token stream — avoids mutating the messages array on every token. */
   liveContent?: string;
@@ -315,6 +317,7 @@ function AssistantActions({
 export const MessageBubble = React.memo(function MessageBubble({
   message,
   priorUserText = null,
+  isQuizReply = false,
   isGenerating = false,
   liveContent,
   liveSearchSources,
@@ -446,7 +449,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               canRevealUserActions ? t("chat.user_message_actions_hint") : undefined
             }
           >
-            <UserMessageContent message={message} />
+            <UserMessageContent message={message} isQuizReply={isQuizReply} />
           </Pressable>
           {showSendingLabel ? (
             <ActionShimmer

@@ -139,3 +139,21 @@ describe("UserMessageContent math/markdown rendering", () => {
     expect(getByTestId("math-draft-preview")).toBeOnTheScreen();
   });
 });
+
+describe("UserMessageContent quiz-answer chip", () => {
+  it("renders a lone letter as a normal bubble when it is not a quiz reply", async () => {
+    const { getByText, queryByLabelText } = await render(
+      <UserMessageContent message={userMessage("c")} />,
+    );
+    expect(getByText("c")).toBeOnTheScreen();
+    expect(queryByLabelText("Quiz answer C")).toBeNull();
+  });
+
+  it("renders the quiz chip only when isQuizReply is set", async () => {
+    const { getByLabelText, queryByText } = await render(
+      <UserMessageContent message={userMessage("c")} isQuizReply />,
+    );
+    expect(getByLabelText("Quiz answer C")).toBeOnTheScreen();
+    expect(queryByText("c")).toBeNull();
+  });
+});

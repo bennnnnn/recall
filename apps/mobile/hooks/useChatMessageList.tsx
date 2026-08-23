@@ -9,6 +9,7 @@ import {
   findActiveQuizMessageId,
   findLastAssistantId,
   isChatStreamActive,
+  priorAssistantIsQuizFor,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
@@ -134,6 +135,7 @@ export function useChatMessageList({
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText = priorUserTextFor(messagesRef.current, index);
+      const isQuizReply = priorAssistantIsQuizFor(messagesRef.current, index);
 
       if (item.id === "streaming" || item.id === IMAGE_GEN_PENDING_ASSISTANT_ID) {
         return (
@@ -164,6 +166,7 @@ export function useChatMessageList({
         <ChatMessageRow
           item={item}
           priorUserText={priorUserText}
+          isQuizReply={isQuizReply}
           streamVisualActive={streamVisualActive}
           chatStreamActive={
             isActiveQuizRow ? isChatStreamActive(streaming, finalizing) : false
