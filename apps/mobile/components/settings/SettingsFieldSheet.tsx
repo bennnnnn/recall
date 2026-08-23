@@ -5,6 +5,8 @@
 import { useMemo } from "react";
 import {
   ActivityIndicator,
+  InputAccessoryView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -18,6 +20,8 @@ import { AppSheet } from "@/components/AppSheet";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+
+const EMPTY_NUMBER_PAD_ACCESSORY_ID = "settings-field-empty-accessory";
 
 type Props = {
   visible: boolean;
@@ -51,8 +55,19 @@ export function SettingsFieldSheet({
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const numberPad =
+    keyboardType === "number-pad" || keyboardType === "decimal-pad";
+  // iOS number-pad has no Return key, so RN mounts a floating Done accessory
+  // that duplicates this sheet's Save. An empty accessory replaces it.
+  const hideNumberPadDone = Platform.OS === "ios" && numberPad;
 
   return (
+    <>
+      {hideNumberPadDone && visible ? (
+        <InputAccessoryView nativeID={EMPTY_NUMBER_PAD_ACCESSORY_ID}>
+          <View />
+        </InputAccessoryView>
+      ) : null}
     <AppSheet
       visible={visible}
       onClose={() => {
@@ -98,8 +113,11 @@ export function SettingsFieldSheet({
           value={value}
           onChangeText={onChangeText}
           autoFocus
-          returnKeyType={multiline ? "default" : "done"}
-          onSubmitEditing={multiline ? undefined : onSave}
+          returnKeyType={multiline || numberPad ? "default" : "done"}
+          onSubmitEditing={multiline || numberPad ? undefined : onSave}
+          inputAccessoryViewID={
+            hideNumberPadDone ? EMPTY_NUMBER_PAD_ACCESSORY_ID : undefined
+          }
           maxLength={maxLength}
           placeholder={placeholder}
           placeholderTextColor={theme.textTertiary}
@@ -110,6 +128,7 @@ export function SettingsFieldSheet({
         />
       </View>
     </AppSheet>
+    </>
   );
 }
 
