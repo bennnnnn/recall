@@ -1991,3 +1991,78 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
     # let finalize's adjust_usage refund the full reservation.
     assert usage["input"] == 0
     assert usage["output"] == 0
+
+
+@pytest.mark.asyncio
+async def test_web_search_tool_round_streams_final_instead_of_regenerating(
+    stream_offline_io,
+):
+    """After web_search tools run, the visible answer is streamed — not a
+    leftover complete_with_tools dumped as one instant_reply chunk."""
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    query = "What's the latest news on SpaceX?"
+    prompt = [{"role": "user", "content": query}]
+    after_tools = [
+        *prompt,
+        {"role": "assistant", "tool_calls": [{"id": "c1"}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "SpaceX landed Starship."},
+    ]
+    stream_messages: list[list[dict]] = []
+
+    async def fake_stream(**kwargs):
+        stream_messages.append(kwargs["messages"])
+        yield "SpaceX "
+        yield "landed."
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=prompt,
+        run_title=False,
+        user_message_content=query,
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.services.tool_loop.run_tool_rounds",
+                AsyncMock(return_value=(after_tools, None, None)),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", AsyncMock()))
+        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.services.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        yielded: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=True),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            yielded.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert yielded == ["SpaceX ", "landed."]
+    assert ctx.instant_reply is None
+    assert stream_messages == [after_tools]

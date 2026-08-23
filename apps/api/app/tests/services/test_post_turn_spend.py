@@ -185,7 +185,7 @@ async def test_tool_loop_path_skips_ordinary_explain_turn():
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_path_reuses_unused_final_as_instant_reply():
+async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
     from app.services.chat.stream import _run_tool_loop_path
 
     ctx = MagicMock()
@@ -198,11 +198,16 @@ async def test_tool_loop_path_reuses_unused_final_as_instant_reply():
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
+    tool_messages = [
+        *ctx.prompt_messages,
+        {"role": "assistant", "tool_calls": [{"id": "c1"}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "hits"},
+    ]
     with (
         patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
             "app.services.tool_loop.run_tool_rounds",
-            AsyncMock(return_value=(ctx.prompt_messages, None, None, "Here is a summary.")),
+            AsyncMock(return_value=(tool_messages, None, None)),
         ) as run,
     ):
         await _run_tool_loop_path(
@@ -214,4 +219,5 @@ async def test_tool_loop_path_reuses_unused_final_as_instant_reply():
             should_cancel=None,
         )
     run.assert_awaited_once()
-    assert ctx.instant_reply == "Here is a summary."
+    assert ctx.instant_reply is None
+    assert ctx.prompt_messages == tool_messages

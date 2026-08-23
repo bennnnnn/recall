@@ -2,8 +2,9 @@
 
 When ``mcp_tool_loop_enabled`` is on, run bounded non-streaming tool rounds
 before the user-visible stream — **only if the turn likely needs a tool**.
-Ordinary Q&A streams immediately. A leftover complete-without-tools answer is
-returned so the stream path can show it instead of calling the model again.
+Ordinary Q&A streams immediately. After tools run, the visible answer is
+**streamed** (tools omitted) — we do not dump a leftover completion as one
+chunk, and we do not throw it away and call the model a third time.
 
 SymPy tool results that carry a ``canonical_fence`` in ``ToolResult.data`` are
 collected so ``validate_math_fences`` can still overwrite/densify geometry and
@@ -109,6 +110,7 @@ def turn_needs_tool_loop(
     has_instant_reply: bool = False,
     has_verified_math: bool = False,
     has_search_sources: bool = False,
+    web_search: bool | None = None,
     settings: Settings | None = None,
     user: User | None = None,
 ) -> bool:
@@ -119,6 +121,8 @@ def turn_needs_tool_loop(
     streaming a second call) is what made ordinary chat sit on typing dots for
     ~6s. Skip unless this message still looks like search, unsolved math,
     calendar create, or Pro image gen.
+
+    ``web_search``: optional classifier override (None = sync heuristic).
     """
     if settings is not None and not settings.mcp_tool_loop_enabled:
         return False
@@ -133,7 +137,9 @@ def turn_needs_tool_loop(
     from app.services.math_tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
 
-    if not has_search_sources and needs_web_search(text):
+    if web_search is True:
+        return True
+    if web_search is not False and not has_search_sources and needs_web_search(text):
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
@@ -174,20 +180,19 @@ async def run_tool_rounds(
     list[dict[str, Any]],
     VerifiedMathBlock | None,
     TerminalImageResult | None,
-    str | None,
 ]:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
-    Returns ``(messages, verified_math, terminal_image, unused_final_content)``.
-    ``unused_final_content`` is a complete answer from a round that did not
-    call tools — the stream should show it instead of calling the model again.
+    Returns ``(messages, verified_math, terminal_image)``. Tool-call rounds stay
+    non-streaming. After tools execute, the caller streams the user-visible
+    answer (tools omitted) instead of a discarded leftover completion.
     """
     if not settings.mcp_tool_loop_enabled:
-        return messages, None, None, None
+        return messages, None, None
 
     tools = _tools_for_user(settings, user)
     if not tools:
-        return messages, None, None, None
+        return messages, None, None
 
     with (
         bind_search_quota_context(user=user, redis=redis),
@@ -218,7 +223,6 @@ async def _run_tool_rounds_bound(
     list[dict[str, Any]],
     VerifiedMathBlock | None,
     TerminalImageResult | None,
-    str | None,
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
@@ -226,7 +230,6 @@ async def _run_tool_rounds_bound(
     # fence from round 1 isn't lost when round 2 produces a graph fence.
     canonical_by_type: dict[str, dict[str, Any]] = {}
     terminal_image: TerminalImageResult | None = None
-    unused_final_content: str | None = None
 
     for _ in range(max_rounds):
         if should_cancel and should_cancel():
@@ -247,10 +250,9 @@ async def _run_tool_rounds_bound(
 
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
-            # Model finished without tools. Hand the text to the stream path
-            # instead of throwing it away and paying for a second completion.
-            raw = msg.get("content")
-            unused_final_content = raw.strip() if isinstance(raw, str) and raw.strip() else None
+            # Round produced a final answer without tools. Do not dump it as
+            # one chunk and do not complete_with_tools again — the caller
+            # streams (ordinary TTFT when this is round 1).
             break
 
         assistant_msg: dict[str, Any] = {
@@ -290,9 +292,10 @@ async def _run_tool_rounds_bound(
             )
 
         # Image gen already persisted the assistant row — stop before another
-        # completion round invents prose around the marker.
-        if terminal_image is not None:
-            break
+        # completion round invents prose around the marker. Otherwise hand off
+        # to the token stream instead of a leftover complete_with_tools that we
+        # would throw away (search used to wait on that extra round).
+        break
 
     # A cancel can land after the assistant's tool_calls are recorded but before
     # every tool result is appended. Providers reject a message list where a
@@ -314,7 +317,7 @@ async def _run_tool_rounds_bound(
         if all_fences
         else None
     )
-    return working, verified, terminal_image, unused_final_content
+    return working, verified, terminal_image
 
 
 def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:
