@@ -12,12 +12,16 @@ const mockGetLastNotificationResponseAsync = jest.fn().mockResolvedValue(null);
 const mockAddNotificationResponseReceivedListener = jest
   .fn()
   .mockReturnValue({ remove: jest.fn() });
+const mockAddNotificationReceivedListener = jest.fn().mockReturnValue({ remove: jest.fn() });
 
 jest.mock("expo-notifications", () => ({
   getLastNotificationResponseAsync: (...args: unknown[]) =>
     mockGetLastNotificationResponseAsync(...args),
   addNotificationResponseReceivedListener: (...args: unknown[]) =>
     mockAddNotificationResponseReceivedListener(...args),
+  addNotificationReceivedListener: (...args: unknown[]) =>
+    mockAddNotificationReceivedListener(...args),
+  cancelScheduledNotificationAsync: jest.fn(async () => undefined),
 }));
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
@@ -29,12 +33,16 @@ jest.mock("@/lib/pushNotifications", () => ({
   configurePushNotificationHandler: jest.fn(),
   handlePushNotificationResponse: jest.fn(),
 }));
+jest.mock("@/lib/todos/todoReminders", () => ({
+  cancelTodoReminder: jest.fn(async () => undefined),
+}));
 
 describe("PushNotificationBootstrap", () => {
   afterEach(() => {
     Platform.OS = "ios";
     mockGetLastNotificationResponseAsync.mockClear();
     mockAddNotificationResponseReceivedListener.mockClear();
+    mockAddNotificationReceivedListener.mockClear();
   });
 
   it("BUG FIX regression: does not call the native-only response APIs on web", async () => {
@@ -42,6 +50,7 @@ describe("PushNotificationBootstrap", () => {
     await render(<PushNotificationBootstrap />);
     expect(mockGetLastNotificationResponseAsync).not.toHaveBeenCalled();
     expect(mockAddNotificationResponseReceivedListener).not.toHaveBeenCalled();
+    expect(mockAddNotificationReceivedListener).not.toHaveBeenCalled();
   });
 
   it("still wires up the response APIs on native platforms", async () => {
@@ -49,5 +58,6 @@ describe("PushNotificationBootstrap", () => {
     await render(<PushNotificationBootstrap />);
     expect(mockGetLastNotificationResponseAsync).toHaveBeenCalled();
     expect(mockAddNotificationResponseReceivedListener).toHaveBeenCalled();
+    expect(mockAddNotificationReceivedListener).toHaveBeenCalled();
   });
 });
