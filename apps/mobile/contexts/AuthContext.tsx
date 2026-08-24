@@ -245,6 +245,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
       try {
+        const { invalidateUsageCache } = await import("@/lib/cache/usageCache");
+        invalidateUsageCache();
+      } catch {
+        /* best-effort */
+      }
+      try {
         await clearCachedUser();
       } catch {
         /* best-effort */

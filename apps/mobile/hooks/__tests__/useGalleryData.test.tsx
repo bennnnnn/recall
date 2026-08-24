@@ -50,6 +50,24 @@ describe("useGalleryData", () => {
     jest.clearAllMocks();
   });
 
+  it("skips a second silent reset while the list is still fresh", async () => {
+    const list = api.listAttachments as jest.Mock;
+    list.mockResolvedValue({ items: [item("a")], has_more: false });
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["a"]);
+    });
+    expect(list).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await latest?.retry();
+    });
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the grid when a later page fails", async () => {
     const list = api.listAttachments as jest.Mock;
     list

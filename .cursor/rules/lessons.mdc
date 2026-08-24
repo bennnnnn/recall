@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Drawer open, settings tab, and app resume re-hit chat/usage/gallery/home.** Silent
+  refetch ignored the 20s stale window home/lists already use. Skip when fresh;
+  keep a forced chat pull after backgrounding mid-stream (socket dead, truncated
+  bubble). Login must not `force` `/home` twice (token then name).
 - **Gallery showed blank tiles (404) after deleting every chat.** Message
   delete SET NULLs `attachments.message_id`, so rows linger after chats/titles
   are gone; chat purge already removed the bytes. List only attachments still

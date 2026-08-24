@@ -3,19 +3,24 @@ import { AppState } from "react-native";
 import { useFocusEffect } from "expo-router";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { api, type Usage } from "@/lib/api";
+import {
+  fetchTodayUsage,
+  getCachedUsage,
+  invalidateUsageCache,
+} from "@/lib/cache/usageCache";
 
 export function useUsage() {
   const token = useAuthToken();
-  const [usage, setUsage] = useState<Usage | null>(null);
+  const [usage, setUsage] = useState(() => (token ? (getCachedUsage(token) ?? null) : null));
 
   const refresh = useCallback(async () => {
-    if (!token) return;
-    try {
-      setUsage(await api.todayUsage(token));
-    } catch {
-      // Keep the last successful read; defaults still render the window.
+    if (!token) {
+      invalidateUsageCache();
+      setUsage(null);
+      return;
     }
+    const data = await fetchTodayUsage(token);
+    if (data) setUsage(data);
   }, [token]);
 
   useFocusEffect(
@@ -25,11 +30,16 @@ export function useUsage() {
   );
 
   useEffect(() => {
+    if (!token) {
+      invalidateUsageCache();
+      setUsage(null);
+      return;
+    }
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") void refresh();
     });
     return () => subscription.remove();
-  }, [refresh]);
+  }, [refresh, token]);
 
   return usage;
 }

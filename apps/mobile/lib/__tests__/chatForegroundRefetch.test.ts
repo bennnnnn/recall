@@ -1,4 +1,8 @@
-import { shouldRefetchChatOnForeground } from "@/lib/chat/chatForegroundRefetch";
+import {
+  shouldForceForegroundChatRecovery,
+  shouldRefetchChatOnForeground,
+  shouldSkipSilentChatRefetch,
+} from "@/lib/chat/chatForegroundRefetch";
 
 describe("shouldRefetchChatOnForeground", () => {
   const base = {
@@ -32,5 +36,20 @@ describe("shouldRefetchChatOnForeground", () => {
 
   it("skips while image generation is in flight", () => {
     expect(shouldRefetchChatOnForeground({ ...base, imageGenerating: true })).toBe(false);
+  });
+
+  it("skips a fresh silent refetch and bypasses TTL after a mid-stream background", () => {
+    const lastFetchedAt = Date.now();
+    expect(shouldSkipSilentChatRefetch({ lastFetchedAt })).toBe(true);
+    expect(shouldSkipSilentChatRefetch({ lastFetchedAt, force: true })).toBe(false);
+    expect(shouldSkipSilentChatRefetch({ lastFetchedAt: lastFetchedAt - 21_000 })).toBe(
+      false,
+    );
+    expect(
+      shouldForceForegroundChatRecovery({ wasStreamingWhenBackgrounded: true }),
+    ).toBe(true);
+    expect(
+      shouldForceForegroundChatRecovery({ wasStreamingWhenBackgrounded: false }),
+    ).toBe(false);
   });
 });
