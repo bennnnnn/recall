@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 from uuid import UUID
@@ -9,6 +10,7 @@ from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededErr
 from app.models.orm import User
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import RegenerateBackup
+from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_timing import TurnTimingTracker
 
 
@@ -103,18 +105,26 @@ async def stream_chat_response(
         chat_id=chat_id,
         borrowed=resources,
     ) as res:
-        await seams.wait_for_pending_finalize(chat_id, redis)
-        async with seams.SessionLocal() as session:
-            if user is None:
-                user = await seams.users_repo.get_by_id(session, user_id)
-                if user is None:
-                    raise ChatNotFoundError("User not found.")
-            if not skip_usage_seed:
-                await seams.seed_usage_from_db(redis, session, user_id)
-            daily_limit = seams.quota_service.daily_limit_for_user(user, settings)
-            model = seams.plan_service.resolve_user_model_override(
-                user, model_alias, content, settings
-            )
+
+        async def _load_user_and_quota() -> tuple[User, int, str]:
+            loaded = user
+            async with seams.SessionLocal() as session:
+                if loaded is None:
+                    loaded = await seams.users_repo.get_by_id(session, user_id)
+                    if loaded is None:
+                        raise ChatNotFoundError("User not found.")
+                if not skip_usage_seed:
+                    await seams.seed_usage_from_db(redis, session, user_id)
+                limit = seams.quota_service.daily_limit_for_user(loaded, settings)
+                resolved = seams.plan_service.resolve_user_model_override(
+                    loaded, model_alias, content, settings
+                )
+            return loaded, limit, resolved
+
+        _, (user, daily_limit, model) = await asyncio.gather(
+            seams.wait_for_pending_finalize(chat_id, redis),
+            _load_user_and_quota(),
+        )
 
         if not attachment_ids and await seams._try_image_gen_for_turn(
             settings,
@@ -203,6 +213,10 @@ async def stream_regenerate_response(
     timing.mark_phase("turn_start")
     status = seams.wrap_stream_status(timing, on_status)
     async with seams.turn_resources(redis, user_id=user_id, chat_id=chat_id) as res:
+        # Last-message reads must see the committed assistant. Overlapping
+        # that load with wait_for_pending_finalize can regenerate from a
+        # stale last row. New turns gather wait with user/quota instead —
+        # prepare reads messages only after both finish.
         await seams.wait_for_pending_finalize(chat_id, redis)
         regenerate_backup: RegenerateBackup | None = None
         omit_message_ids: set[UUID] | None = None
@@ -231,6 +245,7 @@ async def stream_regenerate_response(
                     message_id=last.id,
                 )
                 omit_message_ids = {last.id}
+            turn_mode = await _classify_turn_mode(session, chat, user_message_content)
 
         if await seams._try_image_gen_for_turn(
             settings,
@@ -268,6 +283,7 @@ async def stream_regenerate_response(
             chat=chat,
             timing=timing,
             omit_message_ids=omit_message_ids,
+            turn_mode=turn_mode,
         )
         ctx = seams.stream_context_from_bundle(
             bundle,

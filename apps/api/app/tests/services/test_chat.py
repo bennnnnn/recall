@@ -922,6 +922,70 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
+    """Brand-new chats have no indexed chunks — skip the extra Neon probe."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.location_enabled = False
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = None
+
+    has_chunks = AsyncMock(return_value=True)
+
+    with (
+        patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.prompt_builder.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat_history_rag.embed_query_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.repositories.attachment_chunks.has_chunks_for_chat",
+            has_chunks,
+        ),
+        patch(
+            "app.services.attachment_rag.retrieve_for_prompt",
+            AsyncMock(return_value="SHOULD NOT APPEAR"),
+        ) as rag_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=True),
+            query_text="help me think through this",
+            rich_context=False,
+            probe_attachment_rag=False,
+        )
+
+    has_chunks.assert_not_awaited()
+    rag_mock.assert_not_awaited()
+    assert "SHOULD NOT APPEAR" not in messages[0]["content"]
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_day_planning_injects_daily_learning():
     user = MagicMock()
     user.id = uuid4()
@@ -1333,6 +1397,37 @@ async def test_classify_turn_mode_letter_on_mcq_fence_stays_minimal_quiz():
     assert mode.minimal_quiz is True
     assert mode.minimal_vocab_answer is False
     assert mode.active_vocab_turn is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_skips_quiz_lookup_without_project():
+    """Ordinary chats have no Learning project — don't scan recent assistants."""
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+    get_last = AsyncMock(return_value=MagicMock())
+
+    with patch("app.services.chat.quiz_messages.get_last_quiz_assistant", get_last):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "hello there")
+
+    get_last.assert_not_awaited()
+    assert mode.active_vocab_turn is False
+    assert mode.minimal_quiz is False
+    assert mode.quiz_assistant is None
+
+
+def test_instant_reply_needs_db_only_for_calendar_and_email():
+    """Time/location/coaching answers are CPU-only; calendar/email need Neon."""
+    from app.services.chat.turn_prep.mode import _instant_reply_needs_db
+
+    assert _instant_reply_needs_db("check my calendar") is True
+    assert _instant_reply_needs_db("check my email") is True
+    assert _instant_reply_needs_db("what time is it") is False
+    assert _instant_reply_needs_db("help me think through this") is False
+    assert _instant_reply_needs_db("solve 2x + 3 = 7") is False
 
 
 def test_should_augment_web_and_tools_skips_active_vocab_turn():

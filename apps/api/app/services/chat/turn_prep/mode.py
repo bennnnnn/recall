@@ -128,6 +128,7 @@ async def _classify_turn_mode(
 
     Fetches the last quiz assistant once (same session) instead of the prior
     double lookup via ``_should_minimal_quiz_context`` + vocab-turn block.
+    Ordinary chats with no Learning project skip that lookback entirely.
     """
     from app.services import vocab_quiz as vocab_quiz_service
 
@@ -140,12 +141,16 @@ async def _classify_turn_mode(
 
     from app.services.chat.quiz_messages import get_last_quiz_assistant
 
-    quiz_assistant = await get_last_quiz_assistant(session, chat.id)
+    # Quiz/vocab state only exists on a Learning project. Skip the assistant
+    # lookback on ordinary chats so every turn does not pay that query.
+    quiz_assistant = None
     parsed_quiz = None
     quiz_choices: tuple[tuple[str, str], ...] | None = None
-    if quiz_assistant is not None:
-        parsed_quiz = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content)
-        quiz_choices = parsed_quiz.choices if parsed_quiz is not None else None
+    if chat.project_id is not None:
+        quiz_assistant = await get_last_quiz_assistant(session, chat.id)
+        if quiz_assistant is not None:
+            parsed_quiz = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content)
+            quiz_choices = parsed_quiz.choices if parsed_quiz is not None else None
 
     # Gate minimal_quiz on a linked project — without a project the answer
     # cannot be graded, so quiz prompt context would mislead the model.
@@ -220,3 +225,10 @@ async def _resolve_instant_reply(
             return email_service.format_not_connected_answer()
         return None
     return None
+
+
+def _instant_reply_needs_db(content: str) -> bool:
+    """Calendar/email short-circuits need a connection check; time/location do not."""
+    return calendar_service.is_external_calendar_question(
+        content
+    ) or email_service.is_external_email_question(content)

@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Every chat turn paid a serial Redis+Neon start plus lookups that cannot apply.**
+  Finalize wait ran before user/quota; quiz lookback hit chats with no Learning
+  project; prompt assembly re-opened Neon for user/chat already loaded; new chats
+  probed attachment chunks; time/location opened a session. Overlap wait with
+  user/seed on a *new* message (`gather` finishes before any message read). Do
+  not overlap wait with last-message reads — regenerate would race the in-flight
+  assistant insert. Skip the rest unless they can apply.
 - **Models invented geometry/graph JSON with fake numbers.** Asking the LLM to
   copy ` ```answer` / ` ```graph` / ` ```geometry` from the hint taught Qwen/GLM
   the JSON protocol, so they emitted fences on unverified turns. Keep those
