@@ -131,7 +131,7 @@ async def test_sympy_adapter_dispatches_simplify_diff_integrate(action, expr, va
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": action, "expr": expr, "variable": variable})
     assert "Result:" in result.content
-    assert "```answer" in result.content
+    assert "```answer\n" not in result.content
     assert result.data is not None
     assert result.data["canonical_fence"]["type"] == "answer"
     assert result.data["canonical_fence"]["content"].strip()
@@ -146,7 +146,7 @@ async def test_sympy_adapter_expr_op_definite_integrate_attaches_answer():
         {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
     )
     assert "Result:" in result.content
-    assert "```answer" in result.content
+    assert "```answer\n" not in result.content
     assert result.data is not None
     assert result.data["canonical_fence"]["type"] == "answer"
     # ∫₀¹ x² dx = 1/3
@@ -181,7 +181,7 @@ async def test_sympy_adapter_dispatches_parity_actions():
         {"action": "limit", "expr": "sin(x)/x", "variable": "x", "point": "0"}
     )
     assert "Result:" in limit_res.content
-    assert "```answer" in limit_res.content
+    assert "```answer\n" not in limit_res.content
     assert limit_res.data is not None
     assert limit_res.data["canonical_fence"]["type"] == "answer"
     # lim_{x→0} sin(x)/x = 1
@@ -191,7 +191,7 @@ async def test_sympy_adapter_dispatches_parity_actions():
         {"action": "series", "expr": "x", "variable": "x", "start": "1", "end": "10"}
     )
     assert "Result:" in series_res.content
-    assert "```answer" in series_res.content
+    assert "```answer\n" not in series_res.content
     assert series_res.data is not None
     assert series_res.data["canonical_fence"]["type"] == "answer"
     # Σ_{1..10} x = 55
@@ -201,7 +201,7 @@ async def test_sympy_adapter_dispatches_parity_actions():
         {"action": "newton", "expr": "x**2 - 2", "variable": "x", "guess": 1.0}
     )
     assert "converged=True" in newton_res.content
-    assert "```answer" in newton_res.content
+    assert "```answer\n" not in newton_res.content
     assert "1.41" in newton_res.content  # √2 ≈ 1.4142…
     assert newton_res.data is not None
     assert newton_res.data["canonical_fence"]["type"] == "answer"
@@ -299,7 +299,7 @@ async def test_sympy_adapter_rectangle_includes_canonical_fence():
     assert fence["type"] == "rectangle"
     assert fence["width"] == 8.0
     assert fence["height"] == 5.0
-    assert "```geometry" in result.content
+    assert "```geometry\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -309,7 +309,7 @@ async def test_sympy_adapter_integrate_definite():
         {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
     )
     assert "Result:" in result.content
-    assert "```answer" in result.content
+    assert "```answer\n" not in result.content
     assert result.data is not None
     assert result.data["canonical_fence"]["type"] == "answer"
     assert "frac{1}{3}" in result.data["canonical_fence"]["content"]
@@ -323,7 +323,7 @@ async def test_sympy_adapter_square_includes_canonical_fence():
     fence = result.data["canonical_fence"]
     assert fence["type"] == "square"
     assert fence["side"] == 5.0
-    assert "```geometry" in result.content
+    assert "```geometry\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -334,7 +334,7 @@ async def test_sympy_adapter_circle_includes_canonical_fence():
     fence = result.data["canonical_fence"]
     assert fence["type"] == "circle"
     assert fence["radius"] == 3.0
-    assert "```geometry" in result.content
+    assert "```geometry\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -346,7 +346,7 @@ async def test_sympy_adapter_graph_includes_canonical_fence():
     assert fence["type"] == "function"
     assert fence["expr"] == "x**2"
     assert len(fence["points"]) >= 2
-    assert "```graph" in result.content
+    assert "```graph\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -359,7 +359,7 @@ async def test_sympy_adapter_solve_includes_canonical_fence():
     fence = result.data["canonical_fence"]
     assert fence["type"] == "answer"
     assert fence["content"]
-    assert "```answer" in result.content
+    assert "```answer\n" not in result.content
     assert "x" in fence["content"] or "1" in fence["content"]
 
 
@@ -377,7 +377,7 @@ async def test_sympy_adapter_system_includes_canonical_fence():
     fence = result.data["canonical_fence"]
     assert fence["type"] == "answer"
     assert "x" in fence["content"] and "y" in fence["content"]
-    assert "```answer" in result.content
+    assert "```answer\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -400,8 +400,9 @@ async def test_sympy_adapter_inequality_includes_canonical_fence():
     # content text).
     fence = result.data["canonical_fence"]
     assert fence["type"] == "number_line"
-    assert "```answer" in result.content
-    assert "```graph" in result.content
+    assert result.data.get("canonical_answer")
+    assert "```answer\n" not in result.content
+    assert "```graph\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -433,7 +434,7 @@ async def test_sympy_adapter_graph_pair_via_expr2():
     assert fence["points2"] is not None
     assert len(fence["points2"]) >= 2
     assert fence["label2"]
-    assert "```graph" in result.content
+    assert "```graph\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -444,7 +445,7 @@ async def test_sympy_adapter_graph_ellipse_relation():
     fence = result.data["canonical_fence"]
     assert fence["points"][0] == fence["points"][-1]
     assert len(fence["points"]) >= 16
-    assert "```graph" in result.content
+    assert "```graph\n" not in result.content
 
 
 @pytest.mark.asyncio
@@ -454,4 +455,4 @@ async def test_sympy_adapter_graph_number_line_runs_off_loop():
     assert result.data is not None
     fence = result.data["canonical_fence"]
     assert fence["type"] == "number_line"
-    assert "```graph" in result.content
+    assert "```graph\n" not in result.content

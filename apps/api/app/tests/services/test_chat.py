@@ -251,7 +251,7 @@ def test_math_formula_shape_rule_is_unified():
         assert "NEVER indent a ```math fence inside that list item" not in blob
     assert "numbered solution steps" in INTENT_FORMAT_HINT.lower()
     assert "general definition or formula" in INTENT_FORMAT_HINT.lower()
-    assert "```answer" in INTENT_FORMAT_HINT
+    assert "Do NOT emit ```answer" in INTENT_FORMAT_HINT
     assert "```steps" in INTENT_FORMAT_HINT
     assert "never use a ```steps fence for math" in INTENT_FORMAT_HINT.lower()
     assert "both sides" in INTENT_FORMAT_HINT.lower()
@@ -1078,7 +1078,7 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
     # MATH-BE-034: quiz turns skipped the math guardrails entirely, so any
     # math in a quiz explanation rendered as raw ```latex/```copy. The
     # compact math safety hint now ships on quiz/vocab turns too.
-    assert "```answer" in system
+    assert "Do NOT emit ```answer" in system
     assert "```latex" in system
 
 

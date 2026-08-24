@@ -11,10 +11,9 @@ from app.models.math_schemas import (
 )
 from app.services import math_service
 from app.services.math_tools.block.common import (
+    SOLVER_OWNED_FENCES_NOTE,
     VerifiedMathBlock,
-    _answer_canonical,
     _diagram_block,
-    _fence,
     _finish_with_answer,
     _format_equation_answer,
     _format_system_answer,
@@ -42,14 +41,9 @@ def _verified_block_equation(
         "verified steps above verbatim — including any 'both sides' line "
         "(e.g. F + 3 - 3 = 3 - 3) before you simplify. Do NOT skip to "
         "F = 3 - 3. Do NOT derive intermediate algebra yourself. "
-        "Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters. "
-        "End with this final-answer fence (copy verbatim):\n"
-        f"```answer\n{answer}\n```"
+        "Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters."
     )
-    return VerifiedMathBlock(
-        text="\n".join(lines),
-        canonical_fence=_answer_canonical(answer),
-    )
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_inequality(
@@ -91,23 +85,14 @@ def _verified_block_inequality(
         ineq_text = f"{intent.lhs} {intent.comparator} {intent.rhs}"
     line_spec = math_service.number_line_spec_from_expr(ineq_text[:max_len], intent.variable)
     if line_spec is not None:
-        lines.append(
-            "Number-line diagram for the solution set — emit ONLY this fence "
-            "ONCE (the app renders it as an SVG):\n" + _fence("graph", line_spec)
-        )
         return _diagram_block(lines, line_spec, answer)
     lines.append(
         "Formula shape: INLINE $...$ for the inequality and its solution "
         "set (never backticks around `$...$`). Do NOT recompute — copy the "
         "verified solution above verbatim. Render unions with \\lor "
-        "(e.g. $x < -1 \\lor x > 1$) exactly as given. "
-        "End with this final-answer fence (copy verbatim):\n"
-        f"```answer\n{answer}\n```"
+        "(e.g. $x < -1 \\lor x > 1$) exactly as given."
     )
-    return VerifiedMathBlock(
-        text="\n".join(lines),
-        canonical_fence=_answer_canonical(answer),
-    )
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_system(
@@ -133,14 +118,9 @@ def _verified_block_system(
         "Formula shape: INLINE $...$ for every step (never backticks around "
         "`$...$`; never ```math for step equations). Do NOT recompute the "
         "solutions. Show worked steps by COPYING the verified steps above "
-        "verbatim — do NOT derive intermediate algebra yourself. "
-        "End with this final-answer fence (copy verbatim):\n"
-        f"```answer\n{answer}\n```"
+        "verbatim — do NOT derive intermediate algebra yourself."
     )
-    return VerifiedMathBlock(
-        text="\n".join(lines),
-        canonical_fence=_answer_canonical(answer),
-    )
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_numerical_method(
@@ -180,6 +160,6 @@ def _verified_block_numerical_method(
         preface=(
             "Do NOT recompute or invent different iteration values. Show the "
             "worked steps by COPYING the verified iteration table above verbatim. "
-            "End with this final-answer fence (copy verbatim):"
+            + SOLVER_OWNED_FENCES_NOTE
         ),
     )

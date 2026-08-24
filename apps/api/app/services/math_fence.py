@@ -1,18 +1,20 @@
 """Validate geometry/graph/answer fences in assistant output.
 
-Schema validity alone doesn't mean the *numbers* are right — the model is
-only asked (in the system prompt) to copy the SymPy-computed fence
-verbatim, not structurally forced to. When the turn actually computed a
-canonical fence (``VerifiedMathBlock.canonical_fence``), a same-kind fence
-in the model's output is replaced with the canonical JSON (or answer
-body) outright, so a drifted or hallucinated number never reaches the
-user even inside an otherwise schema-valid block.
+The model is asked to explain in Markdown + ``$...$``. Recall attaches
+solver-owned `` ```answer `` / `` ```graph `` / `` ```geometry `` after the
+stream from ``VerifiedMathBlock``. If the model still emitted a same-kind
+fence, it is replaced with the canonical JSON (or answer body) so a
+drifted or hallucinated number never reaches the user.
 
 When this turn produced a canonical `` ```graph `` fence but it (or the
 substituted JSON) is still sparse, we densify by re-sampling that *verified*
 expression. Sparse *unverified* y=f(x) fences are also resampled from the
 fence's own ``expr`` — otherwise the client draws a 3-point polyline (a V
 for a parabola). Discrete point markers and vertical lines stay untouched.
+
+After rewriting any fences the model still produced, we append canonical
+fences that are missing so the client always gets the solver-owned
+answer pill and diagram.
 """
 
 from __future__ import annotations
@@ -54,6 +56,22 @@ _MIN_CURVE_POINTS = 48
 _MAX_ANSWER_FENCES = 4
 _MAX_GEOMETRY_FENCES = 4
 _MAX_GRAPH_FENCES = 2
+
+_GEOMETRY_TYPES = frozenset(
+    {
+        "rectangle",
+        "rect",
+        "square",
+        "triangle",
+        "right_triangle",
+        "triangle_sides",
+        "circle",
+        "trapezoid",
+        "parallelogram",
+        "sector",
+    }
+)
+_GRAPH_TYPES = frozenset({"function", "vertical", "number_line", "trajectory"})
 
 
 def _validate_geometry(raw: str) -> bool:
@@ -471,13 +489,75 @@ def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
         return None
     if verified.canonical_answer and verified.canonical_answer.strip():
         return verified.canonical_answer.strip()
-    fence = verified.canonical_fence
-    if fence is None or fence.get("type") != "answer":
-        return None
-    content = fence.get("content")
-    if not isinstance(content, str) or not content.strip():
-        return None
-    return content.strip()
+    fences: list[dict[str, object]] = []
+    if verified.canonical_fence:
+        fences.append(verified.canonical_fence)
+    fences.extend(verified.canonical_fences or [])
+    for fence in fences:
+        if fence.get("type") != "answer":
+            continue
+        content = fence.get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+    return None
+
+
+def _spec_fence_kind(spec: dict[str, object]) -> str | None:
+    spec_type = spec.get("type")
+    if spec_type == "answer":
+        return "answer"
+    if spec_type in _GEOMETRY_TYPES:
+        return "geometry"
+    if spec_type in _GRAPH_TYPES:
+        return "graph"
+    if any(key in spec for key in ("width", "height", "side", "radius", "base", "top")):
+        return "geometry"
+    if any(key in spec for key in ("expr", "points", "x_min", "intervals")):
+        return "graph"
+    return None
+
+
+def _markdown_fence(kind: str, body: str) -> str:
+    return f"```{kind}\n{body}\n```"
+
+
+def _collect_canonical_specs(verified: VerifiedMathBlock) -> list[dict[str, object]]:
+    specs: list[dict[str, object]] = []
+    seen: set[int] = set()
+    for spec in [verified.canonical_fence, *(verified.canonical_fences or [])]:
+        if not isinstance(spec, dict):
+            continue
+        marker = id(spec)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        specs.append(spec)
+    return specs
+
+
+def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock | None) -> str:
+    """Attach solver-owned fences the model was told not to emit."""
+    if verified is None:
+        return content
+    extras: list[str] = []
+    answer_body = _canonical_answer_body(verified)
+    if answer_body and _ANSWER_FENCE.search(content) is None:
+        extras.append(_markdown_fence("answer", answer_body))
+
+    specs = _collect_canonical_specs(verified)
+    geo = next((spec for spec in specs if _spec_fence_kind(spec) == "geometry"), None)
+    if geo is not None and _GEOMETRY_FENCE.search(content) is None:
+        extras.append(_markdown_fence("geometry", json.dumps(geo, separators=(",", ":"))))
+    graph = next((spec for spec in specs if _spec_fence_kind(spec) == "graph"), None)
+    if graph is not None and _GRAPH_FENCE.search(content) is None:
+        extras.append(_markdown_fence("graph", json.dumps(graph, separators=(",", ":"))))
+
+    if not extras:
+        return content
+    stripped = content.rstrip()
+    if stripped:
+        return stripped + "\n\n" + "\n\n".join(extras) + "\n"
+    return "\n\n".join(extras) + "\n"
 
 
 def _replace_answer_fence(match: re.Match[str], answer_body: str | None) -> str:
@@ -624,7 +704,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     # it. Swap the truncated tail for the verified canonical fence so the
     # renderer gets a complete spec instead of "Could not render function graph."
     content = _replace_unclosed_graph_fence(content, canonical_fence)
-    return content
+    return _append_missing_canonical_fences(content, verified)
 
 
 def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:

@@ -6,14 +6,26 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+# The model explains; Recall attaches ```answer / ```graph / ```geometry
+# after the stream from canonical_fence / canonical_answer. Do not put those
+# fences in the system hint — that is what taught Qwen/GLM to invent JSON.
+SOLVER_OWNED_FENCES_NOTE = (
+    "Do NOT emit ```answer, ```graph, or ```geometry fences — "
+    "Recall attaches the verified result after your explanation."
+)
+
+DIAGRAM_OWNED_NOTE = (
+    "Recall will attach the verified diagram. Describe it in words using $...$ "
+    "where helpful. Do NOT emit ```geometry or ```graph JSON."
+)
+
 
 @dataclass(frozen=True)
 class VerifiedMathBlock:
-    """The system-prompt hint text plus the exact fence (if any) it asked
-    the model to reuse verbatim — canonical_fence lets a post-stream check
-    correct the model's actual output rather than only trusting compliance.
+    """System-prompt hint (numbers and steps) plus the exact fence Recall
+    will attach after the stream. The model is not asked to copy fences.
     Geometry/graph turns keep the diagram JSON on canonical_fence and the
-    numeric final on canonical_answer so ```answer can be rewritten too.
+    numeric final on canonical_answer.
 
     ``canonical_fences`` collects fences across multiple tool-loop rounds
     (e.g. a geometry fence from round 1 and a graph fence from round 2) so
@@ -41,11 +53,12 @@ def _finish_with_answer(
     *,
     preface: str = (
         "Do NOT recompute. Explain in plain language with $...$ for formulas. "
-        "End with this final-answer fence (copy verbatim):"
+        + SOLVER_OWNED_FENCES_NOTE
     ),
 ) -> VerifiedMathBlock:
-    """Attach a canonical ```answer fence the post-stream rewriter can enforce."""
-    lines.append(f"{preface}\n```answer\n{answer}\n```")
+    """Record the verified answer for post-stream attach; do not put a fence in the hint."""
+    lines.append(preface)
+    lines.append(f"Verified result: {answer}")
     return VerifiedMathBlock(
         text="\n".join(lines),
         canonical_fence=_answer_canonical(answer),
@@ -58,9 +71,11 @@ def _diagram_block(
     spec: Any,
     answer: str | None = None,
 ) -> VerifiedMathBlock:
-    """Diagram JSON on canonical_fence; optional numeric ```answer rewrite."""
+    """Diagram JSON on canonical_fence; optional numeric answer for post-stream attach."""
+    lines.append(DIAGRAM_OWNED_NOTE)
     if answer:
-        lines.append(f"End with this final-answer fence (copy verbatim):\n```answer\n{answer}\n```")
+        lines.append(f"Verified result: {answer}")
+        lines.append(SOLVER_OWNED_FENCES_NOTE)
     dump = spec.model_dump() if hasattr(spec, "model_dump") else spec
     return VerifiedMathBlock(
         text="\n".join(lines),

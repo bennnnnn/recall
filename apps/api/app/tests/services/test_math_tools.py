@@ -241,7 +241,8 @@ async def test_augment_prompt_injects_newton_iteration_table() -> None:
     assert any("Converged" in m["content"] for m in out if m["role"] == "system")
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "answer"
-    assert "```answer" in verified.text
+    assert "```answer\n" not in verified.text
+    assert verified.canonical_answer
     assert verified.canonical_fence["content"]
 
 
@@ -509,7 +510,8 @@ def test_verified_block_cube_volume() -> None:
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
     assert block.canonical_answer == "125"
-    assert "```answer" in block.text
+    assert "```answer\n" not in block.text
+    assert block.canonical_answer is not None
     assert block.canonical_fence is not None
     assert block.canonical_fence["type"] == "answer"
 
@@ -808,7 +810,8 @@ async def test_augment_prompt_injects_limit_block() -> None:
     assert "Result: 9" in verified.text
     assert any("Result: 9" in m["content"] for m in out if m["role"] == "system")
     assert verified.canonical_fence == {"type": "answer", "content": "9"}
-    assert "```answer" in verified.text
+    assert "```answer\n" not in verified.text
+    assert verified.canonical_answer is not None
 
 
 @pytest.mark.asyncio
@@ -822,7 +825,8 @@ async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "answer"
     assert "2" in verified.canonical_fence["content"]
-    assert "```answer" in verified.text
+    assert "```answer\n" not in verified.text
+    assert verified.canonical_answer is not None
 
 
 @pytest.mark.asyncio
@@ -830,7 +834,7 @@ async def test_augment_prompt_calculus_includes_derivation_steps() -> None:
     """BUG FIX (MATH-BE-026): differentiation used to ship only the final
     result with no worked derivation, so the model invented its own (often
     wrong) steps. Now SymPy-verified per-term derivation steps (rule-named)
-    are injected for the model to copy verbatim."""
+    are injected so the model can follow verified steps."""
     settings = Settings(math_tools_enabled=True)
     text = "differentiate x^3 + 2x"
     _out, verified = await math_tools.augment_prompt_messages(
@@ -919,7 +923,7 @@ async def test_augment_prompt_injects_geometry_block() -> None:
         settings,
     )
     assert len(out) == 2
-    assert "```geometry" in out[0]["content"]
+    assert "```geometry\n" not in out[0]["content"]
     assert "diagonal" in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
@@ -964,8 +968,7 @@ async def test_augment_prompt_injects_circle_geometry_block() -> None:
         settings,
     )
     assert len(out) == 2
-    assert "```geometry" in out[0]["content"]
-    assert '"type":"circle"' in out[0]["content"]
+    assert "```geometry\n" not in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "circle"
@@ -1059,7 +1062,7 @@ async def test_augment_prompt_injects_single_point_graph_block() -> None:
         settings,
     )
     assert len(out) == 2
-    assert "```graph" in out[0]["content"]
+    assert "```graph\n" not in out[0]["content"]
     assert "Do NOT" in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
@@ -1072,7 +1075,7 @@ async def test_augment_prompt_injects_graph_block() -> None:
     messages = [{"role": "user", "content": "Graph y = x^2"}]
     out, verified = await math_tools.augment_prompt_messages(messages, "Graph y = x^2", settings)
     assert len(out) == 2
-    assert "```graph" in out[0]["content"]
+    assert "```graph\n" not in out[0]["content"]
     assert "points" in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
@@ -1280,7 +1283,8 @@ async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     assert verified is not None
     assert verified.canonical_fence is not None
     assert len(verified.canonical_fence["points"]) == 220
-    assert "corrected/final graph spec" in verified.text.lower()
+    assert "Recall will attach the verified diagram" in verified.text
+    assert "```graph\n" not in verified.text
 
 
 @pytest.mark.asyncio

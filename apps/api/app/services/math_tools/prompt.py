@@ -158,8 +158,9 @@ async def build_math_augmentation(
             "The user attached an image that may contain a math problem. "
             "Extract the equation as lhs/rhs if possible, then explain carefully. "
             "Do NOT claim SymPy verification unless a verified system block is present. "
-            "Use $...$ for formulas and ```geometry / ```graph JSON fences for diagrams "
-            "only when printed dimensions/points are known — never invent measures."
+            "Use $...$ for formulas. Do not emit ```geometry / ```graph — "
+            "Recall attaches verified diagrams when measures are known. "
+            "Never invent measures."
         ]
         return "\n".join(lines), None
 
@@ -183,11 +184,9 @@ def _unverified_math_note(kind: str) -> str:
         f"(kind={kind}), but SymPy could not produce a verified result "
         "(timeout, unsupported expression, or incomplete extract).\n"
         "Explain carefully and show your work. Do NOT claim the answer was "
-        "SymPy-verified. You may still use a ```answer fence for the final "
-        "result, but mark uncertainty when you are unsure. "
-        "Do not invent geometry/graph dimensions or point lists. "
-        "Do not emit a ```geometry fence unless the user stated the measures "
-        "(or a verified system block provided them)."
+        "SymPy-verified. Write the result in `$...$` and mark uncertainty when "
+        "you are unsure. Do NOT emit ```answer, ```geometry, or ```graph. "
+        "Do not invent geometry/graph dimensions or point lists."
     )
 
 

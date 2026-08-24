@@ -1,8 +1,8 @@
-"""Physics verified blocks — answer fence + trajectory graph fence.
+"""Physics verified blocks — numeric answer plus optional trajectory graph.
 
 Builds the system-prompt hint for kinematics/projectile/force/energy
 intents: a verified answer (so the model doesn't recompute) plus an
-optional trajectory graph fence the model reuses verbatim.
+optional trajectory graph Recall attaches after the stream.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from app.services.math_service import MathServiceError
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
-    _fence,
     _finish_with_answer,
 )
 from app.services.physics_solver import PhysicsResult, solve_physics
@@ -50,21 +49,8 @@ def _build_physics_block(
     # Append the verified answer to the hint lines.
     lines.append(f"Verified answer: ${result.answer}$ ({result.answer_value})")
 
-    # If there are trajectory graph specs, attach them as fences.
     if result.graph_specs:
-        for spec in result.graph_specs:
-            lines.append(
-                "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
-                "spec' heading, and do NOT paste or re-list the points array in prose "
-                "(the app renders the fence as an SVG):\n"
-                f"{_fence('graph', spec)}"
-            )
-        # Use _diagram_block so the canonical_fence carries the graph spec
-        # (the post-stream rewriter can match it). The answer goes on
-        # canonical_answer so ```answer can also be rewritten.
         return _diagram_block(lines, result.graph_specs[0], result.answer_value)
-
-    # No graph — just the answer fence.
     return _finish_with_answer(lines, result.answer_value)
 
 

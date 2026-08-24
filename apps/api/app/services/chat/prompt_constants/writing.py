@@ -26,8 +26,9 @@ COPY_DELIVERABLE_HINT = (
     "with a full draft — do not ask what to write first. "
     "Never claim you sent the message — drafts are for the user to send. "
     "Never use ```copy or ```text for explanations, notes, advice, comparisons, or "
-    "math/numeric final answers — those belong in plain markdown or ```answer "
-    "(pipe tables for X vs Y; bullets otherwise). "
+    "math/numeric final answers — those belong in plain markdown with `$...$` "
+    "(pipe tables for X vs Y; bullets otherwise). Recall attaches verified math "
+    "answers; do not emit ```answer / ```graph / ```geometry. "
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "
     "guessing an address."
 )

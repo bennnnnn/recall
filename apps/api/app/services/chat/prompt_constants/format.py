@@ -61,7 +61,6 @@ INTENT_FORMAT_HINT = (
     "  - ```details — a collapsible section for optional context, longer "
     "explanations, or tangents the user can expand if interested.\n"
     "  - ```comparison — two-column pros/cons card for a single option.\n"
-    "  - ```answer — a highlighted final-answer pill for math results or quick Q&A.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - Put the final send-ready text inside ```email, ```message, ```sms, or "

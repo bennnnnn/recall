@@ -8,7 +8,6 @@ from app.services import math_service
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
-    _fence,
 )
 
 
@@ -27,10 +26,8 @@ def _verified_block_point(
     )
     lines.append(f"Point: ({px:g}, {py:g})")
     lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json). Do NOT "
-        "invent a line, function, or extra points through it — the user asked "
-        "to mark this one coordinate, nothing else:\n"
-        f"{_fence('graph', point_spec)}"
+        "Do NOT invent a function or extra points through this marker — "
+        "Recall attaches the verified plot."
     )
     return _diagram_block(lines, point_spec, f"({px:g}, {py:g})")
 
@@ -51,12 +48,6 @@ def _verified_block_vertical(
         title=f"x = {vx:g}",
     )
     lines.append(f"Vertical line: x = {vx:g} (from y = {y_min:g} to y = {y_max:g})")
-    lines.append(
-        "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
-        "spec' heading, and do NOT paste points in prose "
-        "(the app renders the fence as an SVG):\n"
-        f"{_fence('graph', vert_spec)}"
-    )
     return _diagram_block(lines, vert_spec, f"{vx:g}")
 
 
@@ -76,12 +67,6 @@ def _verified_block_graph(
             f"{len(ellipse_spec.points)} parametric points "
             "(closed curve)."
         )
-        lines.append(
-            "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
-            "spec' heading, and do NOT paste or re-list the points array in prose "
-            "(the app renders the fence as an SVG):\n"
-            f"{_fence('graph', ellipse_spec)}"
-        )
         return _diagram_block(lines, ellipse_spec)
 
     line_spec = math_service.number_line_spec_from_expr(
@@ -94,12 +79,6 @@ def _verified_block_graph(
             "This is a one-variable inequality rendered as a number line "
             '(type "number_line") — shade the solution '
             "interval, do not plot a y=f(x) curve."
-        )
-        lines.append(
-            "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
-            "spec' heading, and do NOT paste or re-list the JSON in prose "
-            "(the app renders the fence as an SVG):\n"
-            f"{_fence('graph', line_spec)}"
         )
         return _diagram_block(lines, line_spec)
 
@@ -139,12 +118,6 @@ def _verified_block_graph(
             f"{len(sample.segments)} segments; do not describe it as a single "
             "continuous curve."
         )
-    lines.append(
-        "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
-        "spec' heading, and do NOT paste or re-list the points array in prose "
-        "(the app renders the fence as an SVG):\n"
-        f"{_fence('graph', graph_spec)}"
-    )
     return _diagram_block(lines, graph_spec)
 
 
@@ -192,11 +165,5 @@ def _verified_block_graph_pair(
     lines.append(
         f"Function samples for y={sample1.expr} ({len(sample1.points)} points) and "
         f"y={sample2.expr} ({len(sample2.points)} points), same x-range for direct comparison."
-    )
-    lines.append(
-        "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
-        "spec' heading, and do NOT paste or re-list either points array in prose "
-        "(the app renders both curves as one SVG, color-coded with a legend):\n"
-        f"{_fence('graph', graph_spec)}"
     )
     return _diagram_block(lines, graph_spec)
