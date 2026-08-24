@@ -66,7 +66,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
   Status labels are reserved for real extra work: web search, files, calendar, inbox,
-  math, and image gen.
+  math, and image gen. Turn start overlaps waiting for the previous reply to persist
+  with user/quota load (regenerate still waits first so it does not miss that reply).
+  Learning quiz lookback and attachment-chunk probes run only when they can apply;
+  time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept. Hard WS/SSE disconnect with tokens already streamed also finalizes (same as soft stop).
 - ✅ **Regenerate** — re-run the last assistant reply.
