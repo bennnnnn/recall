@@ -12,6 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Composer suggested-reminder chips refetched on every chat focus.** `fetchSuggestedReminders(..., { force: true })` bypassed the 20s cache that Lists already respect. Load without force; invalidate on add/dismiss/Gmail sync still busts.
 - **Drawer open, settings tab, and app resume re-hit chat/usage/gallery/home.** Silent
   refetch ignored the 20s stale window home/lists already use. Skip when fresh;
   keep a forced chat pull after backgrounding mid-stream (socket dead, truncated

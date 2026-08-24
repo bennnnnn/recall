@@ -31,7 +31,7 @@ export function useSuggestedReminders(
       setReminders([]);
       return;
     }
-    const data = await fetchSuggestedReminders(token, { force: true });
+    const data = await fetchSuggestedReminders(token);
     setReminders((data?.reminders ?? []).slice(0, 3));
   }, [token]);
 
