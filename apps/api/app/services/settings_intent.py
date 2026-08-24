@@ -24,12 +24,11 @@ _MODEL_NICKNAMES: dict[str, str] = {
     "pro": "smart-chat",
     "smart": "smart-chat",
     "plus": "smart-chat",
-    "max": "max-chat",
-    "gpt": "max-chat",
-    "chatgpt": "max-chat",
+    "gpt": "gpt-5.5",
+    "chatgpt": "gpt-5.5",
 }
 
-_MODEL_IDS = frozenset({"auto", "free-chat", "smart-chat", "max-chat"})
+_MODEL_IDS = frozenset({"auto", "free-chat", "smart-chat", "gpt-5.5"})
 
 _TONE_NICKNAMES: dict[str, str] = {
     "funny": "funny",
