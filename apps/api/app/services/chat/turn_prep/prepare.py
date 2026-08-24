@@ -39,30 +39,25 @@ async def _grade_quiz_answer(
 ) -> tuple[bool, QuizAnswerGrade | None]:
     """Deterministically grade a letter/choice quiz answer when a project is linked.
 
-    Opens its own session so a grading failure (or the title-model verify
-    round-trip) cannot roll back the already-committed user message, and so
-    the turn's write connection is not pinned across that LLM call.
-
-    ``prior_assistant`` is the row classify already loaded — do not fetch it
-    again.
+    Parse + letter check are CPU-only (the quiz fence is already on
+    ``prior_assistant``). A session is opened only when grading, so a
+    grading failure cannot roll back the already-committed user message and
+    the turn write connection is not pinned across a title-model round-trip.
     """
 
     is_letter_answer = False
     quiz_grade: QuizAnswerGrade | None = None
     if chat_project_id is not None:
         from app.services import vocab_quiz as vocab_quiz_service
-        from app.services.chat.quiz_messages import count_quiz_letter_answers_since
 
-        async with SessionLocal() as session:
-            quiz_choices: tuple[tuple[str, str], ...] | None = None
-            if prior_assistant is not None:
-                parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
-                if parsed is not None:
-                    quiz_choices = parsed.choices
-            is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(
-                content, choices=quiz_choices
-            )
-            if is_letter_answer and prior_assistant is not None:
+        quiz_choices: tuple[tuple[str, str], ...] | None = None
+        if prior_assistant is not None:
+            parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
+            if parsed is not None:
+                quiz_choices = parsed.choices
+        is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(content, choices=quiz_choices)
+        if is_letter_answer and prior_assistant is not None:
+            async with SessionLocal() as session:
                 try:
                     from app.services.chat.quiz_messages import (
                         count_quiz_letter_answers_since,

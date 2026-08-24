@@ -1279,6 +1279,34 @@ async def test_grade_quiz_answer_failure_leaves_rollback_to_grading_service():
 
 
 @pytest.mark.asyncio
+async def test_grade_quiz_answer_skips_session_when_not_a_letter():
+    from app.services.chat.turn_prep.prepare import _grade_quiz_answer
+
+    user = MagicMock()
+    user.id = uuid4()
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
+        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
+        '{"letter":"B","text":"Pyramid"}]}\n```'
+    )
+    session_local = MagicMock()
+
+    with patch("app.services.chat.turn_prep.prepare.SessionLocal", session_local):
+        is_letter, grade = await _grade_quiz_answer(
+            user=user,
+            chat_id=uuid4(),
+            chat_project_id=uuid4(),
+            content="what does that word mean",
+            prior_assistant=quiz_msg,
+        )
+
+    assert is_letter is False
+    assert grade is None
+    session_local.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_classify_turn_mode_returns_quiz_assistant_row():
     from app.services.chat.turn_prep.mode import _classify_turn_mode
 
