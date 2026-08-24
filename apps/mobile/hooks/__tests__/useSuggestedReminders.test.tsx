@@ -60,7 +60,9 @@ jest.mock("@/lib/todos/todoReminders", () => ({
 
 import { useSuggestedReminders } from "@/hooks/useSuggestedReminders";
 import { api } from "@/lib/api";
+import { fetchSuggestedReminders } from "@/lib/cache/suggestedRemindersCache";
 import { syncTodoReminders } from "@/lib/todos/todoReminders";
+import { useFocusEffect } from "expo-router";
 
 const mockApi = api as unknown as {
   addSuggestedReminder: jest.Mock;
@@ -107,6 +109,20 @@ describe("useSuggestedReminders", () => {
     expect(next[0]).toEqual(created);
     expect(next).toEqual(expect.arrayContaining([existingTodo]));
     expect(syncTodoReminders).toHaveBeenCalledWith(next);
+  });
+
+  it("loads suggestions without bypassing the 20s cache", async () => {
+    await act(async () => {
+      render(<Probe />);
+    });
+    const onFocus = (useFocusEffect as jest.Mock).mock.calls.at(-1)?.[0] as
+      | (() => void)
+      | undefined;
+    await act(async () => {
+      onFocus?.();
+    });
+    expect(fetchSuggestedReminders).toHaveBeenCalledWith("tok");
+    expect(fetchSuggestedReminders).not.toHaveBeenCalledWith("tok", { force: true });
   });
 
   it("removes the suggestion before the API returns", async () => {
