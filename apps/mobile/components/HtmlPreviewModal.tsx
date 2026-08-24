@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { StrokeIcon } from "@/components/StrokeIcons";
 import { CodeBlock } from "@/components/CodeBlock";
 import { type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
@@ -262,13 +263,14 @@ function ToolbarItem({
   theme,
   styles: s,
 }: {
-  icon: IoniconName;
+  icon: IoniconName | "share-nodes";
   label: string;
   onPress: () => void;
   active?: boolean;
   theme: Theme;
   styles: ReturnType<typeof makeStyles>;
 }) {
+  const color = active ? theme.primary : theme.textSecondary;
   return (
     <Pressable
       style={[s.toolbarItem, active && s.toolbarItemActive]}
@@ -278,11 +280,11 @@ function ToolbarItem({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
     >
-      <Icon
-        name={icon}
-        size={24}
-        color={active ? theme.primary : theme.textSecondary}
-      />
+      {icon === "share-nodes" ? (
+        <StrokeIcon name="share" size={24} color={color} />
+      ) : (
+        <Icon name={icon} size={24} color={color} />
+      )}
     </Pressable>
   );
 }
@@ -375,7 +377,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             styles={s}
           />
           <ToolbarItem
-            icon="share-outline"
+            icon="share-nodes"
             label={t("preview.share")}
             onPress={() => void shareHtmlPreview(html)}
             theme={theme}

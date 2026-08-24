@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { ShareNodesIcon } from "@/components/StrokeIcons";
 import { useAuthToken } from "@/contexts/AuthContext";
 import {
   ensureLocalAttachmentFile,
@@ -198,7 +199,7 @@ export function AttachmentImageViewer({
                 {busy === "share" ? (
                   <ActivityIndicator color={C.text} size="small" />
                 ) : (
-                  <Icon name="share-outline" size={24} color={C.text} />
+                  <ShareNodesIcon size={24} color={C.text} />
                 )}
               </Pressable>
               <Pressable

@@ -156,7 +156,7 @@ export function useChatActions({
       await api.setPin(token, chatId, next);
       showActionBanner(
         next ? t("chat.pinned_toast") : t("chat.unpinned_toast"),
-        next ? "bookmark" : "bookmark-outline",
+        next ? "pin" : "pin-outline",
       );
     } catch {
       setPinned(!next);
