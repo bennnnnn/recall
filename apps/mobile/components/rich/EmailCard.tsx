@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/CopyButton";
+import { Icon } from "@/components/Icon";
+import { NewChatIcon } from "@/components/NewChatIcon";
 import { CardShell } from "@/components/rich/CardShell";
 import { GmailMark } from "@/components/rich/chatgptDraftIcons";
 import { fullEmailText } from "@/lib/emailCompose";
 import { openGmailCompose } from "@/lib/openGmailCompose";
-import { EmailDraft } from "@/lib/richBlocks";
 import { notifySuccess, tap } from "@/lib/haptics";
+import { inkIconColor } from "@/lib/icons";
+import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { draft: EmailDraft };
@@ -95,10 +97,11 @@ export function EmailCard({ draft }: Props) {
               editing ? t("chat.email_card_done") : t("chat.email_card_edit")
             }
           >
-            <Icon
-              name={editing ? "checkmark-outline" : "pencil-outline"}
-              size={20}
-            />
+            {editing ? (
+              <Icon name="checkmark-outline" size={20} />
+            ) : (
+              <NewChatIcon size={20} color={inkIconColor(theme)} />
+            )}
           </Pressable>
           <CopyButton
             text={copyPayload}
