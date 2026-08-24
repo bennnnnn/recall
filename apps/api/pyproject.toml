@@ -37,7 +37,7 @@ dependencies = [
     "rdkit>=2024.3.6,<2025",
     "cryptography>=50.0.0,<51",
     "boto3>=1.35.0,<1.44",
-    "sentry-sdk[fastapi]>=2.66.0,<2.67",
+    "sentry-sdk[fastapi]>=2.66.0,<2.69",
     "pypdfium2>=4.30.0,<5",
     "pillow>=12.3.0,<13",
 ]
