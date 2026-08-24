@@ -1,50 +1,43 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 
-import { Icon } from "@/components/Icon";
-import { type IoniconName } from "@/lib/icons";
+import { StrokeIcon, type StrokeIconName } from "@/components/StrokeIcons";
 import { Theme } from "@/lib/theme";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
 export const ACTION_SHEET_ICON_SIZE = 20;
 
 type Props = {
-  icon: IoniconName;
+  icon: StrokeIconName;
   label: string;
   onPress: () => void;
   theme: Theme;
-  /** Hairline above this row (skip on the first item). */
-  showDivider?: boolean;
   danger?: boolean;
 };
 
 /**
  * One icon+label row for floating action sheets (attach, chat ⋮, drawer).
- * Keep chrome identical across call sites — same size, padding, dividers.
+ * Keep chrome identical across call sites — same size and padding; no dividers.
  */
 export function ActionSheetRow({
   icon,
   label,
   onPress,
   theme,
-  showDivider = false,
   danger = false,
 }: Props) {
   const s = makeStyles(theme);
   const color = danger ? theme.danger : theme.text;
 
   return (
-    <>
-      {showDivider ? <View style={s.divider} /> : null}
-      <Pressable
-        style={({ pressed }) => [s.item, pressed && s.itemPressed]}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-      >
-        <Icon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
-        <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
-      </Pressable>
-    </>
+    <Pressable
+      style={({ pressed }) => [s.item, pressed && s.itemPressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <StrokeIcon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
+      <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -74,11 +67,6 @@ function makeStyles(C: Theme) {
     },
     labelDanger: {
       color: C.danger,
-    },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: C.border,
-      marginLeft: 52,
     },
   });
 }

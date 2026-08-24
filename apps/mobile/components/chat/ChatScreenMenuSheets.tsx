@@ -13,7 +13,6 @@ type Props = {
   onTogglePin: () => void;
   onToggleArchive: () => void;
   onDelete: () => void;
-  onOpenModels?: () => void;
   renameVisible: boolean;
   renameText: string;
   onRenameTextChange: (text: string) => void;
@@ -33,7 +32,6 @@ export function ChatScreenMenuSheets({
   onTogglePin,
   onToggleArchive,
   onDelete,
-  onOpenModels,
   renameVisible,
   renameText,
   onRenameTextChange,
@@ -54,7 +52,6 @@ export function ChatScreenMenuSheets({
         onTogglePin={onTogglePin}
         onToggleArchive={onToggleArchive}
         onDelete={onDelete}
-        onOpenModels={onOpenModels}
       />
       <ChatRenameSheet
         visible={renameVisible}
