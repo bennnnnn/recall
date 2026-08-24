@@ -119,14 +119,26 @@ def enforce_verified_output_contract(
     return f"{cleaned}\n\n{suffix}"
 
 
+def validate_math_fences_worker(
+    content: str,
+    verified: VerifiedMathBlock | None = None,
+) -> str:
+    """Picklable worker: canonicalize first, then run the legacy validator."""
+    from app.services import math_fence
+
+    canonicalized = enforce_verified_output_contract(content, verified)
+    return math_fence.validate_math_fences(canonicalized, verified=verified)
+
+
 def install_verified_output_contract() -> None:
     """Install the deterministic contract at the existing math-fence seam.
 
     Chat streaming already routes final math cleanup through
-    ``math_fence.validate_math_fences_worker``. Wrapping that seam lets the
-    backend own verified blocks without changing the WS/SSE protocol or old
-    clients. The existing validator still runs afterwards, so graph densifying
-    and legacy recovery remain intact.
+    ``math_fence.validate_math_fences_worker``. Replacing that attribute with
+    this module-level (therefore subprocess-picklable) worker lets the backend
+    own verified blocks without changing the WS/SSE protocol or old clients.
+    The existing validator still runs afterwards, so graph densifying and
+    legacy recovery remain intact.
     """
     global _INSTALLED
     if _INSTALLED:
@@ -134,11 +146,5 @@ def install_verified_output_contract() -> None:
 
     from app.services import math_fence
 
-    original_worker = math_fence.validate_math_fences_worker
-
-    def deterministic_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
-        canonicalized = enforce_verified_output_contract(content, verified)
-        return original_worker(canonicalized, verified)
-
-    math_fence.validate_math_fences_worker = deterministic_worker
+    math_fence.validate_math_fences_worker = validate_math_fences_worker
     _INSTALLED = True
