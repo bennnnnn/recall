@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Gallery showed blank tiles (404) after deleting every chat.** Message
+  delete SET NULLs `attachments.message_id`, so rows linger after chats/titles
+  are gone; chat purge already removed the bytes. List only attachments still
+  linked to a message; on local `/file` miss, drop the row. Purge before
+  deleting a replaced image-gen assistant so that path does not SET NULL.
 - **Models invented geometry/graph JSON with fake numbers.** Asking the LLM to
   copy ` ```answer` / ` ```graph` / ` ```geometry` from the hint taught Qwen/GLM
   the JSON protocol, so they emitted fences on unverified turns. Keep those

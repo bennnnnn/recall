@@ -52,7 +52,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
   `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
-  still linked; tap a file to share (no in-gallery preview).
+  still linked; tap a file to share (no in-gallery preview). Deleting a chat removes
+  its attachments from Gallery (unlinked leftovers are hidden; missing files drop
+  the row instead of showing a blank 404 tile).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or

@@ -1,5 +1,6 @@
 """Attachment gallery, upload verification, and download policy."""
 
+import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,8 @@ from app.services.attachment_content import (
     is_image_content_type,
     purge_invalid_upload,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AttachmentWorkflowError(Exception):
@@ -203,6 +206,17 @@ async def confirm_upload(
         raise AttachmentWorkflowError(400, error)
 
 
+async def _drop_row_for_missing_file(session: AsyncSession, attachment_id: UUID) -> None:
+    """Remove a gallery row whose bytes are already gone (best-effort)."""
+    from app.repositories import attachment_chunks as chunks_repo
+
+    try:
+        await chunks_repo.delete_for_attachment_ids(session, [attachment_id], commit=False)
+        await attachments_repo.delete_rows(session, [attachment_id], commit=True)
+    except Exception:
+        logger.exception("Failed to drop missing-file attachment row %s", attachment_id)
+
+
 async def get_file_access(
     session: AsyncSession,
     settings: Settings,
@@ -213,6 +227,7 @@ async def get_file_access(
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)
         if path is None:
+            await _drop_row_for_missing_file(session, row.id)
             raise AttachmentWorkflowError(404, "File missing")
         return FileAccess(content_type=row.content_type, local_path=path)
     return FileAccess(

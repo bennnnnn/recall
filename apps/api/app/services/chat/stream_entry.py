@@ -60,6 +60,9 @@ async def try_image_gen_for_turn(
         async with seams.SessionLocal() as session:
             old = await seams.messages_repo.get_by_id(session, replace_assistant_id, chat_id)
             if old is not None and old.role == "assistant":
+                await seams.attachment_lifecycle.purge_attachments_for_messages(
+                    session, settings, [old.id]
+                )
                 await seams.messages_repo.delete_message(session, old)
     if result is not None:
         result["message_id"] = str(asst_msg.id)
