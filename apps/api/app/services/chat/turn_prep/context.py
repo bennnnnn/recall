@@ -42,19 +42,15 @@ from app.services.chat.turn_prep.mode import (
     _classify_turn_mode,
     _resolve_instant_reply,
     _should_augment_web_and_tools,
+    _should_fetch_integrations,
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
-from app.services.math_tools import VerifiedMathBlock
+from app.services.math_tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
-
-
-async def _noop_str_none() -> str | None:
-    """No-op coroutine used as a defensive fallback for asyncio.gather."""
-    return None
 
 
 @dataclass
@@ -268,6 +264,8 @@ async def build_stream_prompt_context(
     turn_mode: _TurnMode | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
+    if timing is not None:
+        timing.mark_phase("prepare_start")
     meta: dict[str, Any] = {}
     prompt_messages: list[dict[str, str]]
     instant_reply: str | None = None
@@ -356,6 +354,8 @@ async def build_stream_prompt_context(
         ),
         _resolve_instant_reply_task(),
     )
+    if timing is not None:
+        timing.mark_phase("prompt_assembled")
 
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
@@ -363,6 +363,12 @@ async def build_stream_prompt_context(
 
     is_external_calendar = calendar_service.is_external_calendar_question(content)
     is_external_email = email_service.is_external_email_question(content)
+    needs_math = (
+        needs_symbolic_math(content, has_image_attachment=has_image_attachment)
+        or image_math_extract is not None
+    )
+    needs_search = web_search_service.needs_web_search(content)
+    needs_chem = chemistry_context_service.is_chemistry_question(content)
     augment = _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -373,13 +379,22 @@ async def build_stream_prompt_context(
         ambiguous_nearby=geo.ambiguous_nearby,
         is_external_calendar_question=is_external_calendar,
         is_external_email_question=is_external_email,
+        rich_context=mode.rich_context,
+        needs_math=needs_math,
+        needs_search=needs_search,
+        needs_chem=needs_chem,
     )
-    integration_gate = (
-        instant_reply is None
-        and not mode.minimal_personal
-        and not mode.minimal_quiz
-        and not mode.active_vocab_turn
-        and not mode.lightweight
+    load_calendar = calendar_service.should_inject_calendar_block(content)
+    load_gmail = email_service.should_inject_gmail_block(content)
+    integration_gate = _should_fetch_integrations(
+        instant_reply=instant_reply,
+        lightweight=mode.lightweight,
+        minimal_personal=mode.minimal_personal,
+        minimal_quiz=mode.minimal_quiz,
+        active_vocab_turn=mode.active_vocab_turn,
+        rich_context=mode.rich_context,
+        load_calendar=load_calendar,
+        load_gmail=load_gmail,
     )
 
     # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
@@ -410,7 +425,7 @@ async def build_stream_prompt_context(
     # concurrent external fetches so all inputs are ready, then overlap the
     # slow I/O (calendar/gmail API | Tavily/SymPy) below.
     # (prior_user_messages / has_calendar_write are initialized above.)
-    if augment:
+    if augment or integration_gate:
         prior_user_messages, has_calendar_write = await asyncio.gather(
             _load_prior_user_messages(chat.id),
             _load_has_calendar_write(user.id),
@@ -436,13 +451,14 @@ async def build_stream_prompt_context(
             gmail_context=None,
             on_status=on_status,
             client_timezone=client_timezone,
+            include_email_nudge=mode.rich_context,
         )
     web_coro: (
         Awaitable[tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]]
         | None
     ) = None
     chem_coro: Awaitable[str | None] | None = None
-    if augment and settings.chemistry_enabled:
+    if augment:
         web_coro = fetch_web_and_tools(
             content,
             settings,
@@ -458,29 +474,33 @@ async def build_stream_prompt_context(
             user=user,
             redis=redis,
         )
-        chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
+        if settings.chemistry_enabled and needs_chem:
+            chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
 
     integration_blocks: list[str] = []
     web_block: str | None = None
     math_block: str | None = None
     chem_block: str | None = None
-    if integration_coro is not None and web_coro is not None:
-        # chem_coro is set alongside web_coro (both gated on augment).
-        # If chem_coro is somehow None (defensive), use a no-op coroutine.
-        chem_awaitable = chem_coro if chem_coro is not None else _noop_str_none()
-        (
-            integration_blocks,
-            (web_block, math_block, search_sources, verified_math),
-            chem_block,
-        ) = await asyncio.gather(integration_coro, web_coro, chem_awaitable)
-    elif integration_coro is not None:
-        integration_blocks = await integration_coro
-        if chem_coro is not None:
-            chem_block = await chem_coro
-    elif web_coro is not None:
-        web_block, math_block, search_sources, verified_math = await web_coro
-        if chem_coro is not None:
-            chem_block = await chem_coro
+    fetch_jobs: list[Awaitable[Any]] = []
+    fetch_keys: list[str] = []
+    if integration_coro is not None:
+        fetch_jobs.append(integration_coro)
+        fetch_keys.append("integration")
+    if web_coro is not None:
+        fetch_jobs.append(web_coro)
+        fetch_keys.append("web")
+    if chem_coro is not None:
+        fetch_jobs.append(chem_coro)
+        fetch_keys.append("chem")
+    if fetch_jobs:
+        fetched = await asyncio.gather(*fetch_jobs)
+        by_key = dict(zip(fetch_keys, fetched, strict=True))
+        if "integration" in by_key:
+            integration_blocks = by_key["integration"]
+        if "web" in by_key:
+            web_block, math_block, search_sources, verified_math = by_key["web"]
+        if "chem" in by_key:
+            chem_block = by_key["chem"]
 
     # Phase C: inject in the stable order (integration -> web -> math) so the
     # final prompt is byte-identical to the prior serial pipeline.
@@ -506,6 +526,7 @@ async def build_stream_prompt_context(
         prompt_messages.append({"role": "system", "content": chem_block})
 
     if timing is not None:
+        timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
 
     return TurnPromptBundle(

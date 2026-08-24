@@ -63,6 +63,20 @@ def _rich_turn_mode() -> _TurnMode:
     )
 
 
+def _slim_turn_mode() -> _TurnMode:
+    return _TurnMode(
+        lightweight=False,
+        rich_context=False,
+        minimal_personal=False,
+        minimal_quiz=False,
+        minimal_vocab_answer=False,
+        active_vocab_turn=False,
+        day_planning=False,
+        day_reflection=False,
+        quiz_assistant=None,
+    )
+
+
 @pytest.mark.asyncio
 async def test_fetches_run_concurrently_not_serially():
     """Phase A (build_prompt | instant_reply) and Phase B (integration | web+tools)
@@ -238,3 +252,75 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
     assert messages[1] == {"role": "system", "content": "WEB_BLOCK"}
     assert messages[2] == {"role": "system", "content": "MATH_BLOCK"}
     assert messages[3] == {"role": "user", "content": "hi"}
+
+
+@pytest.mark.asyncio
+async def test_slim_coaching_turn_skips_phase_b_fetches():
+    """Help-me-think must not load gmail-nudge or web/math/chem prefetch."""
+    user = _make_user()
+    chat = _make_chat()
+    base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
+    fetch_integration = AsyncMock(return_value=[])
+    fetch_web = AsyncMock(return_value=(None, None, [], None))
+    load_prior = AsyncMock(return_value=[])
+    load_cal_write = AsyncMock(return_value=False)
+
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=list(base_messages)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            fetch_integration,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            fetch_web,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            load_prior,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_has_calendar_write",
+            load_cal_write,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+    ):
+        await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "I want to talk something through — ask me a good opening question.",
+            "free-chat",
+            Settings(
+                max_output_tokens=1000,
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                web_search_enabled=True,
+                gmail_enabled=True,
+                google_calendar_enabled=True,
+            ),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    fetch_integration.assert_not_awaited()
+    fetch_web.assert_not_awaited()
+    load_prior.assert_not_awaited()
+    load_cal_write.assert_not_awaited()
