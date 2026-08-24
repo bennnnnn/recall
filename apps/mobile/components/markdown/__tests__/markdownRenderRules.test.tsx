@@ -51,6 +51,19 @@ describe("markdown render rules", () => {
     expect(StyleSheet.flatten(styles.heading6)).toMatchObject({ fontSize: 13 });
   });
 
+  it("zeros library block padding/border on inline code", () => {
+    const styles = makeMdStyles(lightTheme);
+    const inline = StyleSheet.flatten(styles.code_inline);
+    expect(inline).toMatchObject({
+      borderWidth: 0,
+      padding: 0,
+      backgroundColor: lightTheme.surfaceAlt,
+      fontSize: 16,
+      lineHeight: 22,
+    });
+    expect(inline.padding).not.toBe(10);
+  });
+
   it("forwards strong children even when the node text contains math", () => {
     const { rules } = makeRenderRules(lightTheme);
     const child = <Text key="c">keep me</Text>;

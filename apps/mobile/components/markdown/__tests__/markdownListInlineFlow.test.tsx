@@ -103,6 +103,18 @@ describe("markdown list item inline flow", () => {
     expect(outermostTextAncestor(after as never)).toBe(beforeText);
   });
 
+  it("keeps multiple inline-code spans in one list item on one run", async () => {
+    const md = "- `__init__` vs `__new__`, `__str__` vs `__repr__`";
+    const { getByText } = await render(<MarkdownContent content={md} />);
+
+    const init = getByText("__init__");
+    const neu = getByText("__new__");
+    const outer = outermostTextAncestor(init as never);
+    expect(outer).not.toBeNull();
+    expect(outermostTextAncestor(neu as never)).toBe(outer);
+    expect(outermostTextAncestor(getByText("__str__") as never)).toBe(outer);
+  });
+
   it("keeps a bold-led ordered list item's continuation on the same run", async () => {
     const md = "1. **1941** — Germany invades the USSR; Japan attacks Pearl Harbor.";
     const { getByText } = await render(<MarkdownContent content={md} />);

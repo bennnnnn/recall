@@ -9,6 +9,7 @@ import Markdown, { renderRules as defaultRules } from "react-native-markdown-dis
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { CODE_FONT } from "@/lib/fonts";
@@ -98,13 +99,7 @@ function renderFallbackFence(
 function makeMdStyles(t: Theme) {
   return StyleSheet.create({
     body: { color: t.assistantText, fontSize: 16, lineHeight: 24 },
-    code_inline: {
-      fontFamily: CODE_FONT,
-      backgroundColor: t.contentSurface,
-      borderRadius: 4,
-      paddingHorizontal: 4,
-      fontSize: 14,
-    },
+    code_inline: inlineCodeTextStyle(t),
     heading1: { fontSize: 20, fontWeight: "700", marginVertical: 8 },
     heading2: { fontSize: 18, fontWeight: "700", marginVertical: 6 },
     heading3: { fontSize: 16, fontWeight: "600", marginVertical: 4 },

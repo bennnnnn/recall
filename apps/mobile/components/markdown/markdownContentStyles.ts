@@ -1,8 +1,30 @@
-import { StyleSheet } from "react-native";
+import { StyleSheet, type TextStyle } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+
+/**
+ * Nested-Text inline code. The markdown-display default is a block recipe
+ * (`borderWidth: 1`, `padding: 10`); those props make iOS wrap each chip
+ * onto its own line. Zero them here and keep the line box at body size.
+ */
+export function inlineCodeTextStyle(t: Theme): TextStyle {
+  return {
+    fontFamily: CODE_FONT,
+    fontSize: Type.body.fontSize,
+    lineHeight: Type.body.lineHeight,
+    fontWeight: Type.body.fontWeight,
+    color: t.text,
+    backgroundColor: t.surfaceAlt,
+    borderWidth: 0,
+    borderColor: "transparent",
+    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 4,
+  };
+}
 
 export const verifyCheckStyles = StyleSheet.create({
   verifyRow: {
@@ -61,14 +83,9 @@ export function makeMdTable(t: Theme) {
     cellText: { fontSize: 15, lineHeight: 22, color: t.text, flexShrink: 1 },
     headerText: { fontWeight: "600", color: t.text },
     cellCode: {
-      backgroundColor: t.contentSurface,
-      color: t.text,
-      fontFamily: CODE_FONT,
+      ...inlineCodeTextStyle(t),
       fontSize: 13,
       lineHeight: 18,
-      paddingHorizontal: 3,
-      paddingVertical: 0,
-      borderRadius: 3,
     },
   });
 }
@@ -88,15 +105,7 @@ export function makeMdImg(t: Theme) {
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
     body: { ...Type.body, color: t.assistantText },
-    code_inline: {
-      backgroundColor: t.contentSurface,
-      color: t.text,
-      borderRadius: 4,
-      paddingHorizontal: 4,
-      fontFamily: CODE_FONT,
-      fontSize: 14,
-      lineHeight: 20,
-    },
+    code_inline: inlineCodeTextStyle(t),
     // Custom fence renderer handles code blocks / HTML preview inline.
     fence: { marginVertical: 0, padding: 0 },
     paragraph: { marginVertical: 0 },
