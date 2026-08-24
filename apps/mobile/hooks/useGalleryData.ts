@@ -5,8 +5,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api, type AttachmentListItem } from "@/lib/api";
 import {
   GALLERY_SEARCH_DEBOUNCE_MS,
+  galleryListCacheKey,
   galleryListParams,
   mergeGalleryItems,
+  shouldSkipGalleryFocusReload,
   type GalleryFilter,
 } from "@/lib/gallery";
 
@@ -27,6 +29,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const offsetRef = useRef(0);
   const inFlightRef = useRef(false);
   const genRef = useRef(0);
+  const lastFetchAtRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(trimmedQuery), GALLERY_SEARCH_DEBOUNCE_MS);
@@ -34,9 +37,19 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   }, [trimmedQuery]);
 
   const load = useCallback(
-    async (options: { reset?: boolean; silent?: boolean } = {}) => {
+    async (options: { reset?: boolean; silent?: boolean; force?: boolean } = {}) => {
       if (!token) return;
       const reset = options.reset ?? true;
+      const cacheKey = galleryListCacheKey(filter, debouncedQuery);
+      if (
+        reset &&
+        shouldSkipGalleryFocusReload({
+          lastFetchedAt: lastFetchAtRef.current.get(cacheKey),
+          force: options.force,
+        })
+      ) {
+        return;
+      }
       if (!reset && inFlightRef.current) return;
       if (reset) genRef.current += 1;
       const gen = genRef.current;
@@ -57,6 +70,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
         setItems((current) => mergeGalleryItems(current, response.items, reset));
         setHasMore(response.has_more);
         offsetRef.current = offset + response.items.length;
+        if (reset) lastFetchAtRef.current.set(cacheKey, Date.now());
         setError(false);
       } catch {
         if (gen !== genRef.current) return;
@@ -80,7 +94,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
 
   const refresh = useCallback(async () => {
     setPullRefreshing(true);
-    await load({ reset: true, silent: true });
+    await load({ reset: true, silent: true, force: true });
     setPullRefreshing(false);
   }, [load]);
 

@@ -95,10 +95,11 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     void refresh({ force: true });
   }, [refresh, token]);
 
-  // Refetch greeting when profile name changes (e.g. dev login as bini).
+  // Greeting comes from /home. Don't force a second fetch when the name
+  // arrives — join the in-flight login request or wait for the stale window.
   useEffect(() => {
     if (!token || !userName) return;
-    void refresh({ silent: true, force: true });
+    void refresh({ silent: true });
   }, [refresh, token, userName]);
 
   // Focus refresh lives on chat / Learning screens — this provider wraps the

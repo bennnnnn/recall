@@ -8,7 +8,11 @@ import { type IoniconName } from "@/lib/icons";
 type Router = ReturnType<typeof useRouter>;
 
 import { api, type Message } from "@/lib/api";
-import { shouldRefetchChatOnForeground } from "@/lib/chat/chatForegroundRefetch";
+import {
+  shouldForceForegroundChatRecovery,
+  shouldRefetchChatOnForeground,
+  shouldSkipSilentChatRefetch,
+} from "@/lib/chat/chatForegroundRefetch";
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
@@ -100,6 +104,8 @@ export function useChatRouteLoader({
   const pendingQuizModeRef = useRef<import("@/lib/quizMode").QuizMode | null>(null);
   const handledLaunchIdRef = useRef<string | null>(null);
   const skipNextFocusRef = useRef(true);
+  const lastSilentFetchAtRef = useRef<Map<string, number>>(new Map());
+  const wasStreamingWhenBackgroundedRef = useRef(false);
   // AppState closures must read the latest streaming/loading flags — deps alone
   // would leave a stale "still streaming" view after ws.onclose commits a partial.
   const streamingRef = useRef(streaming);
@@ -110,8 +116,16 @@ export function useChatRouteLoader({
   const turnBusy = () => streamingRef.current || Boolean(imageGeneratingRef?.current);
 
   const silentRefetchChat = useCallback(
-    async (openChatId: string, cancelled: () => boolean) => {
+    async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
       if (!token) return;
+      if (
+        shouldSkipSilentChatRefetch({
+          lastFetchedAt: lastSilentFetchAtRef.current.get(openChatId),
+          force: opts?.force,
+        })
+      ) {
+        return;
+      }
       try {
         const [chat, page] = await Promise.all([
           api.getChat(token, openChatId),
@@ -126,6 +140,7 @@ export function useChatRouteLoader({
         setQuizVariant(resolveQuizVariant(chat.project_id));
         setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
+        lastSilentFetchAtRef.current.set(openChatId, Date.now());
         void writeCachedChatMessages(openChatId, page.messages, page.has_more);
       } catch {
         /* keep existing messages on silent refetch failure */
@@ -138,6 +153,9 @@ export function useChatRouteLoader({
     let cancelled = false;
     const onAppState = (state: AppStateStatus) => {
       if (state === "background" || state === "inactive") {
+        if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
+          wasStreamingWhenBackgroundedRef.current = true;
+        }
         const draftId = draftChatIdRef.current;
         if (!draftId) return;
         // Empty pre-created drafts should not survive backgrounding.
@@ -165,7 +183,12 @@ export function useChatRouteLoader({
       ) {
         return;
       }
-      void silentRefetchChat(openChatId, () => cancelled);
+      const force = shouldForceForegroundChatRecovery({
+        wasStreamingWhenBackgrounded: wasStreamingWhenBackgroundedRef.current,
+      });
+      wasStreamingWhenBackgroundedRef.current = false;
+      skipNextFocusRef.current = true;
+      void silentRefetchChat(openChatId, () => cancelled, { force });
     };
     const sub = AppState.addEventListener("change", onAppState);
     return () => {
@@ -220,6 +243,7 @@ export function useChatRouteLoader({
         skipLoadForChatIdRef.current = null;
         setChatId(openChatId);
         setChatLoading(false);
+        lastSilentFetchAtRef.current.set(openChatId, Date.now());
         return;
       }
       setChatLoading(true);
@@ -246,6 +270,7 @@ export function useChatRouteLoader({
         setQuizVariant(resolveQuizVariant(chat.project_id));
         setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
+        lastSilentFetchAtRef.current.set(openChatId, Date.now());
         void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         if (!chat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);

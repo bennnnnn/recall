@@ -1,11 +1,13 @@
 import {
   galleryEmptyKey,
   galleryFileName,
+  galleryListCacheKey,
   galleryListParams,
   galleryPressAction,
   galleryThumbSize,
   isGalleryImage,
   mergeGalleryItems,
+  shouldSkipGalleryFocusReload,
 } from "@/lib/gallery";
 
 describe("gallery helpers", () => {
@@ -64,5 +66,17 @@ describe("gallery helpers", () => {
       "b",
       "c",
     ]);
+  });
+
+  it("skips a fresh gallery focus reload for the same filter and query", () => {
+    expect(galleryListCacheKey("all", "  cat ")).toBe("all:cat");
+    const now = Date.now();
+    expect(shouldSkipGalleryFocusReload({ lastFetchedAt: now, now })).toBe(true);
+    expect(shouldSkipGalleryFocusReload({ lastFetchedAt: now, force: true, now })).toBe(
+      false,
+    );
+    expect(
+      shouldSkipGalleryFocusReload({ lastFetchedAt: now - 21_000, now }),
+    ).toBe(false);
   });
 });
