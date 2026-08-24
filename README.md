@@ -42,6 +42,7 @@ REDIS_URL=rediss://default:xxx@xxx.upstash.io:6379
 **Backend:**
 ```bash
 ./scripts/dev.sh api          # http://localhost:8000/health
+./scripts/dev.sh watch-errors # same API, 4xx/5xx highlighted (+ tmp/http-errors.log)
 ```
 
 **Mobile:**
