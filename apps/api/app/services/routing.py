@@ -55,6 +55,34 @@ _SMART_TRIGGERS = (
     "leetcode",
 )
 
+# Homework physics the verified solver does not cover (incline, momentum,
+# escape velocity, …). needs_symbolic stays the solver gate so we don't
+# inject fake verified fences; Auto still escalates so a weak model isn't
+# left to invent F=ma on an incline. Bare "physics" must not match.
+_PHYSICS_HOMEWORK_CUES = (
+    "frictionless",
+    "incline",
+    "inclined plane",
+    "momentum",
+    "escape velocity",
+    "centripetal",
+    "simple harmonic",
+    "coefficient of friction",
+    "normal force",
+    "pendulum",
+    "projectile motion",
+    "free body",
+    "atwood",
+)
+# Formula / conceptual asks that are hard even without a printed number.
+_PHYSICS_FORMULA_CUES = (
+    "escape velocity",
+    "simple harmonic",
+    "pendulum",
+    "atwood",
+    "projectile motion",
+)
+
 _LONG_MESSAGE_CHARS = 800
 # BUG FIX: this used to only match a fixed language allowlist
 # (python/javascript/typescript/rust/go/java/c++/sql), so a bare ``` ```` ```
@@ -73,6 +101,21 @@ _LONG_MESSAGE_CHARS = 800
 _CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
 
 
+def _looks_like_physics_homework(content: str) -> bool:
+    """Hard physics asks the solver templates don't cover.
+
+    Requires a quantity (a digit) for everyday words like "momentum", so
+    "the project has momentum" stays on the fast model. Formula phrases
+    (escape velocity, pendulum, …) escalate even without a number.
+    """
+    lower = content.lower()
+    if not any(cue in lower for cue in _PHYSICS_HOMEWORK_CUES):
+        return False
+    if any(ch.isdigit() for ch in content):
+        return True
+    return any(cue in lower for cue in _PHYSICS_FORMULA_CUES)
+
+
 def route_chat_model(content: str) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter)."""
     text = content.lower()
@@ -83,6 +126,8 @@ def route_chat_model(content: str) -> str:
     if _CODE_FENCE.search(content):
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
+        return smart
+    if _looks_like_physics_homework(content):
         return smart
     # Math / structured turns (equations, graphs, geometry, calculus, stats,
     # …) route to the smart model up front. A weak model on a math ask used to
@@ -156,13 +201,30 @@ def _pick_fast_from_pool(pool: list[str]) -> str:
     return _pick_cheapest_from_pool(pool, None)
 
 
+def _pick_strongest_from_pool(pool: list[str]) -> str:
+    """Best remaining model when the preferred smart/max alias is not in pool."""
+    models = _models_in_pool(pool)
+    if not models:
+        return pool[0]
+    models.sort(
+        key=lambda m: (
+            -model_catalog.tier_rank(m),
+            -m.quota_multiplier,
+            -model_catalog.price_sort_key(m)[0],
+            -model_catalog.price_sort_key(m)[1],
+            m.id,
+        )
+    )
+    return models[0].id
+
+
 def _pick_smart_from_pool(pool: list[str]) -> str:
     models = _models_in_pool(pool)
     smart = [m for m in models if m.tier in {"smart", "max"}]
     if smart:
         smart.sort(key=model_catalog.price_sort_key)
         return smart[0].id
-    return _pick_cheapest_from_pool(pool, None)
+    return _pick_strongest_from_pool(pool)
 
 
 def _pick_preferred_tier(preferred: str, pool: list[str]) -> str:

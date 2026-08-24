@@ -111,6 +111,16 @@ def _model(tier: str, *, input_price=None, output_price=None, id_="test-model"):
     )
 
 
+def test_tier_rank_orders_fast_below_standard_below_smart():
+    fast = _model("fast", id_="t-fast")
+    standard = _model("standard", id_="t-standard")
+    smart = _model("smart", id_="t-smart")
+    max_tier = _model("max", id_="t-max")
+    assert model_catalog.tier_rank(fast) < model_catalog.tier_rank(standard)
+    assert model_catalog.tier_rank(standard) < model_catalog.tier_rank(smart)
+    assert model_catalog.tier_rank(smart) < model_catalog.tier_rank(max_tier)
+
+
 def test_price_sort_key_unpriced_fast_tier_beats_priced_smart_tier():
     """BUG FIX: an unpriced fast/standard-tier model used to get the same
     999.0 sentinel as an unpriced max-tier model, so it sorted as if it were

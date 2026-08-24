@@ -1,6 +1,7 @@
 """Tests for app.services.plan — plan gates and model pools."""
 
 from app.core.config import Settings
+from app.services import model_catalog
 from app.services import plan as plan_service
 
 
@@ -218,3 +219,29 @@ def test_chat_fallback_models_empty_when_only_one_model():
     user = ManualUser()
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     assert plan_service.chat_fallback_models(user, settings, "free-chat") == []
+
+
+def test_free_user_hard_question_uses_strongest_in_pool():
+    """Auto on a hard ask used to keep free-chat because the free pool has
+    no smart-tier model and the miss fell through to cheapest. Use the
+    strongest remaining alias (glm-4-flash, standard) instead."""
+    user = FakeUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_user_model(user, "prove p = np", settings)
+    pool = plan_service.free_pool(settings)
+    assert resolved in pool
+    assert model_catalog.tier_rank(model_catalog.get(resolved)) == max(
+        model_catalog.tier_rank(model_catalog.get(mid)) for mid in pool
+    )
+
+
+def test_chat_fallback_models_prefer_nearby_tier_not_cheapest():
+    """A dead smart-chat used to fail over to the cheapest aliases
+    (free-chat, then a standard model). Stay in the smart/max band first."""
+    user = ProUser()
+    user.enabled_models = None
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    fallbacks = plan_service.chat_fallback_models(user, settings, "smart-chat")
+    assert fallbacks
+    assert "smart-chat" not in fallbacks
+    assert all(model_catalog.get(mid).tier in {"smart", "max"} for mid in fallbacks)

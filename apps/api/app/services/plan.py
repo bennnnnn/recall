@@ -179,7 +179,9 @@ def chat_fallback_models(
     # M11: memory_fallback_model_alias is for background jobs (memory/todo/
     # project extraction), not chat — it's non-selectable and never in
     # ``allowed``, so the check below was always false. Removed it so the
-    # chat fallback pool is just the cheapest healthy selectable models.
+    # chat fallback pool is the user's other healthy selectable models,
+    # ordered by tier proximity to the primary (not cheapest-first, which
+    # failed a dead R1 over to the weakest fast model).
     for model_id in model_pool(user, settings):
         if model_id == primary or model_id in candidates:
             continue
@@ -190,7 +192,19 @@ def chat_fallback_models(
         if model_catalog.is_available(model_catalog.get(model_id), settings):
             candidates.append(model_id)
 
-    candidates.sort(key=lambda mid: model_catalog.price_sort_key(model_catalog.get(mid)))
+    primary_rank = 0
+    known = model_catalog.known_ids()
+    if primary in known:
+        primary_rank = model_catalog.tier_rank(model_catalog.get(primary))
+
+    def _fallback_sort_key(model_id: str) -> tuple[int, tuple[float, float, str]]:
+        model = model_catalog.get(model_id)
+        return (
+            abs(model_catalog.tier_rank(model) - primary_rank),
+            model_catalog.price_sort_key(model),
+        )
+
+    candidates.sort(key=_fallback_sort_key)
     return candidates[:max_fallbacks]
 
 
