@@ -122,6 +122,31 @@ $)
     ]);
   });
 
+  it("does not typeset an English recap stuffed in $...$ as math", () => {
+    // Live: "$Since 9 = 3^2, the 2 and 8 cancel down—the 8th root of 9 is just the$"
+    // painted as italic ' = 3²,the2and8canceldown… (math mode drops spaces).
+    const parts = splitInlineMath(
+      "$Since 9 = 3^2, the 2 and 8 cancel down—the 8th root of 9 is just the$",
+    );
+    expect(parts).toEqual([
+      {
+        type: "text",
+        value:
+          "Since 9 = 3^2, the 2 and 8 cancel down—the 8th root of 9 is just the",
+      },
+    ]);
+    expect(splitInlineMath("$3^{1/4}$")).toEqual([
+      { type: "math", value: "3^{1/4}" },
+    ]);
+    expect(
+      splitInlineMath("Set $\\begin{Bmatrix}1&2\\\\3&4\\end{Bmatrix}$."),
+    ).toEqual([
+      { type: "text", value: "Set " },
+      { type: "math", value: "\\begin{Bmatrix}1&2\\\\3&4\\end{Bmatrix}" },
+      { type: "text", value: "." },
+    ]);
+  });
+
   it("BUG FIX regression: check lines keep a space after 'x = 2:' so 2:2² does not glue", () => {
     // Live: "For $x = 2$: $2^2 + 2 = 6$" (or one $x = 2: 2^2$ span) rendered
     // as 2:2². Split the label from the formula and force a space after `:`.
