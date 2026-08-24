@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Models invented geometry/graph JSON with fake numbers.** Asking the LLM to
+  copy ` ```answer` / ` ```graph` / ` ```geometry` from the hint taught Qwen/GLM
+  the JSON protocol, so they emitted fences on unverified turns. Keep those
+  fences off the prompt; store them on `canonical_*` and append in
+  `validate_math_fences`.
 - **Live talk `POST /speech/live/speak` 502.** OpenAI `gpt-audio-mini` rejects `audio.format=wav` when `stream=true` (only `pcm16`) and only accepts `wav`/`mp3` input — Expo’s default m4a 400s. Stream pcm16 and wrap WAV; record LINEARPCM wav for live talk (composer mic can stay m4a for Whisper).
 - **Physics solver existed but free-fall stayed unverified; KE gained fake height.**
   The pre-stream gate had no physics cues, and a length regex matched `m` inside

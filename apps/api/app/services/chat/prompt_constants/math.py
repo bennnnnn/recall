@@ -10,9 +10,9 @@ MATH_INTENT_HINT = (
     "(wrong: `Multiply both sides by r: ```math`). "
     "NEVER ```latex, ```tex, ```copy, or an untagged ``` code fence for arithmetic / LaTeX "
     "(those become a Copy code box on mobile — forbidden for math).\n"
-    "  - Put the FINAL numeric or short result in a ```answer fence (e.g. ```answer\\n120\\n``` "
-    "or ```answer\\n$x = 3$\\n```). NEVER put the final answer in ```copy — that is only "
-    "for paste-and-send text drafts.\n"
+    "  - Do NOT emit ```answer, ```graph, or ```geometry fences. When a verified "
+    "system block is present, Recall attaches the final answer and any diagram "
+    "after your explanation. Write the result in `$...$` in the prose as well.\n"
     "  - ALWAYS use caret exponents (`x^2`, never `x2`). Use LaTeX: \\pm, \\sqrt{}, "
     "\\frac{a}{b}. "
     "LaTeX `n\\sqrt{x}` (number then square-root, no brackets) is n times "
@@ -28,7 +28,7 @@ MATH_INTENT_HINT = (
     "Example: 3! begins with $n! = n(n-1)\\cdots 1$, then $3! = 3\\cdot 2\\cdot 1$. "
     "Same pattern for percent, roots, Pythagoras, combinations — rule first, then "
     "this problem.\n"
-    "  - Show numbered solution steps, then the final answer in ```answer.\n"
+    "  - Show numbered solution steps in `$...$`.\n"
     "  - When you add/subtract/multiply/divide both sides, WRITE that operation "
     "on BOTH sides of the current equation first, then simplify on the next "
     "step. Wrong: '1. Subtract 3 from both sides' then `$F = 3 - 3$`. "
@@ -50,74 +50,16 @@ MATH_INTENT_HINT = (
 
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation; NOT molecules):\n"
-    "- When the user asks to **draw** / **show** / **sketch** a rectangle, square, "
-    "triangle, right triangle, circle, trapezoid, parallelogram, or circle sector, "
-    "emit a ```geometry fence (NEVER ```json) so the app renders a labeled SVG.\n"
-    "- Dimension rule: numeric width/height/side/radius/angle/base/top/bottom MUST "
-    "come from the user's message or a verified SymPy system block. NEVER invent "
-    'dimensions for bare definitions (e.g. "what is a circle/trapezoid?") or when '
-    "measures are missing — explain in words or ask. Prefer a verified geometry "
-    "fence when the system block provides one.\n"
-    "- Schema field names (JSON values below are ILLUSTRATIVE ONLY — replace with "
-    "user-stated or verified numbers; do not copy sample dims as defaults):\n"
-    'Rectangle: ```geometry\n{"type":"rectangle","width":8,"height":5,"unit":"cm",'
-    '"show_diagonal":true,"show_angle":true}\n```\n'
-    'Square: ```geometry\n{"type":"square","side":5,"unit":"cm","show_diagonal":true,'
-    '"show_area":true}\n```\n'
-    'Also accepted: `"type":"rect"`, or width/height via length/breadth/w/h fields.\n'
-    'Triangle (base+height): ```geometry\n{"type":"triangle","base":8,"height":5,"unit":"cm",'
-    '"show_labels":true}\n```\n'
-    'Triangle by three side lengths (SSS): ```geometry\n{"type":"triangle_sides","a":3,'
-    '"b":4,"c":5,"unit":"cm","show_labels":true}\n```\n'
-    'Right triangle: ```geometry\n{"type":"right_triangle","base":6,"height":4,"unit":"cm",'
-    '"show_labels":true,"show_hypotenuse":true,"show_angle":true}\n```\n'
-    "  When the user asks for degrees/angles, label EVERY interior vertex "
-    "(not only the 90° square) using the verified values. "
-    "If they gave angles only (e.g. 120°, 40°, 20°), use the verified fence: "
-    "sides are relative units from the law of sines — NEVER invent centimetres.\n"
-    'Circle: ```geometry\n{"type":"circle","radius":4,"unit":"cm","show_diameter":true,'
-    '"show_area":true,"show_circumference":true}\n```\n'
-    'Trapezoid: ```geometry\n{"type":"trapezoid","top":4,"bottom":8,"height":5,"unit":"cm",'
-    '"show_labels":true}\n```\n'
-    'Parallelogram: ```geometry\n{"type":"parallelogram","base":8,"height":4,"side":5,'
-    '"unit":"cm","show_labels":true}\n```\n'
-    'Circle sector: ```geometry\n{"type":"sector","radius":5,"angle_deg":90,"unit":"cm",'
-    '"show_labels":true}\n```\n'
-    "- For function plots y=f(x), emit ONLY ```graph (NEVER ```json):\n"
-    '```graph\n{"type":"function","expr":"x**2","variable":"x","x_min":-5,'
-    '"x_max":5,"points":[[-5,25],[-4,16]]}\n```\n'
-    "  Include the points array when provided in verified SymPy results. "
-    "Emit the fence once, then describe the shape in plain language — "
-    "NEVER a 'corrected/final graph spec' heading and NEVER dump the raw "
-    "JSON or point list outside the fence (the app draws the SVG).\n"
-    '- To compare two functions on the SAME axes (e.g. "graph y=x^2 and '
-    'y=2x"), add expr2/points2 (and optionally variable2/label/label2) to '
-    "the SAME ```graph fence instead of emitting two separate fences:\n"
-    '```graph\n{"type":"function","expr":"x**2","points":[[-5,25],[-4,16]],'
-    '"expr2":"2*x","points2":[[-5,-10],[5,10]],"label":"y = x^2",'
-    '"label2":"y = 2x"}\n```\n'
-    "- For a vertical line x=c (NOT a function y=f(x)), use type vertical:\n"
-    '```graph\n{"type":"vertical","x":4,"y_min":-10,"y_max":10,"title":"x = 4"}\n```\n'
-    "- For a one-variable inequality (x > 3, 1 ≤ x < 5), emit type number_line "
-    "— NEVER a y=0/1 step function. The app shades the solution on the "
-    "number line (open circle = not included, filled circle = included):\n"
-    '```graph\n{"type":"number_line","expr":"x > 3","title":"x > 3",'
-    '"intervals":[{"start":3,"end":null,"start_inclusive":false,'
-    '"end_inclusive":false}]}\n```\n'
-    "  Open circle = not included; filled circle = included. Describe the "
-    "shaded interval(s) in prose; do not plot this as y=f(x).\n"
-    '- To mark one or more specific coordinates (e.g. "plot the point '
-    '(2, 3)") rather than a continuous curve, use the same ```graph fence '
-    "with just those points and a short title:\n"
-    '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)",'
-    '"points":[[2,3]]}\n```\n'
-    "  A single point is valid — do NOT pad it with invented extra points.\n"
+    "- Do NOT emit ```geometry or ```graph fences. Recall attaches the verified "
+    "diagram from the system block. Describe the figure in words using `$...$`.\n"
+    "- Never invent geometry dimensions. Numbers in any older examples were "
+    "illustrative only — use user-stated or verified measures. If measures are "
+    'missing (bare "what is a circle?"), explain in words or ask.\n'
+    "- Do NOT use ```html or freehand SVG for math diagrams.\n"
     "- Formulas: inline `$...$` for steps; ```math only for a standalone display "
     "equation (not a bare number). Lead with the general rule in n or x, then plug "
-    "in this problem's values. Put the FINAL short/numeric result in ```answer "
-    "(never ```copy). NEVER ```latex, ```tex, or untagged code blocks for LaTeX.\n"
-    "- Do NOT use ```html or freehand SVG for math diagrams — the app draws "
-    "geometry/graph fences natively.\n"
+    "in this problem's values. Do NOT emit ```answer — Recall attaches it. "
+    "NEVER ```latex, ```tex, or untagged code blocks for LaTeX.\n"
     "- Molecules / chemical structures: emit ```smiles (alias ```chemistry) with a "
     "plain SMILES string — NEVER ```geometry, ```graph, ```mermaid, HTML/SVG, "
     "`$...$`, `$$...$$`, or ```math (math is for equations, not structures). "
@@ -136,13 +78,12 @@ MATH_SOLVER_HINT = (
     "and do NOT recompute. If no verified block is present, do NOT claim SymPy "
     "verification; be cautious and say when you are unsure.\n"
     "- Physics problems (kinematics, projectile motion, forces, energy): when a "
-    "verified physics block is present, use its exact answer and trajectory graph "
-    "fence verbatim — do NOT recompute the time, velocity, range, or energy. "
-    "Always include units in the setup (g = 9.81 m/s^2, h0 = 20 m, v0 = 0 m/s). "
-    "Start with the general equation (e.g. $h = h_0 + v_0 t - \\frac{1}{2} g t^2$), "
-    "then substitute the known values, then the verified answer in ```answer. "
-    "When a trajectory ```graph fence is provided, emit it once — the app renders "
-    "the SVG; do NOT re-list the points in prose."
+    "verified physics block is present, use its exact numbers — do NOT recompute "
+    "the time, velocity, range, or energy. Always include units in the setup "
+    "(g = 9.81 m/s^2, h0 = 20 m, v0 = 0 m/s). Start with the general equation "
+    "(e.g. $h = h_0 + v_0 t - \\frac{1}{2} g t^2$), then substitute the known "
+    "values. Recall attaches the answer pill and any trajectory graph; do NOT "
+    "re-list sampled points in prose."
 )
 
 # When the user is practicing/learning math and gives a wrong answer (or asks
@@ -166,17 +107,18 @@ MATH_TUTORING_HINT = (
 # BUG FIX: _soft_hints only appended MATH_SOLVER_HINT / the math rules inside
 # INTENT_FORMAT_HINT when style != "short" — so a user on Short response
 # style got ZERO guardrails against raw ```latex/```tex/```copy fences or an
-# untagged code fence for math, and no instruction to use ```answer for the
-# final result. Math answers are rarely one line; brevity should not mean
-# losing the rules that keep math output from rendering as raw LaTeX. Kept
+# untagged code fence for math. Math answers are rarely one line; brevity
+# should not mean losing the rules that keep math output from rendering as
+# raw LaTeX. Recall attaches verified ```answer / diagram fences. Kept
 # deliberately compact (unlike the full MATH_SOLVER_HINT) so it doesn't blow
 # past Short mode's own 400-token output budget.
 SHORT_MATH_SAFETY_HINT = (
     "Math in SHORT mode: inline `$...$` for formulas (never backticks around `$...$`); "
-    "a ```math fence only for a standalone display equation (opener on its own line). Put the final numeric/short "
-    "result in a ```answer fence. NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
+    "a ```math fence only for a standalone display equation (opener on its own line). "
+    "Do NOT emit ```answer, ```graph, or ```geometry — Recall attaches verified results. "
+    "NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
     "fence for arithmetic or LaTeX. When a SymPy verified system block is present, use "
     "those exact numbers — do NOT recompute. If verification failed or no verified block "
     "is present, do NOT claim SymPy verification. Never invent geometry dimensions. "
-    "If showing work: general formula in n or x first, then numbered `$...$` lines, then ```answer — never a ```steps fence."
+    "If showing work: general formula in n or x first, then numbered `$...$` lines — never a ```steps fence."
 )

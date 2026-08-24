@@ -201,7 +201,8 @@ class TestAugmentPromptMessagesForNewKinds:
         assert len(updated) == 3
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "answer"
-        assert "```answer" in verified.text
+        assert "```answer\n" not in verified.text
+        assert verified.canonical_answer is not None
 
     def test_statistics_input_rejects_non_finite_numbers(self):
         """nan/inf would propagate silently through max-min/fsum and produce
@@ -228,7 +229,8 @@ class TestAugmentPromptMessagesForNewKinds:
         assert verified is not None
         assert "10" in verified.text
         assert verified.canonical_fence == {"type": "answer", "content": "10"}
-        assert "```answer" in verified.text
+        assert "```answer\n" not in verified.text
+        assert verified.canonical_answer is not None
 
     @pytest.mark.asyncio
     async def test_number_theory_produces_answer_fence(self):
@@ -240,7 +242,8 @@ class TestAugmentPromptMessagesForNewKinds:
         _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert verified.canonical_fence == {"type": "answer", "content": "6"}
-        assert "```answer\n6\n```" in verified.text
+        assert verified.canonical_answer == "6"
+        assert "```answer\n" not in verified.text
 
     @pytest.mark.asyncio
     async def test_number_theory_factorize_answer_fence(self):
@@ -254,7 +257,8 @@ class TestAugmentPromptMessagesForNewKinds:
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "answer"
         assert "2^{2}" in verified.canonical_fence["content"]
-        assert "```answer" in verified.text
+        assert "```answer\n" not in verified.text
+        assert verified.canonical_answer is not None
 
     @pytest.mark.asyncio
     async def test_matrix_produces_verified_block(self):
@@ -267,4 +271,5 @@ class TestAugmentPromptMessagesForNewKinds:
         assert verified is not None
         assert "-2" in verified.text
         assert verified.canonical_fence == {"type": "answer", "content": "-2"}
-        assert "```answer" in verified.text
+        assert "```answer\n" not in verified.text
+        assert verified.canonical_answer is not None

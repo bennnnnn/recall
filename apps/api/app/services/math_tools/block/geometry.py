@@ -28,7 +28,6 @@ from app.services import math_service
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
-    _fence,
     _finish_with_answer,
 )
 
@@ -72,10 +71,6 @@ def _verified_block_rectangle(
         perimeter=rect_geo.perimeter,
         labels=rect_geo.labels,
     )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (adjust labels if needed):\n"
-        f"{_fence('geometry', spec)}"
-    )
     lines.append("Do NOT recompute diagonal, angle, area, or perimeter.")
     if intent.wants_perimeter:
         answer = f"{rect_geo.perimeter:g}"
@@ -113,9 +108,6 @@ def _verified_block_square(
         area=square_geo.area,
         perimeter=square_geo.perimeter,
         labels=square_geo.labels,
-    )
-    lines.append(
-        f"When a diagram helps, emit ONLY this fence (NEVER ```json):\n{_fence('geometry', spec)}"
     )
     lines.append("Do NOT recompute diagonal, area, or perimeter.")
     return _diagram_block(lines, spec, f"{square_geo.area:g}")
@@ -179,10 +171,6 @@ def _verified_block_circle(
         circumference=circle_geo.circumference,
         labels=circle_geo.labels,
     )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', circle_spec)}"
-    )
     lines.append("Do NOT recompute diameter, area, or circumference.")
     # The verified final answer must match what the user asked for —
     # "circumference of circle r=4" used to return the area (≈50.27)
@@ -220,10 +208,6 @@ def _verified_block_triangle(
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', tri_spec)}"
-    )
     lines.append("Do NOT recompute area.")
     return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
 
@@ -255,10 +239,6 @@ def _verified_block_right_triangle(
         hypotenuse=rt_geo.hypotenuse,
         area=rt_geo.area,
         labels=rt_geo.labels,
-    )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', rt_spec)}"
     )
     lines.append("Do NOT recompute hypotenuse, area, or interior angles.")
     lines.append(
@@ -300,15 +280,11 @@ def _verified_block_triangle_sides(
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', tri_spec)}"
-    )
     if intent.unit == "units":
         lines.append(
             "The user gave interior angles only. Sides are relative (law of sines) "
             "with unit 'units' — do NOT call them centimetres or invent a side in cm. "
-            "Copy the degree labels from the fence (near-integers are already rounded)."
+            "Do not invent a side length in centimetres."
         )
         answer = (
             f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
@@ -350,10 +326,6 @@ def _verified_block_trapezoid(
         area=trap_geo.area,
         labels=trap_geo.labels,
     )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', trap_spec)}"
-    )
     lines.append("Do NOT recompute area — area = (top + bottom) / 2 \\times height.")
     return _diagram_block(lines, trap_spec, f"{trap_geo.area:g}")
 
@@ -385,10 +357,6 @@ def _verified_block_parallelogram(
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,
     )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', para_spec)}"
-    )
     lines.append("Do NOT recompute area or perimeter.")
     return _diagram_block(lines, para_spec, f"{para_geo.area:g}")
 
@@ -415,10 +383,6 @@ def _verified_block_sector(
         arc_length=sector_geo.arc_length,
         area=sector_geo.area,
         labels=sector_geo.labels,
-    )
-    lines.append(
-        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-        f"{_fence('geometry', sector_spec)}"
     )
     lines.append("Do NOT recompute arc length or area.")
     return _diagram_block(lines, sector_spec, f"{sector_geo.area:g}")

@@ -344,13 +344,15 @@ def test_rewrites_answer_fence_from_canonical() -> None:
 
 
 def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
-    """Wrong-kind canonical must not clobber an ```answer body."""
+    """Wrong-kind canonical must not clobber an ```answer body; geometry is appended."""
     content = "```answer\nx = 2\n```"
     out = validate_math_fences(
         content,
         verified=_verified({"type": "rectangle", "width": 8, "height": 5}),
     )
-    assert out == content
+    assert "```answer\nx = 2\n```" in out
+    assert "```geometry" in out
+    assert '"type":"rectangle"' in out.replace(" ", "")
 
 
 def test_rewrites_answer_fence_when_geometry_has_canonical_answer() -> None:
@@ -504,3 +506,62 @@ def test_strips_non_graph_function_call_text() -> None:
     out = validate_math_fences(content)
     assert "!function_call" not in out
     assert "web_search" not in out
+
+
+def test_appends_canonical_answer_when_model_omits_fence() -> None:
+    verified = _verified({"type": "answer", "content": "x = 2"})
+    out = validate_math_fences("The solution is $x = 2$.", verified=verified)
+    assert "```answer\nx = 2\n```" in out
+
+
+def test_appends_canonical_geometry_when_model_omits_fence() -> None:
+    spec = {"type": "rectangle", "width": 8, "height": 5}
+    out = validate_math_fences("Here is a rectangle.", verified=_verified(spec))
+    assert "```geometry" in out
+    assert '"type":"rectangle"' in out.replace(" ", "")
+    assert "```geometry\n" not in "Here is a rectangle."
+
+
+def test_appends_canonical_graph_when_model_omits_fence() -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    out = validate_math_fences("Here is the parabola.", verified=_verified(spec))
+    assert "```graph" in out
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["type"] == "function"
+    assert data["expr"] == "x**2"
+
+
+def test_appends_answer_and_graph_for_physics() -> None:
+    from app.services.math_tools import VerifiedMathBlock
+
+    spec = {
+        "type": "trajectory",
+        "expr": "h(t)",
+        "points": [[0, 20], [1, 15]],
+    }
+    verified = VerifiedMathBlock(
+        text="unused",
+        canonical_fence=spec,
+        canonical_answer="2.02 s",
+    )
+    out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
+    assert "```answer\n2.02 s\n```" in out
+    assert "```graph" in out
+    assert json.loads(out.split("```graph")[1].split("```")[0].strip())["type"] == "trajectory"
+
+
+def test_does_not_duplicate_existing_answer_fence() -> None:
+    verified = _verified({"type": "answer", "content": "x = 2"})
+    content = "Worked steps…\n```answer\nx = 99\n```"
+    out = validate_math_fences(content, verified=verified)
+    assert out.count("```answer") == 1
+    assert "```answer\nx = 2\n```" in out
+    assert "x = 99" not in out

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
@@ -24,6 +23,10 @@ from app.models.math_schemas import (
 )
 from app.models.tool_schemas import SympyToolInput
 from app.services import math_service, math_tools
+from app.services.math_tools.block.common import (
+    DIAGRAM_OWNED_NOTE,
+    SOLVER_OWNED_FENCES_NOTE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +35,25 @@ _T = TypeVar("_T")
 _ActionHandler = Callable[["SympyAdapter", dict[str, Any]], Awaitable[ToolResult]]
 
 
-def _fence_data(canonical_fence: dict[str, Any] | None) -> dict[str, Any] | None:
+def _fence_data(
+    canonical_fence: dict[str, Any] | None,
+    *,
+    canonical_answer: str | None = None,
+) -> dict[str, Any] | None:
     """Attach canonical fence JSON for post-stream validate_math_fences."""
-    if canonical_fence is None:
-        return None
-    return {"canonical_fence": canonical_fence}
+    data: dict[str, Any] = {}
+    if canonical_fence is not None:
+        data["canonical_fence"] = canonical_fence
+    if canonical_answer:
+        data["canonical_answer"] = canonical_answer
+    return data or None
+
+
+def _verified_content(body: str, *, diagram: bool = False) -> str:
+    notes = [SOLVER_OWNED_FENCES_NOTE]
+    if diagram:
+        notes.append(DIAGRAM_OWNED_NOTE)
+    return body.rstrip() + "\n" + "\n".join(notes)
 
 
 class SympyAdapter:
@@ -105,11 +122,8 @@ class SympyAdapter:
         answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
         return ToolResult(
             name=self.name,
-            content=(
-                "\n".join(result.steps) + "\nEnd with this final-answer fence (copy verbatim):\n"
-                f"```answer\n{answer}\n```"
-            ),
-            data=_fence_data(math_tools._answer_canonical(answer)),
+            content=_verified_content("\n".join(result.steps) + f"\nVerified result: {answer}"),
+            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
     async def _action_expr_op(self, args: dict[str, Any]) -> ToolResult:
@@ -157,12 +171,8 @@ class SympyAdapter:
         answer = expr_result.latex
         return ToolResult(
             name=self.name,
-            content=(
-                f"Result: {expr_result.latex}\n"
-                "End with this final-answer fence (copy verbatim):\n"
-                f"```answer\n{answer}\n```"
-            ),
-            data=_fence_data(math_tools._answer_canonical(answer)),
+            content=_verified_content(f"Result: {expr_result.latex}\nVerified result: {answer}"),
+            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
     async def _action_inequality(self, args: dict[str, Any]) -> ToolResult:
@@ -184,11 +194,8 @@ class SympyAdapter:
         if result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
-        content = (
-            "\n".join(result.steps) + "\nEnd with this final-answer fence (copy verbatim):\n"
-            f"```answer\n{answer}\n```"
-        )
-        data = _fence_data(math_tools._answer_canonical(answer))
+        content = _verified_content("\n".join(result.steps) + f"\nVerified result: {answer}")
+        data = _fence_data(math_tools._answer_canonical(answer), canonical_answer=answer)
         # Attach the verified number-line diagram — same invariant the
         # heuristic _verified_block_inequality enforces. Without this the
         # MCP inequality path returned only an ```answer fence, so the app
@@ -202,13 +209,11 @@ class SympyAdapter:
         )
         if line_spec is not None:
             fence = line_spec.model_dump()
-            fence_json = json.dumps(fence, separators=(",", ":"))
-            content += (
-                "\nNumber-line diagram for the solution set — emit ONLY this fence "
-                "ONCE (the app renders it as an SVG):\n"
-                f"```graph\n{fence_json}\n```"
+            content = _verified_content(
+                "\n".join(result.steps) + f"\nVerified result: {answer}",
+                diagram=True,
             )
-            data = _fence_data(fence)
+            data = _fence_data(fence, canonical_answer=answer)
         return ToolResult(name=self.name, content=content, data=data)
 
     async def _action_system(self, args: dict[str, Any]) -> ToolResult:
@@ -223,14 +228,11 @@ class SympyAdapter:
         answer = math_tools._format_system_answer(
             system_result.solutions, system_result.solution_kind
         )
+        body = "\n".join(system_result.steps) + f"\nVerified result: {answer}"
         return ToolResult(
             name=self.name,
-            content=(
-                "\n".join(system_result.steps)
-                + "\nEnd with this final-answer fence (copy verbatim):\n"
-                f"```answer\n{answer}\n```"
-            ),
-            data=_fence_data(math_tools._answer_canonical(answer)),
+            content=_verified_content(body),
+            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
     async def _action_limit(self, args: dict[str, Any]) -> ToolResult:
@@ -257,9 +259,8 @@ class SympyAdapter:
         answer = limit_result.latex
         return ToolResult(
             name=self.name,
-            content=content + "\nEnd with this final-answer fence (copy verbatim):\n"
-            f"```answer\n{answer}\n```",
-            data=_fence_data(math_tools._answer_canonical(answer)),
+            content=_verified_content(content),
+            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
     async def _action_series(self, args: dict[str, Any]) -> ToolResult:
@@ -289,9 +290,8 @@ class SympyAdapter:
         answer = series_result.latex
         return ToolResult(
             name=self.name,
-            content=content + "\nEnd with this final-answer fence (copy verbatim):\n"
-            f"```answer\n{answer}\n```",
-            data=_fence_data(math_tools._answer_canonical(answer)),
+            content=_verified_content(content),
+            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
     async def _action_newton(self, args: dict[str, Any]) -> ToolResult:
@@ -315,14 +315,13 @@ class SympyAdapter:
         answer = f"{newton_result.root:g}"
         return ToolResult(
             name=self.name,
-            content=(
+            content=_verified_content(
                 f"Newton's method: root={newton_result.root}, "
                 f"converged={newton_result.converged}, "
                 f"iterations={newton_result.iterations_used}\n"
-                "End with this final-answer fence (copy verbatim):\n"
-                f"```answer\n{answer}\n```"
+                f"Verified result: {answer}"
             ),
-            data=_fence_data(math_tools._answer_canonical(answer)),
+            data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
     async def _action_rectangle(self, args: dict[str, Any]) -> ToolResult:
@@ -348,14 +347,12 @@ class SympyAdapter:
             labels=rect_result.labels,
         )
         fence = spec.model_dump()
-        fence_json = json.dumps(fence, separators=(",", ":"))
         return ToolResult(
             name=self.name,
-            content=(
+            content=_verified_content(
                 f"Rectangle {rect_result.width}x{rect_result.height} {rect_result.unit}: "
-                f"diagonal={rect_result.diagonal}, angle={rect_result.angle_deg}°\n"
-                "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```geometry\n{fence_json}\n```"
+                f"diagonal={rect_result.diagonal}, angle={rect_result.angle_deg}°",
+                diagram=True,
             ),
             data=_fence_data(fence),
         )
@@ -391,14 +388,12 @@ class SympyAdapter:
             labels=square_result.labels,
         )
         fence = spec.model_dump()
-        fence_json = json.dumps(fence, separators=(",", ":"))
         return ToolResult(
             name=self.name,
-            content=(
+            content=_verified_content(
                 f"Square side={square_result.side:g} {square_result.unit}: "
-                f"diagonal={square_result.diagonal:g}, area={square_result.area:g}\n"
-                "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```geometry\n{fence_json}\n```"
+                f"diagonal={square_result.diagonal:g}, area={square_result.area:g}",
+                diagram=True,
             ),
             data=_fence_data(fence),
         )
@@ -429,16 +424,14 @@ class SympyAdapter:
             labels=circle_result.labels,
         )
         fence = spec.model_dump()
-        fence_json = json.dumps(fence, separators=(",", ":"))
         return ToolResult(
             name=self.name,
-            content=(
+            content=_verified_content(
                 f"Circle radius={circle_result.radius:g} {circle_result.unit}: "
                 f"diameter={circle_result.diameter:g}, "
                 f"area={circle_result.area:.2f}, "
-                f"circumference={circle_result.circumference:.2f}\n"
-                "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```geometry\n{fence_json}\n```"
+                f"circumference={circle_result.circumference:.2f}",
+                diagram=True,
             ),
             data=_fence_data(fence),
         )
@@ -461,14 +454,11 @@ class SympyAdapter:
             ellipse_spec = None
         if ellipse_spec is not None:
             fence = ellipse_spec.model_dump()
-            fence_json = json.dumps(fence, separators=(",", ":"))
             return ToolResult(
                 name=self.name,
-                content=(
-                    f"Sampled {len(ellipse_spec.points)} parametric points "
-                    f"for {ellipse_spec.expr}\n"
-                    "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
-                    f"```graph\n{fence_json}\n```"
+                content=_verified_content(
+                    f"Sampled {len(ellipse_spec.points)} parametric points for {ellipse_spec.expr}",
+                    diagram=True,
                 ),
                 data=_fence_data(fence),
             )
@@ -478,14 +468,12 @@ class SympyAdapter:
         )
         if line_spec is not None and not str(args.get("expr2") or "").strip():
             fence = line_spec.model_dump()
-            fence_json = json.dumps(fence, separators=(",", ":"))
             return ToolResult(
                 name=self.name,
-                content=(
+                content=_verified_content(
                     f"Shaded region for {line_spec.expr} on the number line "
-                    "(open circle = not included).\n"
-                    "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
-                    f"```graph\n{fence_json}\n```"
+                    "(open circle = not included).",
+                    diagram=True,
                 ),
                 data=_fence_data(fence),
             )
@@ -547,7 +535,6 @@ class SympyAdapter:
             label2=label2,
         )
         fence = graph_spec.model_dump()
-        fence_json = json.dumps(fence, separators=(",", ":"))
         if expr2:
             summary = (
                 f"Sampled {len(graph_result.points)} + {len(points2 or [])} points "
@@ -557,10 +544,7 @@ class SympyAdapter:
             summary = f"Sampled {len(graph_result.points)} points for {graph_result.expr}\n"
         return ToolResult(
             name=self.name,
-            content=(
-                summary + "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```graph\n{fence_json}\n```"
-            ),
+            content=_verified_content(summary, diagram=True),
             data=_fence_data(fence),
         )
 
@@ -577,7 +561,10 @@ class SympyAdapter:
                     return ToolResult(
                         name=self.name,
                         content=block.text,
-                        data=_fence_data(block.canonical_fence),
+                        data=_fence_data(
+                            block.canonical_fence,
+                            canonical_answer=block.canonical_answer,
+                        ),
                     )
             return ToolResult(name=self.name, content="No math result.")
         except Exception as exc:

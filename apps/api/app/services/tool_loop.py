@@ -66,6 +66,14 @@ def _canonical_from_tool_result(result: Any) -> dict[str, Any] | None:
     return fence if isinstance(fence, dict) else None
 
 
+def _canonical_answer_from_tool_result(result: Any) -> str | None:
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return None
+    answer = data.get("canonical_answer")
+    return answer.strip() if isinstance(answer, str) and answer.strip() else None
+
+
 def _terminal_image_from_tool_result(result: Any) -> TerminalImageResult | None:
     data = getattr(result, "data", None)
     if not isinstance(data, dict) or not data.get("terminal"):
@@ -229,6 +237,7 @@ async def _run_tool_rounds_bound(
     # Collect canonical fences across rounds keyed by type so a geometry
     # fence from round 1 isn't lost when round 2 produces a graph fence.
     canonical_by_type: dict[str, dict[str, Any]] = {}
+    canonical_answer: str | None = None
     terminal_image: TerminalImageResult | None = None
 
     for _ in range(max_rounds):
@@ -280,6 +289,9 @@ async def _run_tool_rounds_bound(
                 fence_type = str(fence.get("type") or "")
                 if fence_type:
                     canonical_by_type[fence_type] = fence
+            answer = _canonical_answer_from_tool_result(result) if result else None
+            if answer:
+                canonical_answer = answer
             image = _terminal_image_from_tool_result(result) if result else None
             if image is not None:
                 terminal_image = image
@@ -313,8 +325,9 @@ async def _run_tool_rounds_bound(
             text="",
             canonical_fence=primary,
             canonical_fences=all_fences,
+            canonical_answer=canonical_answer,
         )
-        if all_fences
+        if all_fences or canonical_answer
         else None
     )
     return working, verified, terminal_image

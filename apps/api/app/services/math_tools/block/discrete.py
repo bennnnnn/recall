@@ -12,7 +12,11 @@ from app.models.math_schemas import (
     StatisticsInput,
 )
 from app.services import math_service
-from app.services.math_tools.block.common import VerifiedMathBlock, _finish_with_answer
+from app.services.math_tools.block.common import (
+    SOLVER_OWNED_FENCES_NOTE,
+    VerifiedMathBlock,
+    _finish_with_answer,
+)
 
 
 def _verified_block_calculus(
@@ -141,7 +145,7 @@ def _verified_block_statistics(
         preface=(
             "Do NOT recompute any of these values — use the verified numbers above. "
             "Show the relevant formula with these exact numbers substituted in. "
-            "End with this final-answer fence (copy verbatim):"
+            + SOLVER_OWNED_FENCES_NOTE
         ),
     )
 
@@ -173,8 +177,7 @@ def _verified_block_combinatorics(
     return _finish_with_answer(
         lines,
         str(result.result),
-        preface="Do NOT recompute — use this exact verified result. "
-        "End with this final-answer fence (copy verbatim):",
+        preface="Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE,
     )
 
 
@@ -193,8 +196,7 @@ def _verified_block_number_theory(
     return _finish_with_answer(
         lines,
         answer,
-        preface="Do NOT recompute — use this exact verified result. "
-        "End with this final-answer fence (copy verbatim):",
+        preface="Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE,
     )
 
 
@@ -218,6 +220,5 @@ def _verified_block_matrix(
     return _finish_with_answer(
         lines,
         answer,
-        preface="Do NOT recompute — use this exact verified result. "
-        "End with this final-answer fence (copy verbatim):",
+        preface="Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE,
     )

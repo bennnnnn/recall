@@ -4,9 +4,9 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 
 ## Default product path (heuristic SymPy, always)
 
-1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph` / ` ```answer `).
-2. **LLM stream** — model explains using those values and emits fences.
-3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — replace matching geometry/graph/`answer` fences with the canonical fence when present; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget.
+1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences.
+2. **LLM stream** — model explains in Markdown + `$...$`.
+3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned fences so the client always gets the answer pill and diagram; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget.
 4. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
 
 Camera math is a specialization of step 1: fixed prompt → vision extract → same SymPy equation path.
@@ -15,15 +15,14 @@ Camera math is a specialization of step 1: fixed prompt → vision extract → s
 
 ## Tool-loop path (`MCP_TOOL_LOOP_ENABLED=true`, default)
 
-Heuristic pre-solve and web-search injection **still run**. The model may also call the `sympy` / `web_search` / `calendar` / `generate_image` tools for follow-ups. Tool results that include a `canonical_fence` in `ToolResult.data` are collected into `VerifiedMathBlock` so step 3 still rewrites fences.
+Heuristic pre-solve and web-search injection **still run**. The model may also call the `sympy` / `web_search` / `calendar` / `generate_image` tools for follow-ups. Tool results that include a `canonical_fence` / `canonical_answer` in `ToolResult.data` are collected into `VerifiedMathBlock` so step 3 still rewrites or appends fences. Tool **content** is prose + verified numbers, not fence JSON.
 
 ## Formula emit rule (prompts must agree)
 
 - **Steps / intermediates:** inline `$...$` only (no backticks around `$`, no ` ```math` inside numbered steps).
 - **Standalone display:** ` ```math` OK for a final equation on its own lines.
-- **Diagrams:** ` ```geometry` / ` ```graph` JSON only — never freehand HTML/SVG/```json for math diagrams.
-- **Final algebra answer:** ` ```answer ` with the SymPy solution (post-stream rewrite when a
-  canonical answer fence was computed).
+- **Diagrams:** Recall attaches ` ```geometry` / ` ```graph` from `canonical_fence`. The model describes the figure in words (`$...$`); it must not emit diagram JSON.
+- **Final algebra answer:** Recall attaches ` ```answer ` from `canonical_answer` after the stream. The model writes the result in `$...$`.
 
 ## Composer input (mobile)
 

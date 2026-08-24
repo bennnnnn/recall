@@ -3,8 +3,7 @@
 BUG FIX regression: SHORT response style used to append only
 SHORT_RESPONSE_FORMAT_HINT, skipping MATH_SOLVER_HINT and the math half of
 INTENT_FORMAT_HINT entirely — a user on Short style got no guardrail against
-raw ```latex/```tex/```copy fences for math and no instruction to use
-```answer for the final result.
+raw ```latex/```tex/```copy fences for math so verified math still has latex/fence guardrails.
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ def test_day_plan_keeps_math_safety_guardrails():
     parts = _day_plan_hints()
     assert SHORT_MATH_SAFETY_HINT in parts
     joined = "\n".join(parts)
-    assert "```answer" in joined
+    assert "Do NOT emit ```answer" in joined
     assert "```latex" in joined
 
 
@@ -47,7 +46,7 @@ def test_short_style_still_includes_math_safety_guardrails():
     parts = _hints("short")
     assert SHORT_MATH_SAFETY_HINT in parts
     joined = "\n".join(parts)
-    assert "```answer" in joined
+    assert "Do NOT emit ```answer" in joined
     assert "```latex" in joined
 
 

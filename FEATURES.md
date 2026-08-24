@@ -118,8 +118,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
   fullscreen scroll. Server-side **SymPy** solves equations and samples graphs before the LLM
-  explains (verified numbers / fences injected into the prompt; post-stream correction for
-  geometry, graph, and algebra ` ```answer `). See [docs/math.md](./docs/math.md).
+  explains (verified numbers injected into the prompt; Recall attaches geometry,
+  graph, and algebra ` ```answer ` after the stream). See [docs/math.md](./docs/math.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays
