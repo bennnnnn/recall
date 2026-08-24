@@ -196,6 +196,7 @@ function makeSharedRules(
   mdTable: MdTableStyles,
   mdMath: MdMathStyles,
   mdImg: MdImgStyles,
+  mdCodeInline: object,
   streaming = false,
 ) {
   return {
@@ -471,11 +472,10 @@ function makeSharedRules(
       node: { key: string; content: string },
       _children: unknown,
       parent: unknown,
-      styles: StyleMap,
     ) => (
       <Text
         key={node.key}
-        style={[styles.code_inline, inTableCell(parent) && mdTable.cellCode]}
+        style={[mdCodeInline, inTableCell(parent) && mdTable.cellCode]}
         selectable
       >
         {node.content}
@@ -535,7 +535,7 @@ export function makeRenderRules(t: Theme, streaming = false) {
   const mdImg = makeMdImg(t);
   const mdStyles = makeMdStyles(t);
   const rules = {
-    ...makeSharedRules(t, mdTable, mdMath, mdImg, streaming),
+    ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline, streaming),
     fence: renderFence,
     code_block: renderFence,
   };

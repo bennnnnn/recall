@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Text, type TextProps } from "react-native";
 
-import { CODE_FONT } from "@/lib/fonts";
+import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { useTheme } from "@/lib/theme";
 
@@ -43,18 +43,7 @@ export function RichBodyText(props: TextProps) {
         }
         if (token.type === "code") {
           return (
-            <Text
-              key={i}
-              style={{
-                fontFamily: CODE_FONT,
-                fontSize: 13,
-                color: theme.text,
-                backgroundColor: theme.surfaceAlt,
-                paddingHorizontal: 4,
-                borderRadius: 4,
-                overflow: "hidden",
-              }}
-            >
+            <Text key={i} style={inlineCodeTextStyle(theme)}>
               {token.value}
             </Text>
           );
