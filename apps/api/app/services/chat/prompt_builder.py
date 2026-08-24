@@ -638,6 +638,7 @@ async def build_prompt_messages(
     prompt_location: str | None = None,
     on_status: StreamStatusFn | None = None,
     omit_message_ids: set[UUID] | None = None,
+    probe_attachment_rag: bool = True,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
 
@@ -656,7 +657,7 @@ async def build_prompt_messages(
     # casual follow-up ("what's on page 10?") still retrieves RAG chunks.
     # Without this, a lightweight query after uploading a PDF skips RAG
     # entirely and the user gets no document context on follow-ups.
-    if not rich_context and settings.attachment_rag_enabled:
+    if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
         from app.repositories import attachment_chunks as chunks_repo
 
         try:

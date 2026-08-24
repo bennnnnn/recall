@@ -40,6 +40,7 @@ from app.services.chat.turn_prep.integrations import (
 )
 from app.services.chat.turn_prep.mode import (
     _classify_turn_mode,
+    _instant_reply_needs_db,
     _resolve_instant_reply,
     _should_augment_web_and_tools,
     _should_fetch_integrations,
@@ -262,6 +263,7 @@ async def build_stream_prompt_context(
     omit_message_ids: set[UUID] | None = None,
     force_rich_context: bool = False,
     turn_mode: _TurnMode | None = None,
+    probe_attachment_rag: bool = True,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     if timing is not None:
@@ -277,21 +279,12 @@ async def build_stream_prompt_context(
     fallback_models: list[str]
     mode: _TurnMode
 
-    # Phase 1: ownership + turn mode (short-lived session).
-    async with SessionLocal() as session:
-        if user is None:
-            user = await users_repo.get_by_id(session, user_id)
-            if user is None:
-                raise ChatNotFoundError("User not found.")
-        if chat is None:
-            chat = await chats_repo.get_by_id(session, chat_id, user_id)
-            if chat is None:
-                raise ChatNotFoundError("Chat not found.")
-
-        mode = turn_mode or await _classify_turn_mode(session, chat, content)
+    # Phase 1: ownership + turn mode. Skip a Neon checkout when prepare
+    # already passed user, chat, and mode — geo/tz are in-memory.
+    if user is not None and chat is not None and turn_mode is not None:
+        mode = turn_mode
         if force_rich_context and not mode.rich_context:
             mode = replace(mode, rich_context=True)
-
         user_locale = user.locale
         chat_summary = chat.summary
         geo = resolve_client_geo(
@@ -302,6 +295,31 @@ async def build_stream_prompt_context(
             client_longitude=client_longitude,
         )
         local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+    else:
+        async with SessionLocal() as session:
+            if user is None:
+                user = await users_repo.get_by_id(session, user_id)
+                if user is None:
+                    raise ChatNotFoundError("User not found.")
+            if chat is None:
+                chat = await chats_repo.get_by_id(session, chat_id, user_id)
+                if chat is None:
+                    raise ChatNotFoundError("Chat not found.")
+
+            mode = turn_mode or await _classify_turn_mode(session, chat, content)
+            if force_rich_context and not mode.rich_context:
+                mode = replace(mode, rich_context=True)
+
+            user_locale = user.locale
+            chat_summary = chat.summary
+            geo = resolve_client_geo(
+                user,
+                content,
+                client_location=client_location,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+            )
+            local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
     # No outer session during prompt gather (RAG/memory embeds use short-lived
     # sessions inside build_prompt_messages). Do not emit preparing/remembering
@@ -309,30 +327,46 @@ async def build_stream_prompt_context(
     # (search, files, calendar, inbox, math) still emits its own activity chip.
 
     async def _resolve_instant_reply_task() -> str | None:
-        async with SessionLocal() as session:
-            reply = await _resolve_instant_reply(
-                session,
-                content,
-                local_tz=local_tz,
-                user_locale=user_locale,
-                geo=geo,
-                user_id=user.id,
-            )
-            if reply is None and not mode.minimal_vocab_answer and not mode.minimal_quiz:
-                settings_changes = extract_settings_changes(content)
-                if settings_changes:
-                    reply = await settings_proposal_service.materialize_settings_reply(
-                        redis, user, settings, settings_changes
-                    )
-            await session.commit()
+        # Time/location answers are CPU-only. Don't checkout Neon unless
+        # calendar/email needs a connection check.
+        if time_context_service.is_time_question(content):
+            return time_context_service.format_time_answer(local_tz, user_locale)
+        if time_context_service.is_location_question(content):
+            return time_context_service.format_location_answer(geo.user_location, local_tz)
+        reply: str | None = None
+        if _instant_reply_needs_db(content):
+            async with SessionLocal() as session:
+                reply = await _resolve_instant_reply(
+                    session,
+                    content,
+                    local_tz=local_tz,
+                    user_locale=user_locale,
+                    geo=geo,
+                    user_id=user.id,
+                )
+                await session.commit()
+        if reply is None and not mode.minimal_vocab_answer and not mode.minimal_quiz:
+            settings_changes = extract_settings_changes(content)
+            if settings_changes:
+                reply = await settings_proposal_service.materialize_settings_reply(
+                    redis, user, settings, settings_changes
+                )
         return reply
 
-    # Phase A: build the prompt (memory/RAG embed) while resolving the
-    # instant-reply short-circuit (time/location/calendar/email checks).
-    # The two share no data -- overlap them so memory embed does not wait
-    # behind a fast DB classification, and the classifier does not wait
-    # behind a multi-second embedding round-trip.
-    prompt_messages, instant_reply = await asyncio.gather(
+    async def _fallback_models() -> list[str]:
+        unhealthy: set[str] = set()
+        try:
+            from app.services import model_health as model_health_service
+
+            pool = plan_service.model_pool(user, settings)
+            snaps = await model_health_service.enrich_models_health(redis, settings, pool)
+            unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
+        except Exception:
+            logger.debug("model health read failed during fallback selection", exc_info=True)
+        return plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
+
+    # Phase A: prompt + instant-reply + fallback-health share no data.
+    prompt_messages, instant_reply, fallback_models = await asyncio.gather(
         build_prompt_messages(
             user,
             chat.id,
@@ -351,8 +385,10 @@ async def build_stream_prompt_context(
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             on_status=None,
             omit_message_ids=omit_message_ids,
+            probe_attachment_rag=probe_attachment_rag,
         ),
         _resolve_instant_reply_task(),
+        _fallback_models(),
     )
     if timing is not None:
         timing.mark_phase("prompt_assembled")
@@ -401,19 +437,6 @@ async def build_stream_prompt_context(
     # prompt guidance, not a hard token cap. Capping by style truncated large
     # deliverables (HTML pages, graph JSON) mid-fence.
     max_out = settings.max_output_tokens
-    # M6: filter out unhealthy models from the fallback pool so we don't
-    # repeatedly hit a degraded provider. Best-effort — if health read
-    # fails (Redis down), treat all as healthy (fail open).
-    unhealthy: set[str] = set()
-    try:
-        from app.services import model_health as model_health_service
-
-        pool = plan_service.model_pool(user, settings)
-        snaps = await model_health_service.enrich_models_health(redis, settings, pool)
-        unhealthy = {mid for mid, snap in snaps.items() if not snap.healthy}
-    except Exception:
-        logger.debug("model health read failed during fallback selection", exc_info=True)
-    fallback_models = plan_service.chat_fallback_models(user, settings, model, unhealthy=unhealthy)
 
     local_places = geo.local_places
     search_sources: list[WebSearchHit] = []

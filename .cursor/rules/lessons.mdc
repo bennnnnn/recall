@@ -17,6 +17,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   are gone; chat purge already removed the bytes. List only attachments still
   linked to a message; on local `/file` miss, drop the row. Purge before
   deleting a replaced image-gen assistant so that path does not SET NULL.
+- **Every chat turn paid a serial Redis+Neon start plus lookups that cannot apply.**
+  Finalize wait ran before user/quota; quiz lookback hit chats with no Learning
+  project; prompt assembly re-opened Neon for user/chat already loaded; new chats
+  probed attachment chunks; time/location opened a session. Overlap wait with
+  user/seed on a *new* message (`gather` finishes before any message read). Do
+  not overlap wait with last-message reads — regenerate would race the in-flight
+  assistant insert. Skip the rest unless they can apply.
 - **Help-me-think home chip took ~6s to first token.** Casual turns still
   loaded the full format/viz/math-solver pack (~4.5k tokens) and ran Gmail
   nudge + web/math/chem prefetch just because they weren't greetings.

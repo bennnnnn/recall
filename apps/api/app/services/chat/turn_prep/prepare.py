@@ -232,6 +232,7 @@ async def prepare_chat_turn(
         quiz_grade=quiz_grade,
         force_rich_context=attachments.has_document_attachment,
         turn_mode=turn_mode,
+        probe_attachment_rag=bool(attachment_ids) or prior_count > 0,
     )
 
     prompt_messages = bundle.prompt_messages
