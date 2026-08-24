@@ -126,6 +126,7 @@ async def fetch_integration_blocks(
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None = None,
     on_status: StreamStatusFn | None = None,
     client_timezone: str | None = None,
+    include_email_nudge: bool = True,
 ) -> list[str]:
     """Load + assemble calendar/gmail/nudge blocks. Does NOT mutate prompt_messages.
 
@@ -181,7 +182,7 @@ async def fetch_integration_blocks(
                 ),
             )
         )
-    elif settings.gmail_enabled:
+    elif settings.gmail_enabled and include_email_nudge:
         pending.append(
             (
                 "email_nudge",
@@ -247,6 +248,7 @@ async def _inject_integration_blocks(
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None,
     on_status: StreamStatusFn | None,
     client_timezone: str | None = None,
+    include_email_nudge: bool = True,
 ) -> list[dict[str, str]]:
     """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
     blocks = await fetch_integration_blocks(
@@ -263,5 +265,6 @@ async def _inject_integration_blocks(
         gmail_context=gmail_context,
         on_status=on_status,
         client_timezone=client_timezone,
+        include_email_nudge=include_email_nudge,
     )
     return inject_integration_blocks(prompt_messages, blocks)

@@ -39,6 +39,7 @@ from app.services.chat.turn_prep.mode import (
     _classify_turn_mode,
     _resolve_instant_reply,
     _should_augment_web_and_tools,
+    _should_fetch_integrations,
     _should_minimal_quiz_context,
     _TurnMode,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "_process_attachments",
     "_resolve_instant_reply",
     "_should_augment_web_and_tools",
+    "_should_fetch_integrations",
     "_should_minimal_quiz_context",
     "_timed_integration_load",
     "build_stream_prompt_context",

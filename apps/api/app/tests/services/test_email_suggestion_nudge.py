@@ -91,3 +91,43 @@ async def test_skips_email_nudge_when_full_gmail_block_present():
     load_nudge.assert_not_awaited()
     assert "full inbox" in out[0]["content"]
     assert "should not appear" not in out[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_skips_email_nudge_when_include_flag_false():
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings(gmail_enabled=True, google_calendar_enabled=False)
+    load_nudge = AsyncMock(return_value="- should not appear")
+    with (
+        patch(
+            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            return_value=False,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            return_value=False,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            load_nudge,
+        ),
+    ):
+        out = await _inject_integration_blocks(
+            [{"role": "system", "content": "base"}],
+            "I want to talk something through — ask me a good opening question.",
+            user,
+            MagicMock(),
+            settings,
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            day_reflection=False,
+            has_calendar_write=False,
+            gmail_context=None,
+            on_status=None,
+            include_email_nudge=False,
+        )
+    load_nudge.assert_not_awaited()
+    assert "should not appear" not in out[0]["content"]
