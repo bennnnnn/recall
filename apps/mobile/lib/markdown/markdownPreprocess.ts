@@ -1076,8 +1076,10 @@ export function normalizeBoldInlineMath(content: string): string {
  * the bubble. Two+ real English words → leave it as prose.
  */
 function looksLikeEnglishMathSpan(inner: string): boolean {
-  const withoutCmds = inner.replace(/\\[a-zA-Z]+/g, " ");
-  const words = withoutCmds.match(/[A-Za-z]{3,}/g) ?? [];
+  // `\begin{Bmatrix}` etc. still have English-looking env names after cmds
+  // are stripped. Real LaTeX stays math; recaps have no backslash commands.
+  if (/\\[a-zA-Z]+/.test(inner)) return false;
+  const words = inner.match(/[A-Za-z]{3,}/g) ?? [];
   return words.length >= 2;
 }
 

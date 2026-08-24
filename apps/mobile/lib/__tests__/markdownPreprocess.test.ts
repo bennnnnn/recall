@@ -138,6 +138,13 @@ $)
     expect(splitInlineMath("$3^{1/4}$")).toEqual([
       { type: "math", value: "3^{1/4}" },
     ]);
+    expect(
+      splitInlineMath("Set $\\begin{Bmatrix}1&2\\\\3&4\\end{Bmatrix}$."),
+    ).toEqual([
+      { type: "text", value: "Set " },
+      { type: "math", value: "\\begin{Bmatrix}1&2\\\\3&4\\end{Bmatrix}" },
+      { type: "text", value: "." },
+    ]);
   });
 
   it("BUG FIX regression: check lines keep a space after 'x = 2:' so 2:2² does not glue", () => {
