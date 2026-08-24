@@ -29,6 +29,7 @@ _SERVER_OWNED_UNCLOSED_TAIL_RE = re.compile(
     re.IGNORECASE,
 )
 _GRAPH_TYPES = {"function", "vertical", "number_line", "trajectory"}
+_INSTALLED = False
 
 
 def _canonical_answer(verified: VerifiedMathBlock) -> str | None:
@@ -111,7 +112,33 @@ def enforce_verified_output_contract(
     # Also remove a model fence truncated at EOS. Without this, the canonical
     # block would be appended inside an open code fence and render as raw JSON.
     cleaned = _SERVER_OWNED_UNCLOSED_TAIL_RE.sub("", cleaned).strip()
+    suffix = "\n\n".join(blocks)
 
     if not cleaned:
-        return "\n\n".join(blocks)
-    return f"{cleaned}\n\n{'\n\n'.join(blocks)}"
+        return suffix
+    return f"{cleaned}\n\n{suffix}"
+
+
+def install_verified_output_contract() -> None:
+    """Install the deterministic contract at the existing math-fence seam.
+
+    Chat streaming already routes final math cleanup through
+    ``math_fence.validate_math_fences_worker``. Wrapping that seam lets the
+    backend own verified blocks without changing the WS/SSE protocol or old
+    clients. The existing validator still runs afterwards, so graph densifying
+    and legacy recovery remain intact.
+    """
+    global _INSTALLED
+    if _INSTALLED:
+        return
+
+    from app.services import math_fence
+
+    original_worker = math_fence.validate_math_fences_worker
+
+    def deterministic_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
+        canonicalized = enforce_verified_output_contract(content, verified)
+        return original_worker(canonicalized, verified)
+
+    math_fence.validate_math_fences_worker = deterministic_worker
+    _INSTALLED = True
