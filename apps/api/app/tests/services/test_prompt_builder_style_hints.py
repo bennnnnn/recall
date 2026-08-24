@@ -80,6 +80,30 @@ def test_balanced_style_includes_math_tutoring_hint():
     assert "wrong" in joined.lower()
 
 
+def test_slim_casual_turn_uses_compact_math_safety_not_viz_pack():
+    """Help-me-think / slim chat must not dump the format+viz+solver bible."""
+    from app.services.chat.prompt_constants import (
+        INTENT_FORMAT_HINT,
+        MATH_SOLVER_HINT,
+        VISUALIZATION_HINTS,
+    )
+
+    parts = _style_format_hints(
+        query_text="I want to talk something through — ask me a good opening question.",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert SHORT_MATH_SAFETY_HINT in parts
+    assert INTENT_FORMAT_HINT not in parts
+    assert MATH_SOLVER_HINT not in parts
+    assert VISUALIZATION_HINTS not in parts
+    joined = "\n".join(parts)
+    assert "Do NOT emit ```answer" in joined
+    assert "Math diagrams and plots" not in joined
+
+
 def test_integration_hints_wraps_todos_section():
     from app.core.config import Settings
     from app.services.chat.prompt_builder import _integration_hints

@@ -19,6 +19,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   user/seed on a *new* message (`gather` finishes before any message read). Do
   not overlap wait with last-message reads — regenerate would race the in-flight
   assistant insert. Skip the rest unless they can apply.
+- **Help-me-think home chip took ~6s to first token.** Casual turns still
+  loaded the full format/viz/math-solver pack (~4.5k tokens) and ran Gmail
+  nudge + web/math/chem prefetch just because they weren't greetings.
+  Slim/non-rich turns get the compact math-safety hint; extra prep only
+  when `rich_context` or real search/math/chem/calendar/gmail intent.
 - **Models invented geometry/graph JSON with fake numbers.** Asking the LLM to
   copy ` ```answer` / ` ```graph` / ` ```geometry` from the hint taught Qwen/GLM
   the JSON protocol, so they emitted fences on unverified turns. Keep those

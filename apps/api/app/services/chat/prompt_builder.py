@@ -521,8 +521,13 @@ def _style_format_hints(
     style: str,
     is_day_plan: bool,
     minimal_personal_context: bool,
+    compact: bool = False,
 ) -> list[str]:
-    """Clarification / day-planning / response-format hints for non-quiz turns."""
+    """Clarification / day-planning / response-format hints for non-quiz turns.
+
+    ``compact`` is for slim/casual chat (not rich context): keep math-safety
+    guardrails without the full intent/viz/solver pack (~4.5k tokens).
+    """
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     if query_text and is_day_planning_question(query_text):
         parts.append(DAY_PLANNING_ANSWER_HINT)
@@ -538,7 +543,14 @@ def _style_format_hints(
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(SHORT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
-    elif not is_day_plan:
+    elif is_day_plan or compact:
+        # Day-plan and slim/casual turns used to miss math guardrails (day-plan)
+        # or dump the full format/viz bible on coaching openers (slim). Keep the
+        # compact math safety hint so any math still renders correctly.
+        parts.append(UNIVERSAL_FORMAT_BASELINE)
+        parts.append(RESPONSE_FORMAT_HINT)
+        parts.append(SHORT_MATH_SAFETY_HINT)
+    else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.extend(
             [
@@ -549,14 +561,6 @@ def _style_format_hints(
                 VISUALIZATION_HINTS,
             ]
         )
-    else:
-        # Day-plan turns used to get only RESPONSE_FORMAT_HINT, so a math
-        # question that landed in day-plan mode lost every guardrail against
-        # raw ```latex/```copy fences. Keep the compact math safety hint so
-        # any math in a day-plan turn still renders correctly.
-        parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.append(RESPONSE_FORMAT_HINT)
-        parts.append(SHORT_MATH_SAFETY_HINT)
     # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
     if query_text and is_comparison_question(query_text):
         parts.append(COMPARISON_FORMAT_HINT)
@@ -755,6 +759,7 @@ async def build_prompt_messages(
                 style=style,
                 is_day_plan=is_day_plan,
                 minimal_personal_context=minimal_personal_context,
+                compact=slim_context,
             )
         )
     else:

@@ -33,6 +33,10 @@ def _should_augment_web_and_tools(
     ambiguous_nearby: bool,
     is_external_calendar_question: bool,
     is_external_email_question: bool,
+    rich_context: bool = True,
+    needs_math: bool = False,
+    needs_search: bool = False,
+    needs_chem: bool = False,
 ) -> bool:
     """Shared gate for routing-context prefetch and web/tools augmentation.
 
@@ -45,8 +49,12 @@ def _should_augment_web_and_tools(
     letter-answer path; ``active_vocab_turn`` also covers the open-ended
     answer path (``minimal_vocab_answer``), which sets neither
     ``minimal_quiz`` nor ``lightweight``.
+
+    Slim/casual chat (not ``rich_context``) still augments when the turn
+    actually needs math, web search, or chemistry — otherwise skip prior
+    messages, calendar-write, Tavily/SymPy, and PubChem.
     """
-    return (
+    if not (
         instant_reply is None
         and not lightweight
         and not minimal_personal
@@ -56,7 +64,32 @@ def _should_augment_web_and_tools(
         and not ambiguous_nearby
         and not is_external_calendar_question
         and not is_external_email_question
-    )
+    ):
+        return False
+    return rich_context or needs_math or needs_search or needs_chem
+
+
+def _should_fetch_integrations(
+    *,
+    instant_reply: str | None,
+    lightweight: bool,
+    minimal_personal: bool,
+    minimal_quiz: bool,
+    active_vocab_turn: bool,
+    rich_context: bool,
+    load_calendar: bool,
+    load_gmail: bool,
+) -> bool:
+    """Load calendar/gmail/nudge only for rich turns or calendar/gmail intent.
+
+    Casual coaching (Help me think) must not pay the Gmail-nudge query.
+    Calendar/gmail questions still fetch even when ``rich_context`` is false.
+    """
+    if instant_reply is not None or lightweight or minimal_personal or minimal_quiz:
+        return False
+    if active_vocab_turn:
+        return False
+    return rich_context or load_calendar or load_gmail
 
 
 async def _should_minimal_quiz_context(

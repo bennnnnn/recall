@@ -206,6 +206,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Parallelized pre-stream reads** — memory, todos, projects, recent titles, and attachment
   RAG gather on separate short-lived sessions so the prompt path stays concurrent without
   sharing one `AsyncSession`.
+- ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
+  the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
+  prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
 - ✅ **Prompt token budgeting UI** — Settings → Models shows today's used / daily
   limit (input · output split) and the server prompt window
   (`context_token_budget`, last `recent_message_window` messages). The composer

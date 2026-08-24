@@ -1462,9 +1462,60 @@ def test_should_augment_web_and_tools_skips_active_vocab_turn():
             ambiguous_nearby=False,
             is_external_calendar_question=False,
             is_external_email_question=False,
+            rich_context=True,
         )
         is True
     )
+
+
+def _augment_kwargs(**overrides: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "instant_reply": None,
+        "lightweight": False,
+        "minimal_personal": False,
+        "minimal_quiz": False,
+        "active_vocab_turn": False,
+        "day_planning": False,
+        "ambiguous_nearby": False,
+        "is_external_calendar_question": False,
+        "is_external_email_question": False,
+        "rich_context": False,
+        "needs_math": False,
+        "needs_search": False,
+        "needs_chem": False,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_should_augment_web_and_tools_skips_slim_casual_without_intent():
+    """Coaching openers are not greetings but must not pay web/math/chem I/O."""
+    from app.services.chat.turn_prep.mode import _should_augment_web_and_tools
+
+    assert _should_augment_web_and_tools(**_augment_kwargs()) is False
+    assert _should_augment_web_and_tools(**_augment_kwargs(rich_context=True)) is True
+    assert _should_augment_web_and_tools(**_augment_kwargs(needs_search=True)) is True
+    assert _should_augment_web_and_tools(**_augment_kwargs(needs_math=True)) is True
+    assert _should_augment_web_and_tools(**_augment_kwargs(needs_chem=True)) is True
+
+
+def test_should_fetch_integrations_skips_slim_without_calendar_or_gmail():
+    from app.services.chat.turn_prep.mode import _should_fetch_integrations
+
+    kwargs = {
+        "instant_reply": None,
+        "lightweight": False,
+        "minimal_personal": False,
+        "minimal_quiz": False,
+        "active_vocab_turn": False,
+        "rich_context": False,
+        "load_calendar": False,
+        "load_gmail": False,
+    }
+    assert _should_fetch_integrations(**kwargs) is False
+    assert _should_fetch_integrations(**{**kwargs, "rich_context": True}) is True
+    assert _should_fetch_integrations(**{**kwargs, "load_calendar": True}) is True
+    assert _should_fetch_integrations(**{**kwargs, "load_gmail": True}) is True
 
 
 @pytest.mark.asyncio
