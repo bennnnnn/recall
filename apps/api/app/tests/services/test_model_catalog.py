@@ -28,6 +28,7 @@ def test_selectable_models_count():
     assert gpt.output_price_per_m == 30.00
     assert model_catalog.is_reasoning_alias("gpt-5.5") is True
     assert "gpt-5.5" in {m.id for m in model_catalog.selectable_models()}
+    assert "max-chat" not in ids
 
 
 @pytest.mark.parametrize(
@@ -109,6 +110,16 @@ def _model(tier: str, *, input_price=None, output_price=None, id_="test-model"):
         output_price_per_m=output_price,
         tier=tier,
     )
+
+
+def test_tier_rank_orders_fast_below_standard_below_smart():
+    fast = _model("fast", id_="t-fast")
+    standard = _model("standard", id_="t-standard")
+    smart = _model("smart", id_="t-smart")
+    max_tier = _model("max", id_="t-max")
+    assert model_catalog.tier_rank(fast) < model_catalog.tier_rank(standard)
+    assert model_catalog.tier_rank(standard) < model_catalog.tier_rank(smart)
+    assert model_catalog.tier_rank(smart) < model_catalog.tier_rank(max_tier)
 
 
 def test_price_sort_key_unpriced_fast_tier_beats_priced_smart_tier():

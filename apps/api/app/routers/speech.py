@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
+from redis.asyncio import Redis
+from redis.exceptions import ResponseError
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep, redis_unavailable_http_exception
@@ -85,6 +87,36 @@ async def _aiter_nonempty(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
 _TTS_FOLLOWUP_TTL_SECONDS = 120
 # One lead + this many rest clips stay on the same daily TTS slot.
 _TTS_FOLLOWUP_MAX_CHUNKS = 32
+# Lead + rest share one billed slot; cap unbilled rest text at one TTS request.
+_TTS_FOLLOWUP_MAX_CHARS = 4000
+_CONSUME_TTS_FOLLOWUP_LUA = """
+local raw = redis.call('GET', KEYS[1])
+if not raw then
+  return 0
+end
+local clips, chars
+local sep = string.find(raw, ':')
+if sep then
+  clips = tonumber(string.sub(raw, 1, sep - 1)) or 0
+  chars = tonumber(string.sub(raw, sep + 1)) or 0
+else
+  clips = tonumber(raw) or 0
+  chars = tonumber(ARGV[3]) or 0
+end
+local need = tonumber(ARGV[1]) or 0
+local ttl = tonumber(ARGV[2]) or 0
+if clips < 1 or chars < need then
+  return 0
+end
+clips = clips - 1
+chars = chars - need
+if clips < 1 or chars < 1 then
+  redis.call('DEL', KEYS[1])
+else
+  redis.call('SET', KEYS[1], clips .. ':' .. chars, 'EX', ttl)
+end
+return 1
+"""
 
 
 def _tts_followup_key(user_id: object) -> str:
@@ -96,6 +128,60 @@ def _normalize_tts_part(raw: str | None) -> str:
     if part in {"full", "lead", "rest"}:
         return part
     return "full"
+
+
+def _tts_followup_payload(lead_text: str) -> str | None:
+    remaining_chars = _TTS_FOLLOWUP_MAX_CHARS - len(lead_text)
+    if remaining_chars <= 0:
+        return None
+    return f"{_TTS_FOLLOWUP_MAX_CHUNKS}:{remaining_chars}"
+
+
+def _parse_tts_followup(raw: object) -> tuple[int, int] | None:
+    if raw is None:
+        return None
+    text = raw.decode() if isinstance(raw, bytes | bytearray) else str(raw)
+    if ":" in text:
+        clips_s, chars_s = text.split(":", 1)
+        try:
+            return int(clips_s), int(chars_s)
+        except ValueError:
+            return None
+    try:
+        return int(text), _TTS_FOLLOWUP_MAX_CHARS
+    except ValueError:
+        return None
+
+
+async def _try_consume_tts_followup_plain(redis: Redis, key: str, char_count: int) -> bool:
+    parsed = _parse_tts_followup(await redis.get(key))
+    if parsed is None:
+        return False
+    clips, chars = parsed
+    if clips < 1 or chars < char_count:
+        return False
+    clips -= 1
+    chars -= char_count
+    if clips < 1 or chars < 1:
+        await redis.delete(key)
+    else:
+        await redis.set(key, f"{clips}:{chars}", ex=_TTS_FOLLOWUP_TTL_SECONDS)
+    return True
+
+
+async def _try_consume_tts_followup(redis: Redis, key: str, char_count: int) -> bool:
+    try:
+        result = await redis.eval(
+            _CONSUME_TTS_FOLLOWUP_LUA,
+            1,
+            key,
+            char_count,
+            _TTS_FOLLOWUP_TTL_SECONDS,
+            _TTS_FOLLOWUP_MAX_CHARS,
+        )
+        return int(result) == 1
+    except ResponseError:
+        return await _try_consume_tts_followup_plain(redis, key, char_count)
 
 
 def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
@@ -158,9 +244,11 @@ async def synthesize_speech(
     part = _normalize_tts_part(body.part)
     reserved_quota = False
     followup_key = _tts_followup_key(user.id)
-    followup = await redis.get(followup_key) if part == "rest" else None
-    # Same utterance as the lead: more short clips, one daily slot, no per-minute burn.
-    billed = not (part == "rest" and followup)
+    consumed_followup = False
+    if part == "rest":
+        consumed_followup = await _try_consume_tts_followup(redis, followup_key, len(body.text))
+    # Same utterance as the lead: short clips within the char budget share one slot.
+    billed = not consumed_followup
     if billed and rate_limit > 0:
         allowed = await allow_request_fail_closed(
             redis,
@@ -196,22 +284,11 @@ async def synthesize_speech(
             )
         audio_bytes, content_type = result
         if part == "lead":
-            await redis.set(
-                followup_key,
-                str(_TTS_FOLLOWUP_MAX_CHUNKS),
-                ex=_TTS_FOLLOWUP_TTL_SECONDS,
-            )
-        elif part == "rest" and followup:
-            try:
-                remaining = int(followup)
-            except ValueError:
-                remaining = 0
-            if remaining <= 1:
-                await redis.delete(followup_key)
-            else:
+            payload = _tts_followup_payload(body.text)
+            if payload is not None:
                 await redis.set(
                     followup_key,
-                    str(remaining - 1),
+                    payload,
                     ex=_TTS_FOLLOWUP_TTL_SECONDS,
                 )
         return SpeechTtsOut(

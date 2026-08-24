@@ -7,6 +7,7 @@ import {
   loadExpoAudio,
   requestVoicePermission,
   startVoiceRecording,
+  VOICE_MAX_RECORDING_MS,
   type VoiceRecorder,
   type VoiceRecordingFormat,
 } from "@/lib/voiceAudio";
@@ -31,6 +32,8 @@ export function useVoiceInput({
 }: Options) {
   const recordingRef = useRef<VoiceRecorder | null>(null);
   const meterUnsubRef = useRef<(() => void) | null>(null);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishRecordingRef = useRef<() => Promise<string | null>>(async () => null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [meterLevel, setMeterLevel] = useState(0.12);
@@ -45,6 +48,10 @@ export function useVoiceInput({
   }, [t]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
+    if (maxTimerRef.current != null) {
+      clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
     const active = recordingRef.current;
     recordingRef.current = null;
     meterUnsubRef.current?.();
@@ -81,12 +88,17 @@ export function useVoiceInput({
       meterUnsubRef.current?.();
       meterUnsubRef.current = next.subscribeMetering((level) => setMeterLevel(level));
       setRecording(true);
+      if (maxTimerRef.current != null) clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = setTimeout(() => {
+        if (onTranscribeError) return;
+        void finishRecordingRef.current();
+      }, VOICE_MAX_RECORDING_MS);
       return true;
     } catch {
       Alert.alert(t("common.error"), t("chat.voice_start_failed"));
       return false;
     }
-  }, [token, recording, transcribing, t, showUnavailable, recordingFormat]);
+  }, [token, recording, transcribing, t, showUnavailable, recordingFormat, onTranscribeError]);
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
@@ -106,9 +118,10 @@ export function useVoiceInput({
       return text;
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      const reason: TranscribeFail = /network request failed|failed to fetch|timeout/i.test(
-        message,
-      )
+      const reason: TranscribeFail =
+        /network request failed|failed to fetch|timeout|timed out|could not reach/i.test(
+          message,
+        )
         ? "network"
         : message.includes("recording_empty") || message.includes("transcribe_empty")
           ? "empty"
@@ -130,6 +143,8 @@ export function useVoiceInput({
       setTranscribing(false);
     }
   }, [token, stopRecording, onTranscript, onTranscribeError, t]);
+
+  finishRecordingRef.current = finishRecording;
 
   const toggleRecording = useCallback(async () => {
     if (transcribing) return;
@@ -153,6 +168,10 @@ export function useVoiceInput({
 
   useEffect(() => {
     return () => {
+      if (maxTimerRef.current != null) {
+        clearTimeout(maxTimerRef.current);
+        maxTimerRef.current = null;
+      }
       meterUnsubRef.current?.();
       meterUnsubRef.current = null;
       const active = recordingRef.current;

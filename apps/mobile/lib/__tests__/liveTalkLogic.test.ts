@@ -1,4 +1,6 @@
 import {
+  LIVE_TALK_MAX_RECORDING_MS,
+  LIVE_TALK_NO_SPEECH_MS,
   liveTalkErrorGate,
   liveTalkGate,
   liveTalkSilenceDecision,
@@ -65,6 +67,28 @@ describe("liveTalkSilenceDecision", () => {
       recordingStartedAt: 0,
       heardSpeech: true,
       silenceStartedAt: 1400,
+    });
+    expect(state.shouldStop).toBe(true);
+  });
+
+  it("stops at the max duration even without speech", () => {
+    const state = liveTalkSilenceDecision({
+      meter: 0.1,
+      now: LIVE_TALK_MAX_RECORDING_MS,
+      recordingStartedAt: 0,
+      heardSpeech: false,
+      silenceStartedAt: null,
+    });
+    expect(state.shouldStop).toBe(true);
+  });
+
+  it("stops if the meter never crosses speech level", () => {
+    const state = liveTalkSilenceDecision({
+      meter: 0.1,
+      now: LIVE_TALK_NO_SPEECH_MS,
+      recordingStartedAt: 0,
+      heardSpeech: false,
+      silenceStartedAt: null,
     });
     expect(state.shouldStop).toBe(true);
   });

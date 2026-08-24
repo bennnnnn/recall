@@ -23,6 +23,7 @@ from app.models.model_catalog import (
     price_sort_key,
     quota_multiplier,
     selectable_models,
+    tier_rank,
     validate_user_alias,
 )
 
@@ -43,6 +44,7 @@ __all__ = [
     "price_sort_key",
     "quota_multiplier",
     "selectable_models",
+    "tier_rank",
     "validate_user_alias",
 ]
 

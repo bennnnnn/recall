@@ -22,8 +22,6 @@ type Props = {
   onTogglePin: () => void;
   onToggleArchive?: () => void;
   onDelete: () => void;
-  /** Open Settings → Models (chat ⋮ menu). */
-  onOpenModels?: () => void;
   /** Drawer only — enter multi-select with this chat checked. */
   onSelectChats?: () => void;
 };
@@ -48,7 +46,6 @@ export function ChatActionsSheet({
   onTogglePin,
   onToggleArchive,
   onDelete,
-  onOpenModels,
   onSelectChats,
 }: Props) {
   const theme = useTheme();
@@ -62,21 +59,21 @@ export function ChatActionsSheet({
 
   const actions = useMemo(() => {
     const rows: Action[] = [
-      { key: "share", icon: "share-outline", label: t("chat.share"), onPress: onShare },
+      { key: "share", icon: "share", label: t("chat.share"), onPress: onShare },
     ];
     if (onExportPdf) {
       rows.push({
         key: "export-pdf",
-        icon: "document-text-outline",
+        icon: "file-text",
         label: t("chat.export_pdf"),
         onPress: onExportPdf,
       });
     }
     rows.push(
-      { key: "rename", icon: "pencil-outline", label: t("chat.rename"), onPress: onRename },
+      { key: "rename", icon: "pencil", label: t("chat.rename"), onPress: onRename },
       {
         key: "pin",
-        icon: pinned ? "pin" : "pin-outline",
+        icon: "pin",
         label: pinned ? t("chat.unpin") : t("chat.pin"),
         onPress: onTogglePin,
       },
@@ -84,7 +81,7 @@ export function ChatActionsSheet({
     if (onToggleArchive) {
       rows.push({
         key: "archive",
-        icon: archived ? "arrow-undo-outline" : "archive-outline",
+        icon: archived ? "undo" : "archive",
         label: archived ? t("chat.unarchive") : t("chat.archive"),
         onPress: onToggleArchive,
       });
@@ -92,23 +89,14 @@ export function ChatActionsSheet({
     if (onSelectChats) {
       rows.push({
         key: "select",
-        icon: "checkbox-outline",
+        icon: "checkbox",
         label: t("drawer.select"),
         onPress: onSelectChats,
       });
     }
-    if (onOpenModels) {
-      // options-outline matches outline weight better than hardware-chip.
-      rows.push({
-        key: "models",
-        icon: "options-outline",
-        label: t("settings.model"),
-        onPress: onOpenModels,
-      });
-    }
     rows.push({
       key: "delete",
-      icon: "trash-outline",
+      icon: "trash",
       label: t("common.delete"),
       onPress: onDelete,
       danger: true,
@@ -118,7 +106,6 @@ export function ChatActionsSheet({
     archived,
     onDelete,
     onExportPdf,
-    onOpenModels,
     onRename,
     onSelectChats,
     onShare,
@@ -144,14 +131,13 @@ export function ChatActionsSheet({
           {title}
         </Text>
       ) : null}
-      {actions.map((action, index) => (
+      {actions.map((action) => (
         <ActionSheetRow
           key={action.key}
           icon={action.icon}
           label={action.label}
           onPress={action.onPress}
           theme={theme}
-          showDivider={index > 0}
           danger={action.danger}
         />
       ))}

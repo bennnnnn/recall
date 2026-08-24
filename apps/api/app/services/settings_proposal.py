@@ -33,7 +33,7 @@ _MODEL_LABELS = {
     "auto": "Auto",
     "free-chat": "Flash",
     "smart-chat": "Pro",
-    "max-chat": "Max",
+    "gpt-5.5": "GPT 5.5",
 }
 _TONE_LABELS = {
     "funny": "Funny",
