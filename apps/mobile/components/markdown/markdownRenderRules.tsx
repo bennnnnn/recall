@@ -230,9 +230,40 @@ function makeSharedRules(
         mdMath,
         t.success,
       ),
-    textgroup: (node: { key: string }, children: ReactNode) => (
-      <Fragment key={node.key}>{children}</Fragment>
-    ),
+    textgroup: (
+      node: AstNode,
+      children: ReactNode,
+      parent: unknown,
+      styles: StyleMap,
+    ) => {
+      // Tight lists (the model's default — consecutive `- item` lines, no
+      // blank lines) go through markdown-display's omitListItemParagraph,
+      // which strips each item's paragraph wrapper. Without that paragraph's
+      // single enclosing Text, this textgroup's Fragment-flattened children
+      // (plain text + a **bold**/`code` span + more text) land as direct
+      // siblings inside list_item's row View instead of one inline run —
+      // each becomes its own line ("Germany invaded Poland on" /
+      // "**September 1, 1939**" / "; Britain..." stacked instead of one
+      // wrapped sentence). Give list items the same single-Text wrapper
+      // `paragraph` already gives non-list content.
+      if (parentHasType(parent, "list_item")) {
+        const runHeight = mathRunLineHeight(astText(node));
+        return (
+          <Text
+            key={node.key}
+            style={[
+              styles.body,
+              styles.text,
+              runHeight != null && { lineHeight: runHeight },
+            ]}
+            selectable
+          >
+            {children}
+          </Text>
+        );
+      }
+      return <Fragment key={node.key}>{children}</Fragment>;
+    },
     link: (
       node: AstNode,
       children: ReactNode,
