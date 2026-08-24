@@ -2213,6 +2213,38 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
     assert extra_full.status_code == 429
 
 
+def test_speech_tts_rest_over_char_budget_is_billed():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.synthesize_speech",
+            AsyncMock(return_value=(b"ok", "audio/mpeg")),
+        ),
+    ):
+        lead = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "hi", "part": "lead"},
+        )
+        rest_over = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "x" * 3999, "part": "rest"},
+        )
+    assert lead.status_code == 200
+    assert rest_over.status_code == 429
+
+
 def test_speech_tts_rate_limit_message():
     import fakeredis.aioredis
 

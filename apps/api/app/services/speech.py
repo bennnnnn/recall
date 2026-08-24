@@ -277,6 +277,15 @@ async def speech_to_speech(
         return wav, "audio/wav", "This is a mock spoken reply."
     if not settings.openrouter_api_key:
         return None
+    if speech_gateway.openai_input_audio_format(filename, audio_bytes) is None:
+        transcript = await transcribe_audio(settings, audio_bytes, filename=filename)
+        if not transcript:
+            return None
+        tts = await synthesize_speech(settings, transcript)
+        if not tts:
+            return None
+        audio, content_type = tts
+        return audio, content_type, transcript
     model = resolve_live_talk_model(settings)
     return await speech_gateway.speech_to_speech_via_openrouter(
         settings,

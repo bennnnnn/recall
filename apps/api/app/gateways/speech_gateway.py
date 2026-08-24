@@ -60,9 +60,7 @@ def openai_input_audio_format(filename: str, audio_bytes: bytes) -> str | None:
         return "mp3"
     if len(audio_bytes) >= 2 and audio_bytes[0] == 0xFF and audio_bytes[1] in _MPEG_SYNC:
         return "mp3"
-    suffix = openrouter_audio_format(filename)
-    if suffix in _OPENAI_INPUT_AUDIO_FORMATS:
-        return suffix
+    # Filename is not evidence: Android often writes AAC/MP4 named .wav.
     return None
 
 

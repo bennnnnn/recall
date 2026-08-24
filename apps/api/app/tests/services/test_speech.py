@@ -67,6 +67,9 @@ def test_openai_input_audio_format_sniffs_wav_not_m4a():
     assert openai_input_audio_format("speech.m4a", wav) == "wav"
     assert openai_input_audio_format("speech.mp3", b"ID3" + b"\x00" * 8) == "mp3"
     assert openai_input_audio_format("speech.m4a", b"\x00\x00ftyp") is None
+    mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 8
+    assert openai_input_audio_format("speech.wav", mp4) is None
+    assert openai_input_audio_format("speech.mp3", mp4) is None
 
 
 def test_live_talk_chat_payload_streams_pcm16():
@@ -411,3 +414,31 @@ async def test_speech_to_speech_mock_without_key():
     assert content_type == "audio/wav"
     assert audio[:4] == b"RIFF"
     assert transcript.startswith("This is a mock")
+
+
+@pytest.mark.asyncio
+async def test_speech_to_speech_falls_back_for_non_wav_input():
+    from app.services.speech import speech_to_speech
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_live_talk_enabled=True,
+        speech_transcription_enabled=True,
+        speech_tts_enabled=True,
+    )
+    mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 8
+    with (
+        patch("app.services.speech.transcribe_audio", AsyncMock(return_value="hello")),
+        patch(
+            "app.services.speech.synthesize_speech",
+            AsyncMock(return_value=(b"mp3", "audio/mpeg")),
+        ),
+        patch(
+            "app.services.speech.speech_gateway.speech_to_speech_via_openrouter",
+            AsyncMock(),
+        ) as sts,
+    ):
+        result = await speech_to_speech(settings, mp4, filename="speech.wav")
+    assert result == (b"mp3", "audio/mpeg", "hello")
+    sts.assert_not_called()
