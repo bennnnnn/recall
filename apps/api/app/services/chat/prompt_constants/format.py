@@ -1,4 +1,10 @@
-"""Response-format, comparison, and length-style hints."""
+"""Response-format, comparison, and length-style hints.
+
+The default response protocol is intentionally small: ordinary replies use
+standard Markdown. App-specific rich fences are reserved for dedicated tool or
+intent paths (math verification, drafts, graphs, geometry, etc.) instead of
+being decorative choices the LLM has to remember on every turn.
+"""
 
 import re
 
@@ -23,11 +29,11 @@ COMPARISON_FORMAT_HINT = (
     "| Feature | Option A | Option B |\n"
     "| --- | --- | --- |\n"
     "| Typing | … | … |\n"
-    "(Add one column per option; one attribute per row — typing, syntax, use cases, "
-    "performance, ecosystem, learning curve, etc. Prefer at most 3 columns; keep cells short.)\n"
-    "After the table: at most 1-3 short bullets on when to pick each, then a clear "
-    "recommendation if they asked which to choose. Proper GFM only — every row starts "
-    "and ends with |; never wrap the table in a code fence; never use HTML in cells."
+    "Add one column per option and one attribute per row. Prefer at most 3 "
+    "columns and keep cells short. After the table, use at most 1-3 short "
+    "bullets and give a clear recommendation if the user asked which to choose. "
+    "Use proper GFM only: every row starts and ends with |; never wrap the table "
+    "in a code fence; never use HTML in cells."
 )
 
 
@@ -40,78 +46,51 @@ def is_comparison_question(text: str) -> bool:
 
 
 INTENT_FORMAT_HINT = (
-    "Adapt your output to the user's goal. Be direct and natural — pick the format "
-    "that is easiest to scan for that intent. This is a **mobile** chat — prefer "
-    "vertical layouts (headings + lists). Do NOT default to pipe tables.\n"
+    "Use standard Markdown for ordinary chat. Recall owns its special UI blocks; "
+    "do not invent app-specific fences just to decorate an answer. In normal "
+    "facts, explanations, recommendations, tips, and how-tos, do NOT emit "
+    "```tip, ```note, ```warning, ```steps, ```details, ```comparison, ```kv, "
+    "or ```answer unless another task-specific instruction explicitly requires "
+    "that exact block.\n"
     "\n"
-    "Default (facts, lists, rankings, lookups, recommendations, tips):\n"
-    "  - Use a simple **numbered list** or **bullets** for most answers. "
-    'This is the right format for rankings ("top N …"), lists of facts, '
-    "recommendations, tips, and general Q&A.\n"
-    '  - For a single topic ("tell me about X"), use 2-3 short headings with '
-    "bullets — not a wall of text, not a kv block, and not a table.\n"
+    "General chat:\n"
+    "  - Lead with the answer. Use short paragraphs for simple questions.\n"
+    "  - Use bullets for unordered facts/options and numbered lists for ordered "
+    "steps, rankings, roadmaps, or procedures.\n"
+    "  - Use ## headings only when the answer truly has multiple sections. A "
+    "short answer should usually have no heading.\n"
+    "  - For a single topic, prefer a short explanation plus a few bullets over "
+    "a wall of prose or a synthetic key/value card.\n"
     "\n"
-    "Rich formatting — use these fences to make answers visually clear and "
-    "attractive (but don't overuse; 1-2 callouts per long answer max):\n"
-    "  - ```tip or ```note — a highlighted callout card (green/blue) for a key "
-    "insight, takeaway, or important note.\n"
-    "  - ```warning — an amber callout for cautions, gotchas, or common mistakes.\n"
-    "  - ```steps — numbered badge rows for multi-step how-tos or procedures. "
-    "Prefer this over a plain numbered list when each step is a distinct action.\n"
-    "  - ```details — a collapsible section for optional context, longer "
-    "explanations, or tangents the user can expand if interested.\n"
-    "  - ```comparison — two-column pros/cons card for a single option.\n"
-    "  - ```answer — a highlighted final-answer pill for math results or quick Q&A.\n"
-    "\n"
-    "Writing helper (email, message, reply, caption, social post):\n"
-    "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
-    "```copy. At most ONE such fence per response. For email/message to a named "
-    "person, draft immediately — do not ask what to write.\n"
-    "\n"
-    "How-to / tips / roadmap / guide / troubleshooting:\n"
-    "  - Use ## headings for phases or themes, then ```steps or numbered steps "
-    "under each. NEVER put a roadmap, learning plan, tip list, or guide into a "
-    "pipe table — multi-column tables are unreadable on a phone.\n"
+    "How-to / troubleshooting / roadmap:\n"
+    "  - Use standard numbered Markdown steps. Use headings only for real phases. "
+    "Never turn a guide, roadmap, checklist, or tip list into a pipe table.\n"
     "\n" + MATH_INTENT_HINT + "\n"
     "Coding:\n"
-    "  - Brief approach sentence, then tagged code fence (```python, etc.), "
-    "then notes.\n"
+    "  - Give a brief approach when useful, then use a normal language-tagged "
+    "code fence (```python, ```typescript, etc.), followed by concise notes.\n"
     "\n"
-    "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
-    "feature comparison — not for tips, roadmaps, or how-tos):\n"
-    "  - Lead with a **markdown pipe table** (required for multi-attribute compares). "
-    "Feature/Aspect column + one column per option (e.g. | Feature | Python | Java |). "
-    "One attribute per row (typing, syntax, use cases, performance, ecosystem, …).\n"
-    "  - Keep to **2-3 columns** when possible (Feature + options). Avoid 4+ wide "
-    "columns of prose — they break on mobile.\n"
-    "  - After the table, add 1-3 bullets: when to pick each option, then a clear "
-    "recommendation if the user asked which to choose.\n"
-    "  - Use bullets instead of a table when there is almost nothing to "
-    "compare (one short difference) or the user asked for a narrative.\n"
-    "  - For pure pros/cons of ONE thing, a ```comparison fence (left=pros, "
-    "right=cons) is fine; for multi-option feature grids, use a pipe table."
+    "Decision / compare:\n"
+    "  - ONLY for a true X vs Y / feature comparison, use a Markdown pipe table "
+    "with Feature/Aspect as the first column and one column per option. Prefer "
+    "2-3 columns total when possible.\n"
+    "  - If there is only one tiny difference to explain, use prose or bullets "
+    "instead of forcing a table."
 )
 
 RESPONSE_FORMAT_HINT = (
-    "Be scannable — avoid long prose paragraphs:\n"
-    "- Make answers visually clear: use ```tip / ```note callouts for key "
-    "takeaways, ```steps fences for procedures, and ## headings to group "
-    "sections. Don't overuse — 1-2 callouts per long answer, not on every reply.\n"
-    "- Prefer **numbered lists** for rankings, steps, roadmaps, and ordered "
-    "information. Prefer **bullets** for unordered facts, tips, key points, "
-    "and options.\n"
-    "- Use **pipe tables ONLY for true comparisons** (X vs Y, feature grids, "
-    "side-by-side attributes). Never use a table for tips, how-tos, roadmaps, "
-    "guides, checklists, or single-topic advice — use headings + lists instead.\n"
-    "- When a comparison table is appropriate: put it first; example header "
-    "| Feature | Option A | Option B |; one attribute per row; prefer at most 3 "
-    "columns. Proper GFM only — every row starts and ends with |, one |---| "
-    "separator after the header. Never put tables inside ``` fences. Never "
-    "insert dash-only or blank rows between data rows. Never use HTML "
-    "(e.g. <br>) inside cells — use a semicolon or a second bullet outside "
-    "the table.\n"
-    "- Keep paragraphs to 1-2 sentences. Use headings (##) to group information "
-    "when covering multiple aspects of a topic.\n"
+    "Default response protocol: standard Markdown, optimized for a phone.\n"
+    "- Lead with the answer; do not preface it with filler.\n"
+    "- Prefer bullets for unordered facts/options and numbered lists for ordered "
+    "steps or rankings.\n"
+    "- Keep paragraphs to 1-2 sentences when possible. Use ## headings only when "
+    "they organize genuinely different sections.\n"
+    "- Do not use decorative custom fences (tip/note/warning/steps/details/kv/etc.) "
+    "unless a task-specific instruction explicitly requires one.\n"
+    "- Use pipe tables ONLY for true comparisons (X vs Y / feature grids), never "
+    "for tips, how-tos, roadmaps, checklists, or single-topic advice.\n"
+    "- When a comparison table is appropriate, put it first; keep cells short; "
+    "use proper GFM; never put tables inside code fences or HTML inside cells.\n"
     "- For source code, always use a fenced block with the correct language tag "
     "(```python, ```javascript, etc.)."
 )
@@ -155,8 +134,7 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Use the simplest structure that answers; do not add sections just to look structured."
 )
 
-# NOTE: response style (short/balanced/detailed) drives *brevity through the
-# prompt* via STYLE_HINTS above — it no longer caps output tokens. A single
-# high ceiling (settings.max_output_tokens) is the safety backstop; the daily
-# token quota is the real per-user cost guardrail. Capping by style truncated
-# large deliverables (HTML pages, graph JSON) mid-fence.
+# NOTE: response style (short/balanced/detailed) drives brevity through the
+# prompt via STYLE_HINTS above — it no longer caps output tokens. A single high
+# ceiling (settings.max_output_tokens) is the safety backstop; the daily token
+# quota is the real per-user cost guardrail.
