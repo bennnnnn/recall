@@ -385,6 +385,12 @@ def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
 # since that tier is genuinely the priciest by design.
 _TIER_PRICE_FALLBACK = {"fast": 0.5, "standard": 1.5, "smart": 5.0, "max": 999.0}
 _DEFAULT_PRICE_FALLBACK = 999.0
+_TIER_RANK = {"fast": 0, "standard": 1, "smart": 2, "max": 3}
+
+
+def tier_rank(model: ChatModel) -> int:
+    """Capability rank for Auto routing and chat fallbacks. Unknown → standard."""
+    return _TIER_RANK.get(model.tier, 1)
 
 
 def price_sort_key(model: ChatModel) -> tuple[float, float, str]:

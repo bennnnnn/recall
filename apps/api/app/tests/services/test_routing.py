@@ -4,7 +4,10 @@ import time
 
 import pytest
 
-from app.services.routing import resolve_alias, route_chat_model
+from app.core.config import Settings
+from app.services import model_catalog
+from app.services import plan as plan_service
+from app.services.routing import resolve_alias, resolve_alias_in_pool, route_chat_model
 
 
 @pytest.mark.parametrize(
@@ -58,6 +61,18 @@ from app.services.routing import resolve_alias, route_chat_model
         ("find the area of a circle radius 4", "smart-chat"),
         ("integrate x^2 from 0 to 1", "smart-chat"),
         ("standard deviation of 1, 2, 3, 4, 5", "smart-chat"),
+        # Homework physics the solver templates don't cover → smart-chat.
+        # needs_symbolic stays false on these (no verified fence); Auto still
+        # escalates. Bare "physics" and digit-free "momentum" stay free-chat.
+        (
+            "a 2kg block slides down a 30° frictionless incline, find its acceleration",
+            "smart-chat",
+        ),
+        ("calculate the momentum of a 5kg object moving at 12 m/s", "smart-chat"),
+        ("what is the escape velocity of earth", "smart-chat"),
+        ("equations of motion for a pendulum", "smart-chat"),
+        ("physics", "free-chat"),
+        ("the project has momentum now", "free-chat"),
         # Plain prose with no math cue stays free-chat.
         ("what's for dinner tonight", "free-chat"),
     ],
@@ -166,3 +181,32 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
 )
 def test_resolve_alias(alias: str, content: str, expected: str) -> None:
     assert resolve_alias(alias, content) == expected
+
+
+def test_auto_hard_question_picks_strongest_when_smart_tier_absent() -> None:
+    """Free pool has no smart/max model. Auto used to throw away the
+    escalation signal and pick the cheapest fast alias (free-chat). Pick
+    the strongest remaining model instead (currently glm-4-flash, standard)."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    pool = plan_service.free_pool(settings)
+    resolved = resolve_alias_in_pool("auto", "prove p = np", pool, settings)
+    assert resolved in pool
+    assert model_catalog.tier_rank(model_catalog.get(resolved)) == max(
+        model_catalog.tier_rank(model_catalog.get(mid)) for mid in pool
+    )
+    assert resolved != "free-chat"
+
+
+def test_explicit_weak_pick_does_not_escalate() -> None:
+    """An explicit picker alias is a promise — even a hard question stays."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    pool = ["free-chat", "smart-chat"]
+    assert (
+        resolve_alias_in_pool(
+            "free-chat",
+            "prove this algorithm is O(n log n) and derive the recurrence",
+            pool,
+            settings,
+        )
+        == "free-chat"
+    )
