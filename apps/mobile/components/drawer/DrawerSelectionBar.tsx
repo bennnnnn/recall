@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { ArchiveBoxIcon } from "@/components/StrokeIcons";
 import type { Theme } from "@/lib/theme";
 import type { ConversationListStyles } from "./conversationListStyles";
 
@@ -33,8 +34,7 @@ export function DrawerSelectionBar({
         onPress={onArchive}
         accessibilityRole="button"
       >
-        <Icon
-          name="archive-outline"
+        <ArchiveBoxIcon
           size={18}
           color={disabled ? theme.textTertiary : theme.primary}
         />

@@ -27,6 +27,15 @@ case "${1:-}" in
     cd "$ROOT/apps/api"
     uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
     ;;
+  watch-errors)
+    mkdir -p "$ROOT/tmp"
+    SAVE="$ROOT/tmp/http-errors.log"
+    echo "API on :8000 — 4xx/5xx highlighted on stderr, copied to $SAVE"
+    echo "Success responses (200/201/204) stay in the normal log. Ctrl+C stops the API."
+    cd "$ROOT/apps/api"
+    uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 2>&1 |
+      python3 "$ROOT/scripts/watch-http-errors.py" --passthrough --save "$SAVE"
+    ;;
   mobile)
     kill_metro
     cd "$ROOT/apps/mobile"
@@ -98,11 +107,12 @@ case "${1:-}" in
     echo "Optional local DB: ./scripts/dev.sh infra  (requires Docker)"
     ;;
   *)
-    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-sim|mobile-tunnel|web|kill-metro|kill-all|test-api|check|qa-smoke|verify-production|infra}"
+    echo "Usage: scripts/dev.sh {setup|migrate|api|watch-errors|mobile|mobile-sim|mobile-tunnel|web|kill-metro|kill-all|test-api|check|qa-smoke|verify-production|infra}"
     echo ""
     echo "  setup          Install deps, copy .env (no Docker)"
     echo "  migrate        Apply DB migrations (needs DATABASE_URL in .env)"
     echo "  api            Run FastAPI on :8000"
+    echo "  watch-errors   Run API and highlight 4xx/5xx (saves to tmp/http-errors.log)"
     echo "  check          Run the full local gate (API ruff+format+mypy+pytest, mobile+web typecheck+lint)"
     echo "  qa-smoke       Backend smoke checks (add --live when API running)"
     echo "  verify-production  Production readiness report (add --live for deployed API)"

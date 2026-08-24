@@ -9,6 +9,6 @@ Personal AI mobile chat with persistent memory.
 - `apps/api/` — FastAPI backend
 - `apps/mobile/` — Expo React Native app
 
-**Scripts:** `./scripts/dev.sh` (api, mobile, migrate, setup)
+**Scripts:** `./scripts/dev.sh` (api, watch-errors, mobile, migrate, setup)
 
 Cursor rules live in `.cursor/rules/`.

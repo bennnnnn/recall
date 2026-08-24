@@ -37,31 +37,28 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       contentContainerStyle={panelStyle}
     >
       <ActionSheetRow
-        icon="scan-outline"
+        icon="scan"
         label={t("chat.attach_solve_math_camera")}
         onPress={() => pick("solve_math_camera")}
         theme={theme}
       />
       <ActionSheetRow
-        icon="camera-outline"
+        icon="camera"
         label={t("chat.attach_camera")}
         onPress={() => pick("camera")}
         theme={theme}
-        showDivider
       />
       <ActionSheetRow
-        icon="images-outline"
+        icon="image"
         label={t("chat.attach_photo")}
         onPress={() => pick("photo")}
         theme={theme}
-        showDivider
       />
       <ActionSheetRow
-        icon="document-outline"
+        icon="file"
         label={t("chat.attach_file")}
         onPress={() => pick("file")}
         theme={theme}
-        showDivider
       />
     </AppSheet>
   );

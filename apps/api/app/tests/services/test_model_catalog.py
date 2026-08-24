@@ -28,6 +28,7 @@ def test_selectable_models_count():
     assert gpt.output_price_per_m == 30.00
     assert model_catalog.is_reasoning_alias("gpt-5.5") is True
     assert "gpt-5.5" in {m.id for m in model_catalog.selectable_models()}
+    assert "max-chat" not in ids
 
 
 @pytest.mark.parametrize(

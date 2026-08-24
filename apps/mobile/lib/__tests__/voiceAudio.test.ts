@@ -11,6 +11,10 @@ jest.mock("expo-audio", () => {
   throw new Error("Cannot find native module 'ExpoAudio'");
 });
 
+jest.mock("react-native", () => ({
+  Platform: { OS: "ios" },
+}));
+
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import {
   isVoiceInputAvailable,
@@ -72,7 +76,20 @@ describe("voiceAudio", () => {
     );
     expect(options.extension).toBe(".wav");
     expect(options.ios?.outputFormat).toBe("lpcm");
-    expect(options.android?.extension).toBe(".wav");
+    expect(options.android?.extension).toBe(".m4a");
     expect(recordingOptionsForFormat({ extension: ".m4a" }, "aac").extension).toBe(".m4a");
+  });
+
+  it("records m4a on Android when wav is requested", () => {
+    const { Platform } = jest.requireMock("react-native") as { Platform: { OS: string } };
+    Platform.OS = "android";
+    try {
+      const options = recordingOptionsForFormat({ extension: ".m4a" }, "wav");
+      expect(options.extension).toBe(".m4a");
+      expect(options.android?.outputFormat).toBe("mpeg4");
+      expect(options.android?.audioEncoder).toBe("aac");
+    } finally {
+      Platform.OS = "ios";
+    }
   });
 });

@@ -16,6 +16,10 @@ export const LIVE_TALK_SILENCE_MS = 550;
 export const LIVE_TALK_MIN_SPEECH_MS = 400;
 /** Pause after playback before the mic opens so the speaker is not captured. */
 export const LIVE_TALK_ECHO_GUARD_MS = 250;
+/** Hard stop so a quiet room cannot record until the 5MB upload cap. */
+export const LIVE_TALK_MAX_RECORDING_MS = 30_000;
+/** Stop if the meter never crosses speech level (covered mic, low gain). */
+export const LIVE_TALK_NO_SPEECH_MS = 8_000;
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
   if (isOffline) return "offline";
@@ -43,6 +47,17 @@ export function liveTalkSilenceDecision(options: {
   heardSpeech: boolean;
   silenceStartedAt: number | null;
 }): { heardSpeech: boolean; silenceStartedAt: number | null; shouldStop: boolean } {
+  const elapsed = options.now - options.recordingStartedAt;
+  if (elapsed >= LIVE_TALK_MAX_RECORDING_MS) {
+    return {
+      heardSpeech: options.heardSpeech,
+      silenceStartedAt: options.silenceStartedAt,
+      shouldStop: true,
+    };
+  }
+  if (!options.heardSpeech && elapsed >= LIVE_TALK_NO_SPEECH_MS) {
+    return { heardSpeech: false, silenceStartedAt: null, shouldStop: true };
+  }
   if (options.meter >= LIVE_TALK_SPEECH_LEVEL) {
     return { heardSpeech: true, silenceStartedAt: null, shouldStop: false };
   }

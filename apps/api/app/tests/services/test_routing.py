@@ -112,11 +112,11 @@ def test_is_reasoning_alias() -> None:
     from app.services.model_catalog import is_reasoning_alias, quota_multiplier
 
     assert is_reasoning_alias("smart-chat") is True
-    assert is_reasoning_alias("max-chat") is True
+    assert is_reasoning_alias("gpt-5.5") is True
     assert is_reasoning_alias("free-chat") is False
     assert quota_multiplier("free-chat") == 1.0
     assert quota_multiplier("smart-chat") == 3.5
-    assert quota_multiplier("max-chat") == 3.5
+    assert quota_multiplier("gpt-5.5") == 3.5
 
 
 def test_weighted_reserve_tokens_applies_quota_multiplier() -> None:
@@ -176,7 +176,7 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
         # explicit aliases pass through
         ("free-chat", "explain gravity", "free-chat"),
         ("smart-chat", "hi", "smart-chat"),
-        ("max-chat", "anything", "max-chat"),
+        ("gpt-5.5", "anything", "gpt-5.5"),
     ],
 )
 def test_resolve_alias(alias: str, content: str, expected: str) -> None:

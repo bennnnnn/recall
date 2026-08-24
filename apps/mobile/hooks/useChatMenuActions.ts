@@ -110,7 +110,7 @@ export function useChatMenuActions({
       await api.setPin(token, chat.id, next);
       showActionBanner(
         next ? t("chat.pinned_toast") : t("chat.unpinned_toast"),
-        next ? "bookmark" : "bookmark-outline",
+        next ? "pin" : "pin-outline",
       );
     } catch {
       moveChatPinState(chat.id, !next);

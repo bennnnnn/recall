@@ -590,10 +590,6 @@ function ChatScreen() {
         onTogglePin={onTogglePinFromMenu}
         onToggleArchive={onToggleArchiveFromMenu}
         onDelete={onDeleteFromMenu}
-        onOpenModels={() => {
-          setMenuVisible(false);
-          router.push("/settings/models");
-        }}
         renameVisible={renameVisible}
         renameText={renameText}
         onRenameTextChange={setRenameText}

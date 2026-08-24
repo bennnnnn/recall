@@ -2,6 +2,7 @@
 
 import type { PermissionResponse } from "expo-audio";
 import { getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
+import { Platform } from "react-native";
 
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 
@@ -120,6 +121,9 @@ export async function preparePlaybackAudioMode(): Promise<void> {
 
 export type VoiceRecordingFormat = "aac" | "wav";
 
+/** Composer and live talk both stop the mic before the 5MB upload cap. */
+export const VOICE_MAX_RECORDING_MS = 45_000;
+
 type RecordingPreset = {
   extension?: string;
   sampleRate?: number;
@@ -138,6 +142,25 @@ export function recordingOptionsForFormat(
 ): RecordingPreset {
   const metered: RecordingPreset = { ...highQuality, isMeteringEnabled: true };
   if (format !== "wav") return metered;
+  const androidAac: RecordingPreset["android"] = {
+    ...(highQuality.android ?? {}),
+    extension: ".m4a",
+    outputFormat: "mpeg4",
+    audioEncoder: "aac",
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 128000,
+  };
+  if (Platform.OS === "android") {
+    return {
+      ...metered,
+      extension: ".m4a",
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      bitRate: 128000,
+      android: androidAac,
+    };
+  }
   return {
     ...metered,
     extension: ".wav",
@@ -154,15 +177,7 @@ export function recordingOptionsForFormat(
       linearPCMIsBigEndian: false,
       linearPCMIsFloat: false,
     },
-    android: {
-      ...(highQuality.android ?? {}),
-      extension: ".wav",
-      outputFormat: "default",
-      audioEncoder: "default",
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      bitRate: 256000,
-    },
+    android: androidAac,
   };
 }
 

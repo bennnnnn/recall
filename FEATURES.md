@@ -137,11 +137,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **Collaborative cursors / shared docs** — multi-user editing not in scope for v1 personal app.
 
 ## 5. Models & routing
-- ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus **Max**
-  (`max-chat`, OpenRouter) which appears once an OpenRouter key is configured.
+- ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus named
+  models in the picker (Llama, GPT 5.5, GLM, …). No OpenRouter-auto “Max” chip.
 - ✅ **Manual switching** — model picker in the composer + a default in Settings (respected).
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
-  (calendar-proposal style): model (Flash / Pro / Max / Auto, nicknames like “GPT”),
+  (calendar-proposal style): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool. Daily learning goal still Settings-only.

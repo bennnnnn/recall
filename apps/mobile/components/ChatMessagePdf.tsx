@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
+import { ShareNodesIcon } from "@/components/StrokeIcons";
 
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
@@ -235,7 +236,7 @@ function AttachmentPdfViewer({
             {fileName}
           </Text>
           <Pressable onPress={onShare} hitSlop={8} accessibilityLabel={t("chat.pdf_share_a11y")}>
-            <Icon name="share-outline" size={22} color={theme.primary} />
+            <ShareNodesIcon size={22} color={theme.primary} />
           </Pressable>
         </View>
         <View style={s.body}>

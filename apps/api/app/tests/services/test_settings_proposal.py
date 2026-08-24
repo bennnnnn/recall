@@ -28,7 +28,7 @@ def _user(**overrides: object) -> SimpleNamespace:
     return SimpleNamespace(**data)
 
 
-def test_validate_blocks_max_on_free_plan(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_blocks_pro_model_on_free_plan(monkeypatch: pytest.MonkeyPatch) -> None:
     user = _user(plan="free", enabled_models=["auto", "free-chat"])
     settings = MagicMock()
     monkeypatch.setattr(
@@ -38,7 +38,7 @@ def test_validate_blocks_max_on_free_plan(monkeypatch: pytest.MonkeyPatch) -> No
     apply, already, blocked = validate_changes(
         user,  # type: ignore[arg-type]
         settings,
-        [SettingsChange("default_model", "max-chat")],
+        [SettingsChange("default_model", "gpt-5.5")],
     )
     assert apply == []
     assert already == []
