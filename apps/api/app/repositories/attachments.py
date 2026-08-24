@@ -150,14 +150,20 @@ async def list_for_gallery(
     * ``None``     — all attachments
 
     Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
-    Optional ``q`` matches original filename, content type, the linked
-    message body, or the previous user message in that chat (the draw
-    prompt for generated images, which are linked to the assistant
+    Unlinked leftovers (``message_id IS NULL`` after a chat/message delete)
+    are excluded — their bytes are often already gone, which 404s as blank
+    gallery tiles. Optional ``q`` matches original filename, content type,
+    the linked message body, or the previous user message in that chat (the
+    draw prompt for generated images, which are linked to the assistant
     ``[Image: …]`` marker rather than the user prompt).
     """
     stmt = select(Attachment).where(
         Attachment.user_id == user_id,
         Attachment.verified_at.is_not(None),
+        # Message delete SET NULLs this FK. Unlinked rows linger until the
+        # orphan reaper; their bytes are often already gone (chat purge), so
+        # the gallery would show blank tiles that 404 on /file.
+        Attachment.message_id.is_not(None),
     )
     if category == "images":
         stmt = stmt.where(Attachment.content_type.like("image/%"))

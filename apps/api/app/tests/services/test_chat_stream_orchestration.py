@@ -704,6 +704,9 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
     async def delete_message(_session, message):
         order.append(f"delete:{message.id}")
 
+    async def purge_attachments_for_messages(_session, _settings, message_ids):
+        order.append(f"purge:{message_ids[0]}")
+
     get_by_id = AsyncMock(return_value=old)
 
     with (
@@ -712,6 +715,10 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.stream.messages_repo.get_by_id", get_by_id),
         patch("app.services.chat.stream.messages_repo.delete_message", delete_message),
+        patch(
+            "app.services.chat.stream.attachment_lifecycle.purge_attachments_for_messages",
+            purge_attachments_for_messages,
+        ),
         patch(
             "app.services.chat.stream.image_generation_service.generate_for_chat",
             generate_for_chat,
@@ -728,7 +735,7 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
         )
 
     assert handled is True
-    assert order == ["generate", f"delete:{old_id}"]
+    assert order == ["generate", f"purge:{old_id}", f"delete:{old_id}"]
     get_by_id.assert_awaited_once()
 
 

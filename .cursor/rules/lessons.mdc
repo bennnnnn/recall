@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Gallery showed blank tiles (404) after deleting every chat.** Message
+  delete SET NULLs `attachments.message_id`, so rows linger after chats/titles
+  are gone; chat purge already removed the bytes. List only attachments still
+  linked to a message; on local `/file` miss, drop the row. Purge before
+  deleting a replaced image-gen assistant so that path does not SET NULL.
 - **Every chat turn paid a serial Redis+Neon start plus lookups that cannot apply.**
   Finalize wait ran before user/quota; quiz lookback hit chats with no Learning
   project; prompt assembly re-opened Neon for user/chat already loaded; new chats

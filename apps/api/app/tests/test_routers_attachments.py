@@ -629,6 +629,51 @@ def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
     assert r.headers["x-content-type-options"] == "nosniff"
 
 
+def test_serve_file_missing_local_drops_row():
+    """A verified row with no bytes must 404 and delete the gallery leftover."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+    row.size_bytes = 40
+    row.verified_at = datetime(2026, 8, 1)
+
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.resolve_local_path = MagicMock(return_value=None)
+    delete_chunks = AsyncMock(return_value=0)
+    delete_rows = AsyncMock(return_value=1)
+
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            delete_chunks,
+        ),
+        patch(
+            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            delete_rows,
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/attachments/{attachment_id}/file",
+            headers={"Authorization": "Bearer tok"},
+            follow_redirects=False,
+        )
+
+    assert r.status_code == 404
+    assert r.json()["detail"] == "File missing"
+    delete_chunks.assert_awaited_once()
+    delete_rows.assert_awaited_once()
+
+
 def test_serve_file_r2_redirect_sets_nosniff_header():
     """R2/S3 redirect responses must carry X-Content-Type-Options: nosniff as
     defense-in-depth (the local-backend path already sets it on FileResponse)."""
