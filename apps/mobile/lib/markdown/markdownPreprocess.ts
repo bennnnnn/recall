@@ -1070,6 +1070,17 @@ export function normalizeBoldInlineMath(content: string): string {
   });
 }
 
+/**
+ * Models dump a recap sentence in `$...$` ("Since 9 = 3^2, the 2 and 8 cancel
+ * down…"). Math mode drops spaces, so it paints as italic glue that runs off
+ * the bubble. Two+ real English words → leave it as prose.
+ */
+function looksLikeEnglishMathSpan(inner: string): boolean {
+  const withoutCmds = inner.replace(/\\[a-zA-Z]+/g, " ");
+  const words = withoutCmds.match(/[A-Za-z]{3,}/g) ?? [];
+  return words.length >= 2;
+}
+
 /** Split paragraph text into plain + inline math segments ($...$ or \\(...\\)). */
 export function splitInlineMath(
   text: string,
@@ -1082,7 +1093,12 @@ export function splitInlineMath(
     if (match.index > last) {
       parts.push({ type: "text", value: text.slice(last, match.index) });
     }
-    parts.push({ type: "math", value: (match[1] ?? match[2] ?? "").trim() });
+    const inner = (match[1] ?? match[2] ?? "").trim();
+    if (looksLikeEnglishMathSpan(inner)) {
+      parts.push({ type: "text", value: inner });
+    } else {
+      parts.push({ type: "math", value: inner });
+    }
     last = match.index + match[0].length;
   }
   if (last < text.length) {
