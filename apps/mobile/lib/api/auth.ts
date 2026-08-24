@@ -1,6 +1,6 @@
 import { readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
 
-import { apiUrl, fetchWithTimeout } from "@/lib/api/client";
+import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
 import type { AuthResult } from "@/lib/api/types";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
@@ -54,23 +54,27 @@ export async function transcribeSpeech(token: string, fileUri: string): Promise<
   if (!audioBase64) {
     throw new Error("recording_empty");
   }
-  const response = await fetchWithTimeout(apiUrl("/speech/transcribe"), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      audio_base64: audioBase64,
-      filename: upload.name,
-    }),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || "transcribe_failed");
+  try {
+    const data = await request<{ text?: string }>(
+      "/speech/transcribe",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          audio_base64: audioBase64,
+          filename: upload.name,
+        }),
+      },
+      true,
+      60_000,
+    );
+    const text = (data.text ?? "").trim();
+    if (!text) throw new Error("transcribe_empty");
+    return text;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Transcription timed out. Check your connection.");
+    }
+    throw error;
   }
-  const data = (await response.json()) as { text?: string };
-  const text = (data.text ?? "").trim();
-  if (!text) throw new Error("transcribe_empty");
-  return text;
 }
