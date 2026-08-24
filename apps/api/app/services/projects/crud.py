@@ -314,13 +314,14 @@ async def get_project_detail(
     from app.services import daily_learning
     from app.services import time_context as time_context_service
 
-    item = await projects_repo.get_by_id(session, project_id, user.id)
+    user_id = user.id
+    item = await projects_repo.get_by_id(session, project_id, user_id)
     if item is None or not is_learning_product_kind(item.kind):
         return None
 
     tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
     project_items = await project_items_repo.list_for_user(
-        session, user.id, project_id=project_id, limit=5000
+        session, user_id, project_id=project_id, limit=5000
     )
     if _is_language_project(item):
         from app.services.learning.path_seed import (
@@ -330,13 +331,13 @@ async def get_project_detail(
         )
 
         if needs_catalog_sync(item, project_items):
-            await seed_language_path(None, user_id=user.id, project_id=item.id)
+            await seed_language_path(None, user_id=user_id, project_id=item.id)
             session.expire_all()
-            reloaded = await projects_repo.get_by_id(session, project_id, user.id)
+            reloaded = await projects_repo.get_by_id(session, project_id, user_id)
             if reloaded is not None:
                 item = reloaded
             project_items = await project_items_repo.list_for_user(
-                session, user.id, project_id=project_id, limit=5000
+                session, user_id, project_id=project_id, limit=5000
             )
         apply_full_catalog_path(item)
     # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single

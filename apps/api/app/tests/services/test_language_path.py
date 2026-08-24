@@ -169,15 +169,18 @@ async def test_seed_language_path_copies_catalog_words():
             return None
 
     created = AsyncMock()
+    ensure = AsyncMock()
     with (
         patch("app.core.db.SessionLocal", return_value=_CM()),
         patch("app.repositories.projects.get_by_id", AsyncMock(return_value=project)),
         patch("app.repositories.project_items.list_for_user", AsyncMock(return_value=[])),
         patch("app.services.projects.items.create_item", created),
+        patch("app.services.learning.path_seed.ensure_catalog_rows", ensure),
         patch("app.services.projects.common._invalidate_home_for_user", AsyncMock()),
     ):
         await seed_language_path(MagicMock(), user_id=user_id, project_id=project_id)
 
+    ensure.assert_awaited_once()
     assert project.learning_path == catalog_path_titles("es")
     assert "Immediate family" in project.learning_path
     assert created.await_count == catalog_word_count("es")
@@ -232,3 +235,68 @@ def test_needs_catalog_sync_when_path_was_level_gated():
 
     greetings_only = catalog_path_titles("es")[:2]
     assert needs_catalog_sync(_project(learning_path=greetings_only), []) is True
+
+
+@pytest.mark.asyncio
+async def test_get_project_detail_does_not_lazy_load_user_after_expire_all():
+    """expire_all() after path seed must not touch user.id (MissingGreenlet)."""
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from sqlalchemy.exc import MissingGreenlet
+
+    from app.repositories import project_items as project_items_repo
+    from app.repositories import projects as projects_repo
+    from app.services.projects.crud import get_project_detail
+
+    user_id = uuid4()
+    project_id = uuid4()
+    now = datetime.now(UTC)
+
+    class _User:
+        timezone = "UTC"
+
+        def __init__(self) -> None:
+            self._expired = False
+
+        @property
+        def id(self) -> object:
+            if self._expired:
+                raise MissingGreenlet("expired")
+            return user_id
+
+        def expire(self) -> None:
+            self._expired = True
+
+    user = _User()
+    item = SimpleNamespace(
+        id=project_id,
+        title="Spanish",
+        description=None,
+        kind="language",
+        target_language="es",
+        native_language="en",
+        level="level1",
+        daily_goal=5,
+        archived=False,
+        created_at=now,
+        updated_at=now,
+        learning_path=["Greetings"],
+        daily_goal_history=None,
+    )
+    session = MagicMock()
+    session.expire_all.side_effect = user.expire
+
+    with (
+        patch.object(projects_repo, "get_by_id", AsyncMock(return_value=item)),
+        patch.object(project_items_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(project_items_repo, "list_miss_events_for_items", AsyncMock(return_value={})),
+        patch("app.services.learning.path_seed.seed_language_path", AsyncMock()),
+        patch("app.services.learning.path_seed.needs_catalog_sync", return_value=True),
+    ):
+        detail = await get_project_detail(session, user, project_id)
+
+    assert detail is not None
+    assert detail["id"] == project_id
+    assert user._expired is True
