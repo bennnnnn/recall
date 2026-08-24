@@ -12,6 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Learning class detail 500s (`GET /projects/{id}`).** Two bugs stacked: path seed inserts `catalog_entry_id` for words the Python catalog added after the last vocab wipe-migration, so Postgres FK-fails; the handler swallows that, then `expire_all()` + `user.id` lazy-loads in async (`MissingGreenlet`). Snapshot `user_id` before expire; `ensure_catalog_rows()` upserts `vocab_decks`/`vocab_entries` (`ON CONFLICT DO NOTHING`) before creating items. Don't wipe-migrate to pick up new words.
 - **Live talk `POST /speech/live/speak` 502.** OpenAI `gpt-audio-mini` rejects `audio.format=wav` when `stream=true` (only `pcm16`) and only accepts `wav`/`mp3` input — Expo’s default m4a 400s. Stream pcm16 and wrap WAV; record LINEARPCM wav for live talk (composer mic can stay m4a for Whisper).
 - **Physics solver existed but free-fall stayed unverified; KE gained fake height.**
   The pre-stream gate had no physics cues, and a length regex matched `m` inside

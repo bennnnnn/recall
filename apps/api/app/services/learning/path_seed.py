@@ -13,6 +13,7 @@ from app.content.vocab_catalog import (
     path_decks_for_language,
     word_id,
 )
+from app.services.learning.catalog_sync import ensure_catalog_rows
 from app.services.learning.path import parse_learning_path
 from app.services.projects.common import _is_language_project, _list_key
 
@@ -121,6 +122,8 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
             )
             if not needs_catalog_sync(project, existing):
                 return
+            await ensure_catalog_rows(session)
+            await session.flush()
             project.learning_path = path
             catalog_lists = {_list_key(title) for title in path}
             have_pairs = {
