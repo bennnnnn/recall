@@ -74,6 +74,7 @@ def test_list_models_omits_provider_field():
         assert "provider" not in model
     smart = next(m for m in body if m["id"] == "smart-chat")
     assert smart["quota_multiplier"] == 3.5
+    assert all(m["id"] != "max-chat" for m in body)
 
 
 # ── auth /me ───────────────────────────────────────────────────────────────────

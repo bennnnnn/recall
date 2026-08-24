@@ -206,14 +206,6 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Meta Llama — open-weight instruct model.",
         tier="standard",
     ),
-    _or(
-        id="max-chat",
-        label="Max",
-        model="openrouter/auto",
-        description="OpenRouter picks the best model for each request.",
-        tier="max",
-        quota_multiplier=3.5,
-    ),
     # Internal aliases — not user-selectable.
     _or(
         id="title-model",

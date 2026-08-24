@@ -14,8 +14,7 @@ from app.services.settings_intent import extract_settings_changes
         ("dark mode", "appearance", "dark"),
         ("use pro", "default_model", "smart-chat"),
         ("switch to flash", "default_model", "free-chat"),
-        ("use max", "default_model", "max-chat"),
-        ("switch the model to GPT", "default_model", "max-chat"),
+        ("switch the model to GPT", "default_model", "gpt-5.5"),
         ("use auto", "default_model", "auto"),
         ("be more professional", "response_tone", "professional"),
         ("be funnier", "response_tone", "funny"),
@@ -43,6 +42,7 @@ def test_extracts_allowlisted_settings(text: str, field: str, value: str) -> Non
         "draft a casual message to mom",
         "how does photosynthesis work",
         "Spanish civil war",
+        "use max",
     ],
 )
 def test_ignores_content_requests(text: str) -> None:

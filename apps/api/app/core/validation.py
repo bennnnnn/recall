@@ -21,7 +21,6 @@ KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
         "gemini-flash",
         "mercury-2",
         "llama-70b",
-        "max-chat",
         "title-model",
         "memory-model",
         "fallback-memory-model",
