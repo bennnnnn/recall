@@ -12,9 +12,14 @@ import { getCachedChat } from "@/lib/cache/chatListCache";
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
+  shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
 } from "@/lib/chat/chatForegroundRefetch";
-import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
+import {
+  cachedChatPageFetchedAt,
+  readCachedChatMessages,
+  writeCachedChatMessages,
+} from "@/lib/chatMessageCache";
 import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
 import { shouldDiscardOnNewChat, shouldProbeEmptyChat } from "@/lib/chatDraftLogic";
@@ -130,9 +135,24 @@ export function useChatRouteLoader({
       ) {
         return;
       }
+      const disk = await readCachedChatMessages(openChatId);
+      if (cancelled()) return;
+      if (
+        shouldSkipSilentChatRefetch({
+          lastFetchedAt: cachedChatPageFetchedAt(disk),
+          force: opts?.force,
+        })
+      ) {
+        lastSilentFetchAtRef.current.set(
+          openChatId,
+          cachedChatPageFetchedAt(disk) ?? Date.now(),
+        );
+        return;
+      }
       try {
+        const listed = getCachedChat(openChatId);
         const [chat, page] = await Promise.all([
-          api.getChat(token, openChatId),
+          listed ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (cancelled()) return;
@@ -258,16 +278,30 @@ export function useChatRouteLoader({
       try {
         const cached = await readCachedChatMessages(openChatId);
         if (cancelled) return;
+        const listed = getCachedChat(openChatId);
         if (cached) {
           setChatId(openChatId);
           setMessages((prev) => mergeLocalAttachmentUris(prev, cached.messages));
           setHasMoreOlder(cached.has_more);
           setChatLoading(false);
+          if (listed) {
+            setChatTitle(listed.title);
+            setPinned(listed.pinned);
+            setArchived(Boolean(listed.archived));
+            draftProjectIdRef.current = listed.project_id ?? draftProjectIdRef.current;
+            setQuizVariant(resolveQuizVariant(listed.project_id));
+            lastSilentFetchAtRef.current.set(
+              openChatId,
+              cachedChatPageFetchedAt(cached) ?? Date.now(),
+            );
+            return;
+          }
         }
-        const listed = getCachedChat(openChatId);
         const [chat, page] = await Promise.all([
           listed ?? api.getChat(token, openChatId),
-          api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
+          cached
+            ? Promise.resolve({ messages: cached.messages, has_more: cached.has_more })
+            : api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (cancelled) return;
         setChatId(chat.id);
@@ -304,12 +338,9 @@ export function useChatRouteLoader({
         skipNextFocusRef.current = false;
         return;
       }
+      if (!shouldSilentRefetchChatOnFocus()) return;
       if (!token || !openChatId || turnBusy() || chatLoading) return;
 
-      // Cancel in-flight refetch if the screen blurs or deps change (e.g. the
-      // user navigates to a different chat mid-fetch). Without this, a slow
-      // refetch for chat A could land after we've switched to chat B and
-      // overwrite B's messages with A's.
       let cancelled = false;
       void silentRefetchChat(openChatId, () => cancelled);
       return () => {

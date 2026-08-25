@@ -8,6 +8,7 @@ jest.mock("expo-file-system/legacy", () => ({
 }));
 
 import {
+  cachedChatPageFetchedAt,
   clearCachedChatMessages,
   readCachedChatMessages,
   writeCachedChatMessages,
@@ -60,5 +61,13 @@ describe("chatMessageCache", () => {
     expect(deleteAsync).toHaveBeenCalledWith("/mock-cache/chat-pages/chat-1.json", {
       idempotent: true,
     });
+  });
+
+  it("parses cached_at for the silent-refetch stale window", () => {
+    expect(cachedChatPageFetchedAt({ cached_at: "2026-01-01T00:00:00.000Z" })).toBe(
+      Date.parse("2026-01-01T00:00:00.000Z"),
+    );
+    expect(cachedChatPageFetchedAt({ cached_at: "nope" })).toBeUndefined();
+    expect(cachedChatPageFetchedAt(null)).toBeUndefined();
   });
 });
