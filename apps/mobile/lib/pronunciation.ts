@@ -5,7 +5,7 @@ import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-syst
 import { requestRaw } from "@/lib/api/client";
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import { markdownToPlainText } from "@/lib/markdownPlain";
-import { shouldPrefetchTtsChunk, splitTtsChunks } from "@/lib/ttsLead";
+import { splitTtsChunks } from "@/lib/ttsLead";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/voiceAudio";
 
@@ -346,32 +346,6 @@ function ensureChunk(
     });
   state.inflight[index] = request;
   return request;
-}
-
-/** Warm the first clip of the latest assistant reply so tap is not a 10s OpenRouter wait. */
-export async function prefetchReadAloud(
-  text: string,
-  token: string | null,
-): Promise<void> {
-  if (!token || !canUseVoiceInput() || ttsAbort) return;
-  const model = await getTtsModel();
-  if (model === TTS_DEVICE_MODEL) return;
-  const plain = markdownToPlainText(text).slice(0, 4000);
-  if (!plain) return;
-  const state = ensurePrefetchState(plain, model);
-  if (state.clips[0] || state.inflight[0] || !shouldPrefetchTtsChunk(0)) return;
-  logTtsLatency("prefetch_start", {
-    leadChars: state.chunks[0]?.length ?? 0,
-    chunks: state.chunks.length,
-  });
-  try {
-    const clip = await ensureChunk(state, 0, token, "en-US", state.abort.signal);
-    if (prefetch !== state) return;
-    logTtsLatency("prefetch_ready", { ok: Boolean(clip), chunks: state.chunks.length });
-  } catch (error) {
-    if (isAbortError(error)) return;
-    logTtsLatency("prefetch_failed");
-  }
 }
 
 async function playChunkPipeline(

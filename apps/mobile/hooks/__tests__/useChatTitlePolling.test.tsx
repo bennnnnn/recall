@@ -10,6 +10,11 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+jest.mock("@/lib/cache/chatListCache", () => ({
+  getCachedChat: jest.fn(),
+  peekCreatedChat: jest.fn(),
+}));
+
 jest.mock("@/lib/drawer", () => {
   let pending: string | null = null;
   return {
@@ -23,9 +28,13 @@ jest.mock("@/lib/drawer", () => {
 });
 
 import { api } from "@/lib/api";
-import { patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
+import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
+import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
 
 const getChat = api.getChat as jest.Mock;
+const peekCreated = peekCreatedChat as jest.Mock;
+const listedChat = getCachedChat as jest.Mock;
+const insertChat = insertChatGlobal as jest.Mock;
 const patchChat = patchChatGlobal as jest.Mock;
 const setGenerating = setChatTitleGenerating as jest.Mock;
 
@@ -50,6 +59,8 @@ describe("useChatTitlePolling", () => {
     jest.clearAllMocks();
     screenTitle = null;
     setGenerating(null);
+    peekCreated.mockReturnValue(undefined);
+    listedChat.mockReturnValue(undefined);
     getChat.mockResolvedValue({ title: "A's title" });
   });
 
@@ -107,5 +118,60 @@ describe("useChatTitlePolling", () => {
 
     expect(screenTitle).toBeNull();
     expect(patchChat).not.toHaveBeenCalled();
+  });
+
+  it("inserts the POST /chats row without GET /chats/{id}", async () => {
+    const created = {
+      id: "chat-a",
+      title: null,
+      model: "free-chat",
+      pinned: false,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    peekCreated.mockReturnValue(created);
+
+    await act(async () => {
+      render(<Probe chatId="chat-a" />);
+    });
+    await act(async () => {
+      void current.handleFirstReply();
+    });
+
+    expect(insertChat).toHaveBeenCalledWith(created);
+    expect(getChat).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    });
+  });
+
+  it("does not GET or poll when the drawer row already has a title", async () => {
+    listedChat.mockReturnValue({
+      id: "chat-a",
+      title: "Homework",
+      model: "free-chat",
+      pinned: false,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    });
+
+    await act(async () => {
+      render(<Probe chatId="chat-a" />);
+    });
+    await act(async () => {
+      await current.handleFirstReply();
+    });
+
+    expect(getChat).not.toHaveBeenCalled();
+    expect(screenTitle).toBe("Homework");
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+    });
+    expect(getChat).not.toHaveBeenCalled();
   });
 });

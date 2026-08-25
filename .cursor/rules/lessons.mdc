@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Help-me-think from Home still hit `/suggestions`, title poll, and TTS.**
+  First reply reused `POST /chats` for the drawer row, then still fetched
+  chips (job not ready) and warmed speak. Skip those; keep title poll or
+  the drawer stays Untitled until pull-to-refresh. Speak loads on tap.
 - **Opening a chat from the drawer refetched `/chats`, `/chats/{id}`, and
   Gmail suggested-reminders.** Close-drawer idle-warm hit the list again;
   opening the sidebar also `GET /chats` after titles were already cached;

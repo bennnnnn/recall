@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
+import { firstReplyTitlePlan } from "@/lib/chatTitleRefresh";
 import {
   insertChatGlobal,
   isChatTitleGenerating,
@@ -58,14 +60,29 @@ export function useChatTitlePolling({ token, chatId, setChatTitle }: Options) {
 
   const handleFirstReply = useCallback(async () => {
     if (!token || !chatId) return;
-    try {
-      const chat = await api.getChat(token, chatId);
-      insertChatGlobal(chat);
-    } catch {
-      /* drawer insert is best-effort */
+    const plan = firstReplyTitlePlan(peekCreatedChat(chatId), getCachedChat(chatId));
+    if (plan.insert) {
+      insertChatGlobal(plan.insert);
+      if (plan.insert.title) {
+        setChatTitle(plan.insert.title);
+        return;
+      }
+    } else if (plan.fetch) {
+      try {
+        const chat = await api.getChat(token, chatId);
+        insertChatGlobal(chat);
+        if (chat.title) {
+          setChatTitle(chat.title);
+          return;
+        }
+      } catch {
+        /* drawer insert is best-effort */
+      }
     }
-    await pollForTitle(token, chatId);
-  }, [token, chatId, pollForTitle]);
+    if (plan.poll) {
+      await pollForTitle(token, chatId);
+    }
+  }, [token, chatId, pollForTitle, setChatTitle]);
 
   useEffect(() => {
     setTitleGenerating(false);

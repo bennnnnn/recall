@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import { rememberCreatedChat } from "@/lib/cache/chatListCache";
 import type { QuizMode } from "@/lib/quizMode";
 import { resolveActiveChatId } from "@/lib/chatDraftLogic";
 
@@ -69,6 +70,7 @@ export function useDraftChat({ token, chatId }: Options) {
       const task = api
         .createChat(token, model, resolvedProjectId, resolvedQuizMode)
         .then((chat) => {
+          rememberCreatedChat(chat);
           draftChatIdRef.current = chat.id;
           setDraftChatId(chat.id);
           return chat.id;

@@ -3,6 +3,9 @@ import {
   fetchChatList,
   getCachedChat,
   getCachedChatList,
+  consumeCreatedSuggestionSkip,
+  peekCreatedChat,
+  rememberCreatedChat,
   getChatListFetchedAt,
   invalidateChatListCache,
   isChatListFresh,
@@ -71,6 +74,16 @@ describe("chatListCache", () => {
     expect(a).toEqual(sample);
     expect(b).toEqual(sample);
     expect(listChats).toHaveBeenCalledTimes(1);
+  });
+
+  it("remembers the POST /chats body until logout invalidates", () => {
+    rememberCreatedChat(sample.today[0]);
+    expect(peekCreatedChat("c1")?.title).toBe("Hello");
+    expect(peekCreatedChat("other")).toBeUndefined();
+    expect(consumeCreatedSuggestionSkip("c1")).toBe(true);
+    expect(consumeCreatedSuggestionSkip("c1")).toBe(false);
+    invalidateChatListCache();
+    expect(peekCreatedChat("c1")).toBeUndefined();
   });
 
   it("finds a drawer row without another GET /chats/{id}", () => {

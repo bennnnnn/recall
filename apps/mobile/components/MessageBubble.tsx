@@ -27,7 +27,7 @@ import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
-import { prefetchReadAloud, speakPlainText, stopSpeaking } from "@/lib/pronunciation";
+import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 
@@ -131,7 +131,6 @@ function AssistantActions({
   theme,
   hidden = false,
   thumbsOnly = false,
-  prefetchSpeech = false,
 }: {
   messageId: string;
   content: string;
@@ -143,19 +142,12 @@ function AssistantActions({
   hidden?: boolean;
   /** Image-only replies: thumbs only (no copy / speak / regenerate). */
   thumbsOnly?: boolean;
-  /** Latest finished assistant reply — warm the first cloud TTS clip. */
-  prefetchSpeech?: boolean;
 }) {
   const { t } = useTranslation();
   const token = useAuthToken();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const speakGenRef = useRef(0);
-
-  useEffect(() => {
-    if (!prefetchSpeech || thumbsOnly || hidden || !token || !content.trim()) return;
-    void prefetchReadAloud(content, token);
-  }, [prefetchSpeech, thumbsOnly, hidden, token, content]);
 
   const handleCopy = async () => {
     tap();
@@ -541,7 +533,6 @@ export const MessageBubble = React.memo(function MessageBubble({
             regenerating={isLastAssistant && regenerating}
             theme={theme}
             thumbsOnly={imageOnlyActions}
-            prefetchSpeech={Boolean(isLastAssistant && !isGenerating)}
           />
         </View>
       ) : null}

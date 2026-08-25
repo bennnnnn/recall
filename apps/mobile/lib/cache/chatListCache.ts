@@ -6,6 +6,27 @@ import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
 const CHAT_LIST_KEY = "chat-list";
 const resource = new StaleResourceCache<string, ChatList>(CHAT_LIST_STALE_MS);
 
+/** POST /chats body — first reply inserts the drawer row without GET /chats/{id}. */
+let createdChat: Chat | undefined;
+/** First post-turn chips GET is leftover — the suggestions job has not run yet. */
+let skipCreatedSuggestions = false;
+
+export function rememberCreatedChat(chat: Chat): void {
+  createdChat = chat;
+  skipCreatedSuggestions = true;
+}
+
+export function peekCreatedChat(id: string): Chat | undefined {
+  return createdChat?.id === id ? createdChat : undefined;
+}
+
+/** True once after Home create, so the first stream-end does not GET /suggestions. */
+export function consumeCreatedSuggestionSkip(id: string): boolean {
+  if (createdChat?.id !== id || !skipCreatedSuggestions) return false;
+  skipCreatedSuggestions = false;
+  return true;
+}
+
 export function getCachedChatList(): ChatList | undefined {
   return resource.get(CHAT_LIST_KEY);
 }
@@ -31,6 +52,8 @@ export function setChatListCache(data: ChatList): void {
 
 export function invalidateChatListCache(): void {
   resource.invalidate(CHAT_LIST_KEY);
+  createdChat = undefined;
+  skipCreatedSuggestions = false;
 }
 
 export async function fetchChatList(
