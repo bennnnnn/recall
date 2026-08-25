@@ -16,6 +16,7 @@ import {
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
+import { shouldDiscardOnNewChat } from "@/lib/chatDraftLogic";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";
@@ -350,7 +351,9 @@ export function useChatRouteLoader({
         if (!opts?.force) return;
         stopGeneration();
       }
-      discardEmptyChat(chatId);
+      if (shouldDiscardOnNewChat(routeChatId)) {
+        discardEmptyChat(chatId);
+      }
       clearDraftChat();
       pendingProjectIdRef.current = null;
       setInputRef.current("");
@@ -385,7 +388,9 @@ export function useChatRouteLoader({
       const prompt = queued.prompt?.trim() ?? "";
       if (!prompt) return;
       if (turnBusy()) stopGeneration();
-      discardEmptyChat(chatId);
+      if (shouldDiscardOnNewChat(routeChatId)) {
+        discardEmptyChat(chatId);
+      }
       clearDraftChat();
       draftProjectIdRef.current = queued.projectId ?? null;
       pendingProjectIdRef.current = queued.projectId ?? null;

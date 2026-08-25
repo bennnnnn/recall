@@ -1,10 +1,33 @@
 import {
   resolveActiveChatId,
+  shareEmptyChatCheck,
+  shouldDiscardOnNewChat,
   shouldPreCreateDraft,
   shouldWarmDraftSocket,
 } from "@/lib/chatDraftLogic";
 
 describe("chatDraftLogic", () => {
+  it("shouldDiscardOnNewChat only when the route effect will not", () => {
+    expect(shouldDiscardOnNewChat(undefined)).toBe(true);
+    expect(shouldDiscardOnNewChat("chat-1")).toBe(false);
+  });
+
+  it("shareEmptyChatCheck coalesces overlapping runs for the same chat", async () => {
+    let runs = 0;
+    const run = () =>
+      new Promise<void>((resolve) => {
+        runs += 1;
+        setTimeout(resolve, 20);
+      });
+    await Promise.all([
+      shareEmptyChatCheck("c1", run),
+      shareEmptyChatCheck("c1", run),
+    ]);
+    expect(runs).toBe(1);
+    await shareEmptyChatCheck("c1", run);
+    expect(runs).toBe(2);
+  });
+
   it("resolveActiveChatId prefers committed chat over draft", () => {
     expect(resolveActiveChatId("chat-1", "draft-1")).toBe("chat-1");
     expect(resolveActiveChatId(null, "draft-1")).toBe("draft-1");

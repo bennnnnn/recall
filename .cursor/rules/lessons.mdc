@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Home open listed the last chat twice (`limit=20`).** New chat discarded
+  the routed id, then clearing `chatId` ran the same `deleteChatIfEmpty`.
+  Discard only when the route will not; share one in-flight check per id.
 - **Banned chip fields were still copied onto Message.** Backend may send
   `recalled` / `fallback_used` / `context_summarized` for logs; putting them
   on the client message is a second entry point for chips we already removed.

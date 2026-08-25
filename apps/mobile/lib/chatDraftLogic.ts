@@ -1,3 +1,24 @@
+const emptyChatChecks = new Map<string, Promise<void>>();
+
+/** One empty-check per chat — New chat + route-clear used to list twice. */
+export function shareEmptyChatCheck(
+  chatId: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  const existing = emptyChatChecks.get(chatId);
+  if (existing) return existing;
+  const task = run().finally(() => {
+    if (emptyChatChecks.get(chatId) === task) emptyChatChecks.delete(chatId);
+  });
+  emptyChatChecks.set(chatId, task);
+  return task;
+}
+
+/** Route-change effect already discards the previous routed chat. */
+export function shouldDiscardOnNewChat(routeChatId: string | undefined): boolean {
+  return routeChatId == null;
+}
+
 export function resolveActiveChatId(
   chatId: string | null,
   draftChatId: string | null,
