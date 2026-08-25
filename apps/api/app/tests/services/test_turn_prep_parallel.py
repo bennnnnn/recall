@@ -324,3 +324,245 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
     fetch_web.assert_not_awaited()
     load_prior.assert_not_awaited()
     load_cal_write.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_calendar_question_skips_prior_messages():
+    """Inbox/calendar turns must not load recent user contents for web search."""
+    user = _make_user()
+    chat = _make_chat()
+    base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
+    fetch_integration = AsyncMock(return_value=[])
+    fetch_web = AsyncMock(return_value=(None, None, [], None))
+    load_prior = AsyncMock(return_value=["earlier question"])
+    load_cal_write = AsyncMock(return_value=False)
+
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=list(base_messages)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            fetch_integration,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            fetch_web,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            load_prior,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_has_calendar_write",
+            load_cal_write,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+    ):
+        await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "what's on my calendar tomorrow",
+            "free-chat",
+            Settings(
+                max_output_tokens=1000,
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                web_search_enabled=True,
+                gmail_enabled=True,
+                google_calendar_enabled=True,
+            ),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_rich_turn_mode(),
+        )
+
+    fetch_integration.assert_awaited()
+    fetch_web.assert_not_awaited()
+    load_prior.assert_not_awaited()
+    load_cal_write.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_web_augment_loads_priors_without_preloading_calendar_write():
+    """Web/math prefetch needs priors; the write flag is not a Phase B barrier."""
+    user = _make_user()
+    chat = _make_chat()
+    base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
+    load_prior = AsyncMock(return_value=["earlier question"])
+    load_cal_write = AsyncMock(return_value=True)
+
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=list(base_messages)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, None, [], None)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            load_prior,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_has_calendar_write",
+            load_cal_write,
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+    ):
+        await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "explain photosynthesis",
+            "free-chat",
+            Settings(
+                max_output_tokens=1000,
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                web_search_enabled=True,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            MagicMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_rich_turn_mode(),
+        )
+
+    load_prior.assert_awaited()
+    load_cal_write.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_calendar_write_check_overlaps_calendar_fetch():
+    """Create-event write access must share the gather with the calendar API."""
+    from app.services.calendar import CALENDAR_WRITE_HINT
+    from app.services.chat.turn_prep.integrations import fetch_integration_blocks
+
+    user = _make_user()
+
+    async def slow_cal(*_a: object, **_kw: object) -> str:
+        await asyncio.sleep(0.20)
+        return "CAL"
+
+    async def slow_write(*_a: object, **_kw: object) -> bool:
+        await asyncio.sleep(0.20)
+        return True
+
+    with (
+        patch(
+            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            return_value=True,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            return_value=False,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_calendar_prompt_block",
+            AsyncMock(side_effect=slow_cal),
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_has_calendar_write",
+            AsyncMock(side_effect=slow_write),
+        ),
+    ):
+        loop = asyncio.get_event_loop()
+        start = loop.time()
+        blocks = await fetch_integration_blocks(
+            "schedule a meeting tomorrow",
+            user,
+            MagicMock(),
+            Settings(
+                gmail_enabled=False,
+                google_calendar_enabled=True,
+                mcp_tools_enabled=False,
+            ),
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            day_reflection=False,
+            gmail_context=None,
+            on_status=None,
+        )
+        elapsed = loop.time() - start
+
+    assert elapsed < 0.35, f"write check ran serially (elapsed={elapsed:.2f}s)"
+    assert any("CAL" in block for block in blocks)
+    assert CALENDAR_WRITE_HINT in blocks
+
+
+@pytest.mark.asyncio
+async def test_non_create_turn_skips_calendar_write_session():
+    from app.services.chat.turn_prep.integrations import fetch_integration_blocks
+
+    user = _make_user()
+    load_write = AsyncMock(return_value=True)
+
+    with (
+        patch(
+            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            return_value=False,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            return_value=False,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_has_calendar_write",
+            load_write,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        await fetch_integration_blocks(
+            "explain photosynthesis",
+            user,
+            MagicMock(),
+            Settings(gmail_enabled=True, google_calendar_enabled=True, mcp_tools_enabled=False),
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            day_reflection=False,
+            gmail_context=None,
+            on_status=None,
+        )
+
+    load_write.assert_not_awaited()

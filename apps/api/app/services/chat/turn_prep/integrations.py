@@ -122,7 +122,7 @@ async def fetch_integration_blocks(
     minimal_personal: bool,
     minimal_quiz: bool,
     day_reflection: bool,
-    has_calendar_write: bool,
+    has_calendar_write: bool | None = None,
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None = None,
     on_status: StreamStatusFn | None = None,
     client_timezone: str | None = None,
@@ -133,6 +133,9 @@ async def fetch_integration_blocks(
     Folds in the external-email gmail prefetch (``_load_gmail_context_if_needed``)
     so the inbox fetch runs concurrently with the calendar fetch below, instead
     of serially before injection.
+
+    ``has_calendar_write=None`` loads write access in that same gather when a
+    create-event hint can apply. Callers that already know the flag pass it.
     """
     if instant_reply is not None or minimal_personal or minimal_quiz or lightweight:
         return []
@@ -141,8 +144,15 @@ async def fetch_integration_blocks(
     load_gmail = email_service.should_inject_gmail_block(content)
     calendar_block: str | None = None
     gmail_block: str | None = None
+    resolved_write = has_calendar_write
 
-    pending: list[tuple[str, Awaitable[str | None]]] = []
+    pending: list[tuple[str, Awaitable[Any]]] = []
+    if (
+        resolved_write is None
+        and not settings.mcp_tools_enabled
+        and calendar_service.is_calendar_create_request(content)
+    ):
+        pending.append(("cal_write", _load_has_calendar_write(user.id)))
     if load_calendar:
         if on_status is not None:
             await on_status("loading_calendar")
@@ -199,6 +209,8 @@ async def fetch_integration_blocks(
                 gmail_block = result
             elif label == "email_nudge":
                 email_nudge = result
+            elif label == "cal_write":
+                resolved_write = bool(result)
 
     integration_blocks: list[str] = []
     if calendar_block:
@@ -213,7 +225,7 @@ async def fetch_integration_blocks(
     if (
         not settings.mcp_tools_enabled
         and calendar_service.is_calendar_create_request(content)
-        and has_calendar_write
+        and resolved_write
     ):
         integration_blocks.append(calendar_service.CALENDAR_WRITE_HINT)
     return integration_blocks

@@ -442,22 +442,9 @@ async def build_stream_prompt_context(
     search_sources: list[WebSearchHit] = []
     verified_math: VerifiedMathBlock | None = None
 
-    # B2: prior user messages + calendar-write flag. Web search needs the
-    # prior messages; the integration fetch needs the calendar-write flag for
-    # the create-event hint. Both are cheap DB reads -- resolve them before the
-    # concurrent external fetches so all inputs are ready, then overlap the
-    # slow I/O (calendar/gmail API | Tavily/SymPy) below.
-    # (prior_user_messages / has_calendar_write are initialized above.)
-    if augment or integration_gate:
-        prior_user_messages, has_calendar_write = await asyncio.gather(
-            _load_prior_user_messages(chat.id),
-            _load_has_calendar_write(user.id),
-        )
-
-    # Phase B: gather the independent external fetches concurrently.
-    # Integration fetch (calendar/gmail/nudge) and web+tools fetch
-    # (Tavily/SymPy) share no data — run them together so the turn waits
-    # on max(calendar, web+math) instead of calendar + web+math serially.
+    # Phase B: gather independent fetches. Priors only when augmenting (web
+    # search subject). Calendar-write loads inside the integration gather
+    # when a create-event hint can apply — not as a serial barrier first.
     integration_coro: Awaitable[list[str]] | None = None
     if integration_gate:
         integration_coro = fetch_integration_blocks(
@@ -470,35 +457,52 @@ async def build_stream_prompt_context(
             minimal_personal=mode.minimal_personal,
             minimal_quiz=mode.minimal_quiz,
             day_reflection=mode.day_reflection,
-            has_calendar_write=has_calendar_write,
             gmail_context=None,
             on_status=on_status,
             client_timezone=client_timezone,
             include_email_nudge=mode.rich_context,
         )
+
     web_coro: (
-        Awaitable[tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]]
+        Awaitable[
+            tuple[
+                list[str],
+                tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None],
+            ]
+        ]
         | None
     ) = None
     chem_coro: Awaitable[str | None] | None = None
+    write_coro: Awaitable[bool] | None = None
     if augment:
-        web_coro = fetch_web_and_tools(
-            content,
-            settings,
-            prompt_messages=prompt_messages,
-            user_timezone=local_tz,
-            user_location=geo.user_location,
-            latitude=geo.client_lat,
-            longitude=geo.client_lng,
-            prior_user_messages=prior_user_messages,
-            has_image_attachment=has_image_attachment,
-            image_math_extract=image_math_extract,
-            on_status=on_status,
-            user=user,
-            redis=redis,
-        )
+
+        async def _fetch_web_with_priors() -> tuple[
+            list[str],
+            tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None],
+        ]:
+            priors = await _load_prior_user_messages(chat.id)
+            result = await fetch_web_and_tools(
+                content,
+                settings,
+                prompt_messages=prompt_messages,
+                user_timezone=local_tz,
+                user_location=geo.user_location,
+                latitude=geo.client_lat,
+                longitude=geo.client_lng,
+                prior_user_messages=priors,
+                has_image_attachment=has_image_attachment,
+                image_math_extract=image_math_extract,
+                on_status=on_status,
+                user=user,
+                redis=redis,
+            )
+            return priors, result
+
+        web_coro = _fetch_web_with_priors()
         if settings.chemistry_enabled and needs_chem:
             chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
+        if settings.mcp_tools_enabled and calendar_service.is_calendar_create_request(content):
+            write_coro = _load_has_calendar_write(user.id)
 
     integration_blocks: list[str] = []
     web_block: str | None = None
@@ -515,15 +519,22 @@ async def build_stream_prompt_context(
     if chem_coro is not None:
         fetch_jobs.append(chem_coro)
         fetch_keys.append("chem")
+    if write_coro is not None:
+        fetch_jobs.append(write_coro)
+        fetch_keys.append("cal_write")
     if fetch_jobs:
         fetched = await asyncio.gather(*fetch_jobs)
         by_key = dict(zip(fetch_keys, fetched, strict=True))
         if "integration" in by_key:
             integration_blocks = by_key["integration"]
         if "web" in by_key:
-            web_block, math_block, search_sources, verified_math = by_key["web"]
+            prior_user_messages, (web_block, math_block, search_sources, verified_math) = by_key[
+                "web"
+            ]
         if "chem" in by_key:
             chem_block = by_key["chem"]
+        if "cal_write" in by_key:
+            has_calendar_write = by_key["cal_write"]
 
     # Phase C: inject in the stable order (integration -> web -> math) so the
     # final prompt is byte-identical to the prior serial pipeline.
