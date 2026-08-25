@@ -1,4 +1,11 @@
-import { splitTtsChunks, splitTtsLead, TTS_LEAD_MAX_CHARS, TTS_LEAD_MIN_CHARS } from "@/lib/ttsLead";
+import {
+  shouldPrefetchTtsChunk,
+  splitTtsChunks,
+  splitTtsLead,
+  TTS_LEAD_MAX_CHARS,
+  TTS_LEAD_MIN_CHARS,
+  TTS_PREFETCH_CHUNK_LIMIT,
+} from "@/lib/ttsLead";
 
 describe("splitTtsLead", () => {
   it("keeps a short reply intact", () => {
@@ -37,5 +44,13 @@ describe("splitTtsChunks", () => {
     expect(chunks.length).toBeGreaterThan(2);
     expect(chunks.join(" ")).toBe(text.split(/\s+/).join(" "));
     expect(chunks.every((chunk) => chunk.length <= TTS_LEAD_MAX_CHARS)).toBe(true);
+  });
+});
+
+describe("shouldPrefetchTtsChunk", () => {
+  it("warms only the first clip before the user taps speak", () => {
+    expect(TTS_PREFETCH_CHUNK_LIMIT).toBe(1);
+    expect(shouldPrefetchTtsChunk(0)).toBe(true);
+    expect(shouldPrefetchTtsChunk(1)).toBe(false);
   });
 });

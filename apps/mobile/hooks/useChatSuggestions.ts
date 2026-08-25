@@ -1,35 +1,68 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { api, type Suggestion } from "@/lib/api";
+import {
+  chatSuggestionLoadAction,
+  shouldFetchChatSuggestions,
+} from "@/lib/chatTurnRefresh";
 
 type Options = {
   token: string | null;
-  enabled?: boolean;
+  hasMessages?: boolean;
+  /** Streaming, or an optimistic user bubble before the socket is open. */
+  turnBusy?: boolean;
   refreshKey?: number | string | boolean;
 };
 
-export function useChatSuggestions({ token, enabled = true, refreshKey }: Options) {
+export function useChatSuggestions({
+  token,
+  hasMessages = true,
+  turnBusy = false,
+  refreshKey,
+}: Options) {
   const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const prevRefreshKeyRef = useRef(refreshKey);
+  const prevHasMessagesRef = useRef(hasMessages);
 
-  const refresh = useCallback(async () => {
-    if (!token || !enabled) {
-      setSuggestions([]);
-      return;
-    }
+  const load = useCallback(async () => {
+    if (!token) return;
     try {
       const items = await api.listSuggestions(token);
       setSuggestions(items.slice(0, 3));
     } catch {
       /* keep prior chips on transient failure */
     }
-  }, [token, enabled]);
+  }, [token]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh, refreshKey]);
+    if (!token || !hasMessages) setSuggestions([]);
+  }, [token, hasMessages]);
+
+  useEffect(() => {
+    const refreshKeyChanged = prevRefreshKeyRef.current !== refreshKey;
+    const openedIdleThread = hasMessages && !prevHasMessagesRef.current && !turnBusy;
+    prevRefreshKeyRef.current = refreshKey;
+    prevHasMessagesRef.current = hasMessages;
+
+    const action = chatSuggestionLoadAction({
+      hasToken: Boolean(token),
+      hasMessages,
+      turnBusy,
+    });
+    if (
+      !shouldFetchChatSuggestions({
+        action,
+        refreshKeyChanged,
+        openedIdleThread,
+      })
+    ) {
+      return;
+    }
+    void load();
+  }, [token, hasMessages, turnBusy, refreshKey, load]);
 
   const dismiss = useCallback(
     async (id: string) => {
@@ -39,11 +72,11 @@ export function useChatSuggestions({ token, enabled = true, refreshKey }: Option
         await api.dismissSuggestion(token, id);
       } catch {
         Alert.alert(t("common.error"), t("reminders.dismiss_failed"));
-        void refresh();
+        void load();
       }
     },
-    [token, refresh, t],
+    [token, load, t],
   );
 
-  return { suggestions, dismiss, refresh };
+  return { suggestions, dismiss, refresh: load };
 }

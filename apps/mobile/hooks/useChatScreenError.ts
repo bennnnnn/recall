@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
+import { chatTurnHomeRefreshOpts } from "@/lib/chatTurnRefresh";
 
 export function useChatErrorHandlers(isPro: boolean) {
   const { t } = useTranslation();
@@ -55,7 +56,7 @@ export function useChatStreamLifecycle({
   useEffect(() => {
     if (prevStreamActiveRef.current && !streamActive) {
       setQuotaRefreshKey((k) => k + 1);
-      void refreshHome({ silent: true, force: true });
+      void refreshHome(chatTurnHomeRefreshOpts());
     }
     prevStreamActiveRef.current = streamActive;
   }, [streamActive, refreshHome]);

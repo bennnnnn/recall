@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Help-me-think / STT still hit `/suggestions` three times.** User bubble
+  lands before the socket (`pendingOutboundId`); stream-end flips busy off
+  before `refreshKey` bumps — each was a fetch. Hold while turn-busy; fetch
+  only on refreshKey or when opening an idle thread. Don't force `/home`;
+  idle TTS warms clip 0 only.
 - **Home open listed the last chat twice (`limit=20`) and POSTed a draft.**
   New chat discarded the routed id, then clearing `chatId` ran the same
   `deleteChatIfEmpty`; warmup also pre-created an empty chat. Discard only
