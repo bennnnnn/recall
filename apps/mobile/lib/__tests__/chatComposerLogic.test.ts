@@ -174,7 +174,7 @@ describe("chatComposerLogic", () => {
     ).toBe(false);
   });
 
-  it("computeChatLayoutMetrics accounts for keyboard and feedback row", () => {
+  it("computeChatLayoutMetrics accounts for keyboard without extra feedback pad", () => {
     const idle = computeChatLayoutMetrics({
       insetsTop: 44,
       insetsBottom: 20,
@@ -187,10 +187,9 @@ describe("chatComposerLogic", () => {
     });
     expect(idle.composerLift).toBe(0);
     expect(idle.composerBottomPad).toBe(20);
-    expect(idle.listBottomPad).toBeGreaterThan(idle.composerClearance);
+    // Icons sit in the bubble slot — list pad is composer clearance only.
+    expect(idle.listBottomPad).toBe(idle.composerClearance);
 
-    // Feedback-row clearance must be reserved during streaming too, so the list
-    // does not jump when a reply lands and the feedback icons appear.
     const streaming = computeChatLayoutMetrics({
       insetsTop: 44,
       insetsBottom: 20,

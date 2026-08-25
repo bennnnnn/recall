@@ -10,7 +10,7 @@ import {
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
 } from "@/lib/chatScrollLogic";
-import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
+import { STREAM_AUTOSCROLL_RESUME_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
 
@@ -174,7 +174,7 @@ export function useChatScroll({
   }, [runStreamingScrollCatchUp]);
 
   const schedulePostStreamScroll = useCallback(() => {
-    scheduleTimeout(streamEndScrollTimerRef, STREAM_LAYOUT_SETTLE_MS, () => {
+    scheduleTimeout(streamEndScrollTimerRef, STREAM_AUTOSCROLL_RESUME_MS, () => {
       if (atBottomRef.current) {
         listRef.current?.scrollToEnd({ animated: false });
       }
@@ -200,6 +200,10 @@ export function useChatScroll({
     prevStreamActiveRef.current = streamActive;
 
     if (!streamActive) {
+      // A trailing animated catch-up can still be queued from the last token
+      // burst. If it fires into the settle window it fights the instant pin
+      // and the row looks like a spring.
+      clearScheduledTimeout(streamingScrollTimerRef);
       if (shouldSchedulePostStreamScroll(wasStreamActive, streamActive, atBottomRef.current)) {
         schedulePostStreamScroll();
       }
@@ -213,7 +217,11 @@ export function useChatScroll({
     };
 
     syncStreamingScroll();
-    return subscribeStreamingDraft(syncStreamingScroll);
+    const unsubscribe = subscribeStreamingDraft(syncStreamingScroll);
+    return () => {
+      unsubscribe();
+      clearScheduledTimeout(streamingScrollTimerRef);
+    };
   }, [streamActive, scheduleStreamingScroll, schedulePostStreamScroll]);
 
   useEffect(() => {

@@ -116,12 +116,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   ran. Also `looksLikeProseParenthetical` counted `\neq`/`\frac` letter-runs as English.
   Fix (#450): convert `\(...\)` → `$...$` in `protectMathEscapes`; strip `\\[a-zA-Z]+`
   before the prose-word count; wrap bare cmds outside existing `$` spans.
-- **Chat “falls then snaps back” when stream ends.** Two bugs stacked: (1) intentional
-  `STREAM_LAYOUT_SETTLE_MS` (280ms) hold before revealing full markdown/feedback/sources;
-  (2) FlashList native autoscroll re-armed the instant streaming ended — same moment the
-  row grows — so native snap hit the pre-growth height, then deferred JS `scrollToEnd`
-  corrected again. Fix (#445): keep native autoscroll suppressed through that settle
-  window too; one writer for the transition (JS), not two fighting.
+- **Chat “falls then snaps back” when stream ends.** Native autoscroll, JS
+  `scrollToEnd`, and an extra list pad for in-bubble feedback icons all wrote
+  around the same 280ms settle. Icons already live in a reserved slot; the pad
+  doubled that space so the reply dropped when they appeared. A trailing
+  animated streaming catch-up also wasn't cleared. Fix: pad = composer
+  clearance only; cancel streaming scroll on end; keep native autoscroll off
+  until `STREAM_AUTOSCROLL_RESUME_MS` (settle + 80) and JS-pin then.
 - **Streaming math boxes flicker (blank → repaint).** Pending stream tail re-parsed
   every flush; `react-native-markdown-display` re-keys the tree so KaTeX WebViews in that
   tail remount. Short closed ` ```math ` / `$$` blocks sat under the 320-char settle

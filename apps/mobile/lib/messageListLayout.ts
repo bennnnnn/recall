@@ -8,15 +8,26 @@ export const ESTIMATED_MESSAGE_HEIGHT = 88;
 /** Delay post-stream rich chrome (sources, full markdown) so layout settles once. */
 export const STREAM_LAYOUT_SETTLE_MS = 280;
 
+/**
+ * Keep FlashList native autoscroll off until after chrome + suggestion chips
+ * have grown, then JS-pin. Re-arming native at settle (same 280ms as the
+ * growth) made two writers fight → spring. 80ms is one frame-or-two after
+ * the layout commit, not a second visual hold.
+ */
+export const STREAM_AUTOSCROLL_RESUME_MS = STREAM_LAYOUT_SETTLE_MS + 80;
+
 /** Render keys assigned to the in-flight streaming placeholder (`stream-<ts>`). */
 export function isFreshStreamRenderKey(renderKey?: string): boolean {
   return Boolean(renderKey?.startsWith("stream-"));
 }
 
 /** Start a timed layout hold; returns an effect cleanup. */
-export function beginStreamLayoutHold(setHeld: (held: boolean) => void): () => void {
+export function beginStreamLayoutHold(
+  setHeld: (held: boolean) => void,
+  ms: number = STREAM_LAYOUT_SETTLE_MS,
+): () => void {
   setHeld(true);
-  const timer = setTimeout(() => setHeld(false), STREAM_LAYOUT_SETTLE_MS);
+  const timer = setTimeout(() => setHeld(false), ms);
   return () => clearTimeout(timer);
 }
 

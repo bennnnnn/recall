@@ -1,6 +1,5 @@
 export const CHAT_HEADER_BAR_HEIGHT = 52;
 export const CHAT_HEADER_FADE_EXTRA = 48;
-export const CHAT_FEEDBACK_ROW_HEIGHT = 48;
 export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
@@ -162,18 +161,13 @@ export function computeChatLayoutMetrics(options: {
   const composerBlockHeight =
     options.composerHeight + options.attachmentExtra + (options.mathBarExtra ?? 0);
   const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
-  // Reserve the feedback-row clearance whenever the thread has messages —
-  // NOT only when idle. Toggling this on `!streaming` grew the list's bottom
-  // padding the instant a stream ended; with maintainVisibleContentPosition
-  // pinning the bottom, that shifted every message up ~48px right as the reply
-  // landed (the feedback icons themselves fade in later, via the in-bubble
-  // slot). Keeping it constant across streaming→idle removes that jump.
-  const showFeedbackRow = options.messagesLength > 0;
-  const listBottomPad =
-    composerBlockHeight +
-    composerBottomPad +
-    composerLift +
-    (showFeedbackRow ? CHAT_FEEDBACK_ROW_HEIGHT : 0);
+  // Feedback icons live in the bubble's reserved action-row slot, not in list
+  // padding. Extra pad here plus that slot made two regions fight for the same
+  // ~48px when icons appeared — the reply dropped, then MVCP/scrollToEnd
+  // snapped it back. Pad is composer clearance only, and it does not toggle
+  // on stream end (`streaming` / `messagesLength` stay in the signature so
+  // callers need not change).
+  const listBottomPad = composerClearance;
   const emptyHeight = Math.max(
     CHAT_EMPTY_MIN_HEIGHT,
     options.windowHeight - headerInset - composerClearance,
