@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { api, type Suggestion } from "@/lib/api";
+import { consumeCreatedSuggestionSkip } from "@/lib/cache/chatListCache";
 import {
   chatSuggestionLoadAction,
   shouldFetchChatSuggestions,
@@ -10,6 +11,7 @@ import {
 
 type Options = {
   token: string | null;
+  chatId?: string | null;
   hasMessages?: boolean;
   /** Streaming, or an optimistic user bubble before the socket is open. */
   turnBusy?: boolean;
@@ -18,6 +20,7 @@ type Options = {
 
 export function useChatSuggestions({
   token,
+  chatId = null,
   hasMessages = true,
   turnBusy = false,
   refreshKey,
@@ -61,8 +64,9 @@ export function useChatSuggestions({
     ) {
       return;
     }
+    if (chatId && consumeCreatedSuggestionSkip(chatId)) return;
     void load();
-  }, [token, hasMessages, turnBusy, refreshKey, load]);
+  }, [token, chatId, hasMessages, turnBusy, refreshKey, load]);
 
   const dismiss = useCallback(
     async (id: string) => {

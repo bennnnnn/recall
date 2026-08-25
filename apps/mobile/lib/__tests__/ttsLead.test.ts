@@ -48,9 +48,9 @@ describe("splitTtsChunks", () => {
 });
 
 describe("shouldPrefetchTtsChunk", () => {
-  it("warms only the first clip before the user taps speak", () => {
-    expect(TTS_PREFETCH_CHUNK_LIMIT).toBe(1);
-    expect(shouldPrefetchTtsChunk(0)).toBe(true);
+  it("does not warm clips before the user taps speak", () => {
+    expect(TTS_PREFETCH_CHUNK_LIMIT).toBe(0);
+    expect(shouldPrefetchTtsChunk(0)).toBe(false);
     expect(shouldPrefetchTtsChunk(1)).toBe(false);
   });
 });

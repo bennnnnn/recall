@@ -79,10 +79,7 @@ export function useChatTitlePolling({ token, chatId, setChatTitle }: Options) {
         /* drawer insert is best-effort */
       }
     }
-    if (plan.poll) {
-      await pollForTitle(token, chatId);
-    }
-  }, [token, chatId, pollForTitle, setChatTitle]);
+  }, [token, chatId, setChatTitle]);
 
   useEffect(() => {
     setTitleGenerating(false);

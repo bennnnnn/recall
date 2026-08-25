@@ -18,7 +18,6 @@ describe("firstReplyTitlePlan", () => {
     expect(firstReplyTitlePlan(created, undefined)).toEqual({
       insert: created,
       fetch: false,
-      poll: true,
     });
   });
 
@@ -27,7 +26,6 @@ describe("firstReplyTitlePlan", () => {
     expect(firstReplyTitlePlan(undefined, listed)).toEqual({
       insert: listed,
       fetch: false,
-      poll: false,
     });
   });
 
@@ -35,7 +33,6 @@ describe("firstReplyTitlePlan", () => {
     expect(firstReplyTitlePlan(undefined, undefined)).toEqual({
       insert: null,
       fetch: true,
-      poll: true,
     });
   });
 });
