@@ -11,7 +11,7 @@ from typing import Any
 # fences in the system hint — that is what taught Qwen/GLM to invent JSON.
 SOLVER_OWNED_FENCES_NOTE = (
     "Do NOT emit ```answer, ```graph, or ```geometry fences — "
-    "Recall attaches the verified result after your explanation."
+    "Recall attaches the verified result after your answer."
 )
 
 DIAGRAM_OWNED_NOTE = (

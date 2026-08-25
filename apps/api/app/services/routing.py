@@ -137,9 +137,32 @@ def route_chat_model(content: str) -> str:
     # "a math turn" is. Lazy import keeps routing import-time cheap.
     from app.services.math_text_match import needs_symbolic
 
-    if needs_symbolic(content):
+    if needs_symbolic(content) and not _verified_math_stays_fast(content):
         return smart
     return fast
+
+
+def _verified_math_stays_fast(content: str) -> bool:
+    """SymPy already covers these; a reasoning model only writes a CoT essay.
+
+    Keep equations / calculus / graphs on smart. Bare factorial ("4!") and
+    "what is 1+1" style arithmetic stay on the fast model.
+    """
+    from app.services.math_text_match.discrete import combinatorics_signal
+    from app.services.math_text_match.scan import has_algebraic_equation, prepare
+
+    cleaned = prepare(content)
+    if not cleaned:
+        return False
+    sig = combinatorics_signal(cleaned)
+    if sig is not None and sig[0] == "factorial":
+        return True
+    lower = cleaned.lower()
+    if "what is" not in lower or not any(ch.isdigit() for ch in cleaned):
+        return False
+    if not any(op in cleaned for op in ("+", "-", "*", "/", "\u00d7", "\u00f7", "^")):
+        return False
+    return not has_algebraic_equation(cleaned)
 
 
 def resolve_alias(alias: str, content: str) -> str:

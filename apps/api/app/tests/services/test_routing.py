@@ -61,6 +61,10 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("find the area of a circle radius 4", "smart-chat"),
         ("integrate x^2 from 0 to 1", "smart-chat"),
         ("standard deviation of 1, 2, 3, 4, 5", "smart-chat"),
+        # Verified closed-form arithmetic stays free-chat — R1 used to dump a
+        # live Reasoning essay ("the user just wrote 4!") on these.
+        ("4!", "free-chat"),
+        ("what is 1+1", "free-chat"),
         # Homework physics the solver templates don't cover → smart-chat.
         # needs_symbolic stays false on these (no verified fence); Auto still
         # escalates. Bare "physics" and digit-free "momentum" stay free-chat.

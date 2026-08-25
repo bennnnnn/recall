@@ -174,10 +174,16 @@ def _verified_block_combinatorics(
     )
     lines.extend(result.steps)
     lines.append(f"Result: {result.result}")
+    preface = "Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE
+    if intent.combo_op == "factorial":
+        preface = (
+            "Reply as one identity (e.g. 4! = 4*3*2*1 = 24). No banter, "
+            "no definition lecture, no fun-fact callout. " + SOLVER_OWNED_FENCES_NOTE
+        )
     return _finish_with_answer(
         lines,
         str(result.result),
-        preface="Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE,
+        preface=preface,
     )
 
 
