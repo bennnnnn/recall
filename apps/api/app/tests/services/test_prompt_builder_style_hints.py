@@ -62,6 +62,31 @@ def test_balanced_style_injects_universal_format_baseline():
     assert "do not add sections just to look structured" in joined
 
 
+def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
+    """4! used to get 'start with n! definition + numbered steps + You can check'
+    plus a fun-fact callout. Prompt now matches a one-line identity."""
+    from app.services.chat.prompt_constants import MATH_INTENT_HINT, SHORT_MATH_SAFETY_HINT
+
+    assert "Closed-form" in SHORT_MATH_SAFETY_HINT
+    assert "$3 + 0 = 3$" in MATH_INTENT_HINT
+    assert "$4! = 4 \\times 3 \\times 2 \\times 1 = 24$" in MATH_INTENT_HINT
+    assert "no general" in MATH_INTENT_HINT
+    assert "Skip that block on n!" in MATH_INTENT_HINT
+    assert "Never mention SymPy" in MATH_INTENT_HINT
+    # Old tutor shape must not return.
+    assert "3! begins with" not in MATH_INTENT_HINT
+    assert "Do not jump straight to the instance" not in MATH_INTENT_HINT
+
+
+def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
+    from app.services.response_tone import TONE_HINTS
+
+    funny = TONE_HINTS["funny"]
+    assert "3+0" in funny
+    assert "one line" in funny
+    assert "```tip" in funny
+
+
 def test_balanced_style_keeps_full_math_solver_hint():
     parts = _hints("balanced")
     joined = "\n".join(parts)

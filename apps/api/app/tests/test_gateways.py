@@ -60,12 +60,75 @@ def test_think_stripper_drops_unclosed_block_on_flush():
     assert s.feed(f"visible {open_tag}never closes") + s.flush() == "visible "
 
 
+def test_think_tags_match_deepseek_fences() -> None:
+    """Regression: a source rewrite once renamed the tags so the filter
+    never matched R1's inline think fences and CoT leaked into the bubble."""
+    assert litellm_gateway._THINK_OPEN == "<" + "think" + ">"
+    assert litellm_gateway._THINK_CLOSE == "</" + "think" + ">"
+
+
+def test_think_stripper_strips_long_closed_block() -> None:
+    s = litellm_gateway._ThinkStripper()
+    open_tag = litellm_gateway._THINK_OPEN
+    close_tag = litellm_gateway._THINK_CLOSE
+    inner = "the user just wrote 4! " * 400
+    assert len(inner) > 4096
+    assert s.feed(f"{open_tag}{inner}{close_tag}24") + s.flush() == "24"
+
+
 def test_think_stripper_recovers_after_oversized_unclosed_block():
     s = litellm_gateway._ThinkStripper()
     open_tag = litellm_gateway._THINK_OPEN
     oversized = "x" * (litellm_gateway._THINK_MAX_OPEN_BUFFER + 1)
     out = s.feed(f"keep {open_tag}{oversized}") + s.feed(" tail") + s.flush()
     assert out == "keep  tail"
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_once_does_not_forward_reasoning_content() -> None:
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    called: list[str] = []
+
+    class OneChunk:
+        def __init__(self) -> None:
+            self.done = False
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.done:
+                raise StopAsyncIteration
+            self.done = True
+            delta = MagicMock()
+            delta.content = "24"
+            delta.reasoning_content = "The user just wrote 4!, so they want factorial."
+            choice = MagicMock()
+            choice.delta = delta
+            chunk = MagicMock()
+            chunk.choices = [choice]
+            chunk.usage = None
+            return chunk
+
+    async def on_reasoning(chunk: str) -> None:
+        called.append(chunk)
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=OneChunk()),
+    ):
+        tokens = [
+            t
+            async for t in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "4!"}],
+                max_tokens=10,
+                on_reasoning=on_reasoning,
+            )
+        ]
+    assert "".join(tokens) == "24"
+    assert called == []
 
 
 @pytest.mark.asyncio

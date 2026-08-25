@@ -42,19 +42,19 @@ _CHAT_MODEL_UNAVAILABLE_MSG = (
 )
 
 
-# DeepSeek-R1 (smart-chat) emits ... reasoning blocks inline in the
-# `content` stream (and in a separate `reasoning_content` delta field). We strip
-# both so users never see raw chain-of-thought and reasoning tokens don't count
-# against the displayed reply.
-_THINK_OPEN = "\x3credacted_thinking\x3e"
-_THINK_CLOSE = "\x3c/redacted_thinking\x3e"
-# Safety cap: if an opened think block never closes, drop the buffer rather than
-# swallow the rest of the reply.
-_THINK_MAX_OPEN_BUFFER = 4096
+# DeepSeek-R1 (and similar) emit inline think fences in `content`, plus a
+# separate `reasoning_content` delta. Hex-encode the tags so a source rewrite
+# cannot turn this filter into a no-op. Strip the fences from tokens; do not
+# forward `reasoning_content` to the client (the chat UI must not show CoT).
+_THINK_OPEN = "\x3cthink\x3e"
+_THINK_CLOSE = "\x3c/think\x3e"
+# Hold an unclosed think block this long while streaming. R1 CoT on even a
+# short ask is often >4k chars; giving up early leaked the rest into the bubble.
+_THINK_MAX_OPEN_BUFFER = 65_536
 
 
 class _ThinkStripper:
-    """Stateful filter that removes redacted-thinking blocks from a token stream.
+    """Stateful filter that removes inline think fences from a token stream.
 
     Handles open/close tags split across chunks. Emits text outside think blocks
     unchanged; discards text inside. An unclosed think block is dropped on flush.
@@ -387,6 +387,8 @@ async def _stream_chat_once(
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)
     stripper = _ThinkStripper()
+    # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
+    _ = on_reasoning
     response = None
     try:
         async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
@@ -451,9 +453,6 @@ async def _stream_chat_once(
             if not choices:
                 continue
             delta = choices[0].delta
-            reasoning = getattr(delta, "reasoning_content", None) or ""
-            if reasoning and on_reasoning is not None:
-                await on_reasoning(reasoning)
             content = getattr(delta, "content", None) or ""
             if content:
                 cleaned = stripper.feed(content)
