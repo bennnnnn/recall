@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Assistant bubbles still wrapped a no-op Show more/less.** `CollapsibleMessageBody`
+  with `collapsible={false}` is a passthrough and a second door to fold LLM
+  replies. User-message folding stays; assistant body is unwrapped.
 - **Learning chats opened Neon to check a quiz letter.** Parse + `is_vocab_quiz_answer`
   only need the already-loaded assistant fence. Open a session only when grading
   a letter answer so ordinary class chat skips that checkout.

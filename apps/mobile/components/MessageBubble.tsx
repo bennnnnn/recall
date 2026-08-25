@@ -6,7 +6,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, Alert } from "rea
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
-import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
@@ -448,11 +447,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           {showReasoning ? (
             <ReasoningBlock content={reasoningText} streaming={isStreaming} />
           ) : null}
-          <CollapsibleMessageBody
-            enabled={!layoutFrozen && hasContent}
-            collapsible={false}
-          >
-            {imageGenFailure ? (
+          {imageGenFailure ? (
               <View style={b.imageGenWaitingWrap}>
                 <ImageGenPlaceholder
                   outcome={imageGenFailure}
@@ -532,7 +527,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                 ))
               : null}
             {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
-          </CollapsibleMessageBody>
         </View>
       )}
 
