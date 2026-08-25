@@ -2,7 +2,7 @@ import {
   resolveActiveChatId,
   shareEmptyChatCheck,
   shouldDiscardOnNewChat,
-  shouldPreCreateDraft,
+  shouldProbeEmptyChat,
   shouldWarmDraftSocket,
 } from "@/lib/chatDraftLogic";
 
@@ -34,61 +34,9 @@ describe("chatDraftLogic", () => {
     expect(resolveActiveChatId(null, null)).toBeNull();
   });
 
-  it("shouldPreCreateDraft only on empty home with token", () => {
-    expect(
-      shouldPreCreateDraft({
-        token: "tok",
-        routeChatId: undefined,
-        chatId: null,
-        messagesLength: 0,
-        streaming: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldPreCreateDraft({
-        token: null,
-        routeChatId: undefined,
-        chatId: null,
-        messagesLength: 0,
-        streaming: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldPreCreateDraft({
-        token: "tok",
-        routeChatId: "existing",
-        chatId: null,
-        messagesLength: 0,
-        streaming: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldPreCreateDraft({
-        token: "tok",
-        routeChatId: undefined,
-        chatId: "chat-1",
-        messagesLength: 0,
-        streaming: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldPreCreateDraft({
-        token: "tok",
-        routeChatId: undefined,
-        chatId: null,
-        messagesLength: 2,
-        streaming: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldPreCreateDraft({
-        token: "tok",
-        routeChatId: undefined,
-        chatId: null,
-        messagesLength: 0,
-        streaming: true,
-      }),
-    ).toBe(false);
+  it("shouldProbeEmptyChat skips when the thread already has a reply", () => {
+    expect(shouldProbeEmptyChat(true)).toBe(false);
+    expect(shouldProbeEmptyChat(false)).toBe(true);
   });
 
   it("shouldWarmDraftSocket when draft exists and chat not committed", () => {

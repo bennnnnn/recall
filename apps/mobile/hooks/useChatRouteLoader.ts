@@ -16,7 +16,7 @@ import {
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
-import { shouldDiscardOnNewChat } from "@/lib/chatDraftLogic";
+import { shouldDiscardOnNewChat, shouldProbeEmptyChat } from "@/lib/chatDraftLogic";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";
@@ -113,6 +113,8 @@ export function useChatRouteLoader({
   const chatLoadingRef = useRef(chatLoading);
   streamingRef.current = streaming;
   chatLoadingRef.current = chatLoading;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   const turnBusy = () => streamingRef.current || Boolean(imageGeneratingRef?.current);
 
@@ -219,7 +221,10 @@ export function useChatRouteLoader({
     const openChatId = typeof routeChatId === "string" ? routeChatId : null;
     const prevOpenChatId = priorRouteChatIdRef.current;
     if (prevOpenChatId && prevOpenChatId !== openChatId) {
-      discardEmptyChat(prevOpenChatId);
+      const hadAssistant = messagesRef.current.some((m) => m.role === "assistant");
+      if (shouldProbeEmptyChat(hadAssistant)) {
+        discardEmptyChat(prevOpenChatId);
+      }
     }
     if (openChatId && draftChatIdRef.current) {
       clearDraftChat();
@@ -351,7 +356,10 @@ export function useChatRouteLoader({
         if (!opts?.force) return;
         stopGeneration();
       }
-      if (shouldDiscardOnNewChat(routeChatId)) {
+      if (
+        shouldDiscardOnNewChat(routeChatId) &&
+        shouldProbeEmptyChat(messagesRef.current.some((m) => m.role === "assistant"))
+      ) {
         discardEmptyChat(chatId);
       }
       clearDraftChat();
@@ -366,7 +374,6 @@ export function useChatRouteLoader({
       if (routeChatId != null) {
         router.setParams({ chatId: undefined });
       }
-      void prepareDraftChat();
     },
     [
       stopGeneration,
@@ -377,7 +384,6 @@ export function useChatRouteLoader({
       router,
       setMessages,
       setInputRef,
-      prepareDraftChat,
       setChatId,
     ],
   );
@@ -388,7 +394,10 @@ export function useChatRouteLoader({
       const prompt = queued.prompt?.trim() ?? "";
       if (!prompt) return;
       if (turnBusy()) stopGeneration();
-      if (shouldDiscardOnNewChat(routeChatId)) {
+      if (
+        shouldDiscardOnNewChat(routeChatId) &&
+        shouldProbeEmptyChat(messagesRef.current.some((m) => m.role === "assistant"))
+      ) {
         discardEmptyChat(chatId);
       }
       clearDraftChat();
