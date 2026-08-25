@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
-import { chatTurnHomeRefreshOpts } from "@/lib/chatTurnRefresh";
 
 export function useChatErrorHandlers(isPro: boolean) {
   const { t } = useTranslation();
@@ -33,16 +32,14 @@ export function useChatErrorHandlers(isPro: boolean) {
 type StreamLifecycleParams = {
   streamActive: boolean;
   dismissChatError: () => void;
-  refreshHome: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
   token: string | null;
   isPro: boolean;
 };
 
-/** Clear inline errors while streaming and refresh quota/home after each turn. */
+/** Clear inline errors while streaming and refresh quota after each turn. */
 export function useChatStreamLifecycle({
   streamActive,
   dismissChatError,
-  refreshHome,
   token,
   isPro,
 }: StreamLifecycleParams) {
@@ -56,10 +53,9 @@ export function useChatStreamLifecycle({
   useEffect(() => {
     if (prevStreamActiveRef.current && !streamActive) {
       setQuotaRefreshKey((k) => k + 1);
-      void refreshHome(chatTurnHomeRefreshOpts());
     }
     prevStreamActiveRef.current = streamActive;
-  }, [streamActive, refreshHome]);
+  }, [streamActive]);
 
   const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
   return { ...quotaNudge, turnRefreshKey: quotaRefreshKey };

@@ -1,6 +1,5 @@
 import {
   chatSuggestionLoadAction,
-  chatTurnHomeRefreshOpts,
   shouldFetchChatSuggestions,
 } from "@/lib/chatTurnRefresh";
 
@@ -86,12 +85,5 @@ describe("shouldFetchChatSuggestions", () => {
         openedIdleThread: true,
       }),
     ).toBe(false);
-  });
-});
-
-describe("chatTurnHomeRefreshOpts", () => {
-  it("does not bypass the 20s Home cache after a chat turn", () => {
-    expect(chatTurnHomeRefreshOpts()).toEqual({ silent: true });
-    expect(chatTurnHomeRefreshOpts()).not.toHaveProperty("force");
   });
 });

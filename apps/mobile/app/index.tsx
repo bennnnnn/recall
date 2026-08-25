@@ -267,7 +267,6 @@ function ChatScreen() {
   const { turnRefreshKey, ...quotaNudge } = useChatStreamLifecycle({
     streamActive,
     dismissChatError,
-    refreshHome,
     token,
     isPro,
   });
