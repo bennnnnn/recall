@@ -12,11 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-- **Help-me-think chip hit suggestions twice, forced `/home`, and two TTS clips.**
-  Suggestions fetched when the user bubble landed and again at stream end;
-  lifecycle used `refreshHome({ force: true })`; prefetch also warmed clip 1.
-  Load chips after the turn (hold while streaming); silent home refresh
-  respects the 20s window; idle TTS warms clip 0 only.
+- **Help-me-think / STT still hit `/suggestions` three times.** User bubble
+  lands before the socket (`pendingOutboundId`); stream-end flips busy off
+  before `refreshKey` bumps — each was a fetch. Hold while turn-busy; fetch
+  only on refreshKey or when opening an idle thread. Don't force `/home`;
+  idle TTS warms clip 0 only.
 - **Banned chip fields were still copied onto Message.** Backend may send
   `recalled` / `fallback_used` / `context_summarized` for logs; putting them
   on the client message is a second entry point for chips we already removed.
