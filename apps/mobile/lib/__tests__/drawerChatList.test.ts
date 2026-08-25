@@ -33,10 +33,6 @@ describe("drawerChatFetchMode", () => {
     isDrawerOpen: true,
     hasToken: true,
     hasLoadedOnce: false,
-    lastFetchedAt: 0,
-    chatCount: 0,
-    now: 100_000,
-    staleMs: 20_000,
   };
 
   it("skips spinner path while the drawer is closed (idle warm is separate)", () => {
@@ -47,15 +43,8 @@ describe("drawerChatFetchMode", () => {
     expect(drawerChatFetchMode(base)).toBe("full");
   });
 
-  it("background-refreshes when open and stale", () => {
-    expect(
-      drawerChatFetchMode({
-        ...base,
-        hasLoadedOnce: true,
-        lastFetchedAt: 50_000,
-        chatCount: 3,
-      }),
-    ).toBe("background");
+  it("does not refetch GET /chats when the list is already painted", () => {
+    expect(drawerChatFetchMode({ ...base, hasLoadedOnce: true })).toBe("skip");
   });
 
   it("does not idle-warm GET /chats after the drawer already listed chats", () => {
@@ -82,16 +71,6 @@ describe("drawerChatFetchMode", () => {
     ).toBe(false);
   });
 
-  it("skips when open and fresh", () => {
-    expect(
-      drawerChatFetchMode({
-        ...base,
-        hasLoadedOnce: true,
-        lastFetchedAt: 90_000,
-        chatCount: 3,
-      }),
-    ).toBe("skip");
-  });
 });
 
 describe("insertChatIntoGroups", () => {

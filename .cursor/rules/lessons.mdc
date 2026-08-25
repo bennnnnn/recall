@@ -14,9 +14,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 - **Opening a chat from the drawer refetched `/chats`, `/chats/{id}`, and
   Gmail suggested-reminders.** Close-drawer idle-warm hit the list again;
+  opening the sidebar also `GET /chats` after titles were already cached;
   route load always `GET` the chat row; composer focus fetched reminders.
-  Warm `/chats` only before first paint; reuse the drawer row; composer
-  reads reminder cache only (Lists still refetch).
+  Warm `/chats` only before first paint; skip reopen if the list is loaded;
+  reuse the drawer row; composer reads reminder cache only.
 - **Learning list open fetched every class detail plus `/home`.** Focus
   refreshed Home and `prefetchProjectDetails` hit each `GET /projects/{id}`.
   Cards only need `GET /projects`; detail loads when a class is opened.

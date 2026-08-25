@@ -25,7 +25,6 @@ import {
   subscribeChatTitleGenerating,
 } from "@/lib/drawer";
 import {
-  CHAT_LIST_STALE_MS,
   drawerChatFetchMode,
   emptyChatList,
   insertChatIntoGroups,
@@ -114,9 +113,7 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       setError(false);
       try {
         // Blocking paths force a network read; background respects TTL/inflight.
-        const chatGroups = await fetchChatList(token, {
-          force: force || !background,
-        });
+        const chatGroups = await fetchChatList(token, { force });
         if (!chatGroups) {
           if (!background) setError(true);
           return;
@@ -184,26 +181,10 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       isDrawerOpen,
       hasToken: Boolean(token),
       hasLoadedOnce: hasLoadedOnceRef.current,
-      lastFetchedAt: lastFetchedRef.current,
-      chatCount: allChats.length,
-      now: Date.now(),
-      staleMs: CHAT_LIST_STALE_MS,
     });
     if (mode === "skip") return;
-    if (mode === "full") {
-      void load(false);
-      return;
-    }
-
-    let cancelled = false;
-    const cancelIdle = scheduleIdleTask(() => {
-      if (!cancelled) void load(true);
-    });
-    return () => {
-      cancelled = true;
-      cancelIdle();
-    };
-  }, [isDrawerOpen, token, load, allChats.length, hydrateFromCache]);
+    void load(false);
+  }, [isDrawerOpen, token, load, hydrateFromCache]);
 
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
     setGroups((prev) => {
