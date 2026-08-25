@@ -20,6 +20,11 @@ jest.mock("@/lib/cache/chatListCache", () => ({
 jest.mock("@/lib/chatMessageCache", () => ({
   readCachedChatMessages: jest.fn(async () => null),
   writeCachedChatMessages: jest.fn(async () => undefined),
+  cachedChatPageFetchedAt: (cached: { cached_at?: string } | null) => {
+    if (!cached?.cached_at) return undefined;
+    const at = Date.parse(cached.cached_at);
+    return Number.isFinite(at) ? at : undefined;
+  },
 }));
 jest.mock("@/hooks/useChatTitlePolling", () => ({
   useChatTitlePolling: () => ({
@@ -34,6 +39,7 @@ jest.mock("@/hooks/useChatHighlightScroll", () => ({
 
 import { api } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
+import { readCachedChatMessages } from "@/lib/chatMessageCache";
 
 const setChatId = jest.fn();
 const setMessages = jest.fn();
@@ -78,6 +84,7 @@ describe("useChatRouteLoader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getCachedChat as jest.Mock).mockReturnValue(undefined);
+    (readCachedChatMessages as jest.Mock).mockResolvedValue(null);
     (api.getChat as jest.Mock).mockResolvedValue({
       id: "chat-1",
       title: "Loaded",
@@ -106,6 +113,29 @@ describe("useChatRouteLoader", () => {
       expect(api.listMessages).toHaveBeenCalledWith("token", "chat-1", { limit: 40 });
     });
     expect(api.getChat).not.toHaveBeenCalled();
+  });
+
+  it("skips network when the drawer row and a fresh message cache exist", async () => {
+    (getCachedChat as jest.Mock).mockReturnValue({
+      id: "chat-1",
+      title: "From drawer",
+      pinned: false,
+      archived: false,
+      project_id: null,
+    });
+    (readCachedChatMessages as jest.Mock).mockResolvedValue({
+      messages: [{ id: "m1", role: "assistant", content: "Hello" }],
+      has_more: false,
+      cached_at: new Date().toISOString(),
+    });
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(setChatId).toHaveBeenCalledWith("chat-1");
+    });
+    expect(api.getChat).not.toHaveBeenCalled();
+    expect(api.listMessages).not.toHaveBeenCalled();
   });
 
   it("loads chat metadata and messages together for the route", async () => {
