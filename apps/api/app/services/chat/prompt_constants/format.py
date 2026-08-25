@@ -151,7 +151,25 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Do not decorate with emoji unless the user used them. "
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
     "Do not restate the question. "
-    "Use the simplest structure that answers; do not add sections just to look structured."
+    "Use the simplest structure that answers; do not add sections just to look structured. "
+    "Never invent a pipe table or ```comparison unless the user asked to compare options. "
+    "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
+    "Let's break it down)."
+)
+
+# Slim/casual turns: ChatGPT-shaped, not the rich-fence pack.
+COMPACT_RESPONSE_FORMAT_HINT = (
+    "Casual turn: lead with the answer in the first sentence. Plain prose or at "
+    "most 4 short bullets. No ## headings, no pipe tables, and no ```tip / "
+    "```warning / ```comparison / ```steps unless they asked for a checklist or "
+    "an X vs Y compare. If they pasted a phrase or fragment, correct or complete "
+    "it — do not invent a topic essay or joke about the words."
+)
+
+# Appended after the tone line so "funny" cannot override answer-first format.
+TONE_FORMAT_GUARD = (
+    "Configured tone is word choice only. Do not add a joke setup, recap, or "
+    "table before the answer. Funny never means a bit about the question."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the

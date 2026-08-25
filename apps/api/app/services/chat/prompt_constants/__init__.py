@@ -5,11 +5,13 @@ same way as the old ``prompt_constants`` module.
 """
 
 from app.services.chat.prompt_constants.format import (
+    COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     INTENT_FORMAT_HINT,
     RESPONSE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
+    TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     is_comparison_question,
 )
@@ -44,11 +46,14 @@ from app.services.chat.prompt_constants.visuals import VISUALIZATION_HINTS
 from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
     EMAIL_DRAFT_HINT,
+    WRITING_LINE_HINT,
+    is_bare_writing_line,
 )
 
 __all__ = [
     "BROAD_SELF_ANSWER_HINT",
     "CLARIFICATION_HINT",
+    "COMPACT_RESPONSE_FORMAT_HINT",
     "COMPARISON_FORMAT_HINT",
     "COPY_DELIVERABLE_HINT",
     "DAY_LEARNING_SNAPSHOT_HINT",
@@ -66,10 +71,13 @@ __all__ = [
     "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STYLE_HINTS",
+    "TONE_FORMAT_GUARD",
     "UNIVERSAL_FORMAT_BASELINE",
     "VISUALIZATION_HINTS",
     "VOCAB_CHAT_ANSWER_HINT",
+    "WRITING_LINE_HINT",
     "format_quiz_grading_hint",
+    "is_bare_writing_line",
     "is_broad_self_question",
     "is_comparison_question",
     "is_learning_progress_question",
