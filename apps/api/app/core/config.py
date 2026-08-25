@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
     jwt_refresh_expire_days: int = 30
 
-    deepseek_api_key: str = ""  # legacy — unused; all models route via OpenRouter
     openrouter_api_key: str = ""
     tavily_api_key: str = ""
 
