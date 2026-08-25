@@ -245,6 +245,19 @@ def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
     return emit_status, emit_reasoning
 
 
+def _client_geo_kwargs(
+    request: ChatMessageRequest | EditMessageRequest,
+    *,
+    client_timezone: str | None,
+) -> dict[str, Any]:
+    return {
+        "client_timezone": client_timezone,
+        "client_location": request.client_location,
+        "client_latitude": request.client_latitude,
+        "client_longitude": request.client_longitude,
+    }
+
+
 async def _handle_regenerate(
     websocket: WebSocket,
     *,
@@ -266,33 +279,18 @@ async def _handle_regenerate(
         )
         return
 
-    regen_model = request.model
-    regen_loc = request.client_location
-    regen_lat = request.client_latitude
-    regen_lng = request.client_longitude
-
-    def _regen_stream(
-        result,
-        model=regen_model,
-        tz=client_timezone,
-        loc=regen_loc,
-        lat=regen_lat,
-        lng=regen_lng,
-    ):
+    def _regen_stream(result: dict[str, str]) -> AsyncIterator[str]:
         return chat_service.stream_regenerate_response(
             redis,
             settings,
             user_id=user_id,
             chat_id=chat_id,
-            model_alias=model,
+            model_alias=request.model,
             should_cancel=cancel_event.is_set,
             result=result,
-            client_timezone=tz,
-            client_location=loc,
-            client_latitude=lat,
-            client_longitude=lng,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
+            **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
     await _run_chat_stream(
@@ -323,37 +321,20 @@ async def _handle_edit(
         )
         return
 
-    edit_model = edit_request.model
-    edit_loc = edit_request.client_location
-    edit_lat = edit_request.client_latitude
-    edit_lng = edit_request.client_longitude
-
-    def _edit_stream(
-        result,
-        mid=edit_request.message_id,
-        text=edit_request.content,
-        model=edit_model,
-        tz=client_timezone,
-        loc=edit_loc,
-        lat=edit_lat,
-        lng=edit_lng,
-    ):
+    def _edit_stream(result: dict[str, str]) -> AsyncIterator[str]:
         return chat_service.stream_edit_response(
             redis,
             settings,
             user_id=user_id,
             chat_id=chat_id,
-            message_id=mid,
-            new_content=text,
-            model_alias=model,
+            message_id=edit_request.message_id,
+            new_content=edit_request.content,
+            model_alias=edit_request.model,
             should_cancel=cancel_event.is_set,
             result=result,
-            client_timezone=tz,
-            client_location=loc,
-            client_latitude=lat,
-            client_longitude=lng,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
+            **_client_geo_kwargs(edit_request, client_timezone=client_timezone),
         )
 
     await _run_chat_stream(
@@ -382,43 +363,28 @@ async def _handle_message(
         await websocket.send_json({"type": "error", "message": "Invalid message"})
         return
 
-    message_content = request.content
-    message_model = request.model
-
     # Reject an empty text-only message at the WS layer so the client gets an
     # explicit error frame immediately, rather than the stream raising
     # ChatNotFoundError mid-flight (which the client may not map to a visible
     # error). An empty message with attachments is valid (image-only turn).
-    if not message_content.strip() and not request.attachment_ids:
+    if not request.content.strip() and not request.attachment_ids:
         await websocket.send_json({"type": "error", "message": "Message cannot be empty."})
         return
 
-    def _message_stream(
-        result,
-        text=message_content,
-        model=message_model,
-        aids=request.attachment_ids,
-        tz=client_timezone,
-        loc=request.client_location,
-        lat=request.client_latitude,
-        lng=request.client_longitude,
-    ):
+    def _message_stream(result: dict[str, str]) -> AsyncIterator[str]:
         return chat_service.stream_chat_response(
             redis,
             settings,
             user_id=user_id,
             chat_id=chat_id,
-            content=text,
-            model_alias=model,
-            attachment_ids=aids,
+            content=request.content,
+            model_alias=request.model,
+            attachment_ids=request.attachment_ids,
             should_cancel=cancel_event.is_set,
             result=result,
-            client_timezone=tz,
-            client_location=loc,
-            client_latitude=lat,
-            client_longitude=lng,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
+            **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
     await _run_chat_stream(
