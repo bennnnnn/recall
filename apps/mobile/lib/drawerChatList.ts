@@ -4,29 +4,20 @@ import { activeChatsFromGroups, emptyChatList } from "@/lib/chat/chatListSection
 /** How long a GET /chats response stays fresh for drawer paint / prefetch. */
 export const CHAT_LIST_STALE_MS = 20_000;
 
-export type DrawerChatFetchMode = "skip" | "full" | "background";
+export type DrawerChatFetchMode = "skip" | "full";
 
 /**
- * When the open drawer should run a spinner (`full`) or silent refresh
- * (`background`) listChats. Closed-drawer idle warm lives in
- * useDrawerChatList (via chatListCache) — this helper stays spinner-gated so
- * ConversationList mounting under DrawerShell never flips `loading` while
- * closed.
+ * Opening the sidebar paints from cache after the first load. Pull-to-refresh
+ * still hits the network. Closed-drawer idle warm lives in useDrawerChatList.
  */
 export function drawerChatFetchMode(opts: {
   isDrawerOpen: boolean;
   hasToken: boolean;
   hasLoadedOnce: boolean;
-  lastFetchedAt: number;
-  chatCount: number;
-  now: number;
-  staleMs: number;
 }): DrawerChatFetchMode {
   if (!opts.isDrawerOpen || !opts.hasToken) return "skip";
-  if (!opts.hasLoadedOnce || opts.lastFetchedAt === 0) return "full";
-  const stale =
-    opts.now - opts.lastFetchedAt > opts.staleMs || opts.chatCount === 0;
-  return stale ? "background" : "skip";
+  if (opts.hasLoadedOnce) return "skip";
+  return "full";
 }
 
 /** Closed-drawer idle warm is for first paint, not for closing the sidebar. */
