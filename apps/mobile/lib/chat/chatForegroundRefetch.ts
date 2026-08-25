@@ -21,7 +21,12 @@ export function shouldRefetchChatOnForeground(opts: {
   );
 }
 
-/** Drawer/focus silent refetch — skip when this chat was fetched within the stale window. */
+/** Back from Lists / Learning / Reminders must not reload the thread. */
+export function shouldSilentRefetchChatOnFocus(): boolean {
+  return false;
+}
+
+/** Foreground silent refetch — skip when this chat was fetched within the stale window. */
 export function shouldSkipSilentChatRefetch(opts: {
   lastFetchedAt: number | undefined;
   force?: boolean;

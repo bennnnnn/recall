@@ -12,10 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-- **Lists / Learning back reloaded the open thread and `/home`.** Chat
-  remounts on return. Skip Home when a thread is open; reuse the message
-  cache + drawer row even if the 20s window expired. `/projects` is the
-  Learning list itself, not chat remount.
+- **Lists / Learning / Reminders back reloaded the open thread.** Focus
+  silent-refetched `GET …/messages` (20s TTL still fired). Do not refetch
+  on in-app Back; App resume still recovers a truncated stream. Skip Home
+  when a thread is open; reuse the message cache + drawer row on remount.
 - **Help-me-think from Home still hit `/suggestions`, title poll, and TTS.**
   First reply reused `POST /chats` for the drawer row, then still fetched
   chips (job not ready) and warmed speak. Skip those; keep title poll or
