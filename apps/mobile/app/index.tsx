@@ -381,16 +381,13 @@ function ChatScreen() {
     handleScrollEnd,
   } = scroll;
 
-  const { prepareDraftChat, draftChatId } = draft;
+  const { draftChatId } = draft;
 
   useChatDraftWarmup({
     token,
-    routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     chatId,
-    messagesLength: messages.length,
     streaming: streamActive,
     draftChatId,
-    prepareDraftChat,
     connect,
   });
 

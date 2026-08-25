@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import { shareEmptyChatCheck } from "@/lib/chatDraftLogic";
 import type {
   Chat,
   ChatList,
@@ -64,18 +65,19 @@ export const chatsApi = {
     }),
   deleteChat: (token: string, chatId: string) =>
     request<void>(`/chats/${chatId}`, token, { method: "DELETE" }),
-  deleteChatIfEmpty: async (token: string, chatId: string) => {
-    const page = normalizeMessagePage(
-      await request<MessagePage | Message[]>(
-        `/chats/${chatId}/messages?limit=20`,
-        token,
-      ),
-    );
-    const hasAssistant = page.messages.some((m) => m.role === "assistant");
-    if (page.messages.length === 0 || !hasAssistant) {
-      await request<void>(`/chats/${chatId}`, token, { method: "DELETE" });
-    }
-  },
+  deleteChatIfEmpty: (token: string, chatId: string) =>
+    shareEmptyChatCheck(chatId, async () => {
+      const page = normalizeMessagePage(
+        await request<MessagePage | Message[]>(
+          `/chats/${chatId}/messages?limit=20`,
+          token,
+        ),
+      );
+      const hasAssistant = page.messages.some((m) => m.role === "assistant");
+      if (page.messages.length === 0 || !hasAssistant) {
+        await request<void>(`/chats/${chatId}`, token, { method: "DELETE" });
+      }
+    }),
   listChats: (token: string) => request<ChatList>("/chats", token),
   listMessages,
   listAllMessages: async (token: string, chatId: string): Promise<Message[]> => {
