@@ -15,7 +15,12 @@ import { syncTodoReminders } from "@/lib/todos/todoReminders";
 
 export function useSuggestedReminders(
   token: string | null,
-  callbacks?: { onAdded?: () => void; onDismiss?: (id: string) => void },
+  callbacks?: {
+    onAdded?: () => void;
+    onDismiss?: (id: string) => void;
+    /** Lists/Reminders refetch. Chat composer paints cache only. */
+    refreshOnFocus?: boolean;
+  },
 ) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -37,8 +42,9 @@ export function useSuggestedReminders(
 
   useFocusEffect(
     useCallback(() => {
+      if (callbacks?.refreshOnFocus === false) return;
       void load();
-    }, [load]),
+    }, [load, callbacks?.refreshOnFocus]),
   );
 
   const mutate = async (id: string, action: "add" | "dismiss") => {

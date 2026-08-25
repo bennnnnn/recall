@@ -29,6 +29,7 @@ import {
   drawerChatFetchMode,
   emptyChatList,
   insertChatIntoGroups,
+  shouldWarmClosedDrawerChatList,
 } from "@/lib/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
@@ -143,16 +144,27 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   }, [token, load]);
 
   // Idle-warm GET /chats while the drawer is closed so first open has titles.
+  // Skip after the user already opened history (closing the drawer to tap a
+  // chat must not refetch the list).
   useEffect(() => {
-    if (!token || isDrawerOpen) return;
-
     hydrateFromCache();
+    if (
+      !shouldWarmClosedDrawerChatList({
+        hasToken: Boolean(token),
+        isDrawerOpen,
+        hasLoadedOnce: hasLoadedOnceRef.current,
+      })
+    ) {
+      return;
+    }
+    const accessToken = token;
+    if (!accessToken) return;
 
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
       if (cancelled) return;
       void (async () => {
-        const data = await fetchChatList(token);
+        const data = await fetchChatList(accessToken);
         if (cancelled || !data) return;
         applyChatList(data, setGroups, lastFetchedRef, hasLoadedOnceRef);
       })();
