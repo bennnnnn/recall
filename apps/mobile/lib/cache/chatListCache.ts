@@ -6,6 +6,17 @@ import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
 const CHAT_LIST_KEY = "chat-list";
 const resource = new StaleResourceCache<string, ChatList>(CHAT_LIST_STALE_MS);
 
+/** POST /chats body — first reply inserts the drawer row without GET /chats/{id}. */
+let createdChat: Chat | undefined;
+
+export function rememberCreatedChat(chat: Chat): void {
+  createdChat = chat;
+}
+
+export function peekCreatedChat(id: string): Chat | undefined {
+  return createdChat?.id === id ? createdChat : undefined;
+}
+
 export function getCachedChatList(): ChatList | undefined {
   return resource.get(CHAT_LIST_KEY);
 }
@@ -31,6 +42,7 @@ export function setChatListCache(data: ChatList): void {
 
 export function invalidateChatListCache(): void {
   resource.invalidate(CHAT_LIST_KEY);
+  createdChat = undefined;
 }
 
 export async function fetchChatList(

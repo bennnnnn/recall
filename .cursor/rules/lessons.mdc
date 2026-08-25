@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Help-me-think from Home `GET /chats/{id}` three times.** First reply
+  fetched the row to insert the drawer entry, then title-polled. Reuse the
+  `POST /chats` body (or a titled drawer row); poll only while title is empty.
 - **Opening a chat from the drawer refetched `/chats`, `/chats/{id}`, and
   Gmail suggested-reminders.** Close-drawer idle-warm hit the list again;
   opening the sidebar also `GET /chats` after titles were already cached;
