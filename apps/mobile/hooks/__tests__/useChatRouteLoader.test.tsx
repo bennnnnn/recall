@@ -115,7 +115,7 @@ describe("useChatRouteLoader", () => {
     expect(api.getChat).not.toHaveBeenCalled();
   });
 
-  it("skips network when the drawer row and a fresh message cache exist", async () => {
+  it("skips network when the drawer row and a message cache exist", async () => {
     (getCachedChat as jest.Mock).mockReturnValue({
       id: "chat-1",
       title: "From drawer",
@@ -126,7 +126,7 @@ describe("useChatRouteLoader", () => {
     (readCachedChatMessages as jest.Mock).mockResolvedValue({
       messages: [{ id: "m1", role: "assistant", content: "Hello" }],
       has_more: false,
-      cached_at: new Date().toISOString(),
+      cached_at: new Date(Date.now() - 60_000).toISOString(),
     });
     await act(async () => {
       render(<Probe />);

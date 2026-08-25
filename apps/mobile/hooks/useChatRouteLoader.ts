@@ -289,13 +289,6 @@ export function useChatRouteLoader({
             setArchived(Boolean(listed.archived));
             draftProjectIdRef.current = listed.project_id ?? draftProjectIdRef.current;
             setQuizVariant(resolveQuizVariant(listed.project_id));
-          }
-          const cacheFresh = shouldSkipSilentChatRefetch({
-            lastFetchedAt:
-              lastSilentFetchAtRef.current.get(openChatId) ??
-              cachedChatPageFetchedAt(cached),
-          });
-          if (cacheFresh && listed) {
             lastSilentFetchAtRef.current.set(
               openChatId,
               cachedChatPageFetchedAt(cached) ?? Date.now(),
@@ -305,7 +298,9 @@ export function useChatRouteLoader({
         }
         const [chat, page] = await Promise.all([
           listed ?? api.getChat(token, openChatId),
-          api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
+          cached
+            ? Promise.resolve({ messages: cached.messages, has_more: cached.has_more })
+            : api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (cancelled) return;
         setChatId(chat.id);
