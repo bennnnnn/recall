@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/contexts/HomeContext";
+import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
 import { useChat } from "@/hooks/useChat";
 import { useChatActions } from "@/hooks/useChatActions";
 import { useChatComposerState } from "@/hooks/useChatComposerState";
@@ -82,8 +83,11 @@ function ChatScreen() {
   const { refresh: refreshHome } = useHome();
   useFocusEffect(
     useCallback(() => {
+      const openThread =
+        (typeof routeChatId === "string" && routeChatId) || chatId;
+      if (!shouldRefreshHomeOnChatFocus(Boolean(openThread))) return;
       void refreshHome({ silent: true });
-    }, [refreshHome]),
+    }, [refreshHome, routeChatId, chatId]),
   );
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
     useChatErrorHandlers(isPro);

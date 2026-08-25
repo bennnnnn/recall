@@ -7,3 +7,8 @@ export function isContextFresh(
 ): boolean {
   return lastFetchedAt != null && now - lastFetchedAt < CONTEXT_REFRESH_STALE_MS;
 }
+
+/** Home starters are not on screen when a thread is open. */
+export function shouldRefreshHomeOnChatFocus(hasOpenThread: boolean): boolean {
+  return !hasOpenThread;
+}

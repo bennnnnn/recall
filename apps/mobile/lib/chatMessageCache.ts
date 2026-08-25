@@ -29,6 +29,14 @@ async function ensureDir(): Promise<void> {
   }
 }
 
+export function cachedChatPageFetchedAt(
+  cached: Pick<CachedChatPage, "cached_at"> | null | undefined,
+): number | undefined {
+  if (!cached?.cached_at) return undefined;
+  const at = Date.parse(cached.cached_at);
+  return Number.isFinite(at) ? at : undefined;
+}
+
 export async function readCachedChatMessages(chatId: string): Promise<CachedChatPage | null> {
   if (!cacheDirectory) return null;
   try {

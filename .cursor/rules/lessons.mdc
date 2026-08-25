@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Lists back reloaded the open thread and `/home`.** Chat remounts on
+  return and focus always pulled Home, plus `GET /chats/{id}` + messages.
+  Skip Home when a thread is open; reuse a fresh message cache + drawer row.
 - **Opening a chat from the drawer refetched `/chats`, `/chats/{id}`, and
   Gmail suggested-reminders.** Close-drawer idle-warm hit the list again;
   opening the sidebar also `GET /chats` after titles were already cached;
