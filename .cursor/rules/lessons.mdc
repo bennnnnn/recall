@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Banned chip fields were still copied onto Message.** Backend may send
+  `recalled` / `fallback_used` / `context_summarized` for logs; putting them
+  on the client message is a second entry point for chips we already removed.
 - **Calendar-write blocked Phase B, and calendar-only turns loaded priors.**
   `_load_has_calendar_write` + `_load_prior_user_messages` ran before Tavily/
   Calendar API. Priors only matter when augmenting; write access belongs in

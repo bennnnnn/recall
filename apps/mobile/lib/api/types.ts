@@ -52,16 +52,11 @@ export type Message = {
   content: string;
   model: string | null;
   feedback?: Feedback;
-  recalled?: number;
-  memory_hints?: string[];
-  context_summarized?: number;
   search_sources?: SearchSource[];
   local_image_uri?: string | null;
   local_file_uri?: string | null;
   local_file_name?: string | null;
   local_file_content_type?: string | null;
-  /** Client-only: server fell back to another model for this reply. */
-  fallback_used?: boolean;
   /** Client-only FlashList key — stable while `id` changes streaming → persisted. */
   renderKey?: string;
   /** Client-only: reasoning shown during stream, kept through layout settle to avoid list bounce. */

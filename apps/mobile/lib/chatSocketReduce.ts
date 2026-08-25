@@ -12,14 +12,9 @@ export type ChatWsPayload = {
   detail?: string;
   reasoning?: string;
   final_content?: string;
-  recalled?: string;
-  memory_hints?: string;
-  context_summarized?: string;
   todos_sync?: string;
   search_sources?: string;
   resolved_model?: string;
-  requested_model?: string;
-  fallback_used?: string;
 };
 
 const STOPPED_STREAM_DELTA_TYPES = new Set([
@@ -49,15 +44,6 @@ export function appendToken(buffer: string, token: string | undefined): string {
   return buffer + (token ?? "");
 }
 
-export function parseMemoryHints(raw: string | undefined): string[] | undefined {
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw) as string[];
-  } catch {
-    return undefined;
-  }
-}
-
 export function parsePayloadSearchSources(
   raw: string | undefined,
 ): SearchSource[] | undefined {
@@ -71,14 +57,10 @@ export type DoneMergeInput = {
   messageId?: string;
   draftContent: string;
   finalContent?: string;
-  recalled?: number;
-  memory_hints?: string[];
-  context_summarized?: number;
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
   reasoning_preview?: string;
   model?: string | null;
-  fallback_used?: boolean;
   /**
    * Local id given to the streaming bubble when the user stopped generation
    * (e.g. `streamed-<ts>`). When the server's `done` arrives after a stop,
@@ -99,14 +81,10 @@ export function mergeDoneIntoMessages(
     messageId,
     draftContent,
     finalContent,
-    recalled,
-    memory_hints,
-    context_summarized,
     search_sources,
     draftSearchSources,
     reasoning_preview,
     model,
-    fallback_used,
     stoppedStreamedId,
   } = input;
 
@@ -123,16 +101,12 @@ export function mergeDoneIntoMessages(
             content: stripSearchSourcesFromContent(
               finalContent ?? (draftContent || m.content),
             ),
-            recalled,
-            memory_hints,
-            context_summarized,
             search_sources:
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             reasoning_preview,
             model: model ?? m.model,
-            fallback_used: fallback_used || m.fallback_used,
           }
         : m,
     );
@@ -156,16 +130,12 @@ export function mergeDoneIntoMessages(
             ...m,
             id: finalId,
             content,
-            recalled,
-            memory_hints,
-            context_summarized,
             search_sources:
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             reasoning_preview,
             model: model ?? m.model,
-            fallback_used: fallback_used || m.fallback_used,
           }
         : m,
     );
@@ -183,10 +153,6 @@ export function mergeDoneIntoMessages(
       role: "assistant" as const,
       content,
       model: model ?? null,
-      fallback_used: fallback_used || undefined,
-      recalled,
-      memory_hints,
-      context_summarized,
       search_sources: search_sources ?? parseSearchSources(content),
       created_at: new Date().toISOString(),
     },
@@ -197,11 +163,10 @@ export function mergeDoneIntoMessages(
 export function applyStreamEndModel(
   messages: Message[],
   model: string | undefined,
-  fallbackUsed = false,
 ): Message[] {
   if (!model) return messages;
   return messages.map((m) =>
-    m.id === "streaming" ? { ...m, model, fallback_used: fallbackUsed || undefined } : m,
+    m.id === "streaming" ? { ...m, model } : m,
   );
 }
 
@@ -219,16 +184,10 @@ export function buildDoneMergeInput(
     messageId: payload.message_id,
     draftContent: draft?.content ?? "",
     finalContent,
-    recalled: payload.recalled ? Number(payload.recalled) : undefined,
-    context_summarized: payload.context_summarized
-      ? Number(payload.context_summarized)
-      : undefined,
-    memory_hints: parseMemoryHints(payload.memory_hints),
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
     reasoning_preview: reasoningPreview || undefined,
     model: payload.resolved_model ?? null,
-    fallback_used: payload.fallback_used === "1" || payload.fallback_used === "true",
     stoppedStreamedId,
   };
 }

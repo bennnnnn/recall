@@ -135,34 +135,20 @@ describe("chatSocketReduce", () => {
     expect(next[0].id).toBe("u1");
   });
 
-  it("buildDoneMergeInput parses metadata fields", () => {
+  it("buildDoneMergeInput parses stream metadata", () => {
     const input = buildDoneMergeInput(
       {
         type: "done",
         message_id: "abc",
-        recalled: "2",
-        memory_hints: '["goal"]',
+        resolved_model: "smart-chat",
         final_content: "Full text",
       },
       { content: "Full text" },
       123,
     );
     expect(input.finalId).toBe("abc");
-    expect(input.recalled).toBe(2);
-    expect(input.memory_hints).toEqual(["goal"]);
-    expect(input.finalContent).toBe("Full text");
-  });
-
-  it("buildDoneMergeInput captures resolved_model", () => {
-    const input = buildDoneMergeInput(
-      {
-        type: "done",
-        message_id: "abc",
-        resolved_model: "smart-chat",
-      },
-      { content: "Hi" },
-    );
     expect(input.model).toBe("smart-chat");
+    expect(input.finalContent).toBe("Full text");
   });
 
   it("buildDoneMergeInput keeps reasoning preview for layout settle", () => {
