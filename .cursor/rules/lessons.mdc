@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Opening a chat from the drawer refetched `/chats`, `/chats/{id}`, and
+  Gmail suggested-reminders.** Close-drawer idle-warm hit the list again;
+  route load always `GET` the chat row; composer focus fetched reminders.
+  Warm `/chats` only before first paint; reuse the drawer row; composer
+  reads reminder cache only (Lists still refetch).
 - **Help-me-think / STT still hit `/suggestions` three times.** User bubble
   lands before the socket (`pendingOutboundId`); stream-end flips busy off
   before `refreshKey` bumps — each was a fetch. Hold while turn-busy; fetch

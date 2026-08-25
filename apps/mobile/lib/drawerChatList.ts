@@ -29,6 +29,15 @@ export function drawerChatFetchMode(opts: {
   return stale ? "background" : "skip";
 }
 
+/** Closed-drawer idle warm is for first paint, not for closing the sidebar. */
+export function shouldWarmClosedDrawerChatList(opts: {
+  hasToken: boolean;
+  isDrawerOpen: boolean;
+  hasLoadedOnce: boolean;
+}): boolean {
+  return opts.hasToken && !opts.isDrawerOpen && !opts.hasLoadedOnce;
+}
+
 /** Insert a chat into drawer groups if it is not already listed. */
 export function insertChatIntoGroups(groups: ChatList, chat: Chat): ChatList {
   const listed = activeChatsFromGroups(groups).concat(groups.archived);

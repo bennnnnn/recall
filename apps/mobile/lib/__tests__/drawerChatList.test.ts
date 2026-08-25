@@ -1,4 +1,8 @@
-import { drawerChatFetchMode, insertChatIntoGroups } from "@/lib/drawerChatList";
+import {
+  drawerChatFetchMode,
+  insertChatIntoGroups,
+  shouldWarmClosedDrawerChatList,
+} from "@/lib/drawerChatList";
 import { removeChatFromGroups } from "@/lib/chat/chatListSections";
 import type { Chat, ChatList } from "@/lib/api";
 
@@ -52,6 +56,30 @@ describe("drawerChatFetchMode", () => {
         chatCount: 3,
       }),
     ).toBe("background");
+  });
+
+  it("does not idle-warm GET /chats after the drawer already listed chats", () => {
+    expect(
+      shouldWarmClosedDrawerChatList({
+        hasToken: true,
+        isDrawerOpen: false,
+        hasLoadedOnce: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldWarmClosedDrawerChatList({
+        hasToken: true,
+        isDrawerOpen: false,
+        hasLoadedOnce: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldWarmClosedDrawerChatList({
+        hasToken: true,
+        isDrawerOpen: true,
+        hasLoadedOnce: false,
+      }),
+    ).toBe(false);
   });
 
   it("skips when open and fresh", () => {
