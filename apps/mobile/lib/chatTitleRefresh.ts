@@ -3,18 +3,19 @@ import type { Chat } from "@/lib/api";
 export type FirstReplyTitlePlan = {
   insert: Chat | null;
   fetch: boolean;
+  poll: boolean;
 };
 
 /**
  * First assistant reply used to GET /chats/{id} just to insert the drawer row.
- * Home send already has the POST /chats body. Do not title-poll on send —
- * the header stays untitled until the next list refresh.
+ * Home send already has the POST /chats body. Still poll while title is empty
+ * so the drawer does not stay "Untitled" until a manual refresh.
  */
 export function firstReplyTitlePlan(
   created: Chat | undefined,
   listed: Chat | undefined,
 ): FirstReplyTitlePlan {
   const chat = created ?? listed;
-  if (!chat) return { insert: null, fetch: true };
-  return { insert: chat, fetch: false };
+  if (!chat) return { insert: null, fetch: true, poll: true };
+  return { insert: chat, fetch: false, poll: !chat.title };
 }

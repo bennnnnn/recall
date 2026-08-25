@@ -142,9 +142,11 @@ describe("useChatTitlePolling", () => {
     expect(getChat).not.toHaveBeenCalled();
 
     await act(async () => {
-      jest.advanceTimersByTime(10000);
+      jest.advanceTimersByTime(2000);
     });
-    expect(getChat).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    });
   });
 
   it("does not GET or poll when the drawer row already has a title", async () => {
