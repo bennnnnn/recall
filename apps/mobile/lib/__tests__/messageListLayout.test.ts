@@ -1,8 +1,11 @@
 import {
+  beginStreamLayoutHold,
   isFreshStreamRenderKey,
   messageListItemType,
   messageListKey,
   ESTIMATED_MESSAGE_HEIGHT,
+  STREAM_AUTOSCROLL_RESUME_MS,
+  STREAM_LAYOUT_SETTLE_MS,
   shouldHoldStreamLayoutOnPersistedMount,
 } from "@/lib/messageListLayout";
 
@@ -50,6 +53,23 @@ describe("messageListLayout", () => {
     expect(isFreshStreamRenderKey("stream-171")).toBe(true);
     expect(isFreshStreamRenderKey("msg-1")).toBe(false);
     expect(isFreshStreamRenderKey(undefined)).toBe(false);
+  });
+
+  it("keeps native autoscroll suppressed past the chrome settle tick", () => {
+    expect(STREAM_AUTOSCROLL_RESUME_MS).toBeGreaterThan(STREAM_LAYOUT_SETTLE_MS);
+  });
+
+  it("beginStreamLayoutHold honors a longer resume delay", () => {
+    jest.useFakeTimers();
+    const setHeld = jest.fn();
+    const cleanup = beginStreamLayoutHold(setHeld, STREAM_AUTOSCROLL_RESUME_MS);
+    expect(setHeld).toHaveBeenCalledWith(true);
+    jest.advanceTimersByTime(STREAM_LAYOUT_SETTLE_MS);
+    expect(setHeld).not.toHaveBeenCalledWith(false);
+    jest.advanceTimersByTime(STREAM_AUTOSCROLL_RESUME_MS - STREAM_LAYOUT_SETTLE_MS);
+    expect(setHeld).toHaveBeenCalledWith(false);
+    cleanup();
+    jest.useRealTimers();
   });
 
   it("shouldHoldStreamLayoutOnPersistedMount only for fresh assistant rows", () => {

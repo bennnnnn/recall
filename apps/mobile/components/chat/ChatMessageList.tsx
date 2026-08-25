@@ -10,6 +10,7 @@ import {
   beginStreamLayoutHold,
   messageListItemType,
   messageListKey,
+  STREAM_AUTOSCROLL_RESUME_MS,
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -71,23 +72,18 @@ function ChatMessageListComponent({
   // LLM burst boundaries → jitter. While streaming, disable native autoscroll
   // (threshold < 0) and let useChatScroll own pinning exclusively.
   //
-  // That same fight reappears right as a stream ends: useChatScroll's own
-  // post-stream scrollToEnd is deliberately deferred by STREAM_LAYOUT_SETTLE_MS
-  // (matching MessageBubble's layout hold, which reveals full markdown +
-  // feedback icons over that same window and grows the row's height). If
-  // native autoscroll re-armed the instant `streamActive` flips false, it
-  // would fire off the pre-growth height, then the deferred scrollToEnd (or
-  // FlashList's own growth-triggered autoscroll) corrects again a moment
-  // later — a visible "falls, then snaps back". Keep native autoscroll
-  // suppressed through that settle window too, so the single deferred
-  // scrollToEnd is the sole writer for this transition as well.
+  // The same fight used to reappear at stream end: chrome unfreezes, chips
+  // land, and native autoscroll re-armed on the same STREAM_LAYOUT_SETTLE_MS
+  // tick as JS scrollToEnd — two writers, springy up/down. Keep native off
+  // until STREAM_AUTOSCROLL_RESUME_MS so the deferred JS pin is the only
+  // writer after the row has actually grown.
   const [autoscrollSuppressed, setAutoscrollSuppressed] = useState(streamActive);
   useEffect(() => {
     if (streamActive) {
       setAutoscrollSuppressed(true);
       return;
     }
-    return beginStreamLayoutHold(setAutoscrollSuppressed);
+    return beginStreamLayoutHold(setAutoscrollSuppressed, STREAM_AUTOSCROLL_RESUME_MS);
   }, [streamActive]);
 
   const maintainVisibleContentPosition = useMemo(

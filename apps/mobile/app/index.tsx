@@ -484,6 +484,7 @@ function ChatScreen() {
     mathBarExtra: mathChromeExtra,
     messagesLength: displayMessages.length,
     streaming: streamActive,
+    lastMessageId: displayMessages[displayMessages.length - 1]?.id,
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);

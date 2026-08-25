@@ -1,5 +1,6 @@
 import {
   buildModelOptions,
+  CHAT_ACTION_ROW_HEIGHT,
   composerShowsMic,
   composerShowsSend,
   computeChatLayoutMetrics,
@@ -7,7 +8,9 @@ import {
   isComposerMenuOverlayOpen,
   isModelSelectableInComposer,
   resolveSelectedModelLabel,
+  shouldReserveComposerActionGap,
 } from "@/lib/chatComposerLogic";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
 
 describe("chatComposerLogic", () => {
   const catalog = [
@@ -174,7 +177,7 @@ describe("chatComposerLogic", () => {
     ).toBe(false);
   });
 
-  it("computeChatLayoutMetrics accounts for keyboard and feedback row", () => {
+  it("computeChatLayoutMetrics holds composer-gap air only for the in-flight placeholder", () => {
     const idle = computeChatLayoutMetrics({
       insetsTop: 44,
       insetsBottom: 20,
@@ -184,13 +187,12 @@ describe("chatComposerLogic", () => {
       attachmentExtra: 0,
       messagesLength: 2,
       streaming: false,
+      lastMessageId: "msg-1",
     });
     expect(idle.composerLift).toBe(0);
     expect(idle.composerBottomPad).toBe(20);
-    expect(idle.listBottomPad).toBeGreaterThan(idle.composerClearance);
+    expect(idle.listBottomPad).toBe(idle.composerClearance);
 
-    // Feedback-row clearance must be reserved during streaming too, so the list
-    // does not jump when a reply lands and the feedback icons appear.
     const streaming = computeChatLayoutMetrics({
       insetsTop: 44,
       insetsBottom: 20,
@@ -200,8 +202,24 @@ describe("chatComposerLogic", () => {
       attachmentExtra: 0,
       messagesLength: 2,
       streaming: true,
+      lastMessageId: "streaming",
     });
-    expect(streaming.listBottomPad).toBe(idle.listBottomPad);
+    expect(streaming.listBottomPad).toBe(idle.composerClearance + CHAT_ACTION_ROW_HEIGHT);
+
+    // Finalize still has streaming=true on the old signal, but icons already
+    // live on the persisted row — do not keep the extra pad.
+    const finalizing = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      messagesLength: 2,
+      streaming: true,
+      lastMessageId: "msg-1",
+    });
+    expect(finalizing.listBottomPad).toBe(idle.composerClearance);
 
     const keyboard = computeChatLayoutMetrics({
       insetsTop: 44,
@@ -229,6 +247,13 @@ describe("chatComposerLogic", () => {
       streaming: false,
     });
     expect(withMathBar.composerBlockHeight).toBe(144);
+  });
+
+  it("shouldReserveComposerActionGap only for in-flight placeholders", () => {
+    expect(shouldReserveComposerActionGap("streaming")).toBe(true);
+    expect(shouldReserveComposerActionGap(IMAGE_GEN_PENDING_ASSISTANT_ID)).toBe(true);
+    expect(shouldReserveComposerActionGap("msg-1")).toBe(false);
+    expect(shouldReserveComposerActionGap(undefined)).toBe(false);
   });
 
   it("formatModelCostHint shows quota multiplier only, not token prices", () => {
