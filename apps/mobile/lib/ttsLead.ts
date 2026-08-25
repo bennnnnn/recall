@@ -5,6 +5,12 @@
 
 export const TTS_LEAD_MIN_CHARS = 120;
 export const TTS_LEAD_MAX_CHARS = 160;
+/** Idle speaker prefetch warms this many clips. The rest load when the user taps. */
+export const TTS_PREFETCH_CHUNK_LIMIT = 1;
+
+export function shouldPrefetchTtsChunk(index: number): boolean {
+  return index >= 0 && index < TTS_PREFETCH_CHUNK_LIMIT;
+}
 const SENTENCE_ENDS = new Set([".", "!", "?"]);
 
 function isSentenceEnd(text: string, index: number): boolean {
