@@ -1,4 +1,5 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
+import { clearKnownAssistantChats } from "@/lib/chatDraftLogic";
 import { allChatsFromGroups } from "@/lib/chat/chatListSections";
 import { StaleResourceCache } from "@/lib/cache/staleResource";
 import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
@@ -54,6 +55,7 @@ export function invalidateChatListCache(): void {
   resource.invalidate(CHAT_LIST_KEY);
   createdChat = undefined;
   skipCreatedSuggestions = false;
+  clearKnownAssistantChats();
 }
 
 export async function fetchChatList(

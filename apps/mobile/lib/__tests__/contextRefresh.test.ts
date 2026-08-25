@@ -18,7 +18,13 @@ describe("isContextFresh", () => {
 
 describe("shouldRefreshHomeOnChatFocus", () => {
   it("skips /home when a thread is already open", () => {
-    expect(shouldRefreshHomeOnChatFocus(true)).toBe(false);
-    expect(shouldRefreshHomeOnChatFocus(false)).toBe(true);
+    expect(shouldRefreshHomeOnChatFocus({ hasOpenThread: true })).toBe(false);
+    expect(shouldRefreshHomeOnChatFocus({ hasOpenThread: false })).toBe(true);
+  });
+
+  it("skips /home on New chat when login already fetched Home", () => {
+    expect(
+      shouldRefreshHomeOnChatFocus({ hasOpenThread: false, hasFetchedHome: true }),
+    ).toBe(false);
   });
 });

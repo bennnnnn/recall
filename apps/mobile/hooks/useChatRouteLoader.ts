@@ -22,7 +22,12 @@ import {
 } from "@/lib/chatMessageCache";
 import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
-import { shouldDiscardOnNewChat, shouldProbeEmptyChat } from "@/lib/chatDraftLogic";
+import {
+  markChatHasAssistant,
+  shouldDiscardOnNewChat,
+  shouldProbeEmptyChat,
+  shouldProbePreviousChat,
+} from "@/lib/chatDraftLogic";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";
@@ -121,6 +126,13 @@ export function useChatRouteLoader({
   chatLoadingRef.current = chatLoading;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const knownAssistantChatId = chatId ?? (typeof routeChatId === "string" ? routeChatId : null);
+  const messagesHadAssistant = messages.some((m) => m.role === "assistant");
+  useEffect(() => {
+    if (knownAssistantChatId && messagesHadAssistant) {
+      markChatHasAssistant(knownAssistantChatId);
+    }
+  }, [knownAssistantChatId, messagesHadAssistant]);
 
   const turnBusy = () => streamingRef.current || Boolean(imageGeneratingRef?.current);
 
@@ -242,8 +254,14 @@ export function useChatRouteLoader({
     const openChatId = typeof routeChatId === "string" ? routeChatId : null;
     const prevOpenChatId = priorRouteChatIdRef.current;
     if (prevOpenChatId && prevOpenChatId !== openChatId) {
-      const hadAssistant = messagesRef.current.some((m) => m.role === "assistant");
-      if (shouldProbeEmptyChat(hadAssistant)) {
+      if (
+        shouldProbePreviousChat({
+          chatId: prevOpenChatId,
+          messagesHadAssistant: messagesRef.current.some(
+            (m) => m.role === "assistant",
+          ),
+        })
+      ) {
         discardEmptyChat(prevOpenChatId);
       }
     }

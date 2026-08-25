@@ -80,14 +80,21 @@ function ChatScreen() {
   });
   const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
-  const { refresh: refreshHome } = useHome();
+  const { refresh: refreshHome, hasFetched: hasFetchedHome } = useHome();
   useFocusEffect(
     useCallback(() => {
       const openThread =
         (typeof routeChatId === "string" && routeChatId) || chatId;
-      if (!shouldRefreshHomeOnChatFocus(Boolean(openThread))) return;
+      if (
+        !shouldRefreshHomeOnChatFocus({
+          hasOpenThread: Boolean(openThread),
+          hasFetchedHome,
+        })
+      ) {
+        return;
+      }
       void refreshHome({ silent: true });
-    }, [refreshHome, routeChatId, chatId]),
+    }, [refreshHome, routeChatId, chatId, hasFetchedHome]),
   );
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
     useChatErrorHandlers(isPro);

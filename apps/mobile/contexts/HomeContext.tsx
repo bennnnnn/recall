@@ -21,6 +21,7 @@ import { instantHomePlaceholder } from "@/lib/homeWelcome";
 type HomeContextValue = {
   screen: HomeScreen | null;
   loading: boolean;
+  hasFetched: boolean;
   refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
 };
 
@@ -31,6 +32,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
   const token = auth?.token;
   const userName = auth?.user?.name;
   const [screen, setScreen] = useState<HomeScreen | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
   const [loading, setLoading] = useState(true);
   const resourceRef = useRef(
     new StaleResourceCache<string, HomeScreen>(CONTEXT_REFRESH_STALE_MS),
@@ -42,6 +44,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     async (opts?: { silent?: boolean; force?: boolean }) => {
       if (!token) {
         setScreen(null);
+        setHasFetched(false);
         setLoading(false);
         resourceRef.current.clear();
         return;
@@ -73,6 +76,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
           opts,
         );
         setScreen(data);
+        setHasFetched(true);
       } catch {
         // Keep the last successful screen.
       } finally {
@@ -85,6 +89,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) {
       setScreen(null);
+      setHasFetched(false);
       setLoading(false);
       resourceRef.current.clear();
       return;
@@ -117,9 +122,10 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     () => ({
       screen,
       loading,
+      hasFetched,
       refresh,
     }),
-    [screen, loading, refresh],
+    [screen, loading, hasFetched, refresh],
   );
 
   return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;

@@ -3,7 +3,10 @@ import {
   shareEmptyChatCheck,
   shouldDiscardOnNewChat,
   shouldProbeEmptyChat,
+  shouldProbePreviousChat,
   shouldWarmDraftSocket,
+  markChatHasAssistant,
+  clearKnownAssistantChats,
 } from "@/lib/chatDraftLogic";
 
 describe("chatDraftLogic", () => {
@@ -37,6 +40,18 @@ describe("chatDraftLogic", () => {
   it("shouldProbeEmptyChat skips when the thread already has a reply", () => {
     expect(shouldProbeEmptyChat(true)).toBe(false);
     expect(shouldProbeEmptyChat(false)).toBe(true);
+  });
+
+  it("shouldProbePreviousChat skips after New chat clears the message list", () => {
+    clearKnownAssistantChats();
+    markChatHasAssistant("chat-1");
+    expect(
+      shouldProbePreviousChat({ chatId: "chat-1", messagesHadAssistant: false }),
+    ).toBe(false);
+    expect(
+      shouldProbePreviousChat({ chatId: "chat-2", messagesHadAssistant: false }),
+    ).toBe(true);
+    clearKnownAssistantChats();
   });
 
   it("shouldWarmDraftSocket when draft exists and chat not committed", () => {
