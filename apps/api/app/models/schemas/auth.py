@@ -99,15 +99,7 @@ class UserUpdate(BaseModel):
             raise ValueError("reminder_lead_minutes must be 5, 10, 15, 30, or 60")
         return value
 
-    @field_validator("custom_instructions")
-    @classmethod
-    def validate_custom_instructions(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        text = value.strip()
-        return text or None
-
-    @field_validator("country", "job")
+    @field_validator("custom_instructions", "country", "job")
     @classmethod
     def validate_optional_profile_text(cls, value: str | None) -> str | None:
         if value is None:
