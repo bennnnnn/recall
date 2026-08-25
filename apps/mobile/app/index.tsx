@@ -430,7 +430,7 @@ function ChatScreen() {
   const { suggestions, dismiss: dismissSuggestion } = useChatSuggestions({
     token,
     hasMessages: displayMessages.length > 0,
-    streamActive,
+    turnBusy: streamActive || Boolean(pendingOutboundId),
     refreshKey: turnRefreshKey,
   });
 
