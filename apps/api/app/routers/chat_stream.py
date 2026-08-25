@@ -43,6 +43,11 @@ router = APIRouter(prefix="/chats", tags=["chat-stream"])
 
 _DISCONNECT_POLL_SECONDS = 0.5
 
+_TokenStream = Callable[
+    [dict[str, Any], StreamStatusFn, StreamReasoningFn, Callable[[], bool]],
+    AsyncIterator[str],
+]
+
 
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
     """Throttle chat actions per user, then hand back the Redis handle.
@@ -69,15 +74,14 @@ async def _stream_tokens_sse(
     *,
     chat_id: UUID,
     settings: Settings,
-    stream_factory: Callable[
-        [dict[str, Any], StreamStatusFn, StreamReasoningFn],
-        AsyncIterator[str],
-    ],
+    stream_factory: _TokenStream,
     request: Request,
-    cancel_event: asyncio.Event,
+    cancel_event: asyncio.Event | None = None,
 ) -> AsyncIterator[str]:
     result: dict[str, Any] = {}
     event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
+    if cancel_event is None:
+        cancel_event = asyncio.Event()
     yield _sse(build_start_event())
 
     async def on_status(phase: str, detail: str | None = None) -> None:
@@ -91,7 +95,7 @@ async def _stream_tokens_sse(
 
     async def produce_tokens() -> None:
         try:
-            stream = stream_factory(result, on_status, on_reasoning)
+            stream = stream_factory(result, on_status, on_reasoning, should_cancel)
             async for token_text in stream:
                 if should_cancel():
                     break
@@ -211,6 +215,15 @@ def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
     )
 
 
+def _client_geo(body: ChatMessageRequest | EditMessageRequest) -> dict[str, Any]:
+    return {
+        "client_timezone": body.client_timezone,
+        "client_location": body.client_location,
+        "client_latitude": body.client_latitude,
+        "client_longitude": body.client_longitude,
+    }
+
+
 @router.post("/{chat_id}/messages/stream")
 async def stream_message_sse(
     chat_id: UUID,
@@ -220,38 +233,30 @@ async def stream_message_sse(
     settings: Settings = Depends(get_settings),
     redis: Redis = Depends(require_chat_rate_limit),
 ) -> StreamingResponse:
-    cancel_event = asyncio.Event()
-
-    async def generate() -> AsyncIterator[str]:
-        async for chunk in _stream_tokens_sse(
+    return _sse_response(
+        _stream_tokens_sse(
             chat_id=chat_id,
             settings=settings,
             request=request,
-            cancel_event=cancel_event,
-            stream_factory=lambda result,
-            on_status,
-            on_reasoning: chat_service.stream_chat_response(
-                redis,
-                settings,
-                user_id=user.id,
-                chat_id=chat_id,
-                content=body.content,
-                model_alias=body.model,
-                attachment_ids=body.attachment_ids or None,
-                should_cancel=cancel_event.is_set,
-                result=result,
-                client_timezone=body.client_timezone,
-                client_location=body.client_location,
-                client_latitude=body.client_latitude,
-                client_longitude=body.client_longitude,
-                on_status=on_status,
-                on_reasoning=on_reasoning,
-                user=user,
+            stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
+                chat_service.stream_chat_response(
+                    redis,
+                    settings,
+                    user_id=user.id,
+                    chat_id=chat_id,
+                    content=body.content,
+                    model_alias=body.model,
+                    attachment_ids=body.attachment_ids or None,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_status=on_status,
+                    on_reasoning=on_reasoning,
+                    user=user,
+                    **_client_geo(body),
+                )
             ),
-        ):
-            yield chunk
-
-    return _sse_response(generate())
+        )
+    )
 
 
 @router.post("/{chat_id}/regenerate/stream")
@@ -263,35 +268,27 @@ async def stream_regenerate_sse(
     settings: Settings = Depends(get_settings),
     redis: Redis = Depends(require_chat_rate_limit),
 ) -> StreamingResponse:
-    cancel_event = asyncio.Event()
-
-    async def generate() -> AsyncIterator[str]:
-        async for chunk in _stream_tokens_sse(
+    return _sse_response(
+        _stream_tokens_sse(
             chat_id=chat_id,
             settings=settings,
             request=request,
-            cancel_event=cancel_event,
-            stream_factory=lambda result,
-            on_status,
-            on_reasoning: chat_service.stream_regenerate_response(
-                redis,
-                settings,
-                user_id=user.id,
-                chat_id=chat_id,
-                model_alias=body.model,
-                should_cancel=cancel_event.is_set,
-                result=result,
-                client_timezone=body.client_timezone,
-                client_location=body.client_location,
-                client_latitude=body.client_latitude,
-                client_longitude=body.client_longitude,
-                on_status=on_status,
-                on_reasoning=on_reasoning,
+            stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
+                chat_service.stream_regenerate_response(
+                    redis,
+                    settings,
+                    user_id=user.id,
+                    chat_id=chat_id,
+                    model_alias=body.model,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_status=on_status,
+                    on_reasoning=on_reasoning,
+                    **_client_geo(body),
+                )
             ),
-        ):
-            yield chunk
-
-    return _sse_response(generate())
+        )
+    )
 
 
 @router.post("/{chat_id}/edit/stream")
@@ -303,34 +300,26 @@ async def stream_edit_sse(
     settings: Settings = Depends(get_settings),
     redis: Redis = Depends(require_chat_rate_limit),
 ) -> StreamingResponse:
-    cancel_event = asyncio.Event()
-
-    async def generate() -> AsyncIterator[str]:
-        async for chunk in _stream_tokens_sse(
+    return _sse_response(
+        _stream_tokens_sse(
             chat_id=chat_id,
             settings=settings,
             request=request,
-            cancel_event=cancel_event,
-            stream_factory=lambda result,
-            on_status,
-            on_reasoning: chat_service.stream_edit_response(
-                redis,
-                settings,
-                user_id=user.id,
-                chat_id=chat_id,
-                message_id=body.message_id,
-                new_content=body.content,
-                model_alias=body.model,
-                should_cancel=cancel_event.is_set,
-                result=result,
-                client_timezone=body.client_timezone,
-                client_location=body.client_location,
-                client_latitude=body.client_latitude,
-                client_longitude=body.client_longitude,
-                on_status=on_status,
-                on_reasoning=on_reasoning,
+            stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
+                chat_service.stream_edit_response(
+                    redis,
+                    settings,
+                    user_id=user.id,
+                    chat_id=chat_id,
+                    message_id=body.message_id,
+                    new_content=body.content,
+                    model_alias=body.model,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_status=on_status,
+                    on_reasoning=on_reasoning,
+                    **_client_geo(body),
+                )
             ),
-        ):
-            yield chunk
-
-    return _sse_response(generate())
+        )
+    )
