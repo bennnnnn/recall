@@ -8,8 +8,7 @@ import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
   children: ReactNode;
-  /** When false, always show full content (e.g. while streaming). */
-  enabled?: boolean;
+  /** When false, always show full content (short user bubbles). */
   collapsible?: boolean;
   /** Background matched by the fade gradient (defaults to screen bg). */
   fadeColor?: string;
@@ -17,7 +16,6 @@ type Props = {
 
 export function CollapsibleMessageBody({
   children,
-  enabled = true,
   collapsible = true,
   fadeColor,
 }: Props) {
@@ -27,7 +25,7 @@ export function CollapsibleMessageBody({
   const [expanded, setExpanded] = useState(false);
   const fadeBase = fadeColor ?? theme.bg;
 
-  if (!enabled || !collapsible) {
+  if (!collapsible) {
     return <>{children}</>;
   }
 
