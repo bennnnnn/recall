@@ -66,12 +66,11 @@ export type StreamEvent =
   | { type: "token"; content: string }
   | { type: "status"; phase: string; detail?: string }
   | { type: "reasoning"; content: string }
-  | { type: "stream_end"; resolved_model?: string; fallback_used?: boolean }
+  | { type: "stream_end"; resolved_model?: string }
   | {
       type: "done";
       message_id?: string;
       final_content?: string;
       resolved_model?: string;
-      fallback_used?: boolean;
     }
   | { type: "error"; code?: string; message: string };
