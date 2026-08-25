@@ -75,7 +75,7 @@ async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
 
     produced: list[str] = []
 
-    async def stream_factory(result, on_status, on_reasoning):
+    async def stream_factory(_result, _on_status, _on_reasoning, _should_cancel):
         for i in range(1000):
             produced.append(str(i))
             yield str(i)
@@ -112,7 +112,7 @@ async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch
     started = asyncio.Event()
     cancelled = asyncio.Event()
 
-    async def stream_factory(result, on_status, on_reasoning):
+    async def stream_factory(_result, _on_status, _on_reasoning, _should_cancel):
         started.set()
         try:
             await asyncio.sleep(60)
