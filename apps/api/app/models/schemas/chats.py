@@ -81,44 +81,36 @@ class MessagePageOut(BaseModel):
     has_more: bool
 
 
-class ChatMessageRequest(BaseModel):
+class _StreamClientContext(BaseModel):
+    """Shared model + geo fields for message / regenerate / edit bodies."""
+
+    model: str | None = None
+    client_timezone: str | None = Field(default=None, max_length=64)
+    client_location: str | None = Field(default=None, max_length=200)
+    client_latitude: float | None = Field(default=None, ge=-90, le=90)
+    client_longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        validate_user_alias(value, allow_auto=True)
+        return value
+
+
+class ChatMessageRequest(_StreamClientContext):
     # Cap matches EditMessageRequest — without it a client can push a
     # multi-MB body that bloats the prompt, DB row, and memory-extraction
     # job. 32k chars is well beyond any realistic chat turn.
     content: str = Field(default="", max_length=32_000)
-    model: str | None = None
     # Cap per turn — unbounded lists let a client force huge DB/RAG work.
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
-    client_timezone: str | None = Field(default=None, max_length=64)
-    client_location: str | None = Field(default=None, max_length=200)
-    client_latitude: float | None = Field(default=None, ge=-90, le=90)
-    client_longitude: float | None = Field(default=None, ge=-180, le=180)
-
-    @field_validator("model")
-    @classmethod
-    def validate_model(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        validate_user_alias(value, allow_auto=True)
-        return value
 
 
-class EditMessageRequest(BaseModel):
+class EditMessageRequest(_StreamClientContext):
     message_id: UUID
     content: str = Field(min_length=1, max_length=32_000)
-    model: str | None = None
-    client_timezone: str | None = Field(default=None, max_length=64)
-    client_location: str | None = Field(default=None, max_length=200)
-    client_latitude: float | None = Field(default=None, ge=-90, le=90)
-    client_longitude: float | None = Field(default=None, ge=-180, le=180)
-
-    @field_validator("model")
-    @classmethod
-    def validate_model(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        validate_user_alias(value, allow_auto=True)
-        return value
 
 
 class TitleGenerationResult(BaseModel):
