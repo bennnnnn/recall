@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Learning list open fetched every class detail plus `/home`.** Focus
+  refreshed Home and `prefetchProjectDetails` hit each `GET /projects/{id}`.
+  Cards only need `GET /projects`; detail loads when a class is opened.
 - **Help-me-think / STT still hit `/suggestions` three times.** User bubble
   lands before the socket (`pendingOutboundId`); stream-end flips busy off
   before `refreshKey` bumps — each was a fetch. Hold while turn-busy; fetch

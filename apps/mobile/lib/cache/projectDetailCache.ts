@@ -39,9 +39,3 @@ export async function fetchProjectDetail(
 export function prefetchProjectDetail(token: string, id: string): void {
   resource.prefetch(id, () => api.getProject(token, id, { includeLists: true }));
 }
-
-export function prefetchProjectDetails(token: string, ids: string[]): void {
-  for (const id of ids) {
-    prefetchProjectDetail(token, id);
-  }
-}

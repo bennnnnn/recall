@@ -20,7 +20,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type IoniconName } from "@/lib/icons";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { useHome } from "@/contexts/HomeContext";
 import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
@@ -44,7 +43,6 @@ import {
   languageProjectTitle,
   type CreateStep,
 } from "@/lib/projects/projectCreateFlow";
-import { prefetchProjectDetails } from "@/lib/cache/projectDetailCache";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -62,7 +60,6 @@ export default function ProjectsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
-  const { refresh: refreshHome } = useHome();
   const { createProject } = useProjectActions();
   const feedback = useActionFeedbackOptional();
   const visibleProjects = useMemo(
@@ -85,21 +82,10 @@ export default function ProjectsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Stale-gated. Quiz returns bust projectDetailCache; do not force /home
-      // and /projects on every Learning open.
+      // List cards come from GET /projects. Do not also pull /home or every
+      // class detail — those load when the user opens Home or a class.
       void refresh({ silent: true });
-      void refreshHome({ silent: true });
-    }, [refresh, refreshHome]),
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!token || visibleProjects.length === 0) return;
-      prefetchProjectDetails(
-        token,
-        visibleProjects.map((p) => p.id),
-      );
-    }, [token, visibleProjects]),
+    }, [refresh]),
   );
 
   const resetCreate = useCallback(() => {
