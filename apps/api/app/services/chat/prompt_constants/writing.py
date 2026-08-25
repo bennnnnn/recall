@@ -1,5 +1,33 @@
 """Email and copy-paste deliverable hints."""
 
+import re
+
+from app.services.chat.prompt_constants.format import is_comparison_question
+from app.services.chat.prompt_constants.routing import (
+    is_lightweight_chat_turn,
+    is_writing_deliverable_request,
+)
+from app.services.text_normalize import collapse_ws
+
+# Relative / subordinating leads that are not a complete question.
+_FRAGMENT_LEAD = re.compile(
+    r"^(?:whoever|whatever|whichever|however|because|although|though|"
+    r"whereas|unless|until)\b",
+    re.IGNORECASE,
+)
+_PROOFREAD_CUE = re.compile(
+    r"\b(?:correct(?: this)?|proofread|fix (?:this )?(?:sentence|grammar)|"
+    r"grammar(?: check)?|is this (?:correct|right|grammatical))\b",
+    re.IGNORECASE,
+)
+
+WRITING_LINE_HINT = (
+    "The user sent a sentence fragment or asked for a writing edit. Lead with "
+    "the corrected complete sentence, then at most 3 short bullets (what's "
+    "wrong, why, one alternative). Do not invent a topic essay, table, or bit "
+    "about the words."
+)
+
 EMAIL_DRAFT_HINT = (
     "Email and message drafting (ChatGPT-style — draft first, refine after):\n"
     "When the user wants an email, text, or message written or sent:\n"
@@ -32,3 +60,20 @@ COPY_DELIVERABLE_HINT = (
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "
     "guessing an address."
 )
+
+
+def is_bare_writing_line(text: str) -> bool:
+    """True for a pasted fragment or an explicit proofread ask — not a question."""
+    cleaned = collapse_ws(text)
+    if not cleaned or "?" in cleaned:
+        return False
+    if is_lightweight_chat_turn(cleaned):
+        return False
+    if is_comparison_question(cleaned) or is_writing_deliverable_request(cleaned):
+        return False
+    if _PROOFREAD_CUE.search(cleaned):
+        return True
+    words = cleaned.split()
+    if len(words) < 3 or len(words) > 16:
+        return False
+    return bool(_FRAGMENT_LEAD.match(cleaned))

@@ -30,6 +30,7 @@ from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
     CLARIFICATION_HINT,
+    COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     COPY_DELIVERABLE_HINT,
     DAY_LEARNING_SNAPSHOT_HINT,
@@ -45,10 +46,13 @@ from app.services.chat.prompt_constants import (
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
+    TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
     VOCAB_CHAT_ANSWER_HINT,
+    WRITING_LINE_HINT,
     format_quiz_grading_hint,
+    is_bare_writing_line,
     is_comparison_question,
     is_learning_progress_question,
     is_writing_deliverable_request,
@@ -543,12 +547,19 @@ def _style_format_hints(
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(SHORT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
-    elif is_day_plan or compact:
-        # Day-plan and slim/casual turns used to miss math guardrails (day-plan)
-        # or dump the full format/viz bible on coaching openers (slim). Keep the
-        # compact math safety hint so any math still renders correctly.
+    elif is_day_plan:
+        # Day-plan used to miss math guardrails. Keep compact math safety so
+        # any math in a plan still renders; keep the richer format pack so a
+        # day outline can use headings.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(RESPONSE_FORMAT_HINT)
+        parts.append(SHORT_MATH_SAFETY_HINT)
+    elif compact:
+        # Slim/casual used to still get RESPONSE_FORMAT_HINT (tips/headings/
+        # tables), so a pasted phrase became a funny essay with a clipped
+        # table. ChatGPT-shaped: answer first, no invented chrome.
+        parts.append(UNIVERSAL_FORMAT_BASELINE)
+        parts.append(COMPACT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
@@ -567,6 +578,8 @@ def _style_format_hints(
     parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
         parts.append(EMAIL_DRAFT_HINT)
+    if query_text and is_bare_writing_line(query_text):
+        parts.append(WRITING_LINE_HINT)
     return parts
 
 
@@ -768,6 +781,7 @@ async def build_prompt_messages(
         # compact math safety hint so verified/inline math still renders.
         system_parts.append(SHORT_MATH_SAFETY_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
+    system_parts.append(TONE_FORMAT_GUARD)
     if not slim_context:
         ci = getattr(user, "custom_instructions", None)
         custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
