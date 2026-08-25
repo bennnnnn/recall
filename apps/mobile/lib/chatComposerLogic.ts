@@ -1,5 +1,9 @@
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
+
 export const CHAT_HEADER_BAR_HEIGHT = 52;
 export const CHAT_HEADER_FADE_EXTRA = 48;
+/** Matches the in-bubble action row (34px icons + 4px margin). */
+export const CHAT_ACTION_ROW_HEIGHT = 38;
 export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
@@ -126,6 +130,11 @@ export function composerShowsSend(options: {
   return options.hasSendableContent;
 }
 
+/** True while the last row is the in-flight placeholder (no action icons yet). */
+export function shouldReserveComposerActionGap(lastMessageId?: string): boolean {
+  return lastMessageId === "streaming" || lastMessageId === IMAGE_GEN_PENDING_ASSISTANT_ID;
+}
+
 export type ChatLayoutMetrics = {
   headerInset: number;
   fadeHeight: number;
@@ -147,6 +156,7 @@ export function computeChatLayoutMetrics(options: {
   mathBarExtra?: number;
   messagesLength: number;
   streaming: boolean;
+  lastMessageId?: string;
 }): ChatLayoutMetrics {
   const headerInset = options.insetsTop + CHAT_HEADER_BAR_HEIGHT;
   const fadeHeight = headerInset + CHAT_HEADER_FADE_EXTRA;
@@ -161,13 +171,15 @@ export function computeChatLayoutMetrics(options: {
   const composerBlockHeight =
     options.composerHeight + options.attachmentExtra + (options.mathBarExtra ?? 0);
   const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
-  // Feedback icons live in the bubble's reserved action-row slot, not in list
-  // padding. Extra pad here plus that slot made two regions fight for the same
-  // ~48px when icons appeared — the reply dropped, then MVCP/scrollToEnd
-  // snapped it back. Pad is composer clearance only, and it does not toggle
-  // on stream end (`streaming` / `messagesLength` stay in the signature so
-  // callers need not change).
-  const listBottomPad = composerClearance;
+  // ChatGPT-style: while the in-flight placeholder is on screen, hold empty
+  // air above the composer. When that row becomes a real message the icons
+  // mount in the bubble and this pad drops in the same render — net zero, so
+  // the prose does not move. Never reserve both regions at once (`streaming`
+  // is not the signal: it stays true through finalize after icons already
+  // landed, which was the down-spring).
+  const listBottomPad =
+    composerClearance +
+    (shouldReserveComposerActionGap(options.lastMessageId) ? CHAT_ACTION_ROW_HEIGHT : 0);
   const emptyHeight = Math.max(
     CHAT_EMPTY_MIN_HEIGHT,
     options.windowHeight - headerInset - composerClearance,

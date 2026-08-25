@@ -49,8 +49,8 @@ describe("deriveAssistantMessageContent", () => {
 
     expect(ready.actionsReady).toBe(true);
     expect(streaming.actionsReady).toBe(false);
-    // The action slot is fixed-height, so icons can show while rich chrome
-    // is still deferred — no layout shift.
+    // Icons mount at stream end; composer-gap pad (not a hidden slot) holds
+    // the height so the layout-settle freeze cannot shift the prose.
     expect(settling.actionsReady).toBe(true);
   });
 

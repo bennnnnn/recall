@@ -116,13 +116,14 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   ran. Also `looksLikeProseParenthetical` counted `\neq`/`\frac` letter-runs as English.
   Fix (#450): convert `\(...\)` → `$...$` in `protectMathEscapes`; strip `\\[a-zA-Z]+`
   before the prose-word count; wrap bare cmds outside existing `$` spans.
-- **Chat “falls then snaps back” when stream ends.** Native autoscroll, JS
-  `scrollToEnd`, and an extra list pad for in-bubble feedback icons all wrote
-  around the same 280ms settle. Icons already live in a reserved slot; the pad
-  doubled that space so the reply dropped when they appeared. A trailing
-  animated streaming catch-up also wasn't cleared. Fix: pad = composer
-  clearance only; cancel streaming scroll on end; keep native autoscroll off
-  until `STREAM_AUTOSCROLL_RESUME_MS` (settle + 80) and JS-pin then.
+- **Chat “falls then snaps back” when stream ends.** ChatGPT drops copy/thumbs
+  into the empty space above the composer; the prose does not move. Recall
+  reserved that height both as list pad and as an in-bubble slot, and native
+  autoscroll + JS `scrollToEnd` + a leftover streaming catch-up all wrote at
+  the 280ms settle — spring, and the scroll-to-bottom chevron appeared. Fix:
+  pad = composer gap only while the last row is the `streaming` placeholder;
+  mount icons when that row persists (same render, net zero); cancel streaming
+  scroll on end; keep native autoscroll off until `STREAM_AUTOSCROLL_RESUME_MS`.
 - **Streaming math boxes flicker (blank → repaint).** Pending stream tail re-parsed
   every flush; `react-native-markdown-display` re-keys the tree so KaTeX WebViews in that
   tail remount. Short closed ` ```math ` / `$$` blocks sat under the 320-char settle

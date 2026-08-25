@@ -155,8 +155,8 @@ export function deriveAssistantMessageContent(
   const hasContent = content.trim().length > 0;
   const isQuizFeedback = messageId.startsWith("local-quiz-");
   const showActionSlot = !isUser && hasContent && !isQuizFeedback;
-  // Icons appear the moment generation ends: the action slot reserves fixed
-  // height, so revealing them during the post-stream settle can't shift layout.
+  // Mount only after generation ends. While streaming, composer-gap pad holds
+  // the same height so the prose does not move when icons appear (ChatGPT).
   const actionsReady = showActionSlot && !isGenerating;
 
   const quizForStrip =

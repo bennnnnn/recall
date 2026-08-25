@@ -12,6 +12,7 @@ type Options = {
   mathBarExtra?: number;
   messagesLength: number;
   streaming: boolean;
+  lastMessageId?: string;
 };
 
 export function useChatLayoutMetrics(options: Options) {
@@ -27,6 +28,7 @@ export function useChatLayoutMetrics(options: Options) {
       options.mathBarExtra,
       options.messagesLength,
       options.streaming,
+      options.lastMessageId,
     ],
   );
 }

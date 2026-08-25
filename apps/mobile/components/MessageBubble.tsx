@@ -536,7 +536,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         </View>
       )}
 
-      {showActionSlot && !imageGenFailure ? (
+      {showActionSlot && actionsReady && !imageGenFailure ? (
         <View style={b.actionRowSlot}>
           <AssistantActions
             messageId={message.id}
@@ -546,7 +546,6 @@ export const MessageBubble = React.memo(function MessageBubble({
             onRegenerate={isLastAssistant ? onRegenerate : undefined}
             regenerating={isLastAssistant && regenerating}
             theme={theme}
-            hidden={!actionsReady}
             thumbsOnly={imageOnlyActions}
             prefetchSpeech={Boolean(isLastAssistant && !isGenerating)}
           />
