@@ -10,20 +10,40 @@ export function isSseAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === "AbortError";
 }
 
-type StreamChatSseOptions = {
+type StreamChatSseClient = {
   token: string;
   chatId: string;
-  path: string;
-  body: Record<string, unknown>;
+  model?: string | null;
+  clientGeo?: ClientGeo | null;
   signal?: AbortSignal;
   onEvent: (payload: ChatSsePayload) => void;
 };
 
-async function streamChatSseRequest(options: StreamChatSseOptions): Promise<void> {
+type StreamChatMessageOptions = StreamChatSseClient & {
+  content: string;
+  attachmentIds?: string[];
+};
+
+type StreamChatEditOptions = StreamChatSseClient & {
+  messageId: string;
+  content: string;
+};
+
+async function streamChatSseRequest(
+  path: string,
+  options: StreamChatSseClient,
+  extraBody: Record<string, unknown> = {},
+): Promise<void> {
   // Route through lib/api's requestSse so this stream shares the REST path's
   // 401→refresh→retry behaviour and the lib/api boundary stays the single
   // network egress point (no bare fetch(getApiUrl()...) here).
-  const response = await requestSse(options.path, options.token, options.body, options.signal);
+  const body = {
+    ...extraBody,
+    model: options.model ?? null,
+    client_timezone: getDeviceTimezone(),
+    ...clientGeoWsFields(options.clientGeo),
+  };
+  const response = await requestSse(path, options.token, body, options.signal);
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -60,37 +80,6 @@ async function streamChatSseRequest(options: StreamChatSseOptions): Promise<void
   }
 }
 
-type StreamChatMessageOptions = {
-  token: string;
-  chatId: string;
-  content: string;
-  attachmentIds?: string[];
-  model?: string | null;
-  clientGeo?: ClientGeo | null;
-  signal?: AbortSignal;
-  onEvent: (payload: ChatSsePayload) => void;
-};
-
-type StreamChatRegenerateOptions = {
-  token: string;
-  chatId: string;
-  model?: string | null;
-  clientGeo?: ClientGeo | null;
-  signal?: AbortSignal;
-  onEvent: (payload: ChatSsePayload) => void;
-};
-
-type StreamChatEditOptions = {
-  token: string;
-  chatId: string;
-  messageId: string;
-  content: string;
-  model?: string | null;
-  clientGeo?: ClientGeo | null;
-  signal?: AbortSignal;
-  onEvent: (payload: ChatSsePayload) => void;
-};
-
 export function parseSseChunk(buffer: string): { events: ChatSsePayload[]; rest: string } {
   const events: ChatSsePayload[] = [];
   const parts = buffer.split("\n\n");
@@ -108,52 +97,21 @@ export function parseSseChunk(buffer: string): { events: ChatSsePayload[]; rest:
 export async function streamChatMessageSse(
   options: StreamChatMessageOptions,
 ): Promise<void> {
-  await streamChatSseRequest({
-    token: options.token,
-    chatId: options.chatId,
-    path: `/chats/${options.chatId}/messages/stream`,
-    body: {
-      content: options.content,
-      model: options.model ?? null,
-      attachment_ids: options.attachmentIds ?? [],
-      client_timezone: getDeviceTimezone(),
-      ...clientGeoWsFields(options.clientGeo),
-    },
-    signal: options.signal,
-    onEvent: options.onEvent,
+  await streamChatSseRequest(`/chats/${options.chatId}/messages/stream`, options, {
+    content: options.content,
+    attachment_ids: options.attachmentIds ?? [],
   });
 }
 
 export async function streamChatRegenerateSse(
-  options: StreamChatRegenerateOptions,
+  options: StreamChatSseClient,
 ): Promise<void> {
-  await streamChatSseRequest({
-    token: options.token,
-    chatId: options.chatId,
-    path: `/chats/${options.chatId}/regenerate/stream`,
-    body: {
-      model: options.model ?? null,
-      client_timezone: getDeviceTimezone(),
-      ...clientGeoWsFields(options.clientGeo),
-    },
-    signal: options.signal,
-    onEvent: options.onEvent,
-  });
+  await streamChatSseRequest(`/chats/${options.chatId}/regenerate/stream`, options);
 }
 
 export async function streamChatEditSse(options: StreamChatEditOptions): Promise<void> {
-  await streamChatSseRequest({
-    token: options.token,
-    chatId: options.chatId,
-    path: `/chats/${options.chatId}/edit/stream`,
-    body: {
-      message_id: options.messageId,
-      content: options.content,
-      model: options.model ?? null,
-      client_timezone: getDeviceTimezone(),
-      ...clientGeoWsFields(options.clientGeo),
-    },
-    signal: options.signal,
-    onEvent: options.onEvent,
+  await streamChatSseRequest(`/chats/${options.chatId}/edit/stream`, options, {
+    message_id: options.messageId,
+    content: options.content,
   });
 }
