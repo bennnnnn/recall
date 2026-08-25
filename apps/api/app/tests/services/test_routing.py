@@ -65,6 +65,8 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         # live Reasoning essay ("the user just wrote 4!") on these.
         ("4!", "free-chat"),
         ("what is 1+1", "free-chat"),
+        ("3+0", "free-chat"),
+        ("3 + 0", "free-chat"),
         # Homework physics the solver templates don't cover → smart-chat.
         # needs_symbolic stays false on these (no verified fence); Auto still
         # escalates. Bare "physics" and digit-free "momentum" stay free-chat.

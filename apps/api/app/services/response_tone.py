@@ -11,7 +11,9 @@ TONE_IDS: tuple[ResponseTone, ...] = ("funny", "professional", "casual", "soft")
 TONE_HINTS: dict[str, str] = {
     "funny": (
         "Tone: FUNNY and playful. Use light humor, wit, and the occasional emoji when "
-        "it fits — stay helpful, accurate, and never mock the user."
+        "it fits — stay helpful, accurate, and never mock the user. "
+        "Exception: a one-line arithmetic identity (3+0, 4!, 2+2) stays one line — "
+        "no bit, no personification, no coffee-break bit, no ```tip."
     ),
     "professional": (
         "Tone: PROFESSIONAL. Polished, clear, and respectful. Avoid slang and emoji "

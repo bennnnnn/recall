@@ -99,6 +99,10 @@ _LONG_MESSAGE_CHARS = 800
 # can't consume `\n`, so each line's whitespace run is only ever scanned
 # once — linear in input length regardless of how many blank lines it has.
 _CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
+# Bare "3+0" / "2 * 2" — no variable, not a word problem.
+_BARE_ARITH = re.compile(
+    r"^\s*-?\d+(?:\.\d+)?\s*[-+*/\u00d7\u00f7^]\s*-?\d+(?:\.\d+)?\s*[.?!]?\s*$"
+)
 
 
 def _looks_like_physics_homework(content: str) -> bool:
@@ -156,6 +160,8 @@ def _verified_math_stays_fast(content: str) -> bool:
         return False
     sig = combinatorics_signal(cleaned)
     if sig is not None and sig[0] == "factorial":
+        return True
+    if _BARE_ARITH.fullmatch(cleaned):
         return True
     lower = cleaned.lower()
     if "what is" not in lower or not any(ch.isdigit() for ch in cleaned):
