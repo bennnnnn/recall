@@ -12,6 +12,7 @@ import { getCachedChat } from "@/lib/cache/chatListCache";
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
+  shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
 } from "@/lib/chat/chatForegroundRefetch";
 import {
@@ -109,6 +110,7 @@ export function useChatRouteLoader({
   const pendingProjectIdRef = useRef<string | null>(null);
   const pendingQuizModeRef = useRef<import("@/lib/quizMode").QuizMode | null>(null);
   const handledLaunchIdRef = useRef<string | null>(null);
+  const skipNextFocusRef = useRef(true);
   const lastSilentFetchAtRef = useRef<Map<string, number>>(new Map());
   const wasStreamingWhenBackgroundedRef = useRef(false);
   // AppState closures must read the latest streaming/loading flags — deps alone
@@ -209,6 +211,7 @@ export function useChatRouteLoader({
         wasStreamingWhenBackgrounded: wasStreamingWhenBackgroundedRef.current,
       });
       wasStreamingWhenBackgroundedRef.current = false;
+      skipNextFocusRef.current = true;
       void silentRefetchChat(openChatId, () => cancelled, { force });
     };
     const sub = AppState.addEventListener("change", onAppState);
@@ -226,6 +229,10 @@ export function useChatRouteLoader({
     draftChatIdRef,
     silentRefetchChat,
   ]);
+
+  useEffect(() => {
+    skipNextFocusRef.current = true;
+  }, [routeChatId]);
 
   useEffect(() => {
     if (!token) {
@@ -323,6 +330,24 @@ export function useChatRouteLoader({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, routeChatId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const openChatId = typeof routeChatId === "string" ? routeChatId : null;
+      if (skipNextFocusRef.current) {
+        skipNextFocusRef.current = false;
+        return;
+      }
+      if (!shouldSilentRefetchChatOnFocus()) return;
+      if (!token || !openChatId || turnBusy() || chatLoading) return;
+
+      let cancelled = false;
+      void silentRefetchChat(openChatId, () => cancelled);
+      return () => {
+        cancelled = true;
+      };
+    }, [token, routeChatId, chatLoading, silentRefetchChat]),
+  );
 
   const loadOlderMessages = useCallback(async () => {
     if (!token || !chatId || loadingOlder || !hasMoreOlder || messages.length === 0) return;
