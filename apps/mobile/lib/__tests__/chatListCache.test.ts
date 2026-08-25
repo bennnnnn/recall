@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
 import {
   fetchChatList,
+  getCachedChat,
   getCachedChatList,
   getChatListFetchedAt,
   invalidateChatListCache,
@@ -70,6 +71,26 @@ describe("chatListCache", () => {
     expect(a).toEqual(sample);
     expect(b).toEqual(sample);
     expect(listChats).toHaveBeenCalledTimes(1);
+  });
+
+  it("finds a drawer row without another GET /chats/{id}", () => {
+    setChatListCache({
+      ...sample,
+      archived: [
+        {
+          id: "old",
+          title: "Archived",
+          model: "free-chat",
+          pinned: false,
+          archived: true,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        },
+      ],
+    });
+    expect(getCachedChat("c1")?.title).toBe("Hello");
+    expect(getCachedChat("old")?.archived).toBe(true);
+    expect(getCachedChat("missing")).toBeUndefined();
   });
 
   it("prefetch skips when cache is already fresh", () => {

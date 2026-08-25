@@ -111,6 +111,23 @@ describe("useSuggestedReminders", () => {
     expect(syncTodoReminders).toHaveBeenCalledWith(next);
   });
 
+  it("does not refetch on chat-composer focus", async () => {
+    function ComposerProbe() {
+      current = useSuggestedReminders("tok", { refreshOnFocus: false });
+      return <Text>{current.reminders.length}</Text>;
+    }
+    await act(async () => {
+      render(<ComposerProbe />);
+    });
+    const onFocus = (useFocusEffect as jest.Mock).mock.calls.at(-1)?.[0] as
+      | (() => void)
+      | undefined;
+    await act(async () => {
+      onFocus?.();
+    });
+    expect(fetchSuggestedReminders).not.toHaveBeenCalled();
+  });
+
   it("loads suggestions without bypassing the 20s cache", async () => {
     await act(async () => {
       render(<Probe />);

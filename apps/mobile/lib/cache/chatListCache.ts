@@ -1,4 +1,5 @@
-import { api, type ChatList } from "@/lib/api";
+import { api, type Chat, type ChatList } from "@/lib/api";
+import { allChatsFromGroups } from "@/lib/chat/chatListSections";
 import { StaleResourceCache } from "@/lib/cache/staleResource";
 import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
 
@@ -7,6 +8,13 @@ const resource = new StaleResourceCache<string, ChatList>(CHAT_LIST_STALE_MS);
 
 export function getCachedChatList(): ChatList | undefined {
   return resource.get(CHAT_LIST_KEY);
+}
+
+/** Drawer row already has title / pin / class id — skip GET /chats/{id}. */
+export function getCachedChat(id: string): Chat | undefined {
+  const list = getCachedChatList();
+  if (!list) return undefined;
+  return allChatsFromGroups(list).find((chat) => chat.id === id);
 }
 
 export function getChatListFetchedAt(): number | undefined {

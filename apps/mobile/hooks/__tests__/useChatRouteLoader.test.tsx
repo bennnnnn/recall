@@ -14,6 +14,9 @@ jest.mock("@/lib/api", () => ({
     listMessages: jest.fn(),
   },
 }));
+jest.mock("@/lib/cache/chatListCache", () => ({
+  getCachedChat: jest.fn(() => undefined),
+}));
 jest.mock("@/lib/chatMessageCache", () => ({
   readCachedChatMessages: jest.fn(async () => null),
   writeCachedChatMessages: jest.fn(async () => undefined),
@@ -30,6 +33,7 @@ jest.mock("@/hooks/useChatHighlightScroll", () => ({
 }));
 
 import { api } from "@/lib/api";
+import { getCachedChat } from "@/lib/cache/chatListCache";
 
 const setChatId = jest.fn();
 const setMessages = jest.fn();
@@ -73,6 +77,7 @@ function Probe() {
 describe("useChatRouteLoader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getCachedChat as jest.Mock).mockReturnValue(undefined);
     (api.getChat as jest.Mock).mockResolvedValue({
       id: "chat-1",
       title: "Loaded",
@@ -84,6 +89,23 @@ describe("useChatRouteLoader", () => {
       messages: [{ id: "m1", role: "assistant", content: "Hello" }],
       has_more: false,
     });
+  });
+
+  it("skips GET /chats/{id} when the drawer list already has the row", async () => {
+    (getCachedChat as jest.Mock).mockReturnValue({
+      id: "chat-1",
+      title: "From drawer",
+      pinned: false,
+      archived: false,
+      project_id: null,
+    });
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(api.listMessages).toHaveBeenCalledWith("token", "chat-1", { limit: 40 });
+    });
+    expect(api.getChat).not.toHaveBeenCalled();
   });
 
   it("loads chat metadata and messages together for the route", async () => {

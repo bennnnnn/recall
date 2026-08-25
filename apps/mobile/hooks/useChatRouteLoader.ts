@@ -8,6 +8,7 @@ import { type IoniconName } from "@/lib/icons";
 type Router = ReturnType<typeof useRouter>;
 
 import { api, type Message } from "@/lib/api";
+import { getCachedChat } from "@/lib/cache/chatListCache";
 import {
   shouldForceForegroundChatRecovery,
   shouldRefetchChatOnForeground,
@@ -263,8 +264,9 @@ export function useChatRouteLoader({
           setHasMoreOlder(cached.has_more);
           setChatLoading(false);
         }
+        const listed = getCachedChat(openChatId);
         const [chat, page] = await Promise.all([
-          api.getChat(token, openChatId),
+          listed ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (cancelled) return;

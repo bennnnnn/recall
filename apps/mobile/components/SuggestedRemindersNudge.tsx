@@ -22,6 +22,7 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
   const { reminders, busyId, add, dismiss } = useSuggestedReminders(token, {
     onAdded,
     onDismiss,
+    refreshOnFocus: false,
   });
   const [collapsed, setCollapsed] = useState(false);
 
