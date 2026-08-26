@@ -87,14 +87,12 @@ async def find_original_quiz_fence_created_at(
         earlier = parse_vocab_quiz(message.content)
         if earlier is None:
             continue
-        if target_word and (earlier.word or "").strip().lower() == target_word:
-            earliest = message.created_at
-            break
-        if (
+        same_word = bool(target_word) and (earlier.word or "").strip().lower() == target_word
+        same_question = (
             not target_word
-            and target_question
+            and bool(target_question)
             and (earlier.question or "").strip().lower() == target_question
-        ):
+        )
+        if (same_word or same_question) and message.created_at < earliest:
             earliest = message.created_at
-            break
     return earliest

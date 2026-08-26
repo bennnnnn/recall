@@ -89,6 +89,33 @@ async def test_find_original_finds_earlier_fence_same_word():
 
 
 @pytest.mark.asyncio
+async def test_find_original_walks_past_reemitted_fences():
+    """Newest-first lookback must return the first fence, not the previous one."""
+    chat_id = uuid4()
+    t1 = datetime(2026, 1, 1, 10, tzinfo=UTC)
+    t2 = datetime(2026, 1, 1, 11, tzinfo=UTC)
+    t3 = datetime(2026, 1, 1, 12, tzinfo=UTC)
+
+    original = _msg(msg_id="q1", content=_quiz_content(), created_at=t1)
+    mid = _msg(msg_id="q2", content=_quiz_content(), created_at=t2)
+    reemitted = _msg(msg_id="h1", content=_quiz_content(), created_at=t3)
+
+    session = AsyncMock()
+    from app.repositories import messages as messages_repo
+
+    mock_list_recent = AsyncMock(return_value=[reemitted, mid, original])
+    original_list_recent = messages_repo.list_recent_assistants
+    messages_repo.list_recent_assistants = mock_list_recent
+    try:
+        result = await find_original_quiz_fence_created_at(
+            session, chat_id, prior_assistant=reemitted
+        )
+        assert result == t1
+    finally:
+        messages_repo.list_recent_assistants = original_list_recent
+
+
+@pytest.mark.asyncio
 async def test_find_original_ignores_different_word_fence():
     """An earlier fence with a different word should not be used."""
     chat_id = uuid4()
