@@ -18,7 +18,32 @@ describe("firstReplyTitlePlan", () => {
     expect(firstReplyTitlePlan(created, undefined)).toEqual({
       insert: created,
       fetch: false,
-      poll: true,
+      poll: false,
+    });
+  });
+
+  it("uses Image when the first user turn is an attachment-only photo", () => {
+    const created = chat("new", null);
+    expect(
+      firstReplyTitlePlan(
+        created,
+        undefined,
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+      ),
+    ).toEqual({
+      insert: { ...created, title: "Image" },
+      fetch: false,
+      poll: false,
+    });
+  });
+
+  it("uses the first user line so Home chips do not poll GET /chats/{id}", () => {
+    const created = chat("new", null);
+    const prompt = "What's still open for me to finish tonight?";
+    expect(firstReplyTitlePlan(created, undefined, prompt)).toEqual({
+      insert: { ...created, title: "What's still open for me to finish tonight" },
+      fetch: false,
+      poll: false,
     });
   });
 

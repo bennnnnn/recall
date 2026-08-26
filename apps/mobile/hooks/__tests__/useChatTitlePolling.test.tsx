@@ -42,13 +42,20 @@ type Polling = ReturnType<typeof useChatTitlePolling>;
 let current: Polling;
 let screenTitle: string | null = null;
 
-function Probe({ chatId }: { chatId: string | null }) {
+function Probe({
+  chatId,
+  getFirstUserText,
+}: {
+  chatId: string | null;
+  getFirstUserText?: () => string | undefined;
+}) {
   const [title, setTitle] = useState<string | null>(null);
   screenTitle = title;
   current = useChatTitlePolling({
     token: "tok",
     chatId,
     setChatTitle: setTitle,
+    getFirstUserText,
   });
   return <Text>{title ?? "none"}</Text>;
 }
@@ -120,6 +127,41 @@ describe("useChatTitlePolling", () => {
     expect(patchChat).not.toHaveBeenCalled();
   });
 
+  it("uses the first user line and does not poll GET /chats/{id}", async () => {
+    const created = {
+      id: "chat-a",
+      title: null,
+      model: "free-chat",
+      pinned: false,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    peekCreated.mockReturnValue(created);
+
+    await act(async () => {
+      render(
+        <Probe
+          chatId="chat-a"
+          getFirstUserText={() => "What's still open for me to finish tonight?"}
+        />,
+      );
+    });
+    await act(async () => {
+      void current.handleFirstReply();
+    });
+
+    expect(insertChat).toHaveBeenCalledWith({
+      ...created,
+      title: "What's still open for me to finish tonight",
+    });
+    expect(screenTitle).toBe("What's still open for me to finish tonight");
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+    });
+    expect(getChat).not.toHaveBeenCalled();
+  });
+
   it("inserts the POST /chats row without GET /chats/{id}", async () => {
     const created = {
       id: "chat-a",
@@ -142,11 +184,42 @@ describe("useChatTitlePolling", () => {
     expect(getChat).not.toHaveBeenCalled();
 
     await act(async () => {
-      jest.advanceTimersByTime(2000);
+      jest.advanceTimersByTime(10000);
     });
-    await waitFor(() => {
-      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    expect(getChat).not.toHaveBeenCalled();
+  });
+
+  it("uses Image for an attachment-only first send and does not poll", async () => {
+    const created = {
+      id: "chat-a",
+      title: null,
+      model: "free-chat",
+      pinned: false,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    peekCreated.mockReturnValue(created);
+
+    await act(async () => {
+      render(
+        <Probe
+          chatId="chat-a"
+          getFirstUserText={() =>
+            "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+          }
+        />,
+      );
     });
+    await act(async () => {
+      void current.handleFirstReply();
+    });
+
+    expect(insertChat).toHaveBeenCalledWith({ ...created, title: "Image" });
+    expect(screenTitle).toBe("Image");
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+    });
+    expect(getChat).not.toHaveBeenCalled();
   });
 
   it("does not GET or poll when the drawer row already has a title", async () => {

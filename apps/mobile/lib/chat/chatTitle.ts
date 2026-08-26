@@ -1,3 +1,5 @@
+import { parseUserMessageContent } from "@/lib/messageAttachments";
+
 export type ChatTitleDisplayOptions = {
   /** True while waiting for auto-generated title after first exchange. */
   generating?: boolean;
@@ -42,6 +44,26 @@ export function displayChatTitle(
   if (trimmed) return trimmed;
   if (options.generating) return t("chat.title_generating");
   return t("common.untitled");
+}
+
+/** Drawer/header label from the first user line so we do not poll GET /chats/{id}. */
+const PROVISIONAL_TITLE_MAX = 48;
+
+function truncateTitle(title: string): string {
+  if (title.length <= PROVISIONAL_TITLE_MAX) return title;
+  return `${title.slice(0, PROVISIONAL_TITLE_MAX - 1).trimEnd()}…`;
+}
+
+export function provisionalChatTitle(text: string | undefined): string | null {
+  if (!text?.trim()) return null;
+  const parsed = parseUserMessageContent(text);
+  const caption = unwrapChatTitle(parsed.caption.split("\n")[0] ?? "");
+  if (caption) return truncateTitle(caption);
+  if (parsed.images.length > 0) return "Image";
+  if (parsed.files.length > 0 || parsed.hasFileAttachment) return "File";
+  const line = unwrapChatTitle(text.trim().split("\n")[0] ?? "");
+  if (!line) return null;
+  return truncateTitle(line);
 }
 
 /** Trim quotes and enforce max length before PATCH /chats/{id}. */

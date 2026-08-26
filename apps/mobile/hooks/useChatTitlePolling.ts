@@ -14,10 +14,16 @@ type Options = {
   token: string | null;
   chatId: string | null;
   setChatTitle: (title: string | null) => void;
+  getFirstUserText?: () => string | undefined;
 };
 
 /** Polls for the auto-generated chat title after the first assistant reply. */
-export function useChatTitlePolling({ token, chatId, setChatTitle }: Options) {
+export function useChatTitlePolling({
+  token,
+  chatId,
+  setChatTitle,
+  getFirstUserText,
+}: Options) {
   const [titleGenerating, setTitleGenerating] = useState(false);
   const chatIdRef = useRef(chatId);
   chatIdRef.current = chatId;
@@ -60,7 +66,11 @@ export function useChatTitlePolling({ token, chatId, setChatTitle }: Options) {
 
   const handleFirstReply = useCallback(async () => {
     if (!token || !chatId) return;
-    const plan = firstReplyTitlePlan(peekCreatedChat(chatId), getCachedChat(chatId));
+    const plan = firstReplyTitlePlan(
+      peekCreatedChat(chatId),
+      getCachedChat(chatId),
+      getFirstUserText?.(),
+    );
     if (plan.insert) {
       insertChatGlobal(plan.insert);
       if (plan.insert.title) {
@@ -82,7 +92,7 @@ export function useChatTitlePolling({ token, chatId, setChatTitle }: Options) {
     if (plan.poll) {
       await pollForTitle(token, chatId);
     }
-  }, [token, chatId, pollForTitle, setChatTitle]);
+  }, [token, chatId, pollForTitle, setChatTitle, getFirstUserText]);
 
   useEffect(() => {
     setTitleGenerating(false);
