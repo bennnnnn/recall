@@ -18,7 +18,22 @@ describe("firstReplyTitlePlan", () => {
     expect(firstReplyTitlePlan(created, undefined)).toEqual({
       insert: created,
       fetch: false,
-      poll: true,
+      poll: false,
+    });
+  });
+
+  it("uses Image when the first user turn is an attachment-only photo", () => {
+    const created = chat("new", null);
+    expect(
+      firstReplyTitlePlan(
+        created,
+        undefined,
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+      ),
+    ).toEqual({
+      insert: { ...created, title: "Image" },
+      fetch: false,
+      poll: false,
     });
   });
 

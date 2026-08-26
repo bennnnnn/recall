@@ -99,10 +99,16 @@ export function useChatRouteLoader({
 
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-  const getFirstUserText = useCallback(
-    () => messagesRef.current.find((m) => m.role === "user")?.content,
-    [],
-  );
+  const getFirstUserText = useCallback(() => {
+    const user = messagesRef.current.find((m) => m.role === "user");
+    if (!user) return undefined;
+    if (user.content?.trim()) return user.content;
+    if (user.local_image_uri) return "[Image: local]";
+    if (user.local_file_name || user.local_file_uri) {
+      return `[File: ${user.local_file_name ?? "file"}]`;
+    }
+    return user.content;
+  }, []);
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
     token,

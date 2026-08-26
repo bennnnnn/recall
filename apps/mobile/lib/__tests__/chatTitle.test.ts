@@ -30,6 +30,15 @@ describe("chatTitle", () => {
     expect(provisionalChatTitle("  Hello\nsecond line")).toBe("Hello");
     expect(provisionalChatTitle("   ")).toBeNull();
     expect(provisionalChatTitle("x".repeat(60))).toBe(`${"x".repeat(47)}…`);
+    expect(
+      provisionalChatTitle(
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+      ),
+    ).toBe("Image");
+    expect(provisionalChatTitle("[File: notes.pdf]")).toBe("File");
+    expect(provisionalChatTitle("What's in this image?\n\n[Image: local]")).toBe(
+      "Image",
+    );
   });
 
   it("sanitizeManualChatTitle strips quotes and enforces length", () => {

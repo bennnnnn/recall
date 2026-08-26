@@ -23,6 +23,7 @@ export function firstReplyTitlePlan(
   return {
     insert: title ? { ...chat, title } : chat,
     fetch: false,
-    poll: !title,
+    // POST /chats already inserted the row — do not poll while the topic job runs.
+    poll: false,
   };
 }
