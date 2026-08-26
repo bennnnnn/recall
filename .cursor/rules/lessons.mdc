@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Home "Anything left tonight?" polled `GET /chats/{id}` three times.**
+  Title job is async; we polled so the drawer would not stay Untitled.
+  Use the first user line as the local title and skip the poll.
 - **Lists / Learning / Reminders back reloaded the open thread.** Focus
   silent-refetched `GET …/messages` (20s TTL still fired). Do not refetch
   on in-app Back; App resume still recovers a truncated stream. Skip Home

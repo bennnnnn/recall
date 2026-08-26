@@ -22,6 +22,16 @@ describe("firstReplyTitlePlan", () => {
     });
   });
 
+  it("uses the first user line so Home chips do not poll GET /chats/{id}", () => {
+    const created = chat("new", null);
+    const prompt = "What's still open for me to finish tonight?";
+    expect(firstReplyTitlePlan(created, undefined, prompt)).toEqual({
+      insert: { ...created, title: "What's still open for me to finish tonight" },
+      fetch: false,
+      poll: false,
+    });
+  });
+
   it("skips fetch and poll when the drawer row already has a title", () => {
     const listed = chat("old", "Homework");
     expect(firstReplyTitlePlan(undefined, listed)).toEqual({
