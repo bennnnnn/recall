@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
@@ -43,7 +42,6 @@ export default function GalleryScreen() {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const router = useRouter();
   const token = useAuthToken();
@@ -166,8 +164,7 @@ export default function GalleryScreen() {
 
   return (
     <View style={s.root}>
-      <View style={[s.header, { paddingTop: insets.top + Space.sm }]}>
-        <Text style={s.title}>{t("gallery.title")}</Text>
+      <View style={s.header}>
         <View style={s.searchBar}>
           <Icon name="search-outline" size={16} color={C.textTertiary} />
           <TextInput
@@ -263,25 +260,19 @@ function makeStyles(C: Theme) {
     root: { flex: 1, backgroundColor: C.bg },
     header: {
       paddingHorizontal: Space.md,
+      paddingTop: Space.sm,
       paddingBottom: Space.sm,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: "800",
-      lineHeight: 34,
-      color: C.text,
-      marginBottom: Space.sm,
     },
     searchBar: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      height: 40,
+      minHeight: 44,
       paddingHorizontal: 14,
       borderRadius: 20,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
-      backgroundColor: C.surface,
+      backgroundColor: C.surfaceAlt,
       marginBottom: Space.sm,
     },
     searchInput: {
@@ -296,7 +287,9 @@ function makeStyles(C: Theme) {
       gap: Space.xs,
     },
     tab: {
-      paddingVertical: 7,
+      minHeight: 44,
+      justifyContent: "center",
+      paddingVertical: Space.xs,
       paddingHorizontal: 12,
       borderRadius: 20,
     },
@@ -323,7 +316,9 @@ function makeStyles(C: Theme) {
     },
     fileTile: {
       borderRadius: 10,
-      backgroundColor: C.surface,
+      backgroundColor: C.surfaceAlt,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
       gap: 6,

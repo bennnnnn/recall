@@ -17,6 +17,7 @@ export type ConversationRowStyles = {
   rowHighlighted: ViewStyle;
   rowActive: ViewStyle;
   rowSelected: ViewStyle;
+  rowPressed: ViewStyle;
 };
 
 type Props = {
@@ -57,11 +58,12 @@ export const ConversationRow = memo(function ConversationRow({
 
   return (
     <Pressable
-      style={[
+      style={({ pressed }) => [
         r.row,
         highlighted && r.rowHighlighted,
         active && !selectionMode && r.rowActive,
         selected && r.rowSelected,
+        pressed && r.rowPressed,
       ]}
       onPress={() => {
         if (selectionMode) onToggleSelect?.(chat.id);
@@ -134,5 +136,6 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     rowSelected: {
       backgroundColor: theme.primaryLight,
     },
+    rowPressed: { opacity: 0.72 },
   });
 }

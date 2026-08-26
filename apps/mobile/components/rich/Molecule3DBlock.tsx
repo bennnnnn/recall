@@ -354,6 +354,6 @@ function makeStyles(t: Theme) {
       borderColor: t.primary,
     },
     styleBtnText: { fontSize: 11, fontWeight: "600", color: t.textSecondary },
-    styleBtnTextActive: { color: "#fff" },
+    styleBtnTextActive: { color: t.onPrimary },
   });
 }

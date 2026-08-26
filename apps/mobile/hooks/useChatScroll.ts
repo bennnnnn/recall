@@ -26,7 +26,7 @@ import { tap } from "@/lib/haptics";
  */
 const STREAMING_SCROLL_THROTTLE_MS = 64;
 /** Skip catch-up when already within a few pixels of the bottom. */
-const STREAMING_SCROLL_SLACK_PX = 8;
+const STREAMING_SCROLL_SLACK_PX = 36;
 
 type Options = {
   chatId: string | null;
@@ -150,13 +150,13 @@ export function useChatScroll({
     streamingScrollLastRunRef.current = Date.now();
     if (atBottomRef.current) {
       // During streaming, FlashList autoscroll is disabled (see ChatMessageList)
-      // so this is the sole bottom-pin writer. Use animated catch-up — hard
-      // snaps at LLM burst boundaries read as up/down jitter.
+      // so this is the sole bottom-pin writer. Skip when already close; snap
+      // the rest — 64ms animated catch-ups read as micro-jitter.
       const metrics = measureScrollMetrics();
       if (metrics && metrics.distanceFromBottom <= STREAMING_SCROLL_SLACK_PX) {
         return;
       }
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated: false });
     } else {
       requestAnimationFrame(() => syncScrollPosition());
     }

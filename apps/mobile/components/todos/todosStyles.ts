@@ -72,7 +72,7 @@ export function makeTodosStyles(C: Theme) {
       fontWeight: "600",
       color: C.onPrimary,
     },
-    checkbox: { padding: 2 },
+    checkbox: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     todoMain: { flex: 1, gap: Space.xxs },
     todoText: { ...Type.body, color: C.text },
     dueLabel: { fontSize: 12, fontWeight: "600" },
@@ -91,7 +91,7 @@ export function makeTodosStyles(C: Theme) {
     },
     overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", lineHeight: 18, color: C.danger },
     pickerOverlapNote: { marginHorizontal: Space.md, marginBottom: Space.xs },
-    dueBtn: { padding: 2 },
+    dueBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     todoDone: {
       color: C.textTertiary,
       textDecorationLine: "line-through",

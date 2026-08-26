@@ -22,7 +22,7 @@ export function makeChatScreenStyles(C: Theme) {
       right: Space.xs,
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: C.surface,
+      backgroundColor: C.surfaceAlt,
       borderRadius: Radius.md,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
