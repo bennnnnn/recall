@@ -1,4 +1,4 @@
-import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/mathFenceRetag";
 
 const COPY_BLOCK_RE =
@@ -328,49 +328,6 @@ export function isExplicitCodeLang(lang: string): boolean {
   // cannot drift from the structured-fence list again.
   if (isNeverCodeBlockLang(l)) return false;
   return !isProseLang(l);
-}
-
-/**
- * One decision for the open streaming tail — same rules as settled
- * `renderFenceInner` (explicit math/diagram tags win; answer heuristic
- * only for untagged/mis-tagged bodies). Do not keep a second lang list here.
- */
-export type OpenFencePreviewKind = "answer" | "math" | "diagram" | "code";
-
-export function classifyOpenFencePreview(lang: string, body: string): OpenFencePreviewKind {
-  const id = fenceIdForLang(lang);
-  if (id === "answer") return "answer";
-  if (id === "math") return "math";
-  if (
-    id === "geometry" ||
-    id === "graph" ||
-    id === "chart" ||
-    id === "mermaid" ||
-    id === "chemistry"
-  )
-    return "diagram";
-  if (isExplicitCodeLang(lang)) return "code";
-  if (looksLikeMathAnswer(body)) return "answer";
-  if (body.trim() && looksLikeMathFenceBody(body)) return "math";
-  return "code";
-}
-
-/**
- * While an ```answer fence is still open, MarkdownContent used to paint a
- * CodeBlock (lang badge + raw `\quad \text{or}`). When the fence closed it
- * swapped to AnswerBlock — a flash of source before the numbers. Preview
- * the same AnswerBlock as soon as we know it's a final.
- */
-export function shouldPreviewOpenFenceAsAnswer(lang: string, body: string): boolean {
-  return classifyOpenFencePreview(lang, body) === "answer";
-}
-
-/**
- * While a ```math fence is still open, MarkdownContent used to paint a
- * CodeBlock of the raw LaTeX. Preview with native MathText until it closes.
- */
-export function shouldPreviewOpenFenceAsMath(lang: string, body: string): boolean {
-  return classifyOpenFencePreview(lang, body) === "math";
 }
 
 export function shouldRenderAsCopyBlock(

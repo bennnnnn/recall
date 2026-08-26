@@ -3,7 +3,7 @@
 // coverage before this file (only each block's own logic was unit tested).
 import { render, waitFor } from "@testing-library/react-native";
 
-import { renderFence, type FenceNode } from "@/components/markdown/markdownFenceRender";
+import { renderFence, type FenceNode } from "../markdownFenceRender";
 
 // markdownFenceRender.tsx statically imports CodeBlock/CopyBlock (both pull
 // in expo-clipboard + @expo/vector-icons) regardless of which fence branch
@@ -241,6 +241,14 @@ describe("renderFence edge cases", () => {
   it("falls back to CodeBlock for a plain code fence with an explicit language", async () => {
     const { getByText } = await render(<>{renderFence(node("const x = 1;", "javascript"))}</>);
     expect(getByText("javascript:const x = 1;")).toBeOnTheScreen();
+  });
+
+  it("BUG FIX: an explicit ```python fence is never reinterpreted as an Answer", async () => {
+    const { getByText, queryByLabelText } = await render(
+      <>{renderFence(node("x = 2", "python"))}</>,
+    );
+    expect(getByText("python:x = 2")).toBeOnTheScreen();
+    expect(queryByLabelText(/Answer:/)).toBeNull();
   });
 
   it("routes a short numeric final (including mis-tagged ```copy) to AnswerBlock, not Copy", async () => {

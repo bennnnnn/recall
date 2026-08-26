@@ -54,6 +54,14 @@ describe("preprocessMarkdown", () => {
     expect(out).toContain("**Atelier Crenn**");
   });
 
+  it("promotes > Tip: / > Warning: blockquotes into callout fences", () => {
+    const out = preprocessMarkdown("> Tip: wear gloves\n>\n> Warning: hot surface");
+    expect(out).toContain("```callout-tip");
+    expect(out).toContain("wear gloves");
+    expect(out).toContain("```callout-warning");
+    expect(out).toContain("hot surface");
+  });
+
   it("still converts real display math delimiters", () => {
     const input = "The area is $$\\pi r^2$$ for a circle.";
     const out = preprocessMarkdown(input);

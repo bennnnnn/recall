@@ -108,7 +108,7 @@ def test_balanced_style_includes_math_tutoring_hint():
 def test_slim_casual_turn_uses_compact_math_safety_not_viz_pack():
     """Help-me-think / slim chat must not dump the format+viz+solver bible."""
     from app.services.chat.prompt_constants import (
-        INTENT_FORMAT_HINT,
+        FORMAT_CONTRACT,
         MATH_SOLVER_HINT,
         VISUALIZATION_HINTS,
     )
@@ -121,12 +121,39 @@ def test_slim_casual_turn_uses_compact_math_safety_not_viz_pack():
         compact=True,
     )
     assert SHORT_MATH_SAFETY_HINT in parts
-    assert INTENT_FORMAT_HINT not in parts
+    assert FORMAT_CONTRACT not in parts
     assert MATH_SOLVER_HINT not in parts
     assert VISUALIZATION_HINTS not in parts
     joined = "\n".join(parts)
     assert "Do NOT emit ```answer" in joined
     assert "Math diagrams and plots" not in joined
+
+
+def test_rich_turn_injects_format_contract_once_and_keeps_math():
+    from app.services.chat.prompt_constants import (
+        COMPARISON_FORMAT_HINT,
+        FORMAT_CONTRACT,
+        MATH_INTENT_HINT,
+        MATH_SOLVER_HINT,
+    )
+
+    parts = _hints("balanced")
+    assert parts.count(FORMAT_CONTRACT) == 1
+    assert MATH_INTENT_HINT in parts
+    assert MATH_SOLVER_HINT in parts
+    assert COMPARISON_FORMAT_HINT not in parts
+
+
+def test_vs_in_the_query_does_not_append_a_second_comparison_sermon():
+    from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text="Python vs Java",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert COMPARISON_FORMAT_HINT not in parts
 
 
 def test_integration_hints_wraps_todos_section():

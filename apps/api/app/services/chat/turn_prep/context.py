@@ -30,7 +30,10 @@ from app.services.chat.prompt_builder import (
     fetch_web_and_tools,
     inject_web_and_tools,
 )
-from app.services.chat.prompt_constants import is_lightweight_chat_turn
+from app.services.chat.prompt_constants import (
+    attach_chemistry_fence_hint,
+    is_lightweight_chat_turn,
+)
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.integrations import (
     _load_has_calendar_write,
@@ -557,7 +560,9 @@ async def build_stream_prompt_context(
     # so the model has verified SMILES + properties when it emits a
     # ```smiles fence.
     if chem_block:
-        prompt_messages.append({"role": "system", "content": chem_block})
+        prompt_messages.append(
+            {"role": "system", "content": attach_chemistry_fence_hint(chem_block)}
+        )
 
     if timing is not None:
         timing.mark_phase("augment_done")

@@ -155,9 +155,11 @@ async def test_build_prompt_includes_comparison_table_hint():
         )
 
     system = messages[0]["content"]
-    assert "This turn is a comparison" in system
-    assert "| Feature | Option A | Option B |" in system
-    assert "do NOT answer as long bullet paragraphs" in system
+    # One contract — do not append a second "This turn is a comparison" sermon
+    # from a shallow vs/versus regex.
+    assert "This turn is a comparison" not in system
+    assert "X vs Y" in system
+    assert "pipe table" in system.lower()
 
 
 @pytest.mark.parametrize(
@@ -182,15 +184,12 @@ def test_is_comparison_question(text, expected):
 
 
 def test_format_hints_discourage_tables_for_how_tos():
-    from app.services.chat.prompt_constants import (
-        INTENT_FORMAT_HINT,
-        RESPONSE_FORMAT_HINT,
-    )
+    from app.services.chat.prompt_constants import FORMAT_CONTRACT
 
-    for blob in (INTENT_FORMAT_HINT, RESPONSE_FORMAT_HINT):
-        assert "roadmap" in blob.lower() or "how-to" in blob.lower()
-        assert "NEVER" in blob or "Never" in blob
-        assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
+    blob = FORMAT_CONTRACT
+    assert "roadmap" in blob.lower() or "how-to" in blob.lower()
+    assert "NEVER" in blob or "Never" in blob
+    assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
 
 
 def test_universal_format_baseline_pins_answer_first_and_no_decoration():
@@ -216,54 +215,62 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     assert "Lead with the answer; explanation after." in STYLE_HINTS["balanced"]
 
 
-def test_format_hints_include_rich_fence_guidance():
-    """The model must be told about callouts, steps, and details fences so
-    output is visually clear and attractive — the renderers exist in the app
-    but were never mentioned in the prompt."""
+def test_format_contract_is_markdown_not_ui_fences():
+    """The model writes Markdown. Teaching ```tip / ```steps / ```smiles on
+    every rich turn made it invent cards (music → molecule). Renderers still
+    accept those fences on old messages."""
     from app.services.chat.prompt_constants import (
-        INTENT_FORMAT_HINT,
-        RESPONSE_FORMAT_HINT,
+        FORMAT_CONTRACT,
+        VISUALIZATION_HINTS,
     )
 
-    # Callout fences
-    assert "```tip" in INTENT_FORMAT_HINT
-    assert "```warning" in INTENT_FORMAT_HINT
-    # Steps fence for procedures
-    assert "```steps" in INTENT_FORMAT_HINT
-    # Collapsible details
-    assert "```details" in INTENT_FORMAT_HINT
-    # Comparison fence for pros/cons
-    assert "```comparison" in INTENT_FORMAT_HINT
-    # Visual polish guidance in RESPONSE_FORMAT_HINT
-    assert "visually clear" in RESPONSE_FORMAT_HINT.lower()
-    assert "callout" in RESPONSE_FORMAT_HINT.lower() or "```tip" in RESPONSE_FORMAT_HINT
+    assert "```tip" not in FORMAT_CONTRACT
+    assert "```steps" not in FORMAT_CONTRACT
+    assert "```comparison" not in FORMAT_CONTRACT
+    assert "```details" not in FORMAT_CONTRACT
+    assert "```answer" not in FORMAT_CONTRACT
+    assert "blockquote" in FORMAT_CONTRACT.lower() or "Tip:" in FORMAT_CONTRACT
+    assert "```email" in FORMAT_CONTRACT
+    assert "```python" in FORMAT_CONTRACT
+    assert "```smiles" not in VISUALIZATION_HINTS
+    assert "```chemistry" not in VISUALIZATION_HINTS
+    from app.services.chat.prompt_constants import CHEMISTRY_FENCE_HINT, MATH_SOLVER_HINT
+
+    assert "```smiles" in CHEMISTRY_FENCE_HINT
+    assert "```smiles" not in MATH_SOLVER_HINT
+
+    from app.services.chat.prompt_constants import attach_chemistry_fence_hint
+
+    pubchem = "[Chemistry context]\nCanonical SMILES: CCO"
+    assert attach_chemistry_fence_hint(pubchem).startswith(CHEMISTRY_FENCE_HINT)
+    assert attach_chemistry_fence_hint("[Verified pH calculation]\n7") == (
+        "[Verified pH calculation]\n7"
+    )
 
 
 def test_math_formula_shape_rule_is_unified():
     """Global hints and math-solver hints must agree: inline $ for steps,
     ```math only for standalone display — not contradictory guidance."""
-    from app.services.chat.prompt_constants import INTENT_FORMAT_HINT, MATH_SOLVER_HINT
+    from app.services.chat.prompt_constants import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
-    for blob in (INTENT_FORMAT_HINT, MATH_SOLVER_HINT):
+    for blob in (MATH_INTENT_HINT, MATH_SOLVER_HINT):
         assert "inline" in blob.lower()
         assert "standalone" in blob.lower()
         # Must not tell the model to put step formulas in ```math fences.
         assert "NEVER indent a ```math fence inside that list item" not in blob
-    assert "numbered solution steps" in INTENT_FORMAT_HINT.lower()
-    assert "closed-form asks" in INTENT_FORMAT_HINT.lower()
-    assert "4! = 4" in INTENT_FORMAT_HINT
-    assert "Do NOT emit ```answer" in INTENT_FORMAT_HINT
-    assert "```steps" in INTENT_FORMAT_HINT
-    assert "never use a ```steps fence for math" in INTENT_FORMAT_HINT.lower()
-    assert "both sides" in INTENT_FORMAT_HINT.lower()
-    assert "F + 3 - 3 = 3 - 3" in INTENT_FORMAT_HINT
+    assert "numbered solution steps" in MATH_INTENT_HINT.lower()
+    assert "closed-form asks" in MATH_INTENT_HINT.lower()
+    assert "4! = 4" in MATH_INTENT_HINT
+    assert "Do NOT emit ```answer" in MATH_INTENT_HINT
+    assert "both sides" in MATH_INTENT_HINT.lower()
+    assert "F + 3 - 3 = 3 - 3" in MATH_INTENT_HINT
 
 
 def test_math_solver_hint_does_not_overclaim_unverified_scope():
     """Stats/combo/NT/matrix used to be listed as broadly "in scope", and
     geometry few-shots embedded concrete dims that taught inventing measures.
     Gate advanced topics on a verified block; mark sample dims illustrative."""
-    from app.services.chat.prompt_constants import INTENT_FORMAT_HINT, MATH_SOLVER_HINT
+    from app.services.chat.prompt_constants import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
     lower = MATH_SOLVER_HINT.lower()
     assert "never invent" in lower
@@ -272,7 +279,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "do not claim sympy verification" in lower
     # Must not claim bare "are also in scope" without the verified-block gate.
     assert "are also in scope" not in lower
-    assert "never invent geometry" in INTENT_FORMAT_HINT.lower()
+    assert "never invent geometry" in MATH_INTENT_HINT.lower()
 
 
 @pytest.mark.asyncio

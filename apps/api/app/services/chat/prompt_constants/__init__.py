@@ -7,6 +7,7 @@ same way as the old ``prompt_constants`` module.
 from app.services.chat.prompt_constants.format import (
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
+    FORMAT_CONTRACT,
     INTENT_FORMAT_HINT,
     RESPONSE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
@@ -42,7 +43,11 @@ from app.services.chat.prompt_constants.routing import (
     is_writing_deliverable_request,
     needs_rich_context,
 )
-from app.services.chat.prompt_constants.visuals import VISUALIZATION_HINTS
+from app.services.chat.prompt_constants.visuals import (
+    CHEMISTRY_FENCE_HINT,
+    VISUALIZATION_HINTS,
+    attach_chemistry_fence_hint,
+)
 from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
     EMAIL_DRAFT_HINT,
@@ -52,6 +57,7 @@ from app.services.chat.prompt_constants.writing import (
 
 __all__ = [
     "BROAD_SELF_ANSWER_HINT",
+    "CHEMISTRY_FENCE_HINT",
     "CLARIFICATION_HINT",
     "COMPACT_RESPONSE_FORMAT_HINT",
     "COMPARISON_FORMAT_HINT",
@@ -59,6 +65,7 @@ __all__ = [
     "DAY_LEARNING_SNAPSHOT_HINT",
     "DAY_PLANNING_ANSWER_HINT",
     "EMAIL_DRAFT_HINT",
+    "FORMAT_CONTRACT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
@@ -76,6 +83,7 @@ __all__ = [
     "VISUALIZATION_HINTS",
     "VOCAB_CHAT_ANSWER_HINT",
     "WRITING_LINE_HINT",
+    "attach_chemistry_fence_hint",
     "format_quiz_grading_hint",
     "is_bare_writing_line",
     "is_broad_self_question",
