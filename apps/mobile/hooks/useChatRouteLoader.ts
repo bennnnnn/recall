@@ -137,8 +137,6 @@ export function useChatRouteLoader({
   const chatLoadingRef = useRef(chatLoading);
   streamingRef.current = streaming;
   chatLoadingRef.current = chatLoading;
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
   const knownAssistantChatId = chatId ?? (typeof routeChatId === "string" ? routeChatId : null);
   const messagesHadAssistant = messages.some((m) => m.role === "assistant");
   useEffect(() => {

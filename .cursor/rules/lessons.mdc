@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Metro: `messagesRef` already declared.** Rebase of stacked chat-loader
+  PRs kept both `useRef(messages)` blocks. One ref at the top of the hook;
+  later code only reads `.current`.
 - **“Create music” rendered a chemistry molecule.** Default rich-turn
   hints taught ```smiles / ```tip / ```steps, and settled render ran
   `looksLikeMathAnswer` before explicit code langs. One Markdown
