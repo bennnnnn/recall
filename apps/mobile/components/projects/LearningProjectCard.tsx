@@ -116,11 +116,11 @@ export const LearningProjectCard = memo(function LearningProjectCard({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     section: {
-      marginBottom: 24,
+      marginBottom: 0,
     },
     card: {
       borderRadius: 16,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       overflow: "hidden",
@@ -204,7 +204,9 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 16,
     },
     chip: {
-      backgroundColor: theme.bg,
+      backgroundColor: theme.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 5,

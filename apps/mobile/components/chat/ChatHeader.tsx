@@ -128,7 +128,7 @@ export const ChatHeader = memo(function ChatHeader({
                   pressed && s.actionGroupBtnPressed,
                 ]}
                 onPress={onNewChat}
-                hitSlop={4}
+                hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
               >
@@ -140,7 +140,7 @@ export const ChatHeader = memo(function ChatHeader({
                   pressed && s.actionGroupBtnPressed,
                 ]}
                 onPress={onOpenMenu}
-                hitSlop={4}
+                hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.menu")}
               >
@@ -203,8 +203,8 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 2,
     },
     actionGroupBtn: {
-      width: 36,
-      height: 40,
+      width: 44,
+      height: 44,
       alignItems: "center",
       justifyContent: "center",
     },

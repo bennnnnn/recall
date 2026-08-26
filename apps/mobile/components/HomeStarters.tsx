@@ -167,7 +167,7 @@ function UrgentTodoSection({
                   tap();
                   onDismiss(todo.id);
                 }}
-                hitSlop={8}
+                hitSlop={14}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.home.dismiss_reminder")}
               >

@@ -310,6 +310,7 @@ function ListItemRow({
         <Pressable
           onPress={onDelete}
           hitSlop={8}
+          style={s.checkbox}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
           disabled={busy}
@@ -427,7 +428,10 @@ function makeStyles(C: Theme) {
       color: C.onPrimary,
     },
     checkbox: {
-      padding: 2,
+      minWidth: 44,
+      minHeight: 44,
+      alignItems: "center",
+      justifyContent: "center",
     },
     rowText: {
       flex: 1,

@@ -75,7 +75,7 @@ export function LiveTalkOverlay({
             accessibilityRole="button"
             accessibilityLabel={t("chat.live_talk_close_a11y")}
           >
-            <Icon name="close" size={22} color="#FFFFFF" />
+            <Icon name="close" size={22} color={theme.onPrimary} />
           </Pressable>
         </View>
       </View>
@@ -119,7 +119,7 @@ function makeStyles(theme: Theme) {
       width: 52,
       height: 52,
       borderRadius: 26,
-      backgroundColor: "#111111",
+      backgroundColor: theme.text,
       alignItems: "center",
       justifyContent: "center",
     },

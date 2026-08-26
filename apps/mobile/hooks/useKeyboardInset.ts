@@ -13,7 +13,7 @@ type Options = {
   idleBottomPad: number;
 };
 
-const KEYBOARD_HEIGHT_THRESHOLD_PX = 4;
+const KEYBOARD_HEIGHT_THRESHOLD_PX = 48;
 
 /** Tracks the OS keyboard curve for the chat composer and layout metrics. */
 export function useKeyboardInset({ idleBottomPad }: Options) {

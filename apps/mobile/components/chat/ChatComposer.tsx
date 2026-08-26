@@ -44,7 +44,7 @@ function noopComposerInput(_text: string) {}
 export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
-const MATH_KEYBOARD_CHIP_HEIGHT = 36;
+const MATH_KEYBOARD_CHIP_HEIGHT = 44;
 export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
@@ -490,13 +490,14 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
     },
     chip: {
-      minWidth: 36,
-      height: 32,
+      minWidth: 44,
+      minHeight: 44,
+      height: 44,
       paddingHorizontal: 10,
       borderRadius: 16,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },

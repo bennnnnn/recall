@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import type { SuggestedReminder } from "@/lib/api";
 import { describeDueAt } from "@/lib/todos/dueDate";
@@ -79,13 +80,21 @@ function makeStyles(theme: Theme) {
     snippet: { fontSize: 13, color: theme.textSecondary, marginTop: 4 },
     actions: { flexDirection: "row", gap: 12, marginTop: 10 },
     addBtn: {
+      minHeight: 44,
+      justifyContent: "center",
       paddingHorizontal: 14,
-      paddingVertical: 6,
+      paddingVertical: Space.xs,
       borderRadius: 8,
       backgroundColor: theme.primary,
     },
     addText: { color: theme.onPrimary, fontWeight: "600", fontSize: 14 },
-    dismissBtn: { paddingHorizontal: 4, paddingVertical: 6, justifyContent: "center" },
+    dismissBtn: {
+      minHeight: 44,
+      minWidth: 44,
+      paddingHorizontal: Space.xs,
+      justifyContent: "center",
+      alignItems: "center",
+    },
     dismissText: { color: theme.textSecondary, fontSize: 14 },
   });
 }

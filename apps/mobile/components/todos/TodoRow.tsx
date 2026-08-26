@@ -110,6 +110,7 @@ export const TodoRow = memo(function TodoRow({
         <Pressable
           onPress={handleDelete}
           hitSlop={8}
+          style={s.dueBtn}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
           disabled={busy}

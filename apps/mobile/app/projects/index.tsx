@@ -371,7 +371,7 @@ function makeStyles(C: Theme) {
       paddingVertical: 14,
       paddingHorizontal: Space.sm,
       borderRadius: 14,
-      backgroundColor: C.surface,
+      backgroundColor: C.surfaceAlt,
       borderWidth: 1,
       borderColor: C.border,
     },
