@@ -18,7 +18,7 @@ import {
   type StreamBlocksState,
 } from "@/lib/markdown/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
-import { classifyOpenFencePreview } from "@/lib/copyBlock";
+import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,

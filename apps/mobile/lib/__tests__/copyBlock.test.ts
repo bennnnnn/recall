@@ -6,10 +6,12 @@ import {
   looksLikeSendDeliverable,
   shouldRenderAsCopyBlock,
   shouldRenderAsCodeBlock,
+} from "@/lib/copyBlock";
+import {
+  classifyOpenFencePreview,
   shouldPreviewOpenFenceAsAnswer,
   shouldPreviewOpenFenceAsMath,
-  classifyOpenFencePreview,
-} from "@/lib/copyBlock";
+} from "@/lib/fenceDispatch";
 
 describe("copyBlock heuristics", () => {
   it("recognizes copy fence languages", () => {

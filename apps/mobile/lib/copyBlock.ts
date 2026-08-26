@@ -384,10 +384,3 @@ export function extractPrimaryCopyText(content: string): string {
 export function hasCopyBlock(content: string): boolean {
   return COPY_BLOCK_RE.test(content);
 }
-
-export type { OpenFencePreviewKind } from "@/lib/fenceDispatch";
-export {
-  classifyOpenFencePreview,
-  shouldPreviewOpenFenceAsAnswer,
-  shouldPreviewOpenFenceAsMath,
-} from "@/lib/fenceDispatch";

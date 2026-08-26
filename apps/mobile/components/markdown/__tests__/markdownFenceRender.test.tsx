@@ -3,7 +3,7 @@
 // coverage before this file (only each block's own logic was unit tested).
 import { render, waitFor } from "@testing-library/react-native";
 
-import { renderFence, type FenceNode } from "@/components/markdown/markdownFenceRender";
+import { renderFence, type FenceNode } from "../markdownFenceRender";
 
 // markdownFenceRender.tsx statically imports CodeBlock/CopyBlock (both pull
 // in expo-clipboard + @expo/vector-icons) regardless of which fence branch

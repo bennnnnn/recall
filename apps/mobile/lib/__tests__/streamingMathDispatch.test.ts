@@ -1,4 +1,4 @@
-import { classifyOpenFencePreview } from "@/lib/copyBlock";
+import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
 import { preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 
