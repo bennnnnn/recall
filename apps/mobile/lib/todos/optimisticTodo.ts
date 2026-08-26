@@ -33,7 +33,15 @@ export function buildOptimisticTodo(fields: {
 }
 
 export function replaceTodoById(todos: Todo[], id: string, next: Todo): Todo[] {
-  return todos.map((item) => (item.id === id ? next : item));
+  let found = false;
+  const mapped = todos.map((item) => {
+    if (item.id === id || item.id === next.id) {
+      found = true;
+      return next;
+    }
+    return item;
+  });
+  return found ? mapped : [...todos, next];
 }
 
 export function removeTodoById(todos: Todo[], id: string): Todo[] {

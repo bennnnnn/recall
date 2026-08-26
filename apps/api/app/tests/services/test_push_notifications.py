@@ -614,6 +614,61 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok():
 
 
 @pytest.mark.asyncio
+async def test_finalize_marks_todo_loaded_on_finalize_session():
+    """Production collect/finalize use different sessions — a detached
+    collect-session instance must not be the only write target."""
+    finalize_session = AsyncMock()
+    redis = AsyncMock()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+    todo_id = uuid4()
+    detached = MagicMock()
+    detached.id = todo_id
+    detached.notification_sent_at = None
+    attached = MagicMock()
+    attached.notification_sent_at = None
+    finalize_session.get = AsyncMock(return_value=attached)
+
+    await push_service.finalize_push_deliveries(
+        finalize_session,
+        redis,
+        [
+            push_service.OutboundPush(
+                message={"to": "ExponentPushToken[abc]"},
+                todos=[detached],
+            )
+        ],
+        [True],
+        now=now,
+    )
+
+    finalize_session.get.assert_awaited_once()
+    assert finalize_session.get.await_args.args[1] == todo_id
+    assert attached.notification_sent_at == now
+    assert detached.notification_sent_at == now
+    finalize_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_finalize_keeps_calendar_dedupe_when_any_device_succeeds():
+    session = AsyncMock()
+    redis = AsyncMock()
+    outbound = [
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[dead]"},
+            dedupe_redis_key="cal:nudge:1",
+        ),
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[ok]"},
+            dedupe_redis_key="cal:nudge:1",
+        ),
+    ]
+
+    await push_service.finalize_push_deliveries(session, redis, outbound, [False, True])
+
+    redis.delete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
     session = AsyncMock()
     redis = AsyncMock()

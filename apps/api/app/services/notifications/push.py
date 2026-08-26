@@ -504,29 +504,38 @@ async def _finalize_push_deliveries(
     *,
     now: datetime,
 ) -> None:
-    todos_marked: set[int] = set()
-    suggestions_marked: set[int] = set()
+    todos_marked: set[UUID] = set()
+    suggestions_marked: set[UUID] = set()
     learning_success: dict[str, bool] = {}
-    dedupe_failures: list[str] = []
+    dedupe_success: dict[str, bool] = {}
 
     for item, ok in zip(outbound, delivered, strict=False):
         if item.learning_redis_key is not None:
             key = item.learning_redis_key
             learning_success[key] = learning_success.get(key, False) or ok
-        if item.dedupe_redis_key is not None and not ok:
-            dedupe_failures.append(item.dedupe_redis_key)
+        if item.dedupe_redis_key is not None:
+            key = item.dedupe_redis_key
+            dedupe_success[key] = dedupe_success.get(key, False) or ok
         if not ok:
             continue
         for todo in item.todos:
-            todo_id = id(todo)
-            if todo_id in todos_marked:
+            todo_id = getattr(todo, "id", None)
+            if todo_id is None or todo_id in todos_marked:
                 continue
+            # Production collect/finalize use different sessions — mutate a
+            # row loaded here or the UPDATE never flushes.
+            todo_row = await session.get(TodoItem, todo_id)
+            todo_target = todo_row if todo_row is not None else todo
+            todo_target.notification_sent_at = now
             todo.notification_sent_at = now
             todos_marked.add(todo_id)
         for suggestion in item.suggestions:
-            suggestion_id = id(suggestion)
-            if suggestion_id in suggestions_marked:
+            suggestion_id = getattr(suggestion, "id", None)
+            if suggestion_id is None or suggestion_id in suggestions_marked:
                 continue
+            suggestion_row = await session.get(SuggestedReminder, suggestion_id)
+            suggestion_target = suggestion_row if suggestion_row is not None else suggestion
+            suggestion_target.notification_sent_at = now
             suggestion.notification_sent_at = now
             suggestions_marked.add(suggestion_id)
 
@@ -534,8 +543,9 @@ async def _finalize_push_deliveries(
         if not had_success:
             await redis.delete(key)
 
-    for key in dedupe_failures:
-        await redis.delete(key)
+    for key, had_success in dedupe_success.items():
+        if not had_success:
+            await redis.delete(key)
 
     if todos_marked or suggestions_marked:
         await session.commit()

@@ -73,6 +73,27 @@ async def test_reorder_skips_ids_not_found_or_owned_by_another_user(fake_session
 
 
 @pytest.mark.asyncio
+async def test_delete_by_topic_matches_topic_exactly(fake_session):
+    from sqlalchemy.dialects import postgresql
+
+    captured: dict = {}
+    result = MagicMock()
+    result.rowcount = 1
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        return result
+
+    fake_session.execute = _capture
+    n = await repo.delete_by_topic(fake_session, uuid4(), "Groceries")
+
+    assert n == 1
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    assert "lower(" not in str(compiled).lower()
+    fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_reorder_no_matches_skips_commit(fake_session):
     fetch_result = MagicMock()
     fetch_result.scalars.return_value.all.return_value = []

@@ -31,7 +31,7 @@ type Props = {
   onReorderGroups: (topics: string[]) => void;
   onReorderItems: (topic: string, ordered: Todo[]) => void;
   onToggle: (todo: Todo) => void;
-  onAddItem: (topic: string, text: string) => void;
+  onAddItem: (topic: string, text: string) => boolean;
   onDeleteItem: (todo: Todo) => void;
   onDeleteList: (topic: string) => void;
   /** When true this list is the page scroller and virtualizes groups. */
@@ -167,8 +167,9 @@ export function ListGroupsView({
                       onSubmitEditing={() => {
                         const text = draft.trim();
                         if (!text) return;
-                        onAddItem(group.topic, text);
-                        setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
+                        if (onAddItem(group.topic, text)) {
+                          setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
+                        }
                       }}
                       returnKeyType="done"
                       maxLength={500}
@@ -179,8 +180,9 @@ export function ListGroupsView({
                     onPress={() => {
                       const text = draft.trim();
                       if (!text) return;
-                      onAddItem(group.topic, text);
-                      setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
+                      if (onAddItem(group.topic, text)) {
+                        setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
+                      }
                     }}
                     disabled={!draft.trim()}
                     style={s.addButton}

@@ -155,7 +155,7 @@ async def delete_by_topic(session: AsyncSession, user_id: UUID, topic: str) -> i
         await session.execute(
             delete(TodoItem).where(
                 TodoItem.user_id == user_id,
-                func.lower(TodoItem.topic) == normalized.lower(),
+                TodoItem.topic == normalized,
                 TodoItem.due_at.is_(None),
             )
         ),

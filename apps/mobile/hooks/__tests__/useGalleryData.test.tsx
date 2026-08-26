@@ -4,6 +4,7 @@ import { act, render, waitFor } from "@testing-library/react-native";
 
 import { useGalleryData } from "@/hooks/useGalleryData";
 import type { AttachmentListItem } from "@/lib/api";
+import type { GalleryFilter } from "@/lib/gallery";
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok" }),
@@ -38,16 +39,26 @@ function item(id: string): AttachmentListItem {
 }
 
 let latest: ReturnType<typeof useGalleryData> | null = null;
+let setProbeFilter: ((next: GalleryFilter) => void) | null = null;
 
-function Probe() {
-  latest = useGalleryData("all", "");
+function Probe({ filter = "all" }: { filter?: GalleryFilter }) {
+  latest = useGalleryData(filter, "");
+  return <Text>{latest.items.map((row) => row.id).join(",")}</Text>;
+}
+
+function FilterSwitchProbe() {
+  const [filter, setFilter] = React.useState<GalleryFilter>("files");
+  setProbeFilter = setFilter;
+  latest = useGalleryData(filter, "");
   return <Text>{latest.items.map((row) => row.id).join(",")}</Text>;
 }
 
 describe("useGalleryData", () => {
   beforeEach(() => {
     latest = null;
+    setProbeFilter = null;
     jest.clearAllMocks();
+    (api.listAttachments as jest.Mock).mockReset();
   });
 
   it("skips a second silent reset while the list is still fresh", async () => {
@@ -89,6 +100,28 @@ describe("useGalleryData", () => {
     });
     expect(latest?.items.map((row) => row.id)).toEqual(["a", "b"]);
     expect(latest?.error).toBe(false);
+  });
+
+  it("refetches when the visible filter changes even if another tab is fresh", async () => {
+    const list = api.listAttachments as jest.Mock;
+    list
+      .mockResolvedValueOnce({ items: [item("pdf-1")], has_more: false })
+      .mockResolvedValueOnce({ items: [item("img-1")], has_more: false });
+
+    await act(async () => {
+      render(<FilterSwitchProbe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["pdf-1"]);
+    });
+
+    await act(async () => {
+      setProbeFilter?.("all");
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["img-1"]);
+    });
+    expect(list).toHaveBeenCalledTimes(2);
   });
 
   it("appends the next page after loadMore", async () => {

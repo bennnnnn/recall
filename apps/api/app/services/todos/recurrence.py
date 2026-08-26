@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, TypeGuard
 from zoneinfo import ZoneInfo
 
 RecurrenceRule = Literal["daily", "weekdays", "weekly", "monthly"]
@@ -16,7 +16,7 @@ RECURRENCE_RULES: tuple[RecurrenceRule, ...] = (
 )
 
 
-def is_recurrence_rule(value: object) -> bool:
+def is_recurrence_rule(value: object) -> TypeGuard[RecurrenceRule]:
     return value in RECURRENCE_RULES
 
 

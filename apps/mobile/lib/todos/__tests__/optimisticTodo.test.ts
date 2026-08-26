@@ -34,4 +34,16 @@ describe("optimisticTodo", () => {
     ]);
     expect(removeTodoById([first, second], first.id)).toEqual([second]);
   });
+
+  it("appends when the optimistic id was dropped by a concurrent refresh", () => {
+    const server = {
+      ...buildOptimisticTodo({ content: "Milk", topic: "Groceries" }),
+      id: "server-1",
+    };
+    const leftover = buildOptimisticTodo({ content: "Eggs", topic: "Groceries" });
+    expect(replaceTodoById([leftover], "local-todo-missing", server)).toEqual([
+      leftover,
+      server,
+    ]);
+  });
 });

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,12 @@ from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services.time_context import normalize_due_at
-from app.services.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
+from app.services.todos.recurrence import (
+    RecurrenceRule,
+    is_recurrence_rule,
+    next_recurring_due,
+    snap_first_due,
+)
 
 
 class TodosError(Exception):
@@ -26,7 +31,9 @@ class TodosError(Exception):
 async def list_todos(
     session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
 ) -> list[TodoItem]:
-    return await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
+    items = await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
+    await _advance_past_recurring(session, items, timezone=user.timezone)
+    return items
 
 
 async def list_topics(session: AsyncSession, user: User) -> list[str]:
@@ -99,6 +106,9 @@ async def update_todo(
         patch["due_at"] = normalize_due_at(patch["due_at"], user.timezone)
         if patch["due_at"] is None:
             patch["recurrence_rule"] = None
+        if patch["due_at"] != item.due_at:
+            patch["notification_sent_at"] = None
+            patch["email_sent_at"] = None
     rule = patch.get("recurrence_rule", item.recurrence_rule)
     due = patch["due_at"] if "due_at" in patch else item.due_at
     if due is not None and is_recurrence_rule(rule):
@@ -106,6 +116,29 @@ async def update_todo(
     updated = await todos_repo.update(session, item, **patch)
     await home_service.invalidate_home_cache(user.id)
     return updated
+
+
+async def _advance_past_recurring(
+    session: AsyncSession,
+    items: list[TodoItem],
+    *,
+    timezone: str | None,
+    now: datetime | None = None,
+) -> None:
+    when = now or datetime.now(UTC)
+    changed = False
+    for item in items:
+        rule = item.recurrence_rule
+        if item.checked or item.due_at is None or not is_recurrence_rule(rule):
+            continue
+        if item.due_at > when:
+            continue
+        item.due_at = next_recurring_due(item.due_at, rule, now=when, timezone=timezone)
+        item.notification_sent_at = None
+        item.email_sent_at = None
+        changed = True
+    if changed:
+        await session.commit()
 
 
 async def delete_todo(session: AsyncSession, user: User, todo_id: UUID) -> None:

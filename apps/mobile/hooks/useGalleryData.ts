@@ -30,6 +30,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const inFlightRef = useRef(false);
   const genRef = useRef(0);
   const lastFetchAtRef = useRef<Map<string, number>>(new Map());
+  const shownKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(trimmedQuery), GALLERY_SEARCH_DEBOUNCE_MS);
@@ -43,6 +44,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
       const cacheKey = galleryListCacheKey(filter, debouncedQuery);
       if (
         reset &&
+        shownKeyRef.current === cacheKey &&
         shouldSkipGalleryFocusReload({
           lastFetchedAt: lastFetchAtRef.current.get(cacheKey),
           force: options.force,
@@ -70,7 +72,10 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
         setItems((current) => mergeGalleryItems(current, response.items, reset));
         setHasMore(response.has_more);
         offsetRef.current = offset + response.items.length;
-        if (reset) lastFetchAtRef.current.set(cacheKey, Date.now());
+        if (reset) {
+          lastFetchAtRef.current.set(cacheKey, Date.now());
+          shownKeyRef.current = cacheKey;
+        }
         setError(false);
       } catch {
         if (gen !== genRef.current) return;
