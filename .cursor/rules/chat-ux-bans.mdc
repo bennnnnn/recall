@@ -47,4 +47,8 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Do **not** reintroduce `ImageGenPromptSheet`, attach-menu “Generate image”, or any second prompt
   modal that intercepts send. Intent detection may still call `/images/generate` — without a sheet.
 
+## 7. No swipe-to-delete on drawer chat titles
+- Do **not** wrap conversation rows in `Swipeable` / reveal a red Delete action on swipe.
+- Delete stays on long-press row menu and multi-select. Lists/todos swipe-delete is separate.
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

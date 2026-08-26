@@ -50,7 +50,6 @@ type Props = {
   activeChatId?: string | null;
   onOpenChat: (id: string, messageId?: string | null) => void;
   onShowRowMenu: (chat: Chat) => void;
-  onDeleteChat: (chat: Chat) => void;
   selectionMode?: boolean;
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (chatId: string) => void;
@@ -77,7 +76,6 @@ export function DrawerChatFlashList({
   activeChatId = null,
   onOpenChat,
   onShowRowMenu,
-  onDeleteChat,
   selectionMode = false,
   selectedIds,
   onToggleSelect,
@@ -193,7 +191,6 @@ export function DrawerChatFlashList({
           titleGenerating={isChatTitleGenerating(item.chat.id)}
           onOpen={onOpenChat}
           onLongPress={onShowRowMenu}
-          onDelete={selectionMode ? undefined : onDeleteChat}
           selectionMode={selectionMode}
           selected={selectedIds?.has(item.chat.id) ?? false}
           onToggleSelect={onToggleSelect}
@@ -210,7 +207,6 @@ export function DrawerChatFlashList({
       theme,
       onOpenChat,
       onShowRowMenu,
-      onDeleteChat,
       selectionMode,
       selectedIds,
       onToggleSelect,

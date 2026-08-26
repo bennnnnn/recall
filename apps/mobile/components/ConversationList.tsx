@@ -96,7 +96,6 @@ export function ConversationList(_props: unknown) {
     togglePinChat,
     toggleArchiveChat,
     confirmDeleteChat,
-    requestDeleteChat,
     closeRename,
   } = useChatMenuActions({
     token,
@@ -182,14 +181,6 @@ export function ConversationList(_props: unknown) {
       showRowMenu(chat);
     },
     [showRowMenu],
-  );
-
-  const onDeleteChat = useCallback(
-    (chat: Chat) => {
-      tap();
-      requestDeleteChat(chat);
-    },
-    [requestDeleteChat],
   );
 
   const selectedChats = useMemo(
@@ -333,7 +324,6 @@ export function ConversationList(_props: unknown) {
         activeChatId={activeChatId}
         onOpenChat={openChat}
         onShowRowMenu={onShowRowMenu}
-        onDeleteChat={onDeleteChat}
         selectionMode={selectionMode}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelected}

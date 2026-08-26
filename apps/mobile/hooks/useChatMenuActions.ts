@@ -190,7 +190,6 @@ export function useChatMenuActions({
     togglePinChat,
     toggleArchiveChat,
     confirmDeleteChat,
-    requestDeleteChat,
     closeRename,
   };
 }

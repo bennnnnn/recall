@@ -60,8 +60,6 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
   **Delete** (with confirm).
 - 🔜 Folders.
-- ✅ **Swipe-to-delete** — swipe a chat row left in the drawer to reveal Delete (same confirm
-  flow as the long-press menu).
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
 ## 3. Messaging behaviour
