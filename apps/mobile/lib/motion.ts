@@ -10,6 +10,10 @@ export { motionMs } from "@/lib/motionDuration";
 
 export const Motion = {
   duration: {
+    /** Press feedback */
+    press: 100,
+    /** Standard screen / chrome transition */
+    standard: 180,
     /** Fade / banner enter-exit */
     snappy: 200,
     /** Short UI settle (e.g. stream layout hold) */

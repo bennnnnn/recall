@@ -9,18 +9,18 @@ export const Type = {
   body: {
     fontSize: 16,
     fontWeight: "400",
-    lineHeight: 22,
+    lineHeight: 23,
   },
   /** Secondary body / supporting paragraphs */
   secondary: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "400",
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  /** Uppercase section labels / meta captions */
+  /** Captions / compact meta */
   caption: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "500",
   },
   /** 12pt regular meta — timestamps, domain lines, "PDF" kind labels.
    *  No lineHeight (matches caption/label: single-line roles omit it). */
@@ -44,14 +44,14 @@ export const Type = {
   /** Screen / section titles */
   title: {
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "600",
     lineHeight: 26,
   },
   /** Nav bar & sheet titles — the 17pt role the scale was missing (8+ sites
    *  invented it as `...Type.title, fontSize: 17` or a bare 17/700). */
   navTitle: {
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "600",
     lineHeight: 22,
   },
   /** Onboarding / marketing display */

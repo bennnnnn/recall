@@ -19,6 +19,7 @@ import {
 } from "@/lib/messageAttachments";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
 import { isVocabQuizAnswer, parseQuizAnswerLetter } from "@/lib/parseVocabQuiz";
+import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 
 // Async-split pdf.js (~1.4MB) off the chat cold path — same pattern as
@@ -156,9 +157,9 @@ function makeStyles(C: Theme) {
     },
     textBubble: {
       backgroundColor: C.userBubble,
-      borderRadius: 22,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
+      borderRadius: Radius.bubble,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
     },
     textBubbleBelowImage: {
       alignSelf: "flex-end",

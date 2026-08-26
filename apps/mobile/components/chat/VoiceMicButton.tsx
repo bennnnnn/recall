@@ -93,25 +93,25 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
 }
 
 const styles = StyleSheet.create({
-  hit: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  hit: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   dim: { opacity: 0.55 },
   slot: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   ring: {
     position: "absolute",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
   },
   btn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,

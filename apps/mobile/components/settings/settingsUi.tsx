@@ -650,8 +650,8 @@ export function makeSettingsStyles(t: Theme) {
       marginBottom: Space.xs,
     },
     group: {
-      backgroundColor: t.surface,
-      borderRadius: Radius.xl,
+      backgroundColor: t.surfaceAlt,
+      borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       padding: Space.sm,

@@ -13,7 +13,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
-type Variant = "primary" | "outline" | "ghost";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 
 type Props = {
   title: string;
@@ -28,7 +28,7 @@ type Props = {
 };
 
 /**
- * Shared primary CTA. Defaults: Radius.md, minHeight 48, 16/700.
+ * Shared primary CTA. Defaults: Radius.md, minHeight 44, 16/600.
  * Leave specialized controls alone (send circle, pills, branded auth, soft LearningContinueCta).
  */
 export function Button({
@@ -50,10 +50,13 @@ export function Button({
       style={({ pressed }) => [
         s.base,
         variant === "primary" && s.primary,
-        variant === "outline" && s.outline,
+        (variant === "secondary" || variant === "outline") && s.outline,
         variant === "ghost" && s.ghost,
+        variant === "destructive" && s.destructive,
         blocked && s.disabled,
-        pressed && !blocked && s.pressed,
+        pressed && !blocked && variant === "primary" && s.pressedPrimary,
+        pressed && !blocked && variant === "destructive" && s.pressedDestructive,
+        pressed && !blocked && variant !== "primary" && variant !== "destructive" && s.pressed,
         style,
       ]}
       onPress={onPress}
@@ -65,20 +68,25 @@ export function Button({
       {loading && loadingLabel ? (
         <ActionShimmer
           label={loadingLabel}
-          color={variant === "primary" ? theme.onPrimary : theme.primary}
+          color={
+            variant === "primary" || variant === "destructive" ? theme.onPrimary : theme.primary
+          }
           compact
           delayMs={220}
           textStyle={s.loadingLabel}
         />
       ) : loading ? (
-        <ActivityIndicator color={variant === "primary" ? theme.onPrimary : theme.primary} />
+        <ActivityIndicator
+          color={variant === "primary" || variant === "destructive" ? theme.onPrimary : theme.primary}
+        />
       ) : (
         <Text
           style={[
             s.label,
             variant === "primary" && s.labelPrimary,
-            variant === "outline" && s.labelOutline,
+            (variant === "secondary" || variant === "outline") && s.labelOutline,
             variant === "ghost" && s.labelGhost,
+            variant === "destructive" && s.labelPrimary,
           ]}
         >
           {title}
@@ -91,7 +99,7 @@ export function Button({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     base: {
-      minHeight: 48,
+      minHeight: 44,
       borderRadius: Radius.md,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
@@ -103,23 +111,32 @@ function makeStyles(theme: Theme) {
     },
     outline: {
       backgroundColor: "transparent",
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
     ghost: {
       backgroundColor: "transparent",
-      minHeight: undefined,
+      minHeight: 44,
       paddingVertical: Space.xs,
+    },
+    destructive: {
+      backgroundColor: theme.danger,
     },
     disabled: {
       opacity: 0.55,
     },
     pressed: {
-      opacity: 0.85,
+      opacity: 0.72,
+    },
+    pressedPrimary: {
+      backgroundColor: theme.primaryDark,
+    },
+    pressedDestructive: {
+      opacity: 0.88,
     },
     label: {
       fontSize: 16,
-      fontWeight: "700",
+      fontWeight: "600",
     },
     labelPrimary: {
       color: theme.onPrimary,

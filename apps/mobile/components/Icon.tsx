@@ -12,8 +12,8 @@ type Props = {
   name: IoniconName;
   /** Pixel size. Defaults to 20 (the settings-row / proposed ladder default). */
   size?: number;
-  /** Explicit color. Omit to use the ink default (true black in light, theme
-   *  text in dark) — or set `danger` for the red ink. */
+  /** Explicit color. Omit to use the ink default (theme text)
+   *  — or set `danger` for the red ink. */
   color?: string;
   /** Use the danger ink color (red) instead of the default ink. */
   danger?: boolean;
@@ -27,8 +27,8 @@ type Props = {
  *  - the **outline** standard — call sites pass `-outline` names and `Icon`
  *   renders them as-is, so the whole app reads as unfilled by default (a
  *   filled glyph is used only where it encodes an active state);
- *  - the ink color default (`inkIconColor`: true black in light, theme text in
- *   dark; red for danger) instead of a one-off `theme.text`/`#fff`.
+ *  - the ink color default (`inkIconColor`: theme text; red for danger)
+ *    instead of a one-off hex.
  *
  * `size` stays a number (not a forced enum): the app uses ~15 distinct icon
  * sizes (9–36) and a 3–4 step ladder would silently change most of them.

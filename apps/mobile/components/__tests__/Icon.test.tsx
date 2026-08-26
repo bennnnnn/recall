@@ -26,9 +26,9 @@ describe("Icon", () => {
     expect(getByTestId("i").props.size).toBe(20);
   });
 
-  it("uses the ink color by default (true black in light)", async () => {
+  it("uses the ink color by default (theme text)", async () => {
     const { getByTestId } = await render(<Icon name="copy-outline" testID="i" />);
-    expect(getByTestId("i").props.color).toBe("#000000");
+    expect(getByTestId("i").props.color).toBe(mockLightTheme.text);
   });
 
   it("uses the danger ink when danger is set", async () => {

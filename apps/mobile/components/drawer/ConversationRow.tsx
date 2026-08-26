@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/lib/chat/chatTitle";
 
@@ -108,12 +109,13 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     row: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 9,
-      paddingHorizontal: 14,
+      minHeight: 44,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
       gap: 10,
     },
     rowIcon: { flexShrink: 0 },
-    title: { flex: 1, fontSize: 14, fontWeight: "500", color: theme.text },
+    title: { flex: 1, ...Type.body, fontWeight: "500", color: theme.text },
     titlePending: { color: theme.textTertiary, fontStyle: "italic" },
     // Wash already signals active — keep ink on theme.text, just bolder.
     titleActive: { fontWeight: "700" },

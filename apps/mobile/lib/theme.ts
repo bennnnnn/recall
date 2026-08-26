@@ -1,9 +1,11 @@
 /**
- * App theme — one palette via `useTheme()`. Chat canvas follows ChatGPT
- * mobile: light gray page, white cards, mint user chip.
- *  - `primary` — Recall action blue for buttons, links, send, selection
- *  - `accent` — teal reserved for AI-in-progress (typing/streaming/reasoning)
+ * App theme — one palette via `useTheme()`. Neutral surfaces + one green
+ * accent for primary actions, selection, progress, links, and focus.
  * Do not hardcode hex in components — add a token here instead.
+ *
+ * Canonical names used across the app:
+ *  `bg` (background), `surface`, `text` (textPrimary), `textSecondary`,
+ *  `border`, `primary` / `accent` (same green).
  */
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
@@ -11,17 +13,17 @@ export type Theme = {
   scheme: "light" | "dark";
   isDark: boolean;
 
-  // Brand — ordinary buttons, links, selection/active state
+  // Brand — actions, links, selection, progress, focus
   primary: string;
   primaryLight: string;
   primaryDark: string;
 
-  // Brand — AI-in-progress moments only (typing/streaming/reasoning)
+  // Same green as primary — reserved name for AI-in-progress moments
   accent: string;
   accentLight: string;
   accentDark: string;
 
-  // Surfaces — `bg` is the chat page; `surface` / `inputBg` are raised planes
+  // Surfaces — `bg` is the page; `surface` / `inputBg` are raised planes
   bg: string;
   surface: string;
   surfaceAlt: string;
@@ -86,48 +88,44 @@ export const lightTheme: Theme = {
   scheme: "light",
   isDark: false,
 
-  // iOS system blue family — unmistakable interactive color
-  primary: "#007AFF",
-  primaryLight: "#E5F2FF",
-  primaryDark: "#0056CC",
+  primary: "#10A37F",
+  primaryLight: "#EAF7F3",
+  primaryDark: "#0D8C6D",
 
-  // Teal — clearly not blue; reserved for "model is working"
-  accent: "#0D9488",
-  accentLight: "#CCFBF1",
-  accentDark: "#0F766E",
+  accent: "#10A37F",
+  accentLight: "#EAF7F3",
+  accentDark: "#0D8C6D",
 
-  // ChatGPT mobile: gray page, white raised cards
-  bg: "#F7F7F7",
+  bg: "#FFFFFF",
   surface: "#FFFFFF",
-  surfaceAlt: "#F0F0F0",
-  border: "#E5E5E5",
+  surfaceAlt: "#F7F7F8",
+  border: "#E7E7E9",
 
-  text: "#0D0D0D",
-  textSecondary: "#5D5D5D",
-  textTertiary: "#8F8F8F",
+  text: "#111113",
+  textSecondary: "#6B6B73",
+  textTertiary: "#8E8E96",
 
-  // ChatGPT mobile user chip — mint on gray; assistant prose sits on the page
-  userBubble: "#E8F5E9",
-  userText: "#0D0D0D",
-  assistantBubble: "#F7F7F7",
-  assistantText: "#0D0D0D",
+  userBubble: "#EAF7F3",
+  userText: "#111113",
+  assistantBubble: "#FFFFFF",
+  assistantText: "#111113",
 
-  composerBg: "#F7F7F7",
-  composerBorder: "#E5E5E5",
-  inputBg: "#FFFFFF",
+  composerBg: "#FFFFFF",
+  composerBorder: "#E7E7E9",
+  inputBg: "#F7F7F8",
 
   contentSurface: "#FFFFFF",
 
-  danger: "#FF3B30",
-  dangerLight: "#FFE5E3",
-  warning: "#FF9F0A",
-  success: "#34C759",
-  successLight: "#D8F5E1",
+  danger: "#D92D20",
+  dangerLight: "#FDECEC",
+  warning: "#B54708",
+  success: "#16845B",
+  successLight: "#EAF7F3",
   onPrimary: "#FFFFFF",
 
-  codeBg: "#F0F0F0",
-  codeText: "#0D0D0D",
-  codeLang: "#8F8F8F",
+  codeBg: "#F7F7F8",
+  codeText: "#111113",
+  codeLang: "#8E8E96",
 
   scrim: "rgba(0,0,0,0.40)",
 
@@ -141,44 +139,44 @@ export const darkTheme: Theme = {
   scheme: "dark",
   isDark: true,
 
-  primary: "#0A84FF",
-  primaryLight: "#0A2540",
-  primaryDark: "#64B5FF",
+  primary: "#19C59A",
+  primaryLight: "#12372E",
+  primaryDark: "#13A982",
 
-  accent: "#2DD4BF",
-  accentLight: "#0F2F2C",
-  accentDark: "#5EEAD4",
+  accent: "#19C59A",
+  accentLight: "#12372E",
+  accentDark: "#13A982",
 
-  bg: "#212121",
-  surface: "#2F2F2F",
-  surfaceAlt: "#2F2F2F",
-  border: "#3E3E3E",
+  bg: "#0F0F10",
+  surface: "#202023",
+  surfaceAlt: "#171719",
+  border: "#2C2C30",
 
-  text: "#ECECEC",
-  textSecondary: "#B4B4B4",
-  textTertiary: "#8F8F8F",
+  text: "#F5F5F6",
+  textSecondary: "#A5A5AC",
+  textTertiary: "#7B7B83",
 
-  userBubble: "#2F2F2F",
-  userText: "#ECECEC",
-  assistantBubble: "#212121",
-  assistantText: "#ECECEC",
+  userBubble: "#12372E",
+  userText: "#F5F5F6",
+  assistantBubble: "#0F0F10",
+  assistantText: "#F5F5F6",
 
-  composerBg: "#212121",
-  composerBorder: "#3E3E3E",
-  inputBg: "#2F2F2F",
+  composerBg: "#0F0F10",
+  composerBorder: "#2C2C30",
+  inputBg: "#171719",
 
-  contentSurface: "#2F2F2F",
+  contentSurface: "#202023",
 
-  danger: "#FF453A",
+  danger: "#FF6B6B",
   dangerLight: "#3B1513",
-  warning: "#FFD60A",
-  success: "#30D158",
-  successLight: "rgba(48, 209, 88, 0.18)",
-  onPrimary: "#FFFFFF",
+  warning: "#F5A524",
+  success: "#32C48D",
+  successLight: "rgba(50, 196, 141, 0.18)",
+  onPrimary: "#0F0F10",
 
-  codeBg: "#0D0D0D",
-  codeText: "#E6E6E6",
-  codeLang: "#8E8E93",
+  codeBg: "#171719",
+  codeText: "#F5F5F6",
+  codeLang: "#7B7B83",
 
   scrim: "rgba(0,0,0,0.60)",
 

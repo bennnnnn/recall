@@ -36,7 +36,6 @@ import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
 import { Radius } from "@/lib/radius";
-import { shadowRaised } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -454,13 +453,12 @@ function makeStyles(theme: Theme) {
     composer: { paddingVertical: 6 },
     inputWrap: {
       backgroundColor: theme.inputBg,
-      borderRadius: 20,
+      borderRadius: Radius.lg,
       paddingHorizontal: 12,
       paddingTop: 8,
       paddingBottom: 8,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
-      ...shadowRaised(theme),
     },
     tokenHint: {
       marginTop: 4,
@@ -479,11 +477,11 @@ function makeStyles(theme: Theme) {
       zIndex: 2,
     },
     attachBtn: {
-      width: 32,
-      height: 32,
+      width: 44,
+      height: 44,
       alignItems: "center",
       justifyContent: "center",
-      marginBottom: 1,
+      marginBottom: 0,
     },
     chipRow: {
       height: MATH_KEYBOARD_CHIP_HEIGHT,
@@ -505,11 +503,12 @@ function makeStyles(theme: Theme) {
     chipPressed: { opacity: 0.55 },
     input: {
       flex: 1,
-      fontSize: 16,
+      fontSize: Type.body.fontSize,
+      lineHeight: Type.body.lineHeight,
       color: theme.text,
-      maxHeight: 100,
+      maxHeight: Type.body.lineHeight * 6,
       paddingVertical: 0,
-      minHeight: 22,
+      minHeight: Type.body.lineHeight,
     },
     inputParked: {
       position: "absolute",
@@ -520,9 +519,9 @@ function makeStyles(theme: Theme) {
       flex: 0,
     },
     sendBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
@@ -532,7 +531,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "flex-end",
       gap: 6,
-      minHeight: 40,
+      minHeight: 44,
     },
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },

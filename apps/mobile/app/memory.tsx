@@ -23,6 +23,7 @@ import { useMemoryActions } from "@/hooks/useMemoryActions";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
 import { splitMemoryFacts } from "@/lib/memoryFacts";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -426,9 +427,9 @@ function makeStyles(theme: Theme) {
     letterSpacing: 0.5,
   },
   card: {
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: theme.surfaceAlt,
+    borderRadius: Radius.lg,
+    padding: Space.md,
   },
   factRow: {
     flexDirection: "row",
@@ -436,7 +437,7 @@ function makeStyles(theme: Theme) {
     gap: 10,
     marginBottom: 10,
   },
-  factText: { flex: 1, ...Type.secondary, color: theme.text },
+  factText: { flex: 1, ...Type.body, color: theme.text },
   cardText: { ...Type.secondary, color: theme.text },
   expandHint: {
     ...Type.caption,
