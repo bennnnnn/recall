@@ -59,6 +59,7 @@ async def create_todo(
             chat_id=body.chat_id,
             project_id=body.project_id,
             due_at=body.due_at,
+            recurrence_rule=body.recurrence_rule,
         )
     except todos_crud.TodosError as exc:
         raise _map_error(exc) from exc

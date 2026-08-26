@@ -294,6 +294,7 @@ class TodoItem(Base):
     topic: Mapped[str] = mapped_column(String(200), nullable=False, default="General")
     checked: Mapped[bool] = mapped_column(Boolean, default=False)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recurrence_rule: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int | None] = mapped_column(nullable=True)
     notification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

@@ -77,7 +77,11 @@ export const TodoRow = memo(function TodoRow({
           {todo.content}
         </Text>
         {due && !todo.checked ? (
-          <Text style={[s.dueLabel, dueToneStyle]}>{due.label}</Text>
+          <Text style={[s.dueLabel, dueToneStyle]}>
+            {todo.recurrence_rule
+              ? `${due.label} · ${t(`todos.repeat_${todo.recurrence_rule}`)}`
+              : due.label}
+          </Text>
         ) : null}
         {overlapWith && !todo.checked ? (
           <Text style={s.overlapLabel}>

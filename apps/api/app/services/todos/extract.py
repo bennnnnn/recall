@@ -25,23 +25,26 @@ async def extract_todo_actions(
         {
             "role": "system",
             "content": (
-                "Extract Reminders and Lists changes requested in this conversation turn. "
+                "Extract Schedule and Lists changes requested in this conversation turn. "
                 f"User timezone: {tz_note}. "
-                "Current Reminders & Lists JSON:\n"
+                "Current Schedule & Lists JSON:\n"
                 f"{snapshot}\n\n"
                 "Return ONLY JSON (no markdown): "
                 '{"actions": [{"action": "add|complete|uncheck|delete|set_due|clear_due", '
                 '"topic": "list title", "content": "item text", '
-                '"due_at": "ISO-8601 datetime or null"}]}. '
+                '"due_at": "ISO-8601 datetime or null", '
+                '"recurrence_rule": "daily|weekdays|weekly|monthly or null"}]}. '
                 "Rules:\n"
                 "- For add WITHOUT a due date (list item): only when the user gave a clear "
                 "list title AND item text. If they want a new list but no title yet, return "
                 "empty actions. Topic must be the agreed list name (e.g. Groceries, Taxes) — "
                 "never invent list titles.\n"
-                "- For add WITH a due date (reminder): content = short reminder title; "
+                "- For add WITH a due date (Schedule item): content = short title; "
                 "due_at = the agreed ISO-8601 datetime from the transcript (including prior "
                 'turns when the user only said Yes/Sure). Topic may be "Reminders" or '
-                "omitted. Do NOT skip just because there is no grocery-style list title.\n"
+                "omitted. Set recurrence_rule when they asked for a repeat "
+                "(every day / weekdays / every week / every month). "
+                "Do NOT skip just because there is no grocery-style list title.\n"
                 "- When the assistant confirmed setting a reminder (e.g. Reminder set / "
                 "I'll set a reminder) and the transcript has a title + date/time, emit that "
                 "add with due_at.\n"

@@ -120,6 +120,22 @@ export function makeTodosStyles(C: Theme) {
       alignSelf: "flex-start",
     },
     dateChipText: { ...Type.secondary, fontWeight: "600", color: C.text },
+    repeatRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Space.xs,
+    },
+    repeatChip: {
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.sm,
+      backgroundColor: C.surfaceAlt,
+    },
+    repeatChipOn: {
+      backgroundColor: C.primaryLight,
+    },
+    repeatChipText: { ...Type.caption, fontWeight: "600", color: C.textSecondary },
+    repeatChipTextOn: { color: C.primary },
     sheet: {
       backgroundColor: C.surface,
       borderTopLeftRadius: Radius.sheet,

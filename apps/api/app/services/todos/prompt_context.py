@@ -128,7 +128,7 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
         )
 
     if reminders:
-        lines.append("User Reminders (in-app calendar — grouped by day):")
+        lines.append("User Schedule (in-app calendar — grouped by day):")
         open_reminders = [item for item in reminders if not item.checked]
         done_reminders = [item for item in reminders if item.checked]
         display = open_reminders + done_reminders
@@ -155,7 +155,10 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
                 )
                 rel = f", {due_label}" if due_label else ""
                 topic = todo.topic.strip() or DEFAULT_TOPIC
-                lines.append(f"- {mark} {todo.content} at {clock}{rel} ({status}, topic: {topic})")
+                repeat = f", repeats {todo.recurrence_rule}" if todo.recurrence_rule else ""
+                lines.append(
+                    f"- {mark} {todo.content} at {clock}{rel}{repeat} ({status}, topic: {topic})"
+                )
 
     if list_items:
         by_topic: dict[str, list[TodoItem]] = {}
@@ -163,7 +166,7 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
             topic = item.topic.strip() or DEFAULT_TOPIC
             by_topic.setdefault(topic, []).append(item)
 
-        lines.append("\nUser Lists (no due date — checklists only, not on the Reminders calendar):")
+        lines.append("\nUser Lists (no due date — checklists only, not on the Schedule calendar):")
         for topic in sorted(by_topic.keys(), key=str.casefold):
             lines.append(f"\n## {topic}")
             for todo in by_topic[topic]:

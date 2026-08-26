@@ -9,14 +9,16 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
+from app.models.schemas.todos import RecurrenceRule
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services import time_context as time_context_service
 from app.services.todos.actions import _ACTION_RELOAD_LIMIT, REMINDER_TOPIC
+from app.services.todos.recurrence import snap_first_due
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +26,11 @@ _REMINDER_FENCE = re.compile(r"```reminder\s*\n([\s\S]*?)```", re.IGNORECASE)
 
 
 class _ReminderFence(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     title: str = Field(min_length=1, max_length=500)
     due_at: datetime
+    repeat: RecurrenceRule | None = Field(default=None, alias="recurrence_rule")
 
 
 @dataclass
@@ -64,6 +69,8 @@ async def _create_one(state: _ReminderFenceCreateState, raw: str) -> bool:
     due_at = time_context_service.normalize_due_at(draft.due_at, state.user_timezone)
     if due_at is None:
         return False
+    if draft.repeat:
+        due_at = snap_first_due(due_at, draft.repeat, timezone=state.user_timezone)
     title = draft.title.strip()
     await _load_existing(state)
     if any(
@@ -80,6 +87,7 @@ async def _create_one(state: _ReminderFenceCreateState, raw: str) -> bool:
         topic=REMINDER_TOPIC,
         chat_id=state.chat_id,
         due_at=due_at,
+        recurrence_rule=draft.repeat,
     )
     state.existing.append(new_todo)
     state.created += 1

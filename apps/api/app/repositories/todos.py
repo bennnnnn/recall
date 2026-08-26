@@ -91,6 +91,7 @@ async def create(
     chat_id: UUID | None = None,
     project_id: UUID | None = None,
     due_at: datetime | None = None,
+    recurrence_rule: str | None = None,
     sort_order: int | None = None,
     commit: bool = True,
 ) -> TodoItem:
@@ -105,6 +106,7 @@ async def create(
         chat_id=chat_id,
         project_id=project_id,
         due_at=due_at,
+        recurrence_rule=recurrence_rule,
         sort_order=resolved_sort,
     )
     session.add(todo)

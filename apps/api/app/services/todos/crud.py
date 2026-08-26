@@ -13,6 +13,7 @@ from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services.time_context import normalize_due_at
+from app.services.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
 
 
 class TodosError(Exception):
@@ -41,6 +42,7 @@ async def create_todo(
     chat_id: UUID | None,
     project_id: UUID | None,
     due_at: datetime | None,
+    recurrence_rule: RecurrenceRule | None = None,
 ) -> TodoItem:
     if chat_id is not None:
         chat = await chats_repo.get_by_id(session, chat_id, user.id)
@@ -51,6 +53,10 @@ async def create_todo(
         if project is None:
             raise TodosError("Project not found", status_code=400)
     normalized_due = normalize_due_at(due_at, user.timezone)
+    if normalized_due is not None and recurrence_rule:
+        normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
+    if normalized_due is None:
+        recurrence_rule = None
     item = await todos_repo.create(
         session,
         user_id=user.id,
@@ -59,6 +65,7 @@ async def create_todo(
         chat_id=chat_id,
         project_id=project_id,
         due_at=normalized_due,
+        recurrence_rule=recurrence_rule,
     )
     await home_service.invalidate_home_cache(user.id)
     return item
@@ -90,6 +97,12 @@ async def update_todo(
             raise TodosError("Project not found", status_code=400)
     if "due_at" in patch:
         patch["due_at"] = normalize_due_at(patch["due_at"], user.timezone)
+        if patch["due_at"] is None:
+            patch["recurrence_rule"] = None
+    rule = patch.get("recurrence_rule", item.recurrence_rule)
+    due = patch["due_at"] if "due_at" in patch else item.due_at
+    if due is not None and is_recurrence_rule(rule):
+        patch["due_at"] = snap_first_due(due, rule, timezone=user.timezone)
     updated = await todos_repo.update(session, item, **patch)
     await home_service.invalidate_home_cache(user.id)
     return updated
