@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import ProjectItem, QuizMissEvent
@@ -30,23 +31,39 @@ async def create_item(
     catalog_entry_id: UUID | None = None,
     commit: bool = True,
 ) -> ProjectItem:
+    existing = await project_items_repo.get_by_list_content(
+        session, project_id, list_title, content
+    )
+    if existing is not None:
+        return existing
     # Do not call dictionaryapi on the quiz/turn-prep hot path — that HTTP round
     # trip blocked grading. Persist without pronunciation; fill async later if needed.
-    return await project_items_repo.create(
-        session,
-        user_id=user_id,
-        project_id=project_id,
-        content=content,
-        list_title=list_title,
-        note=note,
-        definition=definition,
-        example_sentence=example_sentence,
-        chat_id=chat_id,
-        status=status,
-        pronunciation_url=None,
-        catalog_entry_id=catalog_entry_id,
-        commit=commit,
-    )
+    try:
+        return await project_items_repo.create(
+            session,
+            user_id=user_id,
+            project_id=project_id,
+            content=content,
+            list_title=list_title,
+            note=note,
+            definition=definition,
+            example_sentence=example_sentence,
+            chat_id=chat_id,
+            status=status,
+            pronunciation_url=None,
+            catalog_entry_id=catalog_entry_id,
+            commit=commit,
+        )
+    except IntegrityError:
+        if not commit:
+            raise
+        await session.rollback()
+        found = await project_items_repo.get_by_list_content(
+            session, project_id, list_title, content
+        )
+        if found is None:
+            raise
+        return found
 
 
 async def update_item(

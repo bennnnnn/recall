@@ -475,3 +475,18 @@ async def test_verify_uploaded_bytes_skips_size_check_when_declared_size_none():
     )
     assert error is None
     assert data == png_bytes
+
+
+def test_resize_image_bytes_shrinks_large_photo():
+    from PIL import Image
+
+    from app.services.attachment_content import resize_image_bytes
+
+    buf = io.BytesIO()
+    Image.new("RGB", (2000, 1500), color=(12, 80, 160)).save(buf, format="JPEG")
+    original = buf.getvalue()
+    thumb, content_type = resize_image_bytes(original, 80)
+    assert content_type == "image/jpeg"
+    assert len(thumb) < len(original)
+    out = Image.open(io.BytesIO(thumb))
+    assert max(out.size) <= 80

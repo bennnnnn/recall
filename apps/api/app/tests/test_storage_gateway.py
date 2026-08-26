@@ -11,6 +11,7 @@ from app.gateways.storage_gateway import (
     R2StorageGateway,
     UnconfiguredStorageGateway,
     get_storage_gateway,
+    reset_storage_gateway_cache,
 )
 
 
@@ -35,6 +36,13 @@ async def test_local_storage_roundtrip(tmp_path: Path):
     assert data == b"hello"
 
 
+@pytest.fixture(autouse=True)
+def _clear_storage_gateway_cache():
+    reset_storage_gateway_cache()
+    yield
+    reset_storage_gateway_cache()
+
+
 def test_get_storage_gateway_defaults_to_local(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("STORAGE_BACKEND", "local")
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(tmp_path))
@@ -55,6 +63,7 @@ def _r2_settings() -> Settings:
 
 def test_get_storage_gateway_uses_r2_when_configured():
     with patch("boto3.client") as mock_client:
+        get_storage_gateway(_r2_settings())
         get_storage_gateway(_r2_settings())
         mock_client.assert_called_once()
         _, kwargs = mock_client.call_args

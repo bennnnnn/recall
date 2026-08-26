@@ -26,6 +26,7 @@ _ACTION_RELOAD_LIMIT = 500
 # The model extracts actions from arbitrary user text; these limits prevent a
 # misparse from wiping large amounts of data in one turn.
 MAX_TODO_ACTIONS_PER_TURN = 12
+MAX_TODO_DELETES_PER_TURN = 3
 
 REMINDER_TOPIC = "Reminders"
 

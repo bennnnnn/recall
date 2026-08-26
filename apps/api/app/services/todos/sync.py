@@ -15,22 +15,32 @@ from app.models.schemas import TodoExtractionResult
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import home as home_service
+from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
 from app.services.todos.actions import (
     _ACTION_RELOAD_LIMIT,
     MAX_TODO_ACTIONS_PER_TURN,
+    MAX_TODO_DELETES_PER_TURN,
 )
 from app.services.todos.classification import _transcript_implies_bulk_shift_to_tomorrow
 
 logger = logging.getLogger(__name__)
 
 TODO_SYNC_RECENT_MESSAGES = 8
+_ASSISTANT_EXTRACT_MAX = 500
+
+
+def _extract_line_body(content: str, *, assistant: bool) -> str:
+    text = text_before_attachment_markers(strip_untrusted_blocks(content or "")).strip()
+    if assistant and len(text) > _ASSISTANT_EXTRACT_MAX:
+        return text[:_ASSISTANT_EXTRACT_MAX] + "…"
+    return text
 
 
 def format_chat_transcript(messages: list[Message]) -> str:
     lines: list[str] = []
     for msg in messages:
         prefix = "User" if msg.role == "user" else "Assistant"
-        lines.append(f"{prefix}: {msg.content}")
+        lines.append(f"{prefix}: {_extract_line_body(msg.content, assistant=msg.role != 'user')}")
     return "\n".join(lines)
 
 
@@ -96,7 +106,14 @@ async def _apply_todo_extraction_result(
     from app.services.todos.actions import _apply_bulk_shift_due_today_to_tomorrow
 
     if result and result.actions:
-        safe_actions = result.actions[:MAX_TODO_ACTIONS_PER_TURN]
+        safe_actions = []
+        deletes = 0
+        for action in result.actions[:MAX_TODO_ACTIONS_PER_TURN]:
+            if action.action == "delete":
+                if deletes >= MAX_TODO_DELETES_PER_TURN:
+                    continue
+                deletes += 1
+            safe_actions.append(action)
         await apply_todo_actions(
             session,
             user_id=user_id,

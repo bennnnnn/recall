@@ -16,11 +16,14 @@ from app.models.schemas import AttachmentListItemOut, AttachmentListOut, Attachm
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
 from app.services.attachment_content import (
+    GALLERY_THUMB_MAX_EDGE,
+    GALLERY_THUMB_MIN_EDGE,
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     ensure_verified_or_purge,
     is_image_content_type,
     purge_invalid_upload,
+    resize_image_bytes,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,7 @@ class FileAccess:
     content_type: str
     local_path: Path | None = None
     redirect_url: str | None = None
+    body: bytes | None = None
 
 
 async def _refund_image(
@@ -95,14 +99,9 @@ async def list_attachments(
     )
     message_ids = [row.message_id for row in rows if row.message_id is not None]
     chat_by_message = await attachments_repo.chat_ids_for_message_ids(session, message_ids)
-    gateway = get_storage_gateway(settings)
     items: list[AttachmentListItemOut] = []
     for row in rows:
-        url = (
-            f"/attachments/{row.id}/file"
-            if isinstance(gateway, LocalStorageGateway)
-            else await gateway.presign_download(row.storage_key)
-        )
+        url = f"/attachments/{row.id}/file"
         items.append(
             AttachmentListItemOut(
                 id=row.id,
@@ -217,13 +216,33 @@ async def _drop_row_for_missing_file(session: AsyncSession, attachment_id: UUID)
         logger.exception("Failed to drop missing-file attachment row %s", attachment_id)
 
 
+def _clamp_thumb_edge(width: int | None) -> int | None:
+    if width is None or width <= 0:
+        return None
+    return max(GALLERY_THUMB_MIN_EDGE, min(GALLERY_THUMB_MAX_EDGE, width))
+
+
 async def get_file_access(
     session: AsyncSession,
     settings: Settings,
     user: User,
     attachment_id: UUID,
+    *,
+    width: int | None = None,
 ) -> FileAccess:
     row, gateway = await _verified_row(session, settings, user, attachment_id)
+    edge = _clamp_thumb_edge(width)
+    if edge is not None and is_image_content_type(row.content_type):
+        data = await gateway.read_bytes(row.storage_key)
+        if data is None:
+            await _drop_row_for_missing_file(session, row.id)
+            raise AttachmentWorkflowError(404, "File missing")
+        try:
+            body, content_type = resize_image_bytes(data, edge)
+        except Exception:
+            logger.exception("Thumbnail resize failed attachment_id=%s", attachment_id)
+            raise AttachmentWorkflowError(422, "Could not resize image") from None
+        return FileAccess(content_type=content_type, body=body)
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)
         if path is None:

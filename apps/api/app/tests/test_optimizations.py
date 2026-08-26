@@ -177,16 +177,27 @@ async def test_delete_chat_purges_attachments_before_delete():
             AsyncMock(return_value=msg_ids),
         ) as list_ids_mock,
         patch(
-            "app.services.attachment_lifecycle.purge_attachments_for_messages",
+            "app.services.attachment_lifecycle.detach_attachments_for_messages",
+            AsyncMock(return_value=["user/file"]),
+        ) as detach_mock,
+        patch(
+            "app.services.attachment_lifecycle.delete_storage_keys",
+            AsyncMock(return_value=[]),
+        ) as delete_keys,
+        patch(
+            "app.services.attachment_lifecycle.enqueue_failed_storage_deletes",
             AsyncMock(),
-        ) as purge_mock,
+        ) as enqueue,
     ):
         await chats_service.delete_chat(session, user, chat.id, settings=settings)
 
     list_ids_mock.assert_awaited_once_with(session, chat.id)
-    purge_mock.assert_awaited_once_with(session, settings, msg_ids)
+    detach_mock.assert_awaited_once()
+    assert detach_mock.await_args.kwargs["commit"] is False
     session.delete.assert_called_once_with(chat)
     session.commit.assert_awaited_once()
+    delete_keys.assert_awaited_once()
+    enqueue.assert_awaited_once_with([])
 
 
 # ── messages.count_for_chat — SQL scalar path ─────────────────────────────────
