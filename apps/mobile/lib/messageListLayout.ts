@@ -16,6 +16,18 @@ export const STREAM_LAYOUT_SETTLE_MS = 280;
  */
 export const STREAM_AUTOSCROLL_RESUME_MS = STREAM_LAYOUT_SETTLE_MS + 80;
 
+/**
+ * First turn (one bubble, or user + reply) stays under the header.
+ * Longer threads / older pages still open on the latest message.
+ */
+export function shouldStartRenderingFromBottom(options: {
+  messageCount: number;
+  hasMoreOlder: boolean;
+}): boolean {
+  if (options.hasMoreOlder) return true;
+  return options.messageCount > 2;
+}
+
 /** Render keys assigned to the in-flight streaming placeholder (`stream-<ts>`). */
 export function isFreshStreamRenderKey(renderKey?: string): boolean {
   return Boolean(renderKey?.startsWith("stream-"));

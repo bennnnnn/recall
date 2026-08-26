@@ -4,6 +4,7 @@ import {
   nextStreamingScrollDelay,
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
+  shouldScrollToEndWhenPinned,
 } from "@/lib/chatScrollLogic";
 
 describe("chatScrollLogic", () => {
@@ -63,6 +64,11 @@ describe("chatScrollLogic", () => {
     expect(formatScrollAwayBadge(0)).toBeNull();
     expect(formatScrollAwayBadge(3)).toBe("3");
     expect(formatScrollAwayBadge(10)).toBe("9+");
+  });
+
+  it("shouldScrollToEndWhenPinned skips short threads that still fit", () => {
+    expect(shouldScrollToEndWhenPinned(0)).toBe(false);
+    expect(shouldScrollToEndWhenPinned(12)).toBe(true);
   });
 
   it("shouldSchedulePostStreamScroll only when stream ends at bottom", () => {

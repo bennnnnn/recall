@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **First assistant bubble sat above the composer.** FlashList
+  `startRenderingFromBottom` plus keyboard/`scrollToEnd` pin a short
+  thread to the bottom. First turn (1–2 messages) renders from the top;
+  skip `scrollToEnd` when content still fits (`maxOffset === 0`).
 - **Pencil New chat hit `GET /home` and `GET …/messages?limit=20`.** Skipping
   Home while a thread is open lets the 20s cache go stale, so New chat
   refetched. Skip if login already fetched Home. Empty-probe ran because
