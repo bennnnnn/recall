@@ -31,6 +31,31 @@ export function shouldProbeEmptyChat(hasAssistant: boolean): boolean {
   return !hasAssistant;
 }
 
+/** New chat clears messages before the route effect runs — remember replies. */
+const knownAssistantChats = new Set<string>();
+
+export function markChatHasAssistant(chatId: string): void {
+  knownAssistantChats.add(chatId);
+}
+
+export function chatHasKnownAssistant(chatId: string): boolean {
+  return knownAssistantChats.has(chatId);
+}
+
+export function clearKnownAssistantChats(): void {
+  knownAssistantChats.clear();
+}
+
+/** Probe only when we have never seen an assistant on this chat. */
+export function shouldProbePreviousChat(opts: {
+  chatId: string;
+  messagesHadAssistant: boolean;
+}): boolean {
+  return shouldProbeEmptyChat(
+    opts.messagesHadAssistant || chatHasKnownAssistant(opts.chatId),
+  );
+}
+
 export function shouldWarmDraftSocket(options: {
   token: string | null;
   draftChatId: string | null;

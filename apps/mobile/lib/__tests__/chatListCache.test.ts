@@ -12,6 +12,10 @@ import {
   prefetchChatList,
   setChatListCache,
 } from "@/lib/cache/chatListCache";
+import {
+  markChatHasAssistant,
+  shouldProbePreviousChat,
+} from "@/lib/chatDraftLogic";
 import type { ChatList } from "@/lib/api";
 
 jest.mock("@/lib/api", () => ({
@@ -84,6 +88,17 @@ describe("chatListCache", () => {
     expect(consumeCreatedSuggestionSkip("c1")).toBe(false);
     invalidateChatListCache();
     expect(peekCreatedChat("c1")).toBeUndefined();
+  });
+
+  it("clears known-assistant chats on logout invalidate", () => {
+    markChatHasAssistant("c1");
+    expect(
+      shouldProbePreviousChat({ chatId: "c1", messagesHadAssistant: false }),
+    ).toBe(false);
+    invalidateChatListCache();
+    expect(
+      shouldProbePreviousChat({ chatId: "c1", messagesHadAssistant: false }),
+    ).toBe(true);
   });
 
   it("finds a drawer row without another GET /chats/{id}", () => {

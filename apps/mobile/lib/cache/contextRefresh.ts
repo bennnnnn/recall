@@ -9,6 +9,13 @@ export function isContextFresh(
 }
 
 /** Home starters are not on screen when a thread is open. */
-export function shouldRefreshHomeOnChatFocus(hasOpenThread: boolean): boolean {
-  return !hasOpenThread;
+export function shouldRefreshHomeOnChatFocus(opts: {
+  hasOpenThread: boolean;
+  hasFetchedHome?: boolean;
+}): boolean {
+  if (opts.hasOpenThread) return false;
+  // New chat shows Home; reuse the login /home payload instead of refetching
+  // because we skipped Home while a thread was open.
+  if (opts.hasFetchedHome) return false;
+  return true;
 }

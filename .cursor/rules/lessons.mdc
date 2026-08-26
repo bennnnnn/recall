@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Pencil New chat hit `GET /home` and `GET …/messages?limit=20`.** Skipping
+  Home while a thread is open lets the 20s cache go stale, so New chat
+  refetched. Skip if login already fetched Home. Empty-probe ran because
+  `startNewChat` clears messages before the route effect — remember chats
+  that already had an assistant.
 - **Lists / Learning / Reminders back reloaded the open thread.** Focus
   silent-refetched `GET …/messages` (20s TTL still fired). Do not refetch
   on in-app Back; App resume still recovers a truncated stream. Skip Home
