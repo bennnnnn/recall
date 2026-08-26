@@ -31,18 +31,17 @@ from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
-    COMPARISON_FORMAT_HINT,
     COPY_DELIVERABLE_HINT,
     DAY_LEARNING_SNAPSHOT_HINT,
     DAY_PLANNING_ANSWER_HINT,
     EMAIL_DRAFT_HINT,
-    INTENT_FORMAT_HINT,
+    FORMAT_CONTRACT,
     LIGHTWEIGHT_REPLY_HINT,
+    MATH_INTENT_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
-    RESPONSE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
@@ -53,7 +52,6 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     format_quiz_grading_hint,
     is_bare_writing_line,
-    is_comparison_question,
     is_learning_progress_question,
     is_writing_deliverable_request,
 )
@@ -552,7 +550,7 @@ def _style_format_hints(
         # any math in a plan still renders; keep the richer format pack so a
         # day outline can use headings.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.append(RESPONSE_FORMAT_HINT)
+        parts.append(FORMAT_CONTRACT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     elif compact:
         # Slim/casual used to still get RESPONSE_FORMAT_HINT (tips/headings/
@@ -565,16 +563,15 @@ def _style_format_hints(
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.extend(
             [
-                INTENT_FORMAT_HINT,
+                FORMAT_CONTRACT,
+                MATH_INTENT_HINT,
                 MATH_SOLVER_HINT,
                 MATH_TUTORING_HINT,
-                RESPONSE_FORMAT_HINT,
                 VISUALIZATION_HINTS,
             ]
         )
-    # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
-    if query_text and is_comparison_question(query_text):
-        parts.append(COMPARISON_FORMAT_HINT)
+    # FORMAT_CONTRACT already covers X vs Y → table. A shallow vs/versus
+    # regex must not append a second comparison sermon (false positives).
     parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
         parts.append(EMAIL_DRAFT_HINT)

@@ -106,6 +106,7 @@ describe("copyBlock heuristics", () => {
       ),
     ).toBe(true);
     expect(shouldPreviewOpenFenceAsAnswer("python", "print(1)")).toBe(false);
+    expect(shouldPreviewOpenFenceAsAnswer("python", "x = 2")).toBe(false);
     expect(shouldPreviewOpenFenceAsAnswer("", "x = 2 or x = -2")).toBe(true);
   });
 

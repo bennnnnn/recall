@@ -1,4 +1,22 @@
-"""In-app visual fence hints (HTML, charts, chemistry, places)."""
+"""In-app visual fence hints (HTML, charts, places). Chemistry is gated."""
+
+# Only injected when turn_prep actually has chemistry context (PubChem / SMILES).
+# Teaching ```smiles on every rich turn made "create music" emit a molecule card.
+CHEMISTRY_FENCE_HINT = (
+    "This turn is chemistry. Molecular structures: ```smiles (alias ```chemistry) "
+    "with a plain SMILES string — never geometry, graph, mermaid, HTML/SVG, "
+    "`$...$`, or ```math. One molecule per fence; optional caption above the SMILES. "
+    "Use verified SMILES from the system block verbatim when present. "
+    "Do not emit a molecule card unless this turn is actually about a chemical structure."
+)
+
+
+def attach_chemistry_fence_hint(block: str) -> str:
+    """Teach ```smiles only when this turn actually has a verified structure."""
+    if "Canonical SMILES" in block or "Verified molecular descriptors" in block:
+        return f"{CHEMISTRY_FENCE_HINT}\n\n{block}"
+    return block
+
 
 VISUALIZATION_HINTS = (
     "In-app visuals (only when appropriate — not for image-generation requests):\n\n"
@@ -16,8 +34,6 @@ VISUALIZATION_HINTS = (
     "about an uploaded attachment or a math diagram, do NOT substitute ```html, "
     "SVG, or CSS art. Recall attaches verified math diagrams; do not emit "
     "```geometry or ```graph JSON. "
-    "Molecules use ```smiles — never geometry/graph/mermaid/`$...$`/```math for "
-    "chemical structures (every molecule its own ```smiles fence). "
     "For uploaded images, describe what you see — do not redraw them in HTML.\n\n"
     "**HTML UI** (```html) — Use ONLY when the user wants a web UI, page, form, card, layout, "
     "login screen, dashboard, landing page, or interactive mockup — NOT for 'draw me X' or "
@@ -39,29 +55,11 @@ VISUALIZATION_HINTS = (
     '"mark":"bar","encoding":{"x":{"field":"a","type":"nominal"},'
     '"y":{"field":"b","type":"quantitative"}}}\n'
     "```\n\n"
-    "**Chemistry** (```smiles / ```chemistry) — Plain SMILES for molecular structures "
-    "(e.g. O=O, N#N, CCO, O=C=O for CO₂). One molecule per fence; optional caption above the SMILES. "
-    "Never `$O=O$` / ```math for structures — always the SMILES card. "
-    "The backend validates every SMILES with RDKit and replaces it with the canonical form, "
-    "so you can use any valid SMILES notation. Include the molecular formula and weight in "
-    "your explanation when relevant. For 3D structures, the app can render a 3D molecule view "
-    "from the SMILES — mention the 3D shape (tetrahedral, planar, linear) when it matters.\n\n"
-    "**Chemical equations** — When balancing equations, write the unbalanced equation with "
-    "-> (e.g. `H2 + O2 -> H2O`). The backend balances it with SymPy and injects the verified "
-    "coefficients. For stoichiometry, state the known reactant amount and the target product; "
-    "the backend computes the mole ratio and identifies the limiting reagent. For molar mass, "
-    "ask `molar mass of <formula>` and the backend computes it with RDKit. For molecular "
-    "properties (LogP, TPSA, H-bond donors/acceptors), the backend computes RDKit descriptors "
-    "when given a SMILES. For pH, state `[H+] = <value>` and the backend computes pH. For gas "
-    "laws (PV=nRT) and solution chemistry (molarity, dilution), the backend provides verified "
-    "formulas and hints.\n\n"
     "**Geometry / graphs** — Do not emit ```geometry or ```graph JSON. When a "
     "verified system block is present, Recall attaches the labeled diagram. "
     "Never invent measures. School shapes only — not molecules.\n\n"
     "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
     "venue recommendations (any nearby place). Use when the user asks for something "
     "near them — nearest/closest/nearby — regardless of category.\n\n"
-    "**Quotes** (```quote) — A notable quote with optional attribution on the last line as "
-    "“— Author”. Use for pull-quotes; plain `>` blockquotes also work.\n\n"
     "For uploaded images, describe or answer about what you see — do not redraw them in HTML."
 )

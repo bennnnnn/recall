@@ -243,6 +243,14 @@ describe("renderFence edge cases", () => {
     expect(getByText("javascript:const x = 1;")).toBeOnTheScreen();
   });
 
+  it("BUG FIX: an explicit ```python fence is never reinterpreted as an Answer", async () => {
+    const { getByText, queryByLabelText } = await render(
+      <>{renderFence(node("x = 2", "python"))}</>,
+    );
+    expect(getByText("python:x = 2")).toBeOnTheScreen();
+    expect(queryByLabelText(/Answer:/)).toBeNull();
+  });
+
   it("routes a short numeric final (including mis-tagged ```copy) to AnswerBlock, not Copy", async () => {
     const { getByLabelText, queryByText } = await render(
       <>{renderFence(node("120", "copy"))}</>,

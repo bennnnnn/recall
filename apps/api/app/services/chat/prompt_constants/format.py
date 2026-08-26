@@ -2,8 +2,6 @@
 
 import re
 
-from app.services.chat.prompt_constants.math import MATH_INTENT_HINT
-
 _COMPARISON_TURN = re.compile(
     r"(?:"
     r"\bvs\.?\b|"
@@ -39,81 +37,53 @@ def is_comparison_question(text: str) -> bool:
     return bool(_COMPARISON_TURN.search(cleaned))
 
 
-INTENT_FORMAT_HINT = (
-    "Adapt your output to the user's goal. Be direct and natural — pick the format "
-    "that is easiest to scan for that intent. This is a **mobile** chat — prefer "
-    "vertical layouts (headings + lists). Do NOT default to pipe tables.\n"
+# One layout contract. The model writes Markdown; Recall upgrades presentation.
+# Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
+# those cards still render if an old message has the fence.
+FORMAT_CONTRACT = (
+    "This is a **mobile** chat. Write normal Markdown — headings, lists, "
+    "tables, and blockquotes. Do not invent custom fence names for layout.\n"
     "\n"
-    "Default (facts, lists, rankings, lookups, recommendations, tips):\n"
-    "  - Use a simple **numbered list** or **bullets** for most answers. "
-    'This is the right format for rankings ("top N …"), lists of facts, '
-    "recommendations, tips, and general Q&A.\n"
+    "Default (facts, lists, rankings, lookups, recommendations, tips, how-tos):\n"
+    "  - Numbered list or bullets. This is the right format for rankings "
+    '("top N …"), tips, roadmaps, troubleshooting, and general Q&A.\n'
     '  - For a single topic ("tell me about X"), use 2-3 short headings with '
-    "bullets — not a wall of text, not a kv block, and not a table.\n"
-    "\n"
-    "Rich formatting — use these fences to make answers visually clear and "
-    "attractive (but don't overuse; 1-2 callouts per long answer max):\n"
-    "  - ```tip or ```note — a highlighted callout card (green/blue) for a key "
-    "insight, takeaway, or important note.\n"
-    "  - ```warning — an amber callout for cautions, gotchas, or common mistakes.\n"
-    "  - ```steps — numbered badge rows for multi-step how-tos or procedures. "
-    "Prefer this over a plain numbered list when each step is a distinct action.\n"
-    "  - ```details — a collapsible section for optional context, longer "
-    "explanations, or tangents the user can expand if interested.\n"
-    "  - ```comparison — two-column pros/cons card for a single option.\n"
+    "bullets — not a wall of text and not a table.\n"
+    "  - How-to / roadmap / guide: ## headings for phases, numbered steps under "
+    "each. NEVER put a roadmap, learning plan, tip list, or how-to into a "
+    "pipe table — multi-column tables are unreadable on a phone.\n"
+    "  - Callouts: a blockquote starting with Tip: / Note: / Warning: "
+    "(plain `>`). Not a fence.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
     "```copy. At most ONE such fence per response. For email/message to a named "
     "person, draft immediately — do not ask what to write.\n"
     "\n"
-    "How-to / tips / roadmap / guide / troubleshooting:\n"
-    "  - Use ## headings for phases or themes, then ```steps or numbered steps "
-    "under each. NEVER put a roadmap, learning plan, tip list, or guide into a "
-    "pipe table — multi-column tables are unreadable on a phone.\n"
-    "\n" + MATH_INTENT_HINT + "\n"
     "Coding:\n"
-    "  - Brief approach sentence, then tagged code fence (```python, etc.), "
-    "then notes.\n"
+    "  - Brief approach sentence, then a tagged code fence (```python, "
+    "```javascript, etc.), then notes. Never put source code in an untagged "
+    "fence.\n"
     "\n"
     "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
     "feature comparison — not for tips, roadmaps, or how-tos):\n"
-    "  - Lead with a **markdown pipe table** (required for multi-attribute compares). "
-    "Feature/Aspect column + one column per option (e.g. | Feature | Python | Java |). "
-    "One attribute per row (typing, syntax, use cases, performance, ecosystem, …).\n"
-    "  - Keep to **2-3 columns** when possible (Feature + options). Avoid 4+ wide "
-    "columns of prose — they break on mobile.\n"
-    "  - After the table, add 1-3 bullets: when to pick each option, then a clear "
-    "recommendation if the user asked which to choose.\n"
+    "  - Lead with a **markdown pipe table**. Feature/Aspect column + one "
+    "column per option (e.g. | Feature | Python | Java |). One attribute per "
+    "row. Keep to **2-3 columns** when possible.\n"
+    "  - After the table, 1-3 bullets: when to pick each, then a "
+    "recommendation if they asked which to choose.\n"
     "  - Use bullets instead of a table when there is almost nothing to "
-    "compare (one short difference) or the user asked for a narrative.\n"
-    "  - For pure pros/cons of ONE thing, a ```comparison fence (left=pros, "
-    "right=cons) is fine; for multi-option feature grids, use a pipe table."
+    "compare or they asked for a narrative.\n"
+    "  - Proper GFM only — every row starts and ends with |; never wrap the "
+    "table in a code fence; never use HTML in cells.\n"
+    "\n"
+    "Tables: use a pipe table ONLY for a true comparison. Never for tips, "
+    "how-tos, roadmaps, guides, checklists, or single-topic advice."
 )
 
-RESPONSE_FORMAT_HINT = (
-    "Be scannable — avoid long prose paragraphs:\n"
-    "- Make answers visually clear: use ```tip / ```note callouts for key "
-    "takeaways, ```steps fences for procedures, and ## headings to group "
-    "sections. Don't overuse — 1-2 callouts per long answer, not on every reply.\n"
-    "- Prefer **numbered lists** for rankings, steps, roadmaps, and ordered "
-    "information. Prefer **bullets** for unordered facts, tips, key points, "
-    "and options.\n"
-    "- Use **pipe tables ONLY for true comparisons** (X vs Y, feature grids, "
-    "side-by-side attributes). Never use a table for tips, how-tos, roadmaps, "
-    "guides, checklists, or single-topic advice — use headings + lists instead.\n"
-    "- When a comparison table is appropriate: put it first; example header "
-    "| Feature | Option A | Option B |; one attribute per row; prefer at most 3 "
-    "columns. Proper GFM only — every row starts and ends with |, one |---| "
-    "separator after the header. Never put tables inside ``` fences. Never "
-    "insert dash-only or blank rows between data rows. Never use HTML "
-    "(e.g. <br>) inside cells — use a semicolon or a second bullet outside "
-    "the table.\n"
-    "- Keep paragraphs to 1-2 sentences. Use headings (##) to group information "
-    "when covering multiple aspects of a topic.\n"
-    "- For source code, always use a fenced block with the correct language tag "
-    "(```python, ```javascript, etc.)."
-)
+# Compat aliases — one contract, two historical names.
+INTENT_FORMAT_HINT = FORMAT_CONTRACT
+RESPONSE_FORMAT_HINT = FORMAT_CONTRACT
 
 STYLE_HINTS = {
     "short": (
@@ -152,18 +122,17 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
     "Do not restate the question. "
     "Use the simplest structure that answers; do not add sections just to look structured. "
-    "Never invent a pipe table or ```comparison unless the user asked to compare options. "
+    "Never invent a pipe table unless the user asked to compare options. "
     "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
     "Let's break it down)."
 )
 
-# Slim/casual turns: ChatGPT-shaped, not the rich-fence pack.
+# Slim/casual turns: ChatGPT-shaped, not a rich-fence pack.
 COMPACT_RESPONSE_FORMAT_HINT = (
     "Casual turn: lead with the answer in the first sentence. Plain prose or at "
-    "most 4 short bullets. No ## headings, no pipe tables, and no ```tip / "
-    "```warning / ```comparison / ```steps unless they asked for a checklist or "
-    "an X vs Y compare. If they pasted a phrase or fragment, correct or complete "
-    "it — do not invent a topic essay or joke about the words."
+    "most 4 short bullets. No ## headings and no pipe tables unless they asked "
+    "for a checklist or an X vs Y compare. If they pasted a phrase or fragment, "
+    "correct or complete it — do not invent a topic essay or joke about the words."
 )
 
 # Appended after the tone line so "funny" cannot override answer-first format.

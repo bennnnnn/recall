@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“Create music” rendered a chemistry molecule.** Default rich-turn
+  hints taught ```smiles / ```tip / ```steps, and settled render ran
+  `looksLikeMathAnswer` before explicit code langs. One Markdown
+  `FORMAT_CONTRACT`; chemistry protocol only with chem context; one
+  `classifyFence` (tagged lang wins). Keep old fence renderers for
+  stored messages.
 - **Attach send spun in the composer and the thread.** Optimistic bubble
   landed first, but the chip + `attachBusy` + `sendPhase` stayed until
   upload finished. Clear the chip immediately. Do not treat

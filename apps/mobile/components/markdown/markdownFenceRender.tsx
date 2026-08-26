@@ -4,26 +4,17 @@ import { CopyBlock } from "@/components/CopyBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MathBlock } from "@/components/rich/MathView";
-import { looksLikeLatexFence } from "@/lib/math/mathFenceRetag";
 import {
   renderCopyStyleBlock,
-  renderRichFence,
+  renderRichFenceById,
 } from "@/components/rich/RichFence";
+import { copyBlockLabel } from "@/lib/copyBlock";
+import { parseFenceLang } from "@/lib/codeHighlight";
 import {
-  copyBlockLabel,
-  isAnswerLang,
-  isExplicitCodeLang,
-  looksLikeMathAnswer,
-  shouldRenderAsCodeBlock,
-  shouldRenderAsCopyBlock,
-} from "@/lib/copyBlock";
-import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
-import { isMathDiagramLang } from "@/lib/fenceRegistry";
-import {
-  isClockFenceBody,
-  isDigitalTimeOnly,
-  isIanaTimezoneOnly,
-} from "@/lib/timeQuestion";
+  classifyFence,
+  looksLikeMathMeta,
+  shouldHideCopyOnCodeFallback,
+} from "@/lib/fenceDispatch";
 
 // `tokenIndex` (and `index`) come from react-native-markdown-display's AST
 // (tokensToAST.js) — unlike `key` (a never-reset getUniqueID counter that
@@ -43,95 +34,56 @@ export type FenceNode = {
   index?: number;
 };
 
-function looksLikeMathMeta(content: string): boolean {
-  return /^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(
-    content.trim(),
-  );
-}
-
-function isFakeImageGenFence(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  return l === "image" || l === "img" || l === "image-gen" || l === "imagen";
-}
-
 function renderFenceInner(
   key: string,
   lang: string,
   content: string,
   tokenIndex?: number,
 ) {
-  // Models sometimes invent ```image {"prompt":"..."} — not a real rich fence;
-  // hide it so it never shows as a Copy code box.
-  if (isFakeImageGenFence(lang)) return null;
+  const decision = classifyFence(lang, content);
 
-  if (shouldUseHtmlPreview(lang, content)) {
+  if (decision.kind === "hide") return null;
+
+  if (decision.kind === "html") {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
-  const l = lang.trim().toLowerCase();
-  // Finals before generic math — ```answer / short results get the boxed
-  // look. The content heuristic only applies to untagged/mis-tagged fences
-  // (```copy, no tag) — an explicit ```math/```graph/```geometry tag is the
-  // model's own intent and must never be reinterpreted as a final answer
-  // just because the content also happens to look like a short expression.
-  if (isAnswerLang(l) || (!isMathDiagramLang(l) && looksLikeMathAnswer(content))) {
+
+  if (decision.kind === "answer") {
     return <AnswerBlock key={key} content={content} />;
   }
-  if (
-    looksLikeLatexFence(content) &&
-    l !== "python" &&
-    l !== "javascript" &&
-    l !== "graph" &&
-    l !== "geometry"
-  ) {
-    // Content-derived key, not the caller-supplied `key` (which
-    // react-native-markdown-display regenerates on every re-parse while
-    // streaming) — the same latex across re-parses must map to the same
-    // key, or MathBlock's WebView-backed renderer unmounts/remounts (a
-    // full WebView reload, visible as a flicker) every ~48ms even though
-    // nothing actually changed.
-    //
-    // `tokenIndex` disambiguates two *different* fences that happen to
-    // share identical latex (e.g. `\pm 2` appearing twice in one reply):
-    // it's stable across re-parses (deterministic re-tokenization of
-    // already-emitted content) but unique per fence, so sibling MathBlocks
-    // with the same content no longer collide on a duplicate React key.
+
+  if (decision.kind === "math") {
     const mathKey =
       tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
     return <MathBlock key={mathKey} latex={content} />;
   }
-  if (
-    l === "clock" ||
-    l === "time" ||
-    isDigitalTimeOnly(content) ||
-    isIanaTimezoneOnly(content) ||
-    (l === "" && isClockFenceBody(content))
-  ) {
+
+  if (decision.kind === "clock") {
     return <CircularClockBlock key={key} content={content} />;
   }
-  const rich = renderRichFence(lang, content, key, tokenIndex);
-  if (rich) return rich;
-  // Math diagram failures must never become a Copy template.
-  if (looksLikeMathMeta(content) || isMathDiagramLang(l)) {
-    return (
-      <CodeBlock
-        key={key}
-        code={content}
-        lang={lang}
-        showCopy={false}
-      />
-    );
+
+  if (decision.kind === "rich" && decision.id) {
+    const rich = renderRichFenceById(decision.id, lang, content, key, tokenIndex);
+    if (rich) return rich;
   }
+
   const copyStyle = renderCopyStyleBlock(lang, content, key);
   if (copyStyle) return copyStyle;
-  if (isExplicitCodeLang(lang) || shouldRenderAsCodeBlock(lang, content)) {
-    return <CodeBlock key={key} code={content} lang={lang} />;
-  }
-  if (shouldRenderAsCopyBlock(lang, content)) {
+
+  if (decision.kind === "copy") {
     const styled = renderCopyStyleBlock("copy", content, key);
     if (styled) return styled;
     return <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />;
   }
-  return <CodeBlock key={key} code={content} lang={lang} />;
+
+  return (
+    <CodeBlock
+      key={key}
+      code={content}
+      lang={lang}
+      showCopy={!shouldHideCopyOnCodeFallback(lang, content)}
+    />
+  );
 }
 
 export function renderFence(node: FenceNode) {
@@ -150,7 +102,7 @@ export function renderFence(node: FenceNode) {
         key={node.key}
         code={content}
         lang={lang}
-        showCopy={!isMathDiagramLang(lang) && !looksLikeMathMeta(content)}
+        showCopy={!shouldHideCopyOnCodeFallback(lang, content) && !looksLikeMathMeta(content)}
       />
     );
   }

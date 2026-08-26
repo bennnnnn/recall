@@ -24,13 +24,10 @@ import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
-import { looksLikeLatexFence } from "@/lib/math/mathFenceRetag";
-import { isAnswerLang } from "@/lib/copyBlock";
+import type { FenceId } from "@/lib/fenceRegistry";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import {
-  detectJsonRichFenceKind,
   isMessageLang,
-  isStructuredFenceLang,
   parseCalloutKind,
   parseCollapsible,
   parseComparison,
@@ -45,129 +42,87 @@ function mathFenceKey(content: string, tokenIndex?: number): string {
   return tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
 }
 
+/** Render a registry fence by id — no lang-string soup, no content heuristics. */
+export function renderRichFenceById(
+  id: FenceId,
+  lang: string,
+  content: string,
+  key: string,
+  tokenIndex?: number,
+): ReactNode | null {
+  switch (id) {
+    case "email": {
+      const draft = parseEmailDraft(content) ?? { body: content };
+      return <EmailCard key={key} draft={draft} />;
+    }
+    case "quote": {
+      const { quote, author } = parseQuoteAttribution(content);
+      if (!quote) return null;
+      return <QuoteBlock key={key} quote={quote} author={author} />;
+    }
+    case "message":
+      return <MessagePreview key={key} text={content} />;
+    case "social": {
+      const social = parseSocialPlatform(lang);
+      if (!social) return null;
+      return <SocialPostCard key={key} platform={social} text={content} />;
+    }
+    case "math":
+      return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
+    case "answer":
+      return <AnswerBlock key={key} content={content} />;
+    case "geometry":
+      return <LazyGeometryBlock key={key} content={content} />;
+    case "graph":
+      return <LazyFunctionGraphBlock key={key} content={content} />;
+    case "places": {
+      const places = parsePlacesJson(content);
+      if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
+      return null;
+    }
+    case "clock":
+      return <CircularClockBlock key={key} content={content} />;
+    case "callout":
+      return <CalloutBlock key={key} kind={parseCalloutKind(lang)} content={content} />;
+    case "collapsible": {
+      const draft = parseCollapsible(lang, content);
+      return <CollapsibleBlock key={key} title={draft.title} body={draft.body} />;
+    }
+    case "comparison": {
+      const data = parseComparison(content);
+      if (data) return <ComparisonBlock key={key} data={data} />;
+      return null;
+    }
+    case "keyvalue":
+      return <KeyValueBlock key={key} rows={parseKeyValue(content)} />;
+    case "steps":
+      return <StepList key={key} steps={parseSteps(content)} />;
+    case "mermaid":
+      return <LazyMermaidBlock key={key} content={content} />;
+    case "chemistry":
+      return <LazyChemistryBlock key={key} content={content} />;
+    case "molecule3d":
+      return <LazyMolecule3DBlock key={key} content={content} />;
+    case "chart":
+      return <LazyChartBlock key={key} content={content} />;
+    case "copy":
+    case "sources":
+    case "learning_launch":
+      return null;
+    default:
+      return null;
+  }
+}
+
 export function renderRichFence(
   lang: string,
   content: string,
   key: string,
   tokenIndex?: number,
 ): ReactNode | null {
-  const l = lang.trim().toLowerCase();
-  if (!isStructuredFenceLang(l)) {
-    if (looksLikeLatexFence(content) && (l === "json" || l === "latex" || l === "tex" || l === "")) {
-      // Content-derived key, not the caller-supplied `key` (which
-      // react-native-markdown-display regenerates on every re-parse while
-      // streaming) — the same latex across re-parses must map to the same
-      // key, or MathBlock's WebView-backed renderer unmounts/remounts (a
-      // full WebView reload, visible as a flicker) every ~48ms even though
-      // nothing actually changed.
-      return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
-    }
-    // Same class of instruction-drift as the LaTeX fallback above — the
-    // model routinely emits ```json (or an untagged fence) instead of the
-    // ```geometry / ```graph it's told to use for diagrams.
-    if (l === "json" || l === "") {
-      const kind = detectJsonRichFenceKind(content);
-      if (kind === "geometry") return <LazyGeometryBlock key={key} content={content} />;
-      if (kind === "graph") return <LazyFunctionGraphBlock key={key} content={content} />;
-    }
-    return null;
-  }
-
-  if (l === "email") {
-    const draft = parseEmailDraft(content) ?? { body: content };
-    return <EmailCard key={key} draft={draft} />;
-  }
-
-  if (l === "quote" || l === "blockquote") {
-    const { quote, author } = parseQuoteAttribution(content);
-    if (!quote) return null;
-    return <QuoteBlock key={key} quote={quote} author={author} />;
-  }
-
-  if (isMessageLang(l)) {
-    return <MessagePreview key={key} text={content} />;
-  }
-
-  const social = parseSocialPlatform(l);
-  if (social) {
-    return <SocialPostCard key={key} platform={social} text={content} />;
-  }
-
-  if (fenceIdForLang(l) === "math") {
-    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
-  }
-
-  if (isAnswerLang(l)) {
-    return <AnswerBlock key={key} content={content} />;
-  }
-
-  if (l === "geometry") {
-    return <LazyGeometryBlock key={key} content={content} />;
-  }
-
-  if (l === "graph") {
-    return <LazyFunctionGraphBlock key={key} content={content} />;
-  }
-
-  if (l === "places") {
-    const places = parsePlacesJson(content);
-    if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
-    return null;
-  }
-
-  if (l === "clock" || l === "time") {
-    return <CircularClockBlock key={key} content={content} />;
-  }
-
-  if (
-    l === "callout" ||
-    l.startsWith("callout-") ||
-    ["tip", "note", "warning", "info", "important"].includes(l)
-  ) {
-    return (
-      <CalloutBlock key={key} kind={parseCalloutKind(l)} content={content} />
-    );
-  }
-
-  if (l === "details" || l === "collapse" || l === "summary") {
-    const draft = parseCollapsible(l, content);
-    return <CollapsibleBlock key={key} title={draft.title} body={draft.body} />;
-  }
-
-  if (l === "compare" || l === "comparison" || l === "pros") {
-    const data = parseComparison(content);
-    if (data) return <ComparisonBlock key={key} data={data} />;
-  }
-
-  if (l === "kv" || l === "keyvalue" || l === "fields") {
-    return <KeyValueBlock key={key} rows={parseKeyValue(content)} />;
-  }
-
-  if (l === "steps" || l === "step") {
-    return <StepList key={key} steps={parseSteps(content)} />;
-  }
-
-  // Mermaid / graph diagrams (async-split vendors — see LazyHeavyRich)
-  if (l === "mermaid") {
-    return <LazyMermaidBlock key={key} content={content} />;
-  }
-
-  // Chemistry structures (SMILES — async-split SmilesDrawer)
-  if (l === "smiles" || l === "chemistry") {
-    return <LazyChemistryBlock key={key} content={content} />;
-  }
-
-  // 3D molecule viewer (SDF — async-split 3Dmol.js)
-  if (l === "molecule3d" || l === "mol3d" || l === "3dmol") {
-    return <LazyMolecule3DBlock key={key} content={content} />;
-  }
-
-  // Chart / data visualization (vega-lite — async-split vendors)
-  if (l === "chart" || l === "vega" || l === "vega-lite" || l === "plot") {
-    return <LazyChartBlock key={key} content={content} />;
-  }
-
-  return null;
+  const id = fenceIdForLang(lang);
+  if (!id) return null;
+  return renderRichFenceById(id, lang, content, key, tokenIndex);
 }
 
 export function renderCopyStyleBlock(

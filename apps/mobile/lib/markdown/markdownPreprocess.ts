@@ -14,6 +14,7 @@ import {
   looksLikeMathAnswer,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
+import { allowsContentHeuristic } from "@/lib/fenceDispatch";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
 import {
   PROTECTED_ESCAPE_MARKER,
@@ -24,6 +25,39 @@ import {
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
 const CALLOUT_RE =
   /^>[ \t]*\[!(\w+)\][ \t]*([^\n]*)\n((?:>[^\n]*(?:\n|$))*)/gim;
+/** Markdown `> Tip:` / `> Warning:` — same cards as `> [!TIP]`, no custom fence. */
+const CALLOUT_LABEL_LINE =
+  /^>[ \t]*(Tip|Note|Warning|Important|Info)[ \t]*:[ \t]*(.*)$/i;
+
+export function promoteCalloutBlockquotes(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const match = CALLOUT_LABEL_LINE.exec(lines[i] ?? "");
+    if (!match) {
+      out.push(lines[i] ?? "");
+      i += 1;
+      continue;
+    }
+    const kind = (match[1] ?? "").trim().toLowerCase();
+    const body: string[] = [];
+    const first = (match[2] ?? "").trim();
+    if (first) body.push(first);
+    i += 1;
+    while (i < lines.length) {
+      const line = lines[i] ?? "";
+      if (!line.startsWith(">")) break;
+      if (CALLOUT_LABEL_LINE.test(line)) break;
+      body.push(line.replace(/^>\s?/, ""));
+      i += 1;
+    }
+    out.push(`> [!${kind}]`);
+    for (const line of body) out.push(`> ${line}`);
+    out.push("");
+  }
+  return out.join("\n");
+}
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
 const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
 /** Michelin / restaurant price tiers: ($), ($$), ($$$), ($$$$) — not LaTeX. */
@@ -506,7 +540,10 @@ function unwrapNonCodeFences(content: string): string {
     // AnswerBlock — shouldRenderAsPlainProseFence below has no concept of
     // "this looks like a math answer" and would otherwise unwrap it into
     // plain prose text before it ever reaches that dispatch.
-    if (isAnswerLang(lang) || looksLikeMathAnswer(trimmed)) {
+    if (
+      isAnswerLang(lang) ||
+      (allowsContentHeuristic(lang) && looksLikeMathAnswer(trimmed))
+    ) {
       return full;
     }
 
@@ -967,6 +1004,7 @@ export function preprocessMarkdown(
   // the text, no late fence pop-in).
   out = out.replace(/`(\$[^`\n]+?\$)`/g, "$1");
 
+  out = promoteCalloutBlockquotes(out);
   out = out.replace(
     CALLOUT_RE,
     (_match, kind: string, title: string, body: string) => {
