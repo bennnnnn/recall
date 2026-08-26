@@ -7,9 +7,28 @@ import {
   STREAM_AUTOSCROLL_RESUME_MS,
   STREAM_LAYOUT_SETTLE_MS,
   shouldHoldStreamLayoutOnPersistedMount,
+  shouldStartRenderingFromBottom,
 } from "@/lib/messageListLayout";
 
 describe("messageListLayout", () => {
+  it("keeps the first turn under the header", () => {
+    expect(
+      shouldStartRenderingFromBottom({ messageCount: 0, hasMoreOlder: false }),
+    ).toBe(false);
+    expect(
+      shouldStartRenderingFromBottom({ messageCount: 1, hasMoreOlder: false }),
+    ).toBe(false);
+    expect(
+      shouldStartRenderingFromBottom({ messageCount: 2, hasMoreOlder: false }),
+    ).toBe(false);
+    expect(
+      shouldStartRenderingFromBottom({ messageCount: 3, hasMoreOlder: false }),
+    ).toBe(true);
+    expect(
+      shouldStartRenderingFromBottom({ messageCount: 1, hasMoreOlder: true }),
+    ).toBe(true);
+  });
+
   it("uses role for user rows", () => {
     expect(messageListItemType({ id: "msg-2", role: "user" })).toBe("user");
   });

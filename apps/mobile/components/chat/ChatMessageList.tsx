@@ -10,6 +10,7 @@ import {
   beginStreamLayoutHold,
   messageListItemType,
   messageListKey,
+  shouldStartRenderingFromBottom,
   STREAM_AUTOSCROLL_RESUME_MS,
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
@@ -86,20 +87,24 @@ function ChatMessageListComponent({
     return beginStreamLayoutHold(setAutoscrollSuppressed, STREAM_AUTOSCROLL_RESUME_MS);
   }, [streamActive]);
 
+  const startFromBottom = shouldStartRenderingFromBottom({
+    messageCount: messages.length,
+    hasMoreOlder,
+  });
   const maintainVisibleContentPosition = useMemo(
     () =>
       autoscrollSuppressed
         ? {
             disabled: false,
             autoscrollToBottomThreshold: -1,
-            startRenderingFromBottom: true,
+            startRenderingFromBottom: startFromBottom,
           }
         : {
             disabled: false,
             autoscrollToBottomThreshold: 0.25,
-            startRenderingFromBottom: true,
+            startRenderingFromBottom: startFromBottom,
           },
-    [autoscrollSuppressed],
+    [autoscrollSuppressed, startFromBottom],
   );
 
   return (

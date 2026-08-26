@@ -9,6 +9,7 @@ import {
   nextStreamingScrollDelay,
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
+  shouldScrollToEndWhenPinned,
 } from "@/lib/chatScrollLogic";
 import { STREAM_AUTOSCROLL_RESUME_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
@@ -140,8 +141,10 @@ export function useChatScroll({
 
   const scrollToEndIfAtBottom = useCallback((animated: boolean) => {
     if (!atBottomRef.current) return;
+    const metrics = measureScrollMetrics();
+    if (metrics && !shouldScrollToEndWhenPinned(metrics.maxOffset)) return;
     listRef.current?.scrollToEnd({ animated });
-  }, []);
+  }, [measureScrollMetrics]);
 
   const runStreamingScrollCatchUp = useCallback(() => {
     streamingScrollLastRunRef.current = Date.now();
@@ -175,25 +178,23 @@ export function useChatScroll({
 
   const schedulePostStreamScroll = useCallback(() => {
     scheduleTimeout(streamEndScrollTimerRef, STREAM_AUTOSCROLL_RESUME_MS, () => {
-      if (atBottomRef.current) {
-        listRef.current?.scrollToEnd({ animated: false });
-      }
+      scrollToEndIfAtBottom(false);
     });
-  }, []);
+  }, [scrollToEndIfAtBottom]);
 
   useEffect(() => {
     if (messagesLength > 0 && newMessageCountRef.current > 0) {
       const pending = newMessageCountRef.current;
       newMessageCountRef.current = 0;
       if (atBottomRef.current) {
-        listRef.current?.scrollToEnd({ animated: true });
+        scrollToEndIfAtBottom(true);
       } else {
         setScrollAwayCount((c) => c + pending);
         showScrollBtnRef.current = true;
         setShowScrollToBottom(true);
       }
     }
-  }, [messagesLength]);
+  }, [messagesLength, scrollToEndIfAtBottom]);
 
   useEffect(() => {
     const wasStreamActive = prevStreamActiveRef.current;
