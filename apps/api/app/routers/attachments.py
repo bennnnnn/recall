@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -167,16 +167,27 @@ async def serve_attachment_file(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
-) -> FileResponse | RedirectResponse:
+    w: int | None = Query(default=None, ge=1, le=512),
+) -> FileResponse | RedirectResponse | Response:
     try:
         access = await attachment_workflow.get_file_access(
             session,
             settings,
             user,
             attachment_id,
+            width=w,
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
+    if access.body is not None:
+        return Response(
+            content=access.body,
+            media_type=access.content_type,
+            headers={
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "private, max-age=86400",
+            },
+        )
     if access.local_path is not None:
         return FileResponse(
             access.local_path,

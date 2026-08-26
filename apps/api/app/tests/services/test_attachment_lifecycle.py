@@ -148,7 +148,7 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
         ),
         patch(
             "app.services.attachment_lifecycle.attachments_repo.delete_rows",
-            AsyncMock(return_value=2),
+            AsyncMock(return_value=1),
         ) as delete_rows,
         patch(
             "app.repositories.attachment_chunks.delete_for_attachment_ids",
@@ -158,12 +158,17 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
+        patch(
+            "app.services.attachment_lifecycle.enqueue_failed_storage_deletes",
+            AsyncMock(),
+        ),
     ):
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
-    assert deleted == 2
+    assert deleted == 1
     assert deleted_keys == ["user/ok"]
     delete_rows.assert_awaited_once()
+    assert delete_rows.await_args.args[1] == [ok.id]
 
 
 @pytest.mark.asyncio
@@ -236,6 +241,10 @@ async def test_reap_orphan_attachments_deletes_db_rows_before_bytes():
         patch(
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            AsyncMock(return_value=0),
         ),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)

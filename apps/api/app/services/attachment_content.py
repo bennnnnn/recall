@@ -26,6 +26,26 @@ MAX_EXTRACT_CHARS = 12_000
 # avoid runaway memory on adversarially large text payloads.
 MAX_INDEX_EXTRACT_CHARS = 50_000
 
+GALLERY_THUMB_MIN_EDGE = 32
+GALLERY_THUMB_MAX_EDGE = 512
+
+
+def resize_image_bytes(data: bytes, edge: int) -> tuple[bytes, str]:
+    """Downscale an image for gallery tiles. Returns (bytes, content_type)."""
+    from PIL import Image
+
+    size = max(GALLERY_THUMB_MIN_EDGE, min(GALLERY_THUMB_MAX_EDGE, edge))
+    opened = Image.open(io.BytesIO(data))
+    opened.thumbnail((size, size))
+    out = io.BytesIO()
+    if opened.mode in ("RGBA", "LA", "P"):
+        opened.save(out, format="PNG", optimize=True)
+        return out.getvalue(), "image/png"
+    converted = opened.convert("RGB") if opened.mode != "RGB" else opened
+    converted.save(out, format="JPEG", quality=80, optimize=True)
+    return out.getvalue(), "image/jpeg"
+
+
 IMAGE_CONTENT_TYPES = frozenset(
     {
         "image/jpeg",

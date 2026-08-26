@@ -18,6 +18,8 @@ from app.services.attachment_content import is_image_content_type
 
 logger = logging.getLogger(__name__)
 
+PENDING_STORAGE_DELETE_KEY = "recall:storage:pending_delete"
+
 
 async def detach_attachments_for_messages(
     session: AsyncSession,
@@ -61,6 +63,43 @@ async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> li
     return failed
 
 
+async def enqueue_failed_storage_deletes(keys: list[str]) -> None:
+    """Keep failed R2 deletes so the orphan reaper can retry after rows are gone."""
+    if not keys:
+        return
+    try:
+        redis = get_redis_client()
+        await redis.sadd(PENDING_STORAGE_DELETE_KEY, *keys)
+    except Exception:
+        logger.warning("Could not enqueue failed storage deletes", exc_info=True)
+
+
+async def retry_pending_storage_deletes(settings: Settings) -> int:
+    try:
+        redis = get_redis_client()
+        raw = await redis.smembers(PENDING_STORAGE_DELETE_KEY)
+    except Exception:
+        logger.debug("Pending storage-delete retry skipped", exc_info=True)
+        return 0
+    if not isinstance(raw, set | list | tuple):
+        return 0
+    keys = [
+        item.decode() if isinstance(item, bytes) else item
+        for item in raw
+        if isinstance(item, bytes | str)
+    ]
+    if not keys:
+        return 0
+    still_failed = await delete_storage_keys(settings, keys)
+    try:
+        await redis.srem(PENDING_STORAGE_DELETE_KEY, *keys)
+    except Exception:
+        logger.debug("Could not clear pending storage deletes", exc_info=True)
+    if still_failed:
+        await enqueue_failed_storage_deletes(still_failed)
+    return len(keys) - len(still_failed)
+
+
 async def purge_attachments_for_messages(
     session: AsyncSession,
     settings: Settings,
@@ -68,7 +107,8 @@ async def purge_attachments_for_messages(
 ) -> int:
     """Detach DB rows then delete stored bytes for attachments on ``message_ids``."""
     storage_keys = await detach_attachments_for_messages(session, message_ids, commit=True)
-    await delete_storage_keys(settings, storage_keys)
+    failed = await delete_storage_keys(settings, storage_keys)
+    await enqueue_failed_storage_deletes(failed)
     return len(storage_keys)
 
 
@@ -90,8 +130,14 @@ async def purge_attachments_for_user(
     # Failed keys may leave storage orphans; the orphan reaper / bucket lifecycle
     # covers those — failing the whole delete would leave the user logged out
     # with their account still intact.
-    await delete_storage_keys(settings, [row.storage_key for row in rows if row.storage_key])
-    attachment_ids = [row.id for row in rows]
+    keys = [row.storage_key for row in rows if row.storage_key]
+    failed = set(await delete_storage_keys(settings, keys))
+    await enqueue_failed_storage_deletes(list(failed))
+    attachment_ids = [
+        row.id for row in rows if not row.storage_key or row.storage_key not in failed
+    ]
+    if not attachment_ids:
+        return 0
     from app.repositories import attachment_chunks as chunks_repo
 
     await chunks_repo.delete_for_attachment_ids(session, attachment_ids)
@@ -112,6 +158,7 @@ async def reap_orphan_attachments(settings: Settings) -> int:
     permanently consumes a slot the user can never get back, eventually
     locking them out of image uploads for the day.
     """
+    await retry_pending_storage_deletes(settings)
     async with SessionLocal() as session:
         orphans = await attachments_repo.list_orphans(
             session,

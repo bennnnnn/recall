@@ -412,6 +412,12 @@ class ProjectItem(Base):
         Index("ix_project_items_user_project", "user_id", "project_id"),
         Index("ix_project_items_status_review", "project_id", "status", "last_reviewed_at"),
         Index("ix_project_items_project_due_at", "project_id", "due_at"),
+        UniqueConstraint(
+            "project_id",
+            "list_title",
+            "content",
+            name="uq_project_items_project_list_content",
+        ),
         CheckConstraint(
             "status IN ('new', 'learning', 'mastered')", name="ck_project_items_status"
         ),

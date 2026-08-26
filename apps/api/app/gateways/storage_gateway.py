@@ -247,7 +247,34 @@ def _r2_configured(settings: Settings) -> bool:
     )
 
 
+_gateway_cache: tuple[tuple[object, ...], StorageGateway] | None = None
+
+
+def reset_storage_gateway_cache() -> None:
+    global _gateway_cache
+    _gateway_cache = None
+
+
 def get_storage_gateway(settings: Settings) -> StorageGateway:
+    global _gateway_cache
+    key = (
+        settings.storage_backend.strip().lower(),
+        settings.environment,
+        settings.r2_account_id,
+        settings.r2_access_key_id,
+        settings.r2_secret_access_key,
+        settings.r2_bucket,
+        settings.r2_endpoint,
+        settings.storage_local_path,
+    )
+    if _gateway_cache is not None and _gateway_cache[0] == key:
+        return _gateway_cache[1]
+    gateway = _build_storage_gateway(settings)
+    _gateway_cache = (key, gateway)
+    return gateway
+
+
+def _build_storage_gateway(settings: Settings) -> StorageGateway:
     backend = settings.storage_backend.strip().lower()
     if backend == "r2":
         if _r2_configured(settings):

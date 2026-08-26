@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chat-extract deletes from Gmail/OCR text.** `build_todo_sync_transcript`
+  used raw assistant/user bodies, including UNTRUSTED and `[Image:]` excerpts.
+  Strip those blocks (linear scan) and cap deletes per turn.
+- **Chat delete left billed R2 objects.** Rows committed, then `delete_bytes`
+  failures were discarded — GDPR wipe cannot see key-only orphans. Detach
+  `commit=False`, commit chat, enqueue failed keys for the reaper.
 - **Quiz try counter reset after a second hint.** `find_original_quiz_fence_created_at`
   broke on the first earlier fence, and `list_recent_assistants` is newest-first,
   so it found the previous re-emit not the original. Scan all matches; take min

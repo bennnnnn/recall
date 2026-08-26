@@ -129,10 +129,16 @@ async def delete_chat(
     from app.services import attachment_lifecycle as attachment_lc
 
     message_ids = await messages_repo.list_ids_for_chat(session, chat_id)
+    storage_keys: list[str] = []
     if message_ids:
-        await attachment_lc.purge_attachments_for_messages(session, settings, message_ids)
+        storage_keys = await attachment_lc.detach_attachments_for_messages(
+            session, message_ids, commit=False
+        )
     await session.delete(chat)
     await session.commit()
+    if storage_keys:
+        failed = await attachment_lc.delete_storage_keys(settings, storage_keys)
+        await attachment_lc.enqueue_failed_storage_deletes(failed)
 
 
 async def today_usage(

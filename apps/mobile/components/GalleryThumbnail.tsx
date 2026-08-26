@@ -15,7 +15,7 @@ type Props = {
   size?: number;
 };
 
-const LOAD_TIMEOUT_MS = 10_000;
+const LOAD_TIMEOUT_MS = 20_000;
 
 export { LOAD_TIMEOUT_MS };
 
@@ -27,7 +27,11 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const uri = resolveAttachmentUri({ attachmentId, path: downloadUrl })!;
+  const uri = resolveAttachmentUri({
+    attachmentId,
+    path: downloadUrl,
+    width: Math.max(1, Math.round(size * 2)),
+  })!;
 
   // resolveAttachmentUri prefers /file when attachmentId is set. That
   // endpoint always needs Bearer — including when the list also returned a

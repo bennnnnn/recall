@@ -63,6 +63,28 @@ def wrap_untrusted(label: str, content: str, *, first_party: bool = False) -> st
     )
 
 
+def strip_untrusted_blocks(content: str) -> str:
+    """Drop ``[BEGIN UNTRUSTED…]`` … ``[END UNTRUSTED…]`` blocks with a linear scan."""
+    if not content:
+        return content
+    begin = "[BEGIN UNTRUSTED CONTENT"
+    end_mark = "[END UNTRUSTED CONTENT"
+    out: list[str] = []
+    index = 0
+    while True:
+        start = content.find(begin, index)
+        if start < 0:
+            out.append(content[index:])
+            break
+        out.append(content[index:start])
+        close = content.find(end_mark, start)
+        if close < 0:
+            break
+        newline = content.find("\n", close)
+        index = newline + 1 if newline >= 0 else len(content)
+    return "".join(out).strip()
+
+
 def text_before_attachment_markers(content: str) -> str:
     """Return the caption/prose before a persisted ``[File:`` / ``[Image:`` marker."""
     if not content:

@@ -216,6 +216,27 @@ async def list_quiz_exclusion_contents(
     return out
 
 
+async def get_by_list_content(
+    session: AsyncSession,
+    project_id: UUID,
+    list_title: str,
+    content: str,
+) -> ProjectItem | None:
+    normalized_list = list_title.strip() or DEFAULT_LIST
+    text = content.strip()
+    if not text:
+        return None
+    return (
+        await session.execute(
+            select(ProjectItem).where(
+                ProjectItem.project_id == project_id,
+                ProjectItem.list_title == normalized_list,
+                ProjectItem.content == text,
+            )
+        )
+    ).scalar_one_or_none()
+
+
 async def get_by_id(
     session: AsyncSession, item_id: UUID, user_id: UUID, project_id: UUID | None = None
 ) -> ProjectItem | None:

@@ -324,6 +324,11 @@ async def test_apply_project_actions_create_and_add():
         ),
         patch.object(
             project_items_repo,
+            "get_by_list_content",
+            AsyncMock(return_value=None),
+        ),
+        patch.object(
+            project_items_repo,
             "create",
             AsyncMock(return_value=_item("hola", project.id)),
         ) as add_mock,

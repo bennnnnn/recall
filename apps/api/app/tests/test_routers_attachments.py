@@ -1105,8 +1105,9 @@ def test_list_attachments_returns_images():
     assert len(body["items"]) == 2
     assert body["has_more"] is False
     assert body["items"][0]["source"] == "generated"
-    assert body["items"][0]["download_url"] == "url1"
+    assert body["items"][0]["download_url"] == f"/attachments/{row1.id}/file"
     assert body["items"][1]["source"] == "upload"
+    gateway.presign_download.assert_not_called()
     assert body["items"][0]["chat_id"] is None
 
 
