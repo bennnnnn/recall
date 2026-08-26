@@ -32,6 +32,7 @@ import {
   pruneSeenReminderIds,
   saveSeenReminderIds,
 } from "@/lib/reminderSeen";
+import { applyRecurrenceAdvances } from "@/lib/todos/recurrence";
 import { syncTodoReminders } from "@/lib/todos/todoReminders";
 
 type TodosContextValue = {
@@ -145,9 +146,16 @@ export function TodosProvider({ children }: { children: ReactNode }) {
           token,
           async () => {
             const next = await api.listTodos(token);
-            await applyBadge(next);
-            void syncTodoReminders(next);
-            return next;
+            const advanced = applyRecurrenceAdvances(next);
+            const items = advanced.todos as Todo[];
+            for (const index of advanced.changedIndexes) {
+              const todo = items[index];
+              if (todo.id.startsWith("local-")) continue;
+              void api.updateTodo(token, todo.id, { due_at: todo.due_at });
+            }
+            await applyBadge(items);
+            void syncTodoReminders(items);
+            return items;
           },
           { force: opts?.force || !hadTodos },
         );

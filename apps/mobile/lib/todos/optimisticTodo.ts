@@ -1,4 +1,4 @@
-import type { Todo } from "@/lib/api";
+import type { RecurrenceRule, Todo } from "@/lib/api";
 
 export const OPTIMISTIC_TODO_ID_PREFIX = "local-todo-";
 
@@ -13,6 +13,7 @@ export function buildOptimisticTodo(fields: {
   content: string;
   topic: string;
   dueAt?: string | null;
+  recurrenceRule?: RecurrenceRule | null;
   sortOrder?: number | null;
 }): Todo {
   const now = new Date().toISOString();
@@ -22,6 +23,7 @@ export function buildOptimisticTodo(fields: {
     topic: fields.topic,
     checked: false,
     due_at: fields.dueAt ?? null,
+    recurrence_rule: fields.recurrenceRule ?? null,
     sort_order: fields.sortOrder ?? null,
     chat_id: null,
     project_id: null,

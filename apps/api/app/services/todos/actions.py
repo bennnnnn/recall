@@ -16,6 +16,7 @@ from app.services import home as home_service
 from app.services import time_context as time_context_service
 from app.services.action_dispatch import ActionHandler, apply_action_batch
 from app.services.todos.prompt_context import _normalize, _topic_key
+from app.services.todos.recurrence import snap_first_due
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,9 @@ async def _todo_action_add(state: _TodoApplyState, action: TodoActionItem) -> in
     if _find_item_any_state(state.items, topic, content):
         return 0
     due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
+    recurrence = action.recurrence_rule if due_at is not None else None
+    if due_at is not None and recurrence:
+        due_at = snap_first_due(due_at, recurrence, timezone=state.user_timezone)
     new_todo = await todos_repo.create(
         state.session,
         user_id=state.user_id,
@@ -143,6 +147,7 @@ async def _todo_action_add(state: _TodoApplyState, action: TodoActionItem) -> in
         topic=topic,
         chat_id=state.chat_id,
         due_at=due_at,
+        recurrence_rule=recurrence,
         commit=False,
     )
     state.items.append(new_todo)
@@ -204,7 +209,9 @@ async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -
 async def _todo_action_clear_due(state: _TodoApplyState, action: TodoActionItem) -> int:
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item and item.due_at is not None:
-        await todos_repo.update(state.session, item, due_at=None, commit=False)
+        await todos_repo.update(
+            state.session, item, due_at=None, recurrence_rule=None, commit=False
+        )
         return 1
     return 0
 

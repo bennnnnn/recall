@@ -34,8 +34,9 @@ export default function TodosScreen() {
     topic?: string;
     highlight?: string;
   }>();
+  const resolvedFocus = focus === "schedule" ? "reminders" : focus;
   const focusSection: FocusSection | null =
-    focus === "list" || focus === "reminders" ? focus : null;
+    resolvedFocus === "list" || resolvedFocus === "reminders" ? resolvedFocus : null;
   const showReminders = focusSection !== "list";
   const showList = focusSection !== "reminders";
   const {
@@ -298,8 +299,13 @@ export default function TodosScreen() {
         saving={actions.savingReminder}
         todos={todos}
         onClose={() => setReminderSheetOpen(false)}
-        onSave={(content, dueDate) =>
-          void actions.handleCreateReminder(content, dueDate, () => setReminderSheetOpen(false))
+        onSave={(content, dueDate, recurrence) =>
+          void actions.handleCreateReminder(
+            content,
+            dueDate,
+            () => setReminderSheetOpen(false),
+            recurrence,
+          )
         }
       />
 

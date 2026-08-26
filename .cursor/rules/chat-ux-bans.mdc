@@ -29,7 +29,7 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Do **not** show a folder / “Link to project” control on reminder or list rows — Learning
   classes are not project destinations for todos. The top filter bar must not return either.
 - Do **not** show a “Linked to {{title}}” (or `todos.project_linked`) subtitle on list or
-  reminder rows. Lists, Reminders, and Learning stay separate.
+  reminder rows. Lists, Schedule, and Learning stay separate.
 
 ## 4. No model-fallback / context-summarized chips on assistant messages
 - Do **not** show `chat.model_fallback`, “switched to …”, or “N earlier messages summarized”
@@ -40,7 +40,7 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 ## 5. No empty-state body / primary CTA when a FAB already adds
 - Learning and Lists empty states: **icon + title only** (e.g. “No learning yet” / “No lists yet”).
 - Do **not** add body copy or an “Add …” `Button` that duplicates the bottom (+) FAB.
-- Reminders empty may stay title-only too (top-bar Add covers create).
+- Schedule empty may stay title-only too (FAB covers create).
 
 ## 6. No image-generation confirmation sheet
 - Image gen is **composer only**: user types the request and hits send; Pro generates immediately.

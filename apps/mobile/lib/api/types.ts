@@ -76,12 +76,15 @@ export type Memory = {
   updated_at: string;
 };
 
+export type RecurrenceRule = "daily" | "weekdays" | "weekly" | "monthly";
+
 export type Todo = {
   id: string;
   content: string;
   topic: string;
   checked: boolean;
   due_at: string | null;
+  recurrence_rule?: RecurrenceRule | null;
   sort_order: number | null;
   chat_id: string | null;
   project_id?: string | null;

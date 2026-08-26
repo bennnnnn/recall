@@ -262,7 +262,7 @@ def test_format_todos_block_groups_by_topic():
         ]
     )
     assert "User Lists" in block
-    assert "User Reminders" not in block
+    assert "User Schedule" not in block
     assert "## Groceries" in block
     assert "## Work" in block
     assert "○ Milk" in block
@@ -281,12 +281,12 @@ def test_format_todos_block_splits_reminders_and_lists():
         ],
         user_timezone="UTC",
     )
-    assert "User Reminders" in block
+    assert "User Schedule" in block
     assert "Reading at 10" in block
     assert "### " in block
     assert "User Lists" in block
     assert "## Groceries" in block
-    assert block.index("User Reminders") < block.index("User Lists")
+    assert block.index("User Schedule") < block.index("User Lists")
 
 
 @pytest.mark.asyncio
@@ -598,6 +598,30 @@ async def test_materialize_reminder_fences_creates_todo():
     # 3pm ET → 19:00 UTC
     assert kwargs["due_at"].hour == due.hour
     invalidate_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_stores_repeat():
+    session = AsyncMock()
+    text = (
+        "```reminder\n"
+        '{"title":"Practice Spanish","due_at":"2026-08-21T08:00:00-04:00","repeat":"daily"}\n'
+        "```\n"
+    )
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        _updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+        )
+    assert created == 1
+    assert create_mock.await_args.kwargs["recurrence_rule"] == "daily"
 
 
 @pytest.mark.asyncio

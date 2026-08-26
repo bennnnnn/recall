@@ -314,11 +314,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   production). Health probes and CORS preflight are skipped. No bodies or query
   strings.
 
-## 14. Lists, Reminders & suggestions
+## 14. Lists, Schedule & suggestions
 - ✅ **Lists** — named lists (topics) with a list-first UX: create a list title, then add
-  items. Drawer has separate **Lists** and **Reminders** entries (not a single Todos
+  items. Drawer has separate **Lists** and **Schedule** entries (not a single Todos
   item, and not per-list submenus). Empty named lists persist in on-device group order
   until the user deletes them (no server list entity).
+- ✅ **Schedule** — dated items (formerly Reminders) with optional repeat
+  (`daily` / `weekdays` / `weekly` / `monthly`). Repeats fire a **device push**
+  only (notification bar), not email. Chat can set `repeat` on the ` ```reminder `
+  fence. Route `focus=reminders` still works; `focus=schedule` is an alias.
 - ✅ **Todos API** — create, check off, delete items; delete entire list by topic (items
   without `due_at` only); optional `due_at`.
 - ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete /
@@ -330,7 +334,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time; resyncs on
-  login, foreground, and todo changes; tap opens **Reminders** (`/todos?focus=reminders`).
+  login, foreground, and todo changes; tap opens **Schedule** (`/todos?focus=reminders`).
   Lead time configurable (5 / 10 / 15 / 30 / **60 min** before due). A server todo-due
   push cancels the matching local scheduled alert so both do not fire.
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
@@ -528,7 +532,7 @@ were removed. Programming help lives in main chat.
   injection scopes to that one project (+ tutor hints) instead of all projects.
 - ❌ **Link todos to Learning** — optional `project_id` may exist on todo rows in the API.
   Mobile must not show it (no “Linked to …”, no filter chips, no folder control). Lists,
-  Reminders, and Learning stay separate.
+  Schedule, and Learning stay separate.
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
@@ -768,7 +772,7 @@ structured Learning topic type.
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, reasoning visible |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
-| Utility beyond chat | Lists, Reminders, Learning, integrations, home starters |
+| Utility beyond chat | Lists, Schedule, Learning, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
 

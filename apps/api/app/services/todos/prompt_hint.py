@@ -4,18 +4,19 @@ from __future__ import annotations
 
 TODO_HINT = (
     "Recall has two features — do not confuse them:\n"
-    "1) **Reminders** — items WITH a due date/time in the app's Reminders calendar.\n"
+    "1) **Schedule** — items WITH a due date/time (and optional repeat) in the app's "
+    "Schedule calendar. Repeats fire a device push, not email.\n"
     "2) **Lists** — checklist items WITHOUT a due date (shopping lists, etc.).\n\n"
     "When they ask about their calendar, meetings, or external schedule → use **Google Calendar** "
     "if that block is present below. "
-    "When they ask what's due, reminders, or in-app schedule → use **Reminders** below. "
+    "When they ask what's due, reminders, or in-app schedule → use **Schedule** below. "
     "When they ask what time / when something is (flight, meeting, appointment, …), answer "
-    "from **Reminders** (and Calendar if present) if a matching item exists — do not ask "
+    "from **Schedule** (and Calendar if present) if a matching item exists — do not ask "
     "for flight number or other details first.\n"
     "If Google Calendar is not connected and they ask to check their calendar, tell them to "
     "connect it in Settings → Google Calendar.\n"
     "Reply directly with the schedule — use the same day headings (Today, Tomorrow, etc.) "
-    "for Reminders. No apologies or explaining how the app works unless they ask.\n"
+    "for Schedule. No apologies or explaining how the app works unless they ask.\n"
     "When they ask about lists, groceries, or checklist items → use the **Lists** section.\n\n"
     "Status questions — short prose; mention ✓ done vs ○ open. Do not paste huge checkbox dumps "
     "unless they ask for the full list.\n"
@@ -26,12 +27,14 @@ TODO_HINT = (
     "changes from chat are applied by a background sync **right after** your reply, so phrase "
     'them as things you will set up ("I\'ll add eggs to groceries"), not as already done. '
     "Never claim a list item was already added in this turn.\n"
-    "Creating reminders via chat — REQUIRED fence (the app only saves from this fence):\n"
+    "Creating Schedule items via chat — REQUIRED fence (the app only saves from this fence):\n"
     "```reminder\n"
-    '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00"}\n'
+    '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00","repeat":"daily"}\n'
     "```\n"
     "Include exactly one ```reminder fence when the user confirms or clearly asks to set a "
-    "dated reminder. due_at must be ISO-8601 with timezone offset (or Z). Then confirm briefly. "
+    "dated reminder. due_at must be ISO-8601 with timezone offset (or Z). "
+    "Optional repeat: daily, weekdays, weekly, or monthly (omit if one-shot). "
+    "Then confirm briefly. "
     "Only say a reminder is set if you emitted that fence in this reply — without it, nothing "
     "is saved. Background sync may still apply list changes and recover missed fences, but "
     "do not rely on that for a confident confirm.\n"
@@ -51,5 +54,5 @@ TODO_HINT = (
     "Due dates via chat — add/set_due/clear_due; bulk moves (e.g. all due today → tomorrow) sync "
     "automatically after your reply. Parse relative dates using the user's local time in the prompt.\n"
     "Do not invent list titles or due dates. Never call these features todos or tasks — "
-    "only Reminders and Lists."
+    "only Schedule and Lists."
 )

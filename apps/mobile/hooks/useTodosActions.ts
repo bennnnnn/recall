@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 
 import { dayKeyForDue, defaultDueDate } from "@/components/todos/todoHelpers";
-import { api, Todo } from "@/lib/api";
+import { api, type RecurrenceRule, Todo } from "@/lib/api";
 import { toDueAtIso } from "@/lib/todos/dueDate";
 import { isDefaultListTopic, mergeGroupOrder } from "@/lib/listGroups";
 import { markReminderIdsSeen } from "@/lib/reminderSeen";
@@ -196,7 +196,12 @@ export function useTodosActions({
   );
 
   const handleCreateReminder = useCallback(
-    async (content: string, dueDate: Date, onCreated: () => void) => {
+    async (
+      content: string,
+      dueDate: Date,
+      onCreated: () => void,
+      recurrence: RecurrenceRule | null = null,
+    ) => {
       if (!token || savingReminderRef.current) return;
       const trimmed = content.trim();
       if (!trimmed) return;
@@ -207,6 +212,7 @@ export function useTodosActions({
         content: trimmed,
         topic: DEFAULT_TOPIC,
         dueAt: dueIso,
+        recurrenceRule: recurrence,
       });
       goToDay(dayKeyForDue(dueDate, dueIso));
       setPending(optimistic.id, true);
@@ -219,6 +225,7 @@ export function useTodosActions({
       try {
         const created = await api.createTodo(token, trimmed, DEFAULT_TOPIC, {
           dueAt: dueIso,
+          recurrenceRule: recurrence,
         });
         setTodos((prev) => replaceTodoById(prev, optimistic.id, created));
         if (userId) void markReminderIdsSeen(userId, [created.id]);

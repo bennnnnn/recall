@@ -15,9 +15,10 @@ import { useTranslation } from "react-i18next";
 import { AppSheet } from "@/components/AppSheet";
 import { defaultDueDate } from "@/components/todos/todoHelpers";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
-import type { Todo } from "@/lib/api";
+import type { RecurrenceRule, Todo } from "@/lib/api";
 import { describeDueAt, toDueAtIso } from "@/lib/todos/dueDate";
 import { findOverlappingReminder } from "@/lib/todos/reminderOverlap";
+import { RECURRENCE_RULES } from "@/lib/todos/recurrence";
 import { useTheme } from "@/lib/theme";
 
 export function AddReminderSheet({
@@ -31,13 +32,14 @@ export function AddReminderSheet({
   saving: boolean;
   todos: Todo[];
   onClose: () => void;
-  onSave: (content: string, dueDate: Date) => void;
+  onSave: (content: string, dueDate: Date, recurrence: RecurrenceRule | null) => void;
 }) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState(() => defaultDueDate());
+  const [repeat, setRepeat] = useState<RecurrenceRule | null>(null);
   const [showPicker, setShowPicker] = useState(Platform.OS === "ios");
 
   const overlap = useMemo(
@@ -48,6 +50,7 @@ export function AddReminderSheet({
   const reset = () => {
     setText("");
     setDueDate(defaultDueDate());
+    setRepeat(null);
     setShowPicker(Platform.OS === "ios");
   };
 
@@ -74,7 +77,7 @@ export function AddReminderSheet({
 
   const handleSave = () => {
     if (!canSave) return;
-    onSave(text, dueDate);
+    onSave(text, dueDate, repeat);
   };
 
   return (
@@ -159,6 +162,38 @@ export function AddReminderSheet({
             disabled={saving}
           />
         ) : null}
+
+        <Text style={[s.formLabel, s.fieldGap]}>{t("todos.repeat_label")}</Text>
+        <View style={s.repeatRow}>
+          <Pressable
+            style={[s.repeatChip, repeat == null && s.repeatChipOn]}
+            onPress={() => setRepeat(null)}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityState={{ selected: repeat == null }}
+          >
+            <Text style={[s.repeatChipText, repeat == null && s.repeatChipTextOn]}>
+              {t("todos.repeat_none")}
+            </Text>
+          </Pressable>
+          {RECURRENCE_RULES.map((rule) => {
+            const on = repeat === rule;
+            return (
+              <Pressable
+                key={rule}
+                style={[s.repeatChip, on && s.repeatChipOn]}
+                onPress={() => setRepeat(rule)}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[s.repeatChipText, on && s.repeatChipTextOn]}>
+                  {t(`todos.repeat_${rule}`)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
         {overlap ? (
           <View style={s.overlapNote}>

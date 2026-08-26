@@ -73,6 +73,7 @@ async def _load_todo_sync_snapshot(
                 "content": item.content,
                 "checked": item.checked,
                 "due_at": item.due_at.isoformat() if item.due_at else None,
+                "recurrence_rule": item.recurrence_rule,
             }
             for item in items
         ],
