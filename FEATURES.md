@@ -46,14 +46,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   read the thread without signing in. Public web links are a separate privacy feature
   (not started; do not assume we have them).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
-- ✅ **Gallery** — drawer **Gallery** → paginated grid of the user’s verified attachments
+- ✅ **Library** — drawer **Library** → paginated grid of the user’s verified attachments
   (generated images, uploaded images, and files). Tabs: All / Generated / Uploaded / Files.
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
   `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
-  still linked; tap a file to share (no in-gallery preview). Deleting a chat removes
-  its attachments from Gallery (unlinked leftovers are hidden; missing files drop
+  still linked; tap a file to share (no in-library preview). Deleting a chat removes
+  its attachments from Library (unlinked leftovers are hidden; missing files drop
   the row instead of showing a blank 404 tile).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
@@ -713,7 +713,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
-| Gallery (drawer grid of generated + uploaded images and files) | ✅ Shipped |
+| Library (drawer grid of generated + uploaded images and files) | ✅ Shipped |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
