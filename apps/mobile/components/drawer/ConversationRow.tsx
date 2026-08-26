@@ -1,6 +1,5 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
-import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
@@ -17,9 +16,6 @@ export type ConversationRowStyles = {
   rowHighlighted: ViewStyle;
   rowActive: ViewStyle;
   rowSelected: ViewStyle;
-  swipeContainer: ViewStyle;
-  swipeDeleteAction: ViewStyle;
-  swipeDeleteText: TextStyle;
 };
 
 type Props = {
@@ -32,7 +28,6 @@ type Props = {
    */
   onOpen: (chatId: string) => void;
   onLongPress: (chat: Chat) => void;
-  onDelete?: (chat: Chat) => void;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (chatId: string) => void;
@@ -47,7 +42,6 @@ export const ConversationRow = memo(function ConversationRow({
   chat,
   onOpen,
   onLongPress,
-  onDelete,
   selectionMode = false,
   selected = false,
   onToggleSelect,
@@ -60,7 +54,7 @@ export const ConversationRow = memo(function ConversationRow({
   const theme = useTheme();
   const label = displayChatTitle(chat.title, { generating: titleGenerating }, t);
 
-  const row = (
+  return (
     <Pressable
       style={[
         r.row,
@@ -107,30 +101,6 @@ export const ConversationRow = memo(function ConversationRow({
       </Text>
     </Pressable>
   );
-
-  if (!onDelete || selectionMode) return row;
-
-  return (
-    <Swipeable
-      friction={2}
-      rightThreshold={40}
-      overshootRight={false}
-      containerStyle={r.swipeContainer}
-      renderRightActions={() => (
-        <Pressable
-          style={r.swipeDeleteAction}
-          onPress={() => onDelete(chat)}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.delete")}
-        >
-          <Icon name="trash-outline" size={18} color={theme.onPrimary} />
-          <Text style={r.swipeDeleteText}>{t("common.delete")}</Text>
-        </Pressable>
-      )}
-    >
-      {row}
-    </Swipeable>
-  );
 });
 
 export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
@@ -161,21 +131,6 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     },
     rowSelected: {
       backgroundColor: theme.primaryLight,
-    },
-    swipeContainer: {
-      overflow: "hidden",
-    },
-    swipeDeleteAction: {
-      width: 80,
-      backgroundColor: theme.danger,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 2,
-    },
-    swipeDeleteText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: theme.onPrimary,
     },
   });
 }
