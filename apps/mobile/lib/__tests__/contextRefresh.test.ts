@@ -22,7 +22,7 @@ describe("shouldRefreshHomeOnChatFocus", () => {
     expect(shouldRefreshHomeOnChatFocus({ hasOpenThread: false })).toBe(true);
   });
 
-  it("skips /home on New chat when login already fetched Home", () => {
+  it("skips /home on New chat or Back when login already fetched Home", () => {
     expect(
       shouldRefreshHomeOnChatFocus({ hasOpenThread: false, hasFetchedHome: true }),
     ).toBe(false);
