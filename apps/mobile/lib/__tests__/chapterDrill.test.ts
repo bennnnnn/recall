@@ -3,6 +3,7 @@ import {
   blankTargetWord,
   buildChapterDrills,
   lessonWordProgress,
+  pickTexts,
 } from "@/lib/projects/chapterDrill";
 
 function item(id: string, content: string, definition: string): ProjectItem {
@@ -63,6 +64,17 @@ describe("buildChapterDrills", () => {
     expect(meaning.quiz.choices.map((choice) => choice.text)).toContain("hello");
     expect(meaning.question).toContain("_____");
     expect(meaning.question).not.toMatch(/what does/i);
+  });
+
+  it("samples distractors from the whole pool, not the first three", () => {
+    const pool = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"];
+    const seen = new Set<string>();
+    for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      for (const text of pickTexts(pool, "alpha", seed, [])) {
+        if (text !== "alpha") seen.add(text);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(3);
   });
 
   it("counts words in the chapter, not teach/quiz steps", () => {

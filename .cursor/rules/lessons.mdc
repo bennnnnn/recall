@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Quiz try counter reset after a second hint.** `find_original_quiz_fence_created_at`
+  broke on the first earlier fence, and `list_recent_assistants` is newest-first,
+  so it found the previous re-emit not the original. Scan all matches; take min
+  `created_at`.
 - **Same Gmail suggestion re-pushed every 60s.** `_push_cycle` collects on
   session A, then finalize mutates those ORM rows on session B. Writes look
   fine (`expire_on_commit=False`) but no UPDATE flushes. `session.get` the

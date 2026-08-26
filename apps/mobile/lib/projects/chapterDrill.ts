@@ -57,7 +57,7 @@ export function blankTargetWord(sentence: string, word: string): string {
   return trimmed.replace(re, "_____");
 }
 
-function pickTexts(
+export function pickTexts(
   pool: string[],
   correct: string,
   seed: string,
@@ -70,12 +70,12 @@ function pickTexts(
     if (!text.trim() || seen.has(key)) continue;
     seen.add(key);
     extras.push(text);
-    if (extras.length === 3) break;
   }
-  while (extras.length < 3) {
-    extras.push(`${correct} ${extras.length + 1}`);
+  const sampled = seededShuffle(extras, `${seed}:extras`).slice(0, 3);
+  while (sampled.length < 3) {
+    sampled.push(`${correct} ${sampled.length + 1}`);
   }
-  return seededShuffle([correct, ...extras.slice(0, 3)], seed);
+  return seededShuffle([correct, ...sampled], seed);
 }
 
 function quizFromChoices(
