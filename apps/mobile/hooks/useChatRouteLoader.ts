@@ -97,11 +97,18 @@ export function useChatRouteLoader({
     prepareDraftChat,
   } = draft;
 
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const getFirstUserText = useCallback(
+    () => messagesRef.current.find((m) => m.role === "user")?.content,
+    [],
+  );
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
     token,
     chatId,
     setChatTitle,
+    getFirstUserText,
   });
   const [pinned, setPinned] = useState(false);
   const [archived, setArchived] = useState(false);

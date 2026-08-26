@@ -1,5 +1,6 @@
 import {
   displayChatTitle,
+  provisionalChatTitle,
   sanitizeManualChatTitle,
 } from "@/lib/chat/chatTitle";
 
@@ -20,6 +21,15 @@ describe("chatTitle", () => {
 
   it("displayChatTitle falls back to untitled", () => {
     expect(displayChatTitle(null, {}, t)).toBe("Untitled");
+  });
+
+  it("provisionalChatTitle uses the first line and truncates", () => {
+    expect(provisionalChatTitle("What's still open for me to finish tonight?")).toBe(
+      "What's still open for me to finish tonight",
+    );
+    expect(provisionalChatTitle("  Hello\nsecond line")).toBe("Hello");
+    expect(provisionalChatTitle("   ")).toBeNull();
+    expect(provisionalChatTitle("x".repeat(60))).toBe(`${"x".repeat(47)}…`);
   });
 
   it("sanitizeManualChatTitle strips quotes and enforces length", () => {

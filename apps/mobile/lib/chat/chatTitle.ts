@@ -44,6 +44,18 @@ export function displayChatTitle(
   return t("common.untitled");
 }
 
+/** Drawer/header label from the first user line so we do not poll GET /chats/{id}. */
+const PROVISIONAL_TITLE_MAX = 48;
+
+export function provisionalChatTitle(text: string | undefined): string | null {
+  const line = text?.trim().split("\n")[0]?.trim() ?? "";
+  if (!line) return null;
+  const title = unwrapChatTitle(line);
+  if (!title) return null;
+  if (title.length <= PROVISIONAL_TITLE_MAX) return title;
+  return `${title.slice(0, PROVISIONAL_TITLE_MAX - 1).trimEnd()}…`;
+}
+
 /** Trim quotes and enforce max length before PATCH /chats/{id}. */
 export function sanitizeManualChatTitle(raw: string): string | null {
   const title = unwrapChatTitle(raw);
