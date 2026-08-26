@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Back from Learning / Reminders still hit `GET /home`.** #1005 skipped
+  Home only while a thread was open, so empty Home refetched after the
+  20s window went stale. Skip if login already fetched Home.
 - **First assistant bubble sat above the composer.** FlashList
   `startRenderingFromBottom` plus keyboard/`scrollToEnd` pin a short
   thread to the bottom. First turn (1–2 messages) renders from the top;

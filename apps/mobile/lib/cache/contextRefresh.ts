@@ -14,8 +14,9 @@ export function shouldRefreshHomeOnChatFocus(opts: {
   hasFetchedHome?: boolean;
 }): boolean {
   if (opts.hasOpenThread) return false;
-  // New chat shows Home; reuse the login /home payload instead of refetching
-  // because we skipped Home while a thread was open.
+  // New chat and Back from Learning / Reminders / Lists land on Home.
+  // Reuse the login /home payload — the 20s window goes stale while a
+  // thread or those screens are open.
   if (opts.hasFetchedHome) return false;
   return true;
 }
