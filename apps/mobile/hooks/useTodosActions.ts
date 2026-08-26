@@ -76,8 +76,8 @@ export function useTodosActions({
   }, [pendingIds, togglingId]);
 
   const handleCreateListItem = useCallback(
-    async (topic: string, content: string) => {
-      if (!token || !content.trim() || creatingItemRef.current) return;
+    (topic: string, content: string): boolean => {
+      if (!token || !content.trim() || creatingItemRef.current) return false;
       creatingItemRef.current = true;
       const trimmed = content.trim();
       const normalizedTopic = normalizeTopic(topic);
@@ -100,16 +100,19 @@ export function useTodosActions({
       setPending(optimistic.id, true);
       setTodos((prev) => [...prev, optimistic]);
       void persistGroupOrder(mergeGroupOrder(groupOrder, [normalizedTopic]));
-      try {
-        const created = await api.createTodo(token, trimmed, topic);
-        setTodos((prev) => replaceTodoById(prev, optimistic.id, created));
-      } catch {
-        setTodos((prev) => removeTodoById(prev, optimistic.id));
-        reportError("todos.error_create");
-      } finally {
-        creatingItemRef.current = false;
-        setPending(optimistic.id, false);
-      }
+      void (async () => {
+        try {
+          const created = await api.createTodo(token, trimmed, topic);
+          setTodos((prev) => replaceTodoById(prev, optimistic.id, created));
+        } catch {
+          setTodos((prev) => removeTodoById(prev, optimistic.id));
+          reportError("todos.error_create");
+        } finally {
+          creatingItemRef.current = false;
+          setPending(optimistic.id, false);
+        }
+      })();
+      return true;
     },
     [groupOrder, persistGroupOrder, reportError, setPending, setTodos, todos, token],
   );

@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Same Gmail suggestion re-pushed every 60s.** `_push_cycle` collects on
+  session A, then finalize mutates those ORM rows on session B. Writes look
+  fine (`expire_on_commit=False`) but no UPDATE flushes. `session.get` the
+  row on the finalize session. Single-session `run_push_cycle` tests miss this.
 - **Metro: `messagesRef` already declared.** Rebase of stacked chat-loader
   PRs kept both `useRef(messages)` blocks. One ref at the top of the hook;
   later code only reads `.current`.

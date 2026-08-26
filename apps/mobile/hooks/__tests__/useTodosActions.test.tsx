@@ -87,6 +87,29 @@ describe("useTodosActions lists", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
+  it("keeps a second add when the first create is still in flight", async () => {
+    let finish: (created: Todo) => void = () => undefined;
+    (api.createTodo as jest.Mock).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await act(async () => {
+      render(<Probe todos={[]} groupOrder={["Groceries"]} />);
+    });
+
+    let first = false;
+    await act(async () => {
+      first = actions.handleCreateListItem("Groceries", "milk");
+    });
+    expect(first).toBe(true);
+    expect(actions.handleCreateListItem("Groceries", "eggs")).toBe(false);
+
+    await act(async () => {
+      finish(todo({ id: "s1", content: "milk", topic: "Groceries" }));
+    });
+  });
+
   it("creates a list by appending to saved order", async () => {
     await act(async () => {
       render(<Probe todos={[]} groupOrder={["Groceries"]} />);

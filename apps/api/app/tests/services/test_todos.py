@@ -12,6 +12,7 @@ from app.services import home as home_service
 from app.services import todos as todos_service
 from app.services.todos import actions as todos_actions
 from app.services.todos import classification as todos_classification
+from app.services.todos import crud as todos_crud
 
 
 class _FakeSessionCM:
@@ -754,6 +755,49 @@ async def test_apply_todo_actions_wildcard_set_due_today():
         )
     assert applied == 2
     assert update_mock.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_list_todos_advances_past_due_daily():
+    session = AsyncMock()
+    past = datetime(2026, 8, 20, 8, 0, tzinfo=UTC)
+    now = datetime(2026, 8, 22, 9, 0, tzinfo=UTC)
+    item = MagicMock()
+    item.checked = False
+    item.due_at = past
+    item.recurrence_rule = "daily"
+    item.notification_sent_at = now
+    item.email_sent_at = now
+
+    await todos_crud._advance_past_recurring(session, [item], timezone="UTC", now=now)
+
+    assert item.due_at > now
+    assert item.notification_sent_at is None
+    assert item.email_sent_at is None
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_todo_clears_sent_markers_when_due_changes():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    item = MagicMock()
+    item.due_at = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
+    item.recurrence_rule = None
+    new_due = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+
+    with (
+        patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)),
+        patch.object(todos_crud.todos_repo, "update", AsyncMock(return_value=item)) as upd,
+        patch.object(todos_crud.home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        await todos_crud.update_todo(session, user, uuid4(), {"due_at": new_due})
+
+    fields = upd.await_args.kwargs
+    assert fields["notification_sent_at"] is None
+    assert fields["email_sent_at"] is None
 
 
 @pytest.mark.asyncio

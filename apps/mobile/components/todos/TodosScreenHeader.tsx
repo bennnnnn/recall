@@ -54,7 +54,7 @@ type Props = {
   focusTopic?: string;
   onReorderGroups: (topics: string[]) => void;
   onReorderItems: (topic: string, ordered: Todo[]) => void;
-  onAddListItem: (topic: string, text: string) => void;
+  onAddListItem: (topic: string, text: string) => boolean;
   onDeleteList: (topic: string) => void;
 };
 
