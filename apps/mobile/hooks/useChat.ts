@@ -655,26 +655,24 @@ export function useChat(
           },
         ]);
       }
-      if (trackedId) {
-        setSendingMessageId(trackedId);
-      }
-
-      await ensureConnected();
-
       assistantBuffer.current = "";
       reasoningBuffer.current = "";
-      // Show typing immediately (parity with regenerate) — don't wait for server `start`.
+      // Typing dots immediately — don't wait for the socket or server `start`,
+      // and don't leave "Sending" on the user bubble while we connect.
       if (!streamingRef.current) {
         setStreaming(true);
         streamingRef.current = true;
-        // Typing dots immediately (parity with regenerate / TTS). Only label
-        // real extra work (attachments); no "preparing / recalling" theater.
+        setSendingMessageId(null);
         updateStreamingDraft({
           content: "",
           status: options?.attachmentIds?.length ? "reading_files" : undefined,
         });
         appendStreamingPlaceholder();
+      } else if (trackedId) {
+        setSendingMessageId(trackedId);
       }
+
+      await ensureConnected();
 
       if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
         await sendViaSse(content, {
@@ -764,9 +762,6 @@ export function useChat(
         editBackupRef.current = snapshot;
         return next;
       });
-      setSendingMessageId(localId);
-
-      // Show typing immediately (parity with send/regenerate) — don't wait for server.
       setStreaming(true);
       streamingRef.current = true;
       assistantBuffer.current = "";

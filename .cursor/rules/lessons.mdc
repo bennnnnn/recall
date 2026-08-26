@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Attach send spun in the composer and the thread.** Optimistic bubble
+  landed first, but the chip + `attachBusy` + `sendPhase` stayed until
+  upload finished. Clear the chip immediately. Do not treat
+  `pendingOutboundId` as "Sending" — show typing once the placeholder
+  mounts, not after socket `start`.
 - **Attach/upload photo polled `GET /chats/{id}` five times.** Image-only
   send has empty user text (`defaultAttachmentPrompt` is `""`), so the
   Home-chip provisional title was null and the topic poll still ran. Use

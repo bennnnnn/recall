@@ -3,9 +3,11 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/hooks/useChatSend";
+import { uploadChatAttachment } from "@/lib/attachments";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
+const uploadAttachment = uploadChatAttachment as jest.Mock;
 
 const inputRef = { current: "hello" };
 const mockSetInput = jest.fn();
@@ -207,5 +209,44 @@ describe("useChatSend", () => {
     const rollback = setMessages.mock.calls.at(-1)?.[0] as (prev: unknown[]) => unknown[];
     expect(rollback(added)).toEqual([]);
     expect(current.sendPhase).toBe("idle");
+  });
+
+  it("clears the composer attachment before upload finishes", async () => {
+    let finishUpload: (id: string) => void = () => undefined;
+    uploadAttachment.mockReturnValue(
+      new Promise((resolve) => {
+        finishUpload = resolve;
+      }),
+    );
+    inputRef.current = "";
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.setPendingAttachment({
+        localUri: "file://pic.jpg",
+        contentType: "image/jpeg",
+        fileName: "pic.jpg",
+        kind: "image",
+      });
+    });
+
+    let sendPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      sendPromise = current.handleSend();
+      await Promise.resolve();
+    });
+
+    expect(current.pendingAttachment).toBeNull();
+    expect(current.sendPhase).toBe("idle");
+    expect(current.attachBusy).toBe(false);
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishUpload("att-1");
+      await sendPromise;
+    });
+    expect(sendMessage).toHaveBeenCalled();
   });
 });

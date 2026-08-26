@@ -468,7 +468,7 @@ function ChatScreen() {
     selectedModel,
     quizLanguage,
     highlightedMessageId,
-    sendingMessageId: sendingMessageId ?? pendingOutboundId,
+    sendingMessageId,
     setMenuVisible,
     regenerateResponse: handleRegenerate,
     regenerating,

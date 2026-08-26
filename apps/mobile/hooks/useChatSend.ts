@@ -128,7 +128,7 @@ export function useChatSend({
   const { setInput, inputRef } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
-  const [attachBusy, setAttachBusy] = useState(false);
+  const attachBusy = false;
   const [attachPicking, setAttachPicking] = useState(false);
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
@@ -240,11 +240,12 @@ export function useChatSend({
 
       const attached = pendingAttachment;
       sendInFlightRef.current = true;
-      setSendPhase(attached ? "uploading" : "preparing");
-      // Clear the composer immediately. The user bubble (when this is a new
-      // send, not an edit) appears before upload/geo so the thread doesn't
-      // sit empty behind permission prompts.
+      // Clear the composer immediately — including the attachment chip.
+      // Upload continues in the background; keeping the chip + attachBusy
+      // showed a second spinner next to the optimistic bubble.
       setInput("");
+      setPendingAttachment(null);
+      setSendPhase("idle");
       Keyboard.dismiss();
 
       const isEdit = Boolean(editingMessageId && chatId);
@@ -280,23 +281,16 @@ export function useChatSend({
 
       let attachmentIds: string[] | undefined;
       if (attached) {
-        setAttachBusy(true);
         try {
           const id = await uploadChatAttachment(authToken, attached);
           attachmentIds = [id];
         } catch (error) {
-          setAttachBusy(false);
           restoreDraft();
           feedback?.error(
             error instanceof Error ? error.message : t("chat.attach_failed"),
           );
           return;
         }
-        setAttachBusy(false);
-        setPendingAttachment(null);
-        setSendPhase("preparing");
-      } else {
-        setPendingAttachment(null);
       }
 
       const geoResult = await resolveClientGeoForQuery(
@@ -360,8 +354,6 @@ export function useChatSend({
         model: selectedModel,
       });
       sendMessage(pending.text, pending);
-      // Hand off to useChat.sendingMessageId so the bubble does not stay
-      // "Sending" after start/done (index falls back to pendingOutboundId).
       setPendingOutboundId(null);
       sendInFlightRef.current = false;
       setSendPhase("idle");
