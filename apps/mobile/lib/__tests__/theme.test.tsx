@@ -1,20 +1,22 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
-  it("uses ChatGPT-mobile hierarchy: gray page, white cards, mint user chip", () => {
-    expect(lightTheme.bg).toBe("#F7F7F7");
+  it("uses a white page, green accent, and tinted user chip", () => {
+    expect(lightTheme.bg).toBe("#FFFFFF");
     expect(lightTheme.surface).toBe("#FFFFFF");
-    expect(lightTheme.inputBg).toBe("#FFFFFF");
-    expect(lightTheme.userBubble).toBe("#E8F5E9");
+    expect(lightTheme.surfaceAlt).toBe("#F7F7F8");
+    expect(lightTheme.inputBg).toBe("#F7F7F8");
+    expect(lightTheme.userBubble).toBe("#EAF7F3");
     expect(lightTheme.assistantBubble).toBe(lightTheme.bg);
-    expect(lightTheme.primary).toBe("#007AFF");
-    expect(lightTheme.accent).toBe("#0D9488");
-    expect(lightTheme.text).toBe("#0D0D0D");
+    expect(lightTheme.primary).toBe("#10A37F");
+    expect(lightTheme.accent).toBe(lightTheme.primary);
+    expect(lightTheme.text).toBe("#111113");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);
-    expect(darkTheme.bg).toBe("#212121");
+    expect(darkTheme.bg).toBe("#0F0F10");
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
     expect(darkTheme.composerBg).toBe(darkTheme.bg);
-    expect(darkTheme.inputBg).toBe(darkTheme.surface);
+    expect(darkTheme.inputBg).toBe(darkTheme.surfaceAlt);
+    expect(darkTheme.primary).toBe(darkTheme.accent);
     expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
   });
 });

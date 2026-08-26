@@ -11,6 +11,8 @@ export const Space = {
   sm: 12,
   /** 16 — screen gutters, card padding */
   md: 16,
+  /** 20 — home inset, denser section gap */
+  gutter: 20,
   /** 24 — section / sheet horizontal inset */
   lg: 24,
   /** 32 — large hero / empty-state breathing room */

@@ -18,6 +18,7 @@ import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { learningProgressColors } from "@/lib/homeLearningCard";
 import { selection, tap } from "@/lib/haptics";
+import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -330,13 +331,12 @@ export function HomeStarters({ onSelect }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: { width: "100%", paddingHorizontal: 20, gap: 12 },
+    wrap: { width: "100%", paddingHorizontal: Space.gutter, gap: Space.sm },
     greeting: {
-      fontSize: 26,
-      fontWeight: "700",
+      ...Type.display,
       color: t.text,
       textAlign: "center",
-      letterSpacing: -0.5,
+      letterSpacing: -0.4,
     },
     projectCard: {
       width: "100%",
@@ -387,8 +387,8 @@ function makeStyles(t: Theme) {
       paddingHorizontal: 14,
       paddingVertical: 12,
       paddingRight: 36,
-      borderWidth: 1,
-      borderColor: withAlpha(t.danger, 0.25),
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: withAlpha(t.danger, 0.22),
     },
     urgentDismiss: {
       position: "absolute",
@@ -405,10 +405,9 @@ function makeStyles(t: Theme) {
     },
     urgentCardOverdue: {
       borderColor: t.danger,
-      borderWidth: 1.5,
     },
     urgentMain: { flex: 1, gap: 2 },
-    urgentTitle: { fontSize: 15, fontWeight: "700", color: t.text },
+    urgentTitle: { ...Type.navTitle, color: t.text },
     urgentDue: { fontSize: 12, fontWeight: "600", color: t.danger },
     startersBlock: { width: "100%", marginTop: 4 },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
@@ -416,14 +415,15 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: t.surface,
+      backgroundColor: t.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       borderRadius: 999,
       paddingHorizontal: 14,
       paddingVertical: 10,
+      minHeight: 44,
       maxWidth: "100%",
     },
-    chipText: { fontSize: 14, fontWeight: "600", color: t.text },
+    chipText: { ...Type.secondary, fontWeight: "500", color: t.text },
   });
 }

@@ -3,7 +3,7 @@ import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
 export const CHAT_HEADER_BAR_HEIGHT = 52;
 export const CHAT_HEADER_FADE_EXTRA = 48;
 /** Matches the in-bubble action row (34px icons + 4px margin). */
-export const CHAT_ACTION_ROW_HEIGHT = 38;
+export const CHAT_ACTION_ROW_HEIGHT = 44;
 export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 export const CHAT_EMPTY_MIN_HEIGHT = 160;

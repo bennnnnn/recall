@@ -13,6 +13,8 @@ export const Radius = {
   lg: 14,
   /** 16 — large cards / settings groups */
   xl: 16,
+  /** 18 — user message bubbles */
+  bubble: 18,
   /** 20 — sheet top corners */
   sheet: 20,
   /** Pill / fully rounded */

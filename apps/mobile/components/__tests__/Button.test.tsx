@@ -23,4 +23,13 @@ describe("Button", () => {
     fireEvent.press(button);
     expect(onPress).not.toHaveBeenCalled();
   });
+
+  it("exposes a destructive variant for confirmed dangerous actions", async () => {
+    const onPress = jest.fn();
+    const { getByRole } = await render(
+      <Button title="Delete" variant="destructive" onPress={onPress} />,
+    );
+    fireEvent.press(getByRole("button"));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
 });

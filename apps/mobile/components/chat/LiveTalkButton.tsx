@@ -55,12 +55,12 @@ export function LiveTalkButton({ disabled, onPress }: Props) {
 }
 
 const styles = StyleSheet.create({
-  hit: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  hit: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   dim: { opacity: 0.55 },
   btn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },

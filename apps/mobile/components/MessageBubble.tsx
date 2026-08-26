@@ -560,8 +560,8 @@ const a = StyleSheet.create({
     opacity: 0,
   },
   btn: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -569,7 +569,7 @@ const a = StyleSheet.create({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    row: { marginVertical: 4, paddingHorizontal: 16 },
+    row: { marginVertical: 6, paddingHorizontal: 16 },
     rowHighlighted: {
       backgroundColor: t.primaryLight,
       borderRadius: 12,
@@ -608,7 +608,7 @@ function makeStyles(t: Theme) {
       color: t.textTertiary,
     },
     actionRowSlot: {
-      minHeight: 38,
+      minHeight: 44,
       marginTop: 2,
     },
   });

@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
-import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chatScrollLogic";
 
@@ -57,12 +56,11 @@ const makeS = (C: Theme) =>
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: C.bg,
+      backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
-      ...shadowElevated(C, "fab"),
     },
     badge: {
       position: "absolute",

@@ -5,6 +5,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { makeMdStyles } from "@/components/markdown/markdownContentStyles";
 import { lightTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
@@ -58,8 +59,8 @@ describe("markdown render rules", () => {
       borderWidth: 0,
       padding: 0,
       backgroundColor: lightTheme.surfaceAlt,
-      fontSize: 16,
-      lineHeight: 22,
+      fontSize: Type.body.fontSize,
+      lineHeight: Type.body.lineHeight,
     });
     expect(inline.padding).not.toBe(10);
   });
