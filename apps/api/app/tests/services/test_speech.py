@@ -120,6 +120,50 @@ async def test_transcribe_openrouter_json_api():
 
 
 @pytest.mark.asyncio
+async def test_transcribe_openrouter_empty_text_is_success():
+    """Silence is a valid Whisper result — not a provider failure."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_transcription_enabled=True,
+        speech_transcription_model="openai/whisper-1",
+    )
+    response = MagicMock()
+    response.status_code = 200
+    response.raise_for_status = MagicMock()
+    response.json.return_value = {"text": ""}
+
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+
+    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
+        text = await transcribe_audio(settings, b"silence-m4a", filename="speech.m4a")
+
+    assert text == ""
+
+
+@pytest.mark.asyncio
+async def test_transcribe_openrouter_http_error_is_none():
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_transcription_enabled=True,
+    )
+    response = MagicMock()
+    response.status_code = 502
+    response.text = "upstream down"
+    response.raise_for_status.side_effect = Exception("502")
+
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+
+    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
+        text = await transcribe_audio(settings, b"audio-bytes", filename="speech.m4a")
+
+    assert text is None
+
+
+@pytest.mark.asyncio
 async def test_synthesize_returns_mock_when_mock_llm_enabled():
     settings = Settings(
         mock_llm_enabled=True,
