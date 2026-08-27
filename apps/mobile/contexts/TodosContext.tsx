@@ -22,7 +22,6 @@ import {
 } from "@/lib/todos/reminderBadge";
 import {
   loadHomeNudgeState,
-  markHomeOverduePresented as persistHomeOverduePresented,
   pruneHomeNudgeState,
   saveHomeNudgeState,
 } from "@/lib/homeReminderNudges";
@@ -47,10 +46,8 @@ type TodosContextValue = {
   remindersReady: boolean;
   seenReminderIds: Set<string>;
   homeNudgeDismissed: Set<string>;
-  homeOverduePresented: Set<string>;
   markSeen: () => Promise<void>;
   dismissReminderNudge: (todoId: string) => Promise<void>;
-  markHomeOverduePresented: (todoIds: string[]) => Promise<void>;
 };
 
 const TodosContext = createContext<TodosContextValue | null>(null);
@@ -69,9 +66,6 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const [homeNudgeDismissed, setHomeNudgeDismissed] = useState<Set<string>>(
     () => new Set(),
   );
-  const [homeOverduePresented, setHomeOverduePresented] = useState<Set<string>>(
-    () => new Set(),
-  );
   const resourceRef = useRef(
     new StaleResourceCache<string, Todo[]>(CONTEXT_REFRESH_STALE_MS),
   );
@@ -84,7 +78,6 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         setUnseenCount(0);
         setSeenReminderIds(new Set());
         setHomeNudgeDismissed(new Set());
-        setHomeOverduePresented(new Set());
         return;
       }
       const openIds = items.filter((todo) => !todo.checked).map((todo) => todo.id);
@@ -99,15 +92,11 @@ export function TodosProvider({ children }: { children: ReactNode }) {
 
       let nudges = await loadHomeNudgeState(userId);
       const prunedNudges = pruneHomeNudgeState(nudges, openIds);
-      if (
-        prunedNudges.dismissed.size !== nudges.dismissed.size ||
-        prunedNudges.overduePresented.size !== nudges.overduePresented.size
-      ) {
+      if (prunedNudges.dismissed.size !== nudges.dismissed.size) {
         await saveHomeNudgeState(userId, prunedNudges);
       }
       nudges = prunedNudges;
       setHomeNudgeDismissed(nudges.dismissed);
-      setHomeOverduePresented(nudges.overduePresented);
     },
     [userId, leadMinutes],
   );
@@ -121,7 +110,6 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         setRemindersReady(false);
         setSeenReminderIds(new Set());
         setHomeNudgeDismissed(new Set());
-        setHomeOverduePresented(new Set());
         resourceRef.current.clear();
         return;
       }
@@ -198,7 +186,6 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         nudges.dismissed.add(todoId);
         await saveHomeNudgeState(userId, nudges);
         setHomeNudgeDismissed(nudges.dismissed);
-        setHomeOverduePresented(nudges.overduePresented);
         await markReminderIdsSeen(userId, [todoId]);
         const seen = await loadSeenReminderIds(userId);
         setSeenReminderIds(seen);
@@ -208,20 +195,6 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       }
     },
     [userId, leadMinutes],
-  );
-
-  const markHomeOverduePresented = useCallback(
-    async (todoIds: string[]) => {
-      if (!userId || todoIds.length === 0) return;
-      try {
-        const nudges = await persistHomeOverduePresented(userId, todoIds);
-        setHomeOverduePresented(nudges.overduePresented);
-        setHomeNudgeDismissed(nudges.dismissed);
-      } catch {
-        /* keep last state */
-      }
-    },
-    [userId],
   );
 
   useEffect(() => {
@@ -251,10 +224,8 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       remindersReady,
       seenReminderIds,
       homeNudgeDismissed,
-      homeOverduePresented,
       markSeen,
       dismissReminderNudge,
-      markHomeOverduePresented,
     }),
     [
       todos,
@@ -265,10 +236,8 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       remindersReady,
       seenReminderIds,
       homeNudgeDismissed,
-      homeOverduePresented,
       markSeen,
       dismissReminderNudge,
-      markHomeOverduePresented,
     ],
   );
 
