@@ -4,7 +4,7 @@ import appJson from "./app.json";
 import {
   includeDevClientPlugin,
   requireReleaseBuildSecrets,
-} from "./lib/easBuildConfig";
+} from "./lib/easBuildConfig.js";
 
 function iosUrlSchemeFromClientId(iosClientId: string): string | null {
   const trimmed = iosClientId.trim();

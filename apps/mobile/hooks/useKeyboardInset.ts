@@ -4,6 +4,7 @@ import {
   useAnimatedKeyboard,
   useAnimatedReaction,
   useAnimatedStyle,
+  useSharedValue,
 } from "react-native-reanimated";
 
 import { shouldPushKeyboardHeight } from "@/lib/keyboardInset";
@@ -19,15 +20,25 @@ const KEYBOARD_HEIGHT_THRESHOLD_PX = 48;
 export function useKeyboardInset({ idleBottomPad }: Options) {
   const keyboard = useAnimatedKeyboard();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const lastPushedHeight = useSharedValue(0);
 
   useAnimatedReaction(
     () => keyboard.height.value,
     (height, previousHeight) => {
       const next = Math.max(0, height);
-      const previous = Math.max(0, previousHeight ?? 0);
-      if (!shouldPushKeyboardHeight(next, previous, KEYBOARD_HEIGHT_THRESHOLD_PX)) {
+      const previousFrame = Math.max(0, previousHeight ?? 0);
+      const lastPushed = lastPushedHeight.value;
+      if (
+        !shouldPushKeyboardHeight(
+          next,
+          lastPushed,
+          KEYBOARD_HEIGHT_THRESHOLD_PX,
+          previousFrame,
+        )
+      ) {
         return;
       }
+      lastPushedHeight.value = next;
       runOnJS(setKeyboardHeight)(next);
     },
   );

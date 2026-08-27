@@ -1,14 +1,15 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
-  it("uses a white page, green accent, and tinted user chip", () => {
+  it("uses a white page, indigo accent, and tinted user chip", () => {
     expect(lightTheme.bg).toBe("#FFFFFF");
     expect(lightTheme.surface).toBe("#FFFFFF");
     expect(lightTheme.surfaceAlt).toBe("#F7F7F8");
     expect(lightTheme.inputBg).toBe("#F7F7F8");
     expect(lightTheme.userBubble).toBe("#EAF7F3");
     expect(lightTheme.assistantBubble).toBe(lightTheme.bg);
-    expect(lightTheme.primary).toBe("#10A37F");
+    expect(lightTheme.primary).toBe("#4F56E5");
+    expect(lightTheme.success).toBe("#16845B");
     expect(lightTheme.accent).toBe(lightTheme.primary);
     expect(lightTheme.text).toBe("#111113");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);

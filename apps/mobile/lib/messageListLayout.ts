@@ -17,7 +17,9 @@ export const STREAM_LAYOUT_SETTLE_MS = 280;
 export const STREAM_AUTOSCROLL_RESUME_MS = STREAM_LAYOUT_SETTLE_MS + 80;
 
 /**
- * First turn (one bubble, or user + reply) stays under the header.
+ * First turn stays under the header. Do not flip this to true while a short
+ * thread grows — FlashList then pads the top and pins content to the bottom
+ * of the full-screen list (behind the overlay composer).
  * Longer threads / older pages still open on the latest message.
  */
 export function shouldStartRenderingFromBottom(options: {
@@ -26,6 +28,29 @@ export function shouldStartRenderingFromBottom(options: {
 }): boolean {
   if (options.hasMoreOlder) return true;
   return options.messageCount > 2;
+}
+
+/** Keep the mount-time pin; never promote a short in-progress thread. */
+export function latchStartRenderingFromBottom(options: {
+  chatKey: string;
+  previousChatKey: string;
+  previousValue: boolean;
+  messageCount: number;
+  hasMoreOlder: boolean;
+}): { chatKey: string; value: boolean } {
+  if (options.chatKey !== options.previousChatKey) {
+    return {
+      chatKey: options.chatKey,
+      value: shouldStartRenderingFromBottom({
+        messageCount: options.messageCount,
+        hasMoreOlder: options.hasMoreOlder,
+      }),
+    };
+  }
+  if (options.hasMoreOlder) {
+    return { chatKey: options.chatKey, value: true };
+  }
+  return { chatKey: options.chatKey, value: options.previousValue };
 }
 
 /** Render keys assigned to the in-flight streaming placeholder (`stream-<ts>`). */

@@ -1,4 +1,4 @@
-import { memo, ReactElement, RefObject, useEffect, useMemo, useState } from "react";
+import { memo, ReactElement, RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
@@ -8,9 +8,9 @@ import { SkeletonChatBubbles } from "@/components/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
   beginStreamLayoutHold,
+  latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
-  shouldStartRenderingFromBottom,
   STREAM_AUTOSCROLL_RESUME_MS,
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
@@ -87,10 +87,16 @@ function ChatMessageListComponent({
     return beginStreamLayoutHold(setAutoscrollSuppressed, STREAM_AUTOSCROLL_RESUME_MS);
   }, [streamActive]);
 
-  const startFromBottom = shouldStartRenderingFromBottom({
+  const startFromBottomState = useRef({ chatKey: "", value: false });
+  const chatKey = `${routeChatId ?? "new"}:${messages.length === 0 ? "empty" : "live"}`;
+  startFromBottomState.current = latchStartRenderingFromBottom({
+    chatKey,
+    previousChatKey: startFromBottomState.current.chatKey,
+    previousValue: startFromBottomState.current.value,
     messageCount: messages.length,
     hasMoreOlder,
   });
+  const startFromBottom = startFromBottomState.current.value;
   const maintainVisibleContentPosition = useMemo(
     () =>
       autoscrollSuppressed

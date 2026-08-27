@@ -1,11 +1,12 @@
 /**
- * App theme — one palette via `useTheme()`. Neutral surfaces + one green
+ * App theme — one palette via `useTheme()`. Neutral surfaces + one indigo
  * accent for primary actions, selection, progress, links, and focus.
+ * Success / goal-met stays green so “done” is not the same hue as brand.
  * Do not hardcode hex in components — add a token here instead.
  *
  * Canonical names used across the app:
  *  `bg` (background), `surface`, `text` (textPrimary), `textSecondary`,
- *  `border`, `primary` / `accent` (same green).
+ *  `border`, `primary` / `accent` (same indigo).
  */
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
@@ -18,7 +19,7 @@ export type Theme = {
   primaryLight: string;
   primaryDark: string;
 
-  // Same green as primary — reserved name for AI-in-progress moments
+  // Same indigo as primary — reserved name for AI-in-progress moments
   accent: string;
   accentLight: string;
   accentDark: string;
@@ -88,13 +89,13 @@ export const lightTheme: Theme = {
   scheme: "light",
   isDark: false,
 
-  primary: "#10A37F",
-  primaryLight: "#EAF7F3",
-  primaryDark: "#0D8C6D",
+  primary: "#4F56E5",
+  primaryLight: "#E4E6FF",
+  primaryDark: "#3E45C9",
 
-  accent: "#10A37F",
-  accentLight: "#EAF7F3",
-  accentDark: "#0D8C6D",
+  accent: "#4F56E5",
+  accentLight: "#E4E6FF",
+  accentDark: "#3E45C9",
 
   bg: "#FFFFFF",
   surface: "#FFFFFF",
@@ -139,13 +140,13 @@ export const darkTheme: Theme = {
   scheme: "dark",
   isDark: true,
 
-  primary: "#19C59A",
-  primaryLight: "#12372E",
-  primaryDark: "#13A982",
+  primary: "#B4B8FF",
+  primaryLight: "#2A2D6A",
+  primaryDark: "#9AA0F5",
 
-  accent: "#19C59A",
-  accentLight: "#12372E",
-  accentDark: "#13A982",
+  accent: "#B4B8FF",
+  accentLight: "#2A2D6A",
+  accentDark: "#9AA0F5",
 
   bg: "#0F0F10",
   surface: "#202023",

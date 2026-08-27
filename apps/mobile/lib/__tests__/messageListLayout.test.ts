@@ -1,6 +1,7 @@
 import {
   beginStreamLayoutHold,
   isFreshStreamRenderKey,
+  latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
   ESTIMATED_MESSAGE_HEIGHT,
@@ -27,6 +28,33 @@ describe("messageListLayout", () => {
     expect(
       shouldStartRenderingFromBottom({ messageCount: 1, hasMoreOlder: true }),
     ).toBe(true);
+  });
+
+  it("does not promote a short in-progress thread to bottom pinning", () => {
+    const started = latchStartRenderingFromBottom({
+      chatKey: "new:live",
+      previousChatKey: "new:empty",
+      previousValue: false,
+      messageCount: 2,
+      hasMoreOlder: false,
+    });
+    expect(started.value).toBe(false);
+    const grew = latchStartRenderingFromBottom({
+      chatKey: "new:live",
+      previousChatKey: started.chatKey,
+      previousValue: started.value,
+      messageCount: 3,
+      hasMoreOlder: false,
+    });
+    expect(grew.value).toBe(false);
+    const openedLong = latchStartRenderingFromBottom({
+      chatKey: "chat-1:live",
+      previousChatKey: "",
+      previousValue: false,
+      messageCount: 8,
+      hasMoreOlder: false,
+    });
+    expect(openedLong.value).toBe(true);
   });
 
   it("uses role for user rows", () => {
