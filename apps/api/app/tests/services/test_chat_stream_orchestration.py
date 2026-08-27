@@ -646,6 +646,59 @@ async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("greeting", ["hi", "hello", "thanks", "ok"])
+async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
+    from app.services.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.services.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.services.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.services.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content=greeting,
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
+    from app.services.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.services.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.services.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.services.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="make it blue",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status_code", [403, 404])
 async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     """403/404 must not delete the prior assistant (omit-until-success)."""

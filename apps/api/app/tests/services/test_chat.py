@@ -659,6 +659,7 @@ def test_is_broad_self_question(text, expected):
     "text, expected",
     [
         ("hi", True),
+        ("hi\u200b", True),
         ("Thanks!", True),
         ("ok", True),
         ("Hello there", False),
@@ -1453,6 +1454,21 @@ async def test_classify_turn_mode_skips_quiz_lookup_without_project():
     assert mode.active_vocab_turn is False
     assert mode.minimal_quiz is False
     assert mode.quiz_assistant is None
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_hi_is_lightweight():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
+
+    assert mode.lightweight is True
+    assert mode.rich_context is False
 
 
 def test_instant_reply_needs_db_only_for_calendar_and_email():
