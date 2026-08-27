@@ -171,13 +171,15 @@ async def transcribe_via_openrouter(
         data = response.json()
         text = str(data.get("text") or "").strip()
         if not text:
-            logger.warning(
-                "OpenRouter transcription returned empty text model=%s format=%s size=%s",
+            logger.info(
+                "OpenRouter transcription heard no speech model=%s format=%s size=%s",
                 model,
                 audio_format,
                 len(audio_bytes),
             )
-        return text or None
+        # Empty string is a successful silence result. None is reserved for
+        # HTTP/provider failures so the router can 502 only those.
+        return text
     except Exception:
         logger.exception(
             "Speech transcription failed model=%s format=%s size=%s",

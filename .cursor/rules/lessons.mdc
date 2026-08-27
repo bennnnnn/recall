@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **STT silence returned 502.** Whisper `text: ""` was coerced to `None`, and
+  the router treated every None as a Bad Gateway. Return `""` for no-speech;
+  502 only on HTTP/provider failure. Mobile already maps empty to
+  `chat.voice_transcribe_empty`.
 - **Home overdue card only after logout.** `overduePresented` hid the card after
   first paint; leaving Home remounted with an empty session set, so it vanished
   until logout wiped the nudge file. Hide only on dismiss (X) or complete.

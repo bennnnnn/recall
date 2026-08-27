@@ -221,7 +221,7 @@ async def _transcribe_bytes(
         data,
         filename=filename,
     )
-    if not text:
+    if text is None:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not transcribe audio",

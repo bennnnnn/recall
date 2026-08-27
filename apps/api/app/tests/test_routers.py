@@ -1960,6 +1960,50 @@ def test_speech_transcribe_json_ok():
     assert r.json()["text"] == "hello json"
 
 
+def test_speech_transcribe_empty_text_ok():
+    """Whisper heard no speech — 200 with empty text, not a 502 outage."""
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value=""),
+        ),
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"silence", "audio/m4a")},
+        )
+    assert r.status_code == 200
+    assert r.json()["text"] == ""
+
+
+def test_speech_transcribe_provider_failure_is_502():
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+    assert r.status_code == 502
+
+
 def test_speech_transcribe_daily_cap():
     import fakeredis.aioredis
 
