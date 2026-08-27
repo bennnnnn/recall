@@ -26,7 +26,7 @@ import { tap } from "@/lib/haptics";
  */
 const STREAMING_SCROLL_THROTTLE_MS = 64;
 /** Skip catch-up when already within a few pixels of the bottom. */
-const STREAMING_SCROLL_SLACK_PX = 36;
+const STREAMING_SCROLL_SLACK_PX = 8;
 
 type Options = {
   chatId: string | null;

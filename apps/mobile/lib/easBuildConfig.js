@@ -1,14 +1,10 @@
-/** EAS build profile helpers (pure — testable). Keep `easBuildConfig.js` in sync;
- * Expo's isolated app.config compile can only require CJS. */
+/** EAS build profile helpers. CJS so Expo's isolated app.config compile can require it. */
 
-export function includeDevClientPlugin(buildProfile: string): boolean {
+function includeDevClientPlugin(buildProfile) {
   return !buildProfile || buildProfile === "development";
 }
 
-export function requirePublicApiUrlForReleaseBuild(
-  buildProfile: string,
-  apiUrl: string | undefined,
-): void {
+function requirePublicApiUrlForReleaseBuild(buildProfile, apiUrl) {
   if (buildProfile !== "production" && buildProfile !== "preview") return;
   if (apiUrl?.trim()) return;
   throw new Error(
@@ -16,25 +12,11 @@ export function requirePublicApiUrlForReleaseBuild(
   );
 }
 
-type ReleaseBuildEnvironment = {
-  [key: string]: string | undefined;
-  EXPO_PUBLIC_API_URL?: string;
-  EXPO_PUBLIC_EAS_PROJECT_ID?: string;
-  EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?: string;
-  EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?: string;
-  EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?: string;
-  EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?: string;
-};
-
-export function requireReleaseBuildSecrets(
-  buildProfile: string,
-  buildPlatform: string,
-  env: ReleaseBuildEnvironment,
-): void {
+function requireReleaseBuildSecrets(buildProfile, buildPlatform, env) {
   if (buildProfile !== "production" && buildProfile !== "preview") return;
 
   requirePublicApiUrlForReleaseBuild(buildProfile, env.EXPO_PUBLIC_API_URL);
-  const required: Array<[keyof ReleaseBuildEnvironment, string | undefined]> = [
+  const required = [
     ["EXPO_PUBLIC_EAS_PROJECT_ID", env.EXPO_PUBLIC_EAS_PROJECT_ID],
     ["EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID", env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID],
   ];
@@ -58,3 +40,9 @@ export function requireReleaseBuildSecrets(
     );
   }
 }
+
+module.exports = {
+  includeDevClientPlugin,
+  requirePublicApiUrlForReleaseBuild,
+  requireReleaseBuildSecrets,
+};
