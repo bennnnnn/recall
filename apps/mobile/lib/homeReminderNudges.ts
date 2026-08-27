@@ -1,12 +1,6 @@
 /**
- * Home overdue / due-soon cards are a one-shot nudge, not a persistent inbox.
- *
- * - Due soon: show while the due time is approaching, until dismissed.
- * - Overdue: show once. After that (or after dismiss), never again.
- * - Dismiss (X): never show that reminder on home again, including after restart.
- *
- * Badge "seen" (reminderSeen) is separate — opening Lists must not resurrect
- * or hide these cards by itself.
+ * Home overdue / due-soon cards stay until the user dismisses (X) or completes
+ * the reminder. Dismiss is persisted across restarts.
  */
 import {
   deletePrefFile,
@@ -19,12 +13,10 @@ import type { HomeUrgentTodo } from "@/lib/api";
 
 export type HomeNudgeState = {
   dismissed: Set<string>;
-  overduePresented: Set<string>;
 };
 
 type Stored = {
   dismissed: string[];
-  overduePresented: string[];
 };
 
 function filePath(userId: string): string | null {
@@ -32,7 +24,7 @@ function filePath(userId: string): string | null {
 }
 
 function emptyState(): HomeNudgeState {
-  return { dismissed: new Set(), overduePresented: new Set() };
+  return { dismissed: new Set() };
 }
 
 function parseState(raw: string): HomeNudgeState {
@@ -42,13 +34,7 @@ function parseState(raw: string): HomeNudgeState {
   const dismissed = Array.isArray(row.dismissed)
     ? row.dismissed.filter((id): id is string => typeof id === "string")
     : [];
-  const overduePresented = Array.isArray(row.overduePresented)
-    ? row.overduePresented.filter((id): id is string => typeof id === "string")
-    : [];
-  return {
-    dismissed: new Set(dismissed),
-    overduePresented: new Set(overduePresented),
-  };
+  return { dismissed: new Set(dismissed) };
 }
 
 export async function loadHomeNudgeState(userId: string): Promise<HomeNudgeState> {
@@ -67,7 +53,6 @@ export async function saveHomeNudgeState(
 ): Promise<void> {
   const stored: Stored = {
     dismissed: [...state.dismissed],
-    overduePresented: [...state.overduePresented],
   };
   await writePrefFile(filePath(userId), JSON.stringify(stored));
 }
@@ -79,45 +64,17 @@ export function pruneHomeNudgeState(
   const open = new Set(openTodoIds);
   return {
     dismissed: new Set([...state.dismissed].filter((id) => open.has(id))),
-    overduePresented: new Set(
-      [...state.overduePresented].filter((id) => open.has(id)),
-    ),
   };
-}
-
-export async function markHomeOverduePresented(
-  userId: string,
-  todoIds: string[],
-): Promise<HomeNudgeState> {
-  if (todoIds.length === 0) return loadHomeNudgeState(userId);
-  const state = await loadHomeNudgeState(userId);
-  for (const id of todoIds) state.overduePresented.add(id);
-  await saveHomeNudgeState(userId, state);
-  return state;
 }
 
 export async function clearHomeNudgeState(userId: string): Promise<void> {
   await deletePrefFile(filePath(userId));
 }
 
-/**
- * Home cards: hide dismissed always. Hide overdue that was already presented
- * in a *previous* session (`sessionOverdueIds` keeps this session's cards up).
- */
+/** Hide only explicitly dismissed reminders. Overdue stays until X or done. */
 export function filterHomeNudgeTodos(
   urgent: HomeUrgentTodo[],
   state: HomeNudgeState,
-  sessionOverdueIds: Set<string>,
 ): HomeUrgentTodo[] {
-  return urgent.filter((todo) => {
-    if (state.dismissed.has(todo.id)) return false;
-    if (
-      todo.minutes_until < 0 &&
-      state.overduePresented.has(todo.id) &&
-      !sessionOverdueIds.has(todo.id)
-    ) {
-      return false;
-    }
-    return true;
-  });
+  return urgent.filter((todo) => !state.dismissed.has(todo.id));
 }

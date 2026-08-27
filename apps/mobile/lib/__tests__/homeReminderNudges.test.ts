@@ -48,40 +48,35 @@ describe("homeReminderNudges", () => {
   it("loads empty state when no file exists", async () => {
     const state = await loadHomeNudgeState("user-1");
     expect(state.dismissed.size).toBe(0);
-    expect(state.overduePresented.size).toBe(0);
   });
 
-  it("persists dismissed and overduePresented", async () => {
+  it("persists dismissed ids", async () => {
     await saveHomeNudgeState("user-1", {
       dismissed: new Set(["a"]),
-      overduePresented: new Set(["b"]),
     });
     expect(writeAsStringAsync).toHaveBeenCalledWith(
       "file:///docs/recall.home-nudges.user-1.json",
-      JSON.stringify({ dismissed: ["a"], overduePresented: ["b"] }),
+      JSON.stringify({ dismissed: ["a"] }),
     );
   });
 
-  it("reads stored state from the filesystem", async () => {
+  it("reads stored dismissed ids from the filesystem", async () => {
     getInfoAsync.mockResolvedValue({ exists: true });
     readAsStringAsync.mockResolvedValue(
       JSON.stringify({ dismissed: ["a"], overduePresented: ["b"] }),
     );
     const state = await loadHomeNudgeState("user-1");
     expect(state.dismissed).toEqual(new Set(["a"]));
-    expect(state.overduePresented).toEqual(new Set(["b"]));
   });
 
   it("prunes ids for todos that are gone or completed", () => {
     const pruned = pruneHomeNudgeState(
       {
         dismissed: new Set(["open", "done"]),
-        overduePresented: new Set(["open", "gone"]),
       },
       ["open"],
     );
     expect(pruned.dismissed).toEqual(new Set(["open"]));
-    expect(pruned.overduePresented).toEqual(new Set(["open"]));
   });
 });
 
@@ -91,51 +86,31 @@ describe("filterHomeNudgeTodos", () => {
 
   it("shows approaching and overdue when nothing was dismissed", () => {
     expect(
-      filterHomeNudgeTodos(
-        [dueSoon, overdue],
-        { dismissed: new Set(), overduePresented: new Set() },
-        new Set(),
-      ).map((t) => t.id),
+      filterHomeNudgeTodos([dueSoon, overdue], { dismissed: new Set() }).map(
+        (t) => t.id,
+      ),
     ).toEqual(["soon", "late"]);
   });
 
   it("never shows a dismissed reminder, even if overdue", () => {
     expect(
-      filterHomeNudgeTodos(
-        [dueSoon, overdue],
-        { dismissed: new Set(["soon", "late"]), overduePresented: new Set() },
-        new Set(),
-      ),
+      filterHomeNudgeTodos([dueSoon, overdue], {
+        dismissed: new Set(["soon", "late"]),
+      }),
     ).toEqual([]);
   });
 
-  it("hides overdue that was already presented in a previous session", () => {
+  it("keeps overdue visible across sessions until dismissed", () => {
     expect(
-      filterHomeNudgeTodos(
-        [overdue],
-        { dismissed: new Set(), overduePresented: new Set(["late"]) },
-        new Set(),
-      ),
-    ).toEqual([]);
-  });
-
-  it("keeps overdue visible in the same session after it is recorded as presented", () => {
-    expect(
-      filterHomeNudgeTodos(
-        [overdue],
-        { dismissed: new Set(), overduePresented: new Set(["late"]) },
-        new Set(["late"]),
-      ).map((t) => t.id),
+      filterHomeNudgeTodos([overdue], { dismissed: new Set() }).map((t) => t.id),
     ).toEqual(["late"]);
   });
 
-  it("still shows due-soon after a different reminder was presented as overdue", () => {
+  it("still shows due-soon when a different reminder was dismissed", () => {
     expect(
-      filterHomeNudgeTodos(
-        [dueSoon],
-        { dismissed: new Set(), overduePresented: new Set(["late"]) },
-        new Set(),
-      ).map((t) => t.id),
+      filterHomeNudgeTodos([dueSoon], { dismissed: new Set(["late"]) }).map(
+        (t) => t.id,
+      ),
     ).toEqual(["soon"]);
   });
 });

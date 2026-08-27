@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Home overdue card only after logout.** `overduePresented` hid the card after
+  first paint; leaving Home remounted with an empty session set, so it vanished
+  until logout wiped the nudge file. Hide only on dismiss (X) or complete.
 - **Chat-extract deletes from Gmail/OCR text.** `build_todo_sync_transcript`
   used raw assistant/user bodies, including UNTRUSTED and `[Image:]` excerpts.
   Strip those blocks (linear scan) and cap deletes per turn.

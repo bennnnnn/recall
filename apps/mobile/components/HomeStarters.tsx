@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -193,14 +193,11 @@ export function HomeStarters({ onSelect }: Props) {
     loading: todosLoading,
     remindersReady,
     homeNudgeDismissed,
-    homeOverduePresented,
     dismissReminderNudge,
-    markHomeOverduePresented,
   } = useTodos();
   const [dismissedStarterKeys, setDismissedStarterKeys] = useState<Set<string>>(
     () => new Set(),
   );
-  const sessionOverdueRef = useRef<Set<string>>(new Set());
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
   // Never block first paint on /home — local greeting + starters, then hydrate.
   const display = screen ?? instantHomePlaceholder();
@@ -227,34 +224,16 @@ export function HomeStarters({ onSelect }: Props) {
     // red urgent cards for a frame before persisted dismissals caught up.
     if (todosLoading || !remindersReady) return [];
     const urgent = listHomeUrgentTodos(todos, undefined, leadMinutes);
-    return filterHomeNudgeTodos(
-      urgent,
-      {
-        dismissed: homeNudgeDismissed,
-        overduePresented: homeOverduePresented,
-      },
-      sessionOverdueRef.current,
-    );
+    return filterHomeNudgeTodos(urgent, { dismissed: homeNudgeDismissed });
   }, [
     todos,
     todosLoading,
     remindersReady,
     homeNudgeDismissed,
-    homeOverduePresented,
     leadMinutes,
   ]);
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
-  const overdueIdsKey = urgentGroups.overdue.map((todo) => todo.id).join(",");
-
-  useEffect(() => {
-    if (!overdueIdsKey) return;
-    const ids = overdueIdsKey.split(",");
-    const unseen = ids.filter((id) => !homeOverduePresented.has(id));
-    for (const id of ids) sessionOverdueRef.current.add(id);
-    if (unseen.length === 0) return;
-    void markHomeOverduePresented(unseen);
-  }, [overdueIdsKey, homeOverduePresented, markHomeOverduePresented]);
 
   const chips = display.starters
     .filter((starter) => starter.kind !== "todo")
