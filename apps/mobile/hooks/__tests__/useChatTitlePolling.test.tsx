@@ -75,7 +75,7 @@ describe("useChatTitlePolling", () => {
     jest.useRealTimers();
   });
 
-  it("does not apply a title from chat A after navigating to chat B", async () => {
+  it("does not apply a title from chat A to chat B's header", async () => {
     const view = await act(async () => render(<Probe chatId="chat-a" />));
     await act(async () => {
       void current.pollForTitle("tok", "chat-a");
@@ -88,10 +88,12 @@ describe("useChatTitlePolling", () => {
     await act(async () => {
       jest.advanceTimersByTime(2000);
     });
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    });
 
-    expect(getChat).not.toHaveBeenCalled();
     expect(screenTitle).toBeNull();
-    expect(patchChat).not.toHaveBeenCalled();
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "A's title" });
   });
 
   it("drops an in-flight title once the screen has moved to another chat", async () => {
@@ -124,10 +126,10 @@ describe("useChatTitlePolling", () => {
     });
 
     expect(screenTitle).toBeNull();
-    expect(patchChat).not.toHaveBeenCalled();
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "A's title" });
   });
 
-  it("uses the first user line and does not poll GET /chats/{id}", async () => {
+  it("does not stamp the first user line; polls GET /chats/{id} for the topic", async () => {
     const created = {
       id: "chat-a",
       title: null,
@@ -137,6 +139,7 @@ describe("useChatTitlePolling", () => {
       updated_at: "2026-01-01T00:00:00Z",
     };
     peekCreated.mockReturnValue(created);
+    getChat.mockResolvedValue({ title: "Tonight's leftovers" });
 
     await act(async () => {
       render(
@@ -150,19 +153,20 @@ describe("useChatTitlePolling", () => {
       void current.handleFirstReply();
     });
 
-    expect(insertChat).toHaveBeenCalledWith({
-      ...created,
-      title: "What's still open for me to finish tonight",
-    });
-    expect(screenTitle).toBe("What's still open for me to finish tonight");
+    expect(insertChat).toHaveBeenCalledWith(created);
+    expect(screenTitle).toBeNull();
 
     await act(async () => {
-      jest.advanceTimersByTime(10000);
+      jest.advanceTimersByTime(2000);
     });
-    expect(getChat).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    });
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "Tonight's leftovers" });
+    expect(screenTitle).toBe("Tonight's leftovers");
   });
 
-  it("inserts the POST /chats row without GET /chats/{id}", async () => {
+  it("inserts the POST /chats row immediately, then polls for the topic", async () => {
     const created = {
       id: "chat-a",
       title: null,
@@ -172,6 +176,7 @@ describe("useChatTitlePolling", () => {
       updated_at: "2026-01-01T00:00:00Z",
     };
     peekCreated.mockReturnValue(created);
+    getChat.mockResolvedValue({ title: "Greeting" });
 
     await act(async () => {
       render(<Probe chatId="chat-a" />);
@@ -184,12 +189,16 @@ describe("useChatTitlePolling", () => {
     expect(getChat).not.toHaveBeenCalled();
 
     await act(async () => {
-      jest.advanceTimersByTime(10000);
+      jest.advanceTimersByTime(2000);
     });
-    expect(getChat).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    });
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "Greeting" });
+    expect(screenTitle).toBe("Greeting");
   });
 
-  it("uses Image for an attachment-only first send and does not poll", async () => {
+  it("uses Image for an attachment-only first send, then polls for the topic", async () => {
     const created = {
       id: "chat-a",
       title: null,
@@ -216,10 +225,16 @@ describe("useChatTitlePolling", () => {
 
     expect(insertChat).toHaveBeenCalledWith({ ...created, title: "Image" });
     expect(screenTitle).toBe("Image");
+
+    getChat.mockResolvedValue({ title: "Homework photo" });
     await act(async () => {
-      jest.advanceTimersByTime(10000);
+      jest.advanceTimersByTime(2000);
     });
-    expect(getChat).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-a");
+    });
+    expect(patchChat).toHaveBeenCalledWith("chat-a", { title: "Homework photo" });
+    expect(screenTitle).toBe("Homework photo");
   });
 
   it("does not GET or poll when the drawer row already has a title", async () => {

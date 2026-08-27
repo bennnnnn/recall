@@ -352,7 +352,7 @@ async def test_generate_title_retries_fallback_on_outage():
         return _fake_completion("My Cool Chat")
 
     with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
-        title = await chat_titles.generate_title(settings, "hello", "hi there")
+        title = await chat_titles.generate_title(settings, "I love building AI apps", "hi there")
     assert title == "My Cool Chat"
     assert len(calls) == 2
     result = await mock_memory_sections(

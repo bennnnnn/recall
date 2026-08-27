@@ -167,8 +167,7 @@ async def test_complete_structured_mock_returns_none():
 async def test_generate_title_mock():
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     title = await chat_titles.generate_title(settings, "Hello", "Hi there")
-    assert title is not None
-    assert isinstance(title, str)
+    assert title == "Greeting"
 
 
 @pytest.mark.asyncio

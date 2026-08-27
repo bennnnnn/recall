@@ -1,5 +1,6 @@
 import {
   displayChatTitle,
+  provisionalAttachmentTitle,
   provisionalChatTitle,
   sanitizeManualChatTitle,
 } from "@/lib/chat/chatTitle";
@@ -39,6 +40,17 @@ describe("chatTitle", () => {
     expect(provisionalChatTitle("What's in this image?\n\n[Image: local]")).toBe(
       "Image",
     );
+  });
+
+  it("provisionalAttachmentTitle is Image/File only", () => {
+    expect(provisionalAttachmentTitle("hi")).toBeNull();
+    expect(provisionalAttachmentTitle("good morning")).toBeNull();
+    expect(
+      provisionalAttachmentTitle(
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+      ),
+    ).toBe("Image");
+    expect(provisionalAttachmentTitle("[File: notes.pdf]")).toBe("File");
   });
 
   it("sanitizeManualChatTitle strips quotes and enforces length", () => {

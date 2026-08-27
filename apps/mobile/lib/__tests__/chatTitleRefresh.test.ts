@@ -29,12 +29,12 @@ describe("shouldInsertDrawerRowOnLeave", () => {
 });
 
 describe("firstReplyTitlePlan", () => {
-  it("uses the POST /chats body so Home send skips GET /chats/{id}", () => {
+  it("uses the POST /chats body so Home send skips GET /chats/{id} for insert", () => {
     const created = chat("new", null);
     expect(firstReplyTitlePlan(created, undefined)).toEqual({
       insert: created,
       fetch: false,
-      poll: false,
+      poll: true,
     });
   });
 
@@ -49,17 +49,31 @@ describe("firstReplyTitlePlan", () => {
     ).toEqual({
       insert: { ...created, title: "Image" },
       fetch: false,
-      poll: false,
+      poll: true,
     });
   });
 
-  it("uses the first user line so Home chips do not poll GET /chats/{id}", () => {
+  it("does not stamp the first user line as the title (poll for the topic job)", () => {
     const created = chat("new", null);
     const prompt = "What's still open for me to finish tonight?";
     expect(firstReplyTitlePlan(created, undefined, prompt)).toEqual({
-      insert: { ...created, title: "What's still open for me to finish tonight" },
+      insert: created,
       fetch: false,
-      poll: false,
+      poll: true,
+    });
+  });
+
+  it("does not use a greeting as the title", () => {
+    const created = chat("new", null);
+    expect(firstReplyTitlePlan(created, undefined, "hi")).toEqual({
+      insert: created,
+      fetch: false,
+      poll: true,
+    });
+    expect(firstReplyTitlePlan(created, undefined, "good morning")).toEqual({
+      insert: created,
+      fetch: false,
+      poll: true,
     });
   });
 

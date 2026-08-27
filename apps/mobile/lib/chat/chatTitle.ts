@@ -46,7 +46,6 @@ export function displayChatTitle(
   return t("common.untitled");
 }
 
-/** Drawer/header label from the first user line so we do not poll GET /chats/{id}. */
 const PROVISIONAL_TITLE_MAX = 48;
 
 function truncateTitle(title: string): string {
@@ -54,6 +53,7 @@ function truncateTitle(title: string): string {
   return `${title.slice(0, PROVISIONAL_TITLE_MAX - 1).trimEnd()}…`;
 }
 
+/** Fallback from the first user line (tests). Drawer titles use the topic job. */
 export function provisionalChatTitle(text: string | undefined): string | null {
   if (!text?.trim()) return null;
   const parsed = parseUserMessageContent(text);
@@ -64,6 +64,13 @@ export function provisionalChatTitle(text: string | undefined): string | null {
   const line = unwrapChatTitle(text.trim().split("\n")[0] ?? "");
   if (!line) return null;
   return truncateTitle(line);
+}
+
+/** Image/File only — never the user's first sentence (that is the topic job). */
+export function provisionalAttachmentTitle(text: string | undefined): string | null {
+  const label = provisionalChatTitle(text);
+  if (label === "Image" || label === "File") return label;
+  return null;
 }
 
 /** Trim quotes and enforce max length before PATCH /chats/{id}. */

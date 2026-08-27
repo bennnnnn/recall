@@ -1,9 +1,19 @@
 """Tests for chat title normalization."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
+from app.core.config import Settings
 from app.models.schemas import ChatOut
-from app.services.chat_titles import normalize_chat_title, sanitize_manual_chat_title
+from app.services.chat_titles import (
+    GREETING_CHAT_TITLE,
+    finalize_generated_title,
+    generate_title,
+    is_casual_opener,
+    normalize_chat_title,
+    sanitize_manual_chat_title,
+)
 
 
 @pytest.mark.parametrize(
@@ -71,3 +81,45 @@ def test_search_result_sanitizes_chat_title():
         created_at=datetime.now(UTC),
     )
     assert item.chat_title == "My Trip Plan"
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("hi", True),
+        ("Hi!", True),
+        ("good morning", True),
+        ("Good morning.", True),
+        ("hello there", True),
+        ("good morning, help me with physics", False),
+        ("What's still open for me to finish tonight?", False),
+        ("", False),
+    ],
+)
+def test_is_casual_opener(raw: str, expected: bool):
+    assert is_casual_opener(raw) is expected
+
+
+@pytest.mark.parametrize(
+    "raw, user, expected",
+    [
+        ("Anything", "hi", GREETING_CHAT_TITLE),
+        ("Anything", "good morning", GREETING_CHAT_TITLE),
+        ("Tonight leftovers", "What's still open?", "Tonight leftovers"),
+        ("New chat", "What's still open?", None),
+    ],
+)
+def test_finalize_generated_title(raw: str, user: str, expected: str | None):
+    assert finalize_generated_title(raw, user) == expected
+
+
+@pytest.mark.asyncio
+async def test_generate_title_greeting_skips_model():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch(
+        "app.services.chat_titles.litellm_gateway.complete_text",
+        new_callable=AsyncMock,
+    ) as complete:
+        title = await generate_title(settings, "good morning", "Hello!")
+    assert title == GREETING_CHAT_TITLE
+    complete.assert_not_called()
