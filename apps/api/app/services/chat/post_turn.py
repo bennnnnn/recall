@@ -42,11 +42,12 @@ async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID)
     proceed (best-effort), but this should be visible in logs.
     """
     try:
-        db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
+        # Hot path: Redis already has today's counter. Skip Neon so every turn
+        # does not pay get_total_for_date. Missing key (eviction / new day)
+        # still seeds from DB. Drift heal is not worth a round-trip on each send.
         if await quota_service.has_daily_usage_key(redis, str(user_id)):
-            # Key exists — but it may be stale (lower than DB). Heal drift.
-            await quota_service.heal_usage_drift(redis, str(user_id), db_total)
             return
+        db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
         await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
     except Exception:
         logger.warning(

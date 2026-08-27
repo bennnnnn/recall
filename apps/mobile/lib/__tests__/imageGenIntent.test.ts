@@ -130,6 +130,18 @@ describe("image revision follow-ups", () => {
         previousSubject: "black cat",
       }),
     ).toBeNull();
+    expect(
+      extractImageRevisionPrompt("what's 2+2", {
+        lastAssistantIsImageOnly: true,
+        previousSubject: "black cat",
+      }),
+    ).toBeNull();
+    expect(
+      extractImageRevisionPrompt("help me think", {
+        lastAssistantIsImageOnly: true,
+        previousSubject: "black cat",
+      }),
+    ).toBeNull();
   });
 
   it("imageGenRevisionContext finds the prior subject", () => {

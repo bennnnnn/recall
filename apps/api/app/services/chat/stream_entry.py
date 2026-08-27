@@ -130,6 +130,7 @@ async def stream_chat_response(
             seams.wait_for_pending_finalize(chat_id, redis),
             _load_user_and_quota(),
         )
+        timing.mark_phase("user_quota")
 
         if not attachment_ids and await seams._try_image_gen_for_turn(
             settings,
@@ -141,6 +142,7 @@ async def stream_chat_response(
         ):
             await res.refund()
             return
+        timing.mark_phase("image_gen")
         if res.reserved_tokens <= 0:
             vision_extra = 0
             if attachment_ids:

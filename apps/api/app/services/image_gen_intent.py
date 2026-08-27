@@ -419,6 +419,47 @@ _NON_REVISION = frozenset(
     }
 )
 
+# First remaining token after revision lead-ins. Questions and chat openers
+# must not become "{subject}, what's 2+2" or pay Neon list_recent on a new chat.
+_NOT_REVISION_STARTERS = frozenset(
+    {
+        "what",
+        "what's",
+        "whats",
+        "why",
+        "how",
+        "how's",
+        "who",
+        "when",
+        "where",
+        "which",
+        "can",
+        "could",
+        "would",
+        "should",
+        "is",
+        "are",
+        "do",
+        "does",
+        "did",
+        "will",
+        "am",
+        "help",
+        "tell",
+        "explain",
+        "write",
+        "please",
+        "i",
+        "i'm",
+        "im",
+        "i've",
+        "ive",
+        "we",
+        "let's",
+        "lets",
+    }
+)
+
 
 def subject_from_image_gen_user_message(content: str) -> str | None:
     """Subject from a prior image-gen user bubble (legacy prefix or natural wording)."""
@@ -491,6 +532,11 @@ def extract_image_revision_prompt(
 
     tokens = _strip_revision_lead_in(_tokens(trimmed))
     if not tokens or len(tokens) > 8:
+        return None
+    if "?" in trimmed:
+        return None
+    first = tokens[0].lower().rstrip(".!,")
+    if first in _NOT_REVISION_STARTERS:
         return None
     revision = _join_subject(tokens)
     if not revision:

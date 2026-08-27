@@ -38,14 +38,16 @@ class TurnTimingTracker:
         chat_id: UUID,
         model: str,
         lightweight: bool = False,
+        content_chars: int = 0,
     ) -> None:
         logger.info(
             "chat_stream_timing user_id=%s chat_id=%s model=%s lightweight=%s "
-            "prompt_ready_ms=%s first_token_ms=%s phases_ms=%s",
+            "content_chars=%s prompt_ready_ms=%s first_token_ms=%s phases_ms=%s",
             user_id,
             chat_id,
             model,
             lightweight,
+            content_chars,
             round(self._prompt_ready_ms, 1) if self._prompt_ready_ms is not None else None,
             round(self._first_token_ms, 1) if self._first_token_ms is not None else None,
             {phase: round(ms, 1) for phase, ms in self._phases_ms.items()},

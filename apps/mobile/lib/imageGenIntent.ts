@@ -30,6 +30,43 @@ const REVISION_LEAD_IN =
 const NON_REVISION =
   /^(?:ok|okay|thanks|thank you|yes|no|sure|cool|nice|lol|great|got it|perfect)$/i;
 
+const NOT_REVISION_STARTERS = new Set([
+  "what",
+  "what's",
+  "whats",
+  "why",
+  "how",
+  "how's",
+  "who",
+  "when",
+  "where",
+  "which",
+  "can",
+  "could",
+  "would",
+  "should",
+  "is",
+  "are",
+  "do",
+  "does",
+  "did",
+  "will",
+  "am",
+  "help",
+  "tell",
+  "explain",
+  "write",
+  "please",
+  "i",
+  "i'm",
+  "im",
+  "i've",
+  "ive",
+  "we",
+  "let's",
+  "lets",
+]);
+
 /**
  * Short follow-up after an image-only reply ("White", "make it blue") → new
  * generate prompt. Returns null when this is normal chat.
@@ -51,6 +88,9 @@ export function extractImageRevisionPrompt(
     revision = trimmed.slice(lead[0].length).trim();
   }
   if (!revision || revision.split(/\s+/).length > 8) return null;
+  if (trimmed.includes("?")) return null;
+  const first = revision.split(/\s+/)[0]?.toLowerCase().replace(/[.!,]+$/, "") ?? "";
+  if (NOT_REVISION_STARTERS.has(first)) return null;
   if (NON_IMAGE_SUBJECT.test(revision) || NON_REVISION.test(revision)) return null;
   const cleaned = cleanPrompt(revision);
   if (!cleaned) return null;

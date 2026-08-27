@@ -148,9 +148,8 @@ async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
 
     session = AsyncMock()
     user_id = uuid4()
-    # Redis already at 500; DB total is also 500 — no drift to heal, so the
-    # heal is a no-op (max(500, 500) = 500, no SET). The DB read now runs so
-    # drift can be detected, but no write happens when Redis >= DB.
+    # Redis already at 500 — skip Neon entirely (heal-on-every-turn was a
+    # round-trip on the send path).
     await fake_redis.set(f"usage:{user_id}:{quota_service.utc_today().isoformat()}", 500)
     with (
         patch(
@@ -158,7 +157,7 @@ async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
         ) as get_total,
     ):
         await seed_usage_from_db(fake_redis, session, user_id)
-        get_total.assert_awaited_once()
+        get_total.assert_not_awaited()
     # Redis unchanged (no drift)
     assert (
         int(await fake_redis.get(f"usage:{user_id}:{quota_service.utc_today().isoformat()}")) == 500
@@ -166,8 +165,8 @@ async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_seed_usage_from_db_heals_drift_when_redis_below_db(fake_redis):
-    """H1: if Redis < DB (stale counter), raise Redis to DB total."""
+async def test_seed_usage_from_db_does_not_heal_warm_redis(fake_redis):
+    """Warm Redis skips Neon even if the counter is below the DB total."""
     from unittest.mock import AsyncMock, patch
     from uuid import uuid4
 
@@ -176,11 +175,13 @@ async def test_seed_usage_from_db_heals_drift_when_redis_below_db(fake_redis):
     session = AsyncMock()
     user_id = uuid4()
     key = f"usage:{user_id}:{quota_service.utc_today().isoformat()}"
-    # Redis stale at 200; DB says 500 — drift exists
     await fake_redis.set(key, 200)
-    with patch("app.repositories.usage.get_total_for_date", AsyncMock(return_value=500)):
+    with patch(
+        "app.repositories.usage.get_total_for_date", AsyncMock(return_value=500)
+    ) as get_total:
         await seed_usage_from_db(fake_redis, session, user_id)
-    assert int(await fake_redis.get(key)) == 500
+    get_total.assert_not_awaited()
+    assert int(await fake_redis.get(key)) == 200
 
 
 @pytest.mark.asyncio
