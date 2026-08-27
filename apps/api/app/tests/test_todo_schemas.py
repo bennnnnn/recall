@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.schemas.chats import ChatMessageRequest
-from app.models.schemas.todos import TodoUpdate
+from app.models.schemas.lists import TodoUpdate
 
 
 def test_todo_update_rejects_oversized_content():
