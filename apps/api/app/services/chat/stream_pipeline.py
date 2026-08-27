@@ -481,4 +481,5 @@ async def stream_and_finalize(
                 chat_id=ctx.chat_id,
                 model=ctx.model,
                 lightweight=ctx.lightweight_turn,
+                content_chars=len(ctx.user_message_content or ""),
             )

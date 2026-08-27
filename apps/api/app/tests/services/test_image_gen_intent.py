@@ -122,6 +122,22 @@ def test_could_be_image_revision_accepts_color_follow_up() -> None:
     assert could_be_image_revision("White") is True
 
 
+@pytest.mark.parametrize(
+    "text",
+    ["what's 2+2", "help me think", "how are you", "explain gravity"],
+)
+def test_could_be_image_revision_rejects_questions_and_chat(text: str) -> None:
+    assert could_be_image_revision(text) is False
+    assert (
+        extract_image_revision_prompt(
+            text,
+            last_assistant_is_image_only=True,
+            previous_subject="black cat",
+        )
+        is None
+    )
+
+
 def test_image_gen_revision_context_finds_prior_subject() -> None:
     assert is_image_only_assistant_content(
         "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"

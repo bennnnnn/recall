@@ -140,6 +140,8 @@ async def prepare_chat_turn(
     gateway = attachments.gateway
     attachment_bytes_by_key = attachments.bytes_by_key
 
+    if timing is not None:
+        timing.mark_phase("persist_start")
     async with SessionLocal() as session:
         if user is None:
             user = await users_repo.get_by_id(session, user_id)
@@ -190,6 +192,8 @@ async def prepare_chat_turn(
 
         await session.commit()
 
+    if timing is not None:
+        timing.mark_phase("persist_done")
     is_letter_answer, quiz_grade = await _grade_quiz_answer(
         user=user,
         chat_id=chat_id,
