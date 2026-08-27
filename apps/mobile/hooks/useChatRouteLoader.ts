@@ -412,34 +412,36 @@ export function useChatRouteLoader({
     listRef,
   });
 
-  const leaveOpenChat = useCallback(() => {
-    // Pencil / Home launch is an explicit leave — stop the in-flight turn
-    // instead of ignoring the tap, then insert the drawer row before we
-    // close the per-chat socket (stream `done` will not arrive).
-    if (turnBusy()) stopGeneration();
-    const leavingMessages = messagesRef.current;
-    if (shouldInsertDrawerRowOnLeave(leavingMessages)) {
-      void handleFirstReply();
-    }
-    if (
-      shouldDiscardOnNewChat(routeChatId) &&
-      shouldProbeEmptyChat(chatHasThreadContent(leavingMessages))
-    ) {
-      discardEmptyChat(chatId);
-    }
-    clearDraftChat();
-  }, [
-    stopGeneration,
-    handleFirstReply,
-    routeChatId,
-    discardEmptyChat,
-    chatId,
-    clearDraftChat,
-  ]);
+  const leaveOpenChat = useCallback(
+    (opts?: { force?: boolean }) => {
+      // Stop only when the open chat is being deleted. New chat / Home launch
+      // must leave the in-flight reply running so it can finish in the background.
+      if (opts?.force && turnBusy()) stopGeneration();
+      const leavingMessages = messagesRef.current;
+      if (shouldInsertDrawerRowOnLeave(leavingMessages)) {
+        void handleFirstReply();
+      }
+      if (
+        shouldDiscardOnNewChat(routeChatId) &&
+        shouldProbeEmptyChat(chatHasThreadContent(leavingMessages))
+      ) {
+        discardEmptyChat(chatId);
+      }
+      clearDraftChat();
+    },
+    [
+      stopGeneration,
+      handleFirstReply,
+      routeChatId,
+      discardEmptyChat,
+      chatId,
+      clearDraftChat,
+    ],
+  );
 
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
-      leaveOpenChat();
+      leaveOpenChat(_opts);
       pendingProjectIdRef.current = null;
       setInputRef.current("");
       setChatId(null);

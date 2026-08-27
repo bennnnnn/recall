@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **New chat mid-stream stopped the reply.** Pencil sent WS `cancel` and
+  disconnect cancelled the producer, so the left-behind thread only kept a
+  truncated bubble. New chat must not stop; disconnect drains the model
+  stream and persists the full assistant. Stop still cancels. Only DELETE
+  (`force`) stops on leave.
 - **New chat mid-stream vanished from the drawer.** Pencil closes the per-chat
   WS before `done`, and `handleFirstReply` (insert row) only ran on `done`.
   Empty-check also deleted user-only threads. Insert the row from the first
