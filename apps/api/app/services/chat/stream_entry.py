@@ -32,6 +32,8 @@ async def try_image_gen_for_turn(
         trimmed = content.strip()
         if not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8:
             return False
+        if not seams.could_be_image_revision(content):
+            return False
         async with seams.SessionLocal() as session:
             recent = await seams.messages_repo.list_recent(session, chat_id, limit=20)
         last_image_only, previous_subject = seams.image_gen_revision_context(recent)

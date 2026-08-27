@@ -3,6 +3,7 @@
 import pytest
 
 from app.services.image_gen_intent import (
+    could_be_image_revision,
     extract_image_gen_prompt,
     extract_image_revision_prompt,
     image_gen_revision_context,
@@ -84,12 +85,41 @@ def test_extract_image_revision_prompt_rejects_thanks_and_non_image() -> None:
     )
     assert (
         extract_image_revision_prompt(
+            "hi",
+            last_assistant_is_image_only=True,
+            previous_subject="black cat",
+        )
+        is None
+    )
+    assert (
+        extract_image_revision_prompt(
+            "Hi!",
+            last_assistant_is_image_only=True,
+            previous_subject="black cat",
+        )
+        is None
+    )
+    assert (
+        extract_image_revision_prompt(
             "White",
             last_assistant_is_image_only=False,
             previous_subject="black cat",
         )
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["hi", "Hi!", "hello", "hey", "thanks", "ok", "yo"],
+)
+def test_could_be_image_revision_rejects_greetings(text: str) -> None:
+    assert could_be_image_revision(text) is False
+
+
+def test_could_be_image_revision_accepts_color_follow_up() -> None:
+    assert could_be_image_revision("make it blue") is True
+    assert could_be_image_revision("White") is True
 
 
 def test_image_gen_revision_context_finds_prior_subject() -> None:

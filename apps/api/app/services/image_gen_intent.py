@@ -383,17 +383,39 @@ _NON_REVISION = frozenset(
     {
         "ok",
         "okay",
+        "k",
         "thanks",
         "thank you",
+        "thx",
+        "ty",
         "yes",
         "no",
+        "yep",
+        "nope",
         "sure",
         "cool",
         "nice",
         "lol",
+        "lmao",
+        "haha",
+        "hehe",
         "great",
         "got it",
         "perfect",
+        "awesome",
+        "hi",
+        "hello",
+        "hey",
+        "hiya",
+        "yo",
+        "sup",
+        "bye",
+        "goodbye",
+        "cya",
+        "see ya",
+        "sounds good",
+        "makes sense",
+        "understood",
     }
 )
 
@@ -473,14 +495,30 @@ def extract_image_revision_prompt(
     revision = _join_subject(tokens)
     if not revision:
         return None
-    if revision.lower() in _NON_REVISION:
-        return None
     if _has_non_image_subject(revision):
         return None
     cleaned = _clean_prompt(revision)
     if not cleaned:
         return None
+    if cleaned.lower() in _NON_REVISION:
+        return None
     return f"{previous_subject}, {cleaned}"
+
+
+def could_be_image_revision(text: str) -> bool:
+    """True if this text could revise a prior image-only reply.
+
+    Used to skip the Neon recent-message lookup when the text cannot be a
+    revision even if the last assistant was image-only (greetings, thanks).
+    """
+    return (
+        extract_image_revision_prompt(
+            text,
+            last_assistant_is_image_only=True,
+            previous_subject="x",
+        )
+        is not None
+    )
 
 
 def image_gen_revision_context(

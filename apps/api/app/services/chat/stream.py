@@ -87,6 +87,9 @@ from app.services.chat.turn_prep import (
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens as estimate_tokens
 from app.services.image_gen_intent import (
+    could_be_image_revision as could_be_image_revision,
+)
+from app.services.image_gen_intent import (
     extract_image_gen_prompt as extract_image_gen_prompt,
 )
 from app.services.image_gen_intent import (

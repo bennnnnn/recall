@@ -7,6 +7,11 @@ def test_collapse_ws():
     assert collapse_ws("  a \n b\t c  ") == "a b c"
 
 
+def test_collapse_ws_strips_zero_width():
+    assert collapse_ws("hi\u200b") == "hi"
+    assert collapse_ws("\ufeffok") == "ok"
+
+
 def test_cap_text_head_tail_short_passthrough():
     assert cap_text_head_tail("hello", 4000) == "hello"
 

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 _HEAD_TAIL_SEP = "\n…\n"
+# Zero-width / BOM — iOS sometimes leaves these on a two-letter greeting.
+_FORMAT_CHARS = frozenset("\u200b\u200c\u200d\ufeff\u2060")
 
 
 def collapse_ws(text: str) -> str:
     """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
+    if any(ch in _FORMAT_CHARS for ch in text):
+        text = "".join(ch for ch in text if ch not in _FORMAT_CHARS)
     return " ".join(text.split())
 
 
