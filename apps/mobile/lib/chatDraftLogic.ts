@@ -26,9 +26,16 @@ export function resolveActiveChatId(
   return chatId ?? draftChatId;
 }
 
-/** Skip the empty-check GET when the thread already has an assistant reply. */
-export function shouldProbeEmptyChat(hasAssistant: boolean): boolean {
-  return !hasAssistant;
+/** True when the thread already has a user or assistant turn (not an unused draft). */
+export function chatHasThreadContent(
+  messages: readonly { role: string }[],
+): boolean {
+  return messages.some((m) => m.role === "user" || m.role === "assistant");
+}
+
+/** Skip the empty-check GET when the thread already has a user or assistant turn. */
+export function shouldProbeEmptyChat(hasThreadContent: boolean): boolean {
+  return !hasThreadContent;
 }
 
 /** New chat clears messages before the route effect runs — remember replies. */
@@ -46,7 +53,7 @@ export function clearKnownAssistantChats(): void {
   knownAssistantChats.clear();
 }
 
-/** Probe only when we have never seen an assistant on this chat. */
+/** Probe only when we have never seen a user or assistant turn on this chat. */
 export function shouldProbePreviousChat(opts: {
   chatId: string;
   messagesHadAssistant: boolean;

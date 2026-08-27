@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **New chat mid-stream vanished from the drawer.** Pencil closes the per-chat
+  WS before `done`, and `handleFirstReply` (insert row) only ran on `done`.
+  Empty-check also deleted user-only threads. Insert the row from the first
+  user line before leaving; only DELETE unused empty drafts; WS disconnect
+  awaits finalize like SSE.
 - **First chat send waited 8s on a silent proxy.** WebSocket connect had no
   TCP reject, so `CONNECT_TIMEOUT_MS` (8000) blocked SSE. Typing already showed;
   first token did not. Fall back at 1.5s and latch SSE — do not dual-stream.

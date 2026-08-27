@@ -33,6 +33,7 @@ from app.services.chat.stream_events import (
     build_stream_end_payload,
     build_token_event,
     error_payload_for_exception,
+    persist_finalize_if_pending,
     pop_finalize_tasks,
 )
 
@@ -210,6 +211,10 @@ async def _stream_over_ws(
                 await producer
             except asyncio.CancelledError:
                 pass
+    finally:
+        # Same as SSE M10: client close must not orphan the DB commit that
+        # persists the (partial) assistant row and enqueues the title job.
+        await persist_finalize_if_pending(result)
 
 
 async def _run_chat_stream(

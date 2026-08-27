@@ -7,6 +7,13 @@ export type FirstReplyTitlePlan = {
   poll: boolean;
 };
 
+/** New chat closes the per-chat socket, so stream `done` never inserts the row. */
+export function shouldInsertDrawerRowOnLeave(
+  messages: readonly { role: string }[],
+): boolean {
+  return messages.some((m) => m.role === "user");
+}
+
 /**
  * First assistant reply used to GET /chats/{id} just to insert the drawer row.
  * Home send already has the POST /chats body. Use the first user line as the

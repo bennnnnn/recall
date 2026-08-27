@@ -30,7 +30,7 @@ jest.mock("@/hooks/useChatTitlePolling", () => ({
   useChatTitlePolling: () => ({
     titleGenerating: false,
     pollForTitle: jest.fn(),
-    handleFirstReply: jest.fn(),
+    handleFirstReply: mockHandleFirstReply,
   }),
 }));
 jest.mock("@/hooks/useChatHighlightScroll", () => ({
@@ -41,6 +41,7 @@ import { api } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import { readCachedChatMessages } from "@/lib/chatMessageCache";
 
+const mockHandleFirstReply = jest.fn();
 const setChatId = jest.fn();
 const setMessages = jest.fn();
 const setQuizVariant = jest.fn();
@@ -178,9 +179,16 @@ describe("useChatRouteLoader", () => {
         setMessages,
         messages: [
           {
-            id: "m1",
+            id: "u1",
+            role: "user",
+            content: "Tell me a long story",
+            model: null,
+            created_at: "t",
+          },
+          {
+            id: "streaming",
             role: "assistant",
-            content: "Hello",
+            content: "Once upon",
             model: null,
             created_at: "t",
           },
@@ -205,6 +213,7 @@ describe("useChatRouteLoader", () => {
       startNewChat?.();
     });
     expect(stopGeneration).toHaveBeenCalled();
+    expect(mockHandleFirstReply).toHaveBeenCalled();
     expect(setChatId).toHaveBeenCalledWith(null);
     expect(setMessages).toHaveBeenCalledWith([]);
     expect(setParams).toHaveBeenCalledWith({ chatId: undefined });

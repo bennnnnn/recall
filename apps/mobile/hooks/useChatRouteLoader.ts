@@ -23,11 +23,13 @@ import {
 import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
 import {
+  chatHasThreadContent,
   markChatHasAssistant,
   shouldDiscardOnNewChat,
   shouldProbeEmptyChat,
   shouldProbePreviousChat,
 } from "@/lib/chatDraftLogic";
+import { shouldInsertDrawerRowOnLeave } from "@/lib/chatTitleRefresh";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";
@@ -138,12 +140,12 @@ export function useChatRouteLoader({
   streamingRef.current = streaming;
   chatLoadingRef.current = chatLoading;
   const knownAssistantChatId = chatId ?? (typeof routeChatId === "string" ? routeChatId : null);
-  const messagesHadAssistant = messages.some((m) => m.role === "assistant");
+  const messagesHadContent = chatHasThreadContent(messages);
   useEffect(() => {
-    if (knownAssistantChatId && messagesHadAssistant) {
+    if (knownAssistantChatId && messagesHadContent) {
       markChatHasAssistant(knownAssistantChatId);
     }
-  }, [knownAssistantChatId, messagesHadAssistant]);
+  }, [knownAssistantChatId, messagesHadContent]);
 
   const turnBusy = () => streamingRef.current || Boolean(imageGeneratingRef?.current);
 
@@ -268,9 +270,7 @@ export function useChatRouteLoader({
       if (
         shouldProbePreviousChat({
           chatId: prevOpenChatId,
-          messagesHadAssistant: messagesRef.current.some(
-            (m) => m.role === "assistant",
-          ),
+          messagesHadAssistant: chatHasThreadContent(messagesRef.current),
         })
       ) {
         discardEmptyChat(prevOpenChatId);
@@ -412,19 +412,34 @@ export function useChatRouteLoader({
     listRef,
   });
 
+  const leaveOpenChat = useCallback(() => {
+    // Pencil / Home launch is an explicit leave — stop the in-flight turn
+    // instead of ignoring the tap, then insert the drawer row before we
+    // close the per-chat socket (stream `done` will not arrive).
+    if (turnBusy()) stopGeneration();
+    const leavingMessages = messagesRef.current;
+    if (shouldInsertDrawerRowOnLeave(leavingMessages)) {
+      void handleFirstReply();
+    }
+    if (
+      shouldDiscardOnNewChat(routeChatId) &&
+      shouldProbeEmptyChat(chatHasThreadContent(leavingMessages))
+    ) {
+      discardEmptyChat(chatId);
+    }
+    clearDraftChat();
+  }, [
+    stopGeneration,
+    handleFirstReply,
+    routeChatId,
+    discardEmptyChat,
+    chatId,
+    clearDraftChat,
+  ]);
+
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
-      // Pencil / drawer New chat is an explicit leave — stop the in-flight
-      // turn instead of ignoring the tap (force is kept for callers that
-      // already pass it, e.g. deleting the open chat).
-      if (turnBusy()) stopGeneration();
-      if (
-        shouldDiscardOnNewChat(routeChatId) &&
-        shouldProbeEmptyChat(messagesRef.current.some((m) => m.role === "assistant"))
-      ) {
-        discardEmptyChat(chatId);
-      }
-      clearDraftChat();
+      leaveOpenChat();
       pendingProjectIdRef.current = null;
       setInputRef.current("");
       setChatId(null);
@@ -438,10 +453,7 @@ export function useChatRouteLoader({
       }
     },
     [
-      stopGeneration,
-      chatId,
-      discardEmptyChat,
-      clearDraftChat,
+      leaveOpenChat,
       routeChatId,
       router,
       setMessages,
@@ -455,14 +467,7 @@ export function useChatRouteLoader({
       const queued = typeof launch === "string" ? { prompt: launch.trim() } : launch;
       const prompt = queued.prompt?.trim() ?? "";
       if (!prompt) return;
-      if (turnBusy()) stopGeneration();
-      if (
-        shouldDiscardOnNewChat(routeChatId) &&
-        shouldProbeEmptyChat(messagesRef.current.some((m) => m.role === "assistant"))
-      ) {
-        discardEmptyChat(chatId);
-      }
-      clearDraftChat();
+      leaveOpenChat();
       draftProjectIdRef.current = queued.projectId ?? null;
       pendingProjectIdRef.current = queued.projectId ?? null;
       draftQuizModeRef.current = queued.quizMode ?? null;
@@ -485,10 +490,7 @@ export function useChatRouteLoader({
       void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
     },
     [
-      stopGeneration,
-      discardEmptyChat,
-      chatId,
-      clearDraftChat,
+      leaveOpenChat,
       draftProjectIdRef,
       draftQuizModeRef,
       routeChatId,

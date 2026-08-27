@@ -1,5 +1,5 @@
 import { request } from "@/lib/api/client";
-import { shareEmptyChatCheck } from "@/lib/chatDraftLogic";
+import { chatHasThreadContent, shareEmptyChatCheck } from "@/lib/chatDraftLogic";
 import type {
   Chat,
   ChatList,
@@ -73,8 +73,9 @@ export const chatsApi = {
           token,
         ),
       );
-      const hasAssistant = page.messages.some((m) => m.role === "assistant");
-      if (page.messages.length === 0 || !hasAssistant) {
+      // A user turn with no assistant yet is a real chat (left mid-stream).
+      // Only unused empty drafts should be deleted.
+      if (!chatHasThreadContent(page.messages)) {
         await request<void>(`/chats/${chatId}`, token, { method: "DELETE" });
       }
     }),
