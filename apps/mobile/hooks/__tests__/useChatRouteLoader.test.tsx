@@ -150,4 +150,63 @@ describe("useChatRouteLoader", () => {
       expect(setQuizVariant).toHaveBeenCalledWith("vocab");
     });
   });
+
+  it("stops an in-flight turn when New chat is tapped without force", async () => {
+    const stopGeneration = jest.fn();
+    const setParams = jest.fn();
+    let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
+    function StreamingProbe() {
+      const result = useChatRouteLoader({
+        token: "token",
+        routeChatId: "open-1",
+        routeHighlightMessage: undefined,
+        routePrompt: undefined,
+        routeLaunchId: undefined,
+        router: { setParams } as never,
+        draft: {
+          draftChatIdRef: { current: null },
+          draftProjectIdRef: { current: null },
+          draftQuizModeRef: { current: null },
+          skipLoadForChatIdRef: { current: "open-1" },
+          creatingRef: { current: false },
+          discardEmptyChat: jest.fn(),
+          clearDraftChat: jest.fn(),
+          prepareDraftChat: jest.fn(),
+        } as never,
+        chatId: "open-1",
+        setChatId,
+        setMessages,
+        messages: [
+          {
+            id: "m1",
+            role: "assistant",
+            content: "Hello",
+            model: null,
+            created_at: "t",
+          },
+        ],
+        streaming: true,
+        stopGeneration,
+        setQuizLanguage: jest.fn(),
+        setQuizVariant,
+        resolveQuizVariant: () => "vocab",
+        setInputRef: { current: jest.fn() },
+        listRef: { current: null },
+        showActionBanner: jest.fn(),
+        t: (key) => key,
+      });
+      startNewChat = result.startNewChat;
+      return <Text>ready</Text>;
+    }
+    await act(async () => {
+      render(<StreamingProbe />);
+    });
+    await act(async () => {
+      startNewChat?.();
+    });
+    expect(stopGeneration).toHaveBeenCalled();
+    expect(setChatId).toHaveBeenCalledWith(null);
+    expect(setMessages).toHaveBeenCalledWith([]);
+    expect(setParams).toHaveBeenCalledWith({ chatId: undefined });
+  });
 });

@@ -413,11 +413,11 @@ export function useChatRouteLoader({
   });
 
   const startNewChat = useCallback(
-    (opts?: { force?: boolean }) => {
-      if (turnBusy()) {
-        if (!opts?.force) return;
-        stopGeneration();
-      }
+    (_opts?: { force?: boolean }) => {
+      // Pencil / drawer New chat is an explicit leave — stop the in-flight
+      // turn instead of ignoring the tap (force is kept for callers that
+      // already pass it, e.g. deleting the open chat).
+      if (turnBusy()) stopGeneration();
       if (
         shouldDiscardOnNewChat(routeChatId) &&
         shouldProbeEmptyChat(messagesRef.current.some((m) => m.role === "assistant"))
