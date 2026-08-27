@@ -221,7 +221,7 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="deepseek",
         selectable=False,
     ),
-    # Fallback for background LLM jobs (memory/todo/project extraction, titles,
+    # Fallback for background LLM jobs (memory/list/learning extraction, titles,
     # summaries). If the primary memory-model provider is down or slow, retry
     # once against a different provider so a single-provider outage doesn't
     # silently stall every background pipeline. Same OpenRouter transport.
