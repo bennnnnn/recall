@@ -29,12 +29,19 @@ export type Chat = {
 
 export type Feedback = "up" | "down" | null;
 
+export type SearchSource = {
+  title: string;
+  url: string;
+  snippet?: string;
+};
+
 export type Message = {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
   model: string | null;
   feedback?: Feedback;
+  search_sources?: SearchSource[];
   created_at: string;
 };
 
@@ -71,6 +78,7 @@ export type StreamEvent =
       type: "done";
       message_id?: string;
       final_content?: string;
+      search_sources?: string;
       resolved_model?: string;
     }
   | { type: "error"; code?: string; message: string };

@@ -604,14 +604,15 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Web client** — slice 1 shipped (login + chat stream); see [Web client](#web-client-planned) below.
 - 🔜 **RenderDocument v2** — versioned ordered block schema, same document live and on
   history reload. Not started; P0 kept `message.content` plus a trailing sources fence.
-- 🔜 **Web output parity** — GFM tables, math, sources chips, human fallbacks for
-  unsupported fences (slice 1 is plain Markdown; sanitizer currently strips tables).
+- ⚠️ **Web output parity** — GFM tables, named source links, and human fallbacks for
+  JSON rich fences are in slice 1. KaTeX, Mermaid, Vega, and sandboxed HTML remain later.
 - 🔜 **Claim-level citations** and attachment filename / page / chunk identity in the
   answer contract (today: one source list, RAG chunks without user-facing file metadata).
 - 🔜 **Six visual families** — restyle existing rich cards onto one document / artifact /
   result / visual / evidence / action shell.
-- 🔜 **Hide raw reasoning** from the settled assistant answer (keep status while working;
-  optional short method summary). Do not reintroduce recalled-memory chips.
+- ✅ **Hide raw reasoning** from the assistant answer — status/waiting while the model
+  works; CoT is not copied onto the bubble or kept as `reasoning_preview`. Do not
+  reintroduce recalled-memory chips.
 - 🔜 **One molecule card** — 2D primary with optional 3D; do not stack two full cards.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex / interruptible voice (later).
@@ -654,7 +655,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   locally, then an iOS **and** Android dev-build pass (Google Sign-In, HTML/chart WebView,
   push, RevenueCat, deck Modal, autoscroll, markdown throttle).
 - 🔜 **Frontend launch-readiness (audit, deferred)** — Pressable a11y coverage, `textTertiary`
-  contrast, tablet readable-width, icon stroke unification, web GFM tables / rich fences /
+  contrast, tablet readable-width, icon stroke unification, web KaTeX/Mermaid/Vega /
   httpOnly cookies / stream virtualization, QA matrix assistive-tech pass. Not the current
   backlog.
 - ✅ **FlashList migration** — `ConversationList` and Lists / Reminders now use `FlashList`
@@ -768,8 +769,10 @@ A future **web version that reuses this same API** — one backend, multiple cli
   `react-native-webview` don't port to a browser without a multi-month effort.
 - ✅ **Slice 1 shipped** — login (Google Identity Services + dev), chat list (create/open),
   chat view with SSE streaming (`start`/`token`/`status`/`stream_end`/`done`/`error`),
-  stop (abort), regenerate, plain markdown rendering (marked + DOMPurify; no KaTeX/Mermaid/
-  charts/HTML iframe yet). Tokens in `sessionStorage` (tab-scoped); 401 → refresh → retry.
+  stop (abort), regenerate, GFM markdown (including tables and images). Source links
+  render under the reply; JSON rich fences (graph/chart/places/…) degrade to a short
+  label instead of a code dump. No KaTeX/Mermaid/Vega/HTML iframe yet. Tokens in
+  `sessionStorage` (tab-scoped); 401 → refresh → retry.
   CORS origin documented in `apps/api/.env.example`. Follows the mobile chat-ux-bans.
 - 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/Lists/
   Learning/settings/attachments/image gen, `packages/api-types` extracted from
@@ -792,7 +795,7 @@ structured Learning topic type.
 ### Strategic pillars
 | Pillar | Meaning |
 |--------|---------|
-| Chat that feels fast | Streaming, stop/regenerate, rich answers, reasoning visible |
+| Chat that feels fast | Streaming, stop/regenerate, rich answers, status while working |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
 | Utility beyond chat | Lists, Schedule, Learning, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |

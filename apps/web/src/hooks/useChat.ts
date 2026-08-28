@@ -1,9 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatsApi } from "@/api/chats";
 import { streamMessage, streamRegenerate } from "@/api/stream";
-import type { Message } from "@/api/types";
+import type { Message, StreamEvent } from "@/api/types";
+import {
+  parseSearchSourcesFromMarkdown,
+  parseSearchSourcesJson,
+  stripSearchSourcesFromContent,
+} from "@/lib/assistantMarkdown";
 
 const STREAMING_ID = "streaming";
+
+type DoneEvent = Extract<StreamEvent, { type: "done" }>;
+
+function settleStreamingMessage(prev: Message[], event: DoneEvent): Message[] {
+  return prev.map((m) => {
+    if (m.id !== STREAMING_ID) return m;
+    const raw = event.final_content ?? m.content;
+    const fromEvent = parseSearchSourcesJson(event.search_sources ?? "");
+    const sources =
+      fromEvent.length > 0
+        ? fromEvent
+        : parseSearchSourcesFromMarkdown(raw);
+    return {
+      ...m,
+      id: event.message_id ?? `msg-${Date.now()}`,
+      content: stripSearchSourcesFromContent(raw),
+      search_sources: sources.length > 0 ? sources : undefined,
+      model: event.resolved_model ?? null,
+    };
+  });
+}
 
 export function useChat(token: string, chatId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -83,8 +109,7 @@ export function useChat(token: string, chatId: string | null) {
                   setStatusPhase(event.detail ?? event.phase);
                   break;
                 case "reasoning":
-                  // Slice 1: reasoning is not surfaced in the bubble. Could
-                  // render as a collapsible "thinking" block in a later slice.
+                  // CoT is not the answer. Status/waiting already covers "working".
                   break;
                 case "token":
                   setMessages((prev) =>
@@ -99,24 +124,7 @@ export function useChat(token: string, chatId: string | null) {
                   setStatusPhase(null);
                   break;
                 case "done":
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === STREAMING_ID
-                        ? {
-                            ...m,
-                            id: event.message_id ?? `msg-${Date.now()}`,
-                            // final_content is the post-stream-corrected text
-                            // (e.g. validate_math_fences). Prefer it over the
-                            // streamed draft so the bubble matches the DB.
-                            content:
-                              event.final_content ??
-                              prev.find((x) => x.id === STREAMING_ID)?.content ??
-                              "",
-                            model: event.resolved_model ?? null,
-                          }
-                        : m,
-                    ),
-                  );
+                  setMessages((prev) => settleStreamingMessage(prev, event));
                   break;
                 case "error":
                   setError(event.message);
@@ -191,21 +199,7 @@ export function useChat(token: string, chatId: string | null) {
                   setStatusPhase(null);
                   break;
                 case "done":
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === STREAMING_ID
-                        ? {
-                            ...m,
-                            id: event.message_id ?? `msg-${Date.now()}`,
-                            content:
-                              event.final_content ??
-                              prev.find((x) => x.id === STREAMING_ID)?.content ??
-                              "",
-                            model: event.resolved_model ?? null,
-                          }
-                        : m,
-                    ),
-                  );
+                  setMessages((prev) => settleStreamingMessage(prev, event));
                   break;
                 case "error":
                   setError(event.message);

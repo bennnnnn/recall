@@ -204,8 +204,6 @@
   "chat.read_aloud_a11y": "Read aloud",
   "chat.read_aloud_unavailable_body": "Text-to-speech is not available on this device.",
   "chat.read_aloud_unavailable_title": "Read aloud unavailable",
-  "chat.reasoning_live": "Live",
-  "chat.reasoning_title": "Reasoning",
   "chat.regenerate_a11y": "Rigenera risposta",
   "chat.remove_attachment_a11y": "Rimuovi allegato",
   "chat.rename": "Rinomina",

@@ -151,12 +151,12 @@ describe("chatSocketReduce", () => {
     expect(input.finalContent).toBe("Full text");
   });
 
-  it("buildDoneMergeInput keeps reasoning preview for layout settle", () => {
+  it("buildDoneMergeInput does not copy reasoning onto the settled message", () => {
     const input = buildDoneMergeInput(
       { type: "done", message_id: "abc" },
-      { content: "Hi", reasoning: "Thinking steps…" },
+      { content: "Hi" },
     );
-    expect(input.reasoning_preview).toBe("Thinking steps…");
+    expect(input).not.toHaveProperty("reasoning_preview");
   });
 
   it("buildDoneMergeInput passes stoppedStreamedId through", () => {

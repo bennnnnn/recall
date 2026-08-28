@@ -6,7 +6,7 @@ import {
 } from "@/lib/streamUiTiming";
 
 /**
- * Draft publishes ~rAF; paint stream chrome (reasoning, status) at the shared
+ * Draft publishes ~rAF; paint stream chrome (status, live tokens) at the shared
  * ~20fps cadence so the streaming row does not re-render every frame.
  * Flushes immediately when generation ends so the last token is not stuck.
  */

@@ -73,7 +73,6 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       isGenerating={false}
       liveContent={undefined}
       liveSearchSources={undefined}
-      liveReasoning={undefined}
       streamStatus={undefined}
       isLastAssistant={isLastAssistant}
       onRegenerate={

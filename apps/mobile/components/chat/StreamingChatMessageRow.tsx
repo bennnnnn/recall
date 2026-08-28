@@ -49,7 +49,6 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
 }: Props) {
   const streamingDraft = useStreamingDraft();
   const liveContent = useThrottledStreamText(streamingDraft?.content, streamVisualActive);
-  const liveReasoning = useThrottledStreamText(streamingDraft?.reasoning, streamVisualActive);
   const streamStatus = useThrottledStreamText(
     imageGenPending ? "image_gen" : streamingDraft?.status,
     streamVisualActive,
@@ -68,7 +67,6 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       isGenerating={streamVisualActive}
       liveContent={liveContent}
       liveSearchSources={streamingDraft?.search_sources}
-      liveReasoning={liveReasoning}
       streamStatus={streamStatus}
       streamStatusDetail={streamStatusDetail}
       isLastAssistant={isLastAssistant}

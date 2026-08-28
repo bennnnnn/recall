@@ -59,7 +59,6 @@ export type DoneMergeInput = {
   finalContent?: string;
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
-  reasoning_preview?: string;
   model?: string | null;
   /**
    * Local id given to the streaming bubble when the user stopped generation
@@ -83,7 +82,6 @@ export function mergeDoneIntoMessages(
     finalContent,
     search_sources,
     draftSearchSources,
-    reasoning_preview,
     model,
     stoppedStreamedId,
   } = input;
@@ -105,7 +103,6 @@ export function mergeDoneIntoMessages(
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
-            reasoning_preview,
             model: model ?? m.model,
           }
         : m,
@@ -134,7 +131,6 @@ export function mergeDoneIntoMessages(
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
-            reasoning_preview,
             model: model ?? m.model,
           }
         : m,
@@ -172,13 +168,12 @@ export function applyStreamEndModel(
 
 export function buildDoneMergeInput(
   payload: ChatWsPayload,
-  draft: { content: string; search_sources?: SearchSource[]; reasoning?: string } | null,
+  draft: { content: string; search_sources?: SearchSource[] } | null,
   now = Date.now(),
   stoppedStreamedId: string | null = null,
 ): DoneMergeInput {
   const finalContent =
     typeof payload.final_content === "string" ? payload.final_content : undefined;
-  const reasoningPreview = draft?.reasoning?.trim();
   return {
     finalId: payload.message_id ?? `streamed-${now}`,
     messageId: payload.message_id,
@@ -186,7 +181,6 @@ export function buildDoneMergeInput(
     finalContent,
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
-    reasoning_preview: reasoningPreview || undefined,
     model: payload.resolved_model ?? null,
     stoppedStreamedId,
   };

@@ -59,8 +59,6 @@ export type Message = {
   local_file_content_type?: string | null;
   /** Client-only FlashList key — stable while `id` changes streaming → persisted. */
   renderKey?: string;
-  /** Client-only: reasoning shown during stream, kept through layout settle to avoid list bounce. */
-  reasoning_preview?: string;
   /** Client-only: image generation stopped or failed (inline card + retry). */
   image_gen_failure?: "canceled" | "failed";
   image_gen_error?: string;

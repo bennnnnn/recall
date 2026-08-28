@@ -16,7 +16,6 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
-import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
 import { LearningLaunchButton } from "@/components/LearningLaunchButton";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
@@ -40,7 +39,6 @@ type Props = {
   /** Live token stream — avoids mutating the messages array on every token. */
   liveContent?: string;
   liveSearchSources?: Message["search_sources"];
-  liveReasoning?: string;
   streamStatus?: string;
   streamStatusDetail?: string;
   isLastAssistant?: boolean;
@@ -279,7 +277,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   isGenerating = false,
   liveContent,
   liveSearchSources,
-  liveReasoning,
   streamStatus,
   streamStatusDetail,
   isLastAssistant,
@@ -365,13 +362,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     learningLaunch,
   } = assistant;
 
-  const reasoningText =
-    liveReasoning?.trim() ||
-    (holdStreamLayout ? message.reasoning_preview?.trim() : "") ||
-    "";
-  const showReasoning = !isUser && reasoningText.length > 0;
   const imageGenFailure = message.image_gen_failure;
-  const showWaitingIndicator = shouldShowWaitingIndicator({ isStreaming, hasContent, showReasoning });
+  const showWaitingIndicator = shouldShowWaitingIndicator({ isStreaming, hasContent });
   const statusLabel = useRotatingStreamStatus(
     streamStatus,
     showWaitingIndicator,
@@ -436,9 +428,6 @@ export const MessageBubble = React.memo(function MessageBubble({
         </View>
       ) : (
         <View style={b.assistantBubble}>
-          {showReasoning ? (
-            <ReasoningBlock content={reasoningText} streaming={isStreaming} />
-          ) : null}
           {imageGenFailure ? (
               <View style={b.imageGenWaitingWrap}>
                 <ImageGenPlaceholder

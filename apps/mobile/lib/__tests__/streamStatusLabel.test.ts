@@ -66,28 +66,16 @@ describe("streamStatusLabels", () => {
 });
 
 describe("shouldShowWaitingIndicator", () => {
-  it("shows while streaming with no content and no reasoning", () => {
-    expect(
-      shouldShowWaitingIndicator({ isStreaming: true, hasContent: false, showReasoning: false }),
-    ).toBe(true);
-  });
-
-  it("BUG FIX regression: hides once reasoning is already showing, so the generic status label doesn't duplicate the live reasoning block", () => {
-    expect(
-      shouldShowWaitingIndicator({ isStreaming: true, hasContent: false, showReasoning: true }),
-    ).toBe(false);
+  it("shows while streaming with no content", () => {
+    expect(shouldShowWaitingIndicator({ isStreaming: true, hasContent: false })).toBe(true);
   });
 
   it("hides once content has started arriving", () => {
-    expect(
-      shouldShowWaitingIndicator({ isStreaming: true, hasContent: true, showReasoning: false }),
-    ).toBe(false);
+    expect(shouldShowWaitingIndicator({ isStreaming: true, hasContent: true })).toBe(false);
   });
 
   it("hides when not streaming", () => {
-    expect(
-      shouldShowWaitingIndicator({ isStreaming: false, hasContent: false, showReasoning: false }),
-    ).toBe(false);
+    expect(shouldShowWaitingIndicator({ isStreaming: false, hasContent: false })).toBe(false);
   });
 });
 
