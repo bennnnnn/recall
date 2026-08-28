@@ -79,6 +79,46 @@ def is_chart_question(text: str) -> bool:
     return bool(_CHART_TURN.search(cleaned))
 
 
+_FLOWCHART_CUE = re.compile(
+    r"(?:"
+    r"\bflow[\s-]?chart\b|"
+    r"\bsequence\s+diagram\b|"
+    r"```mermaid\b"
+    r")",
+    re.IGNORECASE,
+)
+_MERMAID_WORD = re.compile(r"\bmermaid\b", re.IGNORECASE)
+_MERMAID_RENDER_CUE = re.compile(
+    r"\b(?:draw|show|make|create|render|diagram)\b",
+    re.IGNORECASE,
+)
+
+MERMAID_FORMAT_HINT = (
+    "This turn is a flowchart. Lead with a ```mermaid fence — not a numbered "
+    "list, not HTML/SVG, and not a joke setup ('let's brew up some fun'). "
+    "At most one short sentence, then the fence.\n"
+    "Match the process they asked for. If they named steps or said ~N steps, "
+    "emit those nodes — do not invent a 2-box story.\n"
+    "Linear process: flowchart TD, one rectangle per step, --> between them. "
+    "Start/end may use stadium ([...]); decisions use diamonds.\n"
+    "Example shape only:\n"
+    "```mermaid\n"
+    "flowchart TD\n"
+    "    start([Start]) --> step[Do the work] --> done([Done])\n"
+    "```"
+)
+
+
+def is_mermaid_question(text: str) -> bool:
+    """True when the user asked for a Mermaid/flowchart diagram, not a vs-compare."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if _FLOWCHART_CUE.search(cleaned):
+        return True
+    return bool(_MERMAID_WORD.search(cleaned) and _MERMAID_RENDER_CUE.search(cleaned))
+
+
 # One layout contract. The model writes Markdown; Recall upgrades presentation.
 # Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
 # those cards still render if an old message has the fence.
@@ -185,7 +225,7 @@ TONE_FORMAT_GUARD = (
     "before the answer. Funny never means a bit about the question. "
     "Do not invent a decorative table before the answer — an X vs Y compare "
     "still leads with the pipe table; a numeric chart leads with ```chart, "
-    "never a substitute table."
+    "never a substitute table; a flowchart leads with ```mermaid."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the

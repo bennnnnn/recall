@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Coffee mermaid was a jokey 2-node card, clipped at 220px.** Slim turns
+  get `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and no mermaid layout, so
+  the model invents a bit instead of the requested steps. Swap compact for
+  `MERMAID_FORMAT_HINT` on flowchart asks. The WebView was a fixed 220px with
+  scroll off — size to the SVG via `mermaid-size` postMessage (cap 640).
 - **Bar chart became a joke + markdown table (or broken Mermaid).** Slim
   turns get `COMPACT_RESPONSE_FORMAT_HINT` and no ```chart example, so
   "make a bar chart" claims it cannot draw and dumps a rainfall table —

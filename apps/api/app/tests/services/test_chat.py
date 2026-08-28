@@ -212,6 +212,54 @@ async def test_build_prompt_includes_chart_vega_hint():
     assert "No ## headings" not in system
 
 
+@pytest.mark.asyncio
+async def test_build_prompt_includes_mermaid_layout_hint():
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+
+    with (
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.repositories.messages.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False),
+            query_text=(
+                "Draw a mermaid flowchart of making a cup of coffee, "
+                "from grinding beans to drinking. Keep it to about 8 steps."
+            ),
+        )
+
+    system = messages[0]["content"]
+    assert "This turn is a flowchart" in system
+    assert "```mermaid" in system
+    assert "joke setup" in system
+    assert "No ## headings" not in system
+
+
 @pytest.mark.parametrize(
     "text, expected",
     [
@@ -253,6 +301,29 @@ def test_is_chart_question(text, expected):
     from app.services.chat.prompt_constants import is_chart_question
 
     assert is_chart_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "Draw a mermaid flowchart of making a cup of coffee, from grinding beans to drinking. Keep it to about 8 steps.",
+            True,
+        ),
+        ("flowchart of user login", True),
+        ("sequence diagram of HTTP request", True),
+        ("show this as mermaid", True),
+        ("compare mermaid vs plantuml", False),
+        ("what is mermaid", False),
+        ("draw a triangle", False),
+        ("Show the molecular structure of ethanol", False),
+        ("", False),
+    ],
+)
+def test_is_mermaid_question(text, expected):
+    from app.services.chat.prompt_constants import is_mermaid_question
+
+    assert is_mermaid_question(text) is expected
 
 
 def test_format_hints_discourage_tables_for_how_tos():

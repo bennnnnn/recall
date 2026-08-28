@@ -66,6 +66,26 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
     assert "No ## headings" not in joined
 
 
+def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
+    from app.services.chat.prompt_constants import MERMAID_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text=(
+            "Draw a mermaid flowchart of making a cup of coffee, "
+            "from grinding beans to drinking. Keep it to about 8 steps."
+        ),
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert MERMAID_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    joined = "\n".join(parts)
+    assert "joke setup" in joined
+    assert "No ## headings" not in joined
+
+
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",
