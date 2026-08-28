@@ -140,4 +140,9 @@ describe("copyBlock heuristics", () => {
     expect(classifyOpenFencePreview("geometry", '{"type":"square"')).toBe("diagram");
     expect(classifyOpenFencePreview("graph", '{"type":"function"')).toBe("diagram");
   });
+
+  it("does not flash a gray diagram box for an open ```molecule3d tail", () => {
+    expect(classifyOpenFencePreview("molecule3d", "     RDKit")).toBe("hide");
+    expect(classifyOpenFencePreview("mol3d", "")).toBe("hide");
+  });
 });

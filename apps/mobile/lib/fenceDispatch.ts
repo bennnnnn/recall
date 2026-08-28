@@ -107,13 +107,17 @@ export function classifyFence(lang: string, content: string): FenceDecision {
   return { kind: "code", lang: l };
 }
 
-export type OpenFencePreviewKind = "answer" | "math" | "diagram" | "code";
+export type OpenFencePreviewKind = "answer" | "math" | "diagram" | "code" | "hide";
 
 /** Same classifier as settled `renderFence` — preview kinds are a subset. */
 export function classifyOpenFencePreview(lang: string, body: string): OpenFencePreviewKind {
   const decision = classifyFence(lang, body);
   if (decision.kind === "answer") return "answer";
   if (decision.kind === "math") return "math";
+  // Server already appended 3D after SMILES; the model's extra open
+  // ```molecule3d was a pulsing gray box under "3D Structure" that vanished
+  // when the fence closed and the leftover was dropped. Hold nothing.
+  if (decision.id === "molecule3d") return "hide";
   if (decision.kind === "rich" && decision.id && DIAGRAM_IDS.has(decision.id)) {
     return "diagram";
   }
