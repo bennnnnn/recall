@@ -613,7 +613,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Hide raw reasoning** from the assistant answer — status/waiting while the model
   works; CoT is not copied onto the bubble or kept as `reasoning_preview`. Do not
   reintroduce recalled-memory chips.
-- 🔜 **One molecule card** — 2D primary with optional 3D; do not stack two full cards.
+- ✅ **One molecule card** — adjacent `smiles`/`chemistry` + `molecule3d` collapse
+  in the client to one card (2D default, optional 3D). Persist still stores both
+  fences. Standalone `molecule3d` stays 3D-only. Web slice 1 skips the second
+  “Chemical structure” label for that pair.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex / interruptible voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
@@ -771,7 +774,8 @@ A future **web version that reuses this same API** — one backend, multiple cli
   chat view with SSE streaming (`start`/`token`/`status`/`stream_end`/`done`/`error`),
   stop (abort), regenerate, GFM markdown (including tables and images). Source links
   render under the reply; JSON rich fences (graph/chart/places/…) degrade to a short
-  label instead of a code dump. No KaTeX/Mermaid/Vega/HTML iframe yet. Tokens in
+  label instead of a code dump. Adjacent SMILES + molecule3d share one
+  “Chemical structure” label (no 2D/3D viewer yet). No KaTeX/Mermaid/Vega/HTML iframe yet. Tokens in
   `sessionStorage` (tab-scoped); 401 → refresh → retry.
   CORS origin documented in `apps/api/.env.example`. Follows the mobile chat-ux-bans.
 - 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/Lists/

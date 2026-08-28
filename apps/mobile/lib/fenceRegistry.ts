@@ -42,6 +42,7 @@ export type FenceId =
   | "math"
   | "mermaid"
   | "message"
+  | "molecule"
   | "molecule3d"
   | "places"
   | "quote"
@@ -175,6 +176,16 @@ export const FENCES: readonly FenceSpec[] = [
     structured: true,
     neverCodeBlock: true,
     owner: "model",
+    fallback: "visual",
+  },
+  // Display-only: preprocessor collapses adjacent smiles + molecule3d.
+  // The model/server must not emit this tag; persist still stores both fences.
+  {
+    id: "molecule",
+    langs: ["molecule"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "server",
     fallback: "visual",
   },
   {

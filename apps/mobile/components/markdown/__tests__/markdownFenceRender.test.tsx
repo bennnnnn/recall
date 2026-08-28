@@ -46,7 +46,10 @@ jest.mock("@/components/rich/LazyHeavyRich", () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   const { FunctionGraphBlock } = require("@/components/rich/FunctionGraphBlock");
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   const { Molecule3DBlock } = require("@/components/rich/Molecule3DBlock");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
+  const { Text: RNText } = require("react-native");
   return {
     ...jest.requireActual("@/components/rich/LazyHeavyRich"),
     LazyGeometryBlock: ({ content }: { content: string }) =>
@@ -55,6 +58,7 @@ jest.mock("@/components/rich/LazyHeavyRich", () => {
       React.createElement(FunctionGraphBlock, { content }),
     LazyMolecule3DBlock: ({ content }: { content: string }) =>
       React.createElement(Molecule3DBlock, { content }),
+    LazyMoleculeCard: () => React.createElement(RNText, null, "molecule-card"),
   };
 });
 // Same reasoning — CircularClockBlock pulls in react-native-reanimated,
@@ -348,5 +352,15 @@ describe("renderFence edge cases", () => {
     expect(getByText("Ball")).toBeTruthy();
     // Must NOT fall through to a CodeBlock with "molecule3d" badge.
     expect(queryByText("molecule3d")).toBeNull();
+  });
+
+  it("routes a ```molecule fence to MoleculeCard (not CodeBlock or Molecule3DBlock)", async () => {
+    const body = JSON.stringify({ smiles: "CCO", caption: "Ethanol" });
+    const { getByText, queryByText } = await render(
+      <>{renderFence(node(body, "molecule"))}</>,
+    );
+    expect(getByText("molecule-card")).toBeTruthy();
+    expect(queryByText("molecule")).toBeNull();
+    expect(queryByText("Ball")).toBeNull();
   });
 });

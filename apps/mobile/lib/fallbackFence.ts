@@ -53,6 +53,26 @@ function clipSnippet(text: string): string {
 
 function visualSnippet(lang: string, body: string): string {
   const id = fenceIdForLang(lang);
+  if (id === "molecule") {
+    const trimmed = body.trim();
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const row = parsed as { caption?: unknown; smiles?: unknown };
+          if (typeof row.caption === "string" && row.caption.trim()) {
+            return clipSnippet(row.caption.trim());
+          }
+          if (typeof row.smiles === "string" && row.smiles.trim()) {
+            return clipSnippet(row.smiles.trim());
+          }
+        }
+      } catch {
+        // Never dump the SDF JSON.
+      }
+    }
+    return "";
+  }
   if (id === "molecule3d") {
     const last = lastNonEmptyLine(body);
     if (last && last.length <= VISUAL_SNIPPET_MAX && !last.startsWith("{")) {

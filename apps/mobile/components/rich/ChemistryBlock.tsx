@@ -108,15 +108,12 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
   );
 }
 
-export function ChemistryBlock({ content }: Props) {
+/** 2D SMILES preview without card chrome — used by ChemistryBlock and MoleculeCard. */
+export function Chemistry2DView({ smiles }: { smiles: string }) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [renderError, setRenderError] = useState<string | null>(null);
-
-  const parsed = useMemo(() => parseChemistryFence(content), [content]);
-  const smiles = parsed?.smiles ?? "";
-  const caption = parsed?.caption;
 
   const html = useMemo(
     () => (smiles ? buildChemistryHtml(smiles, theme) : ""),
@@ -137,6 +134,57 @@ export function ChemistryBlock({ content }: Props) {
       setRenderError(t("rich.chemistry_invalid"));
     }
   }, [t]);
+
+  if (renderError) {
+    return (
+      <View style={s.previewBox}>
+        <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+        <Text style={[s.previewText, { color: theme.danger }]}>
+          {renderError}
+        </Text>
+      </View>
+    );
+  }
+  if (canRenderInline && WebView) {
+    if (!canMount) {
+      return (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator color={theme.primary} />
+        </View>
+      );
+    }
+    return (
+      <View style={s.webWrap}>
+        <WebView
+          originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
+          source={webSource}
+          scrollEnabled={false}
+          style={s.webview}
+          javaScriptEnabled
+          domStorageEnabled={false}
+          onLoadEnd={onLoaded}
+          onMessage={handleWebViewMessage}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        />
+      </View>
+    );
+  }
+  return (
+    <View style={s.previewBox}>
+      <Text style={s.previewText}>{smiles}</Text>
+      <Text style={s.fallbackHint}>{t("rich.chemistry_dev_build")}</Text>
+    </View>
+  );
+}
+
+export function ChemistryBlock({ content }: Props) {
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+
+  const parsed = useMemo(() => parseChemistryFence(content), [content]);
+  const smiles = parsed?.smiles ?? "";
+  const caption = parsed?.caption;
 
   if (!parsed) {
     return (
@@ -169,39 +217,7 @@ export function ChemistryBlock({ content }: Props) {
         </View>
       ) : null}
 
-      {renderError ? (
-        <View style={s.previewBox}>
-          <Icon name="alert-circle-outline" size={20} color={theme.danger} />
-          <Text style={[s.previewText, { color: theme.danger }]}>
-            {renderError}
-          </Text>
-        </View>
-      ) : canRenderInline && WebView ? (
-        canMount ? (
-          <View style={s.webWrap}>
-            <WebView
-              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={webSource}
-              scrollEnabled={false}
-              style={s.webview}
-              javaScriptEnabled
-              domStorageEnabled={false}
-              onLoadEnd={onLoaded}
-              onMessage={handleWebViewMessage}
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-            />
-          </View>
-        ) : (
-          <View style={s.loadingWrap}>
-            <ActivityIndicator color={theme.primary} />
-          </View>
-        )
-      ) : (
-        <View style={s.previewBox}>
-          <Text style={s.previewText}>{smiles}</Text>
-          <Text style={s.fallbackHint}>{t("rich.chemistry_dev_build")}</Text>
-        </View>
-      )}
+      <Chemistry2DView smiles={smiles} />
 
       <View style={s.actions}>
         <CopyButton text={smiles} />

@@ -22,10 +22,14 @@ const VISUAL_LABELS: Record<string, string> = {
   graph: "Graph",
   smiles: "Chemical structure",
   chemistry: "Chemical structure",
+  molecule: "Chemical structure",
   molecule3d: "Chemical structure",
   mol3d: "Chemical structure",
   "3dmol": "Chemical structure",
 };
+
+const CHEM_VISUAL_LANGS = new Set(["smiles", "chemistry"]);
+const MOL3D_LANGS = new Set(["molecule3d", "mol3d", "3dmol"]);
 
 const CALLOUT_LANGS = new Set([
   "tip",
@@ -247,18 +251,33 @@ function shouldReplaceFence(fence: Fence): boolean {
   return false;
 }
 
+function isPairedMolecule3d(prev: Fence | null, fence: Fence, markdown: string): boolean {
+  if (!prev || !MOL3D_LANGS.has(fence.lang) || !CHEM_VISUAL_LANGS.has(prev.lang)) {
+    return false;
+  }
+  return markdown.slice(prev.end, fence.start).trim() === "";
+}
+
 /** Replace known rich fences with a human summary; leave real code/math alone. */
 export function replaceRichFences(markdown: string): string {
-  const fences = iterFences(markdown).filter(shouldReplaceFence);
+  const fences = iterFences(markdown);
   if (fences.length === 0) return markdown;
   const parts: string[] = [];
   let cursor = 0;
+  let prev: Fence | null = null;
+  let replaced = false;
   for (const fence of fences) {
-    parts.push(markdown.slice(cursor, fence.start));
-    const replacement = fallbackForFence(fence);
-    parts.push(replacement);
-    cursor = fence.end;
+    if (shouldReplaceFence(fence)) {
+      parts.push(markdown.slice(cursor, fence.start));
+      // Persist still emits smiles + molecule3d. Skip the second "Chemical
+      // structure" label when they are adjacent (mobile collapses them).
+      parts.push(isPairedMolecule3d(prev, fence, markdown) ? "" : fallbackForFence(fence));
+      cursor = fence.end;
+      replaced = true;
+    }
+    prev = fence;
   }
+  if (!replaced) return markdown;
   parts.push(markdown.slice(cursor));
   return parts.join("").replace(/\n{3,}/g, "\n\n");
 }

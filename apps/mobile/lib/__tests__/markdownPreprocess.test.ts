@@ -496,6 +496,38 @@ represents`;
     expect(fences.some((t) => t.info?.trim() === "molecule3d")).toBe(true);
   });
 
+  it("collapses adjacent closed smiles + molecule3d into one molecule fence", () => {
+    const input =
+      "```smiles\nCCO\n```\n\n```molecule3d\nEthanol\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0  0\n    2.5000    1.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n```";
+    const out = preprocessMarkdown(input);
+    const tokens = markdownItInstance.parse(out, {});
+    const fences = tokens.filter((t) => t.type === "fence");
+    expect(fences.map((t) => t.info?.trim())).toEqual(["molecule"]);
+    expect(out).toContain("CCO");
+    expect(out).not.toContain("```smiles");
+    expect(out).not.toContain("```molecule3d");
+  });
+
+  it("leaves unpaired smiles and standalone molecule3d alone", () => {
+    const smilesOnly = preprocessMarkdown("```smiles\nCCO\n```");
+    expect(markdownItInstance.parse(smilesOnly, {}).some((t) => t.type === "fence" && t.info?.trim() === "smiles")).toBe(true);
+
+    const input =
+      "Here's the 3D structure: ```molecule3d\nO2\n\n     RDKit          3D\n\n  2  1  0  0  0  0  0  0  0  0999 V2000\nM  END\n```";
+    const out = preprocessMarkdown(input);
+    const fences = markdownItInstance.parse(out, {}).filter((t) => t.type === "fence");
+    expect(fences.some((t) => t.info?.trim() === "molecule3d")).toBe(true);
+    expect(fences.some((t) => t.info?.trim() === "molecule")).toBe(false);
+  });
+
+  it("does not collapse while the trailing molecule3d fence is still open", () => {
+    const input = "```smiles\nCCO\n```\n\n```molecule3d\nEthanol\n     RDKit";
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```smiles");
+    expect(out).toContain("```molecule3d");
+    expect(out).not.toMatch(/```molecule\n/);
+  });
+
   it("BUG FIX regression: does not unwrap a math fence just because its content starts with a dollar sign", () => {
     // The price-tier-corruption check matched any body starting with "$",
     // not just the specific "$)" artifact left on its own line by a botched

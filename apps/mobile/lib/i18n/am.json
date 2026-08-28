@@ -690,6 +690,8 @@
   "rich.chart": "ገበታ",
   "rich.chart_dev_build": "የገበታ ቅድመ እይታ የልማት ግንባታ ይፈልጋል",
   "rich.chart_error": "ገበታውን ማሳየት አልተቻለም።",
+  "rich.chemistry_2d": "2ዲ",
+  "rich.chemistry_3d": "3ዲ",
   "rich.chemistry_3d_dev_build": "የ3ዲ ሞሌኪውል ቅድሚያ የዴቭ ግንባታ ይፈልጋል።",
   "rich.chemistry_dev_build": "መዋቅሮችን ለማየት መተግበሪያውን ይገንቡ።",
   "rich.chemistry_invalid": "ያንን መዋቅር ማሳየት አልተቻለም።",

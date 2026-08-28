@@ -50,6 +50,7 @@ const LEGACY_STRUCTURED = [
   "graph",
   "smiles",
   "chemistry",
+  "molecule",
   "molecule3d",
   "mol3d",
   "3dmol",
@@ -87,6 +88,7 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "geometry",
   "smiles",
   "chemistry",
+  "molecule",
   "molecule3d",
   "mol3d",
   "3dmol",
@@ -165,6 +167,9 @@ describe("fence registry lookups", () => {
     expect(FENCES.find((f) => f.id === "email")?.owner).toBe("model");
     expect(FENCES.find((f) => f.id === "answer")?.owner).toBe("server");
     expect(FENCES.find((f) => f.id === "steps")?.owner).toBe("legacy");
+    expect(FENCES.find((f) => f.id === "molecule")?.owner).toBe("server");
+    expect(fenceIdForLang("molecule")).toBe("molecule");
+    expect(fenceIdForLang("molecule3d")).toBe("molecule3d");
   });
 
   it("has no duplicate language tag across fences", () => {

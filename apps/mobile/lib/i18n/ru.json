@@ -690,6 +690,8 @@
   "rich.chart": "График",
   "rich.chart_dev_build": "Предпросмотр графика требует dev-сборку",
   "rich.chart_error": "Не удалось построить график.",
+  "rich.chemistry_2d": "2D",
+  "rich.chemistry_3d": "3D",
   "rich.chemistry_3d_dev_build": "3D-просмотр молекул требует dev-сборки.",
   "rich.chemistry_dev_build": "Соберите приложение, чтобы видеть структуры.",
   "rich.chemistry_invalid": "Не удалось отобразить эту структуру.",
