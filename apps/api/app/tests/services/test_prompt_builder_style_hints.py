@@ -170,6 +170,32 @@ def test_chart_query_gets_vega_fence_layout():
     assert CHART_FORMAT_HINT in rich
 
 
+def test_mermaid_query_gets_flowchart_fence_layout():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        MERMAID_FORMAT_HINT,
+    )
+
+    slim = _style_format_hints(
+        query_text="Draw a mermaid flowchart of making a cup of coffee",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert MERMAID_FORMAT_HINT in slim
+    assert COMPACT_RESPONSE_FORMAT_HINT not in slim
+
+    rich = _style_format_hints(
+        query_text="Draw a mermaid flowchart of making a cup of coffee",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=False,
+    )
+    assert MERMAID_FORMAT_HINT in rich
+
+
 def test_vs_query_gets_table_then_code_card_layout():
     from app.services.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,

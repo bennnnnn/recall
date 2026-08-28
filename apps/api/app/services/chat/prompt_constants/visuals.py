@@ -45,7 +45,9 @@ VISUALIZATION_HINTS = (
     'Link with href="styles.css" / src="app.js" or omit the tags — leftover CSS/JS is '
     "appended. Do not invent other files or a build step.\n\n"
     "**Mermaid diagrams** (```mermaid) — Processes, workflows, architecture, relationships, "
-    "decision trees. Prefer over bullet lists when showing connections. Not for molecules.\n\n"
+    "decision trees. Prefer over bullet lists when showing connections. Lead with the "
+    "```mermaid fence (one short sentence max, no joke setup). Match the steps they "
+    "asked for. Not for molecules.\n\n"
     "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends. "
     "You CAN draw these in-app. NEVER say you cannot draw a chart. "
     "NEVER mermaid, a pipe table, or HTML for a bar/line/pie series. "

@@ -42,6 +42,7 @@ from app.services.chat.prompt_constants import (
     MATH_INTENT_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
+    MERMAID_FORMAT_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
     SHORT_MATH_SAFETY_HINT,
@@ -57,6 +58,7 @@ from app.services.chat.prompt_constants import (
     is_chart_question,
     is_comparison_question,
     is_learning_progress_question,
+    is_mermaid_question,
     is_writing_deliverable_request,
 )
 from app.services.chat.stream_status import StreamStatusFn
@@ -530,6 +532,8 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return None
     if is_chart_question(query_text):
         return CHART_FORMAT_HINT
+    if is_mermaid_question(query_text):
+        return MERMAID_FORMAT_HINT
     if is_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     return None
@@ -576,8 +580,8 @@ def _style_format_hints(
         # table. ChatGPT-shaped: answer first, no invented chrome.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         layout = _layout_format_hint(query_text)
-        # Compact "plain prose" turns a bar-chart ask into a joke + markdown
-        # table (or broken mermaid). Chart / compare turns get their fence.
+        # Compact "plain prose" turns chart/flowchart/compare asks into a
+        # joke, table, or clipped 2-node mermaid. Those turns get a fence hint.
         parts.append(layout if layout else COMPACT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     else:
