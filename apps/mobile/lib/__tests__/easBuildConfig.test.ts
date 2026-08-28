@@ -12,8 +12,11 @@ describe("easBuildConfig", () => {
     expect(includeDevClientPlugin("production")).toBe(false);
   });
 
-  it("requires EXPO_PUBLIC_API_URL for release builds", () => {
+  it("requires a public HTTPS EXPO_PUBLIC_API_URL for release builds", () => {
     expect(() => requirePublicApiUrlForReleaseBuild("development", undefined)).not.toThrow();
+    expect(() =>
+      requirePublicApiUrlForReleaseBuild("development", "http://localhost:8000"),
+    ).not.toThrow();
     expect(() =>
       requirePublicApiUrlForReleaseBuild("production", "https://api.example.com"),
     ).not.toThrow();
@@ -22,6 +25,18 @@ describe("easBuildConfig", () => {
     );
     expect(() => requirePublicApiUrlForReleaseBuild("preview", "  ")).toThrow(
       /EXPO_PUBLIC_API_URL/,
+    );
+    expect(() =>
+      requirePublicApiUrlForReleaseBuild("production", "http://api.example.com"),
+    ).toThrow(/https:\/\//);
+    expect(() =>
+      requirePublicApiUrlForReleaseBuild("preview", "https://localhost"),
+    ).toThrow(/https:\/\//);
+    expect(() =>
+      requirePublicApiUrlForReleaseBuild("production", "https://127.0.0.1"),
+    ).toThrow(/https:\/\//);
+    expect(() => requirePublicApiUrlForReleaseBuild("production", "not-a-url")).toThrow(
+      /valid https:\/\//,
     );
   });
 

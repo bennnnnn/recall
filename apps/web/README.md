@@ -19,7 +19,8 @@ The API must be running (`./scripts/dev.sh api` on port 8000).
 
 ### Environment
 
-- `VITE_API_URL` — API base URL (default `http://localhost:8000`).
+- `VITE_API_URL` — API base URL (default `http://localhost:8000` for `pnpm dev`).
+  Production builds (`pnpm build`) require a public `https://` URL.
 - `VITE_GOOGLE_CLIENT_ID` — Google Identity Services web client ID. **Same**
   as the API `GOOGLE_CLIENT_ID` / mobile `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
 
