@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
+from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
 from app.services import tool_loop
 from app.services.mcp.web_search_adapter import WebSearchAdapter
@@ -388,3 +389,40 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     assert terminal is None
     assert out == messages
     complete.assert_awaited_once()
+
+
+def test_tool_loop_completion_alias_avoids_reasoning_models():
+    assert tool_loop._tool_loop_completion_alias("smart-chat") == "free-chat"
+    assert tool_loop._tool_loop_completion_alias("free-chat") == "free-chat"
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_uses_fast_alias_for_smart_chat(web_search_registered):
+    messages = [{"role": "user", "content": "search the latest news"}]
+    complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
+    with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
+        await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True),
+            model_alias="smart-chat",
+            messages=messages,
+            usage={},
+        )
+    assert complete.await_args.kwargs["model_alias"] == "free-chat"
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
+    messages = [{"role": "user", "content": "search the latest news"}]
+    complete = AsyncMock(
+        side_effect=ModelUnavailableError("down", failed_alias="free-chat"),
+    )
+    with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
+        out, verified, terminal = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True),
+            model_alias="smart-chat",
+            messages=messages,
+            usage={},
+        )
+    assert out == messages
+    assert verified is None
+    assert terminal is None

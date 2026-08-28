@@ -27,6 +27,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
 from app.models.orm import User
 from app.services import plan as plan_service
@@ -35,6 +36,7 @@ from app.services.math_tools import VerifiedMathBlock
 from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context
+from app.services.model_catalog import auto_fast_alias, is_reasoning_alias
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +111,17 @@ def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
         return None
     value = args.get(key)
     return clip_status_detail(value) if isinstance(value, str) else None
+
+
+def _tool_loop_completion_alias(model_alias: str) -> str:
+    """Tool selection is a non-streaming round with a hard timeout.
+
+    smart/max aliases (R1, …) think silently and blow that budget, which
+    surfaces as ``ModelUnavailableError`` after ~30s on a simple equation.
+    """
+    if is_reasoning_alias(model_alias):
+        return auto_fast_alias()
+    return model_alias
 
 
 def turn_needs_tool_loop(
@@ -246,13 +259,16 @@ async def _run_tool_rounds_bound(
         try:
             msg = await litellm_gateway.complete_with_tools(
                 settings=settings,
-                model_alias=model_alias,
+                model_alias=_tool_loop_completion_alias(model_alias),
                 messages=working,
                 tools=tools,
                 max_tokens=settings.max_output_tokens,
                 usage=usage,
                 timeout_seconds=settings.mcp_tool_loop_timeout_seconds,
             )
+        except ModelUnavailableError:
+            logger.warning("Tool-loop completion failed; falling through to stream")
+            break
         except Exception:
             logger.exception("Tool-loop completion failed; falling through to stream")
             break
