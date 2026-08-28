@@ -2,20 +2,24 @@
  * Chart block — renders ```chart / ```vega / ```vega-lite / ```plot fences
  * inline via WebView + Vega-Embed so the user sees the actual chart, not raw JSON.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
+import { buildVegaHtml } from "@/lib/chartPreviewHtml";
 import {
+  CHART_HEIGHT_EPSILON_PX,
+  CHART_MAX_EXPANDED,
+  CHART_MAX_HEIGHT,
+  CHART_MIN_HEIGHT,
   CHART_PREVIEW_HEIGHT,
-  CHART_WEBVIEW_WIDTH,
-  buildVegaHtml,
-} from "@/lib/chartPreviewHtml";
+  nextChartPreviewHeight,
+} from "@/lib/chartPreviewHeight";
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -28,9 +32,14 @@ import {
 type Props = { content: string };
 
 type ChartErrorMessage = { kind: "chart-error"; message?: string };
+type ChartSizeMessage = { kind: "chart-size"; height?: number };
 
 function isChartErrorMessage(data: unknown): data is ChartErrorMessage {
   return typeof data === "object" && data !== null && (data as { kind?: string }).kind === "chart-error";
+}
+
+function isChartSizeMessage(data: unknown): data is ChartSizeMessage {
+  return typeof data === "object" && data !== null && (data as { kind?: string }).kind === "chart-size";
 }
 
 export function ChartBlock({ content }: Props) {
@@ -40,8 +49,17 @@ export function ChartBlock({ content }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showSource, setShowSource] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [viewWidth, setViewWidth] = useState(0);
+  const [previewHeight, setPreviewHeight] = useState(CHART_PREVIEW_HEIGHT);
+  const heightRef = useRef(CHART_PREVIEW_HEIGHT);
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
 
-  const vegaHtml = useMemo(() => buildVegaHtml(content, theme), [content, theme]);
+  const plotWidth = viewWidth > 0 ? viewWidth - 16 : 320;
+  const vegaHtml = useMemo(
+    () => buildVegaHtml(content, theme, plotWidth),
+    [content, theme, plotWidth],
+  );
   const source = useMemo(() => ({ html: vegaHtml }), [vegaHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
@@ -51,10 +69,25 @@ export function ChartBlock({ content }: Props) {
   );
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(vegaHtml);
 
+  const maxHeight = expanded ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
+  const height = Math.min(previewHeight, maxHeight);
+
   const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
     try {
-      const data = JSON.parse(event.nativeEvent.data ?? "{}");
-      if (isChartErrorMessage(data)) setRenderError(data.message ?? t("rich.chart_error"));
+      const data: unknown = JSON.parse(event.nativeEvent.data ?? "{}");
+      if (isChartErrorMessage(data)) {
+        setRenderError(data.message ?? t("rich.chart_error"));
+        return;
+      }
+      if (isChartSizeMessage(data)) {
+        const reported = Number(data.height);
+        if (!Number.isFinite(reported) || reported <= 0) return;
+        const maxH = expandedRef.current ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
+        const next = nextChartPreviewHeight(reported, heightRef.current, maxH);
+        if (next == null) return;
+        heightRef.current = next;
+        setPreviewHeight(next);
+      }
     } catch {
       setRenderError(t("rich.chart_error"));
     }
@@ -65,8 +98,25 @@ export function ChartBlock({ content }: Props) {
     await WebBrowser.openBrowserAsync("https://vega.github.io/editor/");
   }, [content]);
 
+  const toggleExpanded = useCallback(() => {
+    setExpanded((was) => {
+      const next = !was;
+      const maxH = next ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
+      const clamped = Math.min(maxH, Math.max(CHART_MIN_HEIGHT, heightRef.current));
+      heightRef.current = clamped;
+      setPreviewHeight(clamped);
+      return next;
+    });
+  }, []);
+
   return (
-    <View style={s.wrap}>
+    <View
+      style={s.wrap}
+      onLayout={(e) => {
+        const w = Math.floor(e.nativeEvent.layout.width);
+        if (w > 0 && Math.abs(w - viewWidth) > CHART_HEIGHT_EPSILON_PX) setViewWidth(w);
+      }}
+    >
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Icon name="bar-chart-outline" size={16} color={theme.primary} />
@@ -77,9 +127,9 @@ export function ChartBlock({ content }: Props) {
         </Text>
       </View>
 
-      <View style={[s.previewBox, expanded && s.previewBoxExpanded]}>
+      <View style={[s.previewBox, { height }]}>
         {renderError ? (
-          <View style={s.previewPlaceholder}>
+          <View style={[s.previewPlaceholder, { height }]}>
             <Icon name="alert-circle-outline" size={20} color={theme.danger} />
             <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
               {renderError}
@@ -87,34 +137,24 @@ export function ChartBlock({ content }: Props) {
           </View>
         ) : WebView && canRenderInlineChart ? (
           canMount ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator
-              contentContainerStyle={s.chartScrollContent}
-              style={s.chartScroll}
-            >
-              <WebView
-                originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-                source={source}
-                style={{
-                  height: expanded ? CHART_PREVIEW_HEIGHT * 2 : CHART_PREVIEW_HEIGHT,
-                  width: CHART_WEBVIEW_WIDTH,
-                }}
-                scrollEnabled={false}
-                javaScriptEnabled
-                domStorageEnabled={false}
-                onLoadEnd={onLoaded}
-                onMessage={handleWebViewMessage}
-                onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-              />
-            </ScrollView>
+            <WebView
+              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
+              source={source}
+              style={{ height, width: viewWidth > 0 ? viewWidth : 320 }}
+              scrollEnabled={false}
+              javaScriptEnabled
+              domStorageEnabled={false}
+              onLoadEnd={onLoaded}
+              onMessage={handleWebViewMessage}
+              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+            />
           ) : (
-            <View style={s.previewPlaceholder}>
+            <View style={[s.previewPlaceholder, { height }]}>
               <ActivityIndicator color={theme.primary} />
             </View>
           )
         ) : (
-          <View style={s.previewPlaceholder}>
+          <View style={[s.previewPlaceholder, { height }]}>
             <Text style={s.previewPlaceholderText}>
               {t("rich.chart_dev_build")}
             </Text>
@@ -149,7 +189,7 @@ export function ChartBlock({ content }: Props) {
 
         <Pressable
           style={s.iconBtn}
-          onPress={() => setExpanded((v) => !v)}
+          onPress={toggleExpanded}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
@@ -161,9 +201,14 @@ export function ChartBlock({ content }: Props) {
           />
         </Pressable>
 
-        <Pressable style={s.openBtn} onPress={handleOpenVegaEditor} hitSlop={8}>
-          <Icon name="open-outline" size={18} color={theme.onPrimary} />
-          <Text style={s.openLabel}>{t("rich.vega_editor")}</Text>
+        <Pressable
+          style={s.iconBtn}
+          onPress={handleOpenVegaEditor}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("rich.vega_editor")}
+        >
+          <Icon name="open-outline" size={20} color={theme.textSecondary} />
         </Pressable>
       </View>
     </View>
@@ -195,14 +240,11 @@ function makeStyles(t: Theme) {
     lineCount: { ...Type.meta, color: t.textTertiary },
     previewBox: {
       backgroundColor: t.bg,
+      overflow: "hidden",
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    previewBoxExpanded: {},
-    chartScroll: { backgroundColor: t.bg },
-    chartScrollContent: { flexGrow: 1, alignItems: "center" },
     previewPlaceholder: {
-      height: CHART_PREVIEW_HEIGHT,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 16,
@@ -232,7 +274,6 @@ function makeStyles(t: Theme) {
       gap: 4,
       paddingHorizontal: 10,
       paddingVertical: 6,
-      flexWrap: "wrap",
     },
     iconBtn: {
       width: 32,
@@ -240,16 +281,5 @@ function makeStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    openBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 10,
-      backgroundColor: t.primary,
-    },
-    openLabel: { fontSize: 14, fontWeight: "700", color: t.onPrimary },
   });
 }

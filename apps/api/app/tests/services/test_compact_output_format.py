@@ -63,8 +63,8 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
     joined = "\n".join(parts)
     assert "you CAN draw this chart" in joined
     assert "NEVER substitute a markdown table" in joined
-    assert "alphabetize" in joined
-    assert "no mean/stats recap" in joined
+    assert "horizontal bars" in joined
+    assert "no leftover numbers" in joined
     assert "No ## headings" not in joined
 
 

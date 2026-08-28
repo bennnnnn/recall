@@ -1,5 +1,6 @@
 import {
   buildVegaHtml,
+  normalizeChartSpec,
   preserveChartCategoryOrder,
 } from "@/lib/chartPreviewHtml";
 import { CHART_PREVIEW_CSP, PREVIEW_CSP } from "@/lib/previewSandbox";
@@ -48,6 +49,35 @@ describe("preserveChartCategoryOrder", () => {
   });
 });
 
+describe("normalizeChartSpec", () => {
+  it("swaps named-category x to y so month labels sit on the left", () => {
+    const spec = {
+      mark: "bar",
+      data: { values: [{ month: "Jan", inches: 5.7 }] },
+      encoding: {
+        x: { field: "month", type: "nominal" },
+        y: { field: "inches", type: "quantitative" },
+      },
+    };
+    normalizeChartSpec(spec);
+    expect((spec.encoding.y as { field?: string }).field).toBe("month");
+    expect((spec.encoding.x as { field?: string }).field).toBe("inches");
+    expect((spec.encoding.y as { sort?: unknown }).sort).toBeNull();
+  });
+
+  it("does not swap line charts", () => {
+    const spec = {
+      mark: "line",
+      encoding: {
+        x: { field: "month", type: "nominal" },
+        y: { field: "inches", type: "quantitative" },
+      },
+    };
+    normalizeChartSpec(spec);
+    expect((spec.encoding.x as { field?: string }).field).toBe("month");
+  });
+});
+
 describe("buildVegaHtml", () => {
   it("injects the chart CSP so Vega Function() compile is allowed", () => {
     const html = buildVegaHtml(
@@ -61,7 +91,7 @@ describe("buildVegaHtml", () => {
     expect(html).toContain("connect-src 'none'");
   });
 
-  it("does not use a 100vh body, and embeds sort null for category x", () => {
+  it("reports SVG size, disables tooltip, and does not use a 100vh body", () => {
     const html = buildVegaHtml(
       JSON.stringify({
         $schema: "https://vega.github.io/schema/vega-lite/v5.json",
@@ -72,5 +102,8 @@ describe("buildVegaHtml", () => {
     );
     expect(html).not.toContain("100vh");
     expect(html).toContain('"sort":null');
+    expect(html).toContain("chart-size");
+    expect(html).toContain("tooltip: false");
+    expect(html).toContain("overflow: hidden");
   });
 });
