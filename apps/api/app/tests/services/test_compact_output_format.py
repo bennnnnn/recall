@@ -28,6 +28,23 @@ def test_compact_turn_skips_rich_format_pack():
     assert "do not invent a topic essay" in joined.lower()
 
 
+def test_compact_compare_turn_uses_table_then_code_cards_not_plain_prose():
+    from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text="Compare Python vs Java for a beginner. Side by side on typing, syntax, and use cases.",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert COMPARISON_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    joined = "\n".join(parts)
+    assert "code cards" in joined
+    assert "No ## headings" not in joined
+
+
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",

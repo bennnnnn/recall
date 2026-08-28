@@ -15,18 +15,19 @@ _COMPARISON_TURN = re.compile(
 )
 
 COMPARISON_FORMAT_HINT = (
-    "This turn is a comparison (X vs Y / feature grid). Lead with a markdown "
-    "pipe table of short prose cells — do NOT answer as long bullet paragraphs "
-    "and do NOT put code in the table.\n"
-    "Required shape:\n"
-    "| Feature | Option A | Option B |\n"
+    "This turn is X vs Y. Layout (do not write a wall of prose):\n"
+    "1. Lead with a GFM pipe table. Use their option names as columns. "
+    "Cells are one short phrase. NEVER put source code, ``` fences, <br>, or HTML in a cell.\n"
+    "| Area | First option | Second option |\n"
     "| --- | --- | --- |\n"
     "| Typing | Dynamically typed | Statically typed |\n"
-    "Cells are one short phrase. NEVER ``` fences, <br>, or HTML in a cell.\n"
-    "After the table: ### headings for rows that need examples, each with tagged "
-    "```python / ```java (etc.) fences. End with a short which-to-choose "
-    "recommendation if they asked. Proper GFM — every row starts and ends with |; "
-    "never wrap the table in a code fence."
+    "2. AFTER the table, ### headings for the rows they asked about. Under each: "
+    "1-2 sentences, then a tagged code fence per option (```python then ```java, "
+    "or the languages they named) — those render as code cards. "
+    "Do not dump code as indented prose.\n"
+    "3. End with ### Which should a beginner choose? (or equivalent) and a short "
+    "recommendation.\n"
+    "Every table row starts and ends with |. Never wrap the table in a fence."
 )
 
 
@@ -140,8 +141,10 @@ COMPACT_RESPONSE_FORMAT_HINT = (
 
 # Appended after the tone line so "funny" cannot override answer-first format.
 TONE_FORMAT_GUARD = (
-    "Configured tone is word choice only. Do not add a joke setup, recap, or "
-    "table before the answer. Funny never means a bit about the question."
+    "Configured tone is word choice only. Do not add a joke setup or recap "
+    "before the answer. Funny never means a bit about the question. "
+    "Do not invent a decorative table before the answer — an X vs Y compare "
+    "still leads with the pipe table."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the

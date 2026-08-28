@@ -144,16 +144,33 @@ def test_rich_turn_injects_format_contract_once_and_keeps_math():
     assert COMPARISON_FORMAT_HINT not in parts
 
 
-def test_vs_in_the_query_does_not_append_a_second_comparison_sermon():
-    from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
+def test_vs_query_gets_table_then_code_card_layout():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        COMPARISON_FORMAT_HINT,
+    )
 
-    parts = _style_format_hints(
+    rich = _style_format_hints(
         query_text="Python vs Java",
         style="balanced",
         is_day_plan=False,
         minimal_personal_context=False,
+        compact=False,
     )
-    assert COMPARISON_FORMAT_HINT not in parts
+    assert COMPARISON_FORMAT_HINT in rich
+    assert "code cards" in COMPARISON_FORMAT_HINT
+
+    slim = _style_format_hints(
+        query_text="Compare Python vs Java for a beginner. Side by side on typing, syntax, and use cases.",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert COMPARISON_FORMAT_HINT in slim
+    assert COMPACT_RESPONSE_FORMAT_HINT not in slim
+    joined = "\n".join(slim)
+    assert "No ## headings" not in joined
 
 
 def test_integration_hints_wraps_todos_section():

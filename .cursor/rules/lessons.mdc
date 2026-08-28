@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Compare Python vs Java was a wall of text, no code cards.** Slim/casual
+  turns inject `COMPACT_RESPONSE_FORMAT_HINT` (plain prose, no `##` headings).
+  `FORMAT_CONTRACT` only lands on rich turns, and `COMPARISON_FORMAT_HINT` was
+  never appended. On vs/compare queries, swap compact for that hint (table,
+  then `###` + tagged fences as code cards). Tone guard must not ban leading
+  with that table.
 - **Comparison table inside a python code block + no horizontal pan.**
   `breakAttachedMathFences` lifted `| … | ```python` onto its own line; the
   closer (` ``` | ```java`) never matched, so the next GFM table was fence
