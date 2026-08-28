@@ -3,6 +3,7 @@
  * tables, bold, and code (no Prism / rich cards). Callout fences render as
  * styled prose instead of raw "callout-tip" code. Geometry/graph fences keep
  * their SVG renderers so densified point dumps never become a wall of JSON.
+ * Sources, places, answers, and heavy visuals degrade to a short summary.
  */
 import { useMemo } from "react";
 import Markdown, { renderRules as defaultRules } from "react-native-markdown-display";
@@ -16,6 +17,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdownIt";
 import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
+import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { Theme, useTheme } from "@/lib/theme";
 
 // react-native-markdown-display's AST exposes the fence's language tag as
@@ -61,6 +63,14 @@ export function FallbackMarkdown({ content }: Props) {
   );
 }
 
+function visualFallbackLabel(lang: string, t: (key: string) => string): string {
+  const id = fenceIdForLang(lang);
+  if (id === "chart") return t("rich.chart");
+  if (id === "mermaid") return t("rich.mermaid_diagram");
+  if (id === "chemistry" || id === "molecule3d") return t("rich.chemistry_structure");
+  return t("rich.diagram");
+}
+
 function renderFallbackFence(
   node: FenceNode,
   fenceStyles: ReturnType<typeof makeFenceStyles>,
@@ -84,6 +94,44 @@ function renderFallbackFence(
   }
   if (classified.kind === "graph") {
     return <FunctionGraphBlock key={node.key} content={classified.body} />;
+  }
+  if (classified.kind === "answer") {
+    if (!classified.body) return null;
+    return (
+      <View key={node.key} style={calloutStyles.wrap}>
+        <Text style={calloutStyles.body} selectable>
+          {classified.body}
+        </Text>
+      </View>
+    );
+  }
+  if (classified.kind === "sources" || classified.kind === "places") {
+    if (classified.items.length === 0) return null;
+    return (
+      <View key={node.key} style={calloutStyles.wrap}>
+        {classified.kind === "sources" ? (
+          <Text style={calloutStyles.label}>{t("rich.source")}</Text>
+        ) : null}
+        {classified.items.map((item, index) => (
+          <Text key={`${item.title}-${index}`} style={calloutStyles.body} selectable>
+            {item.url ? `${item.title} (${item.url})` : item.title}
+          </Text>
+        ))}
+      </View>
+    );
+  }
+  if (classified.kind === "visual") {
+    const label = visualFallbackLabel(classified.labelLang, t);
+    return (
+      <View key={node.key} style={calloutStyles.wrap}>
+        <Text style={calloutStyles.label}>{label}</Text>
+        {classified.snippet ? (
+          <Text style={calloutStyles.body} selectable>
+            {classified.snippet}
+          </Text>
+        ) : null}
+      </View>
+    );
   }
   if (!classified.code) return null;
   return (

@@ -146,12 +146,25 @@ describe("fence registry lookups", () => {
     }
   });
 
-  it("declares crash-fallback handling only for callout, geometry and graph", () => {
+  it("declares crash-fallback handling for callout, diagrams, answers, and transport", () => {
     expect(fallbackKindForLang("callout-tip")).toBe("callout");
     expect(fallbackKindForLang("geometry")).toBe("geometry");
     expect(fallbackKindForLang("graph")).toBe("graph");
-    expect(fallbackKindForLang("mermaid")).toBeNull();
-    expect(fallbackKindForLang("chart")).toBeNull();
+    expect(fallbackKindForLang("answer")).toBe("answer");
+    expect(fallbackKindForLang("sources")).toBe("sources");
+    expect(fallbackKindForLang("places")).toBe("places");
+    expect(fallbackKindForLang("mermaid")).toBe("visual");
+    expect(fallbackKindForLang("chart")).toBe("visual");
+    expect(fallbackKindForLang("python")).toBeNull();
+  });
+
+  it("marks every fence as model, server, or legacy", () => {
+    for (const spec of FENCES) {
+      expect(["model", "server", "legacy"]).toContain(spec.owner);
+    }
+    expect(FENCES.find((f) => f.id === "email")?.owner).toBe("model");
+    expect(FENCES.find((f) => f.id === "answer")?.owner).toBe("server");
+    expect(FENCES.find((f) => f.id === "steps")?.owner).toBe("legacy");
   });
 
   it("has no duplicate language tag across fences", () => {

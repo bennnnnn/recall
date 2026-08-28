@@ -510,8 +510,14 @@ def test_strips_non_graph_function_call_text() -> None:
 
 def test_appends_canonical_answer_when_model_omits_fence() -> None:
     verified = _verified({"type": "answer", "content": "x = 2"})
-    out = validate_math_fences("The solution is $x = 2$.", verified=verified)
+    out = validate_math_fences("The solution follows from the steps above.", verified=verified)
     assert "```answer\nx = 2\n```" in out
+
+
+def test_does_not_append_answer_when_prose_already_has_math_result() -> None:
+    verified = _verified({"type": "answer", "content": "x = 2"})
+    out = validate_math_fences("The solution is $x = 2$.", verified=verified)
+    assert "```answer" not in out
 
 
 def test_appends_canonical_geometry_when_model_omits_fence() -> None:
@@ -553,9 +559,33 @@ def test_appends_answer_and_graph_for_physics() -> None:
         canonical_answer="2.02 s",
     )
     out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
-    assert "```answer\n2.02 s\n```" in out
+    assert "```answer" not in out
     assert "```graph" in out
     assert json.loads(out.split("```graph")[1].split("```")[0].strip())["type"] == "trajectory"
+
+
+def test_appends_answer_when_prose_omits_verified_value() -> None:
+    verified = _verified({"type": "answer", "content": "x = 12"})
+    out = validate_math_fences("Worked steps follow.", verified=verified)
+    assert "```answer\nx = 12\n```" in out
+
+
+def test_skips_answer_pill_when_prose_already_states_result() -> None:
+    verified = _verified({"type": "answer", "content": "2.02 s"})
+    out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
+    assert "```answer" not in out
+
+
+def test_short_integer_in_exponent_does_not_suppress_answer_pill() -> None:
+    verified = _verified({"type": "answer", "content": "2"})
+    out = validate_math_fences("Consider $x^2$ for this problem.", verified=verified)
+    assert "```answer\n2\n```" in out
+
+
+def test_one_line_arithmetic_does_not_append_duplicate_answer() -> None:
+    verified = _verified({"type": "answer", "content": "3"})
+    out = validate_math_fences("$3 + 0 = 3$", verified=verified)
+    assert "```answer" not in out
 
 
 def test_does_not_duplicate_existing_answer_fence() -> None:

@@ -59,5 +59,6 @@ def test_fragment_gets_writing_line_hint():
 
 def test_universal_baseline_bans_invented_tables_and_hooks():
     assert "Never invent a pipe table" in UNIVERSAL_FORMAT_BASELINE
+    assert "schedules" in UNIVERSAL_FORMAT_BASELINE
     assert "Ah, the eternal question" in UNIVERSAL_FORMAT_BASELINE
     assert "word choice only" in TONE_FORMAT_GUARD

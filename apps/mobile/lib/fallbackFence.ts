@@ -2,26 +2,79 @@
  * Classify a fenced block for the crash-fallback renderer.
  *
  * When the rich markdown renderer throws, `FallbackMarkdown` renders a
- * best-effort view. Rich fences (callouts, charts, mermaid, math, …) would
- * otherwise show their raw preprocessed markup as monospace code — e.g. a
- * `> [!TIP]` callout becomes a code block literally labelled "callout-tip".
- * Callouts are common and their body is plain prose, so the fallback renders
- * them as a styled prose callout instead of code. Geometry/graph JSON fences
- * still render as native SVG (same as the happy path) — dumping densified
- * point arrays as code is unusable. Other structured fences (chart/mermaid/
- * math/…) stay as styled code blocks — their raw source is at least visible,
- * which is honest degradation.
+ * best-effort view. Callouts stay as labeled prose. Geometry/graph keep their
+ * SVG renderers. Server transport (sources/places/answer) and heavy visuals
+ * degrade to a short human summary — never raw JSON or SDF dumps.
  */
 import { parseGraphSpec } from "@/lib/graphBlock";
 import { parseGeometrySpec } from "@/lib/geometryBlock";
-import { fallbackKindForLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
+import { parseSearchSourcesJson } from "@/lib/searchSources";
+import { parsePlacesJson } from "@/lib/placesList";
+
+const VISUAL_SNIPPET_MAX = 80;
+
+export type FallbackNamedItem = { title: string; url?: string };
 
 export type FallbackFence =
   | { kind: "callout"; calloutKind: CalloutKind; body: string }
   | { kind: "geometry"; body: string }
   | { kind: "graph"; body: string }
+  | { kind: "answer"; body: string }
+  | { kind: "sources"; items: FallbackNamedItem[] }
+  | { kind: "places"; items: FallbackNamedItem[] }
+  | { kind: "visual"; labelLang: string; snippet: string }
   | { kind: "code"; lang: string; code: string };
+
+function firstNonEmptyLine(text: string): string {
+  const lines = text.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
+function lastNonEmptyLine(text: string): string {
+  const lines = text.split("\n");
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const trimmed = lines[i]?.trim() ?? "";
+    if (trimmed) return trimmed;
+  }
+  return "";
+}
+
+function clipSnippet(text: string): string {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length <= VISUAL_SNIPPET_MAX) return compact;
+  return `${compact.slice(0, VISUAL_SNIPPET_MAX).trim()}…`;
+}
+
+function visualSnippet(lang: string, body: string): string {
+  const id = fenceIdForLang(lang);
+  if (id === "molecule3d") {
+    const last = lastNonEmptyLine(body);
+    if (last && last.length <= VISUAL_SNIPPET_MAX && !last.startsWith("{")) {
+      return last;
+    }
+    return "";
+  }
+  const trimmed = body.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const title = (parsed as { title?: unknown }).title;
+        if (typeof title === "string" && title.trim()) return clipSnippet(title);
+      }
+    } catch {
+      // Fall through to a first-line snippet; never dump the spec.
+    }
+    return "";
+  }
+  return clipSnippet(firstNonEmptyLine(body));
+}
 
 export function classifyFallbackFence(
   lang: string | undefined,
@@ -29,9 +82,6 @@ export function classifyFallbackFence(
 ): FallbackFence {
   const l = (lang || "").trim().toLowerCase();
   const body = content.replace(/\n$/, "").trim();
-  // Which fences degrade specially is declared in lib/fenceRegistry.ts; the
-  // mistagged-```json detection below stays here because it is content-derived,
-  // not lang-derived.
   switch (fallbackKindForLang(l)) {
     case "callout":
       return { kind: "callout", calloutKind: parseCalloutKind(l), body };
@@ -39,6 +89,26 @@ export function classifyFallbackFence(
       return { kind: "geometry", body };
     case "graph":
       return { kind: "graph", body };
+    case "answer":
+      return { kind: "answer", body };
+    case "sources": {
+      const items = parseSearchSourcesJson(body).map((row) => {
+        const item: FallbackNamedItem = { title: row.title || row.url };
+        if (row.url) item.url = row.url;
+        return item;
+      });
+      return { kind: "sources", items };
+    }
+    case "places": {
+      const items = parsePlacesJson(body).map((row) => {
+        const item: FallbackNamedItem = { title: row.name };
+        if (row.url) item.url = row.url;
+        return item;
+      });
+      return { kind: "places", items };
+    }
+    case "visual":
+      return { kind: "visual", labelLang: l, snippet: visualSnippet(l, body) };
   }
   if (l === "json" && parseGeometrySpec(body)) {
     return { kind: "geometry", body };

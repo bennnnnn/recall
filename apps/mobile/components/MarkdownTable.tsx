@@ -76,15 +76,20 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
 
   return (
     <TableLayoutContext.Provider value={{ columnWidth }}>
-      <ScrollView
-        horizontal
-        scrollEnabled={scrollable}
-        showsHorizontalScrollIndicator={scrollable}
-        style={s.scroll}
-        nestedScrollEnabled
-      >
-        {table}
-      </ScrollView>
+      <View style={s.scrollWrap}>
+        <ScrollView
+          horizontal
+          scrollEnabled={scrollable}
+          showsHorizontalScrollIndicator={scrollable}
+          style={s.scroll}
+          nestedScrollEnabled
+        >
+          {table}
+        </ScrollView>
+        {scrollable ? (
+          <View pointerEvents="none" style={s.overflowCue} />
+        ) : null}
+      </View>
     </TableLayoutContext.Provider>
   );
 }
@@ -144,7 +149,17 @@ export function MarkdownTableCell(
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    scroll: { marginVertical: 10, backgroundColor: "transparent" },
+    scrollWrap: { marginVertical: 10, position: "relative" },
+    scroll: { backgroundColor: "transparent" },
+    overflowCue: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 3,
+      backgroundColor: theme.primary,
+      opacity: 0.35,
+    },
     table: {
       backgroundColor: "transparent",
       alignSelf: "stretch",

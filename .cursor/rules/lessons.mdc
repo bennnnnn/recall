@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Web GFM tables vanished.** marked parsed pipe tables, then DOMPurify
+  `ALLOWED_TAGS` omitted `table`/`img` so the cells disappeared. Allow table tags
+  and `img`; replace JSON rich fences with a short label before parse.
+- **Settled assistant showed chain-of-thought.** `ReasoningBlock` rendered live
+  CoT and kept `reasoning_preview` after `done`. Status/waiting is enough; do not
+  copy reasoning onto `Message` (second door, same class as recalled-memory chips).
 - **user_quota still ~1s after persist left the first-token path.** Every
   send ran `COUNT(*)` plus a Redis usage EXISTS while holding a Neon
   checkout. Use `len(recent)` when the window is not full; only COUNT when

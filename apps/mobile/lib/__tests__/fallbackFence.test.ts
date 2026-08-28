@@ -22,23 +22,46 @@ describe("classifyFallbackFence", () => {
     });
   });
 
-  it("classifies non-callout langs as code (preserving the lang)", () => {
+  it("classifies unknown langs as code and heavy visuals as summaries", () => {
     expect(classifyFallbackFence("python", "print('hi')")).toEqual({
       kind: "code",
       lang: "python",
       code: "print('hi')",
     });
-    // Rich structured langs stay as code in the fallback (raw source visible),
-    // except geometry/graph which still draw as SVG (see below).
     expect(classifyFallbackFence("mermaid", "graph TD")).toEqual({
-      kind: "code",
-      lang: "mermaid",
-      code: "graph TD",
+      kind: "visual",
+      labelLang: "mermaid",
+      snippet: "graph TD",
     });
     expect(classifyFallbackFence("chart", '{"data":[]}')).toEqual({
-      kind: "code",
-      lang: "chart",
-      code: '{"data":[]}',
+      kind: "visual",
+      labelLang: "chart",
+      snippet: "",
+    });
+  });
+
+  it("summarizes sources and places instead of dumping JSON", () => {
+    expect(
+      classifyFallbackFence(
+        "sources",
+        '[{"title":"Docs","url":"https://example.com"}]',
+      ),
+    ).toEqual({
+      kind: "sources",
+      items: [{ title: "Docs", url: "https://example.com" }],
+    });
+    expect(classifyFallbackFence("places", '[{"name":"Cafe"}]')).toEqual({
+      kind: "places",
+      items: [
+        expect.objectContaining({ title: "Cafe" }),
+      ],
+    });
+  });
+
+  it("renders answer fences as a plain result line", () => {
+    expect(classifyFallbackFence("answer", "x = 2")).toEqual({
+      kind: "answer",
+      body: "x = 2",
     });
   });
 

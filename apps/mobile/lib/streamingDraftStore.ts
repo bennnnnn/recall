@@ -6,7 +6,6 @@ export type StreamingDraft = {
   status?: string;
   /** Activity context for the status label (e.g. the web-search query). */
   statusDetail?: string;
-  reasoning?: string;
 };
 
 type Listener = () => void;

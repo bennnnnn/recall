@@ -199,6 +199,10 @@ async def test_reap_orphan_attachments_skips_rows_linked_after_list():
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
+        patch(
+            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            AsyncMock(return_value=0),
+        ),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
@@ -270,6 +274,10 @@ async def test_reap_orphan_attachments_no_orphans_is_noop():
         patch(
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            AsyncMock(return_value=0),
         ),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)

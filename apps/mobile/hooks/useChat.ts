@@ -54,7 +54,6 @@ export function useChat(
   const preferSseRef = useRef(false);
   const sseAbortRef = useRef<AbortController | null>(null);
   const assistantBuffer = useRef("");
-  const reasoningBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
   const draftRafRef = useRef<number | null>(null);
   const streamingRef = useRef(false);
@@ -197,7 +196,6 @@ export function useChat(
     connectingRef.current = null;
     preferSseRef.current = false;
     assistantBuffer.current = "";
-    reasoningBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
     editBackupRef.current = null;
@@ -220,7 +218,6 @@ export function useChat(
         setStreaming(true);
         streamingRef.current = true;
         assistantBuffer.current = "";
-        reasoningBuffer.current = "";
         // Keep the instant local status (set at send time) instead of
         // blanking the label until the server's first status event.
         updateStreamingDraft({
@@ -240,20 +237,11 @@ export function useChat(
             typeof payload.detail === "string" && payload.detail
               ? payload.detail
               : undefined,
-          reasoning: reasoningBuffer.current || undefined,
         });
       }
 
-      if (payload.type === "reasoning" && typeof payload.content === "string") {
-        reasoningBuffer.current += payload.content;
-        updateStreamingDraft({
-          content: assistantBuffer.current,
-          search_sources: streamingDraftRef.current?.search_sources,
-          status: streamingDraftRef.current?.status,
-          statusDetail: streamingDraftRef.current?.statusDetail,
-          reasoning: reasoningBuffer.current,
-        });
-      }
+      // `reasoning` events are ignored — CoT is not the answer; status/waiting
+      // already covers "the model is working".
 
       if (payload.type === "token") {
         assistantBuffer.current += payload.content ?? "";
@@ -262,7 +250,6 @@ export function useChat(
           search_sources: streamingDraftRef.current?.search_sources,
           status: undefined,
           statusDetail: undefined,
-          reasoning: reasoningBuffer.current || undefined,
         });
       }
 
@@ -284,7 +271,6 @@ export function useChat(
         streamingRef.current = false;
         finalizingRef.current = false;
         assistantBuffer.current = "";
-        reasoningBuffer.current = "";
         const draft = streamingDraftRef.current;
         updateStreamingDraft(null);
         setMessages((prev) =>
@@ -318,7 +304,6 @@ export function useChat(
         const draft = streamingDraftRef.current;
         const partial = (draft?.content ?? assistantBuffer.current).trim();
         assistantBuffer.current = "";
-        reasoningBuffer.current = "";
         if (shouldRestoreEditOnError(editBackupRef.current != null)) {
           // WS edit failures must restore the pre-edit thread — the optimistic
           // truncate already dropped later turns locally.
@@ -368,7 +353,6 @@ export function useChat(
     const draft = streamingDraftRef.current;
     const partial = (draft?.content ?? assistantBuffer.current).trim();
     assistantBuffer.current = "";
-    reasoningBuffer.current = "";
     if (!partial) return false;
 
     const keptId = `streamed-${Date.now()}`;
@@ -449,7 +433,6 @@ export function useChat(
           const failedRegenerateBackup = regenerateBackupRef.current;
           regenerateBackupRef.current = null;
           assistantBuffer.current = "";
-          reasoningBuffer.current = "";
           updateStreamingDraft(null);
           setSendingMessageId(null);
           if (failedEditBackup && !hadContent) {
@@ -657,7 +640,6 @@ export function useChat(
         ]);
       }
       assistantBuffer.current = "";
-      reasoningBuffer.current = "";
       // Typing dots immediately — don't wait for the socket or server `start`,
       // and don't leave "Sending" on the user bubble while we connect.
       if (!streamingRef.current) {
@@ -711,7 +693,6 @@ export function useChat(
     setStreaming(true);
     streamingRef.current = true;
     assistantBuffer.current = "";
-    reasoningBuffer.current = "";
     updateStreamingDraft({ content: "" });
     appendStreamingPlaceholder();
   }, [appendStreamingPlaceholder, updateStreamingDraft]);
@@ -766,7 +747,6 @@ export function useChat(
       setStreaming(true);
       streamingRef.current = true;
       assistantBuffer.current = "";
-      reasoningBuffer.current = "";
       updateStreamingDraft({ content: "" });
       appendStreamingPlaceholder();
 
@@ -827,7 +807,6 @@ export function useChat(
     streamingRef.current = false;
     const draft = streamingDraftRef.current;
     assistantBuffer.current = "";
-    reasoningBuffer.current = "";
     updateStreamingDraft(null);
     // After a stop the partial reply is the source of truth (the backend
     // already deleted any prior assistant on regenerate and persists this

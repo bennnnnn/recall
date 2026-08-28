@@ -126,3 +126,42 @@ def test_detect_quality_both_refusal_and_short():
     codes = {s.code for s in report.signals}
     assert "refusal_pattern" in codes
     assert "short_rich_reply" in codes
+
+
+def test_detect_quality_duplicate_answer():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(
+        ctx,
+        "The value is 12.\n```answer\n12\n```",
+    )
+    assert any(s.code == "duplicate_answer" for s in report.signals)
+
+
+def test_detect_quality_trailing_sources_is_not_raw_in_body():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(
+        ctx,
+        'Latest news.\n```sources\n[{"title": "A", "url": "https://a.example"}]\n```',
+    )
+    assert not any(s.code == "raw_sources_in_body" for s in report.signals)
+
+
+def test_detect_quality_sources_mid_body():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(
+        ctx,
+        'Intro.\n```sources\n[{"title": "A", "url": "https://a.example"}]\n```\nMore prose.',
+    )
+    assert any(s.code == "raw_sources_in_body" for s in report.signals)
+
+
+def test_detect_quality_unclosed_rich_fence():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(ctx, 'Plot:\n```graph\n{"type":"function"')
+    assert any(s.code == "unclosed_rich_fence" for s in report.signals)
+
+
+def test_detect_quality_malformed_json_fence():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(ctx, "```graph\n{bad json\n```")
+    assert any(s.code == "malformed_json_fence" for s in report.signals)

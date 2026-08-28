@@ -55,7 +55,10 @@ without Google — useful for local dev without a configured OAuth client.
 - Chat list (create / open)
 - Chat view with SSE streaming (`start` / `token` / `status` / `stream_end` /
   `done` / `error`), stop (abort), regenerate
-- Plain markdown rendering (no KaTeX / Mermaid / charts / HTML iframe yet)
+- Plain markdown rendering with GFM tables and images; JSON rich fences
+  (sources, places, graph, chart, …) become a short human label, not a code dump
+- Named source links under the reply (`search_sources` on `done`, or the
+  trailing ` ```sources ` fence on history reload)
 - Token storage in `sessionStorage` (tab-scoped); refresh on 401
 
 ## Later slices (not yet)

@@ -196,7 +196,6 @@ async def enrich_final_content(
 
         from app.services.sympy_executor import run_sympy
 
-        pre_validation_text = assistant_text
         try:
             assistant_text = await run_sympy(
                 seams.math_fence_service.validate_math_fences_worker,
@@ -227,7 +226,6 @@ async def enrich_final_content(
                 chemistry_fence as chemistry_fence_service,
             )
 
-            pre_chem_text = assistant_text
             try:
                 assistant_text = await run_sympy(
                     chemistry_fence_service.enrich_chemistry_fences_worker,
@@ -238,18 +236,12 @@ async def enrich_final_content(
                 logger.warning("enrich_chemistry_fences timed out; keeping raw assistant text")
             except Exception:
                 logger.exception("enrich_chemistry_fences failed; keeping raw assistant text")
-            if result is not None and assistant_text != pre_chem_text:
-                result["final_content"] = assistant_text
-        if result is not None and assistant_text != pre_validation_text:
-            result["final_content"] = assistant_text
-
         if ctx.search_sources:
             assistant_text = seams.web_search_service.strip_sources_from_text(assistant_text)
             if result is not None:
                 result["search_sources"] = json.dumps(
                     seams.web_search_service.sources_payload(ctx.search_sources)
                 )
-                result["final_content"] = assistant_text
             sources_fence = seams.web_search_service.format_sources_fence(ctx.search_sources)
             if sources_fence and not (should_cancel and should_cancel()):
                 assistant_text = f"{assistant_text}{sources_fence}".strip()
@@ -260,8 +252,6 @@ async def enrich_final_content(
                 assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
                 assistant_parts.append(places_fence)
                 assistant_text = "".join(assistant_parts).strip()
-                if result is not None:
-                    result["final_content"] = assistant_text
         if ctx.instant_reply and not usage:
             usage["output"] = 0
             usage["input"] = 0
@@ -269,25 +259,28 @@ async def enrich_final_content(
             transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
             if reminder_created > 0 or seams.todos_service.transcript_implies_todo_sync(transcript):
                 result["todos_sync"] = "1"
-            if reminder_created > 0:
-                result["final_content"] = assistant_text
-        if result is not None and was_cancelled and assistant_text:
-            result["final_content"] = assistant_text
 
         # Prose artifact cleanup — runs last so it never interferes with
         # fence parsing. Strips orphan colon lines and collapses 3+ blank
-        # lines. Only sets final_content when the text actually changes.
+        # lines.
         from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
 
         normalized = normalize_prose_artifacts(assistant_text)
         if prose_changed(assistant_text, normalized):
             assistant_text = normalized
-            if result is not None:
-                result["final_content"] = assistant_text
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text
         if result is not None and was_cancelled and assistant_text:
+            result["final_content"] = assistant_text
+        return assistant_text
+
+    # One write: done.final_content must equal the string we persist. Skip on
+    # an unchanged normal turn so done payloads stay small.
+    if result is not None:
+        if was_cancelled and assistant_text:
+            result["final_content"] = assistant_text
+        elif assistant_text != raw_assistant_text:
             result["final_content"] = assistant_text
     return assistant_text
 
