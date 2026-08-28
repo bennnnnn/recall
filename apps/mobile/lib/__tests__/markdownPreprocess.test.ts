@@ -433,6 +433,66 @@ represents`;
     expect(out).toContain("```python");
   });
 
+  it("BUG FIX regression: does not lift ```python out of a table cell", () => {
+    // Live: Python vs Java comparison — a Hello World cell started
+    // ```python, breakAttachedMathFences pulled it onto its own line, and
+    // the closer (` ``` | ```java`) never matched, so the Use Cases table
+    // rendered inside a python code block.
+    const row = "| Example (Hello World) | ```python";
+    expect(breakAttachedMathFences(row)).toBe(row);
+
+    const input = [
+      "| Feature | Python | Java |",
+      "| --- | --- | --- |",
+      "| Readability | high | verbose |",
+      "| Example (Hello World) | ```python",
+      'print("Hello, world!")',
+      "``` | ```java",
+      'System.out.println("Hello");',
+      "``` |",
+      "",
+      "### Use Cases",
+      "",
+      "| Feature | Python | Java |",
+      "| --- | --- | --- |",
+      "| Web Development | Django, Flask | Spring |",
+    ].join("\n");
+    const out = preprocessMarkdown(input);
+    const tokens = markdownItInstance.parse(out, {});
+    const fenceBodies = tokens
+      .filter((t) => t.type === "fence")
+      .map((t) => t.content)
+      .join("\n");
+    expect(fenceBodies).not.toMatch(/Web Development/);
+    expect(fenceBodies).not.toMatch(/Use Cases/);
+    expect(out).toContain("Web Development");
+    const tables = tokens.filter((t) => t.type === "table_open");
+    expect(tables.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("BUG FIX regression: unwraps a GFM table swallowed by a python fence", () => {
+    const input = [
+      "```python",
+      'print("Hello, world!")',
+      "",
+      "### Use Cases",
+      "",
+      "| Feature | Python | Java |",
+      "| --- | --- | --- |",
+      "| Web Development | Django, Flask | Spring |",
+      "```",
+    ].join("\n");
+    const out = preprocessMarkdown(input);
+    const tokens = markdownItInstance.parse(out, {});
+    expect(tokens.some((t) => t.type === "table_open")).toBe(true);
+    const fenceBodies = tokens
+      .filter((t) => t.type === "fence")
+      .map((t) => t.content)
+      .join("\n");
+    expect(fenceBodies).not.toMatch(/Web Development/);
+    expect(out).toContain("Django");
+  });
+
   it("BUG FIX regression: does not leave a stray backtick on a check-sum line", () => {
     // Live: "✅ Check sum: 2 + 8 + 32 = 42`" — leftover markdown tick.
     const input = "✅ Check sum: `2 + 8 + 32 = 42`\n✅ Check sum: 2 + 8 + 32 = 42`";

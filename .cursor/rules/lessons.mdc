@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Comparison table inside a python code block + no horizontal pan.**
+  `breakAttachedMathFences` lifted `| … | ```python` onto its own line; the
+  closer (` ``` | ```java`) never matched, so the next GFM table was fence
+  body. Don't detach fences from table rows; split a swallowed `| --- |`
+  table back out of ` ```python `. A ScrollView that grows to content width
+  cannot pan — lock the viewport to the bubble, hide the indicator (no
+  purple overflow strip). Prompt: short prose cells; code under ### after.
 - **Inline `\frac` numerators vanished over the line above.** iOS sizes a
   stacked-frac View inside markdown `Text` as 0×0, so the numerator paints on
   the previous sentence. Host those runs in a row-wrap View (`md-math-inline-wrap`);
