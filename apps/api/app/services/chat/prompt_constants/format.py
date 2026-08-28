@@ -56,16 +56,17 @@ CHART_FORMAT_HINT = (
     "you CAN draw this chart. NEVER say you cannot draw / cannot literally "
     "draw a chart. NEVER substitute a markdown table, mermaid, or ASCII bars.\n"
     "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence, "
-    "then the fence. No joke setup.\n"
-    "Use the numbers they gave as data.values. First key must be "
+    "then the fence. No joke setup. After the fence, stop — no mean/stats recap.\n"
+    "Use the numbers they gave as data.values in that order. First key must be "
     '"$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
-    "Prefer mark bar/line as asked.\n"
+    "Prefer mark bar/line as asked. On category/month x set "
+    '"sort": null so Vega does not alphabetize.\n'
     "Example shape only:\n"
     "```chart\n"
     '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",'
     '"description":"A simple bar chart","data":{"values":['
     '{"month":"Jan","inches":5.7},{"month":"Feb","inches":3.5}]},'
-    '"mark":"bar","encoding":{"x":{"field":"month","type":"nominal"},'
+    '"mark":"bar","encoding":{"x":{"field":"month","type":"nominal","sort":null},'
     '"y":{"field":"inches","type":"quantitative"}}}\n'
     "```"
 )

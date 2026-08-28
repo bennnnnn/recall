@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Bar chart months came out Apr, Feb, Jan… with a device-tall white card.**
+  Vega-Lite alphabetizes nominal x unless `sort` is null; the preview body used
+  `min-height: 100vh`, so the WebView ate the screen and the scroll-to-bottom
+  chevron sat on the last prose line. Normalize `encoding.x.sort = null` before
+  embed; drop the 100vh body. Prompt: listed order + stop after the fence.
 - **Chart card showed a CSP eval error instead of bars.** Vega compiles
   filter/calc expressions with `new Function()`. Default preview CSP is
   `script-src 'unsafe-inline'` only, so the WebView painted "Refused to
