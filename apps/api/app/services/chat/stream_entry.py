@@ -17,6 +17,21 @@ from app.services.chat.turn_timing import TurnTimingTracker
 logger = logging.getLogger(__name__)
 
 
+async def _prior_count_for_window(
+    recent: list[Any],
+    window: int,
+    *,
+    count_for_chat: Any,
+    session: Any,
+    chat_id: UUID,
+) -> int:
+    """Exact count only when the recent window is full (older rows may exist)."""
+    if len(recent) < window:
+        return len(recent)
+    raw_count = await count_for_chat(session, chat_id)
+    return raw_count if isinstance(raw_count, int) else len(recent)
+
+
 async def try_image_gen_for_turn(
     seams: Any,
     settings: Settings,
@@ -125,20 +140,33 @@ async def stream_chat_response(
             chat = None
             recent: list[Any] = []
             turn_mode = None
+            need_usage_seed = False
+            if not skip_usage_seed:
+                try:
+                    need_usage_seed = not await seams.quota_service.has_daily_usage_key(
+                        redis, str(user_id)
+                    )
+                except Exception:
+                    need_usage_seed = True
             async with seams.SessionLocal() as session:
                 if loaded is None:
                     loaded = await seams.users_repo.get_by_id(session, user_id)
                     if loaded is None:
                         raise ChatNotFoundError("User not found.")
-                if not skip_usage_seed:
+                if need_usage_seed:
                     await seams.seed_usage_from_db(redis, session, user_id)
                 chat = await seams.chats_repo.get_by_id(session, chat_id, user_id)
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
                 window = settings.recent_message_window
                 recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
-                raw_count = await seams.messages_repo.count_for_chat(session, chat_id)
-                prior_count = raw_count if isinstance(raw_count, int) else len(recent)
+                prior_count = await _prior_count_for_window(
+                    recent,
+                    window,
+                    count_for_chat=seams.messages_repo.count_for_chat,
+                    session=session,
+                    chat_id=chat_id,
+                )
                 turn_mode = await _classify_turn_mode(session, chat, content)
                 limit = seams.quota_service.daily_limit_for_user(loaded, settings)
                 resolved = seams.plan_service.resolve_user_model_override(

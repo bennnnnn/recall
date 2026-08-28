@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **user_quota still ~1s after persist left the first-token path.** Every
+  send ran `COUNT(*)` plus a Redis usage EXISTS while holding a Neon
+  checkout. Use `len(recent)` when the window is not full; only COUNT when
+  it is (older rows may exist). Check the Redis usage key before opening
+  Neon so a warm day does not pin a connection on EXISTS.
 - **Lightweight send still waited ~650ms after prompt was ready.** Persist
   overlapped prompt assembly, but gather waited for the Neon commit before
   LiteLLM. Start the model as soon as the prompt is ready; await the user-row
