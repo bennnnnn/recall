@@ -291,6 +291,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false) => {
       flexDirection: "row",
       alignItems: "center",
       flexShrink: 0,
+      overflow: "visible",
     },
     sup: {
       fontSize: 11,
@@ -306,6 +307,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false) => {
       alignItems: "center",
       justifyContent: "center",
       marginHorizontal: 3,
+      overflow: "visible",
     },
     fracSideRow: {
       flexDirection: "row",

@@ -1,6 +1,6 @@
 import { Children, Fragment, ReactNode } from "react";
 import { Icon } from "@/components/Icon";
-import { Image, Text, View } from "react-native";
+import { Image, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { MathText } from "@/components/rich/MathText";
@@ -79,6 +79,31 @@ function replaceHtmlBreaks(text: string): string {
   return text.replace(/<br\s*\/?>/gi, "\n");
 }
 
+/**
+ * Stacked frac/sqrt is a sized View. A Text ancestor on iOS gives that View a
+ * 0×0 text attachment, so the numerator paints over the line above. Use a
+ * wrapping row instead; keep Text when the run is only prose/scripts.
+ */
+function wrapInlineChildren(
+  node: AstNode,
+  children: ReactNode,
+  textStyle: StyleProp<TextStyle>,
+  wrapStyle: StyleProp<ViewStyle>,
+): React.ReactElement {
+  if (latexHasNestedMathView(astText(node))) {
+    return (
+      <View key={node.key} testID="md-math-inline-wrap" style={wrapStyle}>
+        {children}
+      </View>
+    );
+  }
+  return (
+    <Text key={node.key} style={textStyle} selectable>
+      {children}
+    </Text>
+  );
+}
+
 function renderTextWithMath(
   node: { key: string; content: string },
   parent: unknown,
@@ -104,6 +129,7 @@ function renderTextWithMath(
     return acc == null ? h : Math.max(acc, h);
   }, undefined);
   const base = [
+    styles.body,
     inheritedStyles,
     styles.text,
     inTableCell(parent) && mdTable.cellText,
@@ -249,18 +275,15 @@ function makeSharedRules(
       // `paragraph` already gives non-list content.
       if (parentHasType(parent, "list_item")) {
         const runHeight = mathRunLineHeight(astText(node));
-        return (
-          <Text
-            key={node.key}
-            style={[
-              styles.body,
-              styles.text,
-              runHeight != null && { lineHeight: runHeight },
-            ]}
-            selectable
-          >
-            {children}
-          </Text>
+        return wrapInlineChildren(
+          node,
+          children,
+          [
+            styles.body,
+            styles.text,
+            runHeight != null && { lineHeight: runHeight },
+          ],
+          mdMath.inlineWrap,
         );
       }
       return <Fragment key={node.key}>{children}</Fragment>;
@@ -385,42 +408,34 @@ function makeSharedRules(
         // the cell's Text gets clipped to the cell's default lineHeight.
         const cellRaw = astText(node);
         const cellRunHeight = mathRunLineHeight(cellRaw);
-        return (
-          <Text
-            key={node.key}
-            style={[
-              mdTable.cellText,
-              inTableHeader(parent) && mdTable.headerText,
-              cellRunHeight != null && { lineHeight: cellRunHeight },
-            ]}
-            selectable
-          >
-            {children}
-          </Text>
+        return wrapInlineChildren(
+          node,
+          children,
+          [
+            mdTable.cellText,
+            inTableHeader(parent) && mdTable.headerText,
+            cellRunHeight != null && { lineHeight: cellRunHeight },
+          ],
+          mdMath.inlineWrap,
         );
       }
-      // markdown-display flattens `inline` into `textgroup`, and we render
-      // textgroup as a Fragment so stacked \frac Views can sit in this Text.
-      // A View here makes each `text` / `strong` / `em` a full-width block, so
-      // "An **open circle**" paints "An" on its own line.
-      // Do not use `styles.paragraph` — mergeStyle copies the library's
-      // flexDirection/flexWrap/width onto it, which turns nested Text into
-      // flex items that each take a line.
+      // Prose-only paragraphs stay a single Text so "An **open circle**"
+      // wraps as one run. Stacked frac/sqrt must leave that Text — iOS
+      // sizes a View-in-Text as 0×0 and paints the numerator over the
+      // previous line. Do not use `styles.paragraph` — mergeStyle copies
+      // the library's flexDirection/flexWrap/width onto that key.
       const raw = astText(node);
       const runHeight = mathRunLineHeight(raw);
-      return (
-        <Text
-          key={node.key}
-          style={[
-            styles.body,
-            styles.text,
-            styles.paragraphRun,
-            runHeight != null && { lineHeight: runHeight },
-          ]}
-          selectable
-        >
-          {children}
-        </Text>
+      return wrapInlineChildren(
+        node,
+        children,
+        [
+          styles.body,
+          styles.text,
+          styles.paragraphRun,
+          runHeight != null && { lineHeight: runHeight },
+        ],
+        [mdMath.inlineWrap, styles.paragraphRun],
       );
     },
     hardbreak: (node: { key: string }, _c: unknown, _p: unknown, styles: StyleMap) => (
@@ -435,23 +450,12 @@ function makeSharedRules(
       // stacked every phrase. Render a space so the paragraph wraps naturally.
       <Text key={node.key}> </Text>
     ),
-    inline: (node: AstNode, children: ReactNode, _p: unknown, styles: StyleMap) => {
-      const runHeight = mathRunLineHeight(astText(node));
-      return (
-      <Text
-        key={node.key}
-        style={[
-          styles.inline,
-          styles.body,
-          styles.text,
-          runHeight != null && { lineHeight: runHeight },
-        ]}
-        selectable
-      >
-        {children}
-      </Text>
-      );
-    },
+    inline: (node: { key: string }, children: ReactNode) => (
+      // Extra Text here is Text > Text > View for stacked frac (0×0 on iOS).
+      // List items get their run wrapper from `textgroup`; body paragraphs
+      // from `paragraph`.
+      <Fragment key={node.key}>{children}</Fragment>
+    ),
     span: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
       <Text key={node.key} style={styles.span} selectable>
         {children}
@@ -489,14 +493,18 @@ function makeSharedRules(
     ) => (
       <Text
         key={node.key}
-        style={[styles.strong, inTableHeader(parent) && mdTable.headerText]}
+        style={[
+          styles.body,
+          styles.strong,
+          inTableHeader(parent) && mdTable.headerText,
+        ]}
         selectable
       >
         {children}
       </Text>
     ),
     em: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
-      <Text key={node.key} style={styles.em} selectable>
+      <Text key={node.key} style={[styles.body, styles.em]} selectable>
         {children}
       </Text>
     ),

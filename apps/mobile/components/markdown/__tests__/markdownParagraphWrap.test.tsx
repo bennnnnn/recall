@@ -77,6 +77,18 @@ describe("markdown paragraph wrap", () => {
     expect(getByText("not")).toBeOnTheScreen();
   });
 
+  it("lifts a stacked fraction out of the paragraph Text", () => {
+    const { rules } = makeRenderRules(lightTheme);
+    const element = rules.paragraph(
+      { key: "p-frac", content: "x = $\\frac{5+1}{2}$" },
+      [<Text key="t">x = </Text>],
+      [],
+      { body: {}, text: {}, paragraphRun: { marginBottom: 8 } },
+    );
+    expect(element?.props.testID).toBe("md-math-inline-wrap");
+    expect(element?.type).not.toBe(Text);
+  });
+
   it("leaves a gap under a paragraph so the next line is not tucked into superscripts", async () => {
     const { rules } = makeRenderRules(lightTheme);
     const element = rules.paragraph(

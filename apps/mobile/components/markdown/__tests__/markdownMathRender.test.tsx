@@ -48,6 +48,7 @@ describe("MarkdownContent math rendering", () => {
       <MarkdownContent content={"1. So $m = \\frac{1}{2}$."} />,
     );
     expect(getByTestId("math-frac")).toBeOnTheScreen();
+    expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();
     expect(queryByText(/\\frac/)).toBeNull();
   });
 
@@ -65,6 +66,26 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/^:$/)).toBeNull();
     expect(queryByText(")")).toBeNull();
     expect(queryByText("m")).toBeOnTheScreen();
+  });
+
+  it("BUG FIX regression: inline split-± fractions keep numerators visible", async () => {
+    // Live: "Now we split it for the ±" + $x = \frac{5+1}{2}$ painted the
+    // stacked frac over the prose (iOS View-in-Text 0×0) so the numbers
+    // above the vinculum could not be read.
+    const { getAllByTestId, getByText, queryByText } = await render(
+      <MarkdownContent
+        content={
+          "Now, we split it for the ±:\n\n" +
+          "* **Solution 1:** $x = \\frac{5+1}{2} = \\frac{6}{2} = 3$\n" +
+          "* **Solution 2:** $x = \\frac{5-1}{2} = \\frac{4}{2} = 2$"
+        }
+      />,
+    );
+    expect(getAllByTestId("md-math-inline-wrap").length).toBeGreaterThan(0);
+    expect(getAllByTestId("math-frac").length).toBeGreaterThanOrEqual(4);
+    expect(getByText("(5+1)")).toBeOnTheScreen();
+    expect(getByText("(5-1)")).toBeOnTheScreen();
+    expect(queryByText(/\\frac/)).toBeNull();
   });
 
   it("treats a single newline in a list item as a space, not a stacked line", async () => {

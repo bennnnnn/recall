@@ -62,6 +62,15 @@ export function makeMdMath(t: Theme) {
       flex: 1,
       flexShrink: 1,
     },
+    // Hosts stacked frac/sqrt Views as siblings of Text — iOS lays out a
+    // View nested inside Text as 0×0 and paints the numerator over the
+    // previous line. Row+wrap keeps bold/prose inline without that clip.
+    inlineWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      alignSelf: "stretch",
+    },
     // Filled disc (ChatGPT-style). iOS used to render U+00B7 middle-dot,
     // which is a hairline glyph at body size and reads as "no bullet".
     listBullet: {
