@@ -327,9 +327,16 @@ describe("latexNeedsTallLine", () => {
     expect(MATH_TALL_LINE_HEIGHT).toBeGreaterThan(25);
     expect(mathRunLineHeight(String.raw`a^2(1+9+81)`)).toBe(MATH_SCRIPT_LINE_HEIGHT);
     expect(mathRunLineHeight(String.raw`\frac{1}{2}`)).toBe(MATH_TALL_LINE_HEIGHT);
+    // Whole-paragraph astText (prose + several fracs) used to shrink to 34
+    // and clip numerators. Stacked frac always needs the tall line box.
     expect(
       mathRunLineHeight(String.raw`\frac{1}{4}: \frac{8}{1/4}=32, 8 \cdot \frac{1}{4}=2`),
-    ).toBe(MATH_SCRIPT_LINE_HEIGHT);
+    ).toBe(MATH_TALL_LINE_HEIGHT);
+    expect(
+      mathRunLineHeight(
+        "Now we split it for the ±: $x = \\frac{5+1}{2} = \\frac{6}{2} = 3$",
+      ),
+    ).toBe(MATH_TALL_LINE_HEIGHT);
   });
 
   it("is false for flat inline algebra", () => {

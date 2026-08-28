@@ -32,12 +32,13 @@ export const PROTECTED_MATH_STAR_MARKER = String.fromCharCode(0xe003);
 const MAX_MATH_NEST_DEPTH = 12;
 
 /**
- * Stacked frac/sqrt need a taller parent `lineHeight` than body prose (16/25).
+ * Stacked frac/sqrt need a taller parent `lineHeight` than body prose (16/23).
  * Nested RN Text often keeps the outer line box, so the vinculum kisses the
  * line above unless both MathText and the wrapping markdown Text use this.
+ * Must stay ≥ MathText's 40px frac stack or the numerator is clipped.
  */
 export const MATH_TALL_LINE_HEIGHT = 46;
-/** Superscripts (`a^2`, a²) need more leading than body 25 or they clip the line above. */
+/** Superscripts (`a^2`, a²) need more leading than body 23 or they clip the line above. */
 export const MATH_SCRIPT_LINE_HEIGHT = 34;
 
 /** True when native/inline layout must leave room above/below the run. */
@@ -50,11 +51,10 @@ const SUPER_OR_SUB_RE = /\^|_\{|[\u00B2\u00B3\u00B9\u2070-\u207F\u2080-\u208E]/;
 /** Line height the wrapping markdown Text must use so math doesn't overlap neighbors. */
 export function mathRunLineHeight(latex: string): number | undefined {
   if (latexNeedsTallLine(latex)) {
-    // Several inline stacks in one sentence (`r=1/4`, then another frac, then
-    // a comma) must not inflate every wrapped fragment to 46px or punctuation
-    // sits on its own huge line.
-    const stacks = latex.split(/\\(?:d|t|c)?frac|\\sqrt/).length - 1;
-    if (stacks > 1 || latex.length > 48) return MATH_SCRIPT_LINE_HEIGHT;
+    // Never shrink below MATH_TALL_LINE_HEIGHT for a stacked frac/sqrt.
+    // Passing the whole paragraph (prose + `$...$`) used to trip
+    // `length > 48` / multi-stack and return 34, which clips the 40px
+    // numerator ("the above numbers can't be seen").
     return MATH_TALL_LINE_HEIGHT;
   }
   if (SUPER_OR_SUB_RE.test(latex)) return MATH_SCRIPT_LINE_HEIGHT;
