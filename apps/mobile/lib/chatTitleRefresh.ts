@@ -1,5 +1,5 @@
 import type { Chat } from "@/lib/api";
-import { provisionalChatTitle } from "@/lib/chat/chatTitle";
+import { provisionalAttachmentTitle } from "@/lib/chat/chatTitle";
 
 export type FirstReplyTitlePlan = {
   insert: Chat | null;
@@ -16,8 +16,9 @@ export function shouldInsertDrawerRowOnLeave(
 
 /**
  * First assistant reply used to GET /chats/{id} just to insert the drawer row.
- * Home send already has the POST /chats body. Use the first user line as the
- * title so we do not poll — the topic job still writes the server title later.
+ * Home send already has the POST /chats body. Do not stamp the first user
+ * line as the title — the topic job writes a real one; poll until it lands.
+ * Attachment-only turns may show Image/File while that job runs.
  */
 export function firstReplyTitlePlan(
   created: Chat | undefined,
@@ -25,12 +26,14 @@ export function firstReplyTitlePlan(
   firstUserText?: string,
 ): FirstReplyTitlePlan {
   const chat = created ?? listed;
-  const title = chat?.title || provisionalChatTitle(firstUserText);
-  if (!chat) return { insert: null, fetch: !title, poll: !title };
+  if (!chat) return { insert: null, fetch: true, poll: true };
+  if (chat.title) {
+    return { insert: chat, fetch: false, poll: false };
+  }
+  const overlay = provisionalAttachmentTitle(firstUserText);
   return {
-    insert: title ? { ...chat, title } : chat,
+    insert: overlay ? { ...chat, title: overlay } : chat,
     fetch: false,
-    // POST /chats already inserted the row — do not poll while the topic job runs.
-    poll: false,
+    poll: true,
   };
 }

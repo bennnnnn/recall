@@ -37,13 +37,15 @@ export function useChatTitlePolling({
       try {
         for (let i = 0; i < 5; i++) {
           await new Promise((r) => setTimeout(r, 2000));
-          if (cid !== chatIdRef.current) return;
           try {
             const updated = await api.getChat(tid, cid);
             if (updated.title) {
-              if (cid !== chatIdRef.current) return;
-              setChatTitle(updated.title);
               patchChatGlobal(cid, { title: updated.title });
+              // Header follows the open chat only. Drawer patch still applies
+              // after New chat / another thread (the topic job is for `cid`).
+              if (cid === chatIdRef.current) {
+                setChatTitle(updated.title);
+              }
               return;
             }
           } catch {
@@ -71,11 +73,11 @@ export function useChatTitlePolling({
       getCachedChat(chatId),
       getFirstUserText?.(),
     );
+    let shouldPoll = plan.poll;
     if (plan.insert) {
       insertChatGlobal(plan.insert);
       if (plan.insert.title) {
         setChatTitle(plan.insert.title);
-        return;
       }
     } else if (plan.fetch) {
       try {
@@ -83,13 +85,13 @@ export function useChatTitlePolling({
         insertChatGlobal(chat);
         if (chat.title) {
           setChatTitle(chat.title);
-          return;
+          shouldPoll = false;
         }
       } catch {
         /* drawer insert is best-effort */
       }
     }
-    if (plan.poll) {
+    if (shouldPoll) {
       await pollForTitle(token, chatId);
     }
   }, [token, chatId, pollForTitle, setChatTitle, getFirstUserText]);

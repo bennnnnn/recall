@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Drawer titles copied the first user line (`hi`).** `firstReplyTitlePlan`
+  stamped that as the title and skipped GET poll, so the topic job never
+  reached the sidebar. Insert untitled (Image/File overlay only) and poll;
+  keep patching the left-behind row after New chat. Greetings store
+  `Greeting`, not the opener.
 - **New chat mid-stream stopped the reply.** Pencil sent WS `cancel` and
   disconnect cancelled the producer, so the left-behind thread only kept a
   truncated bubble. New chat must not stop; disconnect drains the model
@@ -67,10 +72,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Attach/upload photo polled `GET /chats/{id}` five times.** Image-only
   send has empty user text (`defaultAttachmentPrompt` is `""`), so the
   Home-chip provisional title was null and the topic poll still ran. Use
-  "Image" / "File" and do not poll when we already have the POST row.
-- **Home "Anything left tonight?" polled `GET /chats/{id}` three times.**
-  Title job is async; we polled so the drawer would not stay Untitled.
-  Use the first user line as the local title and skip the poll.
+  "Image" / "File" as a local overlay; still poll until the topic job lands.
 - **Back from Learning / Reminders still hit `GET /home`.** #1005 skipped
   Home only while a thread was open, so empty Home refetched after the
   20s window went stale. Skip if login already fetched Home.
