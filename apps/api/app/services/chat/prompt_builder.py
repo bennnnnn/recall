@@ -29,6 +29,7 @@ from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
+    CHART_FORMAT_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
@@ -53,6 +54,7 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     format_quiz_grading_hint,
     is_bare_writing_line,
+    is_chart_question,
     is_comparison_question,
     is_learning_progress_question,
     is_writing_deliverable_request,
@@ -522,6 +524,17 @@ async def _quiz_hints(
     return parts, chat
 
 
+def _layout_format_hint(query_text: str | None) -> str | None:
+    """Turn-specific layout that must win over compact prose."""
+    if not query_text:
+        return None
+    if is_chart_question(query_text):
+        return CHART_FORMAT_HINT
+    if is_comparison_question(query_text):
+        return COMPARISON_FORMAT_HINT
+    return None
+
+
 def _style_format_hints(
     *,
     query_text: str | None,
@@ -562,11 +575,10 @@ def _style_format_hints(
         # tables), so a pasted phrase became a funny essay with a clipped
         # table. ChatGPT-shaped: answer first, no invented chrome.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        compare = bool(query_text and is_comparison_question(query_text))
-        # Compact "no headings / 4 bullets" would turn Python vs Java into a
-        # wall of text with no code cards. Comparisons get the table-then-###
-        # fence layout instead.
-        parts.append(COMPARISON_FORMAT_HINT if compare else COMPACT_RESPONSE_FORMAT_HINT)
+        layout = _layout_format_hint(query_text)
+        # Compact "plain prose" turns a bar-chart ask into a joke + markdown
+        # table (or broken mermaid). Chart / compare turns get their fence.
+        parts.append(layout if layout else COMPACT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
@@ -579,8 +591,9 @@ def _style_format_hints(
                 VISUALIZATION_HINTS,
             ]
         )
-        if query_text and is_comparison_question(query_text):
-            parts.append(COMPARISON_FORMAT_HINT)
+        layout = _layout_format_hint(query_text)
+        if layout:
+            parts.append(layout)
     parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
         parts.append(EMAIL_DRAFT_HINT)

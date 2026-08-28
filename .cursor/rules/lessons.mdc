@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Bar chart became a joke + markdown table (or broken Mermaid).** Slim
+  turns get `COMPACT_RESPONSE_FORMAT_HINT` and no ```chart example, so
+  "make a bar chart" claims it cannot draw and dumps a rainfall table —
+  or, after a mermaid thread, `graph TDJan: 5.7in`. Swap compact for
+  `CHART_FORMAT_HINT` (Vega-Lite ```chart; you CAN draw; never a table).
 - **Compare Python vs Java was a wall of text, no code cards.** Slim/casual
   turns inject `COMPACT_RESPONSE_FORMAT_HINT` (plain prose, no `##` headings).
   `FORMAT_CONTRACT` only lands on rich turns, and `COMPARISON_FORMAT_HINT` was

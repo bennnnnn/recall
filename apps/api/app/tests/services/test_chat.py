@@ -163,6 +163,55 @@ async def test_build_prompt_includes_comparison_table_hint():
     assert "### headings" in system
 
 
+@pytest.mark.asyncio
+async def test_build_prompt_includes_chart_vega_hint():
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+
+    with (
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.repositories.messages.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False),
+            query_text=(
+                "Make a bar chart of average monthly rainfall in Seattle: "
+                "Jan 5.7, Feb 3.5, Mar 3.7, Apr 2.4, May 1.8, Jun 1.5 inches."
+            ),
+        )
+
+    system = messages[0]["content"]
+    assert "This turn is a numeric chart" in system
+    assert "```chart" in system
+    assert "you CAN draw this chart" in system
+    assert "NEVER substitute a markdown table" in system
+    assert "No ## headings" not in system
+
+
 @pytest.mark.parametrize(
     "text, expected",
     [
@@ -182,6 +231,28 @@ def test_is_comparison_question(text, expected):
     from app.services.chat.prompt_constants import is_comparison_question
 
     assert is_comparison_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "Make a bar chart of average monthly rainfall in Seattle: Jan 5.7, Feb 3.5, Mar 3.7, Apr 2.4, May 1.8, Jun 1.5 inches.",
+            True,
+        ),
+        ("draw a line chart of my scores", True),
+        ("pie chart of market share", True),
+        ("Draw a mermaid flowchart of making coffee", False),
+        ("Make a flowchart of user login", False),
+        ("Compare Python vs Java", False),
+        ("tell me about rainfall in Seattle", False),
+        ("", False),
+    ],
+)
+def test_is_chart_question(text, expected):
+    from app.services.chat.prompt_constants import is_chart_question
+
+    assert is_chart_question(text) is expected
 
 
 def test_format_hints_discourage_tables_for_how_tos():

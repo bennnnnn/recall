@@ -39,6 +39,46 @@ def is_comparison_question(text: str) -> bool:
     return bool(_COMPARISON_TURN.search(cleaned))
 
 
+_CHART_TURN = re.compile(
+    r"(?:"
+    r"\b(?:bar|line|pie|area|scatter|donut)\s+charts?\b|"
+    r"\bhistograms?\b|"
+    r"\bvega(?:-lite)?\b|"
+    r"```(?:chart|vega|vega-lite|plot)\b|"
+    r"\b(?:make|draw|show|create|render|plot)\s+a\s+"
+    r"(?:bar\s+|line\s+|pie\s+|area\s+)?charts?\b"
+    r")",
+    re.IGNORECASE,
+)
+
+CHART_FORMAT_HINT = (
+    "This turn is a numeric chart. Recall renders Vega-Lite in the bubble — "
+    "you CAN draw this chart. NEVER say you cannot draw / cannot literally "
+    "draw a chart. NEVER substitute a markdown table, mermaid, or ASCII bars.\n"
+    "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence, "
+    "then the fence. No joke setup.\n"
+    "Use the numbers they gave as data.values. First key must be "
+    '"$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
+    "Prefer mark bar/line as asked.\n"
+    "Example shape only:\n"
+    "```chart\n"
+    '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",'
+    '"description":"A simple bar chart","data":{"values":['
+    '{"month":"Jan","inches":5.7},{"month":"Feb","inches":3.5}]},'
+    '"mark":"bar","encoding":{"x":{"field":"month","type":"nominal"},'
+    '"y":{"field":"inches","type":"quantitative"}}}\n'
+    "```"
+)
+
+
+def is_chart_question(text: str) -> bool:
+    """True when the user asked for a numeric chart (Vega), not a flowchart."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    return bool(_CHART_TURN.search(cleaned))
+
+
 # One layout contract. The model writes Markdown; Recall upgrades presentation.
 # Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
 # those cards still render if an old message has the fence.
@@ -144,7 +184,8 @@ TONE_FORMAT_GUARD = (
     "Configured tone is word choice only. Do not add a joke setup or recap "
     "before the answer. Funny never means a bit about the question. "
     "Do not invent a decorative table before the answer — an X vs Y compare "
-    "still leads with the pipe table."
+    "still leads with the pipe table; a numeric chart leads with ```chart, "
+    "never a substitute table."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the
