@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **First WS send waited 10s then streamed.** `#1029` registered the stream
+  producer as pending finalize so GET /messages could wait out New-chat leave.
+  `stream_chat_response` then `wait_for_pending_finalize`'d that same producer
+  until the 10s timeout (`user_quota: 10001`). Skip waiting on `current_task()`.
 - **`$x^{6}=1$` waited ~30s then "model isn't responding".** Composer
   `$` / `x^{6}` failed the ASCII equation walker, so heuristic SymPy
   missed and the tool loop ran non-streaming `complete_with_tools` on

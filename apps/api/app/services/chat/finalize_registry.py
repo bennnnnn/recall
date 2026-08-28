@@ -65,10 +65,14 @@ async def wait_for_pending_finalize(chat_id: UUID, redis: Redis | None = None) -
     """Wait (bounded) for the chat's previous turn to finish committing.
 
     Never raises: a failed or slow finalize must not block the next turn —
-    the finalize task logs its own errors.
+    the finalize task logs its own errors. The in-flight stream producer may
+    register itself; waiting from inside that task is a no-op.
     """
     task = _pending.get(chat_id)
-    if task is not None and not task.done():
+    current = asyncio.current_task()
+    # WS registers the stream producer so GET /messages can wait out a
+    # New-chat leave. That producer *is* this wait — do not wait on self.
+    if task is not None and not task.done() and task is not current:
         try:
             await asyncio.wait_for(asyncio.shield(task), _FINALIZE_WAIT_TIMEOUT_SECONDS)
         except TimeoutError:
@@ -77,6 +81,8 @@ async def wait_for_pending_finalize(chat_id: UUID, redis: Redis | None = None) -
             # The finalize task's own error handling/logging covers this.
             with contextlib.suppress(Exception):
                 logger.debug("Pending finalize failed chat_id=%s", chat_id, exc_info=True)
+        return
+    if task is current:
         return
 
     if redis is None:

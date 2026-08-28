@@ -170,7 +170,8 @@ async def _stream_over_ws(
     producer = asyncio.create_task(run_stream())
     if chat_id is not None:
         # Reopening this chat GET /messages waits here so a New-chat leave
-        # can still return the completed assistant row.
+        # can still return the completed assistant row. stream_chat_response
+        # skips waiting on this same producer (would be a 10s self-deadlock).
         register_pending_finalize(chat_id, producer)
     try:
         while not producer.done():

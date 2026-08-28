@@ -9,8 +9,22 @@ from app.services.chat import finalize_registry
 
 
 @pytest.mark.asyncio
-async def test_wait_is_noop_when_nothing_pending():
-    await finalize_registry.wait_for_pending_finalize(uuid4())
+async def test_wait_does_not_block_the_registered_task_itself():
+    """WS registers the stream producer; that producer must not wait 10s on itself."""
+    chat_id = uuid4()
+    registered = asyncio.Event()
+    finished = asyncio.Event()
+
+    async def producer() -> None:
+        await registered.wait()
+        await finalize_registry.wait_for_pending_finalize(chat_id)
+        finished.set()
+
+    task = asyncio.create_task(producer())
+    finalize_registry.register_pending_finalize(chat_id, task)
+    registered.set()
+    await asyncio.wait_for(finished.wait(), timeout=0.5)
+    await task
 
 
 @pytest.mark.asyncio
