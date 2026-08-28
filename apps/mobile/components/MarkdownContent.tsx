@@ -226,7 +226,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
             ) : null
           ) : fencePreview === "math" ? (
             <StreamingMathPreview body={openRegion.body} />
-          ) : fencePreview === "diagram" ? (
+          ) : fencePreview === "hide" ? null : fencePreview === "diagram" ? (
             <StreamingDiagramPlaceholder />
           ) : (
             <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />

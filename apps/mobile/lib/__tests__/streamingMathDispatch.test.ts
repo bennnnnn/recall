@@ -50,4 +50,10 @@ describe("streaming open-fence math dispatch", () => {
     expect(seq).not.toContain("code");
     expect(seq).toContain("diagram");
   });
+
+  it("does not flash a gray diagram placeholder for open ```molecule3d", () => {
+    const seq = previewSequence("```molecule3d\n     RDKit          3D\n```\n");
+    expect(seq).not.toContain("diagram");
+    expect(seq).toContain("hide");
+  });
 });
