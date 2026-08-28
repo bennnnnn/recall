@@ -1,6 +1,7 @@
 """Quota edge cases on the chat stream path (Kimi Mediums)."""
 
 import asyncio
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -26,6 +27,20 @@ def _pro_user() -> MagicMock:
     return user
 
 
+@contextmanager
+def _turn_load():
+    chat = MagicMock()
+    chat.project_id = None
+    chat.quiz_mode = None
+    chat.summary = None
+    with (
+        patch("app.services.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
+        patch("app.services.chat.stream.messages_repo.count_for_chat", AsyncMock(return_value=0)),
+    ):
+        yield
+
+
 def _borrowed_resources(redis, user_id, chat_id, reserved: int) -> stream_module.TurnResources:
     """Resources already held by an outer turn (what stream_edit_response hands down)."""
     return stream_module.TurnResources(
@@ -49,6 +64,7 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
     with (
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
+        _turn_load(),
         patch(
             "app.services.chat.stream.plan_service.resolve_user_model_override",
             return_value="smart-chat",
@@ -95,6 +111,7 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
     with (
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
+        _turn_load(),
         patch(
             "app.services.chat.stream.plan_service.resolve_user_model_override",
             return_value="smart-chat",
@@ -147,6 +164,7 @@ async def test_stream_chat_response_reserves_max_output_ceiling():
     with (
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
+        _turn_load(),
         patch(
             "app.services.chat.stream.plan_service.resolve_user_model_override",
             return_value="smart-chat",

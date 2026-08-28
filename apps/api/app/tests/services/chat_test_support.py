@@ -47,6 +47,9 @@ def stream_offline_io():
         stack.enter_context(
             patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
         )
+        stack.enter_context(
+            patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock())
+        )
         for patcher in quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(

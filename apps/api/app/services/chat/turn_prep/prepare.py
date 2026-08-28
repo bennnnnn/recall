@@ -1,12 +1,16 @@
+import asyncio
 import logging
+from types import SimpleNamespace
+from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.ids import uuid7
 from app.exceptions import ChatNotFoundError
-from app.models.orm import Message, User
+from app.models.orm import Chat, Message, User
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
@@ -17,13 +21,15 @@ from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.attachments import _process_attachments
 from app.services.chat.turn_prep.context import (
     StreamContext,
+    TurnPromptBundle,
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
-from app.services.chat.turn_prep.mode import _classify_turn_mode
+from app.services.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
 from app.services.projects.common import _invalidate_home_for_user
+from app.services.prompt_safety import messages_have_attachment_marker
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
@@ -104,6 +110,24 @@ async def _grade_quiz_answer(
     return is_letter_answer, quiz_grade
 
 
+async def _maybe_invalidate_home_after_quiz(
+    *,
+    user_id: UUID,
+    chat_project_id: UUID | None,
+    is_letter_answer: bool,
+    quiz_grade: QuizAnswerGrade | None,
+    quiz_assistant: Message | None,
+) -> None:
+    if quiz_grade is not None:
+        await _invalidate_home_for_user(user_id)
+    elif chat_project_id is not None and is_letter_answer and quiz_assistant is not None:
+        # LANG-CACHE-001: even when deterministic grading returned None (e.g.
+        # open-ended vocab answer, missing fence, or no project match), the
+        # background project sync may still record mastery/learning. Invalidate
+        # home cache now so the next home fetch is fresh after the turn.
+        await _invalidate_home_for_user(user_id)
+
+
 async def prepare_chat_turn(
     *,
     user_id: UUID,
@@ -121,6 +145,11 @@ async def prepare_chat_turn(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     timing: TurnTimingTracker | None = None,
+    chat: Chat | None = None,
+    turn_mode: _TurnMode | None = None,
+    prior_count: int | None = None,
+    recent_messages: list[Any] | None = None,
+    resolved_model: str | None = None,
 ) -> StreamContext:
     attachments = await _process_attachments(
         user_id=user_id,
@@ -140,99 +169,182 @@ async def prepare_chat_turn(
     gateway = attachments.gateway
     attachment_bytes_by_key = attachments.bytes_by_key
 
-    if timing is not None:
-        timing.mark_phase("persist_start")
-    async with SessionLocal() as session:
-        if user is None:
-            user = await users_repo.get_by_id(session, user_id)
+    overlap = (
+        user is not None
+        and chat is not None
+        and turn_mode is not None
+        and prior_count is not None
+        and recent_messages is not None
+    )
+    pending_id = uuid7()
+    model = resolved_model
+    indexable_attachment_ids: list[str] = []
+    chat_project_id: UUID | None = chat.project_id if chat is not None else None
+    quiz_mode = getattr(chat, "quiz_mode", None) if chat is not None else None
+
+    async def _persist_user_message() -> None:
+        nonlocal user, chat, model, prior_count, turn_mode, indexable_attachment_ids
+        nonlocal chat_project_id, quiz_mode
+        if timing is not None:
+            timing.mark_phase("persist_start")
+        async with SessionLocal() as session:
             if user is None:
-                raise ChatNotFoundError("User not found.")
+                user = await users_repo.get_by_id(session, user_id)
+                if user is None:
+                    raise ChatNotFoundError("User not found.")
+            if chat is None:
+                chat = await chats_repo.get_by_id(session, chat_id, user_id)
+                if chat is None:
+                    raise ChatNotFoundError("Chat not found.")
+            if model is None:
+                model = plan_service.resolve_user_model_override(
+                    user, model_alias, content, settings
+                )
+            if attachment_ids and settings.attachments_enabled and has_image_attachment:
+                model = "vision-chat"
+            if prior_count is None:
+                prior_count = await messages_repo.count_for_chat(session, chat_id)
+            chat_project_id = chat.project_id
+            quiz_mode = getattr(chat, "quiz_mode", None)
+            if turn_mode is None:
+                turn_mode = await _classify_turn_mode(session, chat, content)
+            user_message = await messages_repo.create(
+                session,
+                chat_id=chat_id,
+                user_id=user.id,
+                role="user",
+                content=user_content,
+                model=model,
+                input_tokens=estimate_tokens(user_content),
+                commit=False,
+                message_id=pending_id,
+            )
+            if attachment_ids and settings.attachments_enabled:
+                from app.repositories import attachments as attachments_repo
+                from app.services import attachment_rag as attachment_rag_service
 
-        chat = await chats_repo.get_by_id(session, chat_id, user_id)
-        if chat is None:
-            raise ChatNotFoundError("Chat not found.")
+                await attachments_repo.link_to_message(
+                    session,
+                    user_id=user.id,
+                    attachment_ids=attachment_ids,
+                    message_id=user_message.id,
+                )
+                if settings.attachment_rag_enabled:
+                    indexable = await attachments_repo.get_by_ids(session, attachment_ids, user.id)
+                    indexable_attachment_ids = [
+                        str(row.id)
+                        for row in indexable
+                        if attachment_rag_service.is_indexable_attachment(row)
+                    ]
+            await session.commit()
+        if timing is not None:
+            timing.mark_phase("persist_done")
 
-        model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
+    if (
+        overlap
+        and user is not None
+        and chat is not None
+        and turn_mode is not None
+        and prior_count is not None
+        and recent_messages is not None
+    ):
+        if model is None:
+            model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
         if attachment_ids and settings.attachments_enabled and has_image_attachment:
             model = "vision-chat"
-
-        prior_count = await messages_repo.count_for_chat(session, chat_id)
-        chat_project_id = chat.project_id
-        quiz_mode = getattr(chat, "quiz_mode", None)
-        turn_mode = await _classify_turn_mode(session, chat, content)
-
-        user_message = await messages_repo.create(
-            session,
-            chat_id=chat_id,
-            user_id=user.id,
-            role="user",
-            content=user_content,
-            model=model,
-            input_tokens=estimate_tokens(user_content),
-            commit=False,
+        prompt_recent = [
+            *recent_messages,
+            SimpleNamespace(id=pending_id, role="user", content=user_content),
+        ]
+        window = settings.recent_message_window
+        probe = (
+            bool(attachment_ids)
+            or messages_have_attachment_marker(prompt_recent)
+            or prior_count >= window
         )
-        indexable_attachment_ids: list[str] = []
-        if attachment_ids and settings.attachments_enabled:
-            from app.repositories import attachments as attachments_repo
-            from app.services import attachment_rag as attachment_rag_service
+        is_letter_answer, quiz_grade = await _grade_quiz_answer(
+            user=user,
+            chat_id=chat_id,
+            chat_project_id=chat_project_id,
+            content=content,
+            prior_assistant=turn_mode.quiz_assistant,
+        )
+        await _maybe_invalidate_home_after_quiz(
+            user_id=user.id,
+            chat_project_id=chat_project_id,
+            is_letter_answer=is_letter_answer,
+            quiz_grade=quiz_grade,
+            quiz_assistant=turn_mode.quiz_assistant,
+        )
 
-            await attachments_repo.link_to_message(
-                session,
-                user_id=user.id,
-                attachment_ids=attachment_ids,
-                message_id=user_message.id,
+        async def _prompt() -> TurnPromptBundle:
+            return await build_stream_prompt_context(
+                user_id,
+                chat_id,
+                content,
+                model,
+                settings,
+                redis,
+                client_timezone=client_timezone,
+                client_location=client_location,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+                has_image_attachment=has_image_attachment,
+                image_math_extract=image_math_extract,
+                on_status=on_status,
+                quiz_mode=quiz_mode,
+                user=user,
+                chat=chat,
+                timing=timing,
+                quiz_grade=quiz_grade,
+                force_rich_context=attachments.has_document_attachment,
+                turn_mode=turn_mode,
+                probe_attachment_rag=probe,
+                recent_messages=prompt_recent,
             )
-            if settings.attachment_rag_enabled:
-                indexable = await attachments_repo.get_by_ids(session, attachment_ids, user.id)
-                indexable_attachment_ids = [
-                    str(row.id)
-                    for row in indexable
-                    if attachment_rag_service.is_indexable_attachment(row)
-                ]
 
-        await session.commit()
-
-    if timing is not None:
-        timing.mark_phase("persist_done")
-    is_letter_answer, quiz_grade = await _grade_quiz_answer(
-        user=user,
-        chat_id=chat_id,
-        chat_project_id=chat_project_id,
-        content=content,
-        prior_assistant=turn_mode.quiz_assistant,
-    )
-    if quiz_grade is not None:
-        await _invalidate_home_for_user(user.id)
-    elif chat_project_id is not None and is_letter_answer and turn_mode.quiz_assistant is not None:
-        # LANG-CACHE-001: even when deterministic grading returned None (e.g.
-        # open-ended vocab answer, missing fence, or no project match), the
-        # background project sync may still record mastery/learning. Invalidate
-        # home cache now so the next home fetch is fresh after the turn.
-        await _invalidate_home_for_user(user.id)
-
-    bundle = await build_stream_prompt_context(
-        user_id,
-        chat_id,
-        content,
-        model,
-        settings,
-        redis,
-        client_timezone=client_timezone,
-        client_location=client_location,
-        client_latitude=client_latitude,
-        client_longitude=client_longitude,
-        has_image_attachment=has_image_attachment,
-        image_math_extract=image_math_extract,
-        on_status=on_status,
-        quiz_mode=quiz_mode,
-        user=user,
-        chat=chat,
-        timing=timing,
-        quiz_grade=quiz_grade,
-        force_rich_context=attachments.has_document_attachment,
-        turn_mode=turn_mode,
-        probe_attachment_rag=bool(attachment_ids) or prior_count > 0,
-    )
+        _, bundle = await asyncio.gather(_persist_user_message(), _prompt())
+    else:
+        await _persist_user_message()
+        if user is None or model is None:
+            raise ChatNotFoundError("User not found.")
+        is_letter_answer, quiz_grade = await _grade_quiz_answer(
+            user=user,
+            chat_id=chat_id,
+            chat_project_id=chat_project_id,
+            content=content,
+            prior_assistant=turn_mode.quiz_assistant if turn_mode is not None else None,
+        )
+        await _maybe_invalidate_home_after_quiz(
+            user_id=user.id,
+            chat_project_id=chat_project_id,
+            is_letter_answer=is_letter_answer,
+            quiz_grade=quiz_grade,
+            quiz_assistant=turn_mode.quiz_assistant if turn_mode is not None else None,
+        )
+        bundle = await build_stream_prompt_context(
+            user_id,
+            chat_id,
+            content,
+            model,
+            settings,
+            redis,
+            client_timezone=client_timezone,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
+            has_image_attachment=has_image_attachment,
+            image_math_extract=image_math_extract,
+            on_status=on_status,
+            quiz_mode=quiz_mode,
+            user=user,
+            chat=chat,
+            timing=timing,
+            quiz_grade=quiz_grade,
+            force_rich_context=attachments.has_document_attachment,
+            turn_mode=turn_mode,
+            probe_attachment_rag=bool(attachment_ids) or (prior_count or 0) > 0,
+        )
 
     prompt_messages = bundle.prompt_messages
     if has_image_attachment and image_attachments and gateway is not None:
@@ -247,6 +359,8 @@ async def prepare_chat_turn(
         )
 
     # Vision may have mutated prompt_messages in place on the bundle.
+    if user is None or chat is None or model is None or prior_count is None:
+        raise ChatNotFoundError("Turn context incomplete.")
     return stream_context_from_bundle(
         bundle,
         user_id=user_id,

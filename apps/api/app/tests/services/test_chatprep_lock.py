@@ -1,6 +1,7 @@
 """Per-chat Redis prepare/turn lock on stream_chat_response / regenerate."""
 
 import asyncio
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -26,6 +27,25 @@ def _user() -> MagicMock:
     user.default_model = "free-chat"
     user.plan = "free"
     return user
+
+
+def _chat() -> MagicMock:
+    chat = MagicMock()
+    chat.project_id = None
+    chat.quiz_mode = None
+    chat.summary = None
+    return chat
+
+
+@contextmanager
+def _turn_load():
+    chat = _chat()
+    with (
+        patch("app.services.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
+        patch("app.services.chat.stream.messages_repo.count_for_chat", AsyncMock(return_value=0)),
+    ):
+        yield
 
 
 @pytest.mark.asyncio
@@ -89,6 +109,7 @@ async def test_stream_chat_releases_lock_on_success():
         patch("app.services.chat.stream.release_lock", release),
         patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
+        _turn_load(),
         patch(
             "app.services.chat.stream.plan_service.resolve_user_model_override",
             return_value="free-chat",
@@ -142,6 +163,7 @@ async def test_stream_chat_releases_lock_when_prepare_fails():
         patch("app.services.chat.stream.release_lock", release),
         patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
+        _turn_load(),
         patch(
             "app.services.chat.stream.plan_service.resolve_user_model_override",
             return_value="free-chat",

@@ -995,6 +995,64 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_uses_preloaded_recent_without_list_recent():
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.location_enabled = False
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = None
+
+    prior = MagicMock()
+    prior.id = uuid4()
+    prior.role = "user"
+    prior.content = "hi"
+    current = MagicMock()
+    current.id = uuid4()
+    current.role = "user"
+    current.content = "6!"
+
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.repositories.messages.list_recent", list_recent),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(),
+            query_text="6!",
+            rich_context=False,
+            probe_attachment_rag=False,
+            recent_messages=[prior, current],
+        )
+
+    list_recent.assert_not_awaited()
+    roles = [m["role"] for m in messages if m["role"] != "system"]
+    assert roles[-1] == "user"
+    assert messages[-1]["content"] == "6!"
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_day_planning_injects_daily_learning():
     user = MagicMock()
     user.id = uuid4()
