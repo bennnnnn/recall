@@ -242,6 +242,7 @@ async def _try_image_gen_for_turn(
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
     skip_revision_lookup: bool = False,
+    recent_messages: list[Any] | None = None,
 ) -> bool:
     return await _entry.try_image_gen_for_turn(
         _seams(),
@@ -253,6 +254,7 @@ async def _try_image_gen_for_turn(
         create_user_message=create_user_message,
         replace_assistant_id=replace_assistant_id,
         skip_revision_lookup=skip_revision_lookup,
+        recent_messages=recent_messages,
     )
 
 

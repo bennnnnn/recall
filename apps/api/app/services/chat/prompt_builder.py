@@ -307,6 +307,7 @@ async def _load_context_blocks(
     client_timezone: str | None,
     out: dict[str, object] | None,
     history_rag: bool = False,
+    recent_messages: list[Any] | None = None,
 ) -> _PromptContextBlocks:
     """Load memory/todos/projects/RAG + recent messages for the system prompt.
 
@@ -325,20 +326,20 @@ async def _load_context_blocks(
             settings, user_id=user.id, query=query_text
         )
 
+    async def _fetch_recent() -> list[Any]:
+        if recent_messages is not None:
+            return recent_messages
+        async with SessionLocal() as s:
+            return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
+
     if slim_context:
         if history_rag:
-
-            async def _slim_recent() -> list[Any]:
-                async with SessionLocal() as s:
-                    return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
-
             recent_all, history_rag_query_vec = await asyncio.gather(
-                _slim_recent(),
+                _fetch_recent(),
                 _history_rag_embed(),
             )
         else:
-            async with SessionLocal() as s:
-                recent_all = await messages_repo.list_recent(s, chat_id, limit=recent_limit)
+            recent_all = await _fetch_recent()
             history_rag_query_vec = None
         if out is not None:
             out["recalled"] = 0
@@ -428,7 +429,9 @@ async def _load_context_blocks(
             query=query_text,
         )
 
-    async def _recent_messages() -> list[Any]:
+    async def _load_recent() -> list[Any]:
+        if recent_messages is not None:
+            return recent_messages
         # Own session so the caller's connection is not pinned across the gather
         # (RAG embed / memory embed can take seconds).
         async with db_slots, SessionLocal() as s:
@@ -445,7 +448,7 @@ async def _load_context_blocks(
         _memory_block(),
         _todos_section(),
         _projects_block(),
-        _recent_messages(),
+        _load_recent(),
         _attachment_rag_block(),
         _history_rag_embed(),
     )
@@ -649,6 +652,7 @@ async def build_prompt_messages(
     on_status: StreamStatusFn | None = None,
     omit_message_ids: set[UUID] | None = None,
     probe_attachment_rag: bool = True,
+    recent_messages: list[Any] | None = None,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
 
@@ -705,6 +709,7 @@ async def build_prompt_messages(
         client_timezone=client_timezone,
         out=out,
         history_rag=history_rag,
+        recent_messages=recent_messages,
     )
     chat = blocks.chat
     recent_source = blocks.recent_all

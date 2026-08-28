@@ -1,6 +1,10 @@
 """Tests for untrusted-content framing helpers."""
 
+from types import SimpleNamespace
+
 from app.services.prompt_safety import (
+    content_has_attachment_marker,
+    messages_have_attachment_marker,
     strip_untrusted_blocks,
     wrap_persisted_attachment_excerpts,
     wrap_untrusted,
@@ -58,3 +62,18 @@ def test_strip_untrusted_blocks_drops_wrapped_payload():
         "thanks"
     )
     assert strip_untrusted_blocks(text) == "Buy milk\nthanks"
+
+
+def test_content_has_attachment_marker():
+    assert content_has_attachment_marker("[File: /attachments/x/file]") is True
+    assert content_has_attachment_marker("[Image: /attachments/x/file]") is True
+    assert content_has_attachment_marker("just 6!") is False
+
+
+def test_messages_have_attachment_marker():
+    rows = [
+        SimpleNamespace(content="hi"),
+        SimpleNamespace(content="see [File: /attachments/x/file]"),
+    ]
+    assert messages_have_attachment_marker(rows) is True
+    assert messages_have_attachment_marker([SimpleNamespace(content="6!")]) is False

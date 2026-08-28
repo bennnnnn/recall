@@ -25,6 +25,7 @@ async def try_image_gen_for_turn(
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
     skip_revision_lookup: bool = False,
+    recent_messages: list[Any] | None = None,
 ) -> bool:
     if not seams.plan_service.is_pro(user):
         return False
@@ -35,8 +36,11 @@ async def try_image_gen_for_turn(
             return False
         if skip_revision_lookup or not seams.could_be_image_revision(content):
             return False
-        async with seams.SessionLocal() as session:
-            recent = await seams.messages_repo.list_recent(session, chat_id, limit=20)
+        if recent_messages is not None:
+            recent = recent_messages
+        else:
+            async with seams.SessionLocal() as session:
+                recent = await seams.messages_repo.list_recent(session, chat_id, limit=20)
         last_image_only, previous_subject = seams.image_gen_revision_context(recent)
         image_prompt = seams.extract_image_revision_prompt(
             content,
@@ -112,9 +116,12 @@ async def stream_chat_response(
         borrowed=resources,
     ) as res:
 
-        async def _load_user_and_quota() -> tuple[User, int, str, int]:
+        async def _load_user_and_quota() -> tuple[User, int, str, int, Any, list[Any], Any]:
             loaded = user
             prior_count = 0
+            chat = None
+            recent: list[Any] = []
+            turn_mode = None
             async with seams.SessionLocal() as session:
                 if loaded is None:
                     loaded = await seams.users_repo.get_by_id(session, user_id)
@@ -122,17 +129,23 @@ async def stream_chat_response(
                         raise ChatNotFoundError("User not found.")
                 if not skip_usage_seed:
                     await seams.seed_usage_from_db(redis, session, user_id)
+                chat = await seams.chats_repo.get_by_id(session, chat_id, user_id)
+                if chat is None:
+                    raise ChatNotFoundError("Chat not found.")
+                window = settings.recent_message_window
+                recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
                 raw_count = await seams.messages_repo.count_for_chat(session, chat_id)
-                prior_count = raw_count if isinstance(raw_count, int) else 0
+                prior_count = raw_count if isinstance(raw_count, int) else len(recent)
+                turn_mode = await _classify_turn_mode(session, chat, content)
                 limit = seams.quota_service.daily_limit_for_user(loaded, settings)
                 resolved = seams.plan_service.resolve_user_model_override(
                     loaded, model_alias, content, settings
                 )
-            return loaded, limit, resolved, prior_count
+            return loaded, limit, resolved, prior_count, chat, recent, turn_mode
 
         # Wait is the previous turn's DB finalize only — never the WS
         # producer (gather runs this as a child Task; waiting on self is 10s).
-        _, (user, daily_limit, model, prior_count) = await asyncio.gather(
+        _, (user, daily_limit, model, prior_count, chat, recent, turn_mode) = await asyncio.gather(
             seams.wait_for_pending_finalize(chat_id, redis),
             _load_user_and_quota(),
         )
@@ -146,6 +159,7 @@ async def stream_chat_response(
             result=result,
             create_user_message=True,
             skip_revision_lookup=prior_count == 0,
+            recent_messages=recent,
         ):
             await res.refund()
             return
@@ -184,6 +198,11 @@ async def stream_chat_response(
             on_status=status,
             user=user,
             timing=timing,
+            chat=chat,
+            turn_mode=turn_mode,
+            prior_count=prior_count,
+            recent_messages=recent,
+            resolved_model=model,
         )
         await seams._top_up_reserve_for_prompt(
             res, settings=settings, ctx=ctx, daily_limit=daily_limit
