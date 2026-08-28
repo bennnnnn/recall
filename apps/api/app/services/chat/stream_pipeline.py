@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
-from app.services.chat.turn_prep import StreamContext
+from app.services.chat.turn_prep import StreamContext, await_user_message_persist
 
 logger = logging.getLogger(__name__)
 
@@ -424,6 +424,7 @@ async def stream_and_finalize(
                             str(ctx.user_id),
                             ctx.reserved_tokens,
                         )
+                    await await_user_message_persist(ctx)
                     await finalize_terminal_image_turn(seams, redis, settings, ctx, result)
                     return
                 async for token in run_llm_token_stream(
@@ -465,6 +466,7 @@ async def stream_and_finalize(
             assistant_parts=accum.parts,
             should_cancel=should_cancel,
         )
+        await await_user_message_persist(ctx)
         await register_and_enqueue_finalize(
             seams,
             redis,
@@ -475,6 +477,14 @@ async def stream_and_finalize(
             result=result,
         )
     finally:
+        if ctx.user_message_persist is not None:
+            try:
+                await await_user_message_persist(ctx)
+            except Exception:
+                logger.exception(
+                    "User message persist failed chat_id=%s",
+                    ctx.chat_id,
+                )
         if ctx.timing is not None:
             ctx.timing.log_summary(
                 user_id=ctx.user_id,

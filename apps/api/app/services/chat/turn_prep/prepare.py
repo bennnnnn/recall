@@ -179,12 +179,14 @@ async def prepare_chat_turn(
     pending_id = uuid7()
     model = resolved_model
     indexable_attachment_ids: list[str] = []
+    persist_task: asyncio.Task[list[str]] | None = None
     chat_project_id: UUID | None = chat.project_id if chat is not None else None
     quiz_mode = getattr(chat, "quiz_mode", None) if chat is not None else None
 
-    async def _persist_user_message() -> None:
-        nonlocal user, chat, model, prior_count, turn_mode, indexable_attachment_ids
+    async def _persist_user_message() -> list[str]:
+        nonlocal user, chat, model, prior_count, turn_mode
         nonlocal chat_project_id, quiz_mode
+        indexable: list[str] = []
         if timing is not None:
             timing.mark_phase("persist_start")
         async with SessionLocal() as session:
@@ -230,15 +232,18 @@ async def prepare_chat_turn(
                     message_id=user_message.id,
                 )
                 if settings.attachment_rag_enabled:
-                    indexable = await attachments_repo.get_by_ids(session, attachment_ids, user.id)
-                    indexable_attachment_ids = [
+                    indexable_rows = await attachments_repo.get_by_ids(
+                        session, attachment_ids, user.id
+                    )
+                    indexable = [
                         str(row.id)
-                        for row in indexable
+                        for row in indexable_rows
                         if attachment_rag_service.is_indexable_attachment(row)
                     ]
             await session.commit()
         if timing is not None:
             timing.mark_phase("persist_done")
+        return indexable
 
     if (
         overlap
@@ -303,9 +308,20 @@ async def prepare_chat_turn(
                 recent_messages=prompt_recent,
             )
 
-        _, bundle = await asyncio.gather(_persist_user_message(), _prompt())
+        persist_task = asyncio.create_task(_persist_user_message())
+        try:
+            bundle = await _prompt()
+        except BaseException:
+            try:
+                await persist_task
+            except Exception:
+                logger.exception(
+                    "User message persist failed after prompt error chat_id=%s",
+                    chat_id,
+                )
+            raise
     else:
-        await _persist_user_message()
+        indexable_attachment_ids = await _persist_user_message()
         if user is None or model is None:
             raise ChatNotFoundError("User not found.")
         is_letter_answer, quiz_grade = await _grade_quiz_answer(
@@ -374,4 +390,5 @@ async def prepare_chat_turn(
         timing=timing,
         is_letter_answer=is_letter_answer,
         indexable_attachment_ids=indexable_attachment_ids,
+        user_message_persist=persist_task,
     )

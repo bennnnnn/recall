@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 from uuid import UUID
@@ -12,6 +13,8 @@ from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_timing import TurnTimingTracker
+
+logger = logging.getLogger(__name__)
 
 
 async def try_image_gen_for_turn(
@@ -204,25 +207,34 @@ async def stream_chat_response(
             recent_messages=recent,
             resolved_model=model,
         )
-        await seams._top_up_reserve_for_prompt(
-            res, settings=settings, ctx=ctx, daily_limit=daily_limit
-        )
-        async for token in seams._yield_with_chatprep_refresh(
-            redis,
-            res.lock_key,
-            res.lock_token,
-            seams.stream_and_finalize(
+        try:
+            await seams._top_up_reserve_for_prompt(
+                res, settings=settings, ctx=ctx, daily_limit=daily_limit
+            )
+            async for token in seams._yield_with_chatprep_refresh(
                 redis,
-                settings,
-                ctx,
-                should_cancel=should_cancel,
-                result=result,
-                on_status=status,
-                on_reasoning=on_reasoning,
-                resources=res,
-            ),
-        ):
-            yield token
+                res.lock_key,
+                res.lock_token,
+                seams.stream_and_finalize(
+                    redis,
+                    settings,
+                    ctx,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_status=status,
+                    on_reasoning=on_reasoning,
+                    resources=res,
+                ),
+            ):
+                yield token
+        finally:
+            try:
+                await seams.await_user_message_persist(ctx)
+            except Exception:
+                logger.exception(
+                    "User message persist failed chat_id=%s",
+                    chat_id,
+                )
 
 
 async def stream_regenerate_response(

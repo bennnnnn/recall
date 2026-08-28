@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Lightweight send still waited ~650ms after prompt was ready.** Persist
+  overlapped prompt assembly, but gather waited for the Neon commit before
+  LiteLLM. Start the model as soon as the prompt is ready; await the user-row
+  task before finalize so the assistant cannot commit first.
 - **Send still hesitated ~4s after the 10s self-wait.** Persist (Neon insert)
   then prompt `list_recent` / `has_chunks` ran in series, and Pro revision
   intercept re-fetched the same recent window. Load user+chat+recent+mode in

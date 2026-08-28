@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -618,3 +619,128 @@ async def test_process_attachments_document_flags_document():
 
     assert result.has_image_attachment is False
     assert result.has_document_attachment is True
+
+
+def _prompt_bundle() -> SimpleNamespace:
+    return SimpleNamespace(
+        prompt_messages=[],
+        meta={},
+        instant_reply=None,
+        search_sources=[],
+        local_places=False,
+        max_out=100,
+        fallback_models=[],
+        minimal_quiz=False,
+        minimal_vocab_answer=False,
+        active_vocab_turn=False,
+        lightweight=True,
+        rich_context=False,
+        quiz_grade=None,
+        verified_math=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_prepare_overlap_returns_before_persist_commit():
+    """Prompt-ready must not wait on the Neon user-row commit."""
+    from app.services.chat.turn_prep import prepare_chat_turn
+    from app.services.chat.turn_prep.mode import _TurnMode
+
+    persist_hold = asyncio.Event()
+    create_started = asyncio.Event()
+
+    async def slow_create(*_a: object, **kwargs: object) -> MagicMock:
+        create_started.set()
+        await persist_hold.wait()
+        msg = MagicMock()
+        msg.id = kwargs.get("message_id")
+        return msg
+
+    user = MagicMock()
+    user.id = uuid4()
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+    chat.summary = None
+    mode = _TurnMode(
+        lightweight=True,
+        rich_context=False,
+        minimal_personal=False,
+        minimal_quiz=False,
+        minimal_vocab_answer=False,
+        active_vocab_turn=False,
+        day_planning=False,
+        day_reflection=False,
+    )
+
+    class SessionCM:
+        async def __aenter__(self) -> AsyncMock:
+            return AsyncMock()
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    with (
+        patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.messages.create", side_effect=slow_create),
+        patch(
+            "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
+            AsyncMock(return_value=_prompt_bundle()),
+        ),
+        patch(
+            "app.services.chat.quiz_messages.get_last_quiz_assistant",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        ctx = await asyncio.wait_for(
+            prepare_chat_turn(
+                user_id=user.id,
+                chat_id=chat.id,
+                content="hi",
+                model_alias=None,
+                settings=Settings(),
+                redis=AsyncMock(),
+                reserved_tokens=100,
+                user=user,
+                chat=chat,
+                turn_mode=mode,
+                prior_count=0,
+                recent_messages=[],
+                resolved_model="free-chat",
+            ),
+            timeout=2,
+        )
+        await asyncio.wait_for(create_started.wait(), timeout=2)
+        persist = ctx.user_message_persist
+        assert persist is not None
+        assert persist.done() is False
+        persist_hold.set()
+        await persist
+
+    assert ctx.user_message_persist is persist
+
+
+@pytest.mark.asyncio
+async def test_await_user_message_persist_copies_indexable_ids_once():
+    from app.services.chat.turn_prep import StreamContext, await_user_message_persist
+
+    async def persist() -> list[str]:
+        return ["att-1"]
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=10,
+        max_output_tokens=50,
+        user_message_persist=asyncio.create_task(persist()),
+    )
+    await await_user_message_persist(ctx)
+    assert ctx.indexable_attachment_ids == ["att-1"]
+    assert ctx.user_message_persist is None
+    await await_user_message_persist(ctx)
+    assert ctx.indexable_attachment_ids == ["att-1"]

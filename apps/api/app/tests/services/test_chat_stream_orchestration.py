@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -557,6 +558,74 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
             await finalize_db
 
     record.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_and_finalize_starts_before_user_message_persist(stream_offline_io):
+    """First token must not wait on the Neon user-row commit."""
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    persist_hold = asyncio.Event()
+    llm_started = asyncio.Event()
+    finalize = AsyncMock()
+
+    async def persist() -> list[str]:
+        await persist_hold.wait()
+        return ["att-1"]
+
+    async def fake_stream(**_kwargs: object):
+        llm_started.set()
+        yield "ok"
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+        user_message_persist=asyncio.create_task(persist()),
+    )
+    result: dict[str, object] = {}
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.services.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        agen = stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        )
+        token = await agen.__anext__()
+        assert token == "ok"
+        assert llm_started.is_set()
+        assert ctx.user_message_persist is not None
+        assert ctx.user_message_persist.done() is False
+        finalize.assert_not_awaited()
+        persist_hold.set()
+        async for _ in agen:
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    finalize.assert_awaited()
+    assert ctx.indexable_attachment_ids == ["att-1"]
+    assert ctx.user_message_persist is None
 
 
 @pytest.mark.asyncio

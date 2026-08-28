@@ -111,6 +111,10 @@ class StreamContext:
     rich_context_turn: bool = True
     # Attachment ids to index after the turn finalizes (post-turn jobs path).
     indexable_attachment_ids: list[str] = field(default_factory=list)
+    # Background insert of the user row. The LLM stream must not wait on it;
+    # finalize and stream teardown await it so the assistant insert cannot
+    # commit first and so a failed prompt still keeps what the user sent.
+    user_message_persist: asyncio.Task[list[str]] | None = None
     # Set when the tool loop's generate_image persisted the assistant row —
     # stream_and_finalize skips the LLM + second insert.
     terminal_image_message_id: str | None = None
@@ -155,6 +159,7 @@ def stream_context_from_bundle(
     regenerate_backup: RegenerateBackup | None = None,
     indexable_attachment_ids: list[str] | None = None,
     is_letter_answer: bool = False,
+    user_message_persist: asyncio.Task[list[str]] | None = None,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
     if run_title is None:
@@ -197,7 +202,17 @@ def stream_context_from_bundle(
         ),
         rich_context_turn=bundle.rich_context,
         indexable_attachment_ids=list(indexable_attachment_ids or []),
+        user_message_persist=user_message_persist,
     )
+
+
+async def await_user_message_persist(ctx: StreamContext) -> None:
+    """Finish the background user-row insert. Safe to call more than once."""
+    task = ctx.user_message_persist
+    if task is None:
+        return
+    ctx.user_message_persist = None
+    ctx.indexable_attachment_ids = await task
 
 
 def resolve_client_geo(
