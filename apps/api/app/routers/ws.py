@@ -24,7 +24,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
-from app.services.chat.finalize_registry import register_pending_finalize
+from app.services.chat.finalize_registry import register_inflight_stream
 from app.services.chat.stream_events import (
     await_finalize_commit,
     build_done_payload,
@@ -169,10 +169,11 @@ async def _stream_over_ws(
 
     producer = asyncio.create_task(run_stream())
     if chat_id is not None:
-        # Reopening this chat GET /messages waits here so a New-chat leave
-        # can still return the completed assistant row. stream_chat_response
-        # skips waiting on this same producer (would be a 10s self-deadlock).
-        register_pending_finalize(chat_id, producer)
+        # GET /messages waits on the producer so a New-chat leave can still
+        # return the completed assistant. Do not put this in the finalize
+        # map — stream_chat_response gather-waits that map as a child Task
+        # and would deadlock 10s on itself.
+        register_inflight_stream(chat_id, producer)
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())

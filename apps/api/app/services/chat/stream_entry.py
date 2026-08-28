@@ -130,6 +130,8 @@ async def stream_chat_response(
                 )
             return loaded, limit, resolved, prior_count
 
+        # Wait is the previous turn's DB finalize only — never the WS
+        # producer (gather runs this as a child Task; waiting on self is 10s).
         _, (user, daily_limit, model, prior_count) = await asyncio.gather(
             seams.wait_for_pending_finalize(chat_id, redis),
             _load_user_and_quota(),

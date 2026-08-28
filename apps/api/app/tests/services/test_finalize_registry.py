@@ -9,22 +9,52 @@ from app.services.chat import finalize_registry
 
 
 @pytest.mark.asyncio
-async def test_wait_does_not_block_the_registered_task_itself():
-    """WS registers the stream producer; that producer must not wait 10s on itself."""
+async def test_gather_wait_does_not_deadlock_when_producer_is_inflight():
+    """WS registers the producer as inflight, not finalize.
+
+    stream_chat_response gather-waits finalize as a child Task. If the
+    producer were on that same map, the child would wait 10s on the parent.
+    """
     chat_id = uuid4()
-    registered = asyncio.Event()
     finished = asyncio.Event()
 
     async def producer() -> None:
-        await registered.wait()
-        await finalize_registry.wait_for_pending_finalize(chat_id)
+        await asyncio.gather(
+            finalize_registry.wait_for_pending_finalize(chat_id),
+            asyncio.sleep(0),
+        )
         finished.set()
 
     task = asyncio.create_task(producer())
-    finalize_registry.register_pending_finalize(chat_id, task)
-    registered.set()
+    finalize_registry.register_inflight_stream(chat_id, task)
     await asyncio.wait_for(finished.wait(), timeout=0.5)
     await task
+
+
+@pytest.mark.asyncio
+async def test_messages_wait_blocks_on_inflight_stream():
+    chat_id = uuid4()
+    gate = asyncio.Event()
+    order: list[str] = []
+
+    async def producer() -> None:
+        await gate.wait()
+        order.append("streamed")
+
+    task = asyncio.create_task(producer())
+    finalize_registry.register_inflight_stream(chat_id, task)
+
+    async def list_messages() -> None:
+        await finalize_registry.wait_for_inflight_stream(chat_id)
+        order.append("listed")
+
+    waiter = asyncio.create_task(list_messages())
+    await asyncio.sleep(0)
+    assert order == []
+
+    gate.set()
+    await waiter
+    assert order == ["streamed", "listed"]
 
 
 @pytest.mark.asyncio
@@ -69,6 +99,22 @@ async def test_registry_clears_after_completion():
     await asyncio.sleep(0)
     assert finalize_registry.pending_finalize_count() == baseline
     await finalize_registry.wait_for_pending_finalize(chat_id)
+
+
+@pytest.mark.asyncio
+async def test_inflight_registry_clears_after_completion():
+    chat_id = uuid4()
+    baseline = finalize_registry.inflight_stream_count()
+
+    async def producer() -> None:
+        return None
+
+    task = asyncio.create_task(producer())
+    finalize_registry.register_inflight_stream(chat_id, task)
+    assert finalize_registry.inflight_stream_count() == baseline + 1
+    await task
+    await asyncio.sleep(0)
+    assert finalize_registry.inflight_stream_count() == baseline
 
 
 @pytest.mark.asyncio
