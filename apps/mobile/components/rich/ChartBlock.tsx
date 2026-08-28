@@ -11,8 +11,12 @@ import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
+import {
+  CHART_PREVIEW_HEIGHT,
+  CHART_WEBVIEW_WIDTH,
+  buildVegaHtml,
+} from "@/lib/chartPreviewHtml";
 import { CODE_FONT } from "@/lib/fonts";
-import { escapeForInlineJsTemplate, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import {
@@ -20,78 +24,13 @@ import {
   STATIC_HTML_ORIGIN_WHITELIST,
   useStaticOnlyNavigation,
 } from "@/lib/webView";
-import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
-import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
-import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
 
 type Props = { content: string };
-
-const PREVIEW_HEIGHT = 350;
-const CHART_WEBVIEW_WIDTH = 720;
 
 type ChartErrorMessage = { kind: "chart-error"; message?: string };
 
 function isChartErrorMessage(data: unknown): data is ChartErrorMessage {
   return typeof data === "object" && data !== null && (data as { kind?: string }).kind === "chart-error";
-}
-
-/** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via vendored, inlined Vega-Embed. */
-function buildVegaHtml(spec: string, theme: Theme): string {
-  const safeSpec = escapeForInlineJsTemplate(spec);
-  const vegaTheme = theme.isDark ? "dark" : "vox";
-  const axisColor = theme.textSecondary;
-  const textColor = theme.text;
-  const gridColor = theme.border;
-  return injectPreviewCsp(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>${inlineScript(VEGA_MIN_JS)}</script>
-<script>${inlineScript(VEGA_LITE_MIN_JS)}</script>
-<script>${inlineScript(VEGA_EMBED_MIN_JS)}</script>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; background: ${theme.bg}; }
-  #chart { width: 100%; max-width: 100%; padding: 8px; }
-  #error { color: ${theme.danger}; padding: 16px; font-size: 13px; display: none; white-space: pre-wrap; word-break: break-word; }
-</style>
-</head>
-<body>
-<div id="chart"></div>
-<div id="error"></div>
-<script>
-  const spec = \`${safeSpec}\`;
-  function reportError(msg) {
-    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chart-error', message: msg })); } catch (e) {}
-    var el = document.getElementById('error');
-    el.textContent = 'Chart error: ' + msg;
-    el.style.display = 'block';
-  }
-  try {
-    const parsed = JSON.parse(spec);
-    const themedConfig = {
-      background: ${JSON.stringify(theme.bg)},
-      axis: { domainColor: ${JSON.stringify(axisColor)}, labelColor: ${JSON.stringify(textColor)}, titleColor: ${JSON.stringify(textColor)}, tickColor: ${JSON.stringify(axisColor)}, gridColor: ${JSON.stringify(gridColor)} },
-      legend: { labelColor: ${JSON.stringify(textColor)}, titleColor: ${JSON.stringify(textColor)} },
-      title: { color: ${JSON.stringify(textColor)} },
-      view: { stroke: ${JSON.stringify(axisColor)} },
-    };
-    parsed.config = Object.assign({}, themedConfig, parsed.config || {});
-    vegaEmbed('#chart', parsed, {
-      actions: false,
-      renderer: 'svg',
-      width: ${CHART_WEBVIEW_WIDTH - 16},
-      height: ${PREVIEW_HEIGHT - 24},
-      theme: ${JSON.stringify(vegaTheme)},
-      config: themedConfig,
-    }).catch(function(err) { reportError(err && err.message ? err.message : String(err)); });
-  } catch (e) {
-    reportError(e && e.message ? e.message : String(e));
-  }
-</script>
-</body>
-</html>`);
 }
 
 export function ChartBlock({ content }: Props) {
@@ -158,7 +97,7 @@ export function ChartBlock({ content }: Props) {
                 originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
                 source={source}
                 style={{
-                  height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
+                  height: expanded ? CHART_PREVIEW_HEIGHT * 2 : CHART_PREVIEW_HEIGHT,
                   width: CHART_WEBVIEW_WIDTH,
                 }}
                 scrollEnabled={false}
@@ -263,7 +202,7 @@ function makeStyles(t: Theme) {
     chartScroll: { backgroundColor: t.bg },
     chartScrollContent: { flexGrow: 1, alignItems: "center" },
     previewPlaceholder: {
-      height: PREVIEW_HEIGHT,
+      height: CHART_PREVIEW_HEIGHT,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 16,

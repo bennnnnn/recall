@@ -20,7 +20,7 @@
  * `sandbox allow-scripts` for environments that honor it; do not treat it as
  * a guarantee of iframe-style isolation.
  */
-/** Egress-locked CSP without the meta `sandbox` token (charts/math/PDF). */
+/** Egress-locked CSP without the meta `sandbox` token (mermaid/chemistry/KaTeX). */
 export const PREVIEW_CSP_INLINE = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
@@ -34,8 +34,9 @@ export const PREVIEW_CSP_INLINE = [
 ].join("; ");
 
 /**
- * Default preview CSP for trusted inlined bundles (charts/math/PDF).
+ * Default preview CSP for trusted inlined bundles (mermaid/chemistry/KaTeX).
  * Includes a meta `sandbox` token for environments that honor it.
+ * Charts use {@link CHART_PREVIEW_CSP} — Vega needs `'unsafe-eval'`.
  */
 export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
@@ -163,6 +164,28 @@ export const PDF_PREVIEW_CSP = [
   "img-src data: blob: https:",
   "font-src data: https:",
   "media-src data: blob: https:",
+  "connect-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "sandbox allow-scripts",
+].join("; ");
+
+/**
+ * CSP for the chart WebView (vendored Vega / Vega-Lite / Vega-Embed).
+ *
+ * Vega compiles filter/calculate expressions with `new Function()`, which
+ * CSP treats as eval. Without `'unsafe-eval'` the card paints a red
+ * "Refused to evaluate a string as JavaScript" instead of bars. The spec
+ * is `JSON.parse`'d (not executed as a script). Do **not** add eval to
+ * {@link PREVIEW_CSP} — that document runs model HTML.
+ */
+export const CHART_PREVIEW_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline'",
+  "script-src 'unsafe-inline' 'unsafe-eval'",
+  "img-src data: blob:",
+  "font-src data:",
+  "media-src data: blob:",
   "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
