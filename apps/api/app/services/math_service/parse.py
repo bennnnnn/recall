@@ -253,9 +253,88 @@ def _implicit_mul_before_sqrt(s: str) -> str:
     return "".join(out)
 
 
+def _strip_math_dollar_delims(s: str) -> str:
+    """Composer/math keyboard wraps expressions in ``$...$`` / ``\\(...\\)``.
+
+    ``$`` / ``{}`` are not equation-side characters, so ``$x^{6}=1$`` used to
+    extract an empty LHS and skip SymPy — then the tool loop blocked on R1.
+    """
+    return (
+        s.replace("$$", "")
+        .replace("$", "")
+        .replace("\\(", "")
+        .replace("\\)", "")
+        .replace("\\[", "")
+        .replace("\\]", "")
+    )
+
+
+def _rewrite_latex_braced_scripts_once(s: str) -> str:
+    """One pass: ``x^{6}`` → ``x^6``; ``^{x}^{2}`` → ``x^{2}``."""
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if s.startswith("^{", i):
+            grp = _read_brace_group(s, i + 1)
+            if grp is None:
+                out.append(s[i])
+                i += 1
+                continue
+            body, j = grp
+            if s.startswith("^{", j):
+                nxt = _read_brace_group(s, j + 1)
+                if nxt is not None:
+                    # ^{a}^{b} → a^{b} (math-keyboard x² chain).
+                    out.append(body)
+                    out.append("^{")
+                    out.append(nxt[0])
+                    out.append("}")
+                    i = nxt[1]
+                    continue
+            if body and all(ch.isalnum() or ch in ".-" for ch in body):
+                out.append("^")
+                out.append(body)
+            else:
+                out.append("^(")
+                out.append(body)
+                out.append(")")
+            i = j
+            continue
+        if s.startswith("_{", i):
+            grp = _read_brace_group(s, i + 1)
+            if grp is None:
+                out.append(s[i])
+                i += 1
+                continue
+            body, j = grp
+            if body and all(ch.isalnum() or ch in ".-" for ch in body):
+                out.append("_")
+                out.append(body)
+            else:
+                out.append("_(")
+                out.append(body)
+                out.append(")")
+            i = j
+            continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
+def _rewrite_latex_braced_scripts(s: str) -> str:
+    """``x^{6}`` → ``x^6``; ``^{x}^{2}`` → ``x^2``. Linear scan, no regex."""
+    for _ in range(8):
+        nxt = _rewrite_latex_braced_scripts_once(s)
+        if nxt == s:
+            return s
+        s = nxt
+    return s
+
+
 def _normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
-    s = expr
+    s = _strip_math_dollar_delims(expr)
     for glyph, repl in _UNICODE_OP_SUBS:
         s = s.replace(glyph, repl)
     for glyph, repl in _UNICODE_VULGAR:
@@ -281,6 +360,7 @@ def _normalize_latex_to_sympy(expr: str) -> str:
             break
         s = nxt
     s = _rewrite_bare_abs_bars(s)
+    s = _rewrite_latex_braced_scripts(s)
     return s
 
 

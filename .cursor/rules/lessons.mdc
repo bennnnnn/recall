@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`$x^{6}=1$` waited ~30s then "model isn't responding".** Composer
+  `$` / `x^{6}` failed the ASCII equation walker, so heuristic SymPy
+  missed and the tool loop ran non-streaming `complete_with_tools` on
+  R1 (smart-chat). Unwrap `$`/`^{n}` in latex normalize; tool selection
+  uses the fast alias; timeout is a warning + stream, not a traceback.
 - **Drawer titles copied the first user line (`hi`).** `firstReplyTitlePlan`
   stamped that as the title and skipped GET poll, so the topic job never
   reached the sidebar. Insert untitled (Image/File overlay only) and poll;

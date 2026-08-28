@@ -96,6 +96,18 @@ def test_extract_bare_equation_intent() -> None:
     assert intent.variable == "x"
 
 
+def test_extract_latex_inline_sixth_power_equation() -> None:
+    intent = math_tools.extract_math_intent("$x^{6}=1$")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "x^6"
+    assert intent.rhs == "1"
+    assert intent.variable == "x"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer
+
+
 @pytest.mark.parametrize(
     "text, expected_lhs",
     [

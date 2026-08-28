@@ -39,6 +39,13 @@ def test_normalize_latex_frac_and_abs() -> None:
     assert math_service._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
+def test_normalize_latex_inline_math_and_braced_power() -> None:
+    """Composer ``$x^{6}=1$`` used to fail the ASCII equation walker (``$``/``{}``)."""
+    assert math_service._normalize_latex_to_sympy("$x^{6}=1$") == "x^6=1"
+    assert math_service._normalize_latex_to_sympy(r"^{x}^{2}") == "x^2"
+    assert math_service.try_extract_equations_from_text("$x^{6}=1$") == [("x^6", "1")]
+
+
 def test_normalize_unicode_ops_to_ascii() -> None:
     """OCR/homework glyphs must ascii-ize before the allowlist — not widen it."""
     mul = "2\u00d7x+3"
