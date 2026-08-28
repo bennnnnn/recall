@@ -275,6 +275,7 @@
   "chat.voice_unavailable_body": "Voice input needs a dev build with microphone support. Rebuild:\n\ncd apps/mobile && pnpm expo run:ios",
   "chat.voice_unavailable_title": "Voice input unavailable",
   "common.add": "Add",
+  "common.api_unreachable": "Não foi possível alcançar o Recall",
   "common.back": "Voltar",
   "common.cancel": "Cancelar",
   "common.close": "Fechar",

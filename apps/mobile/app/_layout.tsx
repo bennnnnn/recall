@@ -36,12 +36,12 @@ function RootNavigator() {
   const { t } = useTranslation();
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
-  const { isOffline } = useNetwork();
+  const { status } = useNetwork();
 
   return (
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
-      <OfflineBanner visible={isOffline} />
+      <OfflineBanner status={status} />
       <Stack
         screenOptions={{
           ...stackPushTransition(),

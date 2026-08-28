@@ -579,7 +579,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
   (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
   uuid4 rows are unchanged.
-- 🔜 **Full locale translation** — key-set parity is enforced (**928** keys); ~350 strings still
+- 🔜 **Full locale translation** — key-set parity is enforced (**929** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
@@ -635,13 +635,17 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
 - 🔜 **Mobile gate + on-device pass** — **future.** `pnpm typecheck && pnpm lint && pnpm test`
   locally, then an iOS **and** Android dev-build pass (Google Sign-In, HTML/chart WebView,
   push, RevenueCat, deck Modal, autoscroll, markdown throttle).
+- 🔜 **Frontend launch-readiness (audit, deferred)** — Pressable a11y coverage, `textTertiary`
+  contrast, tablet readable-width, icon stroke unification, web GFM tables / rich fences /
+  httpOnly cookies / stream virtualization, QA matrix assistive-tech pass. Not the current
+  backlog.
 - ✅ **FlashList migration** — `ConversationList` and Lists / Reminders now use `FlashList`
   (v2, auto-measured). Chat drawer rows and the flat reminders/done lists are
   virtualized; the calendar day-view and `ListGroupsView` render in the header
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**928** keys);
+- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**929** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized).

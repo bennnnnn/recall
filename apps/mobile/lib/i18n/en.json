@@ -275,6 +275,7 @@
   "chat.voice_unavailable_body": "Voice input does not work in Expo Go. Build Recall once on your Mac, then open that app:\n\ncd apps/mobile && pnpm expo run:android   # or run:ios",
   "chat.voice_unavailable_title": "Voice input unavailable",
   "common.add": "Add",
+  "common.api_unreachable": "Can't reach Recall",
   "common.back": "Back",
   "common.cancel": "Cancel",
   "common.close": "Close",

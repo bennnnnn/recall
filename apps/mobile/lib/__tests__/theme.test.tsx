@@ -19,6 +19,8 @@ describe("surface hierarchy", () => {
     expect(darkTheme.inputBg).toBe(darkTheme.surfaceAlt);
     expect(darkTheme.primary).toBe(darkTheme.accent);
     expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
+    expect(lightTheme.onWarning).toBe("#FFFFFF");
+    expect(darkTheme.onWarning).toBe("#111113");
   });
 });
 

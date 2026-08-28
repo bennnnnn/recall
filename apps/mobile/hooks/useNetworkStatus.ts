@@ -3,33 +3,41 @@ import { AppState, type AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
 import { isNetworkOffline } from "@/lib/networkStatus";
-import { resolveIsOffline } from "@/lib/networkProbe";
+import {
+  resolveConnectivity,
+  type ConnectivityStatus,
+} from "@/lib/networkProbe";
 
 const OFFLINE_POLL_MS = 1_500;
 
-export function useNetworkStatus(): { isOffline: boolean } {
-  const [isOffline, setIsOffline] = useState(false);
+export function useNetworkStatus(): {
+  isOffline: boolean;
+  status: ConnectivityStatus;
+} {
+  const [status, setStatus] = useState<ConnectivityStatus>("online");
   // Bump to ignore in-flight probes after unmount or a newer event.
   const probeGen = useRef(0);
 
   useEffect(() => {
     const runProbe = () => {
       const gen = ++probeGen.current;
-      void resolveIsOffline().then((offline) => {
+      void resolveConnectivity().then((next) => {
         if (gen !== probeGen.current) return;
-        setIsOffline(offline);
+        setStatus(next);
       });
     };
 
     const onNetInfo = (state: NetInfoState) => {
-      // Online from NetInfo is trustworthy — clear immediately (no fetch).
+      // Link up: drop a stale "No internet" banner immediately (iOS often
+      // leaves isInternetReachable stuck false). Still probe — connected
+      // Wi-Fi can be a captive portal or the API can be down.
       if (!isNetworkOffline(state)) {
-        probeGen.current += 1;
-        setIsOffline(false);
+        setStatus((prev) => (prev === "no_internet" ? "online" : prev));
+        runProbe();
         return;
       }
-      // Offline from NetInfo is often stale after reconnect (iOS/simulator).
-      // Never flip the banner on from a raw event — confirm via probe.
+      // Offline from NetInfo is often stale after reconnect. Never flip
+      // no_internet on from a raw event — confirm via probe.
       runProbe();
     };
 
@@ -48,18 +56,18 @@ export function useNetworkStatus(): { isOffline: boolean } {
     };
   }, []);
 
-  // While the banner is up, keep probing so a reconnect clears it even when
+  // While degraded, keep probing so a reconnect clears the banner even when
   // NetInfo never emits an "online" event.
   useEffect(() => {
-    if (!isOffline) return;
+    if (status === "online") return;
     let cancelled = false;
     let probeInFlight = false;
     const tick = async () => {
       if (probeInFlight) return;
       probeInFlight = true;
       try {
-        const offline = await resolveIsOffline();
-        if (!cancelled) setIsOffline(offline);
+        const next = await resolveConnectivity();
+        if (!cancelled) setStatus(next);
       } finally {
         probeInFlight = false;
       }
@@ -70,7 +78,7 @@ export function useNetworkStatus(): { isOffline: boolean } {
       cancelled = true;
       clearInterval(id);
     };
-  }, [isOffline]);
+  }, [status]);
 
-  return { isOffline };
+  return { isOffline: status !== "online", status };
 }
