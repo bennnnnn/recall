@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chart vs ChatGPT: months clipped, stray “3.1”, thumbs gone.** Vega
+  `height` is the inner plot, so x-axis labels (and a tick/tooltip) painted
+  *below* the 350px WebView onto the action row. Prefer horizontal bars
+  (category on y), size the WebView to the SVG bbox, `overflow: hidden`,
+  `tooltip: false`.
 - **Bar chart months came out Apr, Feb, Jan… with a device-tall white card.**
   Vega-Lite alphabetizes nominal x unless `sort` is null; the preview body used
   `min-height: 100vh`, so the WebView ate the screen and the scroll-to-bottom
