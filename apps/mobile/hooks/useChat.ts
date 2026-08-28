@@ -21,9 +21,10 @@ import {
   restoreAssistantMessage,
 } from "@/lib/chatRegenerateLogic";
 import { replaceStreamingMessageWithPartial } from "@/lib/chatPartialStream";
-
-const CONNECT_TIMEOUT_MS = 8000;
-const EAGER_CONNECT_DEBOUNCE_MS = 300;
+import {
+  EAGER_CONNECT_DEBOUNCE_MS,
+  WS_CONNECT_TIMEOUT_MS,
+} from "@/lib/chatWsConnect";
 
 export type { StreamingDraft };
 
@@ -403,7 +404,7 @@ export function useChat(
         ws.close();
         preferSseRef.current = true;
         resolve();
-      }, CONNECT_TIMEOUT_MS);
+      }, WS_CONNECT_TIMEOUT_MS);
 
       ws.onopen = () => {
         clearTimeout(timer);
