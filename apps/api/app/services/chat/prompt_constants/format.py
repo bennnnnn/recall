@@ -15,17 +15,19 @@ _COMPARISON_TURN = re.compile(
 )
 
 COMPARISON_FORMAT_HINT = (
-    "This turn is a comparison (X vs Y / feature grid). Lead with a markdown "
-    "pipe table — do NOT answer as long bullet paragraphs.\n"
-    "Required shape:\n"
-    "| Feature | Option A | Option B |\n"
+    "This turn is X vs Y. Layout (do not write a wall of prose):\n"
+    "1. Lead with a GFM pipe table. Use their option names as columns. "
+    "Cells are one short phrase. NEVER put source code, ``` fences, <br>, or HTML in a cell.\n"
+    "| Area | First option | Second option |\n"
     "| --- | --- | --- |\n"
-    "| Typing | … | … |\n"
-    "(Add one column per option; one attribute per row — typing, syntax, use cases, "
-    "performance, ecosystem, learning curve, etc. Prefer at most 3 columns; keep cells short.)\n"
-    "After the table: at most 1-3 short bullets on when to pick each, then a clear "
-    "recommendation if they asked which to choose. Proper GFM only — every row starts "
-    "and ends with |; never wrap the table in a code fence; never use HTML in cells."
+    "| Typing | Dynamically typed | Statically typed |\n"
+    "2. AFTER the table, ### headings for the rows they asked about. Under each: "
+    "1-2 sentences, then a tagged code fence per option (```python then ```java, "
+    "or the languages they named) — those render as code cards. "
+    "Do not dump code as indented prose.\n"
+    "3. End with ### Which should a beginner choose? (or equivalent) and a short "
+    "recommendation.\n"
+    "Every table row starts and ends with |. Never wrap the table in a fence."
 )
 
 
@@ -67,15 +69,14 @@ FORMAT_CONTRACT = (
     "\n"
     "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
     "feature comparison — not for tips, roadmaps, or how-tos):\n"
-    "  - Lead with a **markdown pipe table**. Feature/Aspect column + one "
-    "column per option (e.g. | Feature | Python | Java |). One attribute per "
-    "row. Keep to **2-3 columns** when possible.\n"
-    "  - After the table, 1-3 bullets: when to pick each, then a "
-    "recommendation if they asked which to choose.\n"
-    "  - Use bullets instead of a table when there is almost nothing to "
-    "compare or they asked for a narrative.\n"
-    "  - Proper GFM only — every row starts and ends with |; never wrap the "
-    "table in a code fence; never use HTML in cells.\n"
+    "  - Lead with a **markdown pipe table** (Feature | A | B). One attribute "
+    "per row. Cells are one short phrase.\n"
+    "  - NEVER put source code, ``` fences, <br>, or HTML in a cell — that "
+    "shatters the grid. Code samples go AFTER the table under ### headings "
+    "as tagged fences (```python, ```java).\n"
+    "  - After the examples, a short which-to-choose recommendation if they asked.\n"
+    "  - Proper GFM: every row starts and ends with |; never wrap the table "
+    "in a code fence. Prefer 2-3 columns.\n"
     "\n"
     "Tables: use a pipe table when aligned rows and columns help lookup or "
     "comparison (schedules, measurements, matrices, lookup grids, X vs Y). "
@@ -140,8 +141,10 @@ COMPACT_RESPONSE_FORMAT_HINT = (
 
 # Appended after the tone line so "funny" cannot override answer-first format.
 TONE_FORMAT_GUARD = (
-    "Configured tone is word choice only. Do not add a joke setup, recap, or "
-    "table before the answer. Funny never means a bit about the question."
+    "Configured tone is word choice only. Do not add a joke setup or recap "
+    "before the answer. Funny never means a bit about the question. "
+    "Do not invent a decorative table before the answer — an X vs Y compare "
+    "still leads with the pipe table."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the

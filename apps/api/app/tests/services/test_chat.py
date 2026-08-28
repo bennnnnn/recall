@@ -155,11 +155,12 @@ async def test_build_prompt_includes_comparison_table_hint():
         )
 
     system = messages[0]["content"]
-    # One contract — do not append a second "This turn is a comparison" sermon
-    # from a shallow vs/versus regex.
-    assert "This turn is a comparison" not in system
-    assert "X vs Y" in system
+    # Compare turns get the dedicated table → ### code-card layout (ChatGPT).
+    assert "This turn is X vs Y" in system
+    assert "code cards" in system
     assert "pipe table" in system.lower()
+    assert "NEVER put source code" in system
+    assert "### headings" in system
 
 
 @pytest.mark.parametrize(

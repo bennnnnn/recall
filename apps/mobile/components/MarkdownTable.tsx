@@ -7,6 +7,7 @@ import {
   isValidElement,
   useContext,
   useMemo,
+  useState,
 } from "react";
 import {
   ScrollView,
@@ -29,8 +30,15 @@ const TableLayoutContext = createContext<TableLayout>({
   columnWidth: 120,
 });
 
-const MIN_COL_WIDTH = 160;
 const TABLE_H_PAD = 32;
+/** Wide enough that a 3-col ChatGPT-style grid pans instead of squeezing. */
+const MIN_COL_WIDTH = 168;
+
+export function tableColumnWidth(viewportWidth: number, columns: number): number {
+  const colCount = Math.max(1, columns);
+  const available = Math.max(200, viewportWidth);
+  return Math.max(MIN_COL_WIDTH, available / colCount);
+}
 
 function mapCells(children: ReactNode) {
   const cells = Children.toArray(children);
@@ -60,10 +68,12 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { width: screenWidth } = useWindowDimensions();
+  const fallbackW = Math.max(200, screenWidth - TABLE_H_PAD);
+  const [viewportW, setViewportW] = useState(0);
+  const layoutW = viewportW > 0 ? viewportW : fallbackW;
   const colCount = Math.max(1, columns);
-  const available = Math.max(200, screenWidth - TABLE_H_PAD);
-  const columnWidth = Math.max(MIN_COL_WIDTH, available / colCount);
-  const scrollable = columnWidth * colCount > available + 1;
+  const columnWidth = tableColumnWidth(layoutW, colCount);
+  const scrollable = columnWidth * colCount > layoutW + 1;
 
   const table = (
     <View
@@ -76,19 +86,28 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
 
   return (
     <TableLayoutContext.Provider value={{ columnWidth }}>
-      <View style={s.scrollWrap}>
+      <View
+        style={s.scrollWrap}
+        onLayout={(e) => {
+          const w = Math.round(e.nativeEvent.layout.width);
+          if (w > 0 && Math.abs(w - viewportW) > 1) setViewportW(w);
+        }}
+      >
         <ScrollView
           horizontal
-          scrollEnabled={scrollable}
-          showsHorizontalScrollIndicator={scrollable}
-          style={s.scroll}
           nestedScrollEnabled
+          directionalLockEnabled
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={scrollable}
+          style={s.scroll}
+          contentContainerStyle={
+            scrollable ? { width: columnWidth * colCount } : undefined
+          }
         >
           {table}
         </ScrollView>
-        {scrollable ? (
-          <View pointerEvents="none" style={s.overflowCue} />
-        ) : null}
       </View>
     </TableLayoutContext.Provider>
   );
@@ -149,17 +168,13 @@ export function MarkdownTableCell(
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    scrollWrap: { marginVertical: 10, position: "relative" },
-    scroll: { backgroundColor: "transparent" },
-    overflowCue: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      width: 3,
-      backgroundColor: theme.primary,
-      opacity: 0.35,
+    scrollWrap: {
+      marginVertical: 10,
+      overflow: "hidden",
+      alignSelf: "stretch",
+      width: "100%",
     },
+    scroll: { backgroundColor: "transparent" },
     table: {
       backgroundColor: "transparent",
       alignSelf: "stretch",

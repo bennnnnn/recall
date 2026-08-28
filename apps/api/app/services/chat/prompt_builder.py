@@ -31,6 +31,7 @@ from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
+    COMPARISON_FORMAT_HINT,
     COPY_DELIVERABLE_HINT,
     DAY_LEARNING_SNAPSHOT_HINT,
     DAY_PLANNING_ANSWER_HINT,
@@ -52,6 +53,7 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     format_quiz_grading_hint,
     is_bare_writing_line,
+    is_comparison_question,
     is_learning_progress_question,
     is_writing_deliverable_request,
 )
@@ -560,7 +562,11 @@ def _style_format_hints(
         # tables), so a pasted phrase became a funny essay with a clipped
         # table. ChatGPT-shaped: answer first, no invented chrome.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.append(COMPACT_RESPONSE_FORMAT_HINT)
+        compare = bool(query_text and is_comparison_question(query_text))
+        # Compact "no headings / 4 bullets" would turn Python vs Java into a
+        # wall of text with no code cards. Comparisons get the table-then-###
+        # fence layout instead.
+        parts.append(COMPARISON_FORMAT_HINT if compare else COMPACT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
@@ -573,8 +579,8 @@ def _style_format_hints(
                 VISUALIZATION_HINTS,
             ]
         )
-    # FORMAT_CONTRACT already covers X vs Y → table. A shallow vs/versus
-    # regex must not append a second comparison sermon (false positives).
+        if query_text and is_comparison_question(query_text):
+            parts.append(COMPARISON_FORMAT_HINT)
     parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
         parts.append(EMAIL_DRAFT_HINT)

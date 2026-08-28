@@ -12,6 +12,19 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Compare Python vs Java was a wall of text, no code cards.** Slim/casual
+  turns inject `COMPACT_RESPONSE_FORMAT_HINT` (plain prose, no `##` headings).
+  `FORMAT_CONTRACT` only lands on rich turns, and `COMPARISON_FORMAT_HINT` was
+  never appended. On vs/compare queries, swap compact for that hint (table,
+  then `###` + tagged fences as code cards). Tone guard must not ban leading
+  with that table.
+- **Comparison table inside a python code block + no horizontal pan.**
+  `breakAttachedMathFences` lifted `| … | ```python` onto its own line; the
+  closer (` ``` | ```java`) never matched, so the next GFM table was fence
+  body. Don't detach fences from table rows; split a swallowed `| --- |`
+  table back out of ` ```python `. A ScrollView that grows to content width
+  cannot pan — lock the viewport to the bubble, hide the indicator (no
+  purple overflow strip). Prompt: short prose cells; code under ### after.
 - **Inline `\frac` numerators vanished over the line above.** iOS sizes a
   stacked-frac View inside markdown `Text` as 0×0, so the numerator paints on
   the previous sentence. Host those runs in a row-wrap View (`md-math-inline-wrap`);

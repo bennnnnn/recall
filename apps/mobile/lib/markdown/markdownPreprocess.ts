@@ -128,6 +128,13 @@ export function breakAttachedMathFences(content: string): string {
       continue;
     }
     const attached = prefix.trim().length > 0;
+    // A table cell that starts ```python must NOT become a real fence —
+    // CommonMark then swallows the rest of the comparison (live: Python vs
+    // Java "Use Cases" grid rendered inside a python code block).
+    if (attached && (isTableRow(prefix) || isLoosePipeRow(prefix))) {
+      out.push(line);
+      continue;
+    }
     const { body, closed } = splitTrailingCloser(parsed.rest);
     if (!attached && !body) {
       out.push(line);
@@ -360,6 +367,31 @@ function isTableRow(line: string): boolean {
   return isPipeRow(line) || isLoosePipeRow(line);
 }
 
+/** Drop cell fences and HTML breaks so a comparison row stays a table row. */
+function sanitizeTableRow(line: string): string {
+  let s = "";
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === "<" && line.slice(i, i + 3).toLowerCase() === "<br") {
+      let j = i + 3;
+      while (j < line.length && line[j] !== ">") j += 1;
+      if (j < line.length && line[j] === ">") {
+        s += " ";
+        i = j + 1;
+        continue;
+      }
+    }
+    if (line.startsWith("```", i)) {
+      i += 3;
+      while (i < line.length && /[\w-]/.test(line[i]!)) i += 1;
+      continue;
+    }
+    s += line[i];
+    i += 1;
+  }
+  return s;
+}
+
 /** Lines the model uses instead of proper table rows: ---, ___, ===, etc. */
 function isDividerLine(line: string): boolean {
   // Collapse whitespace first — avoid nested `(\s*[-–—_=*~]\s*){3,}` (js/redos).
@@ -477,6 +509,14 @@ export function normalizeMarkdownTables(content: string): string {
     }
 
     if (marker) {
+      // Cell leftovers (` ``` | ```java`) look like fence openers but are
+      // table-row tails. Treat them as rows so the next GFM table is not
+      // swallowed as fence body.
+      if (marker.info.includes("|")) {
+        const asRow = sanitizeTableRow(line.split("```").join(""));
+        if (isTableRow(asRow)) tableBuffer.push(asRow);
+        continue;
+      }
       flushTable();
       openFence = { char: marker.char, len: marker.len };
       fixed.push(line);
@@ -489,7 +529,7 @@ export function normalizeMarkdownTables(content: string): string {
 
     if (isTableRow(line)) {
       if (isGhostTableRow(line)) continue;
-      tableBuffer.push(line);
+      tableBuffer.push(sanitizeTableRow(line));
       continue;
     }
 
@@ -511,6 +551,45 @@ export function isPipeTable(content: string): boolean {
   if (lines.length < 2) return false;
   const pipeRows = lines.filter(isPipeRow);
   return pipeRows.length >= 2 && pipeRows.length / lines.length >= 0.6;
+}
+
+/**
+ * A ```python fence that ate a GFM table (cell ```python closer never
+ * matched, so "Use Cases" landed in the code block). Split the table back
+ * out; keep a leading snippet fenced if there is one.
+ */
+function splitCodeFenceAroundPipeTable(lang: string, body: string): string | null {
+  const lines = body.split("\n");
+  let tableAt = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (!isTableRow(line)) continue;
+    let hasSep = false;
+    const end = Math.min(lines.length, i + 12);
+    for (let j = i; j < end; j++) {
+      if (isSeparatorRow(lines[j] ?? "")) {
+        hasSep = true;
+        break;
+      }
+    }
+    if (!hasSep) continue;
+    tableAt = i;
+    break;
+  }
+  if (tableAt < 0) return null;
+  let start = tableAt;
+  while (start > 0) {
+    const prev = (lines[start - 1] ?? "").trim();
+    if (prev === "" || /^#{1,6}\s/.test(prev) || isTableRow(lines[start - 1] ?? "")) {
+      start -= 1;
+      continue;
+    }
+    break;
+  }
+  const code = lines.slice(0, start).join("\n").trim();
+  const markdown = normalizeMarkdownTables(lines.slice(start).join("\n").trim());
+  const codeBlock = code.length > 0 ? `\`\`\`${lang}\n${code}\n\`\`\`\n\n` : "";
+  return `\n${codeBlock}${markdown}\n`;
 }
 
 /**
@@ -547,6 +626,9 @@ function unwrapNonCodeFences(content: string): string {
     ) {
       return full;
     }
+
+    const splitTable = splitCodeFenceAroundPipeTable(lang, trimmed);
+    if (splitTable != null) return splitTable;
 
     if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {
       return full;
