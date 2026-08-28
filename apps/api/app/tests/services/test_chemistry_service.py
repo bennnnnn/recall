@@ -102,6 +102,13 @@ def test_generate_3d_coordinates_diatomic_formula() -> None:
     assert coords.sdf.count(" H ") == 2
 
 
+def test_generate_3d_coordinates_water_keeps_hydrogens() -> None:
+    coords = chemistry_service.generate_3d_coordinates("O")
+    assert coords.error is None
+    assert coords.sdf.count(" O ") == 1
+    assert coords.sdf.count(" H ") == 2
+
+
 def test_generate_3d_coordinates_invalid() -> None:
     coords = chemistry_service.generate_3d_coordinates("not_a_smiles")
     assert coords.error is not None

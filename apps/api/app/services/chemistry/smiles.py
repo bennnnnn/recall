@@ -177,7 +177,7 @@ def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
         if result != 0:
             return MoleculeCoordinates(smiles=canonical, error="3D embedding failed")
         AllChem.MMFFOptimizeMolecule(mol)  # type: ignore[attr-defined]
-        mol = Chem.RemoveHs(mol)
+        # Keep explicit H — RemoveHs made water a lone oxygen in the 3D card.
         sdf = Chem.MolToMolBlock(mol)
         return MoleculeCoordinates(smiles=canonical, sdf=sdf)
     except Exception as exc:
