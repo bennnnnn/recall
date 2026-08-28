@@ -12,6 +12,7 @@ adjustments, or a next-turn nudge. For now: log only.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -36,6 +37,9 @@ _REFUSAL_PATTERNS = (
 # one-word / empty-ish replies to rich turns.
 _MIN_RICH_REPLY_CHARS = 40
 
+_JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
+_ANSWER_LANGS = frozenset({"answer", "result", "final"})
+
 
 @dataclass
 class QualitySignal:
@@ -54,6 +58,131 @@ class QualityReport:
     @property
     def has_issues(self) -> bool:
         return bool(self.signals)
+
+
+@dataclass(frozen=True)
+class _Fence:
+    lang: str
+    body: str
+    closed: bool
+    start: int
+    end: int
+
+
+def _fence_lang(info: str) -> str:
+    stripped = info.strip()
+    if not stripped:
+        return ""
+    space = stripped.find(" ")
+    token = stripped if space < 0 else stripped[:space]
+    return token.lower()
+
+
+def _iter_fences(text: str) -> list[_Fence]:
+    """Walk ``` fences with linear ``find`` (no nested regex)."""
+    fences: list[_Fence] = []
+    index = 0
+    length = len(text)
+    while True:
+        start = text.find("```", index)
+        if start < 0:
+            break
+        lang_start = start + 3
+        newline = text.find("\n", lang_start)
+        if newline < 0:
+            fences.append(
+                _Fence(
+                    lang=_fence_lang(text[lang_start:]),
+                    body="",
+                    closed=False,
+                    start=start,
+                    end=length,
+                )
+            )
+            break
+        lang = _fence_lang(text[lang_start:newline])
+        close = text.find("```", newline + 1)
+        if close < 0:
+            fences.append(
+                _Fence(
+                    lang=lang,
+                    body=text[newline + 1 :],
+                    closed=False,
+                    start=start,
+                    end=length,
+                )
+            )
+            break
+        fences.append(
+            _Fence(
+                lang=lang,
+                body=text[newline + 1 : close],
+                closed=True,
+                start=start,
+                end=close + 3,
+            )
+        )
+        index = close + 3
+    return fences
+
+
+def _collect_format_signals(text: str) -> list[QualitySignal]:
+    if not text:
+        return []
+    fences = _iter_fences(text)
+    signals: list[QualitySignal] = []
+
+    for fence in fences:
+        if fence.lang not in _ANSWER_LANGS or not fence.closed:
+            continue
+        body = fence.body.strip()
+        if not body:
+            continue
+        rest = f"{text[: fence.start]}{text[fence.end :]}"
+        if body in rest:
+            signals.append(
+                QualitySignal(
+                    code="duplicate_answer",
+                    detail="```answer body also appears in nearby prose",
+                )
+            )
+            break
+
+    source_fences = [fence for fence in fences if fence.lang == "sources"]
+    if len(source_fences) > 1 or (len(source_fences) == 1 and text[source_fences[0].end :].strip()):
+        signals.append(
+            QualitySignal(
+                code="raw_sources_in_body",
+                detail="```sources fence is not a single trailing canonical block",
+            )
+        )
+
+    if any(not fence.closed for fence in fences):
+        signals.append(
+            QualitySignal(
+                code="unclosed_rich_fence",
+                detail="assistant text has an unclosed ``` fence",
+            )
+        )
+
+    for fence in fences:
+        if fence.lang not in _JSON_FENCE_LANGS or not fence.closed:
+            continue
+        body = fence.body.strip()
+        if not body:
+            continue
+        try:
+            json.loads(body)
+        except json.JSONDecodeError:
+            signals.append(
+                QualitySignal(
+                    code="malformed_json_fence",
+                    detail=f"```{fence.lang} body is not valid JSON",
+                )
+            )
+            break
+
+    return signals
 
 
 def detect_quality_issues(ctx: StreamContext, assistant_text: str) -> QualityReport:
@@ -97,6 +226,8 @@ def detect_quality_issues(ctx: StreamContext, assistant_text: str) -> QualityRep
                 detail=f"rich-context reply is {len(text)} chars (threshold {_MIN_RICH_REPLY_CHARS})",
             )
         )
+
+    report.signals.extend(_collect_format_signals(text))
 
     if report.has_issues:
         codes = ",".join(s.code for s in report.signals)

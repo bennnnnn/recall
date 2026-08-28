@@ -41,7 +41,7 @@ def is_comparison_question(text: str) -> bool:
 # Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
 # those cards still render if an old message has the fence.
 FORMAT_CONTRACT = (
-    "This is a **mobile** chat. Write normal Markdown — headings, lists, "
+    "This is a conversational chat. Write normal Markdown — headings, lists, "
     "tables, and blockquotes. Do not invent custom fence names for layout.\n"
     "\n"
     "Default (facts, lists, rankings, lookups, recommendations, tips, how-tos):\n"
@@ -51,7 +51,7 @@ FORMAT_CONTRACT = (
     "bullets — not a wall of text and not a table.\n"
     "  - How-to / roadmap / guide: ## headings for phases, numbered steps under "
     "each. NEVER put a roadmap, learning plan, tip list, or how-to into a "
-    "pipe table — multi-column tables are unreadable on a phone.\n"
+    "pipe table — those belong as lists, not grids.\n"
     "  - Callouts: a blockquote starting with Tip: / Note: / Warning: "
     "(plain `>`). Not a fence.\n"
     "\n"
@@ -77,8 +77,9 @@ FORMAT_CONTRACT = (
     "  - Proper GFM only — every row starts and ends with |; never wrap the "
     "table in a code fence; never use HTML in cells.\n"
     "\n"
-    "Tables: use a pipe table ONLY for a true comparison. Never for tips, "
-    "how-tos, roadmaps, guides, checklists, or single-topic advice."
+    "Tables: use a pipe table when aligned rows and columns help lookup or "
+    "comparison (schedules, measurements, matrices, lookup grids, X vs Y). "
+    "Never for tips, how-tos, roadmaps, guides, checklists, or single-topic advice."
 )
 
 # Compat aliases — one contract, two historical names.
@@ -99,8 +100,9 @@ STYLE_HINTS = {
     ),
     "detailed": (
         "Response length: DETAILED. Be thorough but stay scannable: sections, headings, "
-        "and bullets — not essay-style paragraphs. Use a pipe table only for a true "
-        "X vs Y / feature comparison. Include examples and nuance where useful."
+        "and bullets — not essay-style paragraphs. Use a pipe table for schedules, "
+        "measurements, lookup grids, and X vs Y comparisons — not for tips or how-tos. "
+        "Include examples and nuance where useful."
     ),
 }
 
@@ -122,7 +124,8 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
     "Do not restate the question. "
     "Use the simplest structure that answers; do not add sections just to look structured. "
-    "Never invent a pipe table unless the user asked to compare options. "
+    "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
+    "Use a pipe table for schedules, measurements, lookup grids, and X vs Y comparisons. "
     "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
     "Let's break it down)."
 )

@@ -133,6 +133,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   "open in browser" (needs a dev build; see the code-execution policy below).
 - ✅ **Rich blocks** — callouts (`> [!NOTE]`), key-value, comparison, step lists, and
   email/message/social "copy" cards.
+- ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
+  fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
+  set (`copy` / drafts, `mermaid`, `chart`, `math`, chemistry source). Server attaches
+  verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
+  (`steps`, `comparison`, `keyvalue`, `collapsible`, `quote`, `clock`, `callout`)
+  still render for history; the prompt must not choose them. Calendar / reminder /
+  settings / vocab-quiz control fences stay outside the registry.
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
@@ -595,6 +602,17 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   sandboxed WebView exception until then.
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
 - 🔜 **Web client** — slice 1 shipped (login + chat stream); see [Web client](#web-client-planned) below.
+- 🔜 **RenderDocument v2** — versioned ordered block schema, same document live and on
+  history reload. Not started; P0 kept `message.content` plus a trailing sources fence.
+- 🔜 **Web output parity** — GFM tables, math, sources chips, human fallbacks for
+  unsupported fences (slice 1 is plain Markdown; sanitizer currently strips tables).
+- 🔜 **Claim-level citations** and attachment filename / page / chunk identity in the
+  answer contract (today: one source list, RAG chunks without user-facing file metadata).
+- 🔜 **Six visual families** — restyle existing rich cards onto one document / artifact /
+  result / visual / evidence / action shell.
+- 🔜 **Hide raw reasoning** from the settled assistant answer (keep status while working;
+  optional short method summary). Do not reintroduce recalled-memory chips.
+- 🔜 **One molecule card** — 2D primary with optional 3D; do not stack two full cards.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex / interruptible voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /

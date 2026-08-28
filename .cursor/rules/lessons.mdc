@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Search sources looked different live vs after reload.** `enrich_final_content`
+  wrote stripped `done.final_content` then appended ` ```sources ` only onto the
+  persist string. Set `final_content` once, after enrichment, to the exact text
+  that is persisted; keep `search_sources` as a parallel chip field.
 - **user_quota still ~1s after persist left the first-token path.** Every
   send ran `COUNT(*)` plus a Redis usage EXISTS while holding a Neon
   checkout. Use `len(recent)` when the window is not full; only COUNT when

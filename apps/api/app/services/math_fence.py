@@ -14,7 +14,9 @@ for a parabola). Discrete point markers and vertical lines stay untouched.
 
 After rewriting any fences the model still produced, we append canonical
 fences that are missing so the client always gets the solver-owned
-answer pill and diagram.
+diagram. An `` ```answer `` pill is appended only when the verified
+value is not already stated in the prose (so a one-line ``$3+0=3$`` is
+not duplicated as a result card).
 """
 
 from __future__ import annotations
@@ -535,13 +537,82 @@ def _collect_canonical_specs(verified: VerifiedMathBlock) -> list[dict[str, obje
     return specs
 
 
+def _normalize_answer_token(text: str) -> str:
+    """Strip math/markup noise so we can test whether prose already states a value."""
+    cleaned = (
+        text.replace("$", "")
+        .replace("`", "")
+        .replace("\u2009", "")
+        .replace("\u00a0", "")
+        .replace("\u2212", "-")
+        .replace("\\", "")
+    )
+    return "".join(cleaned.split()).lower()
+
+
+def _answer_numeric_core(answer_body: str) -> str:
+    """Strip a leading ``x=`` and trailing latin unit so ``2.02 s`` → ``2.02``."""
+    token = _normalize_answer_token(answer_body)
+    equals = token.rfind("=")
+    if equals >= 0:
+        token = token[equals + 1 :]
+    end = len(token)
+    while end > 0 and token[end - 1].isalpha():
+        end -= 1
+    return token[:end]
+
+
+def _math_spans(prose: str) -> list[str]:
+    """Return bodies of ``$...$`` spans using linear ``find`` (no nested regex)."""
+    spans: list[str] = []
+    index = 0
+    while True:
+        start = prose.find("$", index)
+        if start < 0:
+            break
+        end = prose.find("$", start + 1)
+        if end < 0:
+            break
+        spans.append(prose[start + 1 : end])
+        index = end + 1
+    return spans
+
+
+def _span_states_short_int(span: str, core: str) -> bool:
+    compact = _normalize_answer_token(span)
+    return compact == core or compact.endswith("=" + core)
+
+
+def _prose_already_states_answer(content: str, answer_body: str) -> bool:
+    """True when the verified value is already visible in the assistant prose.
+
+    Short integers (1-2 digits) must appear as a whole math result (``$2$`` or
+    a span ending in ``=2``) so a digit inside ``$x^2$`` does not suppress the
+    pill. Longer values (``2.02 s``, ``x = 12``) use a normalized substring.
+    """
+    body = answer_body.strip()
+    if not body:
+        return False
+    core = _answer_numeric_core(body)
+    if core.isdigit() and len(core) <= 2:
+        return any(_span_states_short_int(span, core) for span in _math_spans(content))
+    needle = _normalize_answer_token(body)
+    if len(needle) < 2:
+        return False
+    return needle in _normalize_answer_token(content)
+
+
 def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock | None) -> str:
     """Attach solver-owned fences the model was told not to emit."""
     if verified is None:
         return content
     extras: list[str] = []
     answer_body = _canonical_answer_body(verified)
-    if answer_body and _ANSWER_FENCE.search(content) is None:
+    if (
+        answer_body
+        and _ANSWER_FENCE.search(content) is None
+        and not _prose_already_states_answer(content, answer_body)
+    ):
         extras.append(_markdown_fence("answer", answer_body))
 
     specs = _collect_canonical_specs(verified)

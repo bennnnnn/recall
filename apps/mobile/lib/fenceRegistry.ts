@@ -15,6 +15,14 @@
  * would change what renders. The point is that the difference is now declared
  * per fence and reviewable in one table, instead of being an accident of which
  * list someone remembered to update.
+ *
+ * `owner` classifies who may emit the fence on new turns:
+ * - model: the active prompt may produce this
+ * - server: Recall attaches or rewrites this after the stream
+ * - legacy: still rendered for history; the prompt must not choose it for layout
+ *
+ * Calendar / reminder / settings / vocab-quiz control fences are parsed
+ * outside this registry (see assistantMessageContent.ts).
  */
 
 export type FenceId =
@@ -41,7 +49,16 @@ export type FenceId =
   | "sources"
   | "steps";
 
-export type FallbackKind = "callout" | "geometry" | "graph";
+export type FenceOwner = "model" | "server" | "legacy";
+
+export type FallbackKind =
+  | "callout"
+  | "geometry"
+  | "graph"
+  | "answer"
+  | "sources"
+  | "places"
+  | "visual";
 
 export type FenceSpec = {
   id: FenceId;
@@ -51,56 +68,97 @@ export type FenceSpec = {
   structured: boolean;
   /** Never rendered as a syntax-highlighted code block (was copyBlock's list). */
   neverCodeBlock: boolean;
+  /** Who may emit this fence on new turns. */
+  owner: FenceOwner;
   /** How the crash-fallback renderer degrades this fence, when not plain code. */
   fallback?: FallbackKind;
 };
 
 export const FENCES: readonly FenceSpec[] = [
-  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true },
-  { id: "quote", langs: ["quote", "blockquote"], structured: true, neverCodeBlock: false },
+  { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model" },
+  {
+    id: "quote",
+    langs: ["quote", "blockquote"],
+    structured: true,
+    neverCodeBlock: false,
+    owner: "legacy",
+  },
   {
     id: "comparison",
     langs: ["compare", "comparison", "pros"],
     structured: true,
     neverCodeBlock: false,
+    owner: "legacy",
   },
   {
     id: "keyvalue",
     langs: ["kv", "keyvalue", "fields"],
     structured: true,
     neverCodeBlock: false,
+    owner: "legacy",
   },
-  { id: "steps", langs: ["steps", "step"], structured: true, neverCodeBlock: false },
+  {
+    id: "steps",
+    langs: ["steps", "step"],
+    structured: true,
+    neverCodeBlock: false,
+    owner: "legacy",
+  },
   {
     id: "collapsible",
     langs: ["details", "collapse", "summary"],
     structured: true,
     neverCodeBlock: false,
+    owner: "legacy",
   },
   // `latex`/`tex` are aliases of `math`. The model is told never to emit
   // those tags, but it drifts; the settled path already retags closed
   // fences. Registering them here makes the *open* streaming tail typeset
   // instead of landing on CodeBlock (lang badge + raw source).
-  { id: "math", langs: ["math", "latex", "tex"], structured: true, neverCodeBlock: true },
+  {
+    id: "math",
+    langs: ["math", "latex", "tex"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "model",
+  },
   {
     id: "answer",
     langs: ["answer", "result", "final"],
     structured: true,
     neverCodeBlock: true,
+    owner: "server",
+    fallback: "answer",
   },
-  { id: "clock", langs: ["clock", "time"], structured: true, neverCodeBlock: true },
-  { id: "mermaid", langs: ["mermaid"], structured: true, neverCodeBlock: false },
+  {
+    id: "clock",
+    langs: ["clock", "time"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "legacy",
+  },
+  {
+    id: "mermaid",
+    langs: ["mermaid"],
+    structured: true,
+    neverCodeBlock: false,
+    owner: "model",
+    fallback: "visual",
+  },
   {
     id: "chart",
     langs: ["chart", "vega", "vega-lite", "plot"],
     structured: true,
     neverCodeBlock: false,
+    owner: "model",
+    fallback: "visual",
   },
   {
     id: "geometry",
     langs: ["geometry"],
     structured: true,
     neverCodeBlock: true,
+    owner: "server",
     fallback: "geometry",
   },
   {
@@ -108,6 +166,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["graph"],
     structured: true,
     neverCodeBlock: true,
+    owner: "server",
     fallback: "graph",
   },
   {
@@ -115,19 +174,31 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["smiles", "chemistry"],
     structured: true,
     neverCodeBlock: true,
+    owner: "model",
+    fallback: "visual",
   },
   {
     id: "molecule3d",
     langs: ["molecule3d", "mol3d", "3dmol"],
     structured: true,
     neverCodeBlock: true,
+    owner: "server",
+    fallback: "visual",
   },
-  { id: "places", langs: ["places"], structured: true, neverCodeBlock: true },
+  {
+    id: "places",
+    langs: ["places"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "server",
+    fallback: "places",
+  },
   {
     id: "callout",
     langs: ["tip", "note", "warning", "info", "important", "callout"],
     structured: true,
     neverCodeBlock: false,
+    owner: "legacy",
     fallback: "callout",
   },
   {
@@ -135,24 +206,35 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["twitter", "tweet", "x", "linkedin", "social"],
     structured: true,
     neverCodeBlock: false,
+    owner: "model",
   },
   {
     id: "message",
     langs: ["sms", "message", "reply"],
     structured: true,
     neverCodeBlock: true,
+    owner: "model",
   },
   // Not structured: `copy` and `sources` never reach the rich renderer, but
   // must not fall through to a syntax-highlighted code block either. `sources`
-  // is emitted by the backend (web_search/formatting.py) and normally stripped
-  // server-side before it reaches the client.
-  { id: "copy", langs: ["copy"], structured: false, neverCodeBlock: true },
-  { id: "sources", langs: ["sources"], structured: false, neverCodeBlock: true },
+  // is attached by the backend (web_search/formatting.py) onto persisted
+  // assistant text and the live `done.final_content`; clients strip it and
+  // render the `search_sources` field / parsed fence as a chip.
+  { id: "copy", langs: ["copy"], structured: false, neverCodeBlock: true, owner: "model" },
+  {
+    id: "sources",
+    langs: ["sources"],
+    structured: false,
+    neverCodeBlock: true,
+    owner: "server",
+    fallback: "sources",
+  },
   {
     id: "learning_launch",
     langs: ["learning_launch"],
     structured: false,
     neverCodeBlock: true,
+    owner: "server",
   },
 ];
 
