@@ -3,24 +3,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
-  visible: boolean;
+  status: ConnectivityStatus;
 };
 
-export function OfflineBanner({ visible }: Props) {
+export function OfflineBanner({ status }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = makeStyles(theme);
 
-  if (!visible) return null;
+  if (status === "online") return null;
+
+  const label =
+    status === "api_unreachable" ? t("common.api_unreachable") : t("common.no_internet");
 
   return (
     <View style={[s.wrap, { paddingTop: insets.top + 6 }]} accessibilityRole="alert">
-      <Icon name="cloud-offline-outline" size={16} color={theme.text} />
-      <Text style={s.text}>{t("common.no_internet")}</Text>
+      <Icon name="cloud-offline-outline" size={16} color={theme.onWarning} />
+      <Text style={s.text}>{label}</Text>
     </View>
   );
 }
@@ -44,7 +48,7 @@ function makeStyles(theme: Theme) {
     text: {
       fontSize: 13,
       fontWeight: "700",
-      color: theme.text,
+      color: theme.onWarning,
     },
   });
 }

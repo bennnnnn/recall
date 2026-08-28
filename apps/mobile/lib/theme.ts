@@ -53,6 +53,8 @@ export type Theme = {
   danger: string;
   dangerLight: string;
   warning: string;
+  /** Ink on `warning` — banner labels must pass WCAG AA. */
+  onWarning: string;
   /** Goal met / daily complete — one green for bars, labels, and dots. */
   success: string;
   successLight: string;
@@ -120,6 +122,7 @@ export const lightTheme: Theme = {
   danger: "#D92D20",
   dangerLight: "#FDECEC",
   warning: "#B54708",
+  onWarning: "#FFFFFF",
   success: "#16845B",
   successLight: "#EAF7F3",
   onPrimary: "#FFFFFF",
@@ -171,6 +174,7 @@ export const darkTheme: Theme = {
   danger: "#FF6B6B",
   dangerLight: "#3B1513",
   warning: "#F5A524",
+  onWarning: "#111113",
   success: "#32C48D",
   successLight: "rgba(50, 196, 141, 0.18)",
   onPrimary: "#0F0F10",
