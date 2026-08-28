@@ -1,5 +1,6 @@
 from contextlib import ExitStack
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -10,6 +11,18 @@ class FakeSessionCM:
 
     async def __aexit__(self, *args):
         return False
+
+
+def stub_recent(n: int) -> list[MagicMock]:
+    """n chronological rows so prior_count can come from list_recent, not COUNT."""
+    rows: list[MagicMock] = []
+    for i in range(n):
+        row = MagicMock()
+        row.id = uuid4()
+        row.role = "user" if i % 2 == 0 else "assistant"
+        row.content = f"m{i}"
+        rows.append(row)
+    return rows
 
 
 def offline_session_patches():

@@ -15,6 +15,7 @@ from app.tests.services.chat_test_support import (
 from app.tests.services.chat_test_support import (
     quiz_message_repo_patches as _quiz_message_repo_patches,
 )
+from app.tests.services.chat_test_support import stub_recent
 
 pytest_plugins = ("app.tests.services.chat_test_support",)
 
@@ -110,6 +111,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(3))),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
         patch("app.repositories.messages.create", AsyncMock()),
         patch(
@@ -251,6 +253,7 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(2))),
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
         patch("app.repositories.messages.create", AsyncMock()),
         patch(
