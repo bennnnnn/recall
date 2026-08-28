@@ -17,6 +17,7 @@ import {
   LazyFunctionGraphBlock,
   LazyGeometryBlock,
   LazyMermaidBlock,
+  LazyMoleculeCard,
   LazyMolecule3DBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
@@ -101,6 +102,8 @@ export function renderRichFenceById(
       return <LazyMermaidBlock key={key} content={content} />;
     case "chemistry":
       return <LazyChemistryBlock key={key} content={content} />;
+    case "molecule":
+      return <LazyMoleculeCard key={key} content={content} />;
     case "molecule3d":
       return <LazyMolecule3DBlock key={key} content={content} />;
     case "chart":

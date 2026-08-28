@@ -109,4 +109,23 @@ describe("classifyFallbackFence", () => {
       code: "bare code",
     });
   });
+
+  it("uses caption or SMILES for ```molecule JSON and never dumps the SDF", () => {
+    const sdf = "Ethanol\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\nM  END";
+    const withCaption = JSON.stringify({ smiles: "CCO", caption: "Ethanol", sdf });
+    expect(classifyFallbackFence("molecule", withCaption)).toEqual({
+      kind: "visual",
+      labelLang: "molecule",
+      snippet: "Ethanol",
+    });
+    const smilesOnly = JSON.stringify({ smiles: "CCO", sdf });
+    expect(classifyFallbackFence("molecule", smilesOnly)).toEqual({
+      kind: "visual",
+      labelLang: "molecule",
+      snippet: "CCO",
+    });
+    const dumped = JSON.stringify(classifyFallbackFence("molecule", withCaption));
+    expect(dumped).not.toContain("V2000");
+    expect(dumped).not.toContain("RDKit");
+  });
 });

@@ -17,6 +17,10 @@ const ChemistryBlockLazy = React.lazy(() =>
   import("@/components/rich/ChemistryBlock").then((m) => ({ default: m.ChemistryBlock })),
 );
 
+const MoleculeCardLazy = React.lazy(() =>
+  import("@/components/rich/MoleculeCard").then((m) => ({ default: m.MoleculeCard })),
+);
+
 const Molecule3DBlockLazy = React.lazy(() =>
   import("@/components/rich/Molecule3DBlock").then((m) => ({ default: m.Molecule3DBlock })),
 );
@@ -57,6 +61,14 @@ export function LazyChemistryBlock({ content }: { content: string }) {
   return (
     <Suspense fallback={<RichLoadPlaceholder height={240} />}>
       <ChemistryBlockLazy content={content} />
+    </Suspense>
+  );
+}
+
+export function LazyMoleculeCard({ content }: { content: string }) {
+  return (
+    <Suspense fallback={<RichLoadPlaceholder height={240} />}>
+      <MoleculeCardLazy content={content} />
     </Suspense>
   );
 }

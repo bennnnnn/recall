@@ -690,6 +690,8 @@
   "rich.chart": "Diagramm",
   "rich.chart_dev_build": "Diagramm-Vorschau erfordert einen Dev-Build",
   "rich.chart_error": "Diagramm konnte nicht gerendert werden.",
+  "rich.chemistry_2d": "2D",
+  "rich.chemistry_3d": "3D",
   "rich.chemistry_3d_dev_build": "3D-Molekülvorschau erfordert einen Dev-Build.",
   "rich.chemistry_dev_build": "App bauen, um Strukturen inline anzuzeigen.",
   "rich.chemistry_invalid": "Struktur konnte nicht dargestellt werden.",

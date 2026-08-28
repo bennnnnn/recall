@@ -23,6 +23,7 @@ jest.mock("@/lib/theme", () => ({
     text: "#000",
     textSecondary: "#666",
     textTertiary: "#999",
+    onPrimary: "#FFFFFF",
     danger: "#ff3b30",
   }),
 }));

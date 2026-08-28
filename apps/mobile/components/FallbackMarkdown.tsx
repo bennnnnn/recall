@@ -67,7 +67,7 @@ function visualFallbackLabel(lang: string, t: (key: string) => string): string {
   const id = fenceIdForLang(lang);
   if (id === "chart") return t("rich.chart");
   if (id === "mermaid") return t("rich.mermaid_diagram");
-  if (id === "chemistry" || id === "molecule3d") return t("rich.chemistry_structure");
+  if (id === "chemistry" || id === "molecule" || id === "molecule3d") return t("rich.chemistry_structure");
   return t("rich.diagram");
 }
 

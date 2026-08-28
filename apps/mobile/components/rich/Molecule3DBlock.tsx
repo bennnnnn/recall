@@ -204,9 +204,9 @@ function MoleculeSvg({
   );
 }
 
-export function Molecule3DBlock({ content }: Props) {
+/** 3D canvas + style chips without card chrome — used by Molecule3DBlock and MoleculeCard. */
+export function Molecule3DView({ sdf }: { sdf: string }) {
   const theme = useTheme();
-  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [style, setStyle] = useState<MoleculeStyle>("ball-stick");
   const [yaw, setYaw] = useState(0.7);
@@ -218,10 +218,7 @@ export function Molecule3DBlock({ content }: Props) {
   yawRef.current = yaw;
   pitchRef.current = pitch;
 
-  const parsed = useMemo(() => parseMolecule3DFence(content), [content]);
-  const sdf = parsed?.sdf ?? "";
-  const caption = parsed?.caption;
-  const geom = useMemo(() => (sdf ? parseMolGeometry(sdf) : null), [sdf]);
+  const geom = useMemo(() => parseMolGeometry(sdf), [sdf]);
 
   const pan = useMemo(
     () =>
@@ -239,6 +236,42 @@ export function Molecule3DBlock({ content }: Props) {
       }),
     [],
   );
+
+  if (!geom) return null;
+
+  return (
+    <>
+      <View style={s.stage} {...pan.panHandlers}>
+        <MoleculeSvg geom={geom} style={style} theme={theme} yaw={yaw} pitch={pitch} />
+      </View>
+      <View style={s.styleRowWrap}>
+        <View style={s.styleRow}>
+          {(["ball-stick", "spacefill", "wireframe"] as const).map((st) => (
+            <Pressable
+              key={st}
+              style={[s.styleBtn, style === st && s.styleBtnActive]}
+              onPress={() => setStyle(st)}
+            >
+              <Text style={[s.styleBtnText, style === st && s.styleBtnTextActive]}>
+                {st === "ball-stick" ? "Ball" : st === "spacefill" ? "Sphere" : "Wire"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </>
+  );
+}
+
+export function Molecule3DBlock({ content }: Props) {
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+
+  const parsed = useMemo(() => parseMolecule3DFence(content), [content]);
+  const sdf = parsed?.sdf ?? "";
+  const caption = parsed?.caption;
+  const geom = useMemo(() => (sdf ? parseMolGeometry(sdf) : null), [sdf]);
 
   if (!parsed || !geom) {
     return (
@@ -271,24 +304,10 @@ export function Molecule3DBlock({ content }: Props) {
         </View>
       ) : null}
 
-      <View style={s.stage} {...pan.panHandlers}>
-        <MoleculeSvg geom={geom} style={style} theme={theme} yaw={yaw} pitch={pitch} />
-      </View>
+      <Molecule3DView sdf={sdf} />
 
       <View style={s.actions}>
-        <View style={s.styleRow}>
-          {(["ball-stick", "spacefill", "wireframe"] as const).map((st) => (
-            <Pressable
-              key={st}
-              style={[s.styleBtn, style === st && s.styleBtnActive]}
-              onPress={() => setStyle(st)}
-            >
-              <Text style={[s.styleBtnText, style === st && s.styleBtnTextActive]}>
-                {st === "ball-stick" ? "Ball" : st === "spacefill" ? "Sphere" : "Wire"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <View style={s.spacer} />
         <CopyButton text={sdf} />
       </View>
     </View>
@@ -339,6 +358,11 @@ function makeStyles(t: Theme) {
       gap: 10,
       paddingHorizontal: 14,
       paddingVertical: 10,
+    },
+    spacer: { flex: 1 },
+    styleRowWrap: {
+      paddingHorizontal: 14,
+      paddingTop: 10,
     },
     styleRow: { flexDirection: "row", gap: 6 },
     styleBtn: {

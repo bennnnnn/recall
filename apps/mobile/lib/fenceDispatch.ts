@@ -50,6 +50,7 @@ const DIAGRAM_IDS: ReadonlySet<FenceId> = new Set([
   "chart",
   "mermaid",
   "chemistry",
+  "molecule",
   "molecule3d",
 ]);
 

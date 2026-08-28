@@ -690,6 +690,8 @@
   "rich.chart": "Chart",
   "rich.chart_dev_build": "Chart preview requires a dev build",
   "rich.chart_error": "Could not render that chart.",
+  "rich.chemistry_2d": "2D",
+  "rich.chemistry_3d": "3D",
   "rich.chemistry_3d_dev_build": "3D molecule preview requires a dev build.",
   "rich.chemistry_dev_build": "Build the app to preview structures inline.",
   "rich.chemistry_invalid": "Could not render that structure.",

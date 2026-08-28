@@ -690,6 +690,8 @@
   "rich.chart": "Gráfico",
   "rich.chart_dev_build": "La vista previa del gráfico requiere un build de desarrollo",
   "rich.chart_error": "No se pudo renderizar el gráfico.",
+  "rich.chemistry_2d": "2D",
+  "rich.chemistry_3d": "3D",
   "rich.chemistry_3d_dev_build": "La vista 3D de moléculas requiere un dev build.",
   "rich.chemistry_dev_build": "Compila la app para ver estructuras en línea.",
   "rich.chemistry_invalid": "No se pudo mostrar esa estructura.",
