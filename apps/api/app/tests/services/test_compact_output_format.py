@@ -45,6 +45,27 @@ def test_compact_compare_turn_uses_table_then_code_cards_not_plain_prose():
     assert "No ## headings" not in joined
 
 
+def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
+    from app.services.chat.prompt_constants import CHART_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text=(
+            "Make a bar chart of average monthly rainfall in Seattle: "
+            "Jan 5.7, Feb 3.5, Mar 3.7, Apr 2.4, May 1.8, Jun 1.5 inches."
+        ),
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CHART_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    joined = "\n".join(parts)
+    assert "you CAN draw this chart" in joined
+    assert "NEVER substitute a markdown table" in joined
+    assert "No ## headings" not in joined
+
+
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",

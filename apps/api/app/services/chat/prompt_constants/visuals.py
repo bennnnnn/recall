@@ -47,6 +47,8 @@ VISUALIZATION_HINTS = (
     "**Mermaid diagrams** (```mermaid) — Processes, workflows, architecture, relationships, "
     "decision trees. Prefer over bullet lists when showing connections. Not for molecules.\n\n"
     "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends. "
+    "You CAN draw these in-app. NEVER say you cannot draw a chart. "
+    "NEVER mermaid, a pipe table, or HTML for a bar/line/pie series. "
     'Always include `"$schema": "https://vega.github.io/schema/vega-lite/v5.json"` '
     "as the first key so the renderer picks Vega-Lite. Prefer Vega-Lite over Vega. "
     "Example:\n"
