@@ -1,4 +1,5 @@
 import {
+  CHART_PREVIEW_CSP,
   PDF_PREVIEW_CSP,
   PREVIEW_CSP,
   PREVIEW_CSP_INLINE,
@@ -94,7 +95,7 @@ describe("PREVIEW_CSP egress details", () => {
 
   it("blocks https on img/font/media (passive GET exfiltration)", () => {
     // connect-src 'none' alone is not enough: <img src="https://attacker/…">
-    // still fires a GET when the DOM parses. Mermaid/Charts inherit this CSP.
+    // still fires a GET when the DOM parses. Mermaid inherits this CSP.
     const imgSrc = PREVIEW_CSP.match(/img-src\s+([^;]+)/)?.[1].trim();
     const fontSrc = PREVIEW_CSP.match(/font-src\s+([^;]+)/)?.[1].trim();
     const mediaSrc = PREVIEW_CSP.match(/media-src\s+([^;]+)/)?.[1].trim();
@@ -144,6 +145,27 @@ describe("PDF_PREVIEW_CSP", () => {
     expect(workerSrcMatch).not.toBeNull();
     const workerSrcValue = workerSrcMatch![1].trim();
     expect(workerSrcValue).toBe("blob:");
+  });
+});
+
+describe("CHART_PREVIEW_CSP", () => {
+  it("allows unsafe-eval so Vega can compile expressions, without network egress", () => {
+    expect(CHART_PREVIEW_CSP).toContain("script-src 'unsafe-inline' 'unsafe-eval'");
+    expect(CHART_PREVIEW_CSP).toContain("connect-src 'none'");
+    expect(CHART_PREVIEW_CSP).toContain("default-src 'none'");
+    expect(CHART_PREVIEW_CSP).toContain("form-action 'none'");
+    expect(CHART_PREVIEW_CSP).toContain("base-uri 'none'");
+  });
+
+  it("does not open script-src to https (eval is chart-only, not CDN)", () => {
+    const scriptSrc = CHART_PREVIEW_CSP.match(/script-src\s+([^;]+)/)?.[1].trim();
+    expect(scriptSrc).toBe("'unsafe-inline' 'unsafe-eval'");
+    expect(scriptSrc).not.toContain("https:");
+  });
+
+  it("does not leak eval onto the user-HTML preview CSP", () => {
+    expect(PREVIEW_CSP).not.toContain("unsafe-eval");
+    expect(PREVIEW_CSP).toContain("script-src 'unsafe-inline'");
   });
 });
 

@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chart card showed a CSP eval error instead of bars.** Vega compiles
+  filter/calc expressions with `new Function()`. Default preview CSP is
+  `script-src 'unsafe-inline'` only, so the WebView painted "Refused to
+  evaluate a string as JavaScript". Use `CHART_PREVIEW_CSP` (`unsafe-eval`)
+  on that document only — keep eval off user-HTML `PREVIEW_CSP`.
 - **Coffee mermaid was a jokey 2-node card, clipped at 220px.** Slim turns
   get `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and no mermaid layout, so
   the model invents a bit instead of the requested steps. Swap compact for
