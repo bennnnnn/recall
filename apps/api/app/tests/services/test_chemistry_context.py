@@ -77,18 +77,17 @@ async def test_build_chemistry_context_pubchem_success() -> None:
     assert "PubChem CID: 2244" in block
 
 
-async def test_build_chemistry_context_pubchem_includes_3d_sdf() -> None:
-    """When PubChem lookup succeeds with a CID, 3D SDF is fetched and included."""
+async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
+    """PubChem 3D SDF in the prompt taught a second ```molecule3d fence on top
+    of the server-appended one — two molecule cards, one of them empty."""
     fake_compound = MagicMock()
-    fake_compound.smiles = "CC(=O)Oc1ccccc1C(=O)O"
-    fake_compound.molecular_formula = "C9H8O4"
-    fake_compound.molecular_weight = 180.16
-    fake_compound.cid = 2244
+    fake_compound.smiles = "CCO"
+    fake_compound.molecular_formula = "C2H6O"
+    fake_compound.molecular_weight = 46.07
+    fake_compound.cid = 702
     fake_result = MagicMock()
     fake_result.error = None
     fake_result.compound = fake_compound
-
-    fake_sdf = "fake SDF content with M  END"
 
     with (
         patch.object(
@@ -103,12 +102,15 @@ async def test_build_chemistry_context_pubchem_includes_3d_sdf() -> None:
         ) as mock_sdf,
     ):
         mock_lookup.return_value = fake_result
-        mock_sdf.return_value = fake_sdf
-        block = await chemistry_context.build_chemistry_context("what is aspirin?", MagicMock())
+        mock_sdf.return_value = "fake SDF content with M  END"
+        block = await chemistry_context.build_chemistry_context(
+            "Show the molecular structure of ethanol. Include 2D and 3D.",
+            MagicMock(),
+        )
     assert block is not None
-    assert "3D SDF" in block
-    assert "molecule3d" in block
-    assert fake_sdf in block
+    assert "molecule3d" not in block
+    assert "3D SDF" not in block
+    mock_sdf.assert_not_called()
 
 
 async def test_build_chemistry_context_pubchem_not_found() -> None:

@@ -24,11 +24,11 @@ describe("prepareAssistantMarkdown molecule pair", () => {
     assert.equal(chemicalStructureCount(out), 1);
   });
 
-  it("keeps both labels when prose sits between the fences", () => {
+  it("skips a later molecule3d after smiles even when a heading sits between", () => {
     const markdown =
-      "```smiles\nCCO\n```\n\nSee the 3D view:\n\n```molecule3d\nEthanol\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\nM  END\n```";
+      "```smiles\nCCO\n```\n\n## 3D Structure\n\n```molecule3d\nEthanol\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\nM  END\n```";
     const out = prepareAssistantMarkdown(markdown);
-    assert.equal(chemicalStructureCount(out), 2);
-    assert.match(out, /See the 3D view/);
+    assert.equal(chemicalStructureCount(out), 1);
+    assert.equal(out.includes("V2000"), false);
   });
 });

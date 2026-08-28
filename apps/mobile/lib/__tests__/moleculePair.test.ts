@@ -1,5 +1,6 @@
 import {
   collapseAdjacentMoleculeFences,
+  dropRedundantMolecule3dFences,
   parseMoleculeFence,
 } from "@/lib/moleculePair";
 
@@ -54,6 +55,23 @@ describe("collapseAdjacentMoleculeFences", () => {
   it("does not collapse while the 3D fence is still open (streaming)", () => {
     const input = "```smiles\nCCO\n```\n\n```molecule3d\nEthanol\n     RDKit";
     expect(collapseAdjacentMoleculeFences(input)).toBe(input);
+  });
+});
+
+describe("dropRedundantMolecule3dFences", () => {
+  it("drops a leftover molecule3d after a combined molecule card", () => {
+    const combined =
+      "```molecule\n" + JSON.stringify({ smiles: "CCO", sdf: SDF }) + "\n```";
+    const input = combined + "\n\n## 3D Structure\n\n```molecule3d\nnot a real sdf\n```";
+    const out = dropRedundantMolecule3dFences(input);
+    expect(out).toContain("```molecule\n");
+    expect(out).not.toContain("```molecule3d");
+    expect(out).not.toMatch(/3D Structure/i);
+  });
+
+  it("keeps standalone molecule3d when there is no combined card", () => {
+    const input = "## 3D Structure\n\n```molecule3d\n" + SDF + "\n```";
+    expect(dropRedundantMolecule3dFences(input)).toBe(input);
   });
 });
 

@@ -132,6 +132,31 @@ export function collapseAdjacentMoleculeFences(text: string): string {
   return parts.join("");
 }
 
+/**
+ * After pairing, drop leftover ```molecule3d fences. The model still emits
+ * its own 3D fence under a "3D Structure" heading even though the server
+ * already appended one after ```smiles — that second card is empty.
+ * Standalone molecule3d (no ```molecule in the message) is left alone.
+ */
+export function dropRedundantMolecule3dFences(text: string): string {
+  const fences = iterFences(text);
+  const hasCombined = fences.some((fence) => fence.lang === "molecule" && fence.closed);
+  if (!hasCombined) return text;
+  const parts: string[] = [];
+  let cursor = 0;
+  let dropped = false;
+  for (const fence of fences) {
+    if (!fence.closed || !isMol3dLang(fence.lang)) continue;
+    const before = text.slice(cursor, fence.start);
+    parts.push(before.replace(/(?:\n|^)#{1,6}[ \t]+(?:2D|3D)[ \t]+Structure[^\n]*\s*$/i, "\n"));
+    cursor = fence.end;
+    dropped = true;
+  }
+  if (!dropped) return text;
+  parts.push(text.slice(cursor));
+  return parts.join("").replace(/\n{3,}/g, "\n\n");
+}
+
 export function parseMoleculeFence(content: string): MoleculeFence | null {
   const trimmed = content.trim();
   if (trimmed.startsWith("{")) {

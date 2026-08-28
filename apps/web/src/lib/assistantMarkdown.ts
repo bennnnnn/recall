@@ -266,14 +266,22 @@ export function replaceRichFences(markdown: string): string {
   let cursor = 0;
   let prev: Fence | null = null;
   let replaced = false;
+  let sawChemCard = false;
   for (const fence of fences) {
     if (shouldReplaceFence(fence)) {
       parts.push(markdown.slice(cursor, fence.start));
-      // Persist still emits smiles + molecule3d. Skip the second "Chemical
-      // structure" label when they are adjacent (mobile collapses them).
-      parts.push(isPairedMolecule3d(prev, fence, markdown) ? "" : fallbackForFence(fence));
+      // Persist still emits smiles + molecule3d. Skip later 3D fences once a
+      // chemistry card already produced a label (model often adds a second
+      // ```molecule3d under a "3D Structure" heading).
+      const skipMol3d =
+        MOL3D_LANGS.has(fence.lang) &&
+        (sawChemCard || isPairedMolecule3d(prev, fence, markdown));
+      parts.push(skipMol3d ? "" : fallbackForFence(fence));
       cursor = fence.end;
       replaced = true;
+      if (CHEM_VISUAL_LANGS.has(fence.lang) || fence.lang === "molecule") {
+        sawChemCard = true;
+      }
     }
     prev = fence;
   }
