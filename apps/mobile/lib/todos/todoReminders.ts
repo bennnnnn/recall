@@ -25,8 +25,6 @@ export function todoNotificationId(todoId: string): string {
   return `${TODO_PREFIX}${todoId}`;
 }
 
-export { reminderNotifyDate };
-
 function formatDueTime(due: Date): string {
   return due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
