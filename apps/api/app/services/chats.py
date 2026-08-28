@@ -192,6 +192,7 @@ async def list_messages_page(
     before: UUID | None = None,
 ) -> MessagePageOut:
     chat = await get_chat(session, user, chat_id)
+    await finalize_registry.wait_for_inflight_stream(chat_id)
     await finalize_registry.wait_for_pending_finalize(chat_id, redis)
     msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
 

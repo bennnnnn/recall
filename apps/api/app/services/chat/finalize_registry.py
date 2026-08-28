@@ -6,6 +6,12 @@ background task. Anything that reads a chat's messages right after a turn —
 the next turn's prompt build, regenerate/edit, message feedback — must await
 that pending commit first or it can miss the just-streamed assistant reply.
 
+The WS stream producer is tracked separately (``_inflight``). GET /messages
+waits on it so a New-chat leave can still return the completed assistant.
+``stream_chat_response`` must *not* wait on that producer: it registers the
+producer, then ``asyncio.gather``s the finalize wait as a *child* Task, so
+``current_task() is producer`` is false and a shared map deadlocks 10s.
+
 Same-process waiters use an in-memory task map. Cross-process / multi-instance
 waiters also poll a short-lived Redis marker set when finalize is registered
 and cleared when the DB task finishes.
@@ -28,21 +34,41 @@ _FINALIZE_MARKER_TTL_SECONDS = 120
 _FINALIZE_POLL_INTERVAL_SECONDS = 0.05
 
 _pending: dict[UUID, asyncio.Task[None]] = {}
+_inflight: dict[UUID, asyncio.Task[None]] = {}
 
 
 def _marker_key(chat_id: UUID) -> str:
     return f"chatfinal:{chat_id}"
 
 
-def register_pending_finalize(chat_id: UUID, task: asyncio.Task[None]) -> None:
-    """Track `task` as the chat's in-flight finalize; auto-clears on completion."""
-    _pending[chat_id] = task
+def _track(store: dict[UUID, asyncio.Task[None]], chat_id: UUID, task: asyncio.Task[None]) -> None:
+    store[chat_id] = task
 
     def _clear(done: asyncio.Task[None]) -> None:
-        if _pending.get(chat_id) is done:
-            _pending.pop(chat_id, None)
+        if store.get(chat_id) is done:
+            store.pop(chat_id, None)
 
     task.add_done_callback(_clear)
+
+
+async def _await_bounded(task: asyncio.Task[None], *, timeout_log: str) -> None:
+    try:
+        await asyncio.wait_for(asyncio.shield(task), _FINALIZE_WAIT_TIMEOUT_SECONDS)
+    except TimeoutError:
+        logger.warning(timeout_log)
+    except Exception:
+        with contextlib.suppress(Exception):
+            logger.debug("In-flight chat task failed", exc_info=True)
+
+
+def register_pending_finalize(chat_id: UUID, task: asyncio.Task[None]) -> None:
+    """Track `task` as the chat's in-flight finalize; auto-clears on completion."""
+    _track(_pending, chat_id, task)
+
+
+def register_inflight_stream(chat_id: UUID, task: asyncio.Task[None]) -> None:
+    """Track the WS producer so GET /messages can wait out a New-chat leave."""
+    _track(_inflight, chat_id, task)
 
 
 async def mark_pending_finalize(redis: Redis, chat_id: UUID) -> None:
@@ -61,28 +87,29 @@ async def clear_pending_finalize(redis: Redis, chat_id: UUID) -> None:
         logger.debug("Failed to clear pending finalize chat_id=%s", chat_id, exc_info=True)
 
 
+async def wait_for_inflight_stream(chat_id: UUID) -> None:
+    """Wait (bounded) for this process's WS producer. Never used by the producer."""
+    task = _inflight.get(chat_id)
+    if task is None or task.done():
+        return
+    await _await_bounded(
+        task,
+        timeout_log=f"In-flight stream still running after wait chat_id={chat_id}",
+    )
+
+
 async def wait_for_pending_finalize(chat_id: UUID, redis: Redis | None = None) -> None:
     """Wait (bounded) for the chat's previous turn to finish committing.
 
     Never raises: a failed or slow finalize must not block the next turn —
-    the finalize task logs its own errors. The in-flight stream producer may
-    register itself; waiting from inside that task is a no-op.
+    the finalize task logs its own errors.
     """
     task = _pending.get(chat_id)
-    current = asyncio.current_task()
-    # WS registers the stream producer so GET /messages can wait out a
-    # New-chat leave. That producer *is* this wait — do not wait on self.
-    if task is not None and not task.done() and task is not current:
-        try:
-            await asyncio.wait_for(asyncio.shield(task), _FINALIZE_WAIT_TIMEOUT_SECONDS)
-        except TimeoutError:
-            logger.warning("Pending turn finalize still running after wait chat_id=%s", chat_id)
-        except Exception:
-            # The finalize task's own error handling/logging covers this.
-            with contextlib.suppress(Exception):
-                logger.debug("Pending finalize failed chat_id=%s", chat_id, exc_info=True)
-        return
-    if task is current:
+    if task is not None and not task.done():
+        await _await_bounded(
+            task,
+            timeout_log=f"Pending turn finalize still running after wait chat_id={chat_id}",
+        )
         return
 
     if redis is None:
@@ -103,3 +130,8 @@ async def wait_for_pending_finalize(chat_id: UUID, redis: Redis | None = None) -
 def pending_finalize_count() -> int:
     """Test/introspection helper."""
     return len(_pending)
+
+
+def inflight_stream_count() -> int:
+    """Test/introspection helper."""
+    return len(_inflight)
