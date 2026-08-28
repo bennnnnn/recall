@@ -1,5 +1,5 @@
 import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
-import { collapseAdjacentMoleculeFences } from "@/lib/moleculePair";
+import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/moleculePair";
 import {
   retagMathAndDiagramFences,
   shouldRenderMathFenceInline,
@@ -1062,6 +1062,7 @@ export function preprocessMarkdown(
   out = inlineShortMathFences(out);
   out = unwrapProseMathBackticks(out);
   out = collapseAdjacentMoleculeFences(out);
+  out = dropRedundantMolecule3dFences(out);
 
   return out;
 }

@@ -528,6 +528,16 @@ represents`;
     expect(out).not.toMatch(/```molecule\n/);
   });
 
+  it("drops a leftover molecule3d under a 3D Structure heading after pairing", () => {
+    const input =
+      "```smiles\nCCO\n```\n\n```molecule3d\nEthanol\n     RDKit          3D\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0  0\n    1.5000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0  0\n    2.5000    1.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0  0\n  1  2  1  0\n  2  3  1  0\nM  END\n```\n\n## 3D Structure\n\n```molecule3d\nnot sdf\n```";
+    const out = preprocessMarkdown(input);
+    const fences = markdownItInstance.parse(out, {}).filter((t) => t.type === "fence");
+    expect(fences.map((t) => t.info?.trim())).toEqual(["molecule"]);
+    expect(out).not.toContain("```molecule3d");
+    expect(out).not.toMatch(/3D Structure/i);
+  });
+
   it("BUG FIX regression: does not unwrap a math fence just because its content starts with a dollar sign", () => {
     // The price-tier-corruption check matched any body starting with "$",
     // not just the specific "$)" artifact left on its own line by a botched

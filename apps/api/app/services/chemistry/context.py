@@ -282,16 +282,4 @@ async def build_chemistry_context(
         "Use the SMILES above verbatim in a ```smiles fence if you show the structure.",
     ]
 
-    # Best-effort: fetch 3D SDF from PubChem as a fallback for molecules
-    # where RDKit embedding may fail (complex ring systems, macrocycles).
-    # The model can emit a ```molecule3d fence directly with this SDF.
-    if compound.cid:
-        try:
-            sdf = await pubchem_gateway.fetch_3d_sdf(compound.cid)
-            if sdf:
-                lines.append("3D SDF (use verbatim in a ```molecule3d fence if you show 3D):")
-                lines.append(sdf)
-        except Exception:
-            logger.info("PubChem 3D SDF fetch failed for CID %s", compound.cid, exc_info=True)
-
     return "\n".join(lines)

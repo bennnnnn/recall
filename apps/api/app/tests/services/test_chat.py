@@ -237,6 +237,7 @@ def test_format_contract_is_markdown_not_ui_fences():
     from app.services.chat.prompt_constants import CHEMISTRY_FENCE_HINT, MATH_SOLVER_HINT
 
     assert "```smiles" in CHEMISTRY_FENCE_HINT
+    assert "Do not emit ```molecule3d" in CHEMISTRY_FENCE_HINT
     assert "```smiles" not in MATH_SOLVER_HINT
 
     from app.services.chat.prompt_constants import attach_chemistry_fence_hint
