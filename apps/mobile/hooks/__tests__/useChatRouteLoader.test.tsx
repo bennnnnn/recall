@@ -30,7 +30,7 @@ jest.mock("@/hooks/useChatTitlePolling", () => ({
   useChatTitlePolling: () => ({
     titleGenerating: false,
     pollForTitle: jest.fn(),
-    handleFirstReply: jest.fn(),
+    handleFirstReply: mockHandleFirstReply,
   }),
 }));
 jest.mock("@/hooks/useChatHighlightScroll", () => ({
@@ -41,6 +41,7 @@ import { api } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import { readCachedChatMessages } from "@/lib/chatMessageCache";
 
+const mockHandleFirstReply = jest.fn();
 const setChatId = jest.fn();
 const setMessages = jest.fn();
 const setQuizVariant = jest.fn();
@@ -149,5 +150,127 @@ describe("useChatRouteLoader", () => {
       expect(setChatId).toHaveBeenCalledWith("chat-1");
       expect(setQuizVariant).toHaveBeenCalledWith("vocab");
     });
+  });
+
+  it("leaves an in-flight turn running when New chat is tapped", async () => {
+    const stopGeneration = jest.fn();
+    const setParams = jest.fn();
+    let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
+    function StreamingProbe() {
+      const result = useChatRouteLoader({
+        token: "token",
+        routeChatId: "open-1",
+        routeHighlightMessage: undefined,
+        routePrompt: undefined,
+        routeLaunchId: undefined,
+        router: { setParams } as never,
+        draft: {
+          draftChatIdRef: { current: null },
+          draftProjectIdRef: { current: null },
+          draftQuizModeRef: { current: null },
+          skipLoadForChatIdRef: { current: "open-1" },
+          creatingRef: { current: false },
+          discardEmptyChat: jest.fn(),
+          clearDraftChat: jest.fn(),
+          prepareDraftChat: jest.fn(),
+        } as never,
+        chatId: "open-1",
+        setChatId,
+        setMessages,
+        messages: [
+          {
+            id: "u1",
+            role: "user",
+            content: "Tell me a long story",
+            model: null,
+            created_at: "t",
+          },
+          {
+            id: "streaming",
+            role: "assistant",
+            content: "Once upon",
+            model: null,
+            created_at: "t",
+          },
+        ],
+        streaming: true,
+        stopGeneration,
+        setQuizLanguage: jest.fn(),
+        setQuizVariant,
+        resolveQuizVariant: () => "vocab",
+        setInputRef: { current: jest.fn() },
+        listRef: { current: null },
+        showActionBanner: jest.fn(),
+        t: (key) => key,
+      });
+      startNewChat = result.startNewChat;
+      return <Text>ready</Text>;
+    }
+    await act(async () => {
+      render(<StreamingProbe />);
+    });
+    await act(async () => {
+      startNewChat?.();
+    });
+    expect(stopGeneration).not.toHaveBeenCalled();
+    expect(mockHandleFirstReply).toHaveBeenCalled();
+    expect(setChatId).toHaveBeenCalledWith(null);
+    expect(setMessages).toHaveBeenCalledWith([]);
+    expect(setParams).toHaveBeenCalledWith({ chatId: undefined });
+  });
+
+  it("stops an in-flight turn when New chat is forced (deleted chat)", async () => {
+    const stopGeneration = jest.fn();
+    let startNewChat: ((opts?: { force?: boolean }) => void) | undefined;
+    function DeletedProbe() {
+      const result = useChatRouteLoader({
+        token: "token",
+        routeChatId: "open-1",
+        routeHighlightMessage: undefined,
+        routePrompt: undefined,
+        routeLaunchId: undefined,
+        router: { setParams: jest.fn() } as never,
+        draft: {
+          draftChatIdRef: { current: null },
+          draftProjectIdRef: { current: null },
+          draftQuizModeRef: { current: null },
+          skipLoadForChatIdRef: { current: "open-1" },
+          creatingRef: { current: false },
+          discardEmptyChat: jest.fn(),
+          clearDraftChat: jest.fn(),
+          prepareDraftChat: jest.fn(),
+        } as never,
+        chatId: "open-1",
+        setChatId,
+        setMessages,
+        messages: [
+          {
+            id: "u1",
+            role: "user",
+            content: "hi",
+            model: null,
+            created_at: "t",
+          },
+        ],
+        streaming: true,
+        stopGeneration,
+        setQuizLanguage: jest.fn(),
+        setQuizVariant,
+        resolveQuizVariant: () => "vocab",
+        setInputRef: { current: jest.fn() },
+        listRef: { current: null },
+        showActionBanner: jest.fn(),
+        t: (key) => key,
+      });
+      startNewChat = result.startNewChat;
+      return <Text>ready</Text>;
+    }
+    await act(async () => {
+      render(<DeletedProbe />);
+    });
+    await act(async () => {
+      startNewChat?.({ force: true });
+    });
+    expect(stopGeneration).toHaveBeenCalled();
   });
 });

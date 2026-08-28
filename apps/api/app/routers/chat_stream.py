@@ -33,6 +33,7 @@ from app.services.chat.stream_events import (
     build_stream_end_payload,
     build_token_event,
     error_payload_for_exception,
+    persist_finalize_if_pending,
     pop_finalize_tasks,
 )
 from app.services.chat.stream_status import StreamStatusFn
@@ -193,10 +194,7 @@ async def _stream_tokens_sse(
         # Await it here too (bounded) so partial tokens are saved even
         # when the transport breaks. The shield inside await_finalize_commit
         # means this never cancels the commit task on timeout.
-        finalize_db_task = pop_finalize_tasks(result)
-        if finalize_db_task is not None:
-            with suppress(Exception):
-                await await_finalize_commit(finalize_db_task)
+        await persist_finalize_if_pending(result)
         if not disconnect_watcher.done():
             disconnect_watcher.cancel()
             with suppress(asyncio.CancelledError):

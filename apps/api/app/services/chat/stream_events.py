@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 from typing import Any
 
 from app.exceptions import (
@@ -119,6 +120,20 @@ async def await_finalize_commit(
     except Exception:
         logger.exception("Finalize commit failed before done")
         return "failed"
+
+
+async def persist_finalize_if_pending(result: dict[str, Any]) -> None:
+    """Await a still-pending DB finalize after the transport drops.
+
+    SSE and WS success paths pop and wait for ``done``. If the client closes
+    first, that wait never runs — call this from a ``finally`` so a partial
+    assistant row is still committed (quota refund + title job included).
+    """
+    finalize_db_task = pop_finalize_tasks(result)
+    if finalize_db_task is None:
+        return
+    with suppress(Exception):
+        await await_finalize_commit(finalize_db_task)
 
 
 def build_done_payload(result: dict[str, Any]) -> dict[str, Any]:

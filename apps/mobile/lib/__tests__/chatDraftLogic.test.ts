@@ -1,6 +1,7 @@
 import {
   resolveActiveChatId,
   shareEmptyChatCheck,
+  chatHasThreadContent,
   shouldDiscardOnNewChat,
   shouldProbeEmptyChat,
   shouldProbePreviousChat,
@@ -35,6 +36,12 @@ describe("chatDraftLogic", () => {
     expect(resolveActiveChatId("chat-1", "draft-1")).toBe("chat-1");
     expect(resolveActiveChatId(null, "draft-1")).toBe("draft-1");
     expect(resolveActiveChatId(null, null)).toBeNull();
+  });
+
+  it("chatHasThreadContent is true for a user-only in-flight turn", () => {
+    expect(chatHasThreadContent([])).toBe(false);
+    expect(chatHasThreadContent([{ role: "user" }])).toBe(true);
+    expect(chatHasThreadContent([{ role: "assistant" }])).toBe(true);
   });
 
   it("shouldProbeEmptyChat skips when the thread already has a reply", () => {

@@ -52,3 +52,22 @@ async def test_await_finalize_commit_returns_committed_on_success():
 async def test_await_finalize_commit_returns_committed_when_no_task():
     status = await stream_events.await_finalize_commit(None)
     assert status == "committed"
+
+
+@pytest.mark.asyncio
+async def test_persist_finalize_if_pending_awaits_task():
+    ran = False
+
+    async def finalize() -> None:
+        nonlocal ran
+        ran = True
+
+    result = {"_finalize_db_task": asyncio.create_task(finalize()), "_finalize_task": object()}
+    await stream_events.persist_finalize_if_pending(result)
+    assert ran is True
+    assert "_finalize_db_task" not in result
+
+
+@pytest.mark.asyncio
+async def test_persist_finalize_if_pending_is_noop_without_task():
+    await stream_events.persist_finalize_if_pending({})

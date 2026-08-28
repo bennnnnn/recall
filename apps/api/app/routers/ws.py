@@ -24,6 +24,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
+from app.services.chat.finalize_registry import register_pending_finalize
 from app.services.chat.stream_events import (
     await_finalize_commit,
     build_done_payload,
@@ -33,6 +34,7 @@ from app.services.chat.stream_events import (
     build_stream_end_payload,
     build_token_event,
     error_payload_for_exception,
+    persist_finalize_if_pending,
     pop_finalize_tasks,
 )
 
@@ -95,6 +97,7 @@ async def _stream_over_ws(
     stream: AsyncIterator[str],
     cancel_event: asyncio.Event,
     result: dict[str, Any],
+    chat_id: UUID | None = None,
 ) -> None:
     async def run_stream() -> None:
         sent_tokens = 0
@@ -103,7 +106,11 @@ async def _stream_over_ws(
                 if cancel_event.is_set():
                     break
                 if not await _safe_send_json(websocket, build_token_event(token_text)):
-                    cancel_event.set()
+                    # Client left (New chat / navigate). Keep consuming the
+                    # model stream so the thread gets a complete reply.
+                    async for _ in stream:
+                        if cancel_event.is_set():
+                            break
                     break
                 sent_tokens += 1
         except asyncio.CancelledError:
@@ -161,6 +168,10 @@ async def _stream_over_ws(
         await _safe_send_json(websocket, build_done_payload(result))
 
     producer = asyncio.create_task(run_stream())
+    if chat_id is not None:
+        # Reopening this chat GET /messages waits here so a New-chat leave
+        # can still return the completed assistant row.
+        register_pending_finalize(chat_id, producer)
     try:
         while not producer.done():
             receiver = asyncio.create_task(websocket.receive_json())
@@ -172,9 +183,8 @@ async def _stream_over_ws(
                 try:
                     msg = receiver.result()
                 except WebSocketDisconnect:
-                    cancel_event.set()
-                    if not producer.done():
-                        producer.cancel()
+                    # Navigate-away: finish the producer (it drains on send
+                    # failure). Do not cancel — Stop is the only hard stop.
                     break
                 # Non-dict JSON (array/primitive) must not AttributeError the
                 # dispatch loop while the producer is still streaming.
@@ -203,13 +213,15 @@ async def _stream_over_ws(
         except asyncio.CancelledError:
             pass
     except WebSocketDisconnect:
-        cancel_event.set()
         if not producer.done():
-            producer.cancel()
             try:
                 await producer
             except asyncio.CancelledError:
                 pass
+    finally:
+        # Same as SSE M10: client close must not orphan the DB commit that
+        # persists the (partial) assistant row and enqueues the title job.
+        await persist_finalize_if_pending(result)
 
 
 async def _run_chat_stream(
@@ -217,13 +229,20 @@ async def _run_chat_stream(
     *,
     cancel_event: asyncio.Event,
     stream_factory: Callable[[dict[str, str]], AsyncIterator[str]],
+    chat_id: UUID | None = None,
 ) -> None:
     cancel_event.clear()
     if not await _safe_send_json(websocket, build_start_event()):
         return
     result: dict[str, str] = {}
     try:
-        await _stream_over_ws(websocket, stream_factory(result), cancel_event, result)
+        await _stream_over_ws(
+            websocket,
+            stream_factory(result),
+            cancel_event,
+            result,
+            chat_id,
+        )
     except Exception as exc:
         if not isinstance(
             exc,
@@ -297,6 +316,7 @@ async def _handle_regenerate(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_regen_stream,
+        chat_id=chat_id,
     )
 
 
@@ -341,6 +361,7 @@ async def _handle_edit(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_edit_stream,
+        chat_id=chat_id,
     )
 
 
@@ -391,6 +412,7 @@ async def _handle_message(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_message_stream,
+        chat_id=chat_id,
     )
 
 
@@ -459,6 +481,16 @@ async def chat_websocket(
         while True:
             try:
                 payload = await websocket.receive_json()
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected chat_id=%s", chat_id)
+                return
+            except RuntimeError as exc:
+                # Disconnect already consumed by the stream loop (New chat
+                # closes the socket while tokens are still being generated).
+                if "disconnect" in str(exc).lower():
+                    logger.info("WebSocket disconnected chat_id=%s", chat_id)
+                    return
+                raise
             except (json.JSONDecodeError, KeyError, TypeError):
                 # Bad JSON, binary frames (no "text"), or other non-text payloads.
                 await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})

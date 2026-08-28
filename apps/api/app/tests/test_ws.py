@@ -511,6 +511,86 @@ def test_ws_mid_stream_non_dict_frame_is_ignored():
             assert "stream_end" in types
 
 
+@pytest.mark.asyncio
+async def test_stream_over_ws_disconnect_still_finalizes():
+    """Closing the socket mid-token must still persist the assistant.
+    stream_end send fails after disconnect, so `finally` awaits finalize."""
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.routers.ws import _stream_over_ws
+
+    finalized = asyncio.Event()
+
+    async def slow_finalize() -> None:
+        await asyncio.sleep(0.02)
+        finalized.set()
+
+    result: dict = {"_finalize_db_task": asyncio.create_task(slow_finalize())}
+
+    async def short_stream():
+        yield "Hi"
+        yield "there"
+
+    class FakeWs:
+        async def send_json(self, payload: dict) -> None:
+            if payload.get("type") in ("stream_end", "done"):
+                raise WebSocketDisconnect()
+
+        async def receive_json(self) -> dict:
+            await asyncio.sleep(0.01)
+            raise WebSocketDisconnect()
+
+    await asyncio.wait_for(
+        _stream_over_ws(FakeWs(), short_stream(), asyncio.Event(), result),
+        timeout=2,
+    )
+    assert finalized.is_set()
+
+
+@pytest.mark.asyncio
+async def test_stream_over_ws_disconnect_does_not_cancel_generation():
+    """New chat closes the socket; the model must still run to completion."""
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.routers.ws import _stream_over_ws
+
+    produced: list[str] = []
+    finalized = asyncio.Event()
+
+    async def mark_finalize() -> None:
+        finalized.set()
+
+    result: dict = {"_finalize_db_task": asyncio.create_task(mark_finalize())}
+
+    async def stream():
+        for part in ("one", "two", "three"):
+            produced.append(part)
+            yield part
+            await asyncio.sleep(0.01)
+
+    class FakeWs:
+        def __init__(self) -> None:
+            self._sends = 0
+
+        async def send_json(self, payload: dict) -> None:
+            self._sends += 1
+            if payload.get("type") == "token" and self._sends >= 2:
+                raise WebSocketDisconnect()
+            if payload.get("type") in ("stream_end", "done"):
+                raise WebSocketDisconnect()
+
+        async def receive_json(self) -> dict:
+            await asyncio.sleep(10)
+            return {"type": "ping"}
+
+    await asyncio.wait_for(
+        _stream_over_ws(FakeWs(), stream(), asyncio.Event(), result),
+        timeout=2,
+    )
+    assert produced == ["one", "two", "three"]
+    assert finalized.is_set()
+
+
 # ── validation / service errors ────────────────────────────────────────────────
 
 

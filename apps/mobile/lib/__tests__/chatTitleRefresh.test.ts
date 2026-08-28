@@ -1,4 +1,4 @@
-import { firstReplyTitlePlan } from "@/lib/chatTitleRefresh";
+import { firstReplyTitlePlan, shouldInsertDrawerRowOnLeave } from "@/lib/chatTitleRefresh";
 import type { Chat } from "@/lib/api";
 
 function chat(id: string, title: string | null): Chat {
@@ -11,6 +11,22 @@ function chat(id: string, title: string | null): Chat {
     updated_at: "2026-01-01T00:00:00Z",
   };
 }
+
+describe("shouldInsertDrawerRowOnLeave", () => {
+  it("inserts when the user already sent a message", () => {
+    expect(
+      shouldInsertDrawerRowOnLeave([
+        { role: "user" },
+        { role: "assistant" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("skips unused empty drafts", () => {
+    expect(shouldInsertDrawerRowOnLeave([])).toBe(false);
+    expect(shouldInsertDrawerRowOnLeave([{ role: "assistant" }])).toBe(false);
+  });
+});
 
 describe("firstReplyTitlePlan", () => {
   it("uses the POST /chats body so Home send skips GET /chats/{id}", () => {
