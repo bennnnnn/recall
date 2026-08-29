@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
+import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackPushTransition } from "@/lib/stackTransitions";
 import { useTheme } from "@/lib/theme";
 
@@ -11,11 +12,12 @@ export default function ProjectIdLayout() {
   const { t } = useTranslation();
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
+  const reduceMotion = useReduceMotion();
 
   return (
     <Stack
       screenOptions={{
-        ...stackPushTransition(),
+        ...stackPushTransition(reduceMotion),
         ...header,
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },

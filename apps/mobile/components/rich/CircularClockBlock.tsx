@@ -19,6 +19,7 @@ import {
   type ClockParts,
 } from "@/lib/clockTime";
 import { subscribeClockTick } from "@/lib/clockTick";
+import { useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
@@ -131,12 +132,14 @@ export function CircularClockBlock({ content }: Props) {
   );
 
   const [now, setNow] = useState(() => new Date());
+  const reduceMotion = useReduceMotion();
   const pulse = useSharedValue(1);
   const ringOpacity = useSharedValue(0.35);
 
   useEffect(() => {
     const tick = () => {
       setNow(new Date());
+      if (reduceMotion) return;
       pulse.value = withSequence(
         withTiming(1.06, { duration: 120, easing: Easing.out(Easing.quad) }),
         withTiming(1, { duration: 180, easing: Easing.inOut(Easing.quad) }),
@@ -152,7 +155,7 @@ export function CircularClockBlock({ content }: Props) {
     // (FlashList keeps rows mounted slightly past the viewport, so N clocks
     // used to mean N live timers).
     return subscribeClockTick(tick);
-  }, [pulse, ringOpacity]);
+  }, [pulse, reduceMotion, ringOpacity]);
 
   const parts = useMemo(
     () => getClockParts(now, timeZone, auth?.user?.locale),

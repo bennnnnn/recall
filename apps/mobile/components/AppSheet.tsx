@@ -81,7 +81,9 @@ export function AppSheet({
     onClose,
   );
 
-  const resolvedAnimation = animation ?? (variant === "center" ? "fade" : "slide");
+  const resolvedAnimation = reduceMotion
+    ? "none"
+    : (animation ?? (variant === "center" ? "fade" : "slide"));
   const showHandle = withHandle ?? variant === "bottom";
   const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
   const windowHeight = Dimensions.get("window").height;

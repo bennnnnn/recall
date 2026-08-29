@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -8,7 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Motion } from "@/lib/motion";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 type SkeletonBlockProps = {
@@ -26,9 +27,15 @@ export function SkeletonBlock({
   style,
 }: SkeletonBlockProps) {
   const theme = useTheme();
+  const reduceMotion = useReduceMotion();
   const opacity = useSharedValue(0.5);
 
   useEffect(() => {
+    if (reduceMotion) {
+      cancelAnimation(opacity);
+      opacity.value = 0.85;
+      return;
+    }
     opacity.value = withRepeat(
       withSequence(
         withTiming(1, {
@@ -43,7 +50,8 @@ export function SkeletonBlock({
       -1,
       false,
     );
-  }, [opacity]);
+    return () => cancelAnimation(opacity);
+  }, [opacity, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 

@@ -20,6 +20,7 @@ import { TodosProvider } from "@/contexts/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/components/StackBackButton";
+import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import {
   stackAuthTransition,
@@ -37,6 +38,7 @@ function RootNavigator() {
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
   const { status } = useNetwork();
+  const reduceMotion = useReduceMotion();
 
   return (
     <>
@@ -44,13 +46,13 @@ function RootNavigator() {
       <OfflineBanner status={status} />
       <Stack
         screenOptions={{
-          ...stackPushTransition(),
+          ...stackPushTransition(reduceMotion),
           headerShown: false,
           contentStyle: { backgroundColor: theme.bg },
         }}
       >
-        <Stack.Screen name="login" options={stackAuthTransition()} />
-        <Stack.Screen name="onboarding" options={stackAuthTransition()} />
+        <Stack.Screen name="login" options={stackAuthTransition(reduceMotion)} />
+        <Stack.Screen name="onboarding" options={stackAuthTransition(reduceMotion)} />
         <Stack.Screen
           name="index"
           options={{ ...stackHomeTransition(), title: "", headerShown: false }}
@@ -58,7 +60,7 @@ function RootNavigator() {
         <Stack.Screen
           name="memory"
           options={{
-            ...stackUtilityTransition(),
+            ...stackUtilityTransition(reduceMotion),
             ...header,
             headerShown: true,
             title: t("memory.title"),
@@ -68,12 +70,12 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="settings"
-          options={{ ...stackPushTransition(), headerShown: false }}
+          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
         />
         <Stack.Screen
           name="todos"
           options={{
-            ...stackUtilityTransition(),
+            ...stackUtilityTransition(reduceMotion),
             ...header,
             headerShown: true,
             title: t("todos.title"),
@@ -83,12 +85,12 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="projects"
-          options={{ ...stackPushTransition(), headerShown: false }}
+          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
         />
         <Stack.Screen
           name="gallery"
           options={{
-            ...stackUtilityTransition(),
+            ...stackUtilityTransition(reduceMotion),
             ...header,
             headerShown: true,
             title: t("gallery.title"),

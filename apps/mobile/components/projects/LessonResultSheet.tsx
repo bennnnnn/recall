@@ -39,6 +39,11 @@ export function LessonResultSheet({
   const opacity = useSharedValue(reduceMotion ? 1 : 0);
 
   useEffect(() => {
+    if (reduceMotion) {
+      translateY.value = 0;
+      opacity.value = 1;
+      return;
+    }
     translateY.value = withTiming(0, {
       duration: Motion.duration.snappy,
       easing: Motion.easing.out,
