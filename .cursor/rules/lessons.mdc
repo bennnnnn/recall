@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Famous quote rendered as italic `"…" - Author` prose.** Slim turns get
+  `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and QuoteBlock only fires on
+  markdown `>` blockquotes. Swap compact for `QUOTE_FORMAT_HINT`; promote
+  wrapped `"quote" - Author` paragraphs in preprocess (attribution on its own
+  `— Name` line). Never ` ```quote `.
 - **4-week Spanish plan became a clipped 3-column table.** FORMAT_CONTRACT
   allows pipe tables for "schedules," so a learning plan looked like a grid.
   `HOWTO_FORMAT_HINT` wins on N-week/roadmap/how-do-I asks: `##` + lists, never

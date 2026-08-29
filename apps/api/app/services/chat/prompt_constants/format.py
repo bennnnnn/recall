@@ -197,6 +197,44 @@ def is_howto_question(text: str) -> bool:
     return bool(_HOWTO_TURN.search(cleaned))
 
 
+_QUOTE_TURN = re.compile(
+    r"(?:"
+    r"\b(?:give|share|tell)(?:\s+me)?\s+(?:an?\s+|one\s+)?"
+    r"(?:famous\s+|well[- ]known\s+|inspirational\s+|motivational\s+)?"
+    r"quotes?\b|"
+    r"\b(?:famous|inspirational|motivational)\s+quotes?\b|"
+    r"\bquotes?\s+by\b|"
+    r"\bquotes?\s+(?:about|on|from)\b|"
+    r"\bquotation\s+(?:by|from|about)\b"
+    r")",
+    re.IGNORECASE,
+)
+_STOCK_QUOTE = re.compile(
+    r"(?:stock\s+quotes?|ticker\s+symbol|\bnasdaq\b|\bnyse\b)",
+    re.IGNORECASE,
+)
+
+QUOTE_FORMAT_HINT = (
+    "This turn asked for a quotation. Recall renders markdown blockquotes "
+    "(plain `>`) as a quote card. Do not write a joke setup. Lead with the "
+    "quote.\n"
+    "Put the quote on `>` lines. Attribution on its own following line as "
+    "`— Name` (em dash). Do not wrap the whole thing in straight quotes "
+    '(`"…" - Author`) and do not italicize it as a paragraph.\n'
+    "Never emit a ```quote fence. At most one short sentence after the card."
+)
+
+
+def is_quote_question(text: str) -> bool:
+    """True when the user asked for a famous / attributed quotation, not a stock quote."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if _STOCK_QUOTE.search(cleaned):
+        return False
+    return bool(_QUOTE_TURN.search(cleaned))
+
+
 # One layout contract. The model writes Markdown; Recall upgrades presentation.
 # Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
 # those cards still render if an old message has the fence.
@@ -215,6 +253,8 @@ FORMAT_CONTRACT = (
     "plan is a how-to, not a schedule table.\n"
     "  - Callouts: a blockquote starting with Tip: / Note: / Warning: "
     "(plain `>`). Not a fence.\n"
+    "  - Famous quotes: a markdown blockquote (`>`), attribution on its own "
+    "line as `— Name`. Not a ```quote fence and not a quoted italic paragraph.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
@@ -307,7 +347,8 @@ TONE_FORMAT_GUARD = (
     "never a substitute table; a flowchart leads with ```mermaid; "
     "a tips/warning ask leads with `> Tip:` / `> Warning:`, never a joke essay; "
     "a learning plan / how-to leads with ## headings and lists, never a "
-    "schedule table."
+    "schedule table; a quotation ask leads with a `>` blockquote, never "
+    'italic `"…" - Author` prose.'
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the

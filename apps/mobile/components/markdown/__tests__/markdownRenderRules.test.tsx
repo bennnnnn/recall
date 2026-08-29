@@ -84,6 +84,14 @@ describe("markdown render rules", () => {
     expect(getByText(/Shakespeare/)).toBeOnTheScreen();
   });
 
+  it("promotes a quoted attribution paragraph into the quote card", async () => {
+    const md =
+      '"Courage is the most important of all the virtues because without courage, you can\'t practice any other virtue consistently." - Maya Angelou';
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    expect(getByText(/Courage is the most important/)).toBeOnTheScreen();
+    expect(getByText(/Maya Angelou/)).toBeOnTheScreen();
+  });
+
   it("keeps inline bold inside a blockquote", async () => {
     const { getByText } = await render(
       <MarkdownContent content={"> hello **world**"} />,

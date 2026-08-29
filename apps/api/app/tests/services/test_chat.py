@@ -420,6 +420,7 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "```details" not in FORMAT_CONTRACT
     assert "```answer" not in FORMAT_CONTRACT
     assert "blockquote" in FORMAT_CONTRACT.lower() or "Tip:" in FORMAT_CONTRACT
+    assert "quoted italic paragraph" in FORMAT_CONTRACT
     assert "```email" in FORMAT_CONTRACT
     assert "```python" in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS

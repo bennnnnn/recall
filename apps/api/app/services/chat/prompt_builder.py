@@ -47,6 +47,7 @@ from app.services.chat.prompt_constants import (
     MERMAID_FORMAT_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
+    QUOTE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
@@ -63,6 +64,7 @@ from app.services.chat.prompt_constants import (
     is_howto_question,
     is_learning_progress_question,
     is_mermaid_question,
+    is_quote_question,
     is_writing_deliverable_request,
 )
 from app.services.chat.stream_status import StreamStatusFn
@@ -540,6 +542,8 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return MERMAID_FORMAT_HINT
     if is_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
+    if is_quote_question(query_text):
+        return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):
         return CALLOUT_FORMAT_HINT
     if is_howto_question(query_text):

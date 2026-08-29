@@ -161,3 +161,30 @@ def test_universal_baseline_bans_invented_tables_and_hooks():
     assert "timetables" in UNIVERSAL_FORMAT_BASELINE
     assert "Ah, the eternal question" in UNIVERSAL_FORMAT_BASELINE
     assert "word choice only" in TONE_FORMAT_GUARD
+    assert "quotation ask" in TONE_FORMAT_GUARD
+
+
+def test_compact_quote_turn_uses_blockquote_not_plain_prose():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        QUOTE_FORMAT_HINT,
+        is_quote_question,
+    )
+
+    query = "Give me a famous quote by Maya Angelou about courage, with attribution."
+    assert is_quote_question(query)
+    assert not is_quote_question("What's the latest stock quote for AAPL?")
+    assert not is_quote_question("Compare Python vs Java")
+
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert QUOTE_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    joined = "\n".join(parts)
+    assert "Never emit a ```quote fence" in joined
+    assert "No ## headings" not in joined

@@ -62,6 +62,36 @@ describe("preprocessMarkdown", () => {
     expect(out).toContain("hot surface");
   });
 
+  it("promotes a quoted paragraph with attribution into a blockquote", () => {
+    const src =
+      '"Courage is the most important of all the virtues because without courage, you can\'t practice any other virtue consistently." - Maya Angelou';
+    const out = preprocessMarkdown(src);
+    expect(out).toContain("> Courage is the most important of all the virtues");
+    expect(out).toContain("> — Maya Angelou");
+    expect(out).not.toMatch(/^"/);
+  });
+
+  it("does not promote a mid-sentence quoted phrase", () => {
+    const src = 'She said "hello there" and left.';
+    expect(preprocessMarkdown(src)).toBe(src);
+  });
+
+  it("does not rewrite quoted attribution inside a code fence", () => {
+    const src =
+      '```\n"Courage is the most important of all the virtues because without courage, you can\'t practice any other virtue consistently." - Maya Angelou\n```';
+    const out = preprocessMarkdown(src);
+    expect(out).toContain('"Courage is the most important');
+    expect(out).not.toContain("> — Maya Angelou");
+  });
+
+  it("unwraps italic wrapping around a quoted attribution", () => {
+    const src =
+      '*"Courage is the most important of all the virtues because without courage, you can\'t practice any other virtue consistently." - Maya Angelou*';
+    const out = preprocessMarkdown(src);
+    expect(out).toContain("> Courage is the most important of all the virtues");
+    expect(out).toContain("> — Maya Angelou");
+  });
+
   it("still converts real display math delimiters", () => {
     const input = "The area is $$\\pi r^2$$ for a circle.";
     const out = preprocessMarkdown(input);
