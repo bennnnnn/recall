@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -65,6 +66,7 @@ def test_estimate_tokens_minimum():
     [
         ("Send me an email to my wife", True),
         ("email my boss about PTO", True),
+        ("escribeme un correo", True),
         ("what is Python", False),
     ],
 )
@@ -511,6 +513,51 @@ async def test_build_prompt_injects_custom_instructions():
     system = messages[0]["content"]
     assert "User's personal instructions:" in system
     assert "Always answer in bullet points and cite sources." in system
+    assert "[BEGIN USER PREFERENCES]" in system
+    assert "[BEGIN UNTRUSTED CONTENT — user personal instructions]" not in system
+    assert "reply-style preferences" in system
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_strips_solver_fences_from_recent_assistant():
+    user = MagicMock()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+    user.custom_instructions = None
+
+    recent = [
+        SimpleNamespace(
+            id=uuid4(),
+            role="assistant",
+            content="The solution is below.\n```answer\n42\n```\nKeep this prose.",
+        ),
+        SimpleNamespace(id=uuid4(), role="user", content="thanks"),
+    ]
+
+    with (
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
+        patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.services.todos.build_todos_system_section", AsyncMock(return_value="")),
+        patch("app.services.projects.load_projects_for_prompt", AsyncMock(return_value="")),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False),
+            rich_context=False,
+        )
+
+    assistant = next(m for m in messages if m["role"] == "assistant")
+    assert "```answer" not in assistant["content"]
+    assert "Keep this prose." in assistant["content"]
+    assert "The solution is below." in assistant["content"]
 
 
 @pytest.mark.asyncio
@@ -885,6 +932,10 @@ def test_is_lightweight_skipped_during_vocab_answer():
         ("how many words have I mastered", True),
         ("what's my vocab progress", True),
         ("what's another word for happy", False),
+        ("cuales son mis proyectos", True),
+        ("escribeme un correo", True),
+        ("የእኔ ፕሮጀክቶች ምንድን ናቸው", True),
+        ("explain how transformers work", False),
     ],
 )
 def test_needs_rich_context(text, expected):
@@ -987,7 +1038,8 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     assert "short social turn" in system
     assert "MEMORY SHOULD NOT LOAD" not in system
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "Fluffy" not in system
+    assert "Fluffy" in system
+    assert "[BEGIN USER PREFERENCES]" in system
     assert "Checking your calendar" not in system
     assert "Gmail" not in system
     assert "web_search" not in system.lower()
@@ -1043,7 +1095,8 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
     assert "short social turn" not in system
     assert "MEMORY SHOULD NOT LOAD" not in system
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "Fluffy" not in system
+    assert "Fluffy" in system
+    assert "[BEGIN USER PREFERENCES]" in system
 
 
 class _FakeSessionCM:

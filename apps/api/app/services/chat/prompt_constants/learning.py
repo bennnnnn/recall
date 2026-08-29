@@ -1,6 +1,6 @@
 """Learning, quiz, and vocabulary prompt hints."""
 
-from app.services import projects as projects_service
+from app.services.projects.prompts import VOCAB_LEARNING_FORMATS_BLOCK
 
 DAY_LEARNING_SNAPSHOT_HINT = (
     "When 'Today's learning progress' is in context, those lines are authoritative for the "
@@ -34,7 +34,7 @@ QUIZ_ANSWER_HINT = (
     "next time (not mastered), then continue with a DIFFERENT next word.\n"
     "Stay on vocabulary. Never invent words. Never emit a trivia or general-knowledge quiz.\n"
     "Vocabulary format rotation:\n"
-    f"{projects_service.VOCAB_LEARNING_FORMATS_BLOCK}\n"
+    f"{VOCAB_LEARNING_FORMATS_BLOCK}\n"
     "Never use plain Q:/A: lines or multiple questions in one message.\n"
     "Mastering is recorded automatically on correct MCQ answers — do not sync master on a wrong answer."
 )
@@ -52,7 +52,7 @@ VOCAB_CHAT_ANSWER_HINT = (
     "then continue with a DIFFERENT next word in another learning format.\n"
     "- If correct: congratulate briefly, then continue with a DIFFERENT next word — prefer a "
     "**different** format than the one you just used (teach→use, use→define, occasional MCQ).\n"
-    f"{projects_service.VOCAB_LEARNING_FORMATS_BLOCK}\n"
+    f"{VOCAB_LEARNING_FORMATS_BLOCK}\n"
     "- Only treat as mastered when genuinely correct (MCQ auto-grades; for open-ended, "
     "confirm clearly so project sync can record mastery).\n"
     "- When the answer is wrong / weak and you move on (or they clearly failed): the app "

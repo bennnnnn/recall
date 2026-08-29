@@ -42,6 +42,10 @@ def transcript_implies_project_sync(
     text = transcript.strip()
     if not text:
         return False
+    from app.services.chat.prompt_constants.locale_cues import has_locale_cue
+
+    if has_locale_cue(text, "projects") or has_locale_cue(text, "learning"):
+        return True
     return bool(_PROJECT_SYNC_TRANSCRIPT.search(text))
 
 

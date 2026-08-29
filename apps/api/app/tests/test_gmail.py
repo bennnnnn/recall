@@ -18,6 +18,7 @@ def test_is_external_email_question():
 
     assert email_service.is_external_email_question("check my email")
     assert email_service.is_external_email_question("what's in my inbox")
+    assert email_service.is_external_email_question("revisa mi correo")
     assert not email_service.is_external_email_question("write an email to my boss")
 
 

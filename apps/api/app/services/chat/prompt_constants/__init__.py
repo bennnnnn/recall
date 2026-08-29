@@ -57,6 +57,7 @@ from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
     VISUALIZATION_HINTS,
     attach_chemistry_fence_hint,
+    is_html_ui_question,
 )
 from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
@@ -106,6 +107,7 @@ __all__ = [
     "is_chart_question",
     "is_comparison_question",
     "is_howto_question",
+    "is_html_ui_question",
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",

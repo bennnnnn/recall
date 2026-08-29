@@ -52,7 +52,7 @@ class User(Base):
     rc_last_event_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     enabled_models: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     response_style: Mapped[str] = mapped_column(String, default="balanced")
-    response_tone: Mapped[str] = mapped_column(String, default="funny", server_default="funny")
+    response_tone: Mapped[str] = mapped_column(String, default="casual", server_default="casual")
     memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"

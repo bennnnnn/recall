@@ -20,6 +20,13 @@ def test_estimate_tokens():
     assert estimate_tokens("a" * 400) == 111
 
 
+def test_estimate_tokens_non_latin_is_one_per_char() -> None:
+    amharic = "ፕሮጀክቶችፕሮጀክቶችፕሮጀክቶች"
+    assert estimate_tokens(amharic) == len(amharic)
+    cyrillic = "проекты" * 8
+    assert estimate_tokens(cyrillic) == len(cyrillic)
+
+
 def test_estimate_tokens_vision_content_list():
     """Finalize fallback must not crash when vision turns use list content."""
     parts = [

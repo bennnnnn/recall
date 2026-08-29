@@ -59,6 +59,7 @@ def test_transcript_implies_project_sync():
         "User: add apple\nAssistant: Added apple to your vocabulary list."
     )
     assert not projects_service.transcript_implies_project_sync("User: hello\nAssistant: Hi there!")
+    assert projects_service.transcript_implies_project_sync("User: cuales son mis proyectos")
 
 
 def _project(title: str, kind: str = "language"):

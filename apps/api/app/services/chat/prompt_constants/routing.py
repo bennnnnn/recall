@@ -3,6 +3,10 @@
 import re
 
 from app.services import time_context as time_context_service
+from app.services.chat.prompt_constants.locale_cues import (
+    has_any_personal_locale_cue,
+    has_locale_cue,
+)
 from app.services.text_normalize import collapse_ws
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
@@ -130,6 +134,8 @@ def needs_rich_context(
         return True
     if is_learning_progress_question(cleaned):
         return True
+    if has_any_personal_locale_cue(cleaned):
+        return True
     return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 
 
@@ -157,4 +163,4 @@ def is_writing_deliverable_request(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned:
         return False
-    return bool(_WRITING_DELIVERABLE.search(cleaned))
+    return bool(_WRITING_DELIVERABLE.search(cleaned)) or has_locale_cue(cleaned, "writing")
