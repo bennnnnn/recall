@@ -474,6 +474,7 @@
   "projects.continue_learning": "Continue today's words",
   "projects.create": "Ajouter un apprentissage",
   "projects.create_failed": "Could not create this learning topic. Try again.",
+  "projects.create_step": "{{current}} sur {{total}}",
   "projects.daily_goal_done": "Great job!",
   "projects.daily_goal_done_hint": "You hit your {{goal}}-word goal. Come back tomorrow, or add a bonus batch if you want more.",
   "projects.daily_goal_done_subtitle": "You've completed today's learning.",

@@ -524,8 +524,10 @@ were removed. Programming help lives in main chat.
   keeps the Greetings / Family / Food / … tree. Older English Hotel/SAT rows stay
   in the catalog tables for existing `catalog_entry_id` links but are **not** on
   the English lesson map. **Every class sees its full path** — class level
-  does not hide later groups. Create opens the **lesson map** (not a tutor chat that
-  invents words). Main chat gets a progress overview (class, daily
+  does not hide later groups. Create is a full-screen flow: **language**, then
+  **daily goal** (5/10/15). Class level defaults to beginner and lives in
+  Settings (tutor hints only — it does not gate the tree). Create opens the
+  **lesson map** (not a tutor chat that invents words). Main chat gets a progress overview (class, daily
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived

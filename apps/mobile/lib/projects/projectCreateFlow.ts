@@ -3,10 +3,12 @@ import { LEARNING_LANGUAGES, languageLabel } from "@/lib/i18n/languages";
 import { levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
 
-export type CreateStep = "language" | "level" | "daily";
+export type CreateStep = "language" | "daily";
+
+export const CREATE_DEFAULT_LEVEL: LanguageLevel = "level1";
 
 export function createStepsForKind(kind: ProjectKind | null): CreateStep[] {
-  if (kind === "language" || kind === "vocabulary") return ["language", "level", "daily"];
+  if (kind === "language" || kind === "vocabulary") return ["language", "daily"];
   return ["language"];
 }
 
@@ -19,16 +21,8 @@ export function createStepProgress(
   return { current: Math.max(index + 1, 1), total: steps.length };
 }
 
-export function goalStepHint(
-  kind: ProjectKind,
-  level: LanguageLevel,
-  t: (key: string) => string,
-  targetLanguage = "en",
-): string {
-  if (kind === "language" || kind === "vocabulary") {
-    return `${languageLabel(targetLanguage)} · ${levelLabel(level)}`;
-  }
-  return t("projects.kind.language");
+export function languageClassTitle(targetLanguage = "en"): string {
+  return languageLabel(targetLanguage);
 }
 
 export function languageProjectTitle(level: LanguageLevel, targetLanguage = "en"): string {
@@ -37,11 +31,11 @@ export function languageProjectTitle(level: LanguageLevel, targetLanguage = "en"
 
 export function fallbackProjectTitle(
   kind: ProjectKind,
-  level: LanguageLevel,
+  _level: LanguageLevel,
   t: (key: string) => string,
 ): string {
   if (kind === "language" || kind === "vocabulary") {
-    return languageProjectTitle(level);
+    return languageClassTitle();
   }
   return t("projects.kind.language");
 }
