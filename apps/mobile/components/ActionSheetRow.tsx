@@ -1,13 +1,14 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { StrokeIcon, type StrokeIconName } from "@/components/StrokeIcons";
+import { Icon } from "@/components/Icon";
+import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
 export const ACTION_SHEET_ICON_SIZE = 20;
 
 type Props = {
-  icon: StrokeIconName;
+  icon: IoniconName;
   label: string;
   onPress: () => void;
   theme: Theme;
@@ -35,7 +36,7 @@ export function ActionSheetRow({
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <StrokeIcon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
+      <Icon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
       <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
     </Pressable>
   );

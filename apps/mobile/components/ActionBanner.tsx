@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BannerGlyph } from "@/components/StrokeIcons";
+import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Layer } from "@/lib/layer";
 import { Motion, useReduceMotion } from "@/lib/motion";
@@ -107,7 +107,7 @@ export function ActionBanner({
             accessibilityLiveRegion="polite"
             accessibilityLabel={message}
           >
-            <BannerGlyph name={icon} size={18} color={iconColor} />
+            <Icon name={icon} size={18} color={iconColor} />
             <Text style={s.text} numberOfLines={2}>
               {message}
             </Text>
