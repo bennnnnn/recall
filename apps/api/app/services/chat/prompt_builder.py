@@ -39,6 +39,7 @@ from app.services.chat.prompt_constants import (
     DAY_PLANNING_ANSWER_HINT,
     EMAIL_DRAFT_HINT,
     FORMAT_CONTRACT,
+    HOWTO_FORMAT_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_INTENT_HINT,
     MATH_SOLVER_HINT,
@@ -59,6 +60,7 @@ from app.services.chat.prompt_constants import (
     is_callout_question,
     is_chart_question,
     is_comparison_question,
+    is_howto_question,
     is_learning_progress_question,
     is_mermaid_question,
     is_writing_deliverable_request,
@@ -540,6 +542,8 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return COMPARISON_FORMAT_HINT
     if is_callout_question(query_text):
         return CALLOUT_FORMAT_HINT
+    if is_howto_question(query_text):
+        return HOWTO_FORMAT_HINT
     return None
 
 

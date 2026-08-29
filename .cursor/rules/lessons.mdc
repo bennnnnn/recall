@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **4-week Spanish plan became a clipped 3-column table.** FORMAT_CONTRACT
+  allows pipe tables for "schedules," so a learning plan looked like a grid.
+  `HOWTO_FORMAT_HINT` wins on N-week/roadmap/how-do-I asks: `##` + lists, never
+  a table. Say timetable, not schedule, for real grids.
 - **Study tips were a jokey essay, no Tip/Warning cards.** Slim turns get
   `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and never see FORMAT_CONTRACT's
   callout line, so "include a warning" became `## A Friendly Warning`. Swap

@@ -225,6 +225,33 @@ def test_callout_query_gets_blockquote_layout():
     assert CALLOUT_FORMAT_HINT in rich
 
 
+def test_howto_query_gets_headings_and_lists_layout():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        HOWTO_FORMAT_HINT,
+    )
+
+    query = "Give me a 4-week plan to learn Spanish for travel."
+    slim = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert HOWTO_FORMAT_HINT in slim
+    assert COMPACT_RESPONSE_FORMAT_HINT not in slim
+
+    rich = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=False,
+    )
+    assert HOWTO_FORMAT_HINT in rich
+
+
 def test_vs_query_gets_table_then_code_card_layout():
     from app.services.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,

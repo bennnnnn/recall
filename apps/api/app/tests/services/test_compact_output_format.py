@@ -110,6 +110,23 @@ def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
     assert "No ## headings" not in joined
 
 
+def test_compact_week_plan_uses_howto_lists_not_plain_prose():
+    from app.services.chat.prompt_constants import HOWTO_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text="Give me a 4-week plan to learn Spanish for travel.",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert HOWTO_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    joined = "\n".join(parts)
+    assert "NEVER use a pipe table" in joined
+    assert "No ## headings" not in joined
+
+
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",
@@ -141,6 +158,6 @@ def test_fragment_gets_writing_line_hint():
 
 def test_universal_baseline_bans_invented_tables_and_hooks():
     assert "Never invent a pipe table" in UNIVERSAL_FORMAT_BASELINE
-    assert "schedules" in UNIVERSAL_FORMAT_BASELINE
+    assert "timetables" in UNIVERSAL_FORMAT_BASELINE
     assert "Ah, the eternal question" in UNIVERSAL_FORMAT_BASELINE
     assert "word choice only" in TONE_FORMAT_GUARD

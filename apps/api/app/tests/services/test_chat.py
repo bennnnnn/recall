@@ -352,6 +352,26 @@ def test_is_callout_question(text, expected):
     assert is_callout_question(text) is expected
 
 
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Give me a 4-week plan to learn Spanish for travel.", True),
+        ("roadmap to learn TypeScript", True),
+        ("How do I set up a React Native project from scratch?", True),
+        ("week-by-week study plan for the SAT", True),
+        ("plan my day", False),
+        ("Give me 3 tips for staying focused while studying.", False),
+        ("Compare Python vs Java", False),
+        ("Make a bar chart of rainfall", False),
+        ("", False),
+    ],
+)
+def test_is_howto_question(text, expected):
+    from app.services.chat.prompt_constants import is_howto_question
+
+    assert is_howto_question(text) is expected
+
+
 def test_format_hints_discourage_tables_for_how_tos():
     from app.services.chat.prompt_constants import FORMAT_CONTRACT
 
@@ -359,6 +379,7 @@ def test_format_hints_discourage_tables_for_how_tos():
     assert "roadmap" in blob.lower() or "how-to" in blob.lower()
     assert "NEVER" in blob or "Never" in blob
     assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
+    assert "week-by-week" in blob.lower()
 
 
 def test_universal_format_baseline_pins_answer_first_and_no_decoration():

@@ -159,6 +159,44 @@ def is_callout_question(text: str) -> bool:
     return bool(_CALLOUT_TURN.search(cleaned))
 
 
+_HOWTO_TURN = re.compile(
+    r"(?:"
+    r"\b\d+[\s-]?week(?:s)?\s+plan\b|"
+    r"\bweek[\s-]?by[\s-]?week\b|"
+    r"\broadmap(?:\s+to\s+learn)?\b|"
+    r"\b(?:learning|study)\s+plan\b|"
+    r"\bplan\s+to\s+learn\b|"
+    r"^\s*(?:please\s+)?how\s+(?:do\s+i|to)\b|"
+    r"\bstep[\s-]?by[\s-]?step\b"
+    r")",
+    re.IGNORECASE,
+)
+
+HOWTO_FORMAT_HINT = (
+    "This turn is a how-to, roadmap, or N-week learning plan.\n"
+    "Do not write a joke setup. NEVER use a pipe table — a week-by-week plan "
+    "is not a schedule grid (columns clip on a phone).\n"
+    "Use ## headings per week or phase. Under each: a one-line goal, then "
+    "numbered steps or short bullets. Keep vocab/phrases in bullets, not table "
+    "columns."
+)
+
+
+def is_howto_question(text: str) -> bool:
+    """True for learning plans / how-tos that must stay lists, not schedule tables."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if (
+        is_comparison_question(cleaned)
+        or is_chart_question(cleaned)
+        or is_mermaid_question(cleaned)
+        or is_callout_question(cleaned)
+    ):
+        return False
+    return bool(_HOWTO_TURN.search(cleaned))
+
+
 # One layout contract. The model writes Markdown; Recall upgrades presentation.
 # Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
 # those cards still render if an old message has the fence.
@@ -173,7 +211,8 @@ FORMAT_CONTRACT = (
     "bullets — not a wall of text and not a table.\n"
     "  - How-to / roadmap / guide: ## headings for phases, numbered steps under "
     "each. NEVER put a roadmap, learning plan, tip list, or how-to into a "
-    "pipe table — those belong as lists, not grids.\n"
+    "pipe table — those belong as lists, not grids. A week-by-week learning "
+    "plan is a how-to, not a schedule table.\n"
     "  - Callouts: a blockquote starting with Tip: / Note: / Warning: "
     "(plain `>`). Not a fence.\n"
     "\n"
@@ -199,7 +238,7 @@ FORMAT_CONTRACT = (
     "in a code fence. Prefer 2-3 columns.\n"
     "\n"
     "Tables: use a pipe table when aligned rows and columns help lookup or "
-    "comparison (schedules, measurements, matrices, lookup grids, X vs Y). "
+    "comparison (timetables, measurements, matrices, lookup grids, X vs Y). "
     "Never for tips, how-tos, roadmaps, guides, checklists, or single-topic advice."
 )
 
@@ -221,7 +260,7 @@ STYLE_HINTS = {
     ),
     "detailed": (
         "Response length: DETAILED. Be thorough but stay scannable: sections, headings, "
-        "and bullets — not essay-style paragraphs. Use a pipe table for schedules, "
+        "and bullets — not essay-style paragraphs. Use a pipe table for timetables, "
         "measurements, lookup grids, and X vs Y comparisons — not for tips or how-tos. "
         "Include examples and nuance where useful."
     ),
@@ -246,7 +285,7 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Do not restate the question. "
     "Use the simplest structure that answers; do not add sections just to look structured. "
     "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
-    "Use a pipe table for schedules, measurements, lookup grids, and X vs Y comparisons. "
+    "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
     "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
     "Let's break it down)."
 )
@@ -255,7 +294,7 @@ UNIVERSAL_FORMAT_BASELINE = (
 COMPACT_RESPONSE_FORMAT_HINT = (
     "Casual turn: lead with the answer in the first sentence. Plain prose or at "
     "most 4 short bullets. No ## headings and no pipe tables unless they asked "
-    "for a checklist or an X vs Y compare. If they pasted a phrase or fragment, "
+    "for an X vs Y compare. If they pasted a phrase or fragment, "
     "correct or complete it — do not invent a topic essay or joke about the words."
 )
 
@@ -266,7 +305,9 @@ TONE_FORMAT_GUARD = (
     "Do not invent a decorative table before the answer — an X vs Y compare "
     "still leads with the pipe table; a numeric chart leads with ```chart, "
     "never a substitute table; a flowchart leads with ```mermaid; "
-    "a tips/warning ask leads with `> Tip:` / `> Warning:`, never a joke essay."
+    "a tips/warning ask leads with `> Tip:` / `> Warning:`, never a joke essay; "
+    "a learning plan / how-to leads with ## headings and lists, never a "
+    "schedule table."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the
