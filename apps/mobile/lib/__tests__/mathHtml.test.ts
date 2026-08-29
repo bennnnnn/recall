@@ -1,4 +1,4 @@
-import { PREVIEW_CSP, MATH_PREVIEW_CSP } from "@/lib/previewSandbox";
+import { PREVIEW_CSP, MATH_PREVIEW_CSP, PREVIEW_VIEWPORT } from "@/lib/previewSandbox";
 import { buildMathWebHtml, isHeavyMath, pickMathEngine } from "@/lib/mathHtml";
 import { buildMathjaxWebHtml } from "@/lib/mathHtmlMathjax";
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
@@ -23,6 +23,8 @@ describe("math WebView HTML", () => {
     // bare host string.
     expect(html).not.toContain('src="https://cdn.jsdelivr.net');
     expect(html).not.toContain('src="https://cdnjs.cloudflare.com');
+    expect(html).toContain(`content="${PREVIEW_VIEWPORT}"`);
+    expect(html).not.toContain("maximum-scale");
   });
 
   it("injects the strict preview CSP into KaTeX static HTML", () => {
@@ -33,6 +35,8 @@ describe("math WebView HTML", () => {
     });
     expect(html).toContain(`content="${PREVIEW_CSP}"`);
     expect(html).toContain("connect-src 'none'");
+    expect(html).toContain(`content="${PREVIEW_VIEWPORT}"`);
+    expect(html).not.toContain("maximum-scale");
   });
 
   it("buildMathWebHtml stays on the KaTeX path (MathJax is a separate async chunk)", () => {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -90,13 +91,14 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
               >
                 <Text style={s.addText}>{t("reminders.add")}</Text>
               </Pressable>
-              <Pressable
-                hitSlop={8}
+              <IconButton
+                name="close"
+                size={18}
+                color={theme.textTertiary}
                 disabled={busyId === item.id}
                 onPress={() => void handleDismiss(item.id)}
-              >
-                <Icon name="close" size={18} color={theme.textTertiary} />
-              </Pressable>
+                accessibilityLabel={t("common.close")}
+              />
             </View>
             );
           })}

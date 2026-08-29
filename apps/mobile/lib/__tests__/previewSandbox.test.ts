@@ -4,11 +4,19 @@ import {
   PREVIEW_CSP,
   PREVIEW_CSP_INLINE,
   PREVIEW_CSP_LIVE,
+  PREVIEW_VIEWPORT,
   escapeForInlineJsTemplate,
   injectPreviewCsp,
   prepareHtmlRunDocument,
   stripScripts,
 } from "@/lib/previewSandbox";
+
+describe("PREVIEW_VIEWPORT", () => {
+  it("does not lock pinch zoom or system text scaling", () => {
+    expect(PREVIEW_VIEWPORT).toContain("width=device-width");
+    expect(PREVIEW_VIEWPORT).not.toContain("maximum-scale");
+  });
+});
 
 describe("PREVIEW_CSP", () => {
   it("blocks network egress and forms, allows inline scripts only", () => {

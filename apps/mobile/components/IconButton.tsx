@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-nat
 
 import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -53,8 +54,8 @@ export function IconButton({
 function makeStyles(_theme: Theme) {
   return StyleSheet.create({
     hit: {
-      minWidth: 44,
-      minHeight: 44,
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
       alignItems: "center",
       justifyContent: "center",
     },

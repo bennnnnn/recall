@@ -2,6 +2,7 @@ import { render } from "@testing-library/react-native";
 
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
+  Chip,
   makeSettingsStyles,
   SettingsInlinePicker,
   SettingsSwitchRow,
@@ -37,6 +38,34 @@ describe("settings action feedback", () => {
 
     expect(getByRole("progressbar")).toBeOnTheScreen();
     expect(queryByRole("switch")).toBeNull();
+  });
+
+  it("binds the visible title to the native switch", async () => {
+    const onValueChange = jest.fn();
+    const { getByLabelText, getByRole } = await render(
+      <SettingsSwitchRow
+        title="Memory"
+        value
+        onValueChange={onValueChange}
+        styles={styles}
+        theme={lightTheme}
+      />,
+    );
+
+    const sw = getByRole("switch");
+    expect(sw).toBe(getByLabelText("Memory"));
+    expect(sw.props.accessibilityState).toEqual(
+      expect.objectContaining({ checked: true, disabled: false }),
+    );
+  });
+
+  it("marks an active chip as selected", async () => {
+    const { getByRole } = await render(
+      <Chip label="Casual" active onPress={jest.fn()} styles={styles} />,
+    );
+    expect(getByRole("button").props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
   });
 
   it("marks inline pickers busy without hiding their current value", async () => {

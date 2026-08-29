@@ -117,7 +117,7 @@ export function AddReminderSheet({
         <TextInput
           style={s.titleInput}
           placeholder={t("todos.reminder_placeholder")}
-          placeholderTextColor={C.textTertiary}
+          placeholderTextColor={C.textDisabled}
           value={text}
           onChangeText={setText}
           autoFocus

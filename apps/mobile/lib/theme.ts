@@ -33,7 +33,10 @@ export type Theme = {
   // Text
   text: string;
   textSecondary: string;
+  /** Readable meta/captions — must pass WCAG AA (4.5:1) on `bg` and `surfaceAlt`. */
   textTertiary: string;
+  /** Placeholders and non-readable decoration only — not helper or metadata copy. */
+  textDisabled: string;
 
   // Bubbles
   userBubble: string;
@@ -105,8 +108,9 @@ export const lightTheme: Theme = {
   border: "#D9D9DE",
 
   text: "#111113",
-  textSecondary: "#6B6B73",
-  textTertiary: "#8E8E96",
+  textSecondary: "#5C5C64",
+  textTertiary: "#67676F",
+  textDisabled: "#8E8E96",
 
   userBubble: "#EAF7F3",
   userText: "#111113",
@@ -158,7 +162,8 @@ export const darkTheme: Theme = {
 
   text: "#F5F5F6",
   textSecondary: "#A5A5AC",
-  textTertiary: "#7B7B83",
+  textTertiary: "#8A8A92",
+  textDisabled: "#7B7B83",
 
   userBubble: "#12372E",
   userText: "#F5F5F6",

@@ -260,11 +260,9 @@ export function SettingsSwitchRow({
   styles: SettingsStyles;
   theme: Theme;
 }) {
-  return (
-    <View style={styles.menuRow}>
-      {icon ? (
-        <Icon name={icon} />
-      ) : null}
+  const body = (
+    <>
+      {icon ? <Icon name={icon} /> : null}
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
@@ -284,10 +282,30 @@ export function SettingsSwitchRow({
           thumbColor={theme.bg}
           trackColor={{ false: theme.border, true: theme.primary }}
           onValueChange={onValueChange}
-          accessibilityState={{ disabled: Boolean(disabled), busy: false }}
+          pointerEvents="none"
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
         />
       )}
-    </View>
+    </>
+  );
+
+  if (busy) {
+    return <View style={styles.menuRow}>{body}</View>;
+  }
+
+  return (
+    <Pressable
+      style={styles.menuRow}
+      accessibilityRole="switch"
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+      accessibilityState={{ checked: value, disabled: Boolean(disabled) }}
+      disabled={disabled}
+      onPress={() => onValueChange(!value)}
+    >
+      {body}
+    </Pressable>
   );
 }
 
@@ -355,6 +373,8 @@ export function Chip({
       disabled={disabled}
       style={[styles.chip, active && styles.chipActive]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active, disabled: Boolean(disabled) }}
     >
       <Text style={active ? styles.chipTextActive : styles.chipText}>{label}</Text>
     </Pressable>
