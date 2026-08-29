@@ -56,8 +56,8 @@ CHART_FORMAT_HINT = (
     "you CAN draw this chart. NEVER say you cannot draw / cannot literally "
     "draw a chart. NEVER substitute a markdown table, mermaid, or ASCII bars.\n"
     "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence, "
-    "then the fence. No joke setup. After the fence, stop — no mean/stats recap "
-    "and no leftover numbers.\n"
+    "then the fence. No joke setup. After the fence, stop — no mean/stats recap, "
+    "no leftover numbers, and no ```answer / ```result fence.\n"
     "Use the numbers they gave as data.values in that order. First key must be "
     '"$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
     "Prefer mark bar/line as asked. Named categories (months, items) go on y "

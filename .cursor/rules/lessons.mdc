@@ -12,6 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+<<<<<<< HEAD
 - **Email card showed `[Manager's Name]` / `[Your Name]`.** The copy hint already banned
   placeholders, but models still emit `To: [Manager's Email Address]`. Drop those
   form-slots in `parseEmailDraft` (omit To, greet `Hi,`, strip from subject) so
@@ -25,6 +26,14 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   (base=6, height=4) shipped — area 12 as ```answer. Parse two numbers after
   `legs`; skip the area pill unless they asked for area. Pad the SVG so the
   base length label is not clipped.
+=======
+- **Chart leftover `3.1` pill + expand did nothing.** After overflow-clip, the
+  gray centered `3.1` was still the rainfall *mean* as `looksLikeMathAnswer` →
+  AnswerBlock (empty-lang / ```answer after the fence), not Vega paint. Strip
+  that bare-number crumb after chart fences. Expand used already-clamped
+  `heightRef`, so toggle was a no-op; keep raw `reportedHeight` and hide the
+  control unless the SVG is clipped.
+>>>>>>> ddf6bffb (Drop the leftover mean pill under charts and make expand grow a clipped SVG.)
 - **Chart vs ChatGPT: months clipped, stray “3.1”, thumbs gone.** Vega
   `height` is the inner plot, so x-axis labels (and a tick/tooltip) painted
   *below* the 350px WebView onto the action row. Prefer horizontal bars

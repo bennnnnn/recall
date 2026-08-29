@@ -1,6 +1,9 @@
 import {
+  CHART_MAX_EXPANDED,
   CHART_MAX_HEIGHT,
   CHART_MIN_HEIGHT,
+  chartPreviewIsClipped,
+  chartTogglePreviewHeight,
   clampChartPreviewHeight,
   nextChartPreviewHeight,
 } from "@/lib/chartPreviewHeight";
@@ -22,5 +25,27 @@ describe("nextChartPreviewHeight", () => {
 
   it("does not shrink after first paint", () => {
     expect(nextChartPreviewHeight(160, 300, CHART_MAX_HEIGHT)).toBeNull();
+  });
+});
+
+describe("chartPreviewIsClipped", () => {
+  it("is false when the SVG already fits the card", () => {
+    expect(chartPreviewIsClipped(240, 240)).toBe(false);
+    expect(chartPreviewIsClipped(240, CHART_MAX_HEIGHT)).toBe(false);
+  });
+
+  it("is true when the raw SVG is taller than the clamped WebView", () => {
+    expect(chartPreviewIsClipped(600, CHART_MAX_HEIGHT)).toBe(true);
+  });
+});
+
+describe("chartTogglePreviewHeight", () => {
+  it("grows to the raw SVG size instead of the already-clamped ref", () => {
+    expect(chartTogglePreviewHeight(600, true)).toBe(600);
+    expect(chartTogglePreviewHeight(600, false)).toBe(CHART_MAX_HEIGHT);
+  });
+
+  it("caps expand at CHART_MAX_EXPANDED", () => {
+    expect(chartTogglePreviewHeight(1200, true)).toBe(CHART_MAX_EXPANDED);
   });
 });
