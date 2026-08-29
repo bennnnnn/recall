@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import { useRouter } from "expo-router";
@@ -31,20 +31,12 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
 
   const handleAdd = async (id: string) => {
     if (!token || busyId) return;
-    try {
-      if (!(await add(id))) throw new Error("add failed");
-    } catch {
-      Alert.alert(t("common.error"), t("reminders.add_failed"));
-    }
+    await add(id);
   };
 
   const handleDismiss = async (id: string) => {
     if (!token || busyId) return;
-    try {
-      if (!(await dismiss(id))) throw new Error("dismiss failed");
-    } catch {
-      Alert.alert(t("common.error"), t("reminders.dismiss_failed"));
-    }
+    await dismiss(id);
   };
 
   return (

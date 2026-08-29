@@ -44,6 +44,11 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
 
+const mockFeedbackError = jest.fn();
+jest.mock("@/contexts/actionFeedbackCore", () => ({
+  useActionFeedbackOptional: () => ({ error: mockFeedbackError }),
+}));
+
 const setChatTitle = jest.fn();
 
 let actions: ReturnType<typeof useChatActions>;
@@ -70,6 +75,7 @@ describe("useChatActions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockFeedbackError.mockClear();
   });
 
   it("renames the chat immediately and rolls back on failure", async () => {
@@ -89,7 +95,8 @@ describe("useChatActions", () => {
     expect(patchChatGlobal).toHaveBeenCalledWith("chat-1", { title: "New title" });
     expect(setChatTitle).toHaveBeenCalledWith("Old title");
     expect(patchChatGlobal).toHaveBeenCalledWith("chat-1", { title: "Old title" });
-    expect(Alert.alert).toHaveBeenCalled();
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.rename_failed");
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
   it("restores the drawer row when delete fails", async () => {

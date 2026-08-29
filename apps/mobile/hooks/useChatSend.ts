@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Keyboard } from "react-native";
+import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
+import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -211,7 +212,7 @@ export function useChatSend({
       )
         return;
       if (editingMessageId && pendingAttachment) {
-        Alert.alert(t("chat.error_title"), t("chat.edit_no_attachments"));
+        reportRecoverableWarning(feedback, t("chat.edit_no_attachments"));
         return;
       }
       tap();
@@ -433,7 +434,7 @@ export function useChatSend({
         }
       } catch (error) {
         if (error instanceof HeicUnsupportedError) {
-          Alert.alert(t("chat.heic_unsupported_title"), t("chat.heic_unsupported_body"));
+          reportRecoverableWarning(feedback, t("chat.heic_unsupported_body"));
         } else {
           feedback?.error(
             error instanceof Error ? error.message : t("chat.attach_failed"),

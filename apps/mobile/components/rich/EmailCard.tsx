@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/CopyButton";
@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icon";
 import { NewChatIcon } from "@/components/NewChatIcon";
 import { CardShell } from "@/components/rich/CardShell";
 import { GmailMark } from "@/components/rich/chatgptDraftIcons";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { fullEmailText } from "@/lib/emailCompose";
 import { openGmailCompose } from "@/lib/openGmailCompose";
 import { notifySuccess, tap } from "@/lib/haptics";
@@ -38,6 +39,7 @@ function toDraft(fields: { to: string; subject: string; body: string }): EmailDr
 export function EmailCard({ draft }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [gmailOpening, setGmailOpening] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -58,7 +60,7 @@ export function EmailCard({ draft }: Props) {
     try {
       const result = await openGmailCompose(currentDraft);
       if (result === "copied_only") {
-        Alert.alert(t("chat.email_card_gmail"), t("chat.email_card_gmail_copied"));
+        if (feedback) feedback.success(t("chat.email_card_gmail_copied"));
       } else {
         notifySuccess();
       }

@@ -2,11 +2,13 @@ import { useCallback } from "react";
 import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
 import { type IoniconName } from "@/lib/icons";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Params = {
   token: string | null;
@@ -27,6 +29,7 @@ export function useChatBulkActions({
   showActionBanner,
 }: Params) {
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
 
   const bulkArchiveChats = useCallback(
     (chats: Chat[], onSuccess?: () => void) => {
@@ -59,14 +62,14 @@ export function useChatBulkActions({
                   moveChatArchiveState(chat.id, Boolean(chat.archived));
                 }
                 reloadChats();
-                Alert.alert(t("common.error"), t("chat.archive_failed"));
+                reportRecoverableError(feedback, t("chat.archive_failed"));
               }
             },
           },
         ],
       );
     },
-    [token, moveChatArchiveState, showActionBanner, reloadChats, t],
+    [token, moveChatArchiveState, showActionBanner, reloadChats, feedback, t],
   );
 
   const bulkDeleteChats = useCallback(
@@ -107,13 +110,13 @@ export function useChatBulkActions({
                 insertChatInGroups(chat);
               }
               reloadChats();
-              Alert.alert(t("common.error"), t("chat.delete_failed"));
+              reportRecoverableError(feedback, t("chat.delete_failed"));
             },
           },
         ],
       );
     },
-    [token, removeChatFromGroupsById, insertChatInGroups, showActionBanner, reloadChats, t],
+    [token, removeChatFromGroupsById, insertChatInGroups, showActionBanner, reloadChats, feedback, t],
   );
 
   return {
