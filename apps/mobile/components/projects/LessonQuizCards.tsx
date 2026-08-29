@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { notifySuccess, notifyWarning } from "@/lib/haptics";
+import { useReduceMotion } from "@/lib/motion";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -105,29 +106,32 @@ function QuizCard({
 }) {
   const scale = useSharedValue(1);
   const shakeX = useSharedValue(0);
+  const reduceMotion = useReduceMotion();
   const cardAnim = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateX: shakeX.value }],
   }));
 
   const handlePress = () => {
-    if (isCorrect) {
-      scale.value = withSequence(
-        withSpring(1.06, { damping: 12, stiffness: 200 }),
-        withSpring(1, { damping: 14, stiffness: 200 }),
-      );
-    } else {
-      scale.value = withSequence(
-        withSpring(0.94, { damping: 14, stiffness: 300 }),
-        withSpring(1, { damping: 14, stiffness: 200 }),
-      );
-      shakeX.value = withSequence(
-        withTiming(-8, { duration: 50 }),
-        withTiming(8, { duration: 50 }),
-        withTiming(-6, { duration: 50 }),
-        withTiming(6, { duration: 50 }),
-        withTiming(-3, { duration: 40 }),
-        withTiming(0, { duration: 40 }),
-      );
+    if (!reduceMotion) {
+      if (isCorrect) {
+        scale.value = withSequence(
+          withSpring(1.06, { damping: 12, stiffness: 200 }),
+          withSpring(1, { damping: 14, stiffness: 200 }),
+        );
+      } else {
+        scale.value = withSequence(
+          withSpring(0.94, { damping: 14, stiffness: 300 }),
+          withSpring(1, { damping: 14, stiffness: 200 }),
+        );
+        shakeX.value = withSequence(
+          withTiming(-8, { duration: 50 }),
+          withTiming(8, { duration: 50 }),
+          withTiming(-6, { duration: 50 }),
+          withTiming(6, { duration: 50 }),
+          withTiming(-3, { duration: 40 }),
+          withTiming(0, { duration: 40 }),
+        );
+      }
     }
     onPress();
   };

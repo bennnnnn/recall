@@ -15,33 +15,40 @@ export type StackTransitionPreset = {
   animationDuration?: number;
 };
 
+function withoutMotion(base: StackTransitionPreset): StackTransitionPreset {
+  return { ...base, animation: "none", animationDuration: 0 };
+}
+
 /** Hierarchical push (settings drill-down, projects, memory, todos). */
-export function stackPushTransition(): StackTransitionPreset {
-  return {
+export function stackPushTransition(reduceMotion = false): StackTransitionPreset {
+  const preset: StackTransitionPreset = {
     animation: Platform.OS === "ios" ? "default" : "slide_from_right",
     gestureEnabled: true,
     fullScreenGestureEnabled: Platform.OS === "ios",
     animationDuration: 280,
   };
+  return reduceMotion ? withoutMotion(preset) : preset;
 }
 
 /** Utility screens opened from the drawer / home (slight lift). */
-export function stackUtilityTransition(): StackTransitionPreset {
-  return {
+export function stackUtilityTransition(reduceMotion = false): StackTransitionPreset {
+  const preset: StackTransitionPreset = {
     animation: "fade_from_bottom",
     gestureEnabled: true,
     fullScreenGestureEnabled: Platform.OS === "ios",
     animationDuration: 320,
   };
+  return reduceMotion ? withoutMotion(preset) : preset;
 }
 
 /** Onboarding and login — soft cross-fade instead of a hard slide. */
-export function stackAuthTransition(): StackTransitionPreset {
-  return {
+export function stackAuthTransition(reduceMotion = false): StackTransitionPreset {
+  const preset: StackTransitionPreset = {
     animation: "fade",
     gestureEnabled: false,
     animationDuration: 240,
   };
+  return reduceMotion ? withoutMotion(preset) : preset;
 }
 
 /** Chat home — avoid animating the primary surface on cold start / redirects. */

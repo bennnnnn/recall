@@ -32,6 +32,7 @@ import { DrawerProvider } from "@/contexts/DrawerContext";
 import { registerDrawer } from "@/lib/drawer";
 import { cappedDrawerWidth } from "@/lib/drawerPan";
 import { tap } from "@/lib/haptics";
+import { useReduceMotion } from "@/lib/reduceMotion";
 import { shadowOverlay } from "@/lib/shadow";
 import { type Theme, useTheme } from "@/lib/theme";
 
@@ -53,6 +54,7 @@ const SPRING = {
 export function DrawerShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
   const theme = useTheme();
+  const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const drawerWidth = cappedDrawerWidth(width);
 
@@ -87,16 +89,21 @@ export function DrawerShell({ children }: { children: ReactNode }) {
       isOpenSV.value = open ? 1 : 0;
       if (withHaptic && open) tap();
       if (open) Keyboard.dismiss();
-      translateX.value = withSpring(open ? 0 : -w, SPRING);
-      if (open) {
-        // Cover chat immediately — a 200ms scrim fade lets the screen show
-        // through while the panel is still sliding in.
-        overlayOpacity.value = 1;
+      if (reduceMotion) {
+        translateX.value = open ? 0 : -w;
+        overlayOpacity.value = open ? 1 : 0;
       } else {
-        overlayOpacity.value = withTiming(0, { duration: 150 });
+        translateX.value = withSpring(open ? 0 : -w, SPRING);
+        if (open) {
+          // Cover chat immediately — a 200ms scrim fade lets the screen show
+          // through while the panel is still sliding in.
+          overlayOpacity.value = 1;
+        } else {
+          overlayOpacity.value = withTiming(0, { duration: 150 });
+        }
       }
     },
-    [isOpenSV, overlayOpacity, translateX, widthSV],
+    [isOpenSV, overlayOpacity, reduceMotion, translateX, widthSV],
   );
 
   const settleToRef = useRef(settleTo);

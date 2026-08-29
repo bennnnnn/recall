@@ -25,6 +25,7 @@ import {
 } from "@/lib/streamUiTiming";
 import { collectPreviewFiles } from "@/lib/htmlPreviewBundle";
 import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
+import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
 
 type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
@@ -60,8 +61,13 @@ const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
   height: number;
 }) {
   const theme = useTheme();
+  const reduceMotion = useReduceMotion();
   const opacity = useRef(new Animated.Value(0.5)).current;
   useEffect(() => {
+    if (reduceMotion) {
+      opacity.setValue(0.75);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
@@ -78,7 +84,7 @@ const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
     );
     loop.start();
     return () => loop.stop();
-  }, [opacity]);
+  }, [opacity, reduceMotion]);
   return (
     <View style={{ marginVertical: 8 }}>
       <Animated.View

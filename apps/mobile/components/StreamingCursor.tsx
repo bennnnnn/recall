@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -8,16 +9,22 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Motion } from "@/lib/motion";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 /** Blinking caret shown while assistant text is streaming in. */
 export function StreamingCursor() {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const reduceMotion = useReduceMotion();
   const opacity = useSharedValue(1);
 
   useEffect(() => {
+    if (reduceMotion) {
+      cancelAnimation(opacity);
+      opacity.value = 1;
+      return;
+    }
     opacity.value = withRepeat(
       withSequence(
         withTiming(0.15, {
@@ -32,7 +39,8 @@ export function StreamingCursor() {
       -1,
       false,
     );
-  }, [opacity]);
+    return () => cancelAnimation(opacity);
+  }, [opacity, reduceMotion]);
 
   const caretStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

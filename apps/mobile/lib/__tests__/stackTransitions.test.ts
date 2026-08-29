@@ -32,6 +32,15 @@ describe("stackTransitions", () => {
     expect(preset.gestureEnabled).toBe(false);
   });
 
+  it("collapses push/utility/auth animations when Reduce Motion is on", () => {
+    expect(stackPushTransition(true).animation).toBe("none");
+    expect(stackPushTransition(true).animationDuration).toBe(0);
+    expect(stackPushTransition(true).gestureEnabled).toBe(true);
+    expect(stackUtilityTransition(true).animation).toBe("none");
+    expect(stackAuthTransition(true).animation).toBe("none");
+    expect(stackAuthTransition(true).gestureEnabled).toBe(false);
+  });
+
   it("stackHomeTransition does not animate", () => {
     expect(stackHomeTransition().animation).toBe("none");
   });

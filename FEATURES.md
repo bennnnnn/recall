@@ -624,10 +624,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
   `IconButton` on named undersized controls, PDF/math pinch-zoom, AppSheet
   dialog/focus/pan, AuthScrollLayout, gallery filter wrap, drawer width cap,
-  SheetFormHeader, Space/Radius/Type (deleted `layout.ts`), and StrokeIcon→Icon
-  shipped separately.
-  Remaining: Reduce Motion helpers; in-tree overlay host; `Alert.alert` sweep;
-  unused UI file cleanup. Do not restyle or reintroduce banned UX.
+  SheetFormHeader, Space/Radius/Type (deleted `layout.ts`), StrokeIcon→Icon,
+  and Reduce Motion helpers shipped separately.
+  Remaining: in-tree overlay host; `Alert.alert` sweep; unused UI file
+  cleanup. Do not restyle or reintroduce banned UX.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 
