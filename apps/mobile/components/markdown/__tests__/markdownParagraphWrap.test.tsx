@@ -2,7 +2,7 @@
 // "An" on its own line. paragraph was a View and textgroup a Fragment, so
 // each text/strong/em became a full-width Text block.
 import { render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeMdMath } from "@/components/markdown/markdownContentStyles";
@@ -97,10 +97,8 @@ describe("markdown paragraph wrap", () => {
       [],
       { body: { fontSize: 16, lineHeight: 28 }, text: {}, paragraphRun: { marginBottom: 8 } },
     );
-    expect(element?.props.style).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ lineHeight: 34 }),
-      ]),
+    expect(StyleSheet.flatten(element?.props.style)).toEqual(
+      expect.objectContaining({ lineHeight: 34 }),
     );
   });
 });

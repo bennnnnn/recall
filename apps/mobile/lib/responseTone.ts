@@ -2,7 +2,7 @@ export const RESPONSE_TONES = ["funny", "professional", "casual", "soft"] as con
 
 export type ResponseTone = (typeof RESPONSE_TONES)[number];
 
-export const DEFAULT_RESPONSE_TONE: ResponseTone = "funny";
+export const DEFAULT_RESPONSE_TONE: ResponseTone = "casual";
 
 export function normalizeResponseTone(value: string | null | undefined): ResponseTone {
   if (value && (RESPONSE_TONES as readonly string[]).includes(value)) {

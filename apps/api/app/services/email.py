@@ -26,6 +26,7 @@ from app.repositories import users as users_repo
 from app.services import day_planning as day_planning_service
 from app.services import email_triage as email_triage_service
 from app.services import home as home_service
+from app.services.chat.prompt_constants.locale_cues import has_locale_cue
 from app.services.ics_parser import parse_ics_invite
 from app.services.time_context import normalize_due_at
 
@@ -84,7 +85,7 @@ def is_external_email_question(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned:
         return False
-    return bool(_EXTERNAL_EMAIL.search(cleaned))
+    return bool(_EXTERNAL_EMAIL.search(cleaned)) or has_locale_cue(cleaned, "email")
 
 
 def should_inject_gmail_block(text: str) -> bool:

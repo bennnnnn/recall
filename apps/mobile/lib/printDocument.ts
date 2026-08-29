@@ -112,7 +112,7 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
 
   while (i < lines.length) {
     const line = lines[i] ?? "";
-    const fence = line.match(/^```(\w*)\s*$/);
+    const fence = line.match(/^```([\w-]*)\s*$/);
     if (fence) {
       flushParagraph();
       const lang = fence[1] || "";
@@ -156,6 +156,17 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
       continue;
     }
 
+    if (looksLikePrintTableRow(line)) {
+      flushParagraph();
+      const rows: string[] = [];
+      while (i < lines.length && looksLikePrintTableRow(lines[i] ?? "")) {
+        rows.push(lines[i] ?? "");
+        i += 1;
+      }
+      parts.push(pipeTableToHtml(rows));
+      continue;
+    }
+
     if (/^\s*[-*+]\s+/.test(line)) {
       flushParagraph();
       const items: string[] = [];
@@ -193,6 +204,31 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
   return wrapPrintDocument(title, body);
 }
 
+function looksLikePrintTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.indexOf("|", 1) >= 0;
+}
+
+function pipeTableToHtml(rows: string[]): string {
+  const parsed = rows.map(splitPipeCells);
+  const body = parsed.filter((cells) => !cells.every((c) => /^:?-+:?$/.test(c)));
+  if (!body.length) return "";
+  const header = body[0] ?? [];
+  const rest = body.slice(1);
+  const th = header.map((c) => `<th>${inlineMarkdownToHtml(c)}</th>`).join("");
+  const tr = rest
+    .map((cells) => `<tr>${cells.map((c) => `<td>${inlineMarkdownToHtml(c)}</td>`).join("")}</tr>`)
+    .join("");
+  return `<table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+
+function splitPipeCells(row: string): string[] {
+  const raw = row.trim();
+  const inner = raw.startsWith("|") ? raw.slice(1) : raw;
+  const noTrail = inner.endsWith("|") ? inner.slice(0, -1) : inner;
+  return noTrail.split("|").map((cell) => cell.trim());
+}
+
 function inlineMarkdownToHtml(text: string): string {
   const segments = splitInlineMath(text);
   return segments
@@ -207,8 +243,8 @@ function inlineMarkdownToHtml(text: string): string {
 
 function formatInlineText(text: string): string {
   let out = escapeHtml(text);
-  out = out.replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1");
-  out = out.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1");
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__([^_]+)__/g, "<strong>$1</strong>");

@@ -27,7 +27,8 @@ import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
-import { useAuthToken } from "@/contexts/AuthContext";
+import { speechLocale } from "@/lib/i18n/languages";
+import { useAuth, useAuthToken } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -142,6 +143,7 @@ function AssistantActions({
   thumbsOnly?: boolean;
 }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const token = useAuthToken();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -165,7 +167,7 @@ function AssistantActions({
     const gen = ++speakGenRef.current;
     tap();
     setSpeaking(true);
-    const result = await speakPlainText(content, "en-US", { token });
+    const result = await speakPlainText(content, speechLocale(user?.locale), { token });
     if (gen !== speakGenRef.current) return;
     setSpeaking(false);
     if (!result.ok) {
@@ -473,6 +475,9 @@ export const MessageBubble = React.memo(function MessageBubble({
                 {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
               </MarkdownErrorBoundary>
             ) : null}
+            {message.generationStopped ? (
+              <Text style={b.stoppedFooter}>{t("chat.generation_stopped")}</Text>
+            ) : null}
             {showPlaces ? <PlacesListBlock places={places} /> : null}
             {(() => {
               const launchProjectId = learningLaunch?.projectId ?? lessonProjectId ?? "";
@@ -594,6 +599,11 @@ function makeStyles(t: Theme) {
     },
     statusLabel: {
       fontSize: 14,
+      color: t.textTertiary,
+    },
+    stoppedFooter: {
+      marginTop: 8,
+      fontSize: 13,
       color: t.textTertiary,
     },
     actionRowSlot: {

@@ -169,7 +169,8 @@ function makeStyles(t: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       overflow: "hidden",
-      marginVertical: 6,
+      marginTop: 0,
+      marginBottom: 10,
     },
     header: {
       flexDirection: "row",

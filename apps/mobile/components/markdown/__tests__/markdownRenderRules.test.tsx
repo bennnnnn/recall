@@ -42,14 +42,27 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 describe("markdown render rules", () => {
-  it("styles heading4–6 so they are not body-sized", () => {
+  it("clamps heading4–6 to body size so hierarchy never inverts", () => {
     const styles = makeMdStyles(lightTheme);
-    expect(StyleSheet.flatten(styles.heading4)).toMatchObject({
-      fontSize: 15,
-      fontWeight: "600",
+    expect(StyleSheet.flatten(styles.heading3)).toMatchObject({
+      fontSize: 17,
+      fontWeight: "700",
     });
-    expect(StyleSheet.flatten(styles.heading5)).toMatchObject({ fontSize: 14 });
-    expect(StyleSheet.flatten(styles.heading6)).toMatchObject({ fontSize: 13 });
+    expect(StyleSheet.flatten(styles.heading4)).toMatchObject({
+      fontSize: 16,
+      fontWeight: "700",
+    });
+    expect(StyleSheet.flatten(styles.heading5)).toMatchObject({ fontSize: 16 });
+    expect(StyleSheet.flatten(styles.heading6)).toMatchObject({ fontSize: 16 });
+  });
+
+  it("colors ordered-list markers and gives them a fixed rail", () => {
+    const styles = makeMdStyles(lightTheme);
+    expect(StyleSheet.flatten(styles.ordered_list_icon)).toMatchObject({
+      color: lightTheme.textSecondary,
+      minWidth: 22,
+      textAlign: "right",
+    });
   });
 
   it("zeros library block padding/border on inline code", () => {
@@ -59,8 +72,9 @@ describe("markdown render rules", () => {
       borderWidth: 0,
       padding: 0,
       backgroundColor: lightTheme.surfaceAlt,
-      fontSize: Type.body.fontSize,
+      fontSize: 14,
       lineHeight: Type.body.lineHeight,
+      paddingHorizontal: 4,
     });
     expect(inline.padding).not.toBe(10);
   });
@@ -126,6 +140,26 @@ describe("markdown render rules", () => {
     expect(StyleSheet.flatten(tick.props.style)).toMatchObject({
       color: lightTheme.success,
     });
+  });
+
+  it("keeps bold inline in a table cell instead of stacking", async () => {
+    const md = [
+      "| Feature | Value |",
+      "| --- | --- |",
+      "| Speed | plain **bold** more |",
+    ].join("\n");
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    const bold = getByText("bold");
+    expect(bold).toBeOnTheScreen();
+    const parent = bold.parent as { type?: string } | undefined;
+    expect(parent?.type).not.toBe("View");
+  });
+
+  it("wraps a heading that contains bold", async () => {
+    const { getByText } = await render(
+      <MarkdownContent content="## Why **RevenueCat** is right" />,
+    );
+    expect(getByText("RevenueCat")).toBeOnTheScreen();
   });
 
   it("turns literal <br> in a table cell into a line break", async () => {

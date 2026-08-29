@@ -10,6 +10,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { buildVegaHtml } from "@/lib/chartPreviewHtml";
 import {
@@ -113,23 +114,61 @@ export function ChartBlock({ content }: Props) {
   }, [reportedHeight]);
 
   return (
-    <View
-      style={s.wrap}
+    <VisualCard
+      label={t("rich.chart")}
+      icon="bar-chart-outline"
+      headerRight={
+        <Text style={s.lineCount}>
+          {t("rich.lines_count", { count: content.trim().split("\n").length })}
+        </Text>
+      }
       onLayout={(e) => {
         const w = Math.floor(e.nativeEvent.layout.width);
         if (w > 0 && Math.abs(w - viewWidth) > CHART_HEIGHT_EPSILON_PX) setViewWidth(w);
       }}
+      actions={
+        <>
+          <CopyButton text={content} />
+          <Pressable
+            style={s.iconBtn}
+            onPress={() => setShowSource((v) => !v)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("rich.source")}
+          >
+            <Icon
+              name={showSource ? "eye-off-outline" : "code-slash-outline"}
+              size={20}
+              color={showSource ? theme.primary : theme.textSecondary}
+            />
+          </Pressable>
+          {clipped || expanded ? (
+            <Pressable
+              style={s.iconBtn}
+              onPress={toggleExpanded}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
+            >
+              <Icon
+                name={expanded ? "contract-outline" : "expand-outline"}
+                size={20}
+                color={theme.textSecondary}
+              />
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={s.iconBtn}
+            onPress={handleOpenVegaEditor}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("rich.vega_editor")}
+          >
+            <Icon name="open-outline" size={20} color={theme.textSecondary} />
+          </Pressable>
+        </>
+      }
     >
-      <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Icon name="bar-chart-outline" size={16} color={theme.primary} />
-          <Text style={s.headerLabel}>{t("rich.chart")}</Text>
-        </View>
-        <Text style={s.lineCount}>
-          {t("rich.lines_count", { count: content.trim().split("\n").length })}
-        </Text>
-      </View>
-
       <View style={[s.previewBox, { height }]}>
         {renderError ? (
           <View style={[s.previewPlaceholder, { height }]}>
@@ -174,76 +213,12 @@ export function ChartBlock({ content }: Props) {
           </Text>
         </View>
       )}
-
-      <View style={s.actions}>
-        <CopyButton text={content} />
-
-        <Pressable
-          style={s.iconBtn}
-          onPress={() => setShowSource((v) => !v)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("rich.source")}
-        >
-          <Icon
-            name={showSource ? "eye-off-outline" : "code-slash-outline"}
-            size={20}
-            color={showSource ? theme.primary : theme.textSecondary}
-          />
-        </Pressable>
-
-        {clipped || expanded ? (
-          <Pressable
-            style={s.iconBtn}
-            onPress={toggleExpanded}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
-          >
-            <Icon
-              name={expanded ? "contract-outline" : "expand-outline"}
-              size={20}
-              color={theme.textSecondary}
-            />
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          style={s.iconBtn}
-          onPress={handleOpenVegaEditor}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("rich.vega_editor")}
-        >
-          <Icon name="open-outline" size={20} color={theme.textSecondary} />
-        </Pressable>
-      </View>
-    </View>
+    </VisualCard>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      marginVertical: 8,
-      borderRadius: 14,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      overflow: "hidden",
-      backgroundColor: t.bg,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      backgroundColor: t.surface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     lineCount: { ...Type.meta, color: t.textTertiary },
     previewBox: {
       backgroundColor: t.bg,
@@ -274,13 +249,6 @@ function makeStyles(t: Theme) {
       fontSize: 11,
       lineHeight: 17,
       color: t.textSecondary,
-    },
-    actions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
     },
     iconBtn: {
       width: 32,

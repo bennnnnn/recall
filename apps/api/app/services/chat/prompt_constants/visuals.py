@@ -1,5 +1,33 @@
 """In-app visual fence hints (HTML, charts, places). Chemistry is gated."""
 
+import re
+
+_HTML_UI_TURN = re.compile(
+    r"(?:"
+    r"\b(?:html|css)\b|"
+    r"\b(?:web\s+)?ui\b|"
+    r"\blanding\s+page\b|"
+    r"\blogin\s+(?:page|screen|form)\b|"
+    r"\bdashboard\b|"
+    r"\binteractive\s+mockup\b|"
+    r"```html\b"
+    r")",
+    re.IGNORECASE,
+)
+_HTML_IMAGE_ASK = re.compile(
+    r"\b(?:draw|create|generate|make)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|png)\b",
+    re.IGNORECASE,
+)
+
+
+def is_html_ui_question(text: str) -> bool:
+    """True when the user asked for a web UI / page mockup, not a generated image."""
+    cleaned = text.strip()
+    if not cleaned or _HTML_IMAGE_ASK.search(cleaned):
+        return False
+    return bool(_HTML_UI_TURN.search(cleaned))
+
+
 # Only injected when turn_prep actually has chemistry context (PubChem / SMILES).
 # Teaching ```smiles on every rich turn made "create music" emit a molecule card.
 CHEMISTRY_FENCE_HINT = (

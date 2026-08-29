@@ -53,6 +53,21 @@ def estimate_tokens(text: str | list[Any]) -> int:
     if not stripped:
         return 1
 
+    latin_letters = 0
+    other_letters = 0
+    for char in stripped:
+        if not char.isalpha():
+            continue
+        if "A" <= char <= "Z" or "a" <= char <= "z":
+            latin_letters += 1
+        else:
+            other_letters += 1
+    letter_total = latin_letters + other_letters
+    if letter_total > 0 and other_letters / letter_total >= 0.4:
+        # CJK / Amharic / Cyrillic pack ~1 token per character; the Latin
+        # word heuristic undercounts and lets the window grow too large.
+        return max(1, len(stripped))
+
     dense_chars = sum(len(block) for block in _CODE_FENCE_RE.findall(stripped))
     plain_len = max(0, len(stripped) - dense_chars)
     words = len(stripped.split())

@@ -84,15 +84,17 @@ def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
     funny = TONE_HINTS["funny"]
     assert "3+0" in funny
     assert "one line" in funny
-    assert "```tip" in funny
+    assert "```tip" not in funny
+    assert "occasional emoji" not in funny
+    assert "Do not add emoji" in funny
 
 
 def test_balanced_style_keeps_full_math_solver_hint():
     parts = _hints("balanced")
     joined = "\n".join(parts)
-    # Full hint set still present for non-short styles — unaffected by the fix.
+    # Solve 2x+3=7 is math intent — full solver pack plus compact safety.
     assert "Math diagrams and plots" in joined
-    assert SHORT_MATH_SAFETY_HINT not in parts
+    assert SHORT_MATH_SAFETY_HINT in parts
 
 
 def test_balanced_style_includes_math_tutoring_hint():
@@ -333,3 +335,62 @@ def test_integration_hints_wraps_todos_section():
     joined = "\n".join(parts)
     assert "[BEGIN UNTRUSTED CONTENT — reminders and lists]" in joined
     assert "○ Milk" in joined
+
+
+def test_explain_transformers_gets_format_contract_not_compact():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        FORMAT_CONTRACT,
+        MATH_SOLVER_HINT,
+        VISUALIZATION_HINTS,
+    )
+
+    parts = _style_format_hints(
+        query_text="explain how transformers work",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert FORMAT_CONTRACT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    assert MATH_SOLVER_HINT not in parts
+    assert VISUALIZATION_HINTS not in parts
+    joined = "\n".join(parts)
+    assert "No ## headings" not in joined
+
+
+def test_top_10_tips_gets_format_contract_not_compact():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        FORMAT_CONTRACT,
+        MATH_SOLVER_HINT,
+    )
+
+    parts = _style_format_hints(
+        query_text="give me the top 10 productivity tips",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert FORMAT_CONTRACT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    assert MATH_SOLVER_HINT not in parts
+    joined = "\n".join(parts)
+    assert "No ## headings" not in joined
+
+
+def test_pasted_fragment_still_uses_compact():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        FORMAT_CONTRACT,
+    )
+
+    parts = _style_format_hints(
+        query_text="Whoever made the best decision for me",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert COMPACT_RESPONSE_FORMAT_HINT in parts
+    assert FORMAT_CONTRACT not in parts

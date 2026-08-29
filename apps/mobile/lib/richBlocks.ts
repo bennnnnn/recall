@@ -113,33 +113,31 @@ export function parseEmailDraft(text: string): EmailDraft | null {
 export function parseKeyValue(
   text: string,
 ): Array<{ key: string; value: string }> {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const idx = line.indexOf(":");
-      if (idx <= 0) return { key: line, value: "" };
-      return {
-        key: line.slice(0, idx).trim(),
-        value: line.slice(idx + 1).trim(),
-      };
-    });
+  const rows: Array<{ key: string; value: string }> = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const idx = line.indexOf(":");
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim();
+    if (!key || !value) continue;
+    rows.push({ key, value });
+  }
+  return rows;
 }
 
 export function parseSteps(text: string): string[] {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  return lines
-    .map((line) =>
-      line
-        .replace(/^\d+[\).\]]\s*/, "")
-        .replace(/^[-*]\s*/, "")
-        .trim(),
-    )
-    .filter(Boolean);
+  const steps: string[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const numbered = line.match(/^\d+[\).\]]\s+(.+)$/);
+    const bulleted = line.match(/^[-*]\s+(.+)$/);
+    const body = (numbered?.[1] ?? bulleted?.[1] ?? "").trim();
+    if (body) steps.push(body);
+  }
+  return steps;
 }
 
 export function parseComparison(text: string): ComparisonDraft | null {

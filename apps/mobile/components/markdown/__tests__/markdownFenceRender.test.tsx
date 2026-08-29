@@ -363,4 +363,12 @@ describe("renderFence edge cases", () => {
     expect(queryByText("molecule")).toBeNull();
     expect(queryByText("Ball")).toBeNull();
   });
+
+  it("does not fall through malformed ```places JSON to CodeBlock", async () => {
+    const { queryByText, getByText } = await render(
+      <>{renderFence(node("{not-json", "places"))}</>,
+    );
+    expect(queryByText("places:{not-json")).toBeNull();
+    expect(getByText("{not-json")).toBeOnTheScreen();
+  });
 });

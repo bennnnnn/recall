@@ -21,6 +21,7 @@ from app.models.orm import User
 from app.repositories import calendar_connections as calendar_repo
 from app.services import day_planning as day_planning_service
 from app.services import time_context as time_context_service
+from app.services.chat.prompt_constants.locale_cues import has_locale_cue
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ def is_external_calendar_question(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned:
         return False
-    return bool(_EXTERNAL_CALENDAR.search(cleaned))
+    return bool(_EXTERNAL_CALENDAR.search(cleaned)) or has_locale_cue(cleaned, "calendar")
 
 
 # Fallback schedule cues after the specific checks (day-planning, external

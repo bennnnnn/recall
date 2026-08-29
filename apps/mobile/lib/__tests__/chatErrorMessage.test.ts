@@ -23,8 +23,19 @@ describe("chatErrorMessage", () => {
         message: '{"detail":"You hit today\'s free limit."}',
         isPro: false,
         t,
-      }).kind,
-    ).toBe("quota");
+      }),
+    ).toEqual({
+      kind: "quota",
+      message: "chat.quota_exceeded_free",
+    });
+    expect(
+      resolveChatError({
+        message: "You've used up today's free limit.",
+        code: "quota_exceeded",
+        isPro: false,
+        t,
+      }).message,
+    ).toBe("chat.quota_exceeded_free");
   });
 
   it("falls back for opaque API bodies", () => {

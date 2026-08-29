@@ -100,9 +100,9 @@ export const lightTheme: Theme = {
   accentDark: "#3E45C9",
 
   bg: "#FFFFFF",
-  surface: "#FFFFFF",
-  surfaceAlt: "#F7F7F8",
-  border: "#E7E7E9",
+  surface: "#F7F7F8",
+  surfaceAlt: "#EBEBED",
+  border: "#D9D9DE",
 
   text: "#111113",
   textSecondary: "#6B6B73",
@@ -114,10 +114,10 @@ export const lightTheme: Theme = {
   assistantText: "#111113",
 
   composerBg: "#FFFFFF",
-  composerBorder: "#E7E7E9",
+  composerBorder: "#D9D9DE",
   inputBg: "#F7F7F8",
 
-  contentSurface: "#FFFFFF",
+  contentSurface: "#F7F7F8",
 
   danger: "#D92D20",
   dangerLight: "#FDECEC",
@@ -129,7 +129,7 @@ export const lightTheme: Theme = {
 
   codeBg: "#F7F7F8",
   codeText: "#111113",
-  codeLang: "#8E8E96",
+  codeLang: "#5C5C64",
 
   scrim: "rgba(0,0,0,0.40)",
 
@@ -154,7 +154,7 @@ export const darkTheme: Theme = {
   bg: "#0F0F10",
   surface: "#202023",
   surfaceAlt: "#171719",
-  border: "#2C2C30",
+  border: "#3A3A42",
 
   text: "#F5F5F6",
   textSecondary: "#A5A5AC",
@@ -166,7 +166,7 @@ export const darkTheme: Theme = {
   assistantText: "#F5F5F6",
 
   composerBg: "#0F0F10",
-  composerBorder: "#2C2C30",
+  composerBorder: "#3A3A42",
   inputBg: "#171719",
 
   contentSurface: "#202023",
@@ -195,6 +195,8 @@ export const darkTheme: Theme = {
 export function useTheme(): Theme {
   return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
 }
+
+export { radius, space } from "@/lib/layout";
 
 const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const RGB_COLOR_RE = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/;

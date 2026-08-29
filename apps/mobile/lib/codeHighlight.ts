@@ -11,16 +11,16 @@ export type HighlightToken = { text: string; color: string };
 
 export const TOKEN_COLORS = {
   plain: "#2D2D2D",
-  comment: "#8B8B8B",
-  string: "#059669",
-  number: "#007AFF",
-  keyword: "#DC2626",
-  function: "#7C3AED",
-  className: "#0891B2",
-  operator: "#64748B",
-  builtin: "#EA580C",
-  variable: "#CA8A04",
-  tag: "#059669",
+  comment: "#52525B",
+  string: "#047857",
+  number: "#1D4ED8",
+  keyword: "#B91C1C",
+  function: "#6D28D9",
+  className: "#0E7490",
+  operator: "#3F3F46",
+  builtin: "#C2410C",
+  variable: "#854D0E",
+  tag: "#047857",
 } as const;
 
 /**

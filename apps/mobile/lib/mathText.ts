@@ -46,7 +46,8 @@ export function latexNeedsTallLine(latex: string): boolean {
   return /\\(?:d|t|c)?frac|\\sqrt/.test(latex);
 }
 
-const SUPER_OR_SUB_RE = /\^|_\{|[\u00B2\u00B3\u00B9\u2070-\u207F\u2080-\u208E]/;
+/** LaTeX superscript/subscript only — Unicode ² / CO₂ in prose must not inflate the paragraph. */
+const SUPER_OR_SUB_RE = /\^|_\{/;
 
 /** Line height the wrapping markdown Text must use so math doesn't overlap neighbors. */
 export function mathRunLineHeight(latex: string): number | undefined {

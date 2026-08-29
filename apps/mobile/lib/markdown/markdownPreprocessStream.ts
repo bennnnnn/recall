@@ -69,7 +69,23 @@ function hasUnclosedStreamingStructure(text: string): boolean {
   // \(...\) inline math — same risk as $...$ above.
   if (countOccurrences(text, "\\(") !== countOccurrences(text, "\\)")) return true;
   if (endsWithOpenCallout(text)) return true;
+  if (endsWithOpenPipeTable(text)) return true;
   return false;
+}
+
+/** True when the last complete line is a GFM pipe-table row (still growing). */
+export function endsWithOpenPipeTable(text: string): boolean {
+  const lines = text.split("\n");
+  let i = lines.length - 1;
+  if (i >= 0 && lines[i] === "") i -= 1;
+  if (i < 0) return false;
+  return looksLikePipeTableLine(lines[i] ?? "");
+}
+
+function looksLikePipeTableLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("|")) return false;
+  return trimmed.indexOf("|", 1) >= 0;
 }
 
 /** True when `text` ends inside an open GFM callout (line-scan, no ReDoS). */
@@ -125,6 +141,8 @@ export type StableScanState = {
   parenDepth: number;
   /** Whether an unclosed `> [!type]` callout chain reaches `scannedLen`. */
   calloutOpen: boolean;
+  /** Whether an unclosed GFM pipe-table chain reaches `scannedLen`. */
+  pipeTableOpen: boolean;
   /** Largest confirmed-stable prefix length found up to `scannedLen`. */
   stableEnd: number;
 };
@@ -182,6 +200,7 @@ function scanStableMarkdownPrefix(
   let inlineDollarOpen = false;
   let parenDepth = 0;
   let calloutOpen = false;
+  let pipeTableOpen = false;
   let stableEnd = 0;
   let pos = 0;
 
@@ -193,6 +212,7 @@ function scanStableMarkdownPrefix(
     inlineDollarOpen = prevState.inlineDollarOpen;
     parenDepth = prevState.parenDepth;
     calloutOpen = prevState.calloutOpen;
+    pipeTableOpen = prevState.pipeTableOpen;
     stableEnd = prevState.stableEnd;
   }
 
@@ -224,6 +244,7 @@ function scanStableMarkdownPrefix(
     calloutOpen = calloutOpen
       ? line.startsWith(">")
       : !isAbsoluteFirstLine && CALLOUT_MARKER_LINE_RE.test(line);
+    pipeTableOpen = looksLikePipeTableLine(line);
 
     pos = nl + 1;
     if (
@@ -232,7 +253,8 @@ function scanStableMarkdownPrefix(
       bracketDepth === 0 &&
       !inlineDollarOpen &&
       parenDepth === 0 &&
-      !calloutOpen
+      !calloutOpen &&
+      !pipeTableOpen
     ) {
       stableEnd = pos;
     }
@@ -246,6 +268,7 @@ function scanStableMarkdownPrefix(
     inlineDollarOpen,
     parenDepth,
     calloutOpen,
+    pipeTableOpen,
     stableEnd,
   };
 }

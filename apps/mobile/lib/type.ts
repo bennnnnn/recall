@@ -9,7 +9,7 @@ export const Type = {
   body: {
     fontSize: 16,
     fontWeight: "400",
-    lineHeight: 23,
+    lineHeight: 25,
   },
   /** Secondary body / supporting paragraphs */
   secondary: {
@@ -64,8 +64,9 @@ export const Type = {
    *  heading wraps to two lines. */
   h1: { fontSize: 22, fontWeight: "700", lineHeight: 28 },
   h2: { fontSize: 19, fontWeight: "700", lineHeight: 26 },
-  h3: { fontSize: 17, fontWeight: "600", lineHeight: 24 },
-  h4: { fontSize: 15, fontWeight: "600", lineHeight: 22 },
-  h5: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
-  h6: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
+  h3: { fontSize: 17, fontWeight: "700", lineHeight: 24 },
+  /** Section label — never smaller than body, or hierarchy inverts. */
+  h4: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
+  h5: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
+  h6: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
 } as const satisfies Record<string, TextStyle>;

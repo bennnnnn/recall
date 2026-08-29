@@ -24,6 +24,17 @@ describe("markdownPlain", () => {
     expect(() => require("@/lib/markdownPlain")).not.toThrow();
     jest.dontMock("@/lib/printDocument");
   });
+
+  it("strips server fences and flattens pipe tables", () => {
+    const plain = markdownToPlainText(
+      "Intro\n\n```answer\n42\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n",
+    );
+    expect(plain).toContain("Intro");
+    expect(plain).not.toContain("42");
+    expect(plain).not.toContain("```");
+    expect(plain).toContain("A — B");
+    expect(plain).toContain("1 — 2");
+  });
 });
 
 describe("markdownToStructuredPrintHtml", () => {
@@ -68,6 +79,18 @@ describe("markdownToStructuredPrintHtml", () => {
     const html = markdownToStructuredPrintHtml("Display", "See\n\n$$\\frac{a}{b}$$\n");
     expect(html).toContain("katex");
     expect(html).toContain("math-block");
+  });
+
+  it("keeps hyphenated fence langs and prints GFM tables plus links", () => {
+    const html = markdownToStructuredPrintHtml(
+      "Note",
+      "See [docs](https://example.com).\n\n```vega-lite\n{}\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n",
+    );
+    expect(html).toContain('class="language-vega-lite"');
+    expect(html).toContain('<a href="https://example.com">docs</a>');
+    expect(html).toContain("<table>");
+    expect(html).toContain("<th>A</th>");
+    expect(html).toContain("<td>1</td>");
   });
 });
 

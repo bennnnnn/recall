@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
 import { type IoniconName } from "@/lib/icons";
+import { radius, space } from "@/lib/layout";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -60,11 +61,11 @@ function makeStyles(t: Theme) {
     wrap: {
       alignSelf: "stretch",
       backgroundColor: t.surface,
-      borderRadius: 20,
+      borderRadius: radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       borderLeftWidth: 3,
-      marginVertical: 8,
+      marginVertical: space.sm,
       overflow: "hidden",
     },
     wrapEven: {

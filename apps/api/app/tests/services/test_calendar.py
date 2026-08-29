@@ -20,6 +20,7 @@ from app.services.calendar import (
         ("what's on my calendar tomorrow", True),
         ("any meetings today", True),
         ("what am I doing today", True),
+        ("qué hay en mi calendario", True),
         ("Ethiopias game score", False),
         ("what's due today", False),
     ],

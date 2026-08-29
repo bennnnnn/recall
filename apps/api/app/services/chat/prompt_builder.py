@@ -67,13 +67,54 @@ from app.services.chat.prompt_constants import (
     is_quote_question,
     is_writing_deliverable_request,
 )
+from app.services.chat.prompt_constants.visuals import is_html_ui_question
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.math_tools import VerifiedMathBlock
+from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
-from app.services.prompt_safety import wrap_persisted_attachment_excerpts, wrap_untrusted
+from app.services.prompt_safety import (
+    wrap_persisted_attachment_excerpts,
+    wrap_untrusted,
+    wrap_user_preferences,
+)
 from app.services.vocab_quiz import QuizAnswerGrade
+
+_PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
+
+
+def _strip_prompt_owned_fences(content: str) -> str:
+    """Drop solver/search fences from assistant history before the model sees them.
+
+    Persisted messages keep the fences for the client. Re-injecting ```answer /
+    ```graph / ```sources into the recent window teaches the model to copy them.
+    """
+    out = content
+    for lang in _PROMPT_STRIP_FENCE_LANGS:
+        out = strip_closed_fences(out, lang)
+    return out
+
+
+def _math_viz_intent(query_text: str | None) -> tuple[bool, bool]:
+    if not query_text or not query_text.strip():
+        return False, False
+    math_intent = math_tools_service.needs_symbolic_math(query_text)
+    viz_intent = (
+        is_chart_question(query_text)
+        or is_mermaid_question(query_text)
+        or is_html_ui_question(query_text)
+    )
+    return math_intent, viz_intent
+
+
+def _custom_instructions_block(user: User) -> str | None:
+    ci = getattr(user, "custom_instructions", None)
+    custom = ci.strip() if isinstance(ci, str) and ci.strip() else ""
+    if not custom:
+        return None
+    return wrap_user_preferences(f"User's personal instructions:\n{custom[:2000]}")
+
 
 logger = logging.getLogger(__name__)
 
@@ -561,8 +602,9 @@ def _style_format_hints(
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
-    ``compact`` is for slim/casual chat (not rich context): keep math-safety
-    guardrails without the full intent/viz/solver pack (~4.5k tokens).
+    ``compact`` is for greetings and pasted fragments only — not for
+    "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
+    packs are intent-gated so general knowledge does not pay ~3k tokens.
     """
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     if query_text and is_day_planning_question(query_text):
@@ -598,15 +640,13 @@ def _style_format_hints(
         parts.append(SHORT_MATH_SAFETY_HINT)
     else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.extend(
-            [
-                FORMAT_CONTRACT,
-                MATH_INTENT_HINT,
-                MATH_SOLVER_HINT,
-                MATH_TUTORING_HINT,
-                VISUALIZATION_HINTS,
-            ]
-        )
+        parts.append(FORMAT_CONTRACT)
+        parts.append(SHORT_MATH_SAFETY_HINT)
+        math_intent, viz_intent = _math_viz_intent(query_text)
+        if math_intent:
+            parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
+        if viz_intent:
+            parts.append(VISUALIZATION_HINTS)
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
@@ -794,6 +834,7 @@ async def build_prompt_messages(
         minimal_vocab_answer_context=minimal_vocab_answer_context,
     )
     system_parts.extend(quiz_parts)
+    compact_format = bool(query_text and is_bare_writing_line(query_text))
     if lightweight:
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)
         system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
@@ -809,7 +850,7 @@ async def build_prompt_messages(
                 style=style,
                 is_day_plan=is_day_plan,
                 minimal_personal_context=minimal_personal_context,
-                compact=slim_context,
+                compact=compact_format,
             )
         )
     else:
@@ -819,18 +860,9 @@ async def build_prompt_messages(
         system_parts.append(SHORT_MATH_SAFETY_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
     system_parts.append(TONE_FORMAT_GUARD)
-    if not slim_context:
-        ci = getattr(user, "custom_instructions", None)
-        custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
-        if custom_instructions:
-            # User-authored; still untrusted relative to system policy (injection).
-            bounded = custom_instructions[:2000]
-            system_parts.append(
-                wrap_untrusted(
-                    "user personal instructions",
-                    f"User's personal instructions:\n{bounded}",
-                )
-            )
+    custom_block = _custom_instructions_block(user)
+    if custom_block:
+        system_parts.append(custom_block)
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
@@ -867,5 +899,7 @@ async def build_prompt_messages(
         content = msg.content
         if msg.role == "user":
             content = wrap_persisted_attachment_excerpts(content)
+        elif msg.role == "assistant":
+            content = _strip_prompt_owned_fences(content)
         messages.append({"role": msg.role, "content": content})
     return messages

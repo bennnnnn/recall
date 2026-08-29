@@ -324,6 +324,7 @@ export function useChat(
                     id: keptId,
                     content: partial,
                     search_sources: draft?.search_sources ?? m.search_sources,
+                    generationStopped: true,
                   }
                 : m,
             );
@@ -457,6 +458,7 @@ export function useChat(
                     id: `streamed-${Date.now()}`,
                     content: draft?.content ?? m.content,
                     search_sources: draft?.search_sources ?? m.search_sources,
+                    generationStopped: true,
                   }
                 : m,
             );
@@ -828,6 +830,7 @@ export function useChat(
               id: stoppedId,
               content,
               search_sources: draft?.search_sources ?? m.search_sources,
+              generationStopped: true,
             }
           : m,
       );

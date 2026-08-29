@@ -18,4 +18,10 @@ describe("calendarProposal", () => {
     expect(proposals[0]?.proposal_id).toBe("abc");
     expect(stripCalendarProposalFences(content)).toBe("I'll add this for you:");
   });
+
+  it("strips a still-open calendar_proposal fence so JSON never paints", () => {
+    const open = 'I\'ll add this:\n```calendar_proposal\n{"title":"Team sync"';
+    expect(stripCalendarProposalFences(open)).toBe("I'll add this:");
+    expect(stripCalendarProposalFences(open)).not.toContain("```");
+  });
 });

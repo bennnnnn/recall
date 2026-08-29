@@ -41,8 +41,14 @@ export function parseCalendarProposals(content: string): CalendarProposal[] {
   return proposals;
 }
 
+const CALENDAR_PROPOSAL_PARTIAL_RE = /```calendar_proposal[\s\S]*$/i;
+
 export function stripCalendarProposalFences(content: string): string {
-  return content.replace(CALENDAR_PROPOSAL_FENCE_RE, "").trimEnd();
+  return content
+    .replace(CALENDAR_PROPOSAL_FENCE_RE, "")
+    .replace(CALENDAR_PROPOSAL_PARTIAL_RE, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 export function formatProposalWhen(startAt: string, endAt: string): string {

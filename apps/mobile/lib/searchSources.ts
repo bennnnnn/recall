@@ -1,12 +1,15 @@
+import {
+  collectClosedFenceBodies,
+  mapUnlabeledClosedFences,
+  stripClosedLangFence,
+} from "@/lib/mdFenceScan";
+
 export type SearchSource = {
   title: string;
   url: string;
   snippet?: string;
 };
 
-const SOURCES_FENCE_RE = /```sources\s*\n([\s\S]*?)```/gi;
-/** Bare ``` … ``` fence whose body is only a sources JSON array. */
-const BARE_SOURCES_FENCE_RE = /```\s*\n(\[[\s\S]*?\])\s*```/g;
 const SOURCES_LABEL_RE = /(?:\*\*)?sources(?:\*\*)?\s*:?\s*$/i;
 
 function normalizeSourceRows(parsed: unknown): SearchSource[] {
@@ -28,9 +31,7 @@ function normalizeSourceRows(parsed: unknown): SearchSource[] {
 }
 
 export function parseSearchSourcesJson(raw: string): SearchSource[] {
-  let text = raw.trim();
-  // Model sometimes leaves a closing fence after the array.
-  text = text.replace(/\s*```+\s*$/g, "").trim();
+  const text = raw.trim();
   try {
     return normalizeSourceRows(JSON.parse(text));
   } catch {
@@ -38,34 +39,18 @@ export function parseSearchSourcesJson(raw: string): SearchSource[] {
   }
 }
 
-function findTrailingSourcesJson(content: string): { sources: SearchSource[]; start: number } | null {
-  const trimmed = content.trimEnd();
-  let index = trimmed.lastIndexOf("[");
-  while (index >= 0) {
-    const candidate = trimmed.slice(index);
-    const sources = parseSearchSourcesJson(candidate);
-    if (sources.length > 0) return { sources, start: index };
-    // lastIndexOf clamps a negative fromIndex to 0 rather than returning -1,
-    // so once the leftmost "[" (index 0) fails to parse, searching from
-    // index - 1 would re-find the same "[" forever — stop explicitly instead.
-    if (index === 0) break;
-    index = trimmed.lastIndexOf("[", index - 1);
-  }
-  return null;
-}
-
 export function parseSearchSources(content: string): SearchSource[] {
-  const fromFence = [...content.matchAll(SOURCES_FENCE_RE)].flatMap((match) =>
-    parseSearchSourcesJson(match[1].trim()),
+  const fromFence = collectClosedFenceBodies(content, "sources").flatMap((body) =>
+    parseSearchSourcesJson(body),
   );
   if (fromFence.length > 0) return fromFence;
 
-  const fromBare = [...content.matchAll(BARE_SOURCES_FENCE_RE)].flatMap((match) =>
-    parseSearchSourcesJson(match[1].trim()),
-  );
-  if (fromBare.length > 0) return fromBare;
-
-  return findTrailingSourcesJson(content)?.sources ?? [];
+  const fromBare: SearchSource[] = [];
+  mapUnlabeledClosedFences(content, (body, original) => {
+    fromBare.push(...parseSearchSourcesJson(body));
+    return original;
+  });
+  return fromBare;
 }
 
 export function resolveSearchSources(
@@ -76,16 +61,12 @@ export function resolveSearchSources(
   return parseSearchSources(content);
 }
 
-/** Remove ```sources fences and trailing LLM-emitted source JSON from visible markdown. */
+/** Remove ```sources fences and unlabeled source-JSON fences from visible markdown. */
 export function stripSearchSourcesFromContent(content: string): string {
-  let text = content.replace(SOURCES_FENCE_RE, "");
-  text = text.replace(BARE_SOURCES_FENCE_RE, (match, body: string) =>
-    parseSearchSourcesJson(body).length > 0 ? "" : match,
+  let text = stripClosedLangFence(content, "sources");
+  text = mapUnlabeledClosedFences(text, (body, original) =>
+    parseSearchSourcesJson(body).length > 0 ? "" : original,
   );
-  const trailing = findTrailingSourcesJson(text);
-  if (trailing) {
-    text = text.slice(0, trailing.start).trimEnd();
-  }
   text = text.replace(SOURCES_LABEL_RE, "").trimEnd();
   return text.trimEnd();
 }

@@ -8,6 +8,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseChemistryFence } from "@/lib/chemistryFence";
 import { CODE_FONT } from "@/lib/fonts";
@@ -188,29 +189,20 @@ export function ChemistryBlock({ content }: Props) {
 
   if (!parsed) {
     return (
-      <View style={s.wrap}>
-        <View style={s.header}>
-          <View style={s.headerLeft}>
-            <Icon name="flask-outline" size={16} color={theme.primary} />
-            <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
-          </View>
-        </View>
+      <VisualCard label={t("rich.chemistry_structure")} icon="flask-outline">
         <View style={s.previewBox}>
           <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
         </View>
-      </View>
+      </VisualCard>
     );
   }
 
   return (
-    <View style={s.wrap}>
-      <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Icon name="flask-outline" size={16} color={theme.primary} />
-          <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
-        </View>
-      </View>
-
+    <VisualCard
+      label={t("rich.chemistry_structure")}
+      icon="flask-outline"
+      actions={<CopyButton text={smiles} />}
+    >
       {caption ? (
         <View style={s.captionBox}>
           <Text style={s.captionText}>{caption}</Text>
@@ -218,36 +210,12 @@ export function ChemistryBlock({ content }: Props) {
       ) : null}
 
       <Chemistry2DView smiles={smiles} />
-
-      <View style={s.actions}>
-        <CopyButton text={smiles} />
-      </View>
-    </View>
+    </VisualCard>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      marginVertical: 8,
-      borderRadius: 14,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      overflow: "hidden",
-      backgroundColor: t.bg,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      backgroundColor: t.surface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     captionBox: {
       paddingHorizontal: 14,
       paddingTop: 8,
@@ -272,6 +240,5 @@ function makeStyles(t: Theme) {
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
     fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
-    actions: { flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
   });
 }

@@ -24,7 +24,7 @@ class UserOut(BaseModel):
     plan: str = "free"
     enabled_models: list[str] | None = None
     response_style: str
-    response_tone: str = "funny"
+    response_tone: str = "casual"
     memory_enabled: bool
     push_notifications_enabled: bool = True
     email_reminders_enabled: bool = False

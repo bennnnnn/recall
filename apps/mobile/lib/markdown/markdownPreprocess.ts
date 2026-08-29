@@ -910,19 +910,6 @@ function repairCorruptedPriceTierMarkdown(content: string): string {
   return fixed.join("\n");
 }
 
-/** Turn `- step ✓` bullets into task-list items so MarkdownContent renders green ticks. */
-function normalizeVerificationBullets(content: string): string {
-  return content
-    .split("\n")
-    .map((line) => {
-      const match = line.match(/^(\s*[-*+]\s+)(.+?)\s*[✓✔✅]\s*$/u);
-      if (!match) return line;
-      const body = match[2].trim();
-      return `- [x] ${body}`;
-    })
-    .join("\n");
-}
-
 /**
  * Check lines like `For $x = 2$: $2^2 + 2 = 6$` (or `For F = 0: 0 + 3 = 3 ✓`)
  * must not cram the substitution onto the label line. Split after the colon.
@@ -1245,7 +1232,6 @@ export function preprocessMarkdown(
   // continuation line.
   out = stripBoldListLabelContinuationColons(out);
   out = repairCorruptedPriceTierMarkdown(out);
-  out = normalizeVerificationBullets(out);
   out = normalizeImplicitMath(out, mathFormat);
   out = normalizeBoldInlineMath(out);
   // The model often wraps inline math in backticks (`` `$x^2 = 4$` ``), which
@@ -1297,12 +1283,6 @@ export function preprocessMarkdown(
   out = retagMathAndDiagramFences(out);
 
   out = unwrapNonCodeFences(out);
-
-  out = protectMathEscapes(out);
-  out = layoutCheckVerificationLines(out);
-  out = mergeStrandedColons(out);
-  out = breakMidlineAtxHeadings(out);
-  out = breakAttachedMathFences(out);
 
   out = protectMathEscapes(out);
   out = layoutCheckVerificationLines(out);

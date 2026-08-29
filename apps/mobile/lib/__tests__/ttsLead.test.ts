@@ -30,6 +30,15 @@ describe("splitTtsLead", () => {
     expect(lead.length).toBeLessThanOrEqual(TTS_LEAD_MAX_CHARS);
     expect(rest.length).toBeGreaterThan(0);
   });
+
+  it("treats CJK and Ethiopic sentence marks as boundaries", () => {
+    const restBody =
+      "Here is a longer explanation that should stay in the lead until we have enough audio to cover the next request. Then this leftover paragraph is fetched only after playback has already started.";
+    const { lead } = splitTtsLead(`好的。${restBody}`);
+    expect(lead.startsWith("好的。")).toBe(true);
+    const amharic = splitTtsLead(`እሺ።${restBody}`);
+    expect(amharic.lead.startsWith("እሺ።")).toBe(true);
+  });
 });
 
 describe("splitTtsChunks", () => {

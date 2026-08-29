@@ -9,6 +9,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Icon } from "@/components/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import {
@@ -162,12 +163,10 @@ export function MermaidBlock({ content }: Props) {
   }, [reportedHeight]);
 
   return (
-    <View style={s.wrap}>
-      <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Icon name="git-network-outline" size={16} color={theme.primary} />
-          <Text style={s.headerLabel}>{t("rich.mermaid_diagram")}</Text>
-        </View>
+    <VisualCard
+      label={t("rich.mermaid_diagram")}
+      icon="git-network-outline"
+      headerRight={
         <Pressable
           onPress={() => setShowSource((v) => !v)}
           hitSlop={8}
@@ -180,8 +179,32 @@ export function MermaidBlock({ content }: Props) {
             color={theme.primary}
           />
         </Pressable>
-      </View>
-
+      }
+      actions={
+        <>
+          <CopyButton text={content} />
+          {clipped || expanded ? (
+            <Pressable
+              style={s.iconBtn}
+              onPress={toggleExpanded}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
+            >
+              <Icon
+                name={expanded ? "contract-outline" : "expand-outline"}
+                size={20}
+                color={theme.textSecondary}
+              />
+            </Pressable>
+          ) : null}
+          <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
+            <Icon name="open-outline" size={18} color={theme.onPrimary} />
+            <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
+          </Pressable>
+        </>
+      }
+    >
       {renderError ? (
         <View style={s.previewBox}>
           <Icon name="alert-circle-outline" size={20} color={theme.danger} />
@@ -225,55 +248,12 @@ export function MermaidBlock({ content }: Props) {
           <Text style={s.fallbackHint}>{t("rich.mermaid_dev_build")}</Text>
         </View>
       )}
-
-      <View style={s.actions}>
-        <CopyButton text={content} />
-        {clipped || expanded ? (
-          <Pressable
-            style={s.iconBtn}
-            onPress={toggleExpanded}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
-          >
-            <Icon
-              name={expanded ? "contract-outline" : "expand-outline"}
-              size={20}
-              color={theme.textSecondary}
-            />
-          </Pressable>
-        ) : null}
-        <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
-          <Icon name="open-outline" size={18} color={theme.onPrimary} />
-          <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
-        </Pressable>
-      </View>
-    </View>
+    </VisualCard>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      marginVertical: 8,
-      borderRadius: 14,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      overflow: "hidden",
-      backgroundColor: t.bg,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      backgroundColor: t.surface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     webWrap: { backgroundColor: t.bg },
     webview: { flex: 1, backgroundColor: "transparent" },
     loadingWrap: {
@@ -291,14 +271,6 @@ function makeStyles(t: Theme) {
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
     fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
-    actions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      flexWrap: "wrap",
-    },
     iconBtn: {
       width: 32,
       height: 32,

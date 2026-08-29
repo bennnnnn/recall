@@ -326,6 +326,7 @@ describe("latexNeedsTallLine", () => {
     expect(latexNeedsTallLine(String.raw`\sqrt{25}`)).toBe(true);
     expect(MATH_TALL_LINE_HEIGHT).toBeGreaterThan(25);
     expect(mathRunLineHeight(String.raw`a^2(1+9+81)`)).toBe(MATH_SCRIPT_LINE_HEIGHT);
+    expect(mathRunLineHeight("CO₂ and 12 m² in prose")).toBeUndefined();
     expect(mathRunLineHeight(String.raw`\frac{1}{2}`)).toBe(MATH_TALL_LINE_HEIGHT);
     // Whole-paragraph astText (prose + several fracs) used to shrink to 34
     // and clip numerators. Stacked frac always needs the tall line box.

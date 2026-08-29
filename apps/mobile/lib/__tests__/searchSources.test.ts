@@ -26,18 +26,22 @@ describe("searchSources", () => {
     expect(parseSearchSources("hello")).toEqual([]);
   });
 
-  it("parses trailing bare JSON source arrays from the model", () => {
+    it("does not strip a trailing title/url JSON array that is real content", () => {
+    const content = `Here is the config you asked for.
+
+\`\`\`json
+[{"title":"Home","url":"/home"},{"title":"Docs","url":"/docs"}]
+\`\`\``;
+    expect(stripSearchSourcesFromContent(content)).toContain('"title":"Home"');
+    expect(parseSearchSources(content)).toEqual([]);
+  });
+
+  it("does not treat trailing bare title/url JSON as sources", () => {
     const content = `Here is the answer.
 
 [{"title":"AP News","url":"https://apnews.com/a","snippet":"Story text."}]`;
-    expect(parseSearchSources(content)).toEqual([
-      {
-        title: "AP News",
-        url: "https://apnews.com/a",
-        snippet: "Story text.",
-      },
-    ]);
-    expect(stripSearchSourcesFromContent(content)).toBe("Here is the answer.");
+    expect(parseSearchSources(content)).toEqual([]);
+    expect(stripSearchSourcesFromContent(content)).toContain("AP News");
   });
 
   it("strips bare code fences and a sources label around JSON", () => {

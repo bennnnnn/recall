@@ -94,10 +94,16 @@ export function renderRichFenceById(
       if (data) return <ComparisonBlock key={key} data={data} />;
       return null;
     }
-    case "keyvalue":
-      return <KeyValueBlock key={key} rows={parseKeyValue(content)} />;
-    case "steps":
-      return <StepList key={key} steps={parseSteps(content)} />;
+    case "keyvalue": {
+      const rows = parseKeyValue(content);
+      if (rows.length === 0) return null;
+      return <KeyValueBlock key={key} rows={rows} />;
+    }
+    case "steps": {
+      const steps = parseSteps(content);
+      if (steps.length === 0) return null;
+      return <StepList key={key} steps={steps} />;
+    }
     case "mermaid":
       return <LazyMermaidBlock key={key} content={content} />;
     case "chemistry":

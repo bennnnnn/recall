@@ -11,10 +11,12 @@ export const TTS_PREFETCH_CHUNK_LIMIT = 0;
 export function shouldPrefetchTtsChunk(index: number): boolean {
   return index >= 0 && index < TTS_PREFETCH_CHUNK_LIMIT;
 }
-const SENTENCE_ENDS = new Set([".", "!", "?"]);
+const SENTENCE_ENDS = new Set([".", "!", "?", "。", "！", "？", "።"]);
 
 function isSentenceEnd(text: string, index: number): boolean {
-  if (!SENTENCE_ENDS.has(text[index] ?? "")) return false;
+  const ch = text[index] ?? "";
+  if (!SENTENCE_ENDS.has(ch)) return false;
+  if (ch === "。" || ch === "！" || ch === "？" || ch === "።") return true;
   return index + 1 >= text.length || text[index + 1] === " ";
 }
 

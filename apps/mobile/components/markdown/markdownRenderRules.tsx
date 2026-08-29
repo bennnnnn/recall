@@ -21,6 +21,7 @@ import {
   detectStandaloneLink,
   inTableCell,
   inTableHeader,
+  inHeading,
   parentHasType,
   taskChecked,
 } from "@/components/markdown/markdownAstHelpers";
@@ -98,7 +99,7 @@ function wrapInlineChildren(
     );
   }
   return (
-    <Text key={node.key} style={textStyle} selectable>
+    <Text key={node.key} style={[textStyle, { flexShrink: 1 }]} selectable>
       {children}
     </Text>
   );
@@ -262,26 +263,29 @@ function makeSharedRules(
       children: ReactNode,
       parent: unknown,
       styles: StyleMap,
+      inheritedStyles: object = {},
     ) => {
-      // Tight lists (the model's default — consecutive `- item` lines, no
-      // blank lines) go through markdown-display's omitListItemParagraph,
-      // which strips each item's paragraph wrapper. Without that paragraph's
-      // single enclosing Text, this textgroup's Fragment-flattened children
-      // (plain text + a **bold**/`code` span + more text) land as direct
-      // siblings inside list_item's row View instead of one inline run —
-      // each becomes its own line ("Germany invaded Poland on" /
-      // "**September 1, 1939**" / "; Britain..." stacked instead of one
-      // wrapped sentence). Give list items the same single-Text wrapper
-      // `paragraph` already gives non-list content.
-      if (parentHasType(parent, "list_item")) {
+      // Tight lists (and GFM table cells / mixed headings) omit a wrapping
+      // paragraph. Without one enclosing Text, Fragment-flattened children
+      // (plain + **bold** / `code`) land as siblings of a column View and
+      // each takes its own line — or, in a row heading, overflow off-screen.
+      if (
+        parentHasType(parent, "list_item") ||
+        inTableCell(parent) ||
+        inHeading(parent)
+      ) {
         const runHeight = mathRunLineHeight(astText(node));
         return wrapInlineChildren(
           node,
           children,
           [
             styles.body,
+            inheritedStyles,
             styles.text,
+            inTableCell(parent) && mdTable.cellText,
+            inTableHeader(parent) && mdTable.headerText,
             runHeight != null && { lineHeight: runHeight },
+            { flexShrink: 1 },
           ],
           mdMath.inlineWrap,
         );

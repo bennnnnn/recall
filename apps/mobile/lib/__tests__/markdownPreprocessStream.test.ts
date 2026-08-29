@@ -232,4 +232,11 @@ describe("markdownPreprocessStream", () => {
     const noFormat = preprocessMarkdownForStream(content, null);
     expect(noFormat.prepared).not.toContain("\\boxed");
   });
+
+  it("holds back a trailing pipe-table row until the next non-table line", () => {
+    const open = "| Month | Rain |\n| --- | --- |\n| Apr | 5.7 |\n";
+    expect(findStableMarkdownPrefixLen(open)).toBe(0);
+    const closed = "| Month | Rain |\n| --- | --- |\n| Apr | 5.7 |\n\nDone.\n";
+    expect(findStableMarkdownPrefixLen(closed)).toBe(closed.length);
+  });
 });
