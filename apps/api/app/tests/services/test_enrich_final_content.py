@@ -131,3 +131,29 @@ async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatc
 
     assert persisted == "Plain answer."
     assert "final_content" not in result
+
+
+@pytest.mark.asyncio
+async def test_cancelled_turn_closes_unclosed_fence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", _run_sympy_inline)
+
+    result: dict[str, Any] = {}
+    open_fence = "```mermaid\ngraph TD\n  A-->B"
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=open_fence,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=True,
+        assistant_parts=[open_fence],
+        should_cancel=None,
+    )
+
+    assert persisted.rstrip().endswith("```")
+    assert "Generation stopped" not in persisted
+    assert result["final_content"] == persisted

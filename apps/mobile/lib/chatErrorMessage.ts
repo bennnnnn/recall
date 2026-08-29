@@ -50,9 +50,7 @@ export function resolveChatError(options: {
   if (options.code === "quota_exceeded" || isQuotaErrorMessage(text)) {
     return {
       kind: "quota",
-      message:
-        text ||
-        options.t(options.isPro ? "chat.quota_exceeded_pro" : "chat.quota_exceeded_free"),
+      message: options.t(options.isPro ? "chat.quota_exceeded_pro" : "chat.quota_exceeded_free"),
     };
   }
   if (!text || text.startsWith("{") || text.startsWith("[")) {

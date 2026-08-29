@@ -62,6 +62,8 @@ export type Message = {
   /** Client-only: image generation stopped or failed (inline card + retry). */
   image_gen_failure?: "canceled" | "failed";
   image_gen_error?: string;
+  /** Client-only: stream was stopped or the provider died after tokens started. */
+  generationStopped?: boolean;
   created_at: string;
 };
 

@@ -1,4 +1,5 @@
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+import { markdownToPlainText } from "@/lib/markdownPlain";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/mathFenceRetag";
 
 const COPY_BLOCK_RE =
@@ -370,15 +371,9 @@ export function copyBlockLabel(lang: string): string | undefined {
   }
 }
 
-/** First send-ready block, or the full message when none is marked. */
+/** Cleaned full message for copy. EmailCard has its own copy control. */
 export function extractPrimaryCopyText(content: string): string {
-  const re = /```(?:copy|text|message|email|sms|reply)\n([\s\S]*?)```/gi;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(content)) !== null) {
-    const body = match[1].trim();
-    if (looksLikeSendDeliverable(body)) return body;
-  }
-  return content.trim();
+  return markdownToPlainText(content);
 }
 
 export function hasCopyBlock(content: string): boolean {

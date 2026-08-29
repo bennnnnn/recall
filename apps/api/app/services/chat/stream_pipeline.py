@@ -264,6 +264,10 @@ async def enrich_final_content(
         # fence parsing. Strips orphan colon lines and collapses 3+ blank
         # lines.
         from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
+        from app.services.md_fence_scan import close_unclosed_fences
+
+        if was_cancelled:
+            assistant_text = close_unclosed_fences(assistant_text)
 
         normalized = normalize_prose_artifacts(assistant_text)
         if prose_changed(assistant_text, normalized):
@@ -438,6 +442,15 @@ async def stream_and_finalize(
             accum.was_cancelled = True
             logger.info(
                 "Hard cancel with partial reply; finalizing chat_id=%s parts=%d",
+                ctx.chat_id,
+                len(accum.parts),
+            )
+        except ModelUnavailableError:
+            if not accum.parts:
+                raise
+            accum.was_cancelled = True
+            logger.info(
+                "Provider fail with partial reply; finalizing chat_id=%s parts=%d",
                 ctx.chat_id,
                 len(accum.parts),
             )
