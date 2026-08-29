@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BannerGlyph } from "@/components/StrokeIcons";
 import { type IoniconName } from "@/lib/icons";
+import { Layer } from "@/lib/layer";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
@@ -132,7 +133,7 @@ function makeStyles(theme: Theme) {
       left: 24,
       right: 24,
       alignItems: "center",
-      zIndex: 9999,
+      zIndex: Layer.toast,
     },
     toast: {
       flexDirection: "row",

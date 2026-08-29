@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { Layer } from "@/lib/layer";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -36,7 +37,7 @@ function makeStyles(theme: Theme) {
       top: 0,
       left: 0,
       right: 0,
-      zIndex: 9999,
+      zIndex: Layer.toast,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",

@@ -1,3 +1,6 @@
+import { IconSize } from "@/lib/icons";
+import { Layer } from "@/lib/layer";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
@@ -20,5 +23,17 @@ describe("type and space tokens", () => {
     expect(Space.gutter).toBe(20);
     expect(Space.lg).toBe(24);
     expect(Space.xl).toBe(32);
+    expect(Space.minTouch).toBe(44);
+  });
+
+  it("owns chrome radius, icon, and overlay layers", () => {
+    expect(Radius.md).toBe(12);
+    expect(Radius.sheet).toBe(20);
+    expect(IconSize.sm).toBe(20);
+    expect(IconSize.md).toBe(22);
+    expect(IconSize.lg).toBe(24);
+    expect(Layer.toast).toBe(9999);
+    expect(Layer.drawer).toBeGreaterThan(Layer.composer);
+    expect(Layer.composer).toBeGreaterThan(Layer.header);
   });
 });
