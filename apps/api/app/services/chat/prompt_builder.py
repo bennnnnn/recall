@@ -29,6 +29,7 @@ from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
+    CALLOUT_FORMAT_HINT,
     CHART_FORMAT_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -55,6 +56,7 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     format_quiz_grading_hint,
     is_bare_writing_line,
+    is_callout_question,
     is_chart_question,
     is_comparison_question,
     is_learning_progress_question,
@@ -536,6 +538,8 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return MERMAID_FORMAT_HINT
     if is_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
+    if is_callout_question(query_text):
+        return CALLOUT_FORMAT_HINT
     return None
 
 

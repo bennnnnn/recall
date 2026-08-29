@@ -122,6 +122,43 @@ def is_mermaid_question(text: str) -> bool:
     return bool(_MERMAID_WORD.search(cleaned) and _MERMAID_RENDER_CUE.search(cleaned))
 
 
+_CALLOUT_TURN = re.compile(
+    r"(?:"
+    r"\b(?:give|share|list)(?:\s+me)?\s+(?:an?\s+|\d+\s+)?tips?\b|"
+    r"\btips?\s+(?:for|on)\b|"
+    r"\b(?:study|exam|safety|pro|quick)\s+tips?\b|"
+    r"\binclude\s+(?:a\s+)?(?:tip|note|warning)\b|"
+    r"\bwarning\s+about\b"
+    r")",
+    re.IGNORECASE,
+)
+
+CALLOUT_FORMAT_HINT = (
+    "This turn asked for tips and/or a warning. Recall renders blockquotes "
+    "starting with Tip: / Note: / Warning: as callout cards.\n"
+    "Do not write a joke setup. Lead with the advice.\n"
+    "Put the most important tip in a markdown blockquote: `> Tip: …` "
+    "(plain `>`, not a ```tip fence and not a ## heading).\n"
+    "If they asked for a warning, add `> Warning: …` — not a heading that "
+    "says Warning.\n"
+    "Remaining tips as a short numbered list. Never a pipe table."
+)
+
+
+def is_callout_question(text: str) -> bool:
+    """True when the user asked for tips/notes/warnings as callouts, not a how-to table."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if (
+        is_comparison_question(cleaned)
+        or is_chart_question(cleaned)
+        or is_mermaid_question(cleaned)
+    ):
+        return False
+    return bool(_CALLOUT_TURN.search(cleaned))
+
+
 # One layout contract. The model writes Markdown; Recall upgrades presentation.
 # Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
 # those cards still render if an old message has the fence.
@@ -228,7 +265,8 @@ TONE_FORMAT_GUARD = (
     "before the answer. Funny never means a bit about the question. "
     "Do not invent a decorative table before the answer — an X vs Y compare "
     "still leads with the pipe table; a numeric chart leads with ```chart, "
-    "never a substitute table; a flowchart leads with ```mermaid."
+    "never a substitute table; a flowchart leads with ```mermaid; "
+    "a tips/warning ask leads with `> Tip:` / `> Warning:`, never a joke essay."
 )
 
 # NOTE: response style (short/balanced/detailed) drives *brevity through the

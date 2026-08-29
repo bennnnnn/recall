@@ -327,6 +327,31 @@ def test_is_mermaid_question(text, expected):
     assert is_mermaid_question(text) is expected
 
 
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (
+            "Give me 3 tips for staying focused while studying. Include a warning about all-nighters.",
+            True,
+        ),
+        ("Give me tips on how to master python", True),
+        ("study tips for finals", True),
+        ("include a warning about all-nighters", True),
+        ("warning about all-nighters", True),
+        ("roadmap to learn TypeScript", False),
+        ("How do I make a cup of coffee", False),
+        ("Compare Python vs Java", False),
+        ("tip of the iceberg", False),
+        ("leave a tip", False),
+        ("", False),
+    ],
+)
+def test_is_callout_question(text, expected):
+    from app.services.chat.prompt_constants import is_callout_question
+
+    assert is_callout_question(text) is expected
+
+
 def test_format_hints_discourage_tables_for_how_tos():
     from app.services.chat.prompt_constants import FORMAT_CONTRACT
 
