@@ -30,6 +30,7 @@ import Animated, {
 import { ConversationList } from "@/components/ConversationList";
 import { DrawerProvider } from "@/contexts/DrawerContext";
 import { registerDrawer } from "@/lib/drawer";
+import { cappedDrawerWidth } from "@/lib/drawerPan";
 import { tap } from "@/lib/haptics";
 import { shadowOverlay } from "@/lib/shadow";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -53,7 +54,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const drawerWidth = width * 0.82;
+  const drawerWidth = cappedDrawerWidth(width);
 
   const translateX = useSharedValue(-drawerWidth);
   const overlayOpacity = useSharedValue(0);

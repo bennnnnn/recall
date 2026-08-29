@@ -284,6 +284,7 @@ function makeStyles(C: Theme) {
     },
     tabs: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: Space.xs,
     },
     tab: {
@@ -292,6 +293,8 @@ function makeStyles(C: Theme) {
       paddingVertical: Space.xs,
       paddingHorizontal: 12,
       borderRadius: 20,
+      flexGrow: 0,
+      flexShrink: 0,
     },
     tabActive: {
       backgroundColor: C.surfaceAlt,

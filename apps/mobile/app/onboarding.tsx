@@ -2,9 +2,9 @@ import { useMemo, useRef, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { AuthScrollLayout } from "@/components/AuthScrollLayout";
 import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,7 +37,6 @@ export default function Onboarding() {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const feedback = useActionFeedbackOptional();
   const [finishing, setFinishing] = useState(false);
@@ -65,46 +64,39 @@ export default function Onboarding() {
   };
 
   return (
-    <LinearGradient
-      colors={gradientColors}
-      style={[
-        s.root,
-        {
-          paddingTop: Math.max(insets.top, 24),
-          paddingBottom: Math.max(insets.bottom, 24),
-        },
-      ]}
-    >
-      <View style={s.hero}>
-        <View style={s.badge}>
-          <Text style={s.badgeStar}>✦</Text>
-        </View>
-        <Text style={s.title}>{t("onboarding.welcome")}</Text>
-        <Text style={s.subtitle}>{t("onboarding.subtitle")}</Text>
-      </View>
-
-      <View style={s.features}>
-        {FEATURES.map((f) => (
-          <View key={f.titleKey} style={s.feature}>
-            <View style={s.featureIcon}>
-              <Icon name={f.icon as never} size={20} color={theme.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.featureTitle}>{t(f.titleKey)}</Text>
-              <Text style={s.featureBody}>{t(f.bodyKey)}</Text>
-            </View>
+    <LinearGradient colors={gradientColors} style={s.root}>
+      <AuthScrollLayout justify="center">
+        <View style={s.hero}>
+          <View style={s.badge}>
+            <Text style={s.badgeStar}>✦</Text>
           </View>
-        ))}
-      </View>
+          <Text style={s.title}>{t("onboarding.welcome")}</Text>
+          <Text style={s.subtitle}>{t("onboarding.subtitle")}</Text>
+        </View>
 
-      <Button
-        title={t("onboarding.get_started")}
-        onPress={() => void finish()}
-        loading={finishing}
-        loadingLabel={t("onboarding.get_started")}
-        disabled={finishing}
-        style={s.cta}
-      />
+        <View style={s.features}>
+          {FEATURES.map((f) => (
+            <View key={f.titleKey} style={s.feature}>
+              <View style={s.featureIcon}>
+                <Icon name={f.icon as never} size={20} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.featureTitle}>{t(f.titleKey)}</Text>
+                <Text style={s.featureBody}>{t(f.bodyKey)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <Button
+          title={t("onboarding.get_started")}
+          onPress={() => void finish()}
+          loading={finishing}
+          loadingLabel={t("onboarding.get_started")}
+          disabled={finishing}
+          style={s.cta}
+        />
+      </AuthScrollLayout>
     </LinearGradient>
   );
 }
@@ -113,8 +105,6 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: {
       flex: 1,
-      paddingHorizontal: Space.lg,
-      justifyContent: "center",
     },
     hero: { alignItems: "center", marginBottom: Space.xl + Space.xs },
     badge: {

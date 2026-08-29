@@ -24,7 +24,10 @@ jest.mock("expo-linear-gradient", () => {
 });
 jest.mock("react-native-safe-area-context", () => {
   const { View } = jest.requireActual("react-native");
-  return { SafeAreaView: View };
+  return {
+    SafeAreaView: View,
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
 });
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("@/lib/apple-auth", () => ({

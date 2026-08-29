@@ -12,10 +12,10 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { AuthScrollLayout } from "@/components/AuthScrollLayout";
 import { Button } from "@/components/Button";
+import { Icon } from "@/components/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import {
@@ -155,7 +155,7 @@ export default function LoginScreen() {
 
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
-      <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
+      <AuthScrollLayout justify="space-between">
         <View style={s.hero}>
           <View style={s.logoGlow}>
             <Image source={APP_ICON} style={s.logo} accessibilityLabel="Recall" />
@@ -325,7 +325,7 @@ export default function LoginScreen() {
             </Pressable>
           </View>
         </View>
-      </SafeAreaView>
+      </AuthScrollLayout>
     </LinearGradient>
   );
 }
@@ -339,11 +339,6 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.bg,
     },
     root: { flex: 1 },
-    safe: {
-      flex: 1,
-      paddingHorizontal: 24,
-      justifyContent: "space-between",
-    },
     hero: {
       flex: 1,
       alignItems: "center",
