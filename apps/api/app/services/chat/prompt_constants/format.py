@@ -58,8 +58,11 @@ CHART_FORMAT_HINT = (
     "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence, "
     "then the fence. No joke setup. After the fence, stop — no mean/stats recap, "
     "no leftover numbers, and no ```answer / ```result fence.\n"
-    "Use the numbers they gave as data.values in that order. First key must be "
-    '"$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
+    "If they gave numbers, use those as data.values in that order. If they gave "
+    "none, do not interview for months or values — use a short labelled sample "
+    "series (the example below is fine) and say it is sample data in that one "
+    "sentence. Never ask them to provide the rainfall amounts first.\n"
+    'First key must be "$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
     "Prefer mark bar/line as asked. Named categories (months, items) go on y "
     'with "sort": null (horizontal bars) so labels stay visible — never '
     "clip them under the plot.\n"
@@ -99,11 +102,14 @@ _MERMAID_RENDER_CUE = re.compile(
 MERMAID_FORMAT_HINT = (
     "This turn is a flowchart. Lead with a ```mermaid fence — not a numbered "
     "list, not HTML/SVG, and not a joke setup ('let's brew up some fun'). "
-    "At most one short sentence, then the fence.\n"
+    "At most one short sentence, then the fence. Do not interview for steps.\n"
     "Match the process they asked for. If they named steps or said ~N steps, "
     "emit those nodes — do not invent a 2-box story.\n"
     "Linear process: flowchart TD, one rectangle per step, --> between them. "
     "Start/end may use stadium ([...]); decisions use diamonds.\n"
+    "Node labels must not contain raw parentheses — they break the parser. "
+    'Quote any label that needs extra words: E["Grind beans"] not '
+    "E[Grind Beans (Medium Grind)].\n"
     "Example shape only:\n"
     "```mermaid\n"
     "flowchart TD\n"

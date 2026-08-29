@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chart / bare email interviewed; coffee mermaid parse-failed.** `CLARIFICATION_HINT`
+  is on every non-quiz turn and fought the layout hints: no rainfall numbers or a
+  bare `escribeme un correo` became 1–3 questions instead of ` ```chart ` /
+  ` ```email `. Chart/email/flowchart exceptions draft immediately. Unquoted
+  `E[Grind Beans (Medium Grind)]` is invalid Mermaid — quote labels in the hint
+  and run a linear sanitizer on persist + `MermaidBlock`.
 - **Famous quote rendered as italic `"…" - Author` prose.** Slim turns get
   `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and QuoteBlock only fires on
   markdown `>` blockquotes. Swap compact for `QUOTE_FORMAT_HINT`; promote
