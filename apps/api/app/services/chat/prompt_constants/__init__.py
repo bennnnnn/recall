@@ -10,6 +10,7 @@ from app.services.chat.prompt_constants.format import (
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
+    HOWTO_FORMAT_HINT,
     INTENT_FORMAT_HINT,
     MERMAID_FORMAT_HINT,
     RESPONSE_FORMAT_HINT,
@@ -20,6 +21,7 @@ from app.services.chat.prompt_constants.format import (
     is_callout_question,
     is_chart_question,
     is_comparison_question,
+    is_howto_question,
     is_mermaid_question,
 )
 from app.services.chat.prompt_constants.learning import (
@@ -74,6 +76,7 @@ __all__ = [
     "DAY_PLANNING_ANSWER_HINT",
     "EMAIL_DRAFT_HINT",
     "FORMAT_CONTRACT",
+    "HOWTO_FORMAT_HINT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
@@ -99,6 +102,7 @@ __all__ = [
     "is_callout_question",
     "is_chart_question",
     "is_comparison_question",
+    "is_howto_question",
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",
