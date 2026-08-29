@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { StyleSheet, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
@@ -11,24 +10,12 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = { text: string; platform: SocialPlatform };
 
 function platformMeta(
-  theme: Theme,
   t: (key: string) => string,
-): Record<
-  SocialPlatform,
-  { label: string; icon: IoniconName; color: string }
-> {
+): Record<SocialPlatform, { label: string; icon: IoniconName }> {
   return {
-    twitter: { label: t("rich.post_draft_x"), icon: "logo-twitter", color: theme.brand.twitter },
-    linkedin: {
-      label: t("rich.post_draft_linkedin"),
-      icon: "logo-linkedin",
-      color: theme.brand.linkedin,
-    },
-    generic: {
-      label: t("rich.social_post_draft"),
-      icon: "megaphone-outline",
-      color: theme.primary,
-    },
+    twitter: { label: t("rich.post_draft_x"), icon: "logo-twitter" },
+    linkedin: { label: t("rich.post_draft_linkedin"), icon: "logo-linkedin" },
+    generic: { label: t("rich.social_post_draft"), icon: "megaphone-outline" },
   };
 }
 
@@ -36,43 +23,19 @@ export function SocialPostCard({ text, platform }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const meta = platformMeta(theme, t)[platform];
+  const meta = platformMeta(t)[platform];
 
   return (
-    <CardShell
-      label={meta.label}
-      copyText={text}
-      icon={meta.icon}
-      accentColor={meta.color}
-    >
-      <View style={s.card}>
-        <View style={s.avatar}>
-          <Icon name="person" size={16} color={theme.textSecondary} />
-        </View>
-        <View style={s.content}>
-          <Text style={s.name}>{t("common.you")}</Text>
-          <Text style={s.post} selectable>
-            {text}
-          </Text>
-        </View>
-      </View>
+    <CardShell label={meta.label} copyText={text} icon={meta.icon} accent={false}>
+      <Text style={s.body} selectable>
+        {text}
+      </Text>
     </CardShell>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    card: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
-    avatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: t.surface,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    content: { flex: 1 },
-    name: { fontSize: 14, fontWeight: "700", color: t.text, marginBottom: 4 },
-    post: { fontSize: 16, lineHeight: 23, color: t.text },
+    body: { color: t.text, fontSize: 16, lineHeight: 24 },
   });
 }
