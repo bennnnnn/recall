@@ -59,21 +59,21 @@ export function ChatActionsSheet({
 
   const actions = useMemo(() => {
     const rows: Action[] = [
-      { key: "share", icon: "share", label: t("chat.share"), onPress: onShare },
+      { key: "share", icon: "share-outline", label: t("chat.share"), onPress: onShare },
     ];
     if (onExportPdf) {
       rows.push({
         key: "export-pdf",
-        icon: "file-text",
+        icon: "document-text-outline",
         label: t("chat.export_pdf"),
         onPress: onExportPdf,
       });
     }
     rows.push(
-      { key: "rename", icon: "pencil", label: t("chat.rename"), onPress: onRename },
+      { key: "rename", icon: "create-outline", label: t("chat.rename"), onPress: onRename },
       {
         key: "pin",
-        icon: "pin",
+        icon: "pin-outline",
         label: pinned ? t("chat.unpin") : t("chat.pin"),
         onPress: onTogglePin,
       },
@@ -81,7 +81,7 @@ export function ChatActionsSheet({
     if (onToggleArchive) {
       rows.push({
         key: "archive",
-        icon: archived ? "undo" : "archive",
+        icon: archived ? "arrow-undo-outline" : "archive-outline",
         label: archived ? t("chat.unarchive") : t("chat.archive"),
         onPress: onToggleArchive,
       });
@@ -89,14 +89,14 @@ export function ChatActionsSheet({
     if (onSelectChats) {
       rows.push({
         key: "select",
-        icon: "checkbox",
+        icon: "checkbox-outline",
         label: t("drawer.select"),
         onPress: onSelectChats,
       });
     }
     rows.push({
       key: "delete",
-      icon: "trash",
+      icon: "trash-outline",
       label: t("common.delete"),
       onPress: onDelete,
       danger: true,
