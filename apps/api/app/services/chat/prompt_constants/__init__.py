@@ -13,6 +13,7 @@ from app.services.chat.prompt_constants.format import (
     HOWTO_FORMAT_HINT,
     INTENT_FORMAT_HINT,
     MERMAID_FORMAT_HINT,
+    QUOTE_FORMAT_HINT,
     RESPONSE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
@@ -23,6 +24,7 @@ from app.services.chat.prompt_constants.format import (
     is_comparison_question,
     is_howto_question,
     is_mermaid_question,
+    is_quote_question,
 )
 from app.services.chat.prompt_constants.learning import (
     DAY_LEARNING_SNAPSHOT_HINT,
@@ -86,6 +88,7 @@ __all__ = [
     "PRIVACY_HINT",
     "QUIZ_ANSWER_HINT",
     "QUIZ_RECENT_MESSAGE_LIMIT",
+    "QUOTE_FORMAT_HINT",
     "RESPONSE_FORMAT_HINT",
     "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
@@ -106,6 +109,7 @@ __all__ = [
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",
+    "is_quote_question",
     "is_writing_deliverable_request",
     "needs_rich_context",
 ]

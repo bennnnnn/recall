@@ -281,6 +281,33 @@ def test_vs_query_gets_table_then_code_card_layout():
     assert "No ## headings" not in joined
 
 
+def test_quote_query_gets_blockquote_layout():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        QUOTE_FORMAT_HINT,
+    )
+
+    query = "Give me a famous quote by Maya Angelou about courage, with attribution."
+    slim = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert QUOTE_FORMAT_HINT in slim
+    assert COMPACT_RESPONSE_FORMAT_HINT not in slim
+
+    rich = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=False,
+    )
+    assert QUOTE_FORMAT_HINT in rich
+
+
 def test_integration_hints_wraps_todos_section():
     from app.core.config import Settings
     from app.services.chat.prompt_builder import _integration_hints

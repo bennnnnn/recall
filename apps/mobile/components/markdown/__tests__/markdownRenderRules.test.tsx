@@ -84,6 +84,33 @@ describe("markdown render rules", () => {
     expect(getByText(/Shakespeare/)).toBeOnTheScreen();
   });
 
+  it("promotes a quoted attribution paragraph into the quote card", async () => {
+    const md =
+      '"Courage is the most important of all the virtues because without courage, you can\'t practice any other virtue consistently." - Maya Angelou';
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    expect(getByText(/Courage is the most important/)).toBeOnTheScreen();
+    expect(getByText("— Maya Angelou")).toBeOnTheScreen();
+  });
+
+  it("does not paint a brand-blue left stripe on a quote card", async () => {
+    const md =
+      "> Courage is the most important of all the virtues, because without courage you can't practice any other virtue consistently. — Maya Angelou";
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    const author = getByText("— Maya Angelou");
+    let node: { parent?: unknown; props?: { style?: unknown } } | undefined =
+      author;
+    let sawPrimaryAccent = false;
+    while (node) {
+      const flat = StyleSheet.flatten(node.props?.style);
+      if (flat?.borderLeftColor === lightTheme.primary) {
+        sawPrimaryAccent = true;
+        break;
+      }
+      node = node.parent as typeof node;
+    }
+    expect(sawPrimaryAccent).toBe(false);
+  });
+
   it("keeps inline bold inside a blockquote", async () => {
     const { getByText } = await render(
       <MarkdownContent content={"> hello **world**"} />,
