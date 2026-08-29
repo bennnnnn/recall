@@ -3,7 +3,7 @@
  * `pickMathEngine` routes to mathjax (multline / eqnarray). */
 
 import { escapeForHtmlTemplate, type MathHtmlOptions } from "@/lib/mathHtml";
-import { injectPreviewCsp, MATH_PREVIEW_CSP, inlineScript } from "@/lib/previewSandbox";
+import { injectPreviewCsp, MATH_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
 import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 
 export function buildMathjaxWebHtml(latex: string, options: MathHtmlOptions): string {
@@ -18,7 +18,7 @@ export function buildMathjaxWebHtml(latex: string, options: MathHtmlOptions): st
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="${PREVIEW_VIEWPORT}">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: ${options.bgColor}; }

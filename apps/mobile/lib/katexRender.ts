@@ -3,7 +3,7 @@ import katex from "katex";
 import { readableLatexFallback } from "@/lib/mathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
-import { injectPreviewCsp } from "@/lib/previewSandbox";
+import { injectPreviewCsp, PREVIEW_VIEWPORT } from "@/lib/previewSandbox";
 
 /** Cap pathological model latex before KaTeX can hang the JS thread. */
 const MAX_KATEX_CHARS = 4000;
@@ -71,7 +71,7 @@ export function buildKatexStaticWebHtml(
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="${PREVIEW_VIEWPORT}">
 <style>
   html, body { margin: 0; padding: 0; background: transparent; overflow-x: auto; overflow-y: hidden; }
   body { display: block; max-width: 100%; }

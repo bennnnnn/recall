@@ -33,6 +33,9 @@ export const PREVIEW_CSP_INLINE = [
   "form-action 'none'",
 ].join("; ");
 
+/** Allow pinch-zoom and system text scaling in preview WebViews. Never set maximum-scale. */
+export const PREVIEW_VIEWPORT = "width=device-width, initial-scale=1";
+
 /**
  * Default preview CSP for trusted inlined bundles (mermaid/chemistry/KaTeX).
  * Includes a meta `sandbox` token for environments that honor it.

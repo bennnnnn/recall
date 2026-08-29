@@ -24,7 +24,7 @@ export function LessonTypedAnswer({ value, onChange, onSubmit, disabled = false 
         value={value}
         onChangeText={onChange}
         placeholder={t("lesson.type_placeholder")}
-        placeholderTextColor={theme.textTertiary}
+        placeholderTextColor={theme.textDisabled}
         editable={!disabled}
         multiline
         style={s.input}

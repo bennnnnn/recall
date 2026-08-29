@@ -129,7 +129,7 @@ export function EmailCard({ draft }: Props) {
               value={fields.to}
               onChangeText={(to) => setFields((prev) => ({ ...prev, to }))}
               placeholder={t("chat.email_card_to_placeholder")}
-              placeholderTextColor={theme.textTertiary}
+              placeholderTextColor={theme.textDisabled}
               autoCapitalize="none"
               keyboardType="email-address"
               autoCorrect={false}
@@ -140,7 +140,7 @@ export function EmailCard({ draft }: Props) {
               value={fields.subject}
               onChangeText={(subject) => setFields((prev) => ({ ...prev, subject }))}
               placeholder={t("chat.email_card_subject_placeholder")}
-              placeholderTextColor={theme.textTertiary}
+              placeholderTextColor={theme.textDisabled}
             />
             <TextInput
               style={[s.input, s.bodyInput]}
@@ -149,7 +149,7 @@ export function EmailCard({ draft }: Props) {
               multiline
               textAlignVertical="top"
               placeholder={t("chat.email_card_body_placeholder")}
-              placeholderTextColor={theme.textTertiary}
+              placeholderTextColor={theme.textDisabled}
             />
           </>
         ) : (

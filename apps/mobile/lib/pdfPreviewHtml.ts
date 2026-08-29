@@ -1,4 +1,4 @@
-import { injectPreviewCsp, PDF_PREVIEW_CSP, inlineScript } from "@/lib/previewSandbox";
+import { injectPreviewCsp, PDF_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
 import { PDF_MIN_JS } from "@/lib/vendor/pdfMinJs";
@@ -11,7 +11,7 @@ export function buildPdfPreviewHtml(base64: string, theme: Theme): string {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="${PREVIEW_VIEWPORT}">
 <script>${inlineScript(PDF_MIN_JS)}</script>
 <script type="text/pdf-worker" id="pdf-worker-src">${inlineScript(PDF_WORKER_MIN_JS)}</script>
 <style>

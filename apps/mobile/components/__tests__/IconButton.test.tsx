@@ -1,6 +1,7 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { IconButton } from "@/components/IconButton";
+import { Space } from "@/lib/space";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 
@@ -14,7 +15,7 @@ describe("IconButton", () => {
     expect(button.props.accessibilityLabel).toBe("Copy");
     expect(button.props.style).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ minWidth: 44, minHeight: 44 }),
+        expect.objectContaining({ minWidth: Space.minTouch, minHeight: Space.minTouch }),
       ]),
     );
     fireEvent.press(button);

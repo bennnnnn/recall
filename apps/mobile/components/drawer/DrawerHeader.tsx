@@ -50,7 +50,7 @@ export function DrawerHeader({
               ref={searchInputRef}
               style={s.searchInput}
               placeholder={t("search.placeholder")}
-              placeholderTextColor={theme.textTertiary}
+              placeholderTextColor={theme.textDisabled}
               value={searchQuery}
               onChangeText={onSearchChange}
               returnKeyType="search"

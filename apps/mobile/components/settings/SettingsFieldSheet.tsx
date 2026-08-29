@@ -120,7 +120,7 @@ export function SettingsFieldSheet({
           }
           maxLength={maxLength}
           placeholder={placeholder}
-          placeholderTextColor={theme.textTertiary}
+          placeholderTextColor={theme.textDisabled}
           keyboardType={keyboardType}
           multiline={multiline}
           textAlignVertical={multiline ? "top" : "center"}

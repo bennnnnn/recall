@@ -170,7 +170,7 @@ export default function GalleryScreen() {
           <TextInput
             style={s.searchInput}
             placeholder={t("gallery.search_placeholder")}
-            placeholderTextColor={C.textTertiary}
+            placeholderTextColor={C.textDisabled}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}

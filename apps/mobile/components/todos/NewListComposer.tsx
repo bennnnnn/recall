@@ -56,7 +56,7 @@ export function NewListComposer({ saving = false, onCancel, onSave }: Props) {
             ref={inputRef}
             style={s.input}
             placeholder={t("lists.group_name_placeholder")}
-            placeholderTextColor={C.textTertiary}
+            placeholderTextColor={C.textDisabled}
             value={name}
             onChangeText={setName}
             onSubmitEditing={submit}
@@ -129,7 +129,7 @@ function makeStyles(C: Theme) {
       paddingVertical: 0,
     },
     addButton: {
-      minHeight: 40,
+      minHeight: Space.minTouch,
       paddingHorizontal: Space.md,
       paddingVertical: Space.xs,
     },

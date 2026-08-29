@@ -17,7 +17,9 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
+import { IconButton } from "@/components/IconButton";
 import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import type { Todo } from "@/lib/api";
 import type { ListGroup } from "@/lib/listGroups";
 import { Theme, useTheme } from "@/lib/theme";
@@ -103,29 +105,28 @@ export function ListGroupsView({
                   onPress={() => toggleCollapsed(group.topic)}
                   onLongPress={drag}
                   delayLongPress={280}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
                 >
                   <Text style={s.sectionTitle} numberOfLines={1}>
                     {group.title}
                   </Text>
                   <Text style={s.sectionCount}>{openCount}</Text>
-                </Pressable>
-                {openCount === 0 ? (
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => onDeleteList(group.topic)}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("lists.delete_group_confirm")}
-                  >
-                    <Icon name="trash-outline" size={16} danger />
-                  </Pressable>
-                ) : null}
-                <Pressable hitSlop={8} onPress={() => toggleCollapsed(group.topic)}>
                   <Icon
                     name={isCollapsed ? "chevron-down" : "chevron-up"}
                     size={18}
                     color={C.textTertiary}
                   />
                 </Pressable>
+                {openCount === 0 ? (
+                  <IconButton
+                    name="trash-outline"
+                    size={16}
+                    color={C.danger}
+                    onPress={() => onDeleteList(group.topic)}
+                    accessibilityLabel={t("lists.delete_group_confirm")}
+                  />
+                ) : null}
               </View>
             ) : null}
 
@@ -159,7 +160,7 @@ export function ListGroupsView({
                     <TextInput
                       style={s.addInput}
                       placeholder={t("lists.item_placeholder")}
-                      placeholderTextColor={C.textTertiary}
+                      placeholderTextColor={C.textDisabled}
                       value={draft}
                       onChangeText={(text) =>
                         setDraftByTopic((prev) => ({ ...prev, [group.topic]: text }))
@@ -307,16 +308,14 @@ function ListItemRow({
         {todo.content}
       </Text>
       {variant === "done" ? (
-        <Pressable
+        <IconButton
+          name="trash-outline"
+          size={16}
+          color={C.danger}
           onPress={onDelete}
-          hitSlop={8}
-          style={s.checkbox}
-          accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
           disabled={busy}
-        >
-          <Icon name="trash-outline" size={16} danger />
-        </Pressable>
+        />
       ) : null}
     </Pressable>
   );
@@ -377,6 +376,7 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       gap: 8,
       minWidth: 0,
+      minHeight: Space.minTouch,
     },
     // Named list titles are primary labels (same role as Learning card titles /
     // reminder body text) — not muted section captions.
@@ -469,7 +469,7 @@ function makeStyles(C: Theme) {
       paddingVertical: 0,
     },
     addButton: {
-      minHeight: 40,
+      minHeight: Space.minTouch,
       paddingHorizontal: 16,
       paddingVertical: 8,
     },

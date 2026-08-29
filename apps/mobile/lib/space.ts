@@ -17,4 +17,6 @@ export const Space = {
   lg: 24,
   /** 32 — large hero / empty-state breathing room */
   xl: 32,
+  /** 44 — minimum interactive target (WCAG 2.5.5 / Apple HIG) */
+  minTouch: 44,
 } as const;
