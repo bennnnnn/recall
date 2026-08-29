@@ -1,15 +1,7 @@
 import { useMemo, useState } from "react";
-import {
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
@@ -76,29 +68,27 @@ function SearchSourcesSheet({
   onClose: () => void;
 }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeSheetStyles(theme), [theme]);
+  const listMaxHeight = Math.round(Dimensions.get("window").height * 0.55);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.root}>
-        <Pressable style={s.backdrop} onPress={onClose} />
-        <View style={[s.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <View style={s.handle} />
-          <Text style={s.title}>Sources</Text>
-          <ScrollView style={s.list} bounces={false} showsVerticalScrollIndicator={false}>
-            {sources.map((source, index) => (
-              <SourceRow
-                key={`${source.url}-${index}`}
-                source={source}
-                theme={theme}
-                isLast={index === sources.length - 1}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+    <AppSheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
+      <Text style={s.title}>Sources</Text>
+      <ScrollView
+        style={[s.list, { maxHeight: listMaxHeight }]}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+      >
+        {sources.map((source, index) => (
+          <SourceRow
+            key={`${source.url}-${index}`}
+            source={source}
+            theme={theme}
+            isLast={index === sources.length - 1}
+          />
+        ))}
+      </ScrollView>
+    </AppSheet>
   );
 }
 
@@ -225,37 +215,17 @@ function makeStyles(theme: Theme) {
 
 function makeSheetStyles(theme: Theme) {
   return StyleSheet.create({
-    root: {
-      flex: 1,
-      justifyContent: "flex-end",
+    sheet: {
+      paddingTop: 4,
     },
-    backdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: theme.scrim,
-    },
-    panel: {
-      backgroundColor: theme.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingTop: 8,
-      maxHeight: "72%",
-    },
-    handle: {
-      alignSelf: "center",
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: theme.border,
-      marginBottom: 10,
+    list: {
+      paddingHorizontal: 12,
     },
     title: {
       ...Type.navTitle,
       color: theme.text,
       paddingHorizontal: 20,
       marginBottom: 8,
-    },
-    list: {
-      paddingHorizontal: 12,
     },
     row: {
       flexDirection: "row",

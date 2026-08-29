@@ -16,6 +16,10 @@ jest.mock("react-i18next", () => ({
   }),
 }));
 
+jest.mock("@/lib/reduceMotion", () => ({
+  useReduceMotion: () => false,
+}));
+
 const baseProps = {
   visible: true,
   title: "Trip ideas",

@@ -6,6 +6,16 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
 
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
+jest.mock("@/lib/reduceMotion", () => ({
+  useReduceMotion: () => false,
+}));
+
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),
