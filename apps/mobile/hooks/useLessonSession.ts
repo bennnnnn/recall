@@ -5,25 +5,23 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
-import { api } from "@/lib/api";
+import { api, type ProjectItem } from "@/lib/api";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
-import type { QuizChoice } from "@/lib/parseVocabQuiz";
-import { buildChapterDrills, lessonWordProgress, type DrillStep } from "@/lib/projects/chapterDrill";
-import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import {
   chapterIsComplete,
   chapterItems,
   chapterQueue,
+  itemToCard,
   overlayItemOutcomes,
   resolveLessonChapter,
+  type LessonVocabCard,
 } from "@/lib/projects/chapterLesson";
+import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 
-export type LessonFeedback = {
-  correct: boolean;
-  word: string;
-  meaning: string;
-  body: string;
+export type LessonStep = {
+  itemId: string;
+  card: LessonVocabCard;
 };
 
 export function useLessonSession(projectId: string) {
@@ -43,20 +41,11 @@ export function useLessonSession(projectId: string) {
   const [chapter, setChapter] = useState<string | null>(
     requestedRef.current || null,
   );
-  const [drills, setDrills] = useState<DrillStep[]>([]);
+  const [queue, setQueue] = useState<ProjectItem[]>([]);
   const [index, setIndex] = useState(0);
-  const [missed, setMissed] = useState<Set<string>>(() => new Set());
   const [outcomes, setOutcomes] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<LessonFeedback | null>(null);
-
-  const labels = useMemo(
-    () => ({
-      useQuestion: (sentence: string) => t("lesson.quiz_use", { sentence }),
-      meaningQuestion: (sentence: string) => t("lesson.quiz_meaning", { sentence }),
-    }),
-    [t],
-  );
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!project) return;
@@ -67,29 +56,27 @@ export function useLessonSession(projectId: string) {
       chapterItems(project, title),
       resolveDailyGoal(project.daily_goal),
     );
-    // Distractor pool = ALL chapter items (mastered + pending), not just the
-    // pending subset. Using only pending items shrinks the pool near chapter
-    // completion, triggering wrong-language English fallback words.
-    const pool = chapterItems(project, title);
-    if (!seededRef.current || (drills.length === 0 && items.length > 0)) {
-      setDrills(buildChapterDrills(items, pool, labels));
+    if (!seededRef.current || (queue.length === 0 && items.length > 0)) {
+      setQueue(items);
       setIndex(0);
       seededRef.current = true;
     }
-  }, [drills.length, labels, project]);
+  }, [project, queue.length]);
 
   const overlayItems = useMemo(() => {
     if (!project || !chapter) return [];
     return overlayItemOutcomes(chapterItems(project, chapter), outcomes);
   }, [chapter, outcomes, project]);
 
-  const step = drills[index] ?? null;
-  const words = lessonWordProgress(drills, index);
-  const currentNumber = words.current;
-  const total = words.total;
-  const progressFill = words.fill;
-  const empty = Boolean(project && seededRef.current && drills.length === 0);
-  const queueDone = Boolean(seededRef.current && drills.length > 0 && index >= drills.length);
+  const current = queue[index] ?? null;
+  const step: LessonStep | null = current
+    ? { itemId: current.id, card: itemToCard(current) }
+    : null;
+  const total = queue.length;
+  const currentNumber = total === 0 ? 0 : Math.min(index + 1, total);
+  const progressFill = total === 0 ? 0 : index >= total ? 1 : index / total;
+  const empty = Boolean(project && seededRef.current && queue.length === 0);
+  const queueDone = Boolean(seededRef.current && queue.length > 0 && index >= queue.length);
   const chapterDone = chapterIsComplete(overlayItems);
   const complete = queueDone && chapterDone;
   const sessionEndedEarly = queueDone && !chapterDone;
@@ -101,83 +88,43 @@ export function useLessonSession(projectId: string) {
     void refreshHome({ silent: true, force: true });
   }, [load, projectId, refreshHome, refreshProjects]);
 
-  const finishWord = useCallback(
-    async (itemId: string, failed: boolean): Promise<boolean> => {
-      if (!token) return false;
+  const rateWord = useCallback(
+    async (known: boolean) => {
+      if (!token || !current || advancingRef.current) return;
+      advancingRef.current = true;
+      setSaving(true);
       setError(null);
+      const itemId = current.id;
+      const failed = !known;
+      const previousIndex = index;
+      setOutcomes((prev) => ({ ...prev, [itemId]: failed }));
+      setIndex(previousIndex + 1);
       try {
         await api.updateProjectItem(token, projectId, itemId, {
           status: failed ? "learning" : "mastered",
           ...(failed ? { was_correct: false } : {}),
         });
         refreshLearning();
-        return true;
       } catch {
+        setOutcomes((prev) => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+        setIndex(previousIndex);
         setError(t("lesson.save_failed"));
-        return false;
+      } finally {
+        setSaving(false);
+        advancingRef.current = false;
       }
     },
-    [projectId, refreshLearning, t, token],
+    [current, index, projectId, refreshLearning, t, token],
   );
-
-  const continueLesson = useCallback(() => {
-    if (advancingRef.current) return;
-    const current = drills[index];
-    if (!current) return;
-    advancingRef.current = true;
-    const previousIndex = index;
-    const previousFeedback = feedback;
-    setFeedback(null);
-    setIndex(previousIndex + 1);
-
-    if (current.kind !== "meaning") {
-      advancingRef.current = false;
-      return;
-    }
-
-    const failed = missed.has(current.itemId);
-    const itemId = current.itemId;
-    setOutcomes((prev) => ({ ...prev, [itemId]: failed }));
-    void finishWord(itemId, failed).then((saved) => {
-      if (saved) return;
-      setOutcomes((prev) => {
-        const next = { ...prev };
-        delete next[itemId];
-        return next;
-      });
-      setIndex(previousIndex);
-      setFeedback(previousFeedback);
-    });
-    advancingRef.current = false;
-  }, [drills, feedback, finishWord, index, missed]);
-
-  const submitLetter = useCallback(
-    (letter: QuizChoice["letter"]) => {
-      if (!step || (step.kind !== "use" && step.kind !== "meaning") || feedback) {
-        return;
-      }
-      const correct = step.quiz.correct === letter;
-      const picked = step.quiz.choices.find((choice) => choice.letter === letter);
-      setFeedback({
-        correct,
-        word: step.quiz.word,
-        meaning: picked?.text ?? "",
-        body: "",
-      });
-    },
-    [feedback, step],
-  );
-
-  const recordWrongAttempt = useCallback(() => {
-    if (!step) return;
-    setMissed((prev) => new Set(prev).add(step.itemId));
-  }, [step]);
 
   return {
     project,
     chapter,
     step,
-    feedback,
     error,
     empty,
     complete,
@@ -186,10 +133,8 @@ export function useLessonSession(projectId: string) {
     total,
     progressFill,
     busy: projectLoading && !project,
-    streaming: false,
-    submitLetter,
-    continueLesson,
-    continueTeach: continueLesson,
-    recordWrongAttempt,
+    saving,
+    rateKnown: () => void rateWord(true),
+    rateNotYet: () => void rateWord(false),
   };
 }

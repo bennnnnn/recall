@@ -489,19 +489,20 @@ were removed. Programming help lives in main chat.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
-- ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), SM-2 fields.
+- ✅ **Vocab items** — term, definition, example, IPA, part of speech, simple gloss,
+  status (new / learning / mastered), SM-2 fields.
 - ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
-  interaction runs in a dedicated lesson window (MCQ, vocab cards, result sheet).
-  Lesson drills teach the word, then a gapped example, then meaning in that sentence — never
-  “What does X mean?”. Chat prompts use the same gapped-sentence format.
-  The teaching window shows only those fences plus pronunciation — not tutor markdown.
-  Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
-  grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
-- ✅ **Tap-to-answer MCQ** — large choice cards in the lesson window on complete `vocab_quiz` fences.
-- ❌ **Typed answers / hidden `vocab_quiz` as the lesson product** — not the shipped study UX.
-  Lesson play is catalog MCQ in the teaching window; do not treat chat fences as the product path.
+  interaction runs in a dedicated lesson window: one word card with **Not yet** /
+  **I know this**. “Not yet” keeps `status=learning` and those words return first next
+  sitting; “I know this” marks `mastered`. The next chapter stays locked until every
+  word in the current chapter is mastered. Hidden project-scoped chats still emit
+  `vocab_quiz` / `vocab_card` for generation and SM-2 grading
+  (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
+  Chat tutor prompts still use a gapped-sentence format and must not invent words.
+- ❌ **Tap-to-answer MCQ / typed answers as the lesson product** — not the shipped study
+  UX. Lesson play is self-rate cards; do not treat chat fences as the product path.
 - ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
   (`ease_factor`, `interval_days`, `due_at`) are written on status changes, but mastered
   words do not re-enter a map queue (`due_for_review` only counts `status=learning`).
@@ -831,7 +832,7 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Language (`language`) — en/es catalog tree, lesson-map MCQ, SM-2 fields | Other target languages; trivia |
+| Language (`language`) — en/es catalog tree, self-rate lesson cards, SM-2 fields | Other target languages; trivia |
 | Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
 | Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | Hidden chat `vocab_quiz` as the lesson path |
