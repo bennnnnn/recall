@@ -1,3 +1,4 @@
+import { sanitizeEmailDraft } from "@/lib/emailDraftSanitize";
 import { parseGeometrySpec } from "@/lib/geometryBlock";
 import { parseGraphSpec } from "@/lib/graphBlock";
 
@@ -106,7 +107,7 @@ export function parseEmailDraft(text: string): EmailDraft | null {
 
   const body = bodyLines.join("\n").trim();
   if (!to && !subject) return null;
-  return { to, subject, body: body || text.trim() };
+  return sanitizeEmailDraft({ to, subject, body: body || text.trim() });
 }
 
 export function parseKeyValue(

@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Email card showed `[Manager's Name]` / `[Your Name]`.** The copy hint already banned
+  placeholders, but models still emit `To: [Manager's Email Address]`. Drop those
+  form-slots in `parseEmailDraft` (omit To, greet `Hi,`, strip from subject) so
+  copy/Gmail are send-ready even when the model ignores the hint.
 - **“Near me” asked for a city instead of the OS location sheet.** An in-app
   “Turn on Location” Alert sat in front of `requestForegroundPermissionsAsync`,
   so the system prompt never appeared and the LLM interviewed for a neighborhood.

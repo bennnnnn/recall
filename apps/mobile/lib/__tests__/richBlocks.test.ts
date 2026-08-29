@@ -1,4 +1,8 @@
-import { detectJsonRichFenceKind, parseQuoteAttribution } from "@/lib/richBlocks";
+import {
+  detectJsonRichFenceKind,
+  parseEmailDraft,
+  parseQuoteAttribution,
+} from "@/lib/richBlocks";
 
 describe("detectJsonRichFenceKind", () => {
   it("BUG FIX regression: recognizes a mistagged ```json geometry fence", () => {
@@ -56,6 +60,48 @@ describe("parseQuoteAttribution", () => {
   it("needs a newline before the dash — flattened AST text does not match", () => {
     expect(parseQuoteAttribution("To be or not to be.— Shakespeare")).toEqual({
       quote: "To be or not to be.— Shakespeare",
+    });
+  });
+});
+
+describe("parseEmailDraft", () => {
+  it("BUG FIX regression: drops bracketed To/name slots so the card is send-ready", () => {
+    const draft = parseEmailDraft(
+      [
+        "To: [Manager's Email Address]",
+        "Subject: Request for Time Off - [Your Name] - This Friday",
+        "",
+        "Hi [Manager's Name],",
+        "",
+        "I would like to request Friday off.",
+        "",
+        "Best regards,",
+        "Bini",
+      ].join("\n"),
+    );
+    expect(draft).toEqual({
+      subject: "Request for Time Off - This Friday",
+      body: "Hi,\n\nI would like to request Friday off.\n\nBest regards,\nBini",
+    });
+    expect(draft?.to).toBeUndefined();
+    expect(draft?.body).not.toContain("[");
+  });
+
+  it("keeps a real To address and markdown links in the body", () => {
+    const draft = parseEmailDraft(
+      [
+        "To: jane@work.com",
+        "Subject: Friday off",
+        "",
+        "Hi Jane,",
+        "",
+        "See [the policy](https://example.com/pto).",
+      ].join("\n"),
+    );
+    expect(draft).toEqual({
+      to: "jane@work.com",
+      subject: "Friday off",
+      body: "Hi Jane,\n\nSee [the policy](https://example.com/pto).",
     });
   });
 });
