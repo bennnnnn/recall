@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chat ⋮ Share icon did nothing (no Messages/Mail sheet).** `onShareFromMenu` called
+  `closeMenu()` then `Share.share`. AppSheet is an RN `Modal`; presenting the OS
+  activity sheet on a dismissing modal makes iOS drop it. Keep the sheet up until
+  `Share.share` returns, then close. Don't swallow share errors except user cancel
+  (`did not share` / cancel / dismiss).
 - **Isolate-x step showed raw `1\cdot x = 2 - 3^{\frac{2}{3}}`; `3^{2/3}` looked like `32/3`.**
   Model `$`-wrapped the bullet (`$- 1\cdot x = …$`); prose-bullet unwrap stripped
   dollars after command-wrap had skipped the interior, so `\cdot`/`\frac` never
