@@ -124,4 +124,52 @@ describe("useChatActions", () => {
       expect.objectContaining({ id: "chat-1", title: "Old title" }),
     );
   });
+
+  it("keeps the ⋮ sheet open until Share.share is presented", async () => {
+    (api.listAllMessages as jest.Mock).mockResolvedValue([
+      { id: "m1", role: "user", content: "hi" },
+    ]);
+    const { shareConversation } = jest.requireMock("@/lib/share") as {
+      shareConversation: jest.Mock;
+    };
+    let visibleWhileSharing = false;
+    shareConversation.mockImplementation(async () => {
+      visibleWhileSharing = actions.menuVisible;
+    });
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await act(async () => {
+      actions.setMenuVisible(true);
+    });
+    await act(async () => {
+      await actions.handleShare();
+    });
+
+    expect(shareConversation).toHaveBeenCalled();
+    expect(visibleWhileSharing).toBe(true);
+    expect(actions.menuVisible).toBe(false);
+  });
+
+  it("reports share failure through ActionFeedback", async () => {
+    (api.listAllMessages as jest.Mock).mockResolvedValue([
+      { id: "m1", role: "user", content: "hi" },
+    ]);
+    const { shareConversation } = jest.requireMock("@/lib/share") as {
+      shareConversation: jest.Mock;
+    };
+    shareConversation.mockRejectedValue(new Error("fail"));
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await act(async () => {
+      await actions.handleShare();
+    });
+
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.share_failed");
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(actions.menuVisible).toBe(false);
+  });
 });

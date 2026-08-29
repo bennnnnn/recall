@@ -104,11 +104,19 @@ export function useChatActions({
   }, [token, chatId, messages]);
 
   const handleShare = useCallback(async () => {
-    showActionBanner(t("chat.status.preparing"), "share-outline");
-    const transcript = await loadTranscriptMessages();
-    dismissActionBanner();
-    await shareConversation(chatTitle, transcript);
-  }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, t]);
+    // Keep the ⋮ AppSheet up until Share.share returns. Closing the Modal
+    // first tears down the presenter and iOS dismisses the activity sheet
+    // with it — tap looks like a no-op.
+    try {
+      const transcript = await loadTranscriptMessages();
+      await shareConversation(chatTitle, transcript);
+    } catch (error) {
+      if (isShareCancelled(error)) return;
+      reportRecoverableError(feedback, t("chat.share_failed"));
+    } finally {
+      closeMenu();
+    }
+  }, [chatTitle, closeMenu, feedback, loadTranscriptMessages, t]);
 
   const handleExportPdf = useCallback(async () => {
     showActionBanner(t("chat.status.preparing"), "document-text-outline");
@@ -232,9 +240,8 @@ export function useChatActions({
 
   const onShareFromMenu = useCallback(() => {
     tap();
-    closeMenu();
     void handleShare();
-  }, [closeMenu, handleShare]);
+  }, [handleShare]);
 
   const onExportPdfFromMenu = useCallback(() => {
     tap();

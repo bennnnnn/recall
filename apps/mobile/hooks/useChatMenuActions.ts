@@ -8,6 +8,7 @@ import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { type IoniconName } from "@/lib/icons";
 import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
+import { isShareCancelled } from "@/lib/exportPdf";
 import { shareConversation } from "@/lib/share";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
@@ -64,17 +65,18 @@ export function useChatMenuActions({
   const handleShareChat = useCallback(async () => {
     if (!token || !menuChat) return;
     const chat = menuChat;
-    closeMenu();
-    showActionBanner(t("chat.status.preparing"), "share-outline");
+    // Present the OS sheet from the still-open row menu. Closing first
+    // unmounts that Modal and iOS drops the activity controller with it.
     try {
       const msgs = await api.listAllMessages(token, chat.id);
-      dismissActionBanner();
       await shareConversation(chat.title, msgs);
-    } catch {
-      dismissActionBanner();
+    } catch (error) {
+      if (isShareCancelled(error)) return;
       reportRecoverableError(feedback, t("chat.share_failed"));
+    } finally {
+      closeMenu();
     }
-  }, [token, menuChat, closeMenu, dismissActionBanner, showActionBanner, feedback, t]);
+  }, [token, menuChat, closeMenu, feedback, t]);
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat) return;

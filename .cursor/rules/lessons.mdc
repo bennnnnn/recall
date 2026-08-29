@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chat ⋮ Share icon did nothing (no Messages/Mail sheet).** `onShareFromMenu` called
+  `closeMenu()` then `Share.share`. AppSheet is an RN `Modal`; presenting the OS
+  activity sheet on a dismissing modal makes iOS drop it. Keep the sheet up until
+  `Share.share` returns, then close. Don't swallow share errors except user cancel
+  (`did not share` / cancel / dismiss).
 - **Chart / bare email interviewed; coffee mermaid parse-failed.** `CLARIFICATION_HINT`
   is on every non-quiz turn and fought the layout hints: no rainfall numbers or a
   bare `escribeme un correo` became 1–3 questions instead of ` ```chart ` /
