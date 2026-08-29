@@ -31,6 +31,7 @@ export default function LearningLessonPlayScreen() {
     empty,
     complete,
     sessionEndedEarly,
+    reviewing,
     currentNumber,
     total,
     progressFill,
@@ -59,7 +60,7 @@ export default function LearningLessonPlayScreen() {
           <View style={[s.progressFill, { width: `${Math.round(progressFill * 100)}%` }]} />
         </View>
         <Text style={s.progressLabel}>
-          {t("lesson.word_of", {
+          {t(reviewing ? "lesson.review_of" : "lesson.word_of", {
             current: currentNumber,
             total: Math.max(total, 1),
           })}
@@ -89,14 +90,14 @@ export default function LearningLessonPlayScreen() {
           {error ? <Text style={s.error}>{error}</Text> : null}
           <View style={s.actions}>
             <Button
-              title={t("lesson.not_yet")}
+              title={t(reviewing ? "lesson.forgot" : "lesson.not_yet")}
               variant="outline"
               onPress={rateNotYet}
               disabled={saving}
               style={s.actionBtn}
             />
             <Button
-              title={t("lesson.i_know_this")}
+              title={t(reviewing ? "lesson.still_know" : "lesson.i_know_this")}
               onPress={rateKnown}
               loading={saving}
               disabled={saving}
@@ -128,7 +129,7 @@ function makeStyles(theme: Theme) {
     },
     progressFill: {
       height: "100%",
-      backgroundColor: theme.success,
+      backgroundColor: theme.primary,
     },
     progressLabel: {
       ...Type.caption,

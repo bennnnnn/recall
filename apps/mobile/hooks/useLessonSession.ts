@@ -47,18 +47,23 @@ export function useLessonSession(projectId: string) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [reviewing, setReviewing] = useState(false);
+
   useEffect(() => {
     if (!project) return;
     const title = resolveLessonChapter(project, requestedRef.current);
     if (!title) return;
     setChapter(title);
+    const chapterWords = chapterItems(project, title);
+    const isReview = chapterIsComplete(chapterWords);
     const items = chapterQueue(
-      chapterItems(project, title),
-      resolveDailyGoal(project.daily_goal),
+      chapterWords,
+      isReview ? undefined : resolveDailyGoal(project.daily_goal),
     );
     if (!seededRef.current || (queue.length === 0 && items.length > 0)) {
       setQueue(items);
       setIndex(0);
+      setReviewing(isReview);
       seededRef.current = true;
     }
   }, [project, queue.length]);
@@ -129,6 +134,7 @@ export function useLessonSession(projectId: string) {
     empty,
     complete,
     sessionEndedEarly,
+    reviewing,
     currentNumber,
     total,
     progressFill,

@@ -3,7 +3,9 @@ import {
   chapterIsComplete,
   chapterItems,
   chapterQueue,
+  exampleSentences,
   highlightLemmaParts,
+  isChapterReview,
   itemToCard,
   overlayItemOutcomes,
   resolveLessonChapter,
@@ -54,6 +56,16 @@ describe("chapterLesson", () => {
   it("caps the pending queue to the daily goal", () => {
     const items = [item("a"), item("b"), item("c"), item("d")];
     expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b"]);
+  });
+
+  it("replays a finished chapter as an uncapped review", () => {
+    const items = [
+      item("a", "mastered"),
+      item("b", "mastered"),
+      item("c", "mastered"),
+    ];
+    expect(isChapterReview(items)).toBe(true);
+    expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b", "c"]);
   });
 
   it("treats a chapter complete only when every word is mastered", () => {
@@ -107,5 +119,13 @@ describe("chapterLesson", () => {
         { text: " after losing her job.", match: false },
       ],
     );
+  });
+
+  it("splits at most two example sentences", () => {
+    expect(exampleSentences("See you later.\nSee you tomorrow.\nExtra.")).toEqual([
+      "See you later.",
+      "See you tomorrow.",
+    ]);
+    expect(exampleSentences("  only one  ")).toEqual(["only one"]);
   });
 });

@@ -37,7 +37,10 @@ def test_spanish_catalog_is_a_domain_tree():
 def test_english_path_is_conversation_grouped():
     titles = catalog_path_titles("en")
     assert titles[0] == "Hello"
+    assert titles == catalog_domains("en")
     assert "Feelings" in titles
+    assert "Please and thanks" not in titles
+    assert "Get and give" not in titles
     assert "Hotel services" not in titles
     assert "SAT" not in titles
     assert catalog_domains("en") == [
@@ -85,6 +88,14 @@ def test_english_path_lemmas_are_unique():
             key = word.content.casefold()
             assert key not in seen, f"{word.content!r} in {seen[key]} and {deck.slug}"
             seen[key] = deck.slug
+
+
+def test_english_path_is_one_group_per_theme():
+    decks = path_decks_for_language("en")
+    assert len(decks) == len({deck.domain for deck in decks})
+    for deck in decks:
+        assert deck.title == deck.domain
+        assert len(deck.words) >= 16
 
 
 def test_catalog_leaf_titles_are_unique_per_language():

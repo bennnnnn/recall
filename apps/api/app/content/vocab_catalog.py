@@ -51,14 +51,17 @@ def _w(
     definition: str,
     example: str | None = None,
     *,
+    example2: str | None = None,
     ipa: str | None = None,
     pos: str | None = None,
     simple: str | None = None,
 ) -> CatalogWord:
+    examples = [part.strip() for part in (example, example2) if part and part.strip()]
+    example_sentence = "\n".join(examples) if examples else None
     return CatalogWord(
         content=content,
         definition=definition,
-        example_sentence=example,
+        example_sentence=example_sentence,
         ipa=ipa,
         part_of_speech=pos,
         simple_gloss=simple,
@@ -84,6 +87,42 @@ def _deck(
         words=tuple(words),
         sort_order=sort_order,
     )
+
+
+def merge_decks_by_domain(decks: list[CatalogDeck]) -> list[CatalogDeck]:
+    """One lesson-map node per domain. Keeps the first deck's slug (UUID5 identity)."""
+    groups: dict[str, list[CatalogDeck]] = {}
+    order: list[str] = []
+    for deck in decks:
+        if deck.domain not in groups:
+            order.append(deck.domain)
+            groups[deck.domain] = []
+        groups[deck.domain].append(deck)
+    merged: list[CatalogDeck] = []
+    for domain in order:
+        group = sorted(groups[domain], key=lambda item: item.sort_order)
+        first = group[0]
+        seen: set[str] = set()
+        words: list[CatalogWord] = []
+        for deck in group:
+            for word in deck.words:
+                key = word.content.casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                words.append(word)
+        merged.append(
+            _deck(
+                first.language,
+                first.slug,
+                domain,
+                words,
+                domain=domain,
+                kind=first.kind,
+                sort_order=first.sort_order,
+            )
+        )
+    return merged
 
 
 @lru_cache(maxsize=1)

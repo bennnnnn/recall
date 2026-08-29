@@ -22,7 +22,7 @@ from app.content.vocab_banks_en.reactions import reactions_decks
 from app.content.vocab_banks_en.sat import sat_decks
 from app.content.vocab_banks_en.thinking import thinking_decks
 from app.content.vocab_banks_en.travel import travel_decks
-from app.content.vocab_catalog import CatalogDeck
+from app.content.vocab_catalog import CatalogDeck, merge_decks_by_domain
 
 
 def english_legacy_decks() -> list[CatalogDeck]:
@@ -40,8 +40,8 @@ def english_legacy_decks() -> list[CatalogDeck]:
     ]
 
 
-def english_path_decks() -> list[CatalogDeck]:
-    """Conversation-grouped English lesson map."""
+def english_path_source_decks() -> list[CatalogDeck]:
+    """Per-theme banks before collapsing to one map node per domain."""
     return [
         *hello_decks(),
         *feelings_decks(),
@@ -61,5 +61,10 @@ def english_path_decks() -> list[CatalogDeck]:
     ]
 
 
+def english_path_decks() -> list[CatalogDeck]:
+    """Conversation-grouped English lesson map — one group per theme."""
+    return merge_decks_by_domain(english_path_source_decks())
+
+
 def english_decks() -> list[CatalogDeck]:
-    return [*english_legacy_decks(), *english_path_decks()]
+    return [*english_legacy_decks(), *english_path_source_decks()]

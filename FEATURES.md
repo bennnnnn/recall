@@ -494,9 +494,11 @@ were removed. Programming help lives in main chat.
 - ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
-  interaction runs in a dedicated lesson window: one word card with **Not yet** /
-  **I know this**. “Not yet” keeps `status=learning` and those words return first next
-  sitting; “I know this” marks `mastered`. The next chapter stays locked until every
+  interaction runs in a dedicated lesson window: one word card with the
+  definition and 1–2 example sentences. **Not yet** / **I know this** for new
+  words; a completed group reopens as **Need practice** / **Still know this**.
+  “Not yet” keeps `status=learning` and those words return first next
+  sitting; “I know this” marks `mastered`. The next group stays locked until every
   word in the current chapter is mastered. Hidden project-scoped chats still emit
   `vocab_quiz` / `vocab_card` for generation and SM-2 grading
   (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
@@ -504,10 +506,10 @@ were removed. Programming help lives in main chat.
 - ❌ **Tap-to-answer MCQ / typed answers as the lesson product** — not the shipped study
   UX. Lesson play is self-rate cards; do not treat chat fences as the product path.
 - ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
-  (`ease_factor`, `interval_days`, `due_at`) are written on status changes, but mastered
-  words do not re-enter a map queue (`due_for_review` only counts `status=learning`).
-  There is no due-queue screen. Settings has PDF export, not a deck browser.
-  `buildProjectReviewPrompt` is unused.
+  (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
+  There is no due-queue of old mastered words across groups. Reopening a
+  **completed** group on the map is a same-group review pass, not SM-2.
+  Settings has PDF export, not a deck browser. `buildProjectReviewPrompt` is unused.
 - ⚠️ **Adaptive level hints** — computed server-side; Settings does not surface them.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).
@@ -531,9 +533,11 @@ were removed. Programming help lives in main chat.
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived
-  (mastered/total; a chapter is complete when every word is mastered). The lesson
-  map is a vertical node path grouped by domain; tap an unlocked node to open the
-  word page. The main flow is
+  (mastered/total; a chapter is complete when every word is mastered). English
+  groups are one map row per theme (~16+ words). The lesson map is a vertical
+  list (status icon, title, counts) — not letter-in-a-circle nodes. Tap an
+  unlocked group to open the word page; a completed group opens as review.
+  The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
   screen). Compact stats, PDF export, and delete live in Settings/Learning. A
   thin "today" progress line sits above the path tree. Locked chapters stay

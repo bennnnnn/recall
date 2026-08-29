@@ -54,6 +54,7 @@ def hello_decks() -> list[CatalogDeck]:
                     "see you",
                     "a casual way to say goodbye",
                     "See you later.",
+                    example2="See you tomorrow.",
                     ipa="si ju",
                     pos="phrase",
                     simple="goodbye for now",

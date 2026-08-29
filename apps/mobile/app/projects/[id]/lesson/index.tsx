@@ -77,7 +77,9 @@ export default function LearningLessonMapScreen() {
       {stats && dailyGoal > 0 ? (
         <View style={s.todayCard}>
           <Text style={s.todayLabel}>
-            {t("projects.list.today_progress", { done: completedToday, goal: dailyGoal })}
+            {completedToday >= dailyGoal
+              ? t("projects.list.goal_met_today")
+              : t("projects.list.today_progress", { done: completedToday, goal: dailyGoal })}
           </Text>
           <View style={s.todayTrack}>
             <View style={[s.todayFill, { width: `${todayPct}%` }]} />
