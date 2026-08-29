@@ -621,13 +621,13 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   response caching, full duplex / interruptible voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
-- 🔜 **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
+- ✅ **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
   `IconButton` on named undersized controls, PDF/math pinch-zoom, AppSheet
   dialog/focus/pan, AuthScrollLayout, gallery filter wrap, drawer width cap,
   SheetFormHeader, Space/Radius/Type (deleted `layout.ts`), StrokeIcon→Icon,
-  Reduce Motion helpers, the in-tree ActionBanner overlay host, and the
-  recoverable `Alert.alert` sweep shipped separately. Remaining: unused UI
-  file cleanup. Do not restyle or reintroduce banned UX.
+  Reduce Motion helpers, in-tree ActionBanner overlay host, recoverable
+  `Alert.alert` sweep, and unused UI file cleanup. Do not restyle or
+  reintroduce banned UX.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 
