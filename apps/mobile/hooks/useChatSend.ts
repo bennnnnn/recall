@@ -105,7 +105,6 @@ export function useChatSend({
   pendingLaunch,
   setPendingLaunch,
   pendingLaunchRef,
-  user,
   updateUser,
   t,
   onStreamBusy,
@@ -293,13 +292,7 @@ export function useChatSend({
         }
       }
 
-      const geoResult = await resolveClientGeoForQuery(
-        authToken,
-        text,
-        t,
-        updateUser,
-        user?.location_enabled ?? false,
-      );
+      const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
       if (!geoResult.ok) {
         restoreDraft();
         return;
@@ -376,8 +369,6 @@ export function useChatSend({
       setDraftChatId,
       router,
       sendMessage,
-      user,
-      user?.location_enabled,
       updateUser,
       t,
       onStreamBusy,

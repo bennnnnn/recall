@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“Near me” asked for a city instead of the OS location sheet.** An in-app
+  “Turn on Location” Alert sat in front of `requestForegroundPermissionsAsync`,
+  so the system prompt never appeared and the LLM interviewed for a neighborhood.
+  Geo asks go straight to the OS sheet; Expo Go alerts and does not send.
 - **Right triangle 3-4-5 became 6x4 with a gray `12` pill.** `first_dim_pair`
   only sees `8 x 5` / `by`, so "legs 3 and 4" missed and the draw default
   (base=6, height=4) shipped — area 12 as ```answer. Parse two numbers after
