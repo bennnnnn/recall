@@ -1,11 +1,13 @@
-import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
+import { darkTheme, lightTheme, radius, space, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
   it("uses a white page, indigo accent, and tinted user chip", () => {
     expect(lightTheme.bg).toBe("#FFFFFF");
-    expect(lightTheme.surface).toBe("#FFFFFF");
-    expect(lightTheme.surfaceAlt).toBe("#F7F7F8");
+    expect(lightTheme.surface).toBe("#F7F7F8");
+    expect(lightTheme.surfaceAlt).toBe("#EBEBED");
     expect(lightTheme.inputBg).toBe("#F7F7F8");
+    expect(lightTheme.border).toBe("#D9D9DE");
+    expect(lightTheme.bg).not.toBe(lightTheme.surface);
     expect(lightTheme.userBubble).toBe("#EAF7F3");
     expect(lightTheme.assistantBubble).toBe(lightTheme.bg);
     expect(lightTheme.primary).toBe("#4F56E5");
@@ -13,7 +15,7 @@ describe("surface hierarchy", () => {
     expect(lightTheme.accent).toBe(lightTheme.primary);
     expect(lightTheme.text).toBe("#111113");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);
-    expect(darkTheme.bg).toBe("#0F0F10");
+    expect(darkTheme.border).toBe("#3A3A42");
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
     expect(darkTheme.composerBg).toBe(darkTheme.bg);
     expect(darkTheme.inputBg).toBe(darkTheme.surfaceAlt);
@@ -21,6 +23,11 @@ describe("surface hierarchy", () => {
     expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
     expect(lightTheme.onWarning).toBe("#FFFFFF");
     expect(darkTheme.onWarning).toBe("#111113");
+  });
+
+  it("exports shared space and radius tokens", () => {
+    expect(space.md).toBe(12);
+    expect(radius.lg).toBe(16);
   });
 });
 

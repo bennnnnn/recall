@@ -6,7 +6,7 @@ describe("type and space tokens", () => {
     expect(Type.body.fontSize).toBe(16);
     expect(Type.secondary.fontSize).toBe(14);
     expect(Type.caption.fontSize).toBe(12);
-    expect(Type.body.lineHeight).toBe(23);
+    expect(Type.body.lineHeight).toBe(25);
     expect(Type.label.fontSize).toBe(14);
     expect(Type.title.fontSize).toBe(20);
     expect(Type.display.fontSize).toBe(28);

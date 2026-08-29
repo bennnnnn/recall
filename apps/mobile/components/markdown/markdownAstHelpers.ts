@@ -26,6 +26,19 @@ export function inTableHeader(parent: unknown): boolean {
   return parentHasType(parent, "th");
 }
 
+const HEADING_TYPES = [
+  "heading1",
+  "heading2",
+  "heading3",
+  "heading4",
+  "heading5",
+  "heading6",
+] as const;
+
+export function inHeading(parent: unknown): boolean {
+  return HEADING_TYPES.some((type) => parentHasType(parent, type));
+}
+
 export function astText(node: AstNode): string {
   if (node.content) return node.content;
   return (node.children ?? []).map(astText).join("");
