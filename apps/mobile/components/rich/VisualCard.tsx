@@ -3,7 +3,8 @@ import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
-import { radius, space } from "@/lib/layout";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -46,8 +47,8 @@ export function VisualCard({
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
-      marginVertical: space.sm,
-      borderRadius: radius.lg,
+      marginVertical: Space.xs,
+      borderRadius: Radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       overflow: "hidden",
@@ -63,14 +64,14 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: space.sm },
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     headerLabel: { ...Type.label, fontWeight: "700", color: t.text },
     actions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: space.xs,
-      paddingHorizontal: space.sm,
-      paddingVertical: space.sm,
+      gap: Space.xxs,
+      paddingHorizontal: Space.xs,
+      paddingVertical: Space.xs,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: t.border,
     },

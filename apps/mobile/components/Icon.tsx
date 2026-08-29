@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { Ionicons } from "@expo/vector-icons";
 
-import { inkIconColor, type IoniconName } from "@/lib/icons";
+import { IconSize, inkIconColor, type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
    *  only where a filled-vs-outline pair encodes active state (e.g. a pressed
    *  toggle) — not as the default. */
   name: IoniconName;
-  /** Pixel size. Defaults to 20 (the settings-row / proposed ladder default). */
+  /** Pixel size. Defaults to `IconSize.sm` (settings-row / proposed ladder). */
   size?: number;
   /** Explicit color. Omit to use the ink default (theme text)
    *  — or set `danger` for the red ink. */
@@ -34,7 +34,7 @@ type Props = {
  * sizes (9–36) and a 3–4 step ladder would silently change most of them.
  * New code should prefer `Icon`; existing call sites migrate incrementally.
  */
-export function Icon({ name, size = 20, color, danger, style, allowFontScaling, testID }: Props) {
+export function Icon({ name, size = IconSize.sm, color, danger, style, allowFontScaling, testID }: Props) {
   const theme = useTheme();
   return (
     <Ionicons

@@ -4,7 +4,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
 import { type IoniconName } from "@/lib/icons";
-import { radius, space } from "@/lib/layout";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -61,11 +62,11 @@ function makeStyles(t: Theme) {
     wrap: {
       alignSelf: "stretch",
       backgroundColor: t.surface,
-      borderRadius: radius.xl,
+      borderRadius: Radius.sheet,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       borderLeftWidth: 3,
-      marginVertical: space.sm,
+      marginVertical: Space.xs,
       overflow: "hidden",
     },
     wrapEven: {
@@ -76,14 +77,14 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      gap: 8,
-      paddingHorizontal: 12,
+      gap: Space.xs,
+      paddingHorizontal: Space.sm,
       paddingTop: 10,
-      paddingBottom: 4,
+      paddingBottom: Space.xxs,
     },
     labelRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
     label: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
-    body: { paddingHorizontal: 12, paddingVertical: 10 },
+    body: { paddingHorizontal: Space.sm, paddingVertical: 10 },
   });
 }

@@ -201,8 +201,6 @@ export function useTheme(): Theme {
   return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
 }
 
-export { radius, space } from "@/lib/layout";
-
 const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const RGB_COLOR_RE = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/;
 

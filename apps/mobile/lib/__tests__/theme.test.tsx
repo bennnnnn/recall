@@ -1,4 +1,4 @@
-import { darkTheme, lightTheme, radius, space, withAlpha } from "@/lib/theme";
+import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
   it("uses a white page, indigo accent, and tinted user chip", () => {
@@ -23,11 +23,6 @@ describe("surface hierarchy", () => {
     expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
     expect(lightTheme.onWarning).toBe("#FFFFFF");
     expect(darkTheme.onWarning).toBe("#111113");
-  });
-
-  it("exports shared space and radius tokens", () => {
-    expect(space.md).toBe(12);
-    expect(radius.lg).toBe(16);
   });
 });
 
