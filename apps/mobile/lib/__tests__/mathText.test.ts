@@ -17,6 +17,12 @@ describe("parseSimpleLatex", () => {
     expect(segs.some((s) => s.type === "sup" && s.value === "2")).toBe(true);
   });
 
+  it("BUG FIX regression: braced 2/3 exponent is one sup (not 3 then 2 then /3)", () => {
+    const segs = parseSimpleLatex("3^{2/3}");
+    expect(segs.some((s) => s.type === "sup" && s.value === "2/3")).toBe(true);
+    expect(segmentsToPlain(segs)).toBe("3^2/3");
+  });
+
   it("BUG FIX regression: unicode superscripts/subscripts parse as real scripts", () => {
     // OCR / models emit `x²` / `a₁₀` instead of caret form; without normalize
     // those glyphs stayed plain text and never became MathText sup/sub.
