@@ -5,6 +5,7 @@ import {
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
 } from "@/lib/math/mathFenceRetag";
+import { stripNumericAnswerAfterChart } from "@/lib/markdown/stripChartAnswerCrumb";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
@@ -1145,6 +1146,8 @@ export function preprocessMarkdown(
   out = unwrapProseMathBackticks(out);
   out = collapseAdjacentMoleculeFences(out);
   out = dropRedundantMolecule3dFences(out);
+  // After fences settle: drop the leftover mean/```answer number under a chart.
+  out = stripNumericAnswerAfterChart(out);
 
   return out;
 }

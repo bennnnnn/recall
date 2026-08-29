@@ -16,8 +16,9 @@ import {
   CHART_HEIGHT_EPSILON_PX,
   CHART_MAX_EXPANDED,
   CHART_MAX_HEIGHT,
-  CHART_MIN_HEIGHT,
   CHART_PREVIEW_HEIGHT,
+  chartPreviewIsClipped,
+  chartTogglePreviewHeight,
   nextChartPreviewHeight,
 } from "@/lib/chartPreviewHeight";
 import { CODE_FONT } from "@/lib/fonts";
@@ -51,6 +52,7 @@ export function ChartBlock({ content }: Props) {
   const [renderError, setRenderError] = useState<string | null>(null);
   const [viewWidth, setViewWidth] = useState(0);
   const [previewHeight, setPreviewHeight] = useState(CHART_PREVIEW_HEIGHT);
+  const [reportedHeight, setReportedHeight] = useState(0);
   const heightRef = useRef(CHART_PREVIEW_HEIGHT);
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
@@ -71,6 +73,7 @@ export function ChartBlock({ content }: Props) {
 
   const maxHeight = expanded ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
   const height = Math.min(previewHeight, maxHeight);
+  const clipped = chartPreviewIsClipped(reportedHeight, height);
 
   const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
     try {
@@ -82,6 +85,7 @@ export function ChartBlock({ content }: Props) {
       if (isChartSizeMessage(data)) {
         const reported = Number(data.height);
         if (!Number.isFinite(reported) || reported <= 0) return;
+        setReportedHeight(reported);
         const maxH = expandedRef.current ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
         const next = nextChartPreviewHeight(reported, heightRef.current, maxH);
         if (next == null) return;
@@ -101,13 +105,12 @@ export function ChartBlock({ content }: Props) {
   const toggleExpanded = useCallback(() => {
     setExpanded((was) => {
       const next = !was;
-      const maxH = next ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
-      const clamped = Math.min(maxH, Math.max(CHART_MIN_HEIGHT, heightRef.current));
+      const clamped = chartTogglePreviewHeight(reportedHeight || heightRef.current, next);
       heightRef.current = clamped;
       setPreviewHeight(clamped);
       return next;
     });
-  }, []);
+  }, [reportedHeight]);
 
   return (
     <View
@@ -141,7 +144,9 @@ export function ChartBlock({ content }: Props) {
               originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
               source={source}
               style={{ height, width: viewWidth > 0 ? viewWidth : 320 }}
-              scrollEnabled={false}
+              scrollEnabled={clipped}
+              nestedScrollEnabled={clipped}
+              showsVerticalScrollIndicator={clipped}
               javaScriptEnabled
               domStorageEnabled={false}
               onLoadEnd={onLoaded}
@@ -187,19 +192,21 @@ export function ChartBlock({ content }: Props) {
           />
         </Pressable>
 
-        <Pressable
-          style={s.iconBtn}
-          onPress={toggleExpanded}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
-        >
-          <Icon
-            name={expanded ? "contract-outline" : "expand-outline"}
-            size={20}
-            color={theme.textSecondary}
-          />
-        </Pressable>
+        {clipped || expanded ? (
+          <Pressable
+            style={s.iconBtn}
+            onPress={toggleExpanded}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
+          >
+            <Icon
+              name={expanded ? "contract-outline" : "expand-outline"}
+              size={20}
+              color={theme.textSecondary}
+            />
+          </Pressable>
+        ) : null}
 
         <Pressable
           style={s.iconBtn}

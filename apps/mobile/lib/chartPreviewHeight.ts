@@ -24,3 +24,14 @@ export function nextChartPreviewHeight(
   if (next <= current + CHART_HEIGHT_EPSILON_PX) return null;
   return next;
 }
+
+/** True when the SVG is taller than the visible WebView (expand can grow it). */
+export function chartPreviewIsClipped(reportedHeight: number, visibleHeight: number): boolean {
+  return reportedHeight > visibleHeight + CHART_HEIGHT_EPSILON_PX;
+}
+
+/** Height to apply when toggling expand — uses the raw SVG size, not the clamped ref. */
+export function chartTogglePreviewHeight(reportedHeight: number, expanded: boolean): number {
+  const maxH = expanded ? CHART_MAX_EXPANDED : CHART_MAX_HEIGHT;
+  return clampChartPreviewHeight(reportedHeight, maxH);
+}

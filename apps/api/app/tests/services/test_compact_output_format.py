@@ -65,6 +65,7 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
     assert "NEVER substitute a markdown table" in joined
     assert "horizontal bars" in joined
     assert "no leftover numbers" in joined
+    assert "no ```answer" in joined
     assert "No ## headings" not in joined
 
 
