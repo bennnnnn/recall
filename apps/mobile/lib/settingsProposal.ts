@@ -65,7 +65,11 @@ export function parseSettingsProposals(content: string): SettingsProposal[] {
 }
 
 export function stripSettingsProposalFences(content: string): string {
-  return content.replace(SETTINGS_PROPOSAL_FENCE_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+  return content
+    .replace(SETTINGS_PROPOSAL_FENCE_RE, "")
+    .replace(/```settings_proposal[\s\S]*$/i, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function hasSettingsProposalFence(content: string): boolean {

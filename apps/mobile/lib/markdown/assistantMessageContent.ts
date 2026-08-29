@@ -103,8 +103,6 @@ function buildMarkdownContent(options: {
     hideQuizFenceInMarkdown,
     quizForStrip,
     showLiveClock,
-    showCalendarProposals,
-    showSettingsProposals,
     showPlaces,
     places,
   } = options;
@@ -129,8 +127,8 @@ function buildMarkdownContent(options: {
   text = stripLearningLaunchBlock(text);
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
-  if (showCalendarProposals) text = stripCalendarProposalFences(text);
-  if (showSettingsProposals) text = stripSettingsProposalFences(text);
+  text = stripCalendarProposalFences(text);
+  text = stripSettingsProposalFences(text);
   if (showPlaces) text = stripPlacesContent(text, places);
   return text;
 }

@@ -5,6 +5,7 @@ const REMINDER_FENCE_RE = /```reminder\s*\n([\s\S]*?)```/gi;
 export function stripReminderFences(content: string): string {
   return content
     .replace(REMINDER_FENCE_RE, "")
+    .replace(/```reminder[\s\S]*$/i, "")
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 }

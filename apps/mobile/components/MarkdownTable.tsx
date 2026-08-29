@@ -40,6 +40,30 @@ export function tableColumnWidth(viewportWidth: number, columns: number): number
   return Math.max(MIN_COL_WIDTH, available / colCount);
 }
 
+export function tableShouldFreezeFirstColumn(
+  columns: number,
+  viewportWidth: number,
+  columnWidth: number,
+): boolean {
+  return columns >= 3 && columnWidth * columns > viewportWidth + 1;
+}
+
+function collectTableRows(children: ReactNode): ReactElement[] {
+  const rows: ReactElement[] = [];
+  for (const child of Children.toArray(children)) {
+    if (!isValidElement(child)) continue;
+    if (child.type === MarkdownTableRow) {
+      rows.push(child);
+      continue;
+    }
+    const nested = (child.props as { children?: ReactNode }).children;
+    if (nested != null) {
+      rows.push(...collectTableRows(nested));
+    }
+  }
+  return rows;
+}
+
 function mapCells(children: ReactNode) {
   const cells = Children.toArray(children);
   return cells.map((child, index) => {
@@ -84,6 +108,10 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
     </View>
   );
 
+  const freezeFirst = tableShouldFreezeFirstColumn(colCount, layoutW, columnWidth);
+  const rows = freezeFirst ? collectTableRows(children) : [];
+  const restCols = Math.max(1, colCount - 1);
+
   return (
     <TableLayoutContext.Provider value={{ columnWidth }}>
       <View
@@ -93,23 +121,113 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
           if (w > 0 && Math.abs(w - viewportW) > 1) setViewportW(w);
         }}
       >
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          directionalLockEnabled
-          bounces={false}
-          overScrollMode="never"
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled={scrollable}
-          style={s.scroll}
-          contentContainerStyle={
-            scrollable ? { width: columnWidth * colCount } : undefined
-          }
-        >
-          {table}
-        </ScrollView>
+        {freezeFirst ? (
+          <FrozenFirstColumnTable
+            rows={rows}
+            columnWidth={columnWidth}
+            restCols={restCols}
+            theme={theme}
+            styles={s}
+          />
+        ) : (
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            directionalLockEnabled
+            bounces={false}
+            overScrollMode="never"
+            showsHorizontalScrollIndicator={false}
+            scrollEnabled={scrollable}
+            style={s.scroll}
+            contentContainerStyle={
+              scrollable ? { width: columnWidth * colCount } : undefined
+            }
+          >
+            {table}
+          </ScrollView>
+        )}
       </View>
     </TableLayoutContext.Provider>
+  );
+}
+
+function FrozenFirstColumnTable({
+  rows,
+  columnWidth,
+  restCols,
+  theme,
+  styles: s,
+}: {
+  rows: ReactElement[];
+  columnWidth: number;
+  restCols: number;
+  theme: Theme;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  const [rowHeights, setRowHeights] = useState<number[]>([]);
+
+  return (
+    <View style={s.freezeRow}>
+      <View
+        style={[
+          s.frozenCol,
+          { width: columnWidth, backgroundColor: theme.contentSurface },
+        ]}
+      >
+        {rows.map((row, index) => {
+          const cells = Children.toArray(
+            (row.props as { children?: ReactNode }).children,
+          );
+          return (
+            <View
+              key={`frozen-${index}`}
+              style={[s.row, index === rows.length - 1 && s.rowLast, { minHeight: rowHeights[index] }]}
+            >
+              {cells[0]}
+            </View>
+          );
+        })}
+      </View>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        directionalLockEnabled
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        style={s.scroll}
+        contentContainerStyle={{ width: columnWidth * restCols }}
+      >
+        <View>
+          {rows.map((row, index) => {
+            const cells = Children.toArray(
+              (row.props as { children?: ReactNode }).children,
+            );
+            return (
+              <View
+                key={`rest-${index}`}
+                style={[
+                  s.row,
+                  index === rows.length - 1 && s.rowLast,
+                  { width: columnWidth * restCols },
+                ]}
+                onLayout={(e) => {
+                  const h = Math.round(e.nativeEvent.layout.height);
+                  setRowHeights((prev) => {
+                    if (prev[index] === h) return prev;
+                    const next = prev.slice();
+                    next[index] = h;
+                    return next;
+                  });
+                }}
+              >
+                {cells.slice(1)}
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -169,12 +287,23 @@ export function MarkdownTableCell(
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     scrollWrap: {
-      marginVertical: 10,
+      marginTop: 0,
+      marginBottom: 10,
       overflow: "hidden",
       alignSelf: "stretch",
       width: "100%",
     },
     scroll: { backgroundColor: "transparent" },
+    freezeRow: {
+      flexDirection: "row",
+      alignSelf: "stretch",
+      width: "100%",
+    },
+    frozenCol: {
+      zIndex: 1,
+      borderRightWidth: StyleSheet.hairlineWidth,
+      borderRightColor: theme.border,
+    },
     table: {
       backgroundColor: "transparent",
       alignSelf: "stretch",

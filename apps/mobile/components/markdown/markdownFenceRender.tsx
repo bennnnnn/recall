@@ -1,3 +1,5 @@
+import { Text } from "react-native";
+
 import { CodeBlock } from "@/components/CodeBlock";
 import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
 import { CopyBlock } from "@/components/CopyBlock";
@@ -10,11 +12,13 @@ import {
 } from "@/components/rich/RichFence";
 import { copyBlockLabel } from "@/lib/copyBlock";
 import { parseFenceLang } from "@/lib/codeHighlight";
+import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import {
   classifyFence,
   looksLikeMathMeta,
   shouldHideCopyOnCodeFallback,
 } from "@/lib/fenceDispatch";
+import { Type } from "@/lib/type";
 
 // `tokenIndex` (and `index`) come from react-native-markdown-display's AST
 // (tokensToAST.js) — unlike `key` (a never-reset getUniqueID counter that
@@ -33,6 +37,14 @@ export type FenceNode = {
   tokenIndex?: number;
   index?: number;
 };
+
+function neverCodeBlockFallback(key: string, content: string) {
+  return (
+    <Text key={key} selectable style={Type.body}>
+      {content}
+    </Text>
+  );
+}
 
 function renderFenceInner(
   key: string,
@@ -65,6 +77,7 @@ function renderFenceInner(
   if (decision.kind === "rich" && decision.id) {
     const rich = renderRichFenceById(decision.id, lang, content, key, tokenIndex);
     if (rich) return rich;
+    if (isNeverCodeBlockLang(lang)) return neverCodeBlockFallback(key, content);
   }
 
   const copyStyle = renderCopyStyleBlock(lang, content, key);
@@ -75,6 +88,8 @@ function renderFenceInner(
     if (styled) return styled;
     return <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />;
   }
+
+  if (isNeverCodeBlockLang(lang)) return neverCodeBlockFallback(key, content);
 
   return (
     <CodeBlock
@@ -96,6 +111,9 @@ export function renderFence(node: FenceNode) {
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);
+    }
+    if (isNeverCodeBlockLang(lang)) {
+      return neverCodeBlockFallback(node.key, content);
     }
     return (
       <CodeBlock
