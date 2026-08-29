@@ -141,19 +141,6 @@ export function makeTodosStyles(C: Theme) {
       borderTopLeftRadius: Radius.sheet,
       borderTopRightRadius: Radius.sheet,
     },
-    sheetHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
-    },
-    sheetTitle: { ...Type.navTitle, color: C.text },
-    sheetCancel: { ...Type.body, color: C.textSecondary },
-    sheetSave: { ...Type.body, fontWeight: "700", color: C.primary },
-    sheetSaveDisabled: { opacity: 0.4 },
     sheetBody: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
     groupOptions: { gap: Space.xxs },
     groupOption: {
@@ -170,17 +157,5 @@ export function makeTodosStyles(C: Theme) {
       borderTopLeftRadius: Radius.xl,
       borderTopRightRadius: Radius.xl,
     },
-    pickerHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
-    },
-    pickerTitle: { ...Type.body, fontWeight: "700", color: C.text },
-    pickerCancel: { ...Type.body, color: C.textSecondary },
-    pickerDone: { ...Type.body, fontWeight: "700", color: C.primary },
   });
 }

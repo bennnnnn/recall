@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { Todo } from "@/lib/api";
 import { findOverlappingReminder } from "@/lib/todos/reminderOverlap";
@@ -55,28 +56,14 @@ export function DuePickerModal({
       minBottomPadding={24}
       contentContainerStyle={s.pickerSheet}
     >
-      <View style={s.pickerHeader}>
-        <Pressable onPress={onDismiss} hitSlop={8} disabled={saving}>
-          <Text style={s.pickerCancel}>{t("common.cancel")}</Text>
-        </Pressable>
-        <Text style={s.pickerTitle}>
-          {duePicker.todo.due_at ? t("todos.change_due") : t("todos.set_due")}
-        </Text>
-        <Pressable
-          onPress={onConfirm}
-          hitSlop={8}
-          disabled={saving}
-          accessibilityRole="button"
-          accessibilityLabel={t("todos.due_done")}
-          accessibilityState={{ disabled: saving, busy: saving }}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={C.primary} />
-          ) : (
-            <Text style={s.pickerDone}>{t("todos.due_done")}</Text>
-          )}
-        </Pressable>
-      </View>
+      <SheetFormHeader
+        title={duePicker.todo.due_at ? t("todos.change_due") : t("todos.set_due")}
+        onCancel={onDismiss}
+        onSave={onConfirm}
+        cancelLabel={t("common.cancel")}
+        saveLabel={t("todos.due_done")}
+        saving={saving}
+      />
       <DateTimePicker
         value={duePicker.date}
         mode="datetime"
