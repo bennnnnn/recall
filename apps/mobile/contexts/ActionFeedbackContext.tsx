@@ -5,6 +5,7 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
+import { StyleSheet, View } from "react-native";
 
 import { ActionBanner } from "@/components/ActionBanner";
 import {
@@ -63,19 +64,25 @@ export function ActionFeedbackProvider({ children }: PropsWithChildren) {
 
   return (
     <ActionFeedbackContext.Provider value={api}>
-      {children}
-      {item ? (
-        <ActionBanner
-          key={item.id}
-          message={item.message}
-          icon={item.icon}
-          tone={item.tone}
-          onDismiss={dismiss}
-        />
-      ) : null}
+      <View style={styles.host}>
+        {children}
+        {item ? (
+          <ActionBanner
+            key={item.id}
+            message={item.message}
+            icon={item.icon}
+            tone={item.tone}
+            onDismiss={dismiss}
+          />
+        ) : null}
+      </View>
     </ActionFeedbackContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  host: { flex: 1 },
+});
 
 export {
   useActionFeedback,

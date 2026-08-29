@@ -171,12 +171,6 @@ export function ChatScreenBody({
 
   return (
     <View style={s.container}>
-      <ActionBanner
-        message={actionBanner?.message ?? null}
-        icon={actionBanner?.icon}
-        bottomOffset={composerClearance + 12}
-        onDismiss={onDismissActionBanner}
-      />
       <StreamingDraftProvider>
         <ChatMessageList
           listRef={listRef}
@@ -255,6 +249,13 @@ export function ChatScreenBody({
         onOpenMathScanner={onOpenMathScanner}
         onMathChromeHeightChange={onMathChromeHeightChange}
         mathContext={mathContext}
+      />
+
+      <ActionBanner
+        message={actionBanner?.message ?? null}
+        icon={actionBanner?.icon}
+        bottomOffset={composerClearance + 12}
+        onDismiss={onDismissActionBanner}
       />
 
       <AttachmentSourceSheet
