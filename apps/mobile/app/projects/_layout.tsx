@@ -27,6 +27,13 @@ export default function ProjectsLayout() {
     >
       <Stack.Screen name="index" options={{ title: t("projects.title") }} />
       <Stack.Screen
+        name="create"
+        options={{
+          title: t("projects.add_learning"),
+          headerLeft: () => <StackBackButton fallback="/projects" />,
+        }}
+      />
+      <Stack.Screen
         name="[id]"
         options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
       />
