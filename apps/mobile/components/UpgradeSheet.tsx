@@ -140,9 +140,6 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     <AppSheet
       visible={visible}
       onClose={onClose}
-      variant="bottom"
-      animation="fade"
-      withHandle={false}
       minBottomPadding={36}
       contentContainerStyle={s.sheet}
     >

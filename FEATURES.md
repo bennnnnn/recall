@@ -622,11 +622,12 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 - 🔜 **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
-  `IconButton` on named undersized controls, and PDF/math pinch-zoom shipped separately.
-  Remaining: AppSheet dialog/focus/pan + migrate Places/Search Sources; AuthScrollLayout;
-  gallery choice-row wrap; drawer width cap; SheetFormHeader; Space/Radius/Type + delete
-  `layout.ts`; Icon vs StrokeIcon; Reduce Motion helpers; in-tree overlay host; `Alert.alert`
-  sweep; unused UI file cleanup. Do not restyle or reintroduce banned UX.
+  `IconButton` on named undersized controls, PDF/math pinch-zoom, and AppSheet
+  dialog/focus/pan (Places + Search Sources + Upgrade) shipped separately.
+  Remaining: AuthScrollLayout; gallery choice-row wrap; drawer width cap;
+  SheetFormHeader; Space/Radius/Type + delete `layout.ts`; Icon vs StrokeIcon;
+  Reduce Motion helpers; in-tree overlay host; `Alert.alert` sweep; unused UI
+  file cleanup. Do not restyle or reintroduce banned UX.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 

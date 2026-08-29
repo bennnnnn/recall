@@ -45,6 +45,12 @@ module.exports = {
       // project's `.test.ts` matcher above.
       testMatch: ["**/__tests__/**/*.test.tsx"],
       preset: "@react-native/jest-preset",
+      // AppSheet pan-to-dismiss imports RNGH + Reanimated (no native modules
+      // in this env). Keep the RN preset setup and add those mocks.
+      setupFiles: [
+        ...require("@react-native/jest-preset").setupFiles,
+        "<rootDir>/jest.componentsSetup.js",
+      ],
       moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/$1",

@@ -1,10 +1,26 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Keyboard, Platform, Text, type EmitterSubscription, type KeyboardEvent } from "react-native";
+import {
+  Keyboard,
+  Platform,
+  Text,
+  type EmitterSubscription,
+  type KeyboardEvent,
+} from "react-native";
 
 import { AppSheet } from "@/components/AppSheet";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
+}));
+
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
+jest.mock("@/lib/reduceMotion", () => ({
+  useReduceMotion: () => false,
 }));
 
 describe("AppSheet", () => {
@@ -43,7 +59,9 @@ describe("AppSheet", () => {
       </AppSheet>,
     );
 
-    await fireEvent.press(getByTestId("app-sheet-backdrop"));
+    await fireEvent.press(
+      getByTestId("app-sheet-backdrop", { includeHiddenElements: true }),
+    );
 
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -141,5 +159,38 @@ describe("AppSheet", () => {
     expect(getByText("reminder body")).toBeOnTheScreen();
     // Host still lifts by the keyboard height (reminder / calendar sheet).
     expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 400 });
+  });
+
+  it("exposes dialog semantics and a localized scrim label", async () => {
+    const { getByTestId, getByLabelText } = await render(
+      <AppSheet visible onClose={jest.fn()}>
+        <Text>body</Text>
+      </AppSheet>,
+    );
+
+    expect(getByTestId("app-sheet-dialog").props.accessibilityRole).toBe("dialog");
+    expect(getByTestId("app-sheet-dialog").props.accessibilityViewIsModal).toBe(true);
+    expect(getByLabelText("common.close")).toBeTruthy();
+  });
+
+  it("always wires hardware back; no-ops when backdropDismiss is false", async () => {
+    const dismissed = jest.fn();
+    const blocked = jest.fn();
+    const open = await render(
+      <AppSheet visible onClose={dismissed}>
+        <Text>open</Text>
+      </AppSheet>,
+    );
+    await fireEvent(open.getByTestId("app-sheet-modal"), "requestClose");
+    expect(dismissed).toHaveBeenCalledTimes(1);
+    await open.unmount();
+
+    const locked = await render(
+      <AppSheet visible onClose={blocked} backdropDismiss={false}>
+        <Text>locked</Text>
+      </AppSheet>,
+    );
+    await fireEvent(locked.getByTestId("app-sheet-modal"), "requestClose");
+    expect(blocked).not.toHaveBeenCalled();
   });
 });

@@ -2,11 +2,10 @@
  * Shared motion scale for Reanimated (and duration ms for RN Animated).
  * Prefer these over one-off copy-pasted durations/easings.
  */
-import { useEffect, useState } from "react";
-import { AccessibilityInfo } from "react-native";
 import { Easing } from "react-native-reanimated";
 
 export { motionMs } from "@/lib/motionDuration";
+export { useReduceMotion } from "@/lib/reduceMotion";
 
 export const Motion = {
   duration: {
@@ -34,22 +33,3 @@ export const Motion = {
     in: Easing.in(Easing.ease),
   },
 } as const;
-
-/** Subscribe to the OS Reduce Motion setting. */
-export function useReduceMotion(): boolean {
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (mounted) setReduceMotion(enabled);
-    });
-    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    return () => {
-      mounted = false;
-      sub.remove();
-    };
-  }, []);
-
-  return reduceMotion;
-}

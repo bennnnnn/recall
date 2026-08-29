@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppSheet } from "@/components/AppSheet";
+import { Icon } from "@/components/Icon";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
@@ -71,7 +71,6 @@ function PlaceDetailsSheet({
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeSheetStyles(theme), [theme]);
   const visible = place !== null;
 
@@ -82,38 +81,37 @@ function PlaceDetailsSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.root}>
-        <Pressable style={s.backdrop} onPress={onClose} />
-        <View style={[s.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <View style={s.handle} />
-          {place ? (
-            <>
-              <Text style={s.title} numberOfLines={3}>
-                {place.name}
-              </Text>
-              {place.note ? (
-                <Text style={s.note} numberOfLines={5}>
-                  {place.note}
-                </Text>
-              ) : null}
-              <View style={s.metaRow}>
-                {place.price ? <Text style={s.price}>{place.price}</Text> : null}
-                {place.address ? (
-                  <Text style={s.address} numberOfLines={3}>
-                    {place.address}
-                  </Text>
-                ) : null}
-              </View>
-              <Pressable style={s.openBtn} onPress={openInMaps}>
-                <Icon name="map-outline" size={20} color={theme.onPrimary} />
-                <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
-              </Pressable>
-            </>
+    <AppSheet
+      visible={visible}
+      onClose={onClose}
+      minBottomPadding={16}
+      contentContainerStyle={s.sheet}
+    >
+      {place ? (
+        <>
+          <Text style={s.title} numberOfLines={3}>
+            {place.name}
+          </Text>
+          {place.note ? (
+            <Text style={s.note} numberOfLines={5}>
+              {place.note}
+            </Text>
           ) : null}
-        </View>
-      </View>
-    </Modal>
+          <View style={s.metaRow}>
+            {place.price ? <Text style={s.price}>{place.price}</Text> : null}
+            {place.address ? (
+              <Text style={s.address} numberOfLines={3}>
+                {place.address}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable style={s.openBtn} onPress={openInMaps}>
+            <Icon name="map-outline" size={20} color={theme.onPrimary} />
+            <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
+          </Pressable>
+        </>
+      ) : null}
+    </AppSheet>
   );
 }
 
@@ -177,29 +175,9 @@ function makeStyles(t: Theme) {
 
 function makeSheetStyles(t: Theme) {
   return StyleSheet.create({
-    root: {
-      flex: 1,
-      justifyContent: "flex-end",
-    },
-    backdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: t.scrim,
-    },
-    panel: {
-      backgroundColor: t.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingTop: 8,
+    sheet: {
       paddingHorizontal: 20,
       gap: 10,
-    },
-    handle: {
-      alignSelf: "center",
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: t.border,
-      marginBottom: 6,
     },
     title: {
       fontSize: 18,

@@ -1,17 +1,25 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo, useRef } from "react";
 import {
+  AccessibilityInfo,
   Dimensions,
+  findNodeHandle,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
+  type AccessibilityRole,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
+import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
+import { useReduceMotion } from "@/lib/reduceMotion";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -29,7 +37,10 @@ type Props = {
   keyboardAvoiding?: boolean;
   /** Render the grabber handle at the top of a bottom sheet. */
   withHandle?: boolean;
-  /** Allow tapping the scrim to dismiss. Defaults to true. */
+  /**
+   * Scrim tap, hardware back, and pan-down all honor this. Defaults to true.
+   * Pass false for a blocking sheet — onRequestClose is still wired.
+   */
   backdropDismiss?: boolean;
   /** Extra bottom padding on top of the safe-area inset (e.g. 12 for action sheets). */
   minBottomPadding?: number;
@@ -56,21 +67,41 @@ export function AppSheet({
   contentContainerStyle,
   children,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const keyboardHeight = useKeyboardHeight(keyboardAvoiding && visible);
+  const reduceMotion = useReduceMotion();
+  const dialogRef = useRef<View>(null);
+  const dismissible = backdropDismiss;
+  const { pan, panStyle } = useSheetPanDismiss(
+    dismissible && variant === "bottom",
+    reduceMotion,
+    onClose,
+  );
 
   const resolvedAnimation = animation ?? (variant === "center" ? "fade" : "slide");
   const showHandle = withHandle ?? variant === "bottom";
   const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
   const windowHeight = Dimensions.get("window").height;
-  // Leave a little air under the status area so a tall reminder sheet can scroll
-  // instead of shoving the text field under the notch / off the top.
   const panelMaxHeight =
     keyboardAvoiding && variant === "bottom"
       ? Math.max(200, windowHeight - keyboardHeight - Math.max(insets.top, 12))
       : undefined;
+
+  const requestClose = () => {
+    if (dismissible) onClose();
+  };
+
+  useEffect(() => {
+    if (!visible) return;
+    const frame = requestAnimationFrame(() => {
+      const tag = findNodeHandle(dialogRef.current);
+      if (tag != null) AccessibilityInfo.setAccessibilityFocus(tag);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [visible]);
 
   const body = keyboardAvoiding ? (
     <ScrollView
@@ -85,8 +116,15 @@ export function AppSheet({
     children
   );
 
-  const content = (
+  const handle = showHandle ? <View style={s.handle} testID="app-sheet-handle" /> : null;
+
+  const panel = (
     <View
+      ref={dialogRef}
+      accessibilityRole={"dialog" as AccessibilityRole}
+      accessibilityViewIsModal
+      testID="app-sheet-dialog"
+      collapsable={false}
       style={[
         s.panel,
         variant === "bottom" && s.panelBottom,
@@ -95,24 +133,28 @@ export function AppSheet({
           (floating
             ? {
                 marginHorizontal: 16,
-                marginBottom: keyboardOpen
-                  ? 12
-                  : Math.max(insets.bottom, 8) + 12,
+                marginBottom: keyboardOpen ? 12 : Math.max(insets.bottom, 8) + 12,
                 paddingBottom: Math.max(minBottomPadding, 12),
                 borderRadius: 20,
               }
             : {
-                // Home indicator is covered while the keyboard is up — drop safe-area pad.
                 paddingBottom: keyboardOpen
                   ? Math.max(minBottomPadding, 8)
                   : Math.max(insets.bottom, minBottomPadding),
               }),
         contentContainerStyle,
-        // After style overrides so tall sheets (reminder + date) still clamp.
         panelMaxHeight != null && { maxHeight: panelMaxHeight },
       ]}
     >
-      {showHandle ? <View style={s.handle} testID="app-sheet-handle" /> : null}
+      {dismissible && variant === "bottom" ? (
+        <GestureDetector gesture={pan}>
+          <Animated.View style={s.handleHit}>
+            {handle ?? <View style={s.handleHitFill} />}
+          </Animated.View>
+        </GestureDetector>
+      ) : (
+        handle
+      )}
       {body}
     </View>
   );
@@ -122,31 +164,40 @@ export function AppSheet({
       visible={visible}
       transparent
       animationType={resolvedAnimation}
-      onRequestClose={backdropDismiss ? onClose : undefined}
+      onRequestClose={requestClose}
+      testID="app-sheet-modal"
     >
-      <View
-        style={[
-          s.overlay,
-          variant === "center" && s.overlayCenter,
-          keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
-        ]}
-        testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
-      >
-        <Pressable
-          style={s.backdrop}
-          onPress={backdropDismiss ? onClose : undefined}
-          accessibilityLabel={backdropDismiss ? "Close sheet" : undefined}
-          accessibilityRole={backdropDismiss ? "button" : undefined}
-          testID="app-sheet-backdrop"
-        />
-        {content}
-      </View>
+      <GestureHandlerRootView style={s.flex}>
+        <View
+          style={[
+            s.overlay,
+            variant === "center" && s.overlayCenter,
+            keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
+          ]}
+          testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
+        >
+          <Pressable
+            style={s.backdrop}
+            onPress={dismissible ? requestClose : undefined}
+            accessibilityLabel={dismissible ? t("common.close") : undefined}
+            accessibilityRole={dismissible ? "button" : undefined}
+            accessible={dismissible}
+            testID="app-sheet-backdrop"
+          />
+          {dismissible && variant === "bottom" ? (
+            <Animated.View style={panStyle}>{panel}</Animated.View>
+          ) : (
+            panel
+          )}
+        </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
+    flex: { flex: 1 },
     overlay: {
       flex: 1,
       justifyContent: "flex-end",
@@ -173,6 +224,14 @@ function makeStyles(t: Theme) {
       borderRadius: 20,
       width: "100%",
       maxWidth: 420,
+    },
+    handleHit: {
+      minHeight: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    handleHitFill: {
+      height: 24,
     },
     handle: {
       alignSelf: "center",
