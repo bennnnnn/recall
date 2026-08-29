@@ -56,6 +56,9 @@ def _item(project_id, **kw):
     item.content = kw.get("content", "hola")
     item.definition = kw.get("definition", "hello")
     item.example_sentence = None
+    item.ipa = None
+    item.part_of_speech = None
+    item.simple_gloss = None
     item.note = None
     item.status = kw.get("status", "new")
     item.mastered = kw.get("mastered", False)

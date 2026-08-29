@@ -22,6 +22,9 @@ class CatalogWord:
     content: str
     definition: str
     example_sentence: str | None = None
+    ipa: str | None = None
+    part_of_speech: str | None = None
+    simple_gloss: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,8 +46,23 @@ def word_id(deck: CatalogDeck, word: CatalogWord) -> UUID:
     return uuid5(CATALOG_NS, f"word:{deck.language}:{deck.slug}:{word.content.casefold()}")
 
 
-def _w(content: str, definition: str, example: str | None = None) -> CatalogWord:
-    return CatalogWord(content=content, definition=definition, example_sentence=example)
+def _w(
+    content: str,
+    definition: str,
+    example: str | None = None,
+    *,
+    ipa: str | None = None,
+    pos: str | None = None,
+    simple: str | None = None,
+) -> CatalogWord:
+    return CatalogWord(
+        content=content,
+        definition=definition,
+        example_sentence=example,
+        ipa=ipa,
+        part_of_speech=pos,
+        simple_gloss=simple,
+    )
 
 
 def _deck(
@@ -106,13 +124,23 @@ def decks_for_language(
 
 
 def path_decks_for_language(language: str) -> list[CatalogDeck]:
-    """Decks that belong on the lesson map — full tree, SAT included for English."""
+    """Decks that belong on the lesson map.
+
+    English uses the conversation-grouped path (not Hotel/SAT). Spanish keeps
+    the existing domain tree. Unknown codes fall back to the English path.
+    Class level does not hide later groups.
+    """
     lang = (language or "en").strip().lower()
-    return decks_for_language(lang, include_sat=lang == "en")
+    if lang == "es":
+        return decks_for_language("es", include_sat=False)
+    from app.content.vocab_banks_en import english_path_decks
+
+    return sorted(english_path_decks(), key=lambda deck: deck.sort_order)
 
 
 def catalog_path_titles(language: str, *, include_sat: bool = False) -> list[str]:
-    return [deck.title for deck in decks_for_language(language, include_sat=include_sat)]
+    del include_sat
+    return [deck.title for deck in path_decks_for_language(language)]
 
 
 def catalog_domain_by_title(language: str, *, include_sat: bool = False) -> dict[str, str]:
@@ -123,9 +151,14 @@ def catalog_domain_by_title(language: str, *, include_sat: bool = False) -> dict
 
 
 def catalog_domains(language: str, *, include_sat: bool = False) -> list[str]:
+    decks = (
+        decks_for_language(language, include_sat=True)
+        if include_sat
+        else path_decks_for_language(language)
+    )
     seen: set[str] = set()
     out: list[str] = []
-    for deck in decks_for_language(language, include_sat=include_sat):
+    for deck in decks:
         key = deck.domain.casefold()
         if key in seen:
             continue
@@ -135,7 +168,12 @@ def catalog_domains(language: str, *, include_sat: bool = False) -> list[str]:
 
 
 def catalog_word_count(language: str, *, include_sat: bool = False) -> int:
-    return sum(len(deck.words) for deck in decks_for_language(language, include_sat=include_sat))
+    decks = (
+        decks_for_language(language, include_sat=True)
+        if include_sat
+        else path_decks_for_language(language)
+    )
+    return sum(len(deck.words) for deck in decks)
 
 
 def catalog_rows() -> list[CatalogDeck]:

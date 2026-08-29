@@ -518,8 +518,11 @@ were removed. Programming help lives in main chat.
   mastered-word review queue.
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
-  (`vocab_decks` / `vocab_entries`: domain → branch tree — Family, Food, Hotel, …
-  plus SAT banks for English). **Every class sees the full tree** — class level
+  (`vocab_decks` / `vocab_entries`: domain → branch tree). English classes use
+  conversation-grouped chapters (Hello, Feelings, Everyday actions, …). Spanish
+  keeps the Greetings / Family / Food / … tree. Older English Hotel/SAT rows stay
+  in the catalog tables for existing `catalog_entry_id` links but are **not** on
+  the English lesson map. **Every class sees its full path** — class level
   does not hide later groups. Create opens the **lesson map** (not a tutor chat that
   invents words). Main chat gets a progress overview (class, daily
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
