@@ -1,13 +1,11 @@
 import type { HomeProjectHighlight, Project, ProjectDetail, ProjectStats } from "@/lib/api";
-import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
 import { learningProjectTitle } from "@/lib/projects/projectUi";
-import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
+import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 
-const LESSON_FENCE_ONLY =
-  "Reply with ONLY one ```vocab_quiz or ```vocab_card fence. " +
-  "No vocab lists, check-ins, headings, or markdown essays.";
+const LESSON_HANDOFF =
+  "Do not quiz in this chat. If I want to practice, tell me to open the lesson.";
 
 const EMPTY_STATS: ProjectStats = {
   total: 0,
@@ -119,18 +117,8 @@ export function buildProjectReviewPrompt(project: ProjectDetail): string {
 
 /** Home highlight card → in-chat daily session. */
 export function buildHomeDailyQuizChatPrompt(highlight: HomeProjectHighlight): string {
-  const { title, kind, cue } = highlight;
-  if (cue === "start") {
-    return (
-      `Start today's "${title}" vocabulary session. ` +
-      "One word at a time — mix teach→use (definition only, then I write a sentence — no example first), " +
-      "use→define (show a sentence, ask what it means), and occasional A–D multiple choice. Begin now."
-    );
-  }
-  return (
-    `Continue my "${title}" vocabulary session. ` +
-    "Next word: use a learning format (teach→use, use→define, or occasional MCQ) — vary it."
-  );
+  const { title } = highlight;
+  return `Continue my "${title}" class. ${LESSON_HANDOFF}`;
 }
 
 /** General project chat opener. */
@@ -149,13 +137,12 @@ export function buildProjectAskPrompt(
         `${progressLine(project)}\n\n` +
         "Tell me clearly that today's goal is complete — congratulate me. " +
         "Do NOT add or sync new words unless I explicitly ask for a bonus batch beyond today's goal. " +
-        "Offer to quiz words I already know for review, or invite me back tomorrow."
+        "Invite me to open the lesson tomorrow, or for bonus practice in the lesson — do not quiz here."
       );
     }
     return (
       `Continue my ${screenTitle} session.\n` +
-      `Level: ${lvl}. ${todayProgressClause(project)} — continue with the next word using a ` +
-      `learning format (teach→use, use→define, or occasional MCQ). ${LESSON_FENCE_ONLY}`
+      `Level: ${lvl}. ${todayProgressClause(project)}. ${LESSON_HANDOFF}`
     );
   }
 
@@ -179,8 +166,7 @@ export function buildChapterLessonPrompt(
   return (
     `Continue my ${name} lesson in the "${chapter}" chapter.\n` +
     `Level: ${lvl}. ${todayProgressClause(project)}\n` +
-    `Teach and quiz only this chapter. Add any new words to "${chapter}". ` +
-    `Use teach→use, use→define, or occasional MCQ — one word at a time. ${LESSON_FENCE_ONLY}`
+    `Teach only this chapter. Add any new words to "${chapter}". ${LESSON_HANDOFF}`
   );
 }
 
@@ -196,15 +182,10 @@ export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   );
 }
 
-/** Chat tutor mode — conversational teaching (vocab_card / mixed formats). */
+/** Chat tutor mode — progress Q&A; study stays in the lesson screen. */
 export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
   if (isLanguageProject(project.kind)) {
-    return (
-      `We're in **chat tutor mode** — teach one word at a time with definition only on the card ` +
-      `(no example sentence until after I try). Use the vocab_card format. ` +
-      `No multiple choice unless I ask to be quizzed.\n\n` +
-      buildProjectAskPrompt(project)
-    );
+    return `${LESSON_HANDOFF}\n\n${buildProjectAskPrompt(project)}`;
   }
   return buildProjectAskPrompt(project);
 }
@@ -226,19 +207,10 @@ export function buildProjectQuizPrompt(project: ProjectDetail): string {
   }
 
   return (
-    `Start an interactive vocabulary session for my "${project.title}" ${name} project.\n` +
+    `Start today's vocabulary session for my "${project.title}" ${name} project.\n` +
     `My ${name} level: ${lvl}.${goal}\n` +
     `${progressLine(project)}\n\n` +
-    "One word at a time from my new and learning words, matched to my level.\n" +
-    "Mix learning formats: teach→use (```vocab_card``` with word+definition only — " +
-    "no example_sentence — then ask for a sentence), " +
-    "use→define (example sentence then open definition), and occasional A–D ```vocab_quiz```.\n\n" +
-    "When you use MCQ, use this format:\n\n" +
-    `${VOCAB_QUIZ_FORMAT_BLOCK}\n\n` +
-    "Wait for my answer before you explain. " +
-    "If I'm right, congratulate me and mark the word mastered. " +
-    "If wrong, hint and let me try again. " +
-    "Begin with the first word now — prefer teach→use or use→define over MCQ."
+    LESSON_HANDOFF
   );
 }
 

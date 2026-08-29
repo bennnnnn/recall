@@ -69,7 +69,6 @@ function ChatScreen() {
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
   const {
-    quizLanguage,
     setQuizLanguage,
     setQuizVariant,
     resolveQuizVariant,
@@ -466,7 +465,6 @@ function ChatScreen() {
     streaming,
     finalizing,
     selectedModel,
-    quizLanguage,
     highlightedMessageId,
     sendingMessageId,
     setMenuVisible,

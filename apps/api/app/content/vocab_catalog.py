@@ -7,7 +7,7 @@ English and Spanish only for now.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from typing import Literal
 from uuid import UUID, uuid5
@@ -123,6 +123,27 @@ def merge_decks_by_domain(decks: list[CatalogDeck]) -> list[CatalogDeck]:
             )
         )
     return merged
+
+
+def dedupe_words_across_decks(decks: list[CatalogDeck]) -> list[CatalogDeck]:
+    """First occurrence wins. Combining several curated sources into one path
+    (e.g. practical topic decks + conversation-grouped decks) can repeat a
+    lemma across chapters (`already` as both a time word and a discourse
+    marker). Keeps deck order and each deck's own word order; only drops a
+    later duplicate of a lemma already taught earlier in the sequence.
+    """
+    seen: set[str] = set()
+    out: list[CatalogDeck] = []
+    for deck in decks:
+        words: list[CatalogWord] = []
+        for word in deck.words:
+            key = word.content.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            words.append(word)
+        out.append(replace(deck, words=tuple(words)))
+    return out
 
 
 @lru_cache(maxsize=1)

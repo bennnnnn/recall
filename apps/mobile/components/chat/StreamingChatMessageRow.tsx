@@ -14,9 +14,7 @@ type Props = {
   /** When true, show the image-generation status label instead of chat stream draft. */
   imageGenPending?: boolean;
   lastAssistantId: string | null;
-  activeQuizMessageId?: string | null;
   selectedModel: string;
-  quizLanguage: string;
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
   onRegenerate: (model: string) => void;
@@ -34,9 +32,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   streamVisualActive,
   imageGenPending = false,
   lastAssistantId,
-  activeQuizMessageId,
   selectedModel,
-  quizLanguage,
   highlightedMessageId,
   sendingMessageId,
   onRegenerate,
@@ -58,7 +54,6 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
     streamVisualActive,
   );
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
-  const isActiveQuiz = item.role === "assistant" && item.id === activeQuizMessageId;
 
   return (
     <MessageBubble
@@ -78,11 +73,10 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       onEdit={onEdit}
       canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
       onFeedback={onFeedback}
-      quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
       lessonProjectId={lessonProjectId}
-      onOpenLesson={isLastAssistant || isActiveQuiz ? onOpenLesson : undefined}
+      onOpenLesson={isLastAssistant ? onOpenLesson : undefined}
     />
   );
 });

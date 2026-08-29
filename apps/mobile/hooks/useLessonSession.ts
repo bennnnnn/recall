@@ -5,24 +5,26 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
-import { api, type ProjectItem } from "@/lib/api";
+import { api } from "@/lib/api";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
+import type { QuizChoice } from "@/lib/parseVocabQuiz";
+import {
+  buildChapterDrills,
+  isLastStepForWord,
+  type DrillStep,
+} from "@/lib/projects/chapterDrill";
 import {
   chapterIsComplete,
   chapterItems,
   chapterQueue,
-  itemToCard,
-  overlayItemOutcomes,
+  groupLessonProgress,
+  overlayMasteredItems,
   resolveLessonChapter,
-  type LessonVocabCard,
 } from "@/lib/projects/chapterLesson";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 
-export type LessonStep = {
-  itemId: string;
-  card: LessonVocabCard;
-};
+export type { DrillStep };
 
 export function useLessonSession(projectId: string) {
   const token = useAuthToken();
@@ -41,13 +43,21 @@ export function useLessonSession(projectId: string) {
   const [chapter, setChapter] = useState<string | null>(
     requestedRef.current || null,
   );
-  const [queue, setQueue] = useState<ProjectItem[]>([]);
+  const [drills, setDrills] = useState<DrillStep[]>([]);
   const [index, setIndex] = useState(0);
-  const [outcomes, setOutcomes] = useState<Record<string, boolean>>({});
+  const [masteredIds, setMasteredIds] = useState<Record<string, true>>({});
+  const [quizSolved, setQuizSolved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
   const [reviewing, setReviewing] = useState(false);
+
+  const labels = useMemo(
+    () => ({
+      useQuestion: (sentence: string) => t("lesson.quiz_use", { sentence }),
+      meaningQuestion: (sentence: string) => t("lesson.quiz_meaning", { sentence }),
+    }),
+    [t],
+  );
 
   useEffect(() => {
     if (!project) return;
@@ -60,31 +70,31 @@ export function useLessonSession(projectId: string) {
       chapterWords,
       isReview ? undefined : resolveDailyGoal(project.daily_goal),
     );
-    if (!seededRef.current || (queue.length === 0 && items.length > 0)) {
-      setQueue(items);
+    if (!seededRef.current || (drills.length === 0 && items.length > 0)) {
+      setDrills(buildChapterDrills(items, chapterWords, labels));
       setIndex(0);
+      setQuizSolved(false);
       setReviewing(isReview);
       seededRef.current = true;
     }
-  }, [project, queue.length]);
+  }, [drills.length, labels, project]);
 
   const overlayItems = useMemo(() => {
     if (!project || !chapter) return [];
-    return overlayItemOutcomes(chapterItems(project, chapter), outcomes);
-  }, [chapter, outcomes, project]);
+    return overlayMasteredItems(chapterItems(project, chapter), masteredIds);
+  }, [chapter, masteredIds, project]);
 
-  const current = queue[index] ?? null;
-  const step: LessonStep | null = current
-    ? { itemId: current.id, card: itemToCard(current) }
-    : null;
-  const total = queue.length;
-  const currentNumber = total === 0 ? 0 : Math.min(index + 1, total);
-  const progressFill = total === 0 ? 0 : index >= total ? 1 : index / total;
-  const empty = Boolean(project && seededRef.current && queue.length === 0);
-  const queueDone = Boolean(seededRef.current && queue.length > 0 && index >= queue.length);
+  const step = drills[index] ?? null;
+  const words = groupLessonProgress(overlayItems, step?.itemId ?? null);
+  const currentNumber = words.current;
+  const total = words.total;
+  const progressFill = words.fill;
+  const empty = Boolean(project && seededRef.current && drills.length === 0);
+  const queueDone = Boolean(seededRef.current && drills.length > 0 && index >= drills.length);
   const chapterDone = chapterIsComplete(overlayItems);
   const complete = queueDone && chapterDone;
   const sessionEndedEarly = queueDone && !chapterDone;
+  const canAdvance = step?.kind === "teach" || (step != null && quizSolved);
 
   const refreshLearning = useCallback(() => {
     invalidateProjectDetail(projectId);
@@ -93,38 +103,56 @@ export function useLessonSession(projectId: string) {
     void refreshHome({ silent: true, force: true });
   }, [load, projectId, refreshHome, refreshProjects]);
 
-  const rateWord = useCallback(
-    async (known: boolean) => {
-      if (!token || !current || advancingRef.current) return;
-      advancingRef.current = true;
+  const finishWord = useCallback(
+    async (itemId: string): Promise<boolean> => {
+      if (!token || !project || !chapter) return false;
+      const item = chapterItems(project, chapter).find((row) => row.id === itemId);
+      if (item?.status === "mastered" || item?.mastered) return true;
       setSaving(true);
       setError(null);
-      const itemId = current.id;
-      const failed = !known;
-      const previousIndex = index;
-      setOutcomes((prev) => ({ ...prev, [itemId]: failed }));
-      setIndex(previousIndex + 1);
+      setMasteredIds((prev) => ({ ...prev, [itemId]: true }));
       try {
-        await api.updateProjectItem(token, projectId, itemId, {
-          status: failed ? "learning" : "mastered",
-          ...(failed ? { was_correct: false } : {}),
-        });
+        await api.updateProjectItem(token, projectId, itemId, { status: "mastered" });
         refreshLearning();
+        return true;
       } catch {
-        setOutcomes((prev) => {
+        setMasteredIds((prev) => {
           const next = { ...prev };
           delete next[itemId];
           return next;
         });
-        setIndex(previousIndex);
         setError(t("lesson.save_failed"));
+        return false;
       } finally {
         setSaving(false);
-        advancingRef.current = false;
       }
     },
-    [current, index, projectId, refreshLearning, t, token],
+    [chapter, project, projectId, refreshLearning, t, token],
   );
+
+  const continueLesson = useCallback(() => {
+    if (!step || advancingRef.current) return;
+    if (step.kind !== "teach" && !quizSolved) return;
+    advancingRef.current = true;
+    const itemId = step.itemId;
+    const shouldSave = isLastStepForWord(drills, index);
+    void (async () => {
+      if (shouldSave) {
+        const saved = await finishWord(itemId);
+        if (!saved) {
+          advancingRef.current = false;
+          return;
+        }
+      }
+      setQuizSolved(false);
+      setIndex((value) => value + 1);
+      advancingRef.current = false;
+    })();
+  }, [drills, finishWord, index, quizSolved, step]);
+
+  const submitLetter = useCallback((_letter: QuizChoice["letter"]) => {
+    setQuizSolved(true);
+  }, []);
 
   return {
     project,
@@ -140,7 +168,8 @@ export function useLessonSession(projectId: string) {
     progressFill,
     busy: projectLoading && !project,
     saving,
-    rateKnown: () => void rateWord(true),
-    rateNotYet: () => void rateWord(false),
+    canAdvance,
+    submitLetter,
+    continueLesson,
   };
 }

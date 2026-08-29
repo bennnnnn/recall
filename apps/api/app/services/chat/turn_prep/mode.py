@@ -157,68 +157,20 @@ async def _classify_turn_mode(
     chat: Chat,
     content: str,
 ) -> _TurnMode:
-    """Classify quiz/vocab/lightweight/rich-context/day-planning modes for a turn.
+    """Classify lightweight/rich-context/day-planning modes for a turn.
 
-    Fetches the last quiz assistant once (same session) instead of the prior
-    double lookup via ``_should_minimal_quiz_context`` + vocab-turn block.
-    Ordinary chats with no Learning project skip that lookback entirely.
+    Study checks live on the lesson screen. Chat never grades A-D or continues
+    an in-chat vocab quiz, so this skips the assistant quiz lookback even when
+    a Learning project is linked.
     """
-    from app.services import vocab_quiz as vocab_quiz_service
-
+    _ = (session, chat)
     minimal_personal = is_broad_self_question(content)
-    minimal_quiz = False
-    minimal_vocab_answer = False
-    active_vocab_turn = False
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
-
-    from app.services.chat.quiz_messages import get_last_quiz_assistant
-
-    # Quiz/vocab state only exists on a Learning project. Skip the assistant
-    # lookback on ordinary chats so every turn does not pay that query.
-    quiz_assistant = None
-    parsed_quiz = None
-    quiz_choices: tuple[tuple[str, str], ...] | None = None
-    if chat.project_id is not None:
-        quiz_assistant = await get_last_quiz_assistant(session, chat.id)
-        if quiz_assistant is not None:
-            parsed_quiz = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content)
-            quiz_choices = parsed_quiz.choices if parsed_quiz is not None else None
-
-    # Gate minimal_quiz on a linked project — without a project the answer
-    # cannot be graded, so quiz prompt context would mislead the model.
-    if chat.project_id is not None and quiz_assistant is not None:
-        minimal_quiz = vocab_quiz_service.is_vocab_quiz_answer(content, choices=quiz_choices)
-
-    if getattr(chat, "quiz_mode", None) == "exam":
-        minimal_quiz = False
-
-    if chat.project_id is not None and quiz_assistant is not None:
-        has_fence = parsed_quiz is not None
-        if has_fence or projects_service.looks_like_vocab_question(quiz_assistant.content):
-            active_vocab_turn = True
-            has_letter = (
-                vocab_quiz_service.quiz_answer_letter(content, choices=quiz_choices) is not None
-            )
-            if has_letter and has_fence:
-                minimal_quiz = True
-            elif has_letter and not has_fence:
-                # Letter on an open-ended prompt: no choices to grade against,
-                # so QUIZ_ANSWER_HINT (which assumes a fence with choices) would
-                # mislead the model. Use the vocab-answer path —
-                # VOCAB_CHAT_ANSWER_HINT explicitly treats "random single
-                # letters" as wrong. (Line 150 already set minimal_quiz=True
-                # from is_vocab_quiz_answer; reset it here.)
-                minimal_quiz = False
-                minimal_vocab_answer = True
-            else:
-                # No letter → open-ended answer (sentence/definition).
-                minimal_vocab_answer = True
-
-    lightweight = is_lightweight_chat_turn(content, active_vocab_turn=active_vocab_turn)
+    lightweight = is_lightweight_chat_turn(content, active_vocab_turn=False)
     rich_context = _turn_needs_rich_context(
         content,
-        active_vocab_turn=active_vocab_turn,
+        active_vocab_turn=False,
         day_planning=day_planning,
         day_reflection=day_reflection,
     )
@@ -226,12 +178,12 @@ async def _classify_turn_mode(
         lightweight=lightweight,
         rich_context=rich_context,
         minimal_personal=minimal_personal,
-        minimal_quiz=minimal_quiz,
-        minimal_vocab_answer=minimal_vocab_answer,
-        active_vocab_turn=active_vocab_turn,
+        minimal_quiz=False,
+        minimal_vocab_answer=False,
+        active_vocab_turn=False,
         day_planning=day_planning,
         day_reflection=day_reflection,
-        quiz_assistant=quiz_assistant,
+        quiz_assistant=None,
     )
 
 

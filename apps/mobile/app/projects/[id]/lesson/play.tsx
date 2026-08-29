@@ -9,9 +9,11 @@ import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { VocabCard } from "@/components/VocabCard";
 import { LessonCompleteCard } from "@/components/projects/LessonCompleteCard";
+import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLessonSession } from "@/hooks/useLessonSession";
 import { isLanguageProject } from "@/lib/languageLevels";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -36,14 +38,16 @@ export default function LearningLessonPlayScreen() {
     total,
     progressFill,
     saving,
-    rateKnown,
-    rateNotYet,
+    canAdvance,
+    submitLetter,
+    continueLesson,
   } = useLessonSession(projectId);
 
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
 
   const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
+  const quizStep = step && (step.kind === "use" || step.kind === "meaning") ? step : null;
 
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
@@ -60,7 +64,7 @@ export default function LearningLessonPlayScreen() {
           <View style={[s.progressFill, { width: `${Math.round(progressFill * 100)}%` }]} />
         </View>
         <Text style={s.progressLabel}>
-          {t(reviewing ? "lesson.review_of" : "lesson.word_of", {
+          {t(reviewing ? "lesson.review_of" : "lesson.step_of", {
             current: currentNumber,
             total: Math.max(total, 1),
           })}
@@ -68,7 +72,11 @@ export default function LearningLessonPlayScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[s.body, step ? s.bodyCard : null]}
+        contentContainerStyle={[
+          s.body,
+          step?.kind === "teach" ? s.bodyCard : null,
+          quizStep ? s.bodyQuiz : null,
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
@@ -79,31 +87,34 @@ export default function LearningLessonPlayScreen() {
             <Button title={t("common.done")} onPress={() => router.back()} />
           </View>
         ) : null}
-        {step ? <VocabCard card={step.card} language={language} /> : null}
+        {step?.kind === "teach" ? (
+          <VocabCard card={step.card} language={language} />
+        ) : null}
+        {quizStep ? <Text style={s.question}>{quizStep.question}</Text> : null}
+        {quizStep ? (
+          <LessonQuizCards
+            choices={quizStep.quiz.choices}
+            correctLetter={quizStep.quiz.correct}
+            disabled={saving}
+            resetToken={`${quizStep.itemId}:${quizStep.kind}`}
+            onSelect={submitLetter}
+          />
+        ) : null}
         {!step && !empty && !complete && !sessionEndedEarly ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
       </ScrollView>
 
-      {step ? (
+      {step && canAdvance ? (
         <View style={s.footer}>
           {error ? <Text style={s.error}>{error}</Text> : null}
-          <View style={s.actions}>
-            <Button
-              title={t(reviewing ? "lesson.forgot" : "lesson.not_yet")}
-              variant="outline"
-              onPress={rateNotYet}
-              disabled={saving}
-              style={s.actionBtn}
-            />
-            <Button
-              title={t(reviewing ? "lesson.still_know" : "lesson.i_know_this")}
-              onPress={rateKnown}
-              loading={saving}
-              disabled={saving}
-              style={s.actionBtn}
-            />
-          </View>
+          <Button
+            title={t("lesson.continue")}
+            onPress={continueLesson}
+            loading={saving}
+            disabled={saving}
+            style={s.nextBtn}
+          />
         </View>
       ) : null}
     </SafeAreaView>
@@ -117,13 +128,14 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.sm,
+      paddingBottom: Space.md,
     },
     progressTrack: {
       flex: 1,
-      height: 8,
-      borderRadius: 4,
+      height: 5,
+      borderRadius: Radius.full,
       backgroundColor: theme.border,
       overflow: "hidden",
     },
@@ -137,13 +149,24 @@ function makeStyles(theme: Theme) {
     },
     body: {
       paddingHorizontal: Space.lg,
-      paddingTop: Space.md,
+      paddingTop: Space.xl,
       paddingBottom: Space.xl,
       gap: Space.md,
       flexGrow: 1,
     },
     bodyCard: {
       flexGrow: 1,
+    },
+    bodyQuiz: {
+      flexGrow: 1,
+      justifyContent: "center",
+      gap: Space.xl,
+    },
+    question: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: theme.text,
+      lineHeight: 28,
     },
     status: {
       ...Type.body,
@@ -160,20 +183,18 @@ function makeStyles(theme: Theme) {
     },
     footer: {
       paddingHorizontal: Space.lg,
-      paddingBottom: Space.md,
+      paddingTop: Space.lg,
+      paddingBottom: Space.lg,
       gap: Space.sm,
+    },
+    nextBtn: {
+      minHeight: 52,
+      borderRadius: 18,
     },
     error: {
       ...Type.secondary,
       color: theme.danger,
       textAlign: "center",
-    },
-    actions: {
-      flexDirection: "row",
-      gap: Space.sm,
-    },
-    actionBtn: {
-      flex: 1,
     },
   });
 }

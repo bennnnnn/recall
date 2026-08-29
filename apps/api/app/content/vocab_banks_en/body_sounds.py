@@ -27,12 +27,12 @@ def body_sounds_decks() -> list[CatalogDeck]:
                     simple="release gas through your mouth",
                 ),
                 _w(
-                    "fart",
-                    "release gas from your butt",
-                    "The dog farted.",
-                    ipa="fɑrt",
+                    "wheeze",
+                    "breathe with a rough, whistling sound",
+                    "He wheezed after climbing the stairs.",
+                    ipa="wiz",
                     pos="verb",
-                    simple="release gas from your butt",
+                    simple="breathe with a whistling sound",
                 ),
                 _w(
                     "cough",

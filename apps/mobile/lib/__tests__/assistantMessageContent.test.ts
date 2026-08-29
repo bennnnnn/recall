@@ -118,7 +118,7 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.showSearchSources).toBe(false);
   });
 
-  it("shows tap chips for markdown A–D even without a vocab_quiz fence", () => {
+  it("strips markdown A–D quizzes instead of exposing tap chips", () => {
     const result = deriveAssistantMessageContent({
       ...base,
       content: [
@@ -135,14 +135,12 @@ describe("deriveAssistantMessageContent", () => {
       ].join("\n"),
     });
 
-    expect(result.interactiveQuiz).not.toBeNull();
-    expect(result.interactiveQuiz?.word.toLowerCase()).toBe("ephemeral");
-    expect(result.interactiveQuiz?.choices).toHaveLength(4);
+    expect(result.interactiveQuiz).toBeNull();
     expect(result.markdownContent).not.toMatch(/^A\)/m);
-    expect(result.markdownContent).toContain("ephemeral");
+    expect(result.markdownContent).not.toContain("Reply with A");
   });
 
-  it("hides vocab_card example sentence when asking the user to write one", () => {
+  it("strips vocab_card fences instead of rendering a study card in chat", () => {
     const result = deriveAssistantMessageContent({
       ...base,
       content: [
@@ -158,10 +156,10 @@ describe("deriveAssistantMessageContent", () => {
       ].join("\n"),
     });
 
-    expect(result.showVocabCard).toBe(true);
-    expect(result.vocabCard?.word).toBe("effervescent");
-    expect(result.vocabCard?.definition).toBe("bubbly and lively");
-    expect(result.vocabCard?.exampleSentence).toBeUndefined();
+    expect(result.showVocabCard).toBe(false);
+    expect(result.vocabCard).toBeNull();
+    expect(result.markdownContent).toContain("Write your own sentence");
+    expect(result.markdownContent).not.toContain("vocab_card");
   });
 
   it("strips settings_proposal fences and exposes the card payload", () => {

@@ -1098,9 +1098,8 @@ async def test_load_project_for_prompt_chat_mode():
             session, user_id, project_id, Settings(), quiz_mode="chat"
         )
 
-    assert "daily English vocabulary in chat" in block
-    assert "learning formats" in block.lower() or "teach→use" in block
-    assert "vocab_card" in block
+    assert "Do NOT run a quiz in this chat" in block
+    assert "learning_launch" in block
     assert "Presentation mode: chat" in block
     assert "multiple choice only" not in block.lower()
 
@@ -1136,7 +1135,7 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
         )
 
     assert "presentation mode: chat" in block.lower()
-    assert "daily english vocabulary in chat" in block.lower()
+    assert "learning_launch" in block.lower()
     assert "exam (legacy)" not in block.lower()
 
 
@@ -1150,8 +1149,7 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
     stats.due_for_review = 1
 
     prompt = projects_service.build_language_quiz_prompt(project, stats)
-    assert "vocab_quiz" in prompt
-    assert "teach→use" in prompt or "vocab_card" in prompt
+    assert "do not quiz in this chat" in prompt.lower()
     assert "failed recently" in prompt.lower()
     assert "Daily Quiz panel" not in prompt
 
@@ -2223,7 +2221,8 @@ def test_language_tutor_hint_uses_target_language():
     assert "Spanish vocabulary" in hint
     assert "Spanish skill level" in hint
     assert "English skill level" not in hint
-    assert "lesson UI shows only fences" in hint
+    assert "Do NOT run a quiz in this chat" in hint
+    assert "learning_launch" in hint
 
 
 def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
@@ -2236,9 +2235,8 @@ def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
 
 
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():
-    """When the daily goal is already met, the chat tutor prompts must tell the
-    model to acknowledge completion and ask about bonus/raising the goal — not
-    silently serve a new question on a vague 'let's continue'."""
+    """When the daily goal is already met, chat must not quiz — congratulate
+    and hand off to the lesson if they want more practice."""
     from app.services.projects import (
         DAILY_GOAL_COMPLETE_BEHAVIOR,
         LANGUAGE_CHAT_TUTOR_HINT,

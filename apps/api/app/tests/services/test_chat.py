@@ -1538,9 +1538,8 @@ async def test_should_minimal_quiz_context_false_without_prior_quiz():
 
 
 @pytest.mark.asyncio
-async def test_grade_quiz_answer_failure_leaves_rollback_to_grading_service():
-    from datetime import UTC, datetime
-
+async def test_grade_quiz_answer_is_noop_even_for_letter_on_quiz():
+    """Chat no longer grades A-D; mastery is recorded on the lesson screen."""
     from app.services.chat.turn_prep.prepare import _grade_quiz_answer
 
     user = MagicMock()
@@ -1551,32 +1550,9 @@ async def test_grade_quiz_answer_failure_leaves_rollback_to_grading_service():
         '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
         '{"letter":"B","text":"Pyramid"}]}\n```'
     )
-    quiz_msg.created_at = datetime.now(UTC)
-    grade_session = AsyncMock()
+    session_local = MagicMock()
 
-    class SessionCM:
-        async def __aenter__(self):
-            return grade_session
-
-        async def __aexit__(self, *_args: object) -> None:
-            return None
-
-    get_last = AsyncMock(return_value=quiz_msg)
-    with (
-        patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
-        patch(
-            "app.services.chat.quiz_messages.get_last_quiz_assistant",
-            get_last,
-        ),
-        patch(
-            "app.services.chat.quiz_messages.count_quiz_letter_answers_since",
-            AsyncMock(return_value=1),
-        ),
-        patch(
-            "app.services.chat.turn_prep.prepare.projects_service.apply_deterministic_quiz_answer",
-            AsyncMock(side_effect=RuntimeError("neon timeout")),
-        ),
-    ):
+    with patch("app.services.chat.turn_prep.prepare.SessionLocal", session_local):
         is_letter, grade = await _grade_quiz_answer(
             user=user,
             chat_id=uuid4(),
@@ -1585,11 +1561,9 @@ async def test_grade_quiz_answer_failure_leaves_rollback_to_grading_service():
             prior_assistant=quiz_msg,
         )
 
-    assert is_letter is True
+    assert is_letter is False
     assert grade is None
-    get_last.assert_not_awaited()
-    grade_session.rollback.assert_not_awaited()
-    grade_session.commit.assert_not_awaited()
+    session_local.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1642,8 +1616,8 @@ async def test_classify_turn_mode_returns_quiz_assistant_row():
     ):
         mode = await _classify_turn_mode(AsyncMock(), chat, "A")
 
-    assert mode.quiz_assistant is quiz_msg
-    assert mode.minimal_quiz is True
+    assert mode.quiz_assistant is None
+    assert mode.minimal_quiz is False
 
 
 @pytest.mark.asyncio
@@ -1675,9 +1649,10 @@ async def test_classify_turn_mode_open_ended_vocab_answer_flags_active_vocab_tur
             AsyncMock(), chat, "the sunset was ephemeral but beautiful"
         )
 
-    assert mode.active_vocab_turn is True
-    assert mode.minimal_vocab_answer is True
+    assert mode.active_vocab_turn is False
+    assert mode.minimal_vocab_answer is False
     assert mode.minimal_quiz is False
+    assert mode.quiz_assistant is None
 
 
 @pytest.mark.asyncio
@@ -1706,9 +1681,10 @@ async def test_classify_turn_mode_letter_on_open_ended_prompt_uses_vocab_answer_
     ):
         mode = await _classify_turn_mode(AsyncMock(), chat, "A")
 
-    assert mode.active_vocab_turn is True
-    assert mode.minimal_vocab_answer is True
+    assert mode.active_vocab_turn is False
+    assert mode.minimal_vocab_answer is False
     assert mode.minimal_quiz is False
+    assert mode.quiz_assistant is None
 
 
 @pytest.mark.asyncio
@@ -1736,9 +1712,10 @@ async def test_classify_turn_mode_letter_on_mcq_fence_stays_minimal_quiz():
     ):
         mode = await _classify_turn_mode(AsyncMock(), chat, "A")
 
-    assert mode.minimal_quiz is True
+    assert mode.minimal_quiz is False
     assert mode.minimal_vocab_answer is False
-    assert mode.active_vocab_turn is True
+    assert mode.active_vocab_turn is False
+    assert mode.quiz_assistant is None
 
 
 @pytest.mark.asyncio
