@@ -36,7 +36,7 @@ def test_spanish_catalog_is_a_domain_tree():
 
 def test_english_path_is_conversation_grouped():
     titles = catalog_path_titles("en")
-    assert titles[0] == "Hello"
+    assert titles[0] == "Greetings"
     assert titles == catalog_domains("en")
     assert "Feelings" in titles
     assert "Please and thanks" not in titles
@@ -44,21 +44,22 @@ def test_english_path_is_conversation_grouped():
     assert "Hotel services" not in titles
     assert "SAT" not in titles
     assert catalog_domains("en") == [
-        "Hello",
+        "Greetings",
+        "Numbers and time",
         "Feelings",
         "Everyday actions",
         "Communication",
         "Thinking",
         "Describing",
         "Conversation words",
-        "American conversational",
-        "Mouth and body sounds",
-        "Eating and drinking",
         "Face and eyes",
         "Body movement",
         "Hands",
         "Body reactions",
+        "Eating and drinking",
         "Household actions",
+        "Mouth and body sounds",
+        "Casual expressions",
     ]
     sat_decks = decks_for_language("en", include_sat=True)
     assert any(deck.kind == "sat" for deck in sat_decks)
@@ -69,6 +70,36 @@ def test_english_path_is_conversation_grouped():
     assert word_id(sat, entry) != sat.id
     assert "SAT" not in catalog_domains("en")
     assert "Hotel services" in [deck.title for deck in decks_for_language("en")]
+
+
+def test_english_path_casual_register_is_last_and_clean():
+    """`Casual expressions` (formerly `American conversational`) is real,
+    useful register — but it's slang, not core vocabulary, so it belongs
+    after every functional category, not gating them. And the negative-
+    register / crude entries it used to carry ("sucks", "fart") should
+    never come back."""
+    domains = catalog_domains("en")
+    assert domains[-1] == "Casual expressions"
+    assert "American conversational" not in domains
+    all_words = {
+        word.content.casefold() for deck in path_decks_for_language("en") for word in deck.words
+    }
+    assert "sucks" not in all_words
+    assert "fart" not in all_words
+
+
+def test_english_path_practical_topics_have_study_fields_too():
+    """Greetings and Numbers and time were promoted from the legacy,
+    unenriched tree — confirm they actually got the same ipa /
+    part_of_speech / simple_gloss treatment as the rest of the path, not
+    just a title on the map."""
+    for domain in ("Greetings", "Numbers and time"):
+        deck = next(d for d in path_decks_for_language("en") if d.domain == domain)
+        assert len(deck.words) >= 16
+        for word in deck.words:
+            assert word.ipa
+            assert word.part_of_speech
+            assert word.simple_gloss
 
 
 def test_english_path_words_have_study_fields():

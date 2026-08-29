@@ -1,6 +1,6 @@
 from app.content.vocab_catalog import CatalogDeck, _deck, _w
 
-DOMAIN = "American conversational"
+DOMAIN = "Casual expressions"
 
 
 def american_decks() -> list[CatalogDeck]:
@@ -133,12 +133,12 @@ def american_decks() -> list[CatalogDeck]:
                     simple="real / really good",
                 ),
                 _w(
-                    "sucks",
-                    "is unpleasant or bad",
-                    "That sucks.",
-                    ipa="sʌks",
-                    pos="verb",
-                    simple="is bad",
+                    "solid",
+                    "reliable; good",
+                    "That's solid advice.",
+                    ipa="ˈsɑlɪd",
+                    pos="adjective",
+                    simple="good / reliable",
                 ),
                 _w(
                     "whatever",
