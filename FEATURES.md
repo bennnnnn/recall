@@ -493,18 +493,21 @@ were removed. Programming help lives in main chat.
   status (new / learning / mastered), SM-2 fields.
 - ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
   lives in Settings/Learning, not the main lesson flow.
-- ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
-  interaction runs in a dedicated lesson window: one word card with the
-  definition and 1–2 example sentences. **Not yet** / **I know this** for new
-  words; a completed group reopens as **Need practice** / **Still know this**.
-  “Not yet” keeps `status=learning` and those words return first next
-  sitting; “I know this” marks `mastered`. The next group stays locked until every
-  word in the current chapter is mastered. Hidden project-scoped chats still emit
-  `vocab_quiz` / `vocab_card` for generation and SM-2 grading
-  (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
-  Chat tutor prompts still use a gapped-sentence format and must not invent words.
-- ❌ **Tap-to-answer MCQ / typed answers as the lesson product** — not the shipped study
-  UX. Lesson play is self-rate cards; do not treat chat fences as the product path.
+- ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
+  `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
+  (word, IPA, POS, meaning, example), then the existing A–D **lesson choice cards**
+  (gapped sentence, then meaning in that sentence). Continue is enabled after a correct
+  tap; that last check marks the word `mastered` (already-mastered review pages without a
+  PATCH). No per-word illustration. The next group stays locked until every word in the
+  current chapter is mastered. Chat must not render A–D quiz chips, `vocab_card` study
+  cards, or grade letter answers. Regular chat must not quiz in-bubble. Chat tutor prompts
+  must not invent words.
+- ✅ **Lesson A–D check after teaching** — restored `LessonQuizCards` (the old tappable
+  A/B/C/D cards). Typed-answer lessons and chat MCQ chips are not the study path.
+- ❌ **Chat A–D quiz UI / `vocab_quiz` as the lesson product** — removed. Hidden
+  project-scoped chats no longer emit `vocab_quiz` / `vocab_card` for study. The lesson
+  window reuses the old choice-card UI; it is not a new in-card “What does this mean?”
+  quiz and it does not quiz before teaching.
 - ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
   (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
   There is no due-queue of old mastered words across groups. Reopening a
@@ -522,7 +525,8 @@ were removed. Programming help lives in main chat.
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
   (`vocab_decks` / `vocab_entries`: domain → branch tree). English classes use
-  conversation-grouped chapters (Hello, Feelings, Everyday actions, …). Spanish
+  conversation-grouped chapters (Greetings, Numbers and time, Feelings, …,
+  Casual expressions last). Spanish
   keeps the Greetings / Family / Food / … tree. Older English Hotel/SAT rows stay
   in the catalog tables for existing `catalog_entry_id` links but are **not** on
   the English lesson map. **Every class sees its full path** — class level
@@ -537,6 +541,9 @@ were removed. Programming help lives in main chat.
   groups are one map row per theme (~16+ words). The lesson map is a vertical
   list (status icon, title, counts) — not letter-in-a-circle nodes. Tap an
   unlocked group to open the word page; a completed group opens as review.
+  Opening a group starts a **daily sitting** (5/10/15 words — the class daily
+  goal), not the full chapter. Map counts (15/43) are chapter progress; the
+  word page shows “Today 1 of 10”.
   The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
   screen). Compact stats, PDF export, and delete live in Settings/Learning. A
@@ -838,10 +845,10 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Language (`language`) — en/es catalog tree, self-rate lesson cards, SM-2 fields | Other target languages; trivia |
+| Language (`language`) — en/es catalog tree, teach-then-A/D lesson cards, SM-2 fields | Other target languages; trivia |
 | Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
 | Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
-| ~~Programming curriculum kind~~ **removed** — use main chat for code help | Hidden chat `vocab_quiz` as the lesson path |
+| ~~Programming curriculum kind~~ **removed** — use main chat for code help | ~~Hidden chat `vocab_quiz` as the lesson path~~ **removed** |
 
 ### Rich rendering (§4 summary)
 | Capability | Status |

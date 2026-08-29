@@ -7,7 +7,8 @@ import {
   highlightLemmaParts,
   isChapterReview,
   itemToCard,
-  overlayItemOutcomes,
+  overlayMasteredItems,
+  groupLessonProgress,
   resolveLessonChapter,
 } from "@/lib/projects/chapterLesson";
 
@@ -53,7 +54,7 @@ describe("chapterLesson", () => {
     expect(chapterQueue(items).map((row) => row.content)).toEqual(["retry", "new", "fresh"]);
   });
 
-  it("caps the pending queue to the daily goal", () => {
+  it("caps the pending queue to the daily goal so a sitting is not the whole chapter", () => {
     const items = [item("a"), item("b"), item("c"), item("d")];
     expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b"]);
   });
@@ -76,11 +77,11 @@ describe("chapterLesson", () => {
     );
   });
 
-  it("overlays in-session outcomes without waiting on the server", () => {
+  it("overlays in-session known marks without waiting on the server", () => {
     const items = chapterItems(project, "Greetings");
-    const next = overlayItemOutcomes(items, { hola: false });
+    const next = overlayMasteredItems(items, { hola: true });
     expect(chapterIsComplete(next)).toBe(true);
-    expect(overlayItemOutcomes(items, { hola: true })[0]?.status).toBe("learning");
+    expect(overlayMasteredItems(items, {})[0]?.status).toBe("new");
   });
 
   it("uses the requested chapter, then up next", () => {
@@ -127,5 +128,38 @@ describe("chapterLesson", () => {
       "See you tomorrow.",
     ]);
     expect(exampleSentences("  only one  ")).toEqual(["only one"]);
+  });
+
+  it("counts progress against the group, not the daily batch", () => {
+    const items = [
+      item("a", "mastered"),
+      item("b", "mastered"),
+      item("c"),
+      item("d"),
+      item("e"),
+    ];
+    expect(groupLessonProgress(items, "c")).toEqual({
+      current: 3,
+      total: 5,
+      fill: 2 / 5,
+    });
+    expect(groupLessonProgress(items, null)).toEqual({
+      current: 2,
+      total: 5,
+      fill: 2 / 5,
+    });
+  });
+
+  it("uses place-in-group during review of a finished chapter", () => {
+    const items = [
+      item("a", "mastered"),
+      item("b", "mastered"),
+      item("c", "mastered"),
+    ];
+    expect(groupLessonProgress(items, "b")).toEqual({
+      current: 2,
+      total: 3,
+      fill: 2 / 3,
+    });
   });
 });

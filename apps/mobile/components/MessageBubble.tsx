@@ -36,8 +36,6 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 type Props = {
   message: Message;
   priorUserText?: string | null;
-  /** User row: this letter is answering an in-progress A–D quiz. */
-  isQuizReply?: boolean;
   isGenerating?: boolean;
   /** Live token stream — avoids mutating the messages array on every token. */
   liveContent?: string;
@@ -50,7 +48,6 @@ type Props = {
   onEdit?: (message: Message) => void;
   canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
-  quizLanguage?: string;
   highlighted?: boolean;
   isSending?: boolean;
   lessonProjectId?: string | null;
@@ -278,7 +275,6 @@ function AssistantActions({
 export const MessageBubble = React.memo(function MessageBubble({
   message,
   priorUserText = null,
-  isQuizReply = false,
   isGenerating = false,
   liveContent,
   liveSearchSources,
@@ -346,7 +342,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     hasContent,
     showActionSlot,
     actionsReady,
-    showVocabCard,
     showLiveClock,
     clockTimezone,
     calendarProposals,
@@ -363,7 +358,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     searchSources,
     markdownStreamMode,
     markdownResetKey,
-    interactiveQuiz,
     learningLaunch,
   } = assistant;
 
@@ -379,12 +373,10 @@ export const MessageBubble = React.memo(function MessageBubble({
   const imageOnlyActions =
     showImages &&
     !hasMarkdown &&
-    !showVocabCard &&
     !showLiveClock &&
     !showCalendarProposals &&
     !showSettingsProposals &&
-    !showPlaces &&
-    !interactiveQuiz;
+    !showPlaces;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -404,7 +396,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               canRevealUserActions ? t("chat.user_message_actions_hint") : undefined
             }
           >
-            <UserMessageContent message={message} isQuizReply={isQuizReply} />
+            <UserMessageContent message={message} />
           </Pressable>
           {showSendingLabel ? (
             <ActionShimmer
@@ -488,8 +480,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 !isStreaming &&
                 Boolean(onOpenLesson) &&
                 Boolean(launchProjectId) &&
-                (learningLaunch != null ||
-                  (Boolean(isLastAssistant) && Boolean(interactiveQuiz || showVocabCard)));
+                learningLaunch != null;
               return showLessonCta ? (
                 <LearningLaunchButton
                   action={learningLaunch?.action}

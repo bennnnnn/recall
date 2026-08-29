@@ -15,8 +15,6 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 from app.services import plan as plan_service
-from app.services import projects as projects_service
-from app.services import web_search as web_search_service
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.attachments import _process_attachments
 from app.services.chat.turn_prep.context import (
@@ -43,71 +41,9 @@ async def _grade_quiz_answer(
     content: str,
     prior_assistant: Message | None = None,
 ) -> tuple[bool, QuizAnswerGrade | None]:
-    """Deterministically grade a letter/choice quiz answer when a project is linked.
-
-    Parse + letter check are CPU-only (the quiz fence is already on
-    ``prior_assistant``). A session is opened only when grading, so a
-    grading failure cannot roll back the already-committed user message and
-    the turn write connection is not pinned across a title-model round-trip.
-    """
-
-    is_letter_answer = False
-    quiz_grade: QuizAnswerGrade | None = None
-    if chat_project_id is not None:
-        from app.services import vocab_quiz as vocab_quiz_service
-
-        quiz_choices: tuple[tuple[str, str], ...] | None = None
-        if prior_assistant is not None:
-            parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
-            if parsed is not None:
-                quiz_choices = parsed.choices
-        is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(content, choices=quiz_choices)
-        if is_letter_answer and prior_assistant is not None:
-            async with SessionLocal() as session:
-                try:
-                    from app.services.chat.quiz_messages import (
-                        count_quiz_letter_answers_since,
-                        find_original_quiz_fence_created_at,
-                    )
-
-                    original_after = await find_original_quiz_fence_created_at(
-                        session,
-                        chat_id,
-                        prior_assistant=prior_assistant,
-                    )
-                    attempt = await count_quiz_letter_answers_since(
-                        session,
-                        chat_id,
-                        after=original_after,
-                        choices=quiz_choices,
-                    )
-                    quiz_grade = await projects_service.apply_deterministic_quiz_answer(
-                        session,
-                        user_id=user.id,
-                        chat_id=chat_id,
-                        project_id=chat_project_id,
-                        assistant_content=prior_assistant.content,
-                        user_answer=content,
-                        attempt=max(1, attempt),
-                    )
-                    if quiz_grade is None:
-                        logger.warning(
-                            "Quiz answer not recorded (no gradeable fence) user_id=%s chat_id=%s",
-                            user.id,
-                            chat_id,
-                        )
-                except Exception:
-                    logger.exception(
-                        "Failed to record quiz answer for user_id=%s chat_id=%s",
-                        user.id,
-                        chat_id,
-                    )
-    elif web_search_service.is_vocab_quiz_answer(content):
-        logger.warning(
-            "Quiz letter answer without project_id — not recorded chat_id=%s",
-            chat_id,
-        )
-    return is_letter_answer, quiz_grade
+    """Chat does not grade A-D. Lesson play records mastery."""
+    _ = (user, chat_id, chat_project_id, content, prior_assistant)
+    return False, None
 
 
 async def _maybe_invalidate_home_after_quiz(

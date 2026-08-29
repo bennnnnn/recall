@@ -93,10 +93,9 @@ async def update_item(
         new_status = str(fields["status"])
         if new_status != prior_status:
             was_correct = fields.pop("was_correct", None)
-            # UI "Needs review" / Failed maps to status=learning. That must count as a
-            # miss for today's Failed metric and day history — quiz grading already
-            # stamps last_incorrect_at + QuizMissEvent, but manual status updates did not.
-            # skip_miss=True suppresses this for non-quiz transitions (e.g. unmaster).
+            # Quiz grading maps a miss to status=learning. That must count as a
+            # miss for today's Failed metric and day history. skip_miss=True
+            # suppresses this for non-quiz transitions (e.g. unmaster).
             if new_status == "learning":
                 if not isinstance(was_correct, bool):
                     was_correct = False

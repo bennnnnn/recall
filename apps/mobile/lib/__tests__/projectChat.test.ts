@@ -62,15 +62,14 @@ describe("buildChapterLessonPrompt", () => {
     );
     expect(prompt).toContain('"Greetings" chapter');
     expect(prompt).toContain('Add any new words to "Greetings"');
-    expect(prompt).toContain("one word at a time");
-    expect(prompt).toContain("ONLY one ```vocab_quiz or ```vocab_card");
+    expect(prompt).toContain("Do not quiz in this chat");
   });
 });
 
 describe("buildProjectChatTutorPrompt", () => {
-  it("language chat tutor uses vocab cards", () => {
+  it("language chat tutor hands off to the lesson", () => {
     const prompt = buildProjectChatTutorPrompt(languageProject());
-    expect(prompt).toContain("vocab_card format");
-    expect(prompt).toContain("no example sentence");
+    expect(prompt).toContain("Do not quiz in this chat");
+    expect(prompt).not.toContain("vocab_card format");
   });
 });

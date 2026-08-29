@@ -6,10 +6,8 @@ import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageR
 import { SuggestionChips } from "@/components/SuggestionChips";
 import type { Message, Suggestion } from "@/lib/api";
 import {
-  findActiveQuizMessageId,
   findLastAssistantId,
   isChatStreamActive,
-  priorAssistantIsQuizFor,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
@@ -21,7 +19,6 @@ type Options = {
   streaming: boolean;
   finalizing: boolean;
   selectedModel: string;
-  quizLanguage: string;
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
   setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
@@ -43,7 +40,6 @@ export function useChatMessageList({
   streaming,
   finalizing,
   selectedModel,
-  quizLanguage,
   highlightedMessageId,
   sendingMessageId,
   setMenuVisible,
@@ -68,10 +64,6 @@ export function useChatMessageList({
 
   const lastAssistantId = useMemo(
     () => findLastAssistantId(messages),
-    [messages],
-  );
-  const activeQuizMessageId = useMemo(
-    () => findActiveQuizMessageId(messages),
     [messages],
   );
 
@@ -100,9 +92,7 @@ export function useChatMessageList({
   const sharedRowProps = useMemo(
     () => ({
       lastAssistantId,
-      activeQuizMessageId,
       selectedModel,
-      quizLanguage,
       highlightedMessageId,
       sendingMessageId,
       onRegenerate: regenerateResponse,
@@ -115,9 +105,7 @@ export function useChatMessageList({
     }),
     [
       lastAssistantId,
-      activeQuizMessageId,
       selectedModel,
-      quizLanguage,
       highlightedMessageId,
       sendingMessageId,
       regenerateResponse,
@@ -135,7 +123,6 @@ export function useChatMessageList({
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText = priorUserTextFor(messagesRef.current, index);
-      const isQuizReply = priorAssistantIsQuizFor(messagesRef.current, index);
 
       if (item.id === "streaming" || item.id === IMAGE_GEN_PENDING_ASSISTANT_ID) {
         return (
@@ -160,17 +147,11 @@ export function useChatMessageList({
         streaming,
         finalizing,
       );
-      const isActiveQuizRow =
-        item.role === "assistant" && item.id === activeQuizMessageId;
       const row = (
         <ChatMessageRow
           item={item}
           priorUserText={priorUserText}
-          isQuizReply={isQuizReply}
           streamVisualActive={streamVisualActive}
-          chatStreamActive={
-            isActiveQuizRow ? isChatStreamActive(streaming, finalizing) : false
-          }
           {...sharedRowProps}
         />
       );

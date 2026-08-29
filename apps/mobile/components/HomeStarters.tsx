@@ -11,7 +11,6 @@ import { type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from
 import { useHomeSuggestions } from "@/hooks/useHomeSuggestions";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { type IoniconName } from "@/lib/icons";
-import { buildHomeDailyQuizChatPrompt } from "@/lib/projects/projectChat";
 import { describeDueAt } from "@/lib/todos/dueDate";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
 import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
@@ -70,12 +69,8 @@ function ProjectHighlightCard({
   });
 
   const startDailyQuiz = () => {
-    const variant = "vocab" as const;
     openLearningLesson(router, {
       projectId: highlight.project_id,
-      prompt: buildHomeDailyQuizChatPrompt(highlight),
-      quizLanguage: highlight.target_language ?? "en",
-      quizVariant: variant,
     });
   };
 

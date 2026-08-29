@@ -92,7 +92,7 @@ export const projectsApi = {
     token: string,
     projectId: string,
     itemId: string,
-    patch: { status?: VocabStatus; definition?: string | null; was_correct?: boolean },
+    patch: { status?: VocabStatus; definition?: string | null },
   ) =>
     request<ProjectItem>(`/projects/${projectId}/items/${itemId}`, token, {
       method: "PATCH",

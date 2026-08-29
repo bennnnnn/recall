@@ -5,7 +5,6 @@ import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/setti
 import { stripReminderFences } from "@/lib/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
-  formatVocabQuizPromptOnly,
   hasVocabQuizFence,
   isRenderableVocabQuiz,
   parseVocabQuiz,
@@ -16,7 +15,6 @@ import {
 } from "@/lib/parseVocabQuiz";
 import {
   hasVocabCardFence,
-  parseVocabCard,
   stripVocabCardBlock,
   type ParsedVocabCard,
 } from "@/lib/parseVocabCard";
@@ -27,12 +25,6 @@ import {
   type ParsedLearningLaunch,
 } from "@/lib/parseLearningLaunch";
 
-/** True when the assistant is asking the user to produce a sentence (teach→use). */
-function asksUserToWriteSentence(content: string): boolean {
-  return /write (?:your own |a |an )?sentence|use .+ in (?:a |your own )?sentence/i.test(
-    content,
-  );
-}
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
@@ -114,13 +106,10 @@ function buildMarkdownContent(options: {
       : stripVocabSessionMetadata(content);
 
   if (quizForStrip && isRenderableVocabQuiz(quizForStrip)) {
-    // Chips replace A–D — strip list whether it came from a fence or plain markdown.
     if (!hideQuizFenceInMarkdown) {
       text = stripVocabQuizBlock(content);
     }
     text = stripVocabQuizPrologue(text, quizForStrip);
-    const quizBody = formatVocabQuizPromptOnly(quizForStrip);
-    text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
   }
 
   if (showLiveClock) text = stripTimeAnswerFences(text);
@@ -165,18 +154,10 @@ export function deriveAssistantMessageContent(
           return isRenderableVocabQuiz(quiz) ? quiz : null;
         })();
 
-  const rawVocabCard =
-    isUser || !hasContent || quizForStrip ? null : parseVocabCard(content);
-  // Teach→use: never show the example sentence before the user writes theirs.
-  const vocabCard =
-    rawVocabCard && asksUserToWriteSentence(content)
-      ? { ...rawVocabCard, exampleSentence: undefined }
-      : rawVocabCard;
-
-  const showVocabCard = vocabCard != null && !layoutFrozen;
-  const hideQuizFenceInMarkdown = hasVocabQuizFence(content);
-  const hideCardFenceInMarkdown =
-    hideQuizFenceInMarkdown || showVocabCard || hasVocabCardFence(content);
+  const vocabCard: ParsedVocabCard | null = null;
+  const showVocabCard = false;
+  const hideQuizFenceInMarkdown = hasVocabQuizFence(content) || Boolean(quizForStrip);
+  const hideCardFenceInMarkdown = hideQuizFenceInMarkdown || hasVocabCardFence(content);
 
   const showLiveClock =
     !isUser &&
@@ -229,10 +210,7 @@ export function deriveAssistantMessageContent(
     !showCalendarProposals &&
     !(priorUserText != null && isLocationQuestion(priorUserText));
 
-  const interactiveQuiz =
-    !isUser && !layoutFrozen && quizForStrip && isRenderableVocabQuiz(quizForStrip)
-      ? quizForStrip
-      : null;
+  const interactiveQuiz = null;
   const learningLaunch =
     !isUser && !layoutFrozen && hasLearningLaunchFence(content)
       ? parseLearningLaunch(content)

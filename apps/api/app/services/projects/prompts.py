@@ -109,18 +109,10 @@ VOCAB_LEARNING_FORMATS_BLOCK = (
 DAILY_GOAL_COMPLETE_BEHAVIOR = (
     "**When today's daily goal is already complete** (the Today: line says "
     "'daily goal complete'): FIRST acknowledge they're done for today and "
-    "congratulate them briefly. Then ask whether they'd like bonus questions "
-    "or to raise their daily goal in Settings — do NOT serve a new question "
-    "unless they clearly ask for more (e.g. 'bonus', 'one more', 'keep "
-    "going'). A vague 'let's continue' is NOT a request for more questions "
-    "when the goal is already met."
-)
-
-
-LANGUAGE_BONUS_QUIZ_RULES = (
-    "**Bonus practice (after today's goal):** When the user explicitly asks for more quiz, bonus "
-    "words, or extra practice beyond today's goal, continue with the same learning-format "
-    f"rotation — one word per turn.\n{VOCAB_LEARNING_FORMATS_BLOCK}"
+    "congratulate them briefly. Then ask whether they'd like to open the lesson "
+    "for bonus practice or raise their daily goal in Settings — do NOT quiz in "
+    "this chat. A vague 'let's continue' is NOT a request to quiz here; emit "
+    "```learning_launch only if they clearly want to practice."
 )
 
 
@@ -134,31 +126,25 @@ def language_tutor_hint(target_language: str | None = "en") -> str:
         vocab = f"{name} vocabulary"
         skill = f"{name} skill level"
     return (
-        f"Active **language** project — **daily {vocab} in chat**.\n"
+        f"Active **language** project — **{vocab}**.\n"
         f"The project **level** is the user's **{skill}** (level1=beginner … level6=fluent).\n"
-        "Each word has: term, definition, example_sentence, status "
-        "(new | learning | mastered).\n\n"
-        "**Daily session: learning formats (not exam-only).**\n"
-        f"{VOCAB_LEARNING_FORMATS_BLOCK}\n"
-        "Wait for their reply before revealing whether they are right.\n"
-        "**On wrong / weak answers:** say so briefly, give a short hint (not the full answer), "
-        "do NOT say 'word mastered'. For MCQ wrongs: do NOT redisplay choices or a new "
-        "```vocab_quiz fence — chips stay on the previous message (up to 3 tries). "
-        "After 3 MCQ wrongs: briefly reveal, keep as learning, then a DIFFERENT next word.\n"
-        "**On correct / solid answers:** congratulate briefly (mastery is recorded via sync or "
-        "MCQ auto-grade), then continue with a DIFFERENT next word in a **different** format "
-        "when possible until today's daily_goal is met.\n"
-        "Gibberish / unrelated text = wrong.\n"
-        "Keep replies short. The lesson UI shows only fences — emit one ```vocab_quiz or "
-        "```vocab_card and no vocab lists, check-ins, or markdown essays.\n"
-        "Prefer failed/learning words due for review, then new — never re-quiz "
-        "✓ mastered as a 'freebie'.\n"
-        "Use the **Today:** line in the project snapshot as the only progress counter.\n"
-        "When a **Learning path** is listed, teach the current chapter "
-        "('Teach only words listed under'). Do NOT invent or add words — "
-        "use the preloaded list and its ○ / ◐ / ✓ status.\n\n"
+        "Answer questions about progress, saved words, and study advice in prose.\n"
+        "Do NOT run a quiz in this chat. Do NOT emit ```vocab_quiz or ```vocab_card.\n"
+        "If they ask to practice, quiz, continue a class, or start today's lesson, "
+        "reply briefly and emit this fence with the exact project_id from context:\n"
+        "```learning_launch\n"
+        '{"project_id":"<uuid>","action":"continue"}\n'
+        "```\n"
+        "Study happens in the lesson screen. Never invent words.\n\n"
         f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
     )
+
+
+LANGUAGE_BONUS_QUIZ_RULES = (
+    "**Bonus practice (after today's goal):** When the user explicitly asks for more "
+    "practice beyond today's goal, emit ```learning_launch so they can open the lesson. "
+    "Do NOT quiz in this chat."
+)
 
 
 LANGUAGE_CHAT_TUTOR_HINT = language_tutor_hint("en")
@@ -199,8 +185,8 @@ def _language_tutor_hint(
 def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None) -> str:
     del kind
     return (
-        "**Presentation mode: chat.** Run today's vocabulary session with mixed learning "
-        "formats (teach→use, use→define, occasional MCQ) — one word per turn."
+        "**Presentation mode: chat.** Do not run the vocabulary lesson in this chat. "
+        "If they want to practice, emit ```learning_launch. Study happens in the lesson screen."
     )
 
 
@@ -240,7 +226,6 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         f'Start today\'s vocabulary session for my "{title}" {name} project.\n'
         f"My {name} level: {lvl}.{goal}\n"
         f"{_language_progress_line(stats)}\n\n"
-        "Teach and practice one word at a time — mix teach→use (vocab_card then a sentence), "
-        "use→define (sentence then open definition), and occasional A–D ```vocab_quiz. "
-        "Start with words I failed recently, then new ones — never repeat a word in this session."
+        "Open the lesson to practice — do not quiz in this chat. "
+        "Start with words I failed recently, then new ones."
     )

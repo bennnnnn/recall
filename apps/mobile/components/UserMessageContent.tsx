@@ -18,7 +18,6 @@ import {
   parseUserMessageContent,
 } from "@/lib/messageAttachments";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
-import { isVocabQuizAnswer, parseQuizAnswerLetter } from "@/lib/parseVocabQuiz";
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -30,22 +29,13 @@ const ChatMessagePdfLazy = React.lazy(() =>
 
 type Props = {
   message: Message;
-  /** True when this letter is answering an in-progress A–D quiz. */
-  isQuizReply?: boolean;
 };
 
-export function UserMessageContent({ message, isQuizReply = false }: Props) {
+export function UserMessageContent({ message }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   const parsed = useMemo(() => parseUserMessageContent(message.content), [message.content]);
-  const quizLetter = useMemo(
-    () =>
-      isQuizReply && isVocabQuizAnswer(message.content)
-        ? parseQuizAnswerLetter(message.content)
-        : null,
-    [isQuizReply, message.content],
-  );
   const hasImages = parsed.images.length > 0 || Boolean(message.local_image_uri);
   const pdfFile = parsed.files.find((file) => isPdfContentType(file.contentType));
   const localPdf =
@@ -65,8 +55,7 @@ export function UserMessageContent({ message, isQuizReply = false }: Props) {
   const plainText =
     !hasImages && !showPdf && !parsed.hasFileAttachment ? message.content.trim() : "";
   const showTextBubble =
-    !quizLetter &&
-    (showCaption || (parsed.hasFileAttachment && !showPdf) || plainText.length > 0);
+    showCaption || (parsed.hasFileAttachment && !showPdf) || plainText.length > 0;
   const collapseText = shouldCollapseMessage(showCaption ? parsed.caption : plainText);
 
   return (
@@ -93,13 +82,6 @@ export function UserMessageContent({ message, isQuizReply = false }: Props) {
             fileName={pdfFileName}
           />
         </Suspense>
-      ) : null}
-
-      {quizLetter ? (
-        <View style={s.quizAnswer} accessibilityLabel={`Quiz answer ${quizLetter}`}>
-          <Icon name="checkmark-circle-outline" size={16} color={C.primary} />
-          <Text style={s.quizAnswerLetter}>{quizLetter}</Text>
-        </View>
       ) : null}
 
       {showTextBubble ? (
@@ -138,22 +120,6 @@ function makeStyles(C: Theme) {
       maxWidth: "82%",
       alignItems: "flex-end",
       gap: 8,
-    },
-    quizAnswer: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: C.primaryLight,
-      borderRadius: 999,
-      borderWidth: 1.5,
-      borderColor: C.primary,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-    },
-    quizAnswerLetter: {
-      color: C.primary,
-      fontSize: 15,
-      fontWeight: "800",
     },
     textBubble: {
       backgroundColor: C.userBubble,

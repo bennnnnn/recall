@@ -16,31 +16,52 @@ export function chapterIsComplete(items: Pick<ProjectItem, "status" | "mastered"
   return items.length > 0 && items.every(isItemMastered);
 }
 
-export function applyItemOutcome(
-  items: ProjectItem[],
-  itemId: string,
-  failed: boolean,
-): ProjectItem[] {
+export function applyItemMastered(items: ProjectItem[], itemId: string): ProjectItem[] {
   return items.map((item) =>
-    item.id === itemId
-      ? { ...item, status: failed ? "learning" : "mastered", mastered: !failed }
-      : item,
+    item.id === itemId ? { ...item, status: "mastered", mastered: true } : item,
   );
 }
 
-/** Overlay in-session save results onto chapter items (`failed` = keep learning). */
-export function overlayItemOutcomes(
+/** Overlay in-session Next saves onto chapter items. */
+export function overlayMasteredItems(
   items: ProjectItem[],
-  outcomes: Record<string, boolean>,
+  masteredIds: Record<string, true>,
 ): ProjectItem[] {
   let next = items;
-  for (const [itemId, failed] of Object.entries(outcomes)) {
-    next = applyItemOutcome(next, itemId, failed);
+  for (const itemId of Object.keys(masteredIds)) {
+    next = applyItemMastered(next, itemId);
   }
   return next;
 }
 
-/** Pending words: "Not yet" (`learning`) first, then new, capped to the daily goal.
+/** Play-screen header: words already done in this group vs the group's size.
+ *  Learning: `current` is the next slot (mastered + 1); the bar is mastered/total.
+ *  Review of a finished group: `current` is this word's place in the group. */
+export function groupLessonProgress(
+  items: Pick<ProjectItem, "id" | "status" | "mastered">[],
+  currentItemId: string | null,
+): { current: number; total: number; fill: number } {
+  const total = items.length;
+  if (total === 0) return { current: 0, total: 0, fill: 0 };
+  const mastered = items.filter(isItemMastered).length;
+  if (chapterIsComplete(items)) {
+    const at = currentItemId
+      ? items.findIndex((item) => item.id === currentItemId)
+      : -1;
+    const current = at >= 0 ? at + 1 : total;
+    return { current, total, fill: current / total };
+  }
+  const onPending =
+    currentItemId != null &&
+    items.some((item) => item.id === currentItemId && !isItemMastered(item));
+  return {
+    current: Math.min(total, mastered + (onPending ? 1 : 0)),
+    total,
+    fill: mastered / total,
+  };
+}
+
+/** Pending words, capped to the daily goal so a sitting is today's batch.
  *  A finished chapter returns every word for review and ignores the daily cap. */
 export function chapterQueue(items: ProjectItem[], limit?: number): ProjectItem[] {
   const pending = items.filter((item) => !isItemMastered(item));
@@ -96,6 +117,11 @@ export function itemToCard(item: ProjectItem): LessonVocabCard {
     ...(partOfSpeech ? { partOfSpeech } : {}),
     ...(simpleGloss ? { simpleGloss } : {}),
   };
+}
+
+/** Gloss shown on the teaching card and as the meaning-quiz answer. */
+export function cardMeaning(card: LessonVocabCard): string {
+  return card.simpleGloss?.trim() || card.definition.trim() || card.word.trim();
 }
 
 /** Split `sentence` so the lemma can be bolded. Linear scan — no regex. */
