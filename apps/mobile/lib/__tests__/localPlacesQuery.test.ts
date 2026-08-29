@@ -12,6 +12,9 @@ describe("geo intent", () => {
     expect(isProximityQuery("The nearest gas station")).toBe(true);
     expect(isProximityQuery("nearest hospital")).toBe(true);
     expect(isProximityQuery("closest casino")).toBe(true);
+    expect(isProximityQuery("Best coffee shops near me")).toBe(true);
+    expect(isGeoQuery("Best coffee shops near me")).toBe(true);
+    expect(isPlacesListQuery("Best coffee shops near me")).toBe(true);
     expect(isPlacesListQuery("The nearest gas station")).toBe(true);
   });
 

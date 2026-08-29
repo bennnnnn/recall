@@ -27,7 +27,6 @@ type Params = {
 export function useChatRegenerate({
   token,
   messages,
-  user,
   updateUser,
   regenerateResponse,
   beginRegenerateUi,
@@ -64,7 +63,6 @@ export function useChatRegenerate({
           lastUser?.content ?? "",
           t,
           updateUser,
-          user?.location_enabled ?? false,
         );
         if (!result.ok) {
           cancelRegenerateUi?.();
@@ -85,7 +83,6 @@ export function useChatRegenerate({
       regenerateImage,
       t,
       updateUser,
-      user?.location_enabled,
     ],
   );
 

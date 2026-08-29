@@ -28,11 +28,7 @@ describe("resolveClientGeoForQuery", () => {
     (isGeoQuery as jest.Mock).mockReturnValue(true);
   });
 
-  it("offers Turn on when the in-app Location toggle is off, then continues", async () => {
-    (Alert.alert as jest.Mock).mockImplementation((_title, _body, buttons) => {
-      const turnOn = buttons.find((b: { text: string }) => b.text === "chat.location_turn_on");
-      turnOn.onPress();
-    });
+  it("BUG FIX regression: shows the OS permission sheet even when the in-app toggle is off", async () => {
     (requestDeviceGeo as jest.Mock).mockResolvedValue({
       status: "granted",
       geo: { label: "Oakland, CA", latitude: 37.8, longitude: -122.27 },
@@ -40,21 +36,13 @@ describe("resolveClientGeoForQuery", () => {
 
     const result = await resolveClientGeoForQuery(
       "tok",
-      "Where am I right now",
+      "Best coffee shops near me",
       t,
       persistLocation,
-      false,
     );
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      "chat.location_required_title",
-      "chat.location_disabled_body",
-      expect.arrayContaining([
-        expect.objectContaining({ text: "common.cancel" }),
-        expect.objectContaining({ text: "chat.location_turn_on" }),
-      ]),
-    );
     expect(requestDeviceGeo).toHaveBeenCalled();
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(persistLocation).toHaveBeenCalledWith({
       location: "Oakland, CA",
       location_enabled: true,
@@ -69,25 +57,6 @@ describe("resolveClientGeoForQuery", () => {
     });
   });
 
-  it("cancels when the user declines Turn on", async () => {
-    (Alert.alert as jest.Mock).mockImplementation((_title, _body, buttons) => {
-      const cancel = buttons.find((b: { text: string }) => b.text === "common.cancel");
-      cancel.onPress();
-    });
-
-    const result = await resolveClientGeoForQuery(
-      "tok",
-      "Where am I right now",
-      t,
-      persistLocation,
-      false,
-    );
-
-    expect(result).toEqual({ ok: false });
-    expect(requestDeviceGeo).not.toHaveBeenCalled();
-    expect(persistLocation).not.toHaveBeenCalled();
-  });
-
   it("returns fresh geo after the system permission grant", async () => {
     (requestDeviceGeo as jest.Mock).mockResolvedValue({
       status: "granted",
@@ -99,7 +68,6 @@ describe("resolveClientGeoForQuery", () => {
       "Where am I right now",
       t,
       persistLocation,
-      true,
     );
 
     expect(result).toEqual({
@@ -125,7 +93,6 @@ describe("resolveClientGeoForQuery", () => {
       "Where am I right now",
       t,
       persistLocation,
-      true,
     );
 
     expect(result).toEqual({ ok: false });
@@ -152,10 +119,27 @@ describe("resolveClientGeoForQuery", () => {
       "Where am I right now",
       t,
       persistLocation,
-      true,
     );
 
     expect(result).toEqual({ ok: false });
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it("alerts in Expo Go instead of sending without a fix", async () => {
+    (requestDeviceGeo as jest.Mock).mockResolvedValue({ status: "expo_go" });
+
+    const result = await resolveClientGeoForQuery(
+      "tok",
+      "Best coffee shops near me",
+      t,
+      persistLocation,
+    );
+
+    expect(result).toEqual({ ok: false });
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "chat.location_required_title",
+      "settings.location_expo_go",
+    );
+    expect(persistLocation).not.toHaveBeenCalled();
   });
 });
