@@ -89,6 +89,27 @@ def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
     assert "No ## headings" not in joined
 
 
+def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
+    from app.services.chat.prompt_constants import CALLOUT_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text=(
+            "Give me 3 tips for staying focused while studying. "
+            "Include a warning about all-nighters."
+        ),
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CALLOUT_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+    joined = "\n".join(parts)
+    assert "> Tip:" in joined
+    assert "> Warning:" in joined
+    assert "No ## headings" not in joined
+
+
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",

@@ -196,6 +196,35 @@ def test_mermaid_query_gets_flowchart_fence_layout():
     assert MERMAID_FORMAT_HINT in rich
 
 
+def test_callout_query_gets_blockquote_layout():
+    from app.services.chat.prompt_constants import (
+        CALLOUT_FORMAT_HINT,
+        COMPACT_RESPONSE_FORMAT_HINT,
+    )
+
+    query = (
+        "Give me 3 tips for staying focused while studying. Include a warning about all-nighters."
+    )
+    slim = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CALLOUT_FORMAT_HINT in slim
+    assert COMPACT_RESPONSE_FORMAT_HINT not in slim
+
+    rich = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=False,
+    )
+    assert CALLOUT_FORMAT_HINT in rich
+
+
 def test_vs_query_gets_table_then_code_card_layout():
     from app.services.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
