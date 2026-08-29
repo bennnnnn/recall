@@ -40,14 +40,20 @@ export function overlayItemOutcomes(
   return next;
 }
 
-/** Pending words: "Not yet" (`learning`) first, then new, capped to the daily goal. */
+/** Pending words: "Not yet" (`learning`) first, then new, capped to the daily goal.
+ *  A finished chapter returns every word for review and ignores the daily cap. */
 export function chapterQueue(items: ProjectItem[], limit?: number): ProjectItem[] {
   const pending = items.filter((item) => !isItemMastered(item));
+  if (pending.length === 0) return items;
   const learning = pending.filter((item) => item.status === "learning");
   const fresh = pending.filter((item) => item.status !== "learning");
-  const queue = pending.length > 0 ? [...learning, ...fresh] : items;
+  const queue = [...learning, ...fresh];
   if (limit != null && limit > 0) return queue.slice(0, limit);
   return queue;
+}
+
+export function isChapterReview(items: Pick<ProjectItem, "status" | "mastered">[]): boolean {
+  return chapterIsComplete(items);
 }
 
 export function resolveLessonChapter(
@@ -115,4 +121,18 @@ export function highlightLemmaParts(
     from = at + target.length;
   }
   return parts.filter((part) => part.text.length > 0);
+}
+
+/** Split stored examples (newline-separated, max two) for the word page. */
+export function exampleSentences(raw?: string | null): string[] {
+  if (!raw) return [];
+  const out: string[] = [];
+  let rest = raw;
+  while (rest.length > 0 && out.length < 2) {
+    const at = rest.indexOf("\n");
+    const chunk = (at === -1 ? rest : rest.slice(0, at)).trim();
+    if (chunk) out.push(chunk);
+    rest = at === -1 ? "" : rest.slice(at + 1);
+  }
+  return out;
 }

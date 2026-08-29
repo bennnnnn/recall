@@ -8,8 +8,9 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, opts?: { done?: number; total?: number }) => {
+    t: (key: string, opts?: { done?: number; total?: number; count?: number }) => {
       if (key === "projects.chapter_words") return `${opts?.done} / ${opts?.total} words`;
+      if (key === "projects.group_review_meta") return `${opts?.count} words · Review`;
       return key;
     },
   }),
@@ -45,16 +46,16 @@ describe("LearningPathList", () => {
     expect(queryByText("Greetings")).toBeNull();
   });
 
-  it("shows the path of circular nodes and only opens unlocked chapters", async () => {
+  it("shows the path as a list and only opens unlocked groups", async () => {
     const onOpenChapter = jest.fn();
-    const { getByText, queryByText } = await render(
+    const { getByText, getAllByText, queryByText } = await render(
       <LearningPathList
         domains={domains}
         upNext="Hello and goodbye"
         onOpenChapter={onOpenChapter}
       />,
     );
-    expect(getByText("Greetings")).toBeOnTheScreen();
+    expect(getAllByText("Greetings").length).toBeGreaterThan(0);
     expect(getByText("Hello and goodbye")).toBeOnTheScreen();
     expect(getByText("Courtesy")).toBeOnTheScreen();
     expect(getByText("Immediate family")).toBeOnTheScreen();
@@ -64,5 +65,26 @@ describe("LearningPathList", () => {
     fireEvent.press(getByText("Courtesy"));
     fireEvent.press(getByText("Immediate family"));
     expect(onOpenChapter).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels a completed group as review and still opens it", async () => {
+    const onOpenChapter = jest.fn();
+    const done: DomainProgress[] = [
+      {
+        title: "Hello",
+        mastered: 16,
+        total: 16,
+        complete: true,
+        chapters: [
+          { title: "Hello", domain: "Hello", mastered: 16, total: 16, complete: true },
+        ],
+      },
+    ];
+    const { getByText } = await render(
+      <LearningPathList domains={done} upNext={null} onOpenChapter={onOpenChapter} />,
+    );
+    expect(getByText("16 words · Review")).toBeOnTheScreen();
+    fireEvent.press(getByText("Hello"));
+    expect(onOpenChapter).toHaveBeenCalledWith("Hello");
   });
 });

@@ -10,6 +10,7 @@ import { cleanQuizWord } from "@/lib/parseVocabQuiz";
 import { speakWord } from "@/lib/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
 import {
+  exampleSentences,
   highlightLemmaParts,
   type LessonVocabCard,
 } from "@/lib/projects/chapterLesson";
@@ -27,9 +28,7 @@ export function VocabCard({ card, language = "en" }: Props) {
   const word = cleanQuizWord(card.word);
   const ipa = card.ipa?.trim();
   const pos = card.partOfSpeech?.trim();
-  const gloss = card.simpleGloss?.trim();
-  const example = card.exampleSentence?.trim();
-  const exampleParts = example ? highlightLemmaParts(example, word) : [];
+  const examples = exampleSentences(card.exampleSentence);
 
   const handleSpeak = () => {
     void speakWord(word, {
@@ -49,7 +48,7 @@ export function VocabCard({ card, language = "en" }: Props) {
           accessibilityRole="button"
           accessibilityLabel={t("lesson.speak")}
         >
-          <Icon name="volume-medium-outline" size={22} color={theme.primary} />
+          <Icon name="volume-medium-outline" size={20} color={theme.primary} />
         </Pressable>
         {pos ? (
           <View style={s.posChip}>
@@ -57,32 +56,18 @@ export function VocabCard({ card, language = "en" }: Props) {
           </View>
         ) : null}
       </View>
-      {gloss ? (
-        <View style={s.glossWell}>
-          <Text style={s.glossText}>{gloss}</Text>
-        </View>
-      ) : null}
-      <View style={s.section}>
-        <Text style={s.sectionLabel}>{t("lesson.meaning")}</Text>
-        <Text style={s.definition}>{card.definition}</Text>
-      </View>
-      {gloss && gloss.toLowerCase() !== card.definition.trim().toLowerCase() ? (
-        <View style={s.simpleWell}>
-          <Text style={s.simpleText}>
-            {t("lesson.in_simple_words", { gloss })}
-          </Text>
-        </View>
-      ) : null}
-      {example ? (
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>{t("lesson.example")}</Text>
-          <Text style={s.example}>
-            {exampleParts.map((part, index) => (
-              <Text key={`${index}-${part.text}`} style={part.match ? s.lemma : undefined}>
-                {part.text}
-              </Text>
-            ))}
-          </Text>
+      <Text style={s.definition}>{card.definition}</Text>
+      {examples.length > 0 ? (
+        <View style={s.examples}>
+          {examples.map((sentence) => (
+            <Text key={sentence} style={s.example}>
+              {highlightLemmaParts(sentence, word).map((part, index) => (
+                <Text key={`${index}-${part.text}`} style={part.match ? s.lemma : undefined}>
+                  {part.text}
+                </Text>
+              ))}
+            </Text>
+          ))}
         </View>
       ) : null}
     </View>
@@ -94,12 +79,12 @@ function makeStyles(t: Theme) {
     card: {
       alignSelf: "stretch",
       gap: Space.md,
-      paddingVertical: Space.lg,
+      paddingVertical: Space.sm,
     },
     word: {
       ...Type.display,
-      fontSize: 34,
-      lineHeight: 40,
+      fontSize: 32,
+      lineHeight: 38,
       color: t.text,
     },
     metaRow: {
@@ -118,61 +103,36 @@ function makeStyles(t: Theme) {
       borderRadius: 18,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: t.successLight,
+      backgroundColor: t.primaryLight,
     },
     posChip: {
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xxs,
       borderRadius: Radius.full,
-      backgroundColor: t.successLight,
+      backgroundColor: t.surfaceAlt,
     },
     posText: {
       ...Type.caption,
-      color: t.success,
+      color: t.textSecondary,
       textTransform: "lowercase",
-    },
-    glossWell: {
-      backgroundColor: t.successLight,
-      borderRadius: Radius.lg,
-      paddingVertical: Space.xl,
-      paddingHorizontal: Space.lg,
-      alignItems: "center",
-      minHeight: 88,
-      justifyContent: "center",
-    },
-    glossText: {
-      ...Type.body,
-      color: t.success,
-      textAlign: "center",
-    },
-    section: {
-      gap: Space.xs,
-    },
-    sectionLabel: {
-      ...Type.label,
-      color: t.success,
     },
     definition: {
       ...Type.body,
+      fontSize: 17,
+      lineHeight: 26,
       color: t.text,
     },
-    simpleWell: {
-      backgroundColor: t.surfaceAlt,
-      borderRadius: Radius.md,
-      paddingVertical: Space.sm,
-      paddingHorizontal: Space.md,
-    },
-    simpleText: {
-      ...Type.secondary,
-      color: t.text,
+    examples: {
+      gap: Space.sm,
+      paddingTop: Space.xs,
     },
     example: {
       ...Type.body,
-      color: t.text,
+      color: t.textSecondary,
     },
     lemma: {
       fontWeight: "700",
-      color: t.success,
+      color: t.text,
     },
   });
 }
