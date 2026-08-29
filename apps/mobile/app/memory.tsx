@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -16,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { AppSheet } from "@/components/AppSheet";
+import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -347,34 +347,29 @@ export default function MemoryScreen() {
         onClose={closeEdit}
         variant="bottom"
         keyboardAvoiding
+        withHandle={false}
         backdropDismiss={!savingEdit}
+        contentContainerStyle={s.editSheet}
       >
-        <Text style={s.editTitle}>{t("memory.edit_title")}</Text>
-        <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
-        <TextInput
-          style={s.editInput}
-          value={draftText}
-          onChangeText={setDraftText}
-          multiline
-          editable={!savingEdit}
-          autoFocus
-          textAlignVertical="top"
+        <SheetFormHeader
+          title={t("memory.edit_title")}
+          onCancel={closeEdit}
+          onSave={() => void saveEdit()}
+          cancelLabel={t("common.cancel")}
+          saveLabel={t("common.save")}
+          saving={savingEdit}
         />
-        <View style={s.editActions}>
-          <Pressable style={s.editCancel} onPress={closeEdit} disabled={savingEdit}>
-            <Text style={s.editCancelText}>{t("common.cancel")}</Text>
-          </Pressable>
-          <Pressable
-            style={[s.editSave, savingEdit && s.editSaveDisabled]}
-            onPress={() => void saveEdit()}
-            disabled={savingEdit}
-          >
-            {savingEdit ? (
-              <ActivityIndicator color={theme.onPrimary} />
-            ) : (
-              <Text style={s.editSaveText}>{t("common.save")}</Text>
-            )}
-          </Pressable>
+        <View style={s.editBody}>
+          <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
+          <TextInput
+            style={s.editInput}
+            value={draftText}
+            onChangeText={setDraftText}
+            multiline
+            editable={!savingEdit}
+            autoFocus
+            textAlignVertical="top"
+          />
         </View>
       </AppSheet>
     </>
@@ -445,12 +440,11 @@ function makeStyles(theme: Theme) {
     marginTop: Space.xs,
   },
   conf: { ...Type.meta, color: theme.textTertiary, marginTop: Space.xs },
-  editTitle: {
-    ...Type.title,
-    fontSize: 18,
-    color: theme.text,
-    marginBottom: Space.xs,
+  editSheet: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
   },
+  editBody: { padding: Space.md },
   editHint: {
     ...Type.label,
     fontWeight: "400",
@@ -468,37 +462,6 @@ function makeStyles(theme: Theme) {
     ...Type.secondary,
     color: theme.text,
     backgroundColor: theme.bg,
-    marginBottom: Space.md,
-  },
-  editActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 10,
-  },
-  editCancel: {
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
-    borderRadius: 10,
-  },
-  editCancelText: {
-    ...Type.secondary,
-    fontWeight: "600",
-    color: theme.textSecondary,
-  },
-  editSave: {
-    minWidth: 96,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Space.md,
-    paddingVertical: Space.sm,
-    borderRadius: 10,
-    backgroundColor: theme.primary,
-  },
-  editSaveDisabled: { opacity: 0.7 },
-  editSaveText: {
-    ...Type.secondary,
-    fontWeight: "700",
-    color: theme.onPrimary,
   },
   });
 }

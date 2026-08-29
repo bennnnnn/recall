@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -34,15 +34,13 @@ export function ChatRenameSheet({
       withHandle={false}
       contentContainerStyle={s.sheet}
     >
-      <View style={s.header}>
-        <Pressable onPress={onClose} hitSlop={8}>
-          <Text style={s.cancelText}>{t("common.cancel")}</Text>
-        </Pressable>
-        <Text style={s.title}>{t("chat.rename_title")}</Text>
-        <Pressable onPress={onSave} hitSlop={8}>
-          <Text style={s.saveText}>{t("settings.save")}</Text>
-        </Pressable>
-      </View>
+      <SheetFormHeader
+        title={t("chat.rename_title")}
+        onCancel={onClose}
+        onSave={onSave}
+        cancelLabel={t("common.cancel")}
+        saveLabel={t("settings.save")}
+      />
       <View style={s.body}>
         <TextInput
           style={s.input}
@@ -64,18 +62,6 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 0,
       paddingTop: 0,
     },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
-    },
-    title: { ...Type.navTitle, color: C.text },
-    cancelText: { fontSize: 16, color: C.textSecondary },
-    saveText: { fontSize: 16, fontWeight: "700", color: C.primary },
     body: { padding: 16 },
     input: {
       backgroundColor: C.surface,

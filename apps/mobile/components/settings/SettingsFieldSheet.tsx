@@ -4,10 +4,8 @@
  */
 import { useMemo } from "react";
 import {
-  ActivityIndicator,
   InputAccessoryView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +15,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -78,34 +77,16 @@ export function SettingsFieldSheet({
       withHandle={false}
       contentContainerStyle={s.sheet}
     >
-      <View style={s.header}>
-        <Pressable
-          onPress={onClose}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("settings.cancel")}
-          disabled={saving}
-        >
-          <Text style={s.cancelText}>{t("settings.cancel")}</Text>
-        </Pressable>
-        <Text style={s.title} numberOfLines={1}>
-          {title}
-        </Text>
-        <Pressable
-          onPress={onSave}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("settings.save")}
-          disabled={saving}
-          accessibilityState={{ disabled: saving, busy: saving }}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : (
-            <Text style={s.saveText}>{t("settings.save")}</Text>
-          )}
-        </Pressable>
-      </View>
+      <SheetFormHeader
+        title={title}
+        onCancel={() => {
+          if (!saving) onClose();
+        }}
+        onSave={onSave}
+        cancelLabel={t("settings.cancel")}
+        saveLabel={t("settings.save")}
+        saving={saving}
+      />
       <View style={s.body}>
         {hint ? <Text style={s.hint}>{hint}</Text> : null}
         <TextInput
@@ -138,19 +119,6 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 0,
       paddingTop: 0,
     },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: Space.md,
-      paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
-      gap: Space.sm,
-    },
-    title: { flex: 1, ...Type.navTitle, color: C.text, textAlign: "center" },
-    cancelText: { ...Type.body, color: C.textSecondary, minWidth: 64 },
-    saveText: { ...Type.body, fontWeight: "700", color: C.primary, minWidth: 64, textAlign: "right" },
     body: { padding: Space.md, gap: 10 },
     hint: { ...Type.caption, fontWeight: "400", color: C.textSecondary, lineHeight: 18 },
     input: {

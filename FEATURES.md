@@ -623,11 +623,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   Play billing polish are **future owner ops**, not a product coding task.
 - 🔜 **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
   `IconButton` on named undersized controls, PDF/math pinch-zoom, AppSheet
-  dialog/focus/pan, AuthScrollLayout, gallery filter wrap, and drawer width cap
-  shipped separately.
-  Remaining: SheetFormHeader; Space/Radius/Type + delete `layout.ts`; Icon vs
-  StrokeIcon; Reduce Motion helpers; in-tree overlay host; `Alert.alert` sweep;
-  unused UI file cleanup. Do not restyle or reintroduce banned UX.
+  dialog/focus/pan, AuthScrollLayout, gallery filter wrap, drawer width cap,
+  and SheetFormHeader shipped separately.
+  Remaining: Space/Radius/Type + delete `layout.ts`; Icon vs StrokeIcon;
+  Reduce Motion helpers; in-tree overlay host; `Alert.alert` sweep; unused UI
+  file cleanup. Do not restyle or reintroduce banned UX.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 

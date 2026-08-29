@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Keyboard,
   Platform,
   Pressable,
@@ -13,6 +12,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { defaultDueDate } from "@/components/todos/todoHelpers";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { RecurrenceRule, Todo } from "@/lib/api";
@@ -89,28 +89,15 @@ export function AddReminderSheet({
       withHandle={false}
       contentContainerStyle={[s.sheet, { paddingHorizontal: 0, paddingTop: 0 }]}
     >
-      <View style={s.sheetHeader}>
-        <Pressable onPress={handleClose} hitSlop={8} disabled={saving}>
-          <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
-        </Pressable>
-        <Text style={s.sheetTitle}>{t("todos.reminder_sheet_title")}</Text>
-        <Pressable
-          onPress={handleSave}
-          hitSlop={8}
-          disabled={!canSave}
-          accessibilityRole="button"
-          accessibilityLabel={t("todos.save")}
-          accessibilityState={{ disabled: !canSave, busy: saving }}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={C.primary} />
-          ) : (
-            <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
-              {t("todos.save")}
-            </Text>
-          )}
-        </Pressable>
-      </View>
+      <SheetFormHeader
+        title={t("todos.reminder_sheet_title")}
+        onCancel={handleClose}
+        onSave={handleSave}
+        cancelLabel={t("common.cancel")}
+        saveLabel={t("todos.save")}
+        saving={saving}
+        saveDisabled={text.trim().length === 0}
+      />
 
       <View style={s.sheetBody}>
         <Text style={s.formLabel}>{t("todos.reminder_label")}</Text>
