@@ -412,6 +412,44 @@ def test_draw_circle_with_radius_still_geometry() -> None:
     assert intent.radius == 4
 
 
+def test_draw_right_triangle_uses_named_legs_not_default_6_by_4() -> None:
+    """BUG FIX: 'legs 3 and 4' is not an 8x5 dim pair, so extract fell
+    through to the 6x4 default and the diagram/area pill were wrong."""
+    intent = math_tools.extract_math_intent(
+        "Draw a right triangle with legs 3 and 4. Label the sides including the hypotenuse."
+    )
+    assert intent is not None
+    assert intent.kind == "right_triangle"
+    assert intent.base == 3
+    assert intent.height == 4
+    assert intent.wants_area is False
+
+
+def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent(
+        "Draw a right triangle with legs 3 and 4. Label the sides including the hypotenuse."
+    )
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_fence is not None
+    assert block.canonical_fence["type"] == "right_triangle"
+    assert block.canonical_fence["base"] == 3
+    assert block.canonical_fence["height"] == 4
+    assert block.canonical_answer is None
+
+
+def test_area_of_right_triangle_with_legs_still_answers_area() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("area of a right triangle with legs 3 and 4")
+    assert intent is not None
+    assert intent.wants_area is True
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer == "6"
+
+
 @pytest.mark.parametrize(
     "text",
     [

@@ -152,6 +152,17 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
+def _right_triangle_named_legs(cleaned: str) -> tuple[float, float, str] | None:
+    """``legs 3 and 4`` is not an ``8 x 5`` dim pair — parse it before defaulting."""
+    from app.services import math_text_match as mtm
+
+    for label in ("leg lengths", "legs", "leg"):
+        pair = mtm.two_numbers_after(cleaned, label)
+        if pair is not None:
+            return pair[0], pair[1], "cm"
+    return None
+
+
 def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
@@ -160,7 +171,9 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    dims = mtm.first_dim_pair(cleaned)
+    padded = f" {lower} "
+    wants_area = " area" in padded or padded.startswith("area ")
+    dims = mtm.first_dim_pair(cleaned) or _right_triangle_named_legs(cleaned)
     if dims is not None:
         base, height, unit = dims
         return MathIntent(
@@ -169,6 +182,7 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             height=height,
             unit=unit,
             operation="solve",
+            wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),
         )
     if mtm.has_draw_shape(lower, "right triangle"):
@@ -178,6 +192,7 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             height=4,
             unit="cm",
             operation="solve",
+            wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),
         )
     return None

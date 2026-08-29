@@ -412,7 +412,9 @@ function RightTriangleDiagram({
   const x1 = offsetX + b;
   const y1 = offsetY + h;
   const svgW = b + offsetX + 48;
-  const svgH = h + offsetY + 40;
+  // Side-length labels sit below the base (y+18) and left of the height —
+  // angle-label padding does not include them, so "6 cm" used to clip.
+  const svgH = h + offsetY + 56;
   const showLabels = spec.show_labels !== false;
   const showHyp = spec.show_hypotenuse !== false;
   const showAngle = spec.show_angle !== false;
@@ -428,6 +430,10 @@ function RightTriangleDiagram({
     verts = padded.vertices;
     outW = padded.svgW;
     outH = padded.svgH;
+  }
+  if (showLabels) {
+    const baseLabelBottom = Math.max(verts[0].y, verts[1].y) + 18 + 16;
+    if (baseLabelBottom > outH) outH = baseLabelBottom;
   }
 
   return (

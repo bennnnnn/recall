@@ -52,6 +52,8 @@ class TestNeedsSymbolic:
             "A projectile is launched at 20 m/s at 45 degrees. Find its range.",
             "What net force accelerates a 5 kg mass at 3 m/s^2?",
             "Calculate the kinetic energy of a 2 kg object moving at 10 m/s.",
+            "Draw a right triangle with legs 3 and 4. Label the sides including the hypotenuse.",
+            "area of a right triangle with legs 3 and 4",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -203,6 +205,17 @@ class TestNumberAfter:
 
     def test_number_after_missing_label(self):
         assert mtm.number_after("circle diameter", "radius") is None
+
+
+class TestTwoNumbersAfter:
+    def test_legs_and(self):
+        assert mtm.two_numbers_after("with legs 3 and 4", "legs") == (3.0, 4.0)
+
+    def test_legs_comma(self):
+        assert mtm.two_numbers_after("legs 3, 4", "legs") == (3.0, 4.0)
+
+    def test_missing_second(self):
+        assert mtm.two_numbers_after("legs 3", "legs") is None
 
 
 class TestGraphExpr:

@@ -29,6 +29,7 @@ from app.services.math_text_match.scan import (
     inequality_signal,
     number_after,
     prepare,
+    two_numbers_after,
 )
 
 _SUPPORTED_PHYSICS_CUES = (
@@ -156,7 +157,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
     ):
         return True
-    if "right triangle" in lower and first_dim_pair(cleaned) is not None:
+    if "right triangle" in lower and (
+        first_dim_pair(cleaned) is not None
+        or two_numbers_after(cleaned, "legs") is not None
+        or two_numbers_after(cleaned, "leg") is not None
+    ):
         return True
     if bare_coord(cleaned) is not None or plot_point(cleaned) is not None:
         return True
