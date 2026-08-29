@@ -205,7 +205,70 @@ export function parseQuoteAttribution(text: string): {
       author: attrMatch[1].trim(),
     };
   }
+  const inline = splitTrailingAttribution(last);
+  if (inline) {
+    const prior = lines.slice(0, -1).join("\n").trim();
+    return {
+      quote: prior ? `${prior}\n${inline.quote}` : inline.quote,
+      author: inline.author,
+    };
+  }
   return { quote: lines.join("\n").trim() };
+}
+
+const MAX_ATTR_AUTHOR_CHARS = 60;
+
+function looksLikePersonName(name: string): boolean {
+  if (name.length < 2 || name.length > MAX_ATTR_AUTHOR_CHARS) return false;
+  const parts = name.split(" ");
+  if (parts.length < 1 || parts.length > 6) return false;
+  for (const part of parts) {
+    if (!part) return false;
+    const c0 = part.charCodeAt(0);
+    if (c0 < 65 || c0 > 90) return false;
+    for (let i = 0; i < part.length; i += 1) {
+      const ch = part[i] ?? "";
+      if (ch === "?" || ch === "!" || ch === ":" || ch === "/") return false;
+    }
+  }
+  return true;
+}
+
+/** `quote. — Maya Angelou` → quote + author. Glued `be.—Shakespeare` stays intact. */
+export function splitTrailingAttribution(
+  text: string,
+): { quote: string; author: string } | null {
+  const t = text.trim();
+  if (t.length < 12) return null;
+
+  let i = t.length - 1;
+  while (i >= 0 && (t[i] === " " || t[i] === "\t")) i -= 1;
+  const authorEnd = i + 1;
+  while (
+    i >= 0 &&
+    t[i] !== "-" &&
+    t[i] !== "\u2014" &&
+    t[i] !== "\u2013"
+  ) {
+    i -= 1;
+  }
+  if (i < 1) return null;
+  const dashEnd = i;
+  while (
+    i >= 0 &&
+    (t[i] === "-" || t[i] === "\u2014" || t[i] === "\u2013")
+  ) {
+    i -= 1;
+  }
+  const dashStart = i + 1;
+  if (dashStart < 1) return null;
+  const before = t[dashStart - 1];
+  if (before !== " " && before !== "\t") return null;
+
+  const quote = t.slice(0, dashStart).trim();
+  const author = t.slice(dashEnd + 1, authorEnd).trim();
+  if (quote.length < 8 || !looksLikePersonName(author)) return null;
+  return { quote, author };
 }
 
 export function isStandaloneUrl(text: string): string | null {

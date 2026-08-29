@@ -35,10 +35,10 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      backgroundColor: t.contentSurface,
-      borderLeftWidth: 3,
-      borderLeftColor: t.primary,
-      borderRadius: 10,
+      backgroundColor: t.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      borderRadius: 20,
       paddingHorizontal: 14,
       paddingVertical: 12,
       marginVertical: 8,

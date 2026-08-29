@@ -8,7 +8,7 @@ import {
 import { stripNumericAnswerAfterChart } from "@/lib/markdown/stripChartAnswerCrumb";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
-import { isStructuredFenceLang } from "@/lib/richBlocks";
+import { isStructuredFenceLang, splitTrailingAttribution } from "@/lib/richBlocks";
 import {
   isAnswerLang,
   isExplicitCodeLang,
@@ -183,6 +183,45 @@ export function promoteQuotedAttributions(content: string): string {
     } else {
       out.push(...para);
     }
+  }
+  return out.join("\n");
+}
+
+/** `> quote. — Author` → attribution on its own blockquote line for QuoteBlock. */
+export function splitBlockquoteInlineAttribution(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence || !trimmed.startsWith(">")) {
+      out.push(line);
+      continue;
+    }
+    let prefixEnd = 0;
+    while (prefixEnd < line.length && (line[prefixEnd] === " " || line[prefixEnd] === "\t")) {
+      prefixEnd += 1;
+    }
+    prefixEnd += 1; // '>'
+    if (line[prefixEnd] === " ") prefixEnd += 1;
+    const body = line.slice(prefixEnd);
+    if (body.startsWith("[!")) {
+      out.push(line);
+      continue;
+    }
+    const split = splitTrailingAttribution(body);
+    if (!split) {
+      out.push(line);
+      continue;
+    }
+    out.push(`> ${split.quote}`);
+    out.push(`>`);
+    out.push(`> — ${split.author}`);
   }
   return out.join("\n");
 }
@@ -1217,6 +1256,7 @@ export function preprocessMarkdown(
 
   out = promoteCalloutBlockquotes(out);
   out = promoteQuotedAttributions(out);
+  out = splitBlockquoteInlineAttribution(out);
   out = out.replace(
     CALLOUT_RE,
     (_match, kind: string, title: string, body: string) => {

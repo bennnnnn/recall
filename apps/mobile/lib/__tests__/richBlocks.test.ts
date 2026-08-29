@@ -57,9 +57,20 @@ describe("parseQuoteAttribution", () => {
     });
   });
 
-  it("needs a newline before the dash — flattened AST text does not match", () => {
+  it("needs a newline or a spaced dash — glued em dash stays in the quote", () => {
     expect(parseQuoteAttribution("To be or not to be.— Shakespeare")).toEqual({
       quote: "To be or not to be.— Shakespeare",
+    });
+  });
+
+  it("splits a trailing spaced em dash on the same line", () => {
+    expect(
+      parseQuoteAttribution(
+        "Courage is the most important of all the virtues. — Maya Angelou",
+      ),
+    ).toEqual({
+      quote: "Courage is the most important of all the virtues.",
+      author: "Maya Angelou",
     });
   });
 });

@@ -92,6 +92,17 @@ describe("preprocessMarkdown", () => {
     expect(out).toContain("> — Maya Angelou");
   });
 
+  it("lifts inline blockquote attribution onto its own line", () => {
+    const src =
+      "> Courage is the most important of all the virtues, because without courage you can't practice any other virtue consistently. — Maya Angelou";
+    const out = preprocessMarkdown(src);
+    expect(out).toContain(
+      "> Courage is the most important of all the virtues, because without courage you can't practice any other virtue consistently.",
+    );
+    expect(out).toContain("> — Maya Angelou");
+    expect(out).not.toMatch(/consistently\. — Maya Angelou/);
+  });
+
   it("still converts real display math delimiters", () => {
     const input = "The area is $$\\pi r^2$$ for a circle.";
     const out = preprocessMarkdown(input);
