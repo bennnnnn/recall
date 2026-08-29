@@ -19,6 +19,7 @@ import {
   MERMAID_MIN_HEIGHT,
   nextMermaidPreviewHeight,
 } from "@/lib/mermaidPreviewHeight";
+import { sanitizeMermaidNodeLabels } from "@/lib/mermaidSanitize";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import {
@@ -111,7 +112,8 @@ export function MermaidBlock({ content }: Props) {
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  const mermaidHtml = useMemo(() => buildMermaidHtml(content.trim(), theme), [content, theme]);
+  const sanitized = useMemo(() => sanitizeMermaidNodeLabels(content.trim()), [content]);
+  const mermaidHtml = useMemo(() => buildMermaidHtml(sanitized, theme), [sanitized, theme]);
   const source = useMemo(() => ({ html: mermaidHtml }), [mermaidHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
@@ -146,9 +148,9 @@ export function MermaidBlock({ content }: Props) {
   }, [t]);
 
   const handleOpenLiveEditor = useCallback(async () => {
-    await Clipboard.setStringAsync(content);
+    await Clipboard.setStringAsync(sanitized);
     await WebBrowser.openBrowserAsync("https://mermaid.live/edit");
-  }, [content]);
+  }, [sanitized]);
 
   const toggleExpanded = useCallback(() => {
     setExpanded((was) => {
@@ -182,7 +184,7 @@ export function MermaidBlock({ content }: Props) {
       }
       actions={
         <>
-          <CopyButton text={content} />
+          <CopyButton text={sanitized} />
           {clipped || expanded ? (
             <Pressable
               style={s.iconBtn}
@@ -214,7 +216,7 @@ export function MermaidBlock({ content }: Props) {
         </View>
       ) : showSource ? (
         <View style={s.previewBox}>
-          <Text style={s.previewText}>{content.trim()}</Text>
+          <Text style={s.previewText}>{sanitized}</Text>
         </View>
       ) : canRenderInline && WebView ? (
         canMount ? (
@@ -243,7 +245,7 @@ export function MermaidBlock({ content }: Props) {
       ) : (
         <View style={s.previewBox}>
           <Text style={s.previewText} numberOfLines={6}>
-            {content.trim()}
+            {sanitized}
           </Text>
           <Text style={s.fallbackHint}>{t("rich.mermaid_dev_build")}</Text>
         </View>

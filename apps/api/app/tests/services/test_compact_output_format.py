@@ -66,6 +66,8 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
     assert "horizontal bars" in joined
     assert "no leftover numbers" in joined
     assert "no ```answer" in joined
+    assert "do not interview for months or values" in joined
+    assert "sample data" in joined
     assert "No ## headings" not in joined
 
 
@@ -86,6 +88,8 @@ def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
     assert "joke setup" in joined
+    assert "Do not interview for steps" in joined
+    assert 'E["Grind beans"]' in joined
     assert "No ## headings" not in joined
 
 
@@ -154,6 +158,17 @@ def test_fragment_gets_writing_line_hint():
         compact=True,
     )
     assert WRITING_LINE_HINT in parts
+    assert "Do not say you are an AI" in WRITING_LINE_HINT
+
+
+def test_clarification_hint_skips_interview_for_chart_email_flowchart():
+    from app.services.chat.prompt_constants import CLARIFICATION_HINT, EMAIL_DRAFT_HINT
+
+    assert "escribeme un correo" in CLARIFICATION_HINT
+    assert "Do NOT interview for recipient" in CLARIFICATION_HINT
+    assert "Do not ask for months or values" in CLARIFICATION_HINT
+    assert "Do not interview for steps" in CLARIFICATION_HINT
+    assert "named a recipient" not in EMAIL_DRAFT_HINT
 
 
 def test_universal_baseline_bans_invented_tables_and_hooks():

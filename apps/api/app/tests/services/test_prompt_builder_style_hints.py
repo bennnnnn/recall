@@ -198,6 +198,49 @@ def test_mermaid_query_gets_flowchart_fence_layout():
     assert MERMAID_FORMAT_HINT in rich
 
 
+def test_bare_rainfall_chart_still_gets_chart_hint():
+    from app.services.chat.prompt_constants import CHART_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text="make a bar chart of monthly rainfall",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CHART_FORMAT_HINT in parts
+    assert "do not interview for months or values" in CHART_FORMAT_HINT
+
+
+def test_bare_email_gets_email_draft_hint():
+    from app.services.chat.prompt_constants import EMAIL_DRAFT_HINT
+
+    parts = _style_format_hints(
+        query_text="escribeme un correo",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert EMAIL_DRAFT_HINT in parts
+    assert "named a recipient" not in EMAIL_DRAFT_HINT
+    assert "escribeme un correo" in EMAIL_DRAFT_HINT
+
+
+def test_flowchart_of_making_coffee_gets_mermaid_hint():
+    from app.services.chat.prompt_constants import MERMAID_FORMAT_HINT
+
+    parts = _style_format_hints(
+        query_text="flowchart of making coffee",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert MERMAID_FORMAT_HINT in parts
+    assert 'E["Grind beans"]' in MERMAID_FORMAT_HINT
+
+
 def test_callout_query_gets_blockquote_layout():
     from app.services.chat.prompt_constants import (
         CALLOUT_FORMAT_HINT,

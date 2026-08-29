@@ -157,3 +157,29 @@ async def test_cancelled_turn_closes_unclosed_fence(
     assert persisted.rstrip().endswith("```")
     assert "Generation stopped" not in persisted
     assert result["final_content"] == persisted
+
+
+@pytest.mark.asyncio
+async def test_mermaid_parenthetical_labels_quoted_on_persist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", _run_sympy_inline)
+
+    result: dict[str, Any] = {}
+    raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=raw,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[raw],
+        should_cancel=None,
+    )
+
+    assert 'E["Grind Beans (Medium Grind)"]' in persisted
+    assert "E[Grind Beans (Medium Grind)]" not in persisted
+    assert result["final_content"] == persisted
