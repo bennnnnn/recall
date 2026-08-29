@@ -1,9 +1,8 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { chapterKey } from "@/lib/projects/chapterAccess";
+import { Icon } from "@/components/Icon";
 import {
   branchAccess,
   domainAccess,
@@ -21,80 +20,83 @@ type Props = {
   onOpenChapter: (title: string) => void;
 };
 
+const NODE = 36;
+
 export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const currentDomain =
-    domains.find((domain) => domainAccess(domains, domain.title, upNext) === "current")?.title ??
-    null;
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const openTitle = expanded ?? currentDomain;
 
   if (domains.length === 0) {
     return null;
   }
 
-  const toggleDomain = (title: string, isLocked: boolean) => {
-    if (isLocked) return;
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded((prev) => (prev === title ? "" : title));
-  };
+  const rows = domains.flatMap((domain) => {
+    const domainState = domainAccess(domains, domain.title, upNext);
+    const domainLocked = domainState === "locked";
+    return domain.chapters.map((chapter) => ({
+      chapter,
+      access: branchAccess(chapter, upNext, domainLocked),
+      hideDomain: domain.chapters.length === 1 && chapter.title === domain.title,
+      domainTitle: domain.title,
+    }));
+  });
 
   return (
     <View style={s.list}>
-      {domains.map((domain) => {
-        const access = domainAccess(domains, domain.title, upNext);
+      {rows.map((row, index) => {
+        const { chapter, access } = row;
         const locked = access === "locked";
-        const open = !locked && chapterKey(openTitle ?? "") === chapterKey(domain.title);
+        const wordsLabel =
+          access === "done"
+            ? t("projects.group_review_meta", { count: chapter.total })
+            : t("projects.chapter_words", {
+                done: chapter.mastered,
+                total: chapter.total,
+              });
         return (
-          <View key={domain.title} style={s.group}>
-            <PathRow
-              title={domain.title}
-              access={access}
-              trailing={
-                locked ? null : (
-                  <Icon
-                    name={open ? "chevron-down" : "chevron-forward"}
-                    size={18}
-                    color={theme.textTertiary}
-                  />
-                )
-              }
-              onPress={() => toggleDomain(domain.title, locked)}
-              styles={s}
-              wordsLabel={t("projects.chapter_words", {
-                done: domain.mastered,
-                total: domain.total,
-              })}
-            />
-            {open
-              ? domain.chapters.map((chapter) => {
-                  const chapterAccessState = branchAccess(chapter, upNext, locked);
-                  return (
-                    <View key={chapter.title} style={s.child}>
-                      <PathRow
-                        title={chapter.title}
-                        access={chapterAccessState}
-                        trailing={
-                          chapterAccessState === "locked" ? null : (
-                            <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
-                          )
-                        }
-                        onPress={() => {
-                          if (chapterAccessState === "locked") return;
-                          onOpenChapter(chapter.title);
-                        }}
-                        styles={s}
-                        wordsLabel={t("projects.chapter_words", {
-                          done: chapter.mastered,
-                          total: chapter.total,
-                        })}
-                      />
-                    </View>
-                  );
-                })
-              : null}
+          <View key={chapter.title} style={s.rowBlock}>
+            {index > 0 ? <View style={s.stem} /> : null}
+            <Pressable
+              style={s.row}
+              onPress={() => {
+                if (locked) return;
+                onOpenChapter(chapter.title);
+              }}
+              disabled={locked}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: locked }}
+              accessibilityLabel={`${chapter.title}. ${wordsLabel}`}
+            >
+              <View
+                style={[
+                  s.node,
+                  access === "done" ? s.nodeDone : null,
+                  access === "current" ? s.nodeCurrent : null,
+                  locked ? s.nodeLocked : null,
+                ]}
+              >
+                {access === "done" ? (
+                  <Icon name="checkmark" size={18} color={theme.onPrimary} />
+                ) : locked ? (
+                  <Icon name="lock-closed-outline" size={16} color={theme.textTertiary} />
+                ) : (
+                  <Icon name="play" size={16} color={theme.onPrimary} />
+                )}
+              </View>
+              <View style={s.copy}>
+                {!row.hideDomain ? (
+                  <Text style={s.domain}>{row.domainTitle}</Text>
+                ) : null}
+                <Text style={[s.title, locked ? s.titleLocked : null]} numberOfLines={2}>
+                  {chapter.title}
+                </Text>
+                <Text style={s.meta}>{wordsLabel}</Text>
+              </View>
+              {locked ? null : (
+                <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+              )}
+            </Pressable>
           </View>
         );
       })}
@@ -102,89 +104,47 @@ export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
   );
 }
 
-function PathRow({
-  title,
-  access,
-  trailing,
-  onPress,
-  styles: s,
-  wordsLabel,
-}: {
-  title: string;
-  access: Access;
-  trailing: ReactNode;
-  onPress: () => void;
-  styles: ReturnType<typeof makeStyles>;
-  wordsLabel: string;
-}) {
-  const theme = useTheme();
-  const locked = access === "locked";
-  const initial = title.trim().charAt(0).toUpperCase() || "•";
-  return (
-    <Pressable
-      style={s.row}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: locked }}
-      accessibilityLabel={title}
-    >
-      <View
-        style={[
-          s.badge,
-          access === "done" ? s.badgeDone : null,
-          access === "current" ? s.badgeCurrent : null,
-          locked ? s.badgeLocked : null,
-        ]}
-      >
-        {access === "done" ? (
-          <Icon name="checkmark" size={20} color={theme.onPrimary} />
-        ) : locked ? (
-          <Icon name="lock-closed-outline" size={16} color={theme.textTertiary} />
-        ) : (
-          <Text style={s.initial}>{initial}</Text>
-        )}
-      </View>
-      <View style={s.copy}>
-        <Text style={[s.title, locked ? s.titleLocked : null]} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={s.words}>{wordsLabel}</Text>
-      </View>
-      {trailing}
-    </Pressable>
-  );
-}
-
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    list: { gap: Space.md },
-    group: { gap: Space.sm },
-    child: { paddingLeft: Space.lg },
+    list: { gap: 0 },
+    rowBlock: { alignItems: "stretch" },
+    stem: {
+      width: 2,
+      height: Space.sm,
+      marginLeft: NODE / 2 - 1,
+      backgroundColor: theme.border,
+    },
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: Space.md,
-      paddingVertical: 14,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
+      gap: Space.sm,
+      paddingVertical: Space.sm,
     },
-    badge: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+    node: {
+      width: NODE,
+      height: NODE,
+      borderRadius: NODE / 2,
       alignItems: "center",
       justifyContent: "center",
     },
-    badgeCurrent: { backgroundColor: theme.primary },
-    badgeDone: { backgroundColor: theme.success },
-    badgeLocked: { backgroundColor: theme.surfaceAlt },
-    initial: { fontSize: 16, fontWeight: "800", color: theme.onPrimary },
+    nodeCurrent: { backgroundColor: theme.primary },
+    nodeDone: { backgroundColor: theme.success },
+    nodeLocked: {
+      backgroundColor: theme.surfaceAlt,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
     copy: { flex: 1, gap: 2 },
-    title: { ...Type.body, fontWeight: "700", color: theme.text },
-    titleLocked: { color: theme.textTertiary },
-    words: { ...Type.caption, color: theme.textSecondary },
+    domain: {
+      ...Type.overline,
+      color: theme.textTertiary,
+    },
+    title: {
+      ...Type.body,
+      fontWeight: "700",
+      color: theme.text,
+    },
+    titleLocked: { color: theme.textTertiary, fontWeight: "600" },
+    meta: { ...Type.caption, color: theme.textSecondary },
   });
 }

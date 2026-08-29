@@ -489,24 +489,27 @@ were removed. Programming help lives in main chat.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
-- ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), SM-2 fields.
+- ✅ **Vocab items** — term, definition, example, IPA, part of speech, simple gloss,
+  status (new / learning / mastered), SM-2 fields.
 - ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson. Study
-  interaction runs in a dedicated lesson window (MCQ, vocab cards, result sheet).
-  Lesson drills teach the word, then a gapped example, then meaning in that sentence — never
-  “What does X mean?”. Chat prompts use the same gapped-sentence format.
-  The teaching window shows only those fences plus pronunciation — not tutor markdown.
-  Hidden project-scoped chats still emit `vocab_quiz` / `vocab_card` for generation and SM-2
-  grading (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
-- ✅ **Tap-to-answer MCQ** — large choice cards in the lesson window on complete `vocab_quiz` fences.
-- ❌ **Typed answers / hidden `vocab_quiz` as the lesson product** — not the shipped study UX.
-  Lesson play is catalog MCQ in the teaching window; do not treat chat fences as the product path.
+  interaction runs in a dedicated lesson window: one word card with the
+  definition and 1–2 example sentences. **Not yet** / **I know this** for new
+  words; a completed group reopens as **Need practice** / **Still know this**.
+  “Not yet” keeps `status=learning` and those words return first next
+  sitting; “I know this” marks `mastered`. The next group stays locked until every
+  word in the current chapter is mastered. Hidden project-scoped chats still emit
+  `vocab_quiz` / `vocab_card` for generation and SM-2 grading
+  (`quiz_attempts` / `quiz_correct`). Regular chat must not quiz in-bubble.
+  Chat tutor prompts still use a gapped-sentence format and must not invent words.
+- ❌ **Tap-to-answer MCQ / typed answers as the lesson product** — not the shipped study
+  UX. Lesson play is self-rate cards; do not treat chat fences as the product path.
 - ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
-  (`ease_factor`, `interval_days`, `due_at`) are written on status changes, but mastered
-  words do not re-enter a map queue (`due_for_review` only counts `status=learning`).
-  There is no due-queue screen. Settings has PDF export, not a deck browser.
-  `buildProjectReviewPrompt` is unused.
+  (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
+  There is no due-queue of old mastered words across groups. Reopening a
+  **completed** group on the map is a same-group review pass, not SM-2.
+  Settings has PDF export, not a deck browser. `buildProjectReviewPrompt` is unused.
 - ⚠️ **Adaptive level hints** — computed server-side; Settings does not surface them.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).
@@ -518,16 +521,23 @@ were removed. Programming help lives in main chat.
   mastered-word review queue.
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
-  (`vocab_decks` / `vocab_entries`: domain → branch tree — Family, Food, Hotel, …
-  plus SAT banks for English). **Every class sees the full tree** — class level
-  does not hide later groups. Create opens the **lesson map** (not a tutor chat that
-  invents words). Main chat gets a progress overview (class, daily
+  (`vocab_decks` / `vocab_entries`: domain → branch tree). English classes use
+  conversation-grouped chapters (Hello, Feelings, Everyday actions, …). Spanish
+  keeps the Greetings / Family / Food / … tree. Older English Hotel/SAT rows stay
+  in the catalog tables for existing `catalog_entry_id` links but are **not** on
+  the English lesson map. **Every class sees its full path** — class level
+  does not hide later groups. Create is a full-screen flow: **language**, then
+  **daily goal** (5/10/15). Class level defaults to beginner and lives in
+  Settings (tutor hints only — it does not gate the tree). Create opens the
+  **lesson map** (not a tutor chat that invents words). Main chat gets a progress overview (class, daily
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived
-  (mastered/total; a chapter is complete when every word is mastered). The lesson
-  map lists each domain as a parent with its branches nested under it; tap an
-  unlocked branch to open the teaching window. The main flow is
+  (mastered/total; a chapter is complete when every word is mastered). English
+  groups are one map row per theme (~16+ words). The lesson map is a vertical
+  list (status icon, title, counts) — not letter-in-a-circle nodes. Tap an
+  unlocked group to open the word page; a completed group opens as review.
+  The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
   screen). Compact stats, PDF export, and delete live in Settings/Learning. A
   thin "today" progress line sits above the path tree. Locked chapters stay
@@ -828,7 +838,7 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Language (`language`) — en/es catalog tree, lesson-map MCQ, SM-2 fields | Other target languages; trivia |
+| Language (`language`) — en/es catalog tree, self-rate lesson cards, SM-2 fields | Other target languages; trivia |
 | Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
 | Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | Hidden chat `vocab_quiz` as the lesson path |

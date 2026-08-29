@@ -9,8 +9,6 @@ import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { VocabCard } from "@/components/VocabCard";
 import { LessonCompleteCard } from "@/components/projects/LessonCompleteCard";
-import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
-import { LessonResultSheet } from "@/components/projects/LessonResultSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLessonSession } from "@/hooks/useLessonSession";
 import { isLanguageProject } from "@/lib/languageLevels";
@@ -29,26 +27,23 @@ export default function LearningLessonPlayScreen() {
   const {
     project,
     step,
-    feedback,
     error,
     empty,
     complete,
     sessionEndedEarly,
+    reviewing,
     currentNumber,
     total,
     progressFill,
-    streaming,
-    submitLetter,
-    continueLesson,
-    continueTeach,
-    recordWrongAttempt,
+    saving,
+    rateKnown,
+    rateNotYet,
   } = useLessonSession(projectId);
 
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
 
   const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
-  const quizStep = step && (step.kind === "use" || step.kind === "meaning") ? step : null;
 
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
@@ -65,16 +60,15 @@ export default function LearningLessonPlayScreen() {
           <View style={[s.progressFill, { width: `${Math.round(progressFill * 100)}%` }]} />
         </View>
         <Text style={s.progressLabel}>
-          {currentNumber}/{Math.max(total, 1)}
+          {t(reviewing ? "lesson.review_of" : "lesson.word_of", {
+            current: currentNumber,
+            total: Math.max(total, 1),
+          })}
         </Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          s.body,
-          step?.kind === "teach" ? s.bodyTeach : null,
-          quizStep ? s.bodyQuiz : null,
-        ]}
+        contentContainerStyle={[s.body, step ? s.bodyCard : null]}
         keyboardShouldPersistTaps="handled"
       >
         {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
@@ -85,41 +79,32 @@ export default function LearningLessonPlayScreen() {
             <Button title={t("common.done")} onPress={() => router.back()} />
           </View>
         ) : null}
-        {step?.kind === "teach" ? (
-          <VocabCard card={step.card} language={language} />
-        ) : null}
-        {quizStep ? (
-          <Text style={s.question}>{quizStep.question}</Text>
-        ) : null}
-        {quizStep ? (
-          <LessonQuizCards
-            choices={quizStep.quiz.choices}
-            correctLetter={quizStep.quiz.correct}
-            disabled={Boolean(feedback) || streaming}
-            resetToken={`${quizStep.itemId}:${quizStep.kind}`}
-            onSelect={submitLetter}
-            onWrongAnswer={recordWrongAttempt}
-          />
-        ) : null}
+        {step ? <VocabCard card={step.card} language={language} /> : null}
         {!step && !empty && !complete && !sessionEndedEarly ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
       </ScrollView>
 
-      {step?.kind === "teach" && !feedback ? (
-        <View style={s.typedWrap}>
-          <Button title={t("lesson.continue")} onPress={continueTeach} />
+      {step ? (
+        <View style={s.footer}>
+          {error ? <Text style={s.error}>{error}</Text> : null}
+          <View style={s.actions}>
+            <Button
+              title={t(reviewing ? "lesson.forgot" : "lesson.not_yet")}
+              variant="outline"
+              onPress={rateNotYet}
+              disabled={saving}
+              style={s.actionBtn}
+            />
+            <Button
+              title={t(reviewing ? "lesson.still_know" : "lesson.i_know_this")}
+              onPress={rateKnown}
+              loading={saving}
+              disabled={saving}
+              style={s.actionBtn}
+            />
+          </View>
         </View>
-      ) : null}
-
-      {feedback ? (
-        <LessonResultSheet
-          feedback={feedback}
-          language={language}
-          onContinue={continueLesson}
-          saving={streaming}
-          error={error}
-        />
       ) : null}
     </SafeAreaView>
   );
@@ -144,13 +129,11 @@ function makeStyles(theme: Theme) {
     },
     progressFill: {
       height: "100%",
-      backgroundColor: theme.success,
+      backgroundColor: theme.primary,
     },
     progressLabel: {
       ...Type.caption,
       color: theme.textSecondary,
-      minWidth: 44,
-      textAlign: "right",
     },
     body: {
       paddingHorizontal: Space.lg,
@@ -159,21 +142,8 @@ function makeStyles(theme: Theme) {
       gap: Space.md,
       flexGrow: 1,
     },
-    bodyTeach: {
+    bodyCard: {
       flexGrow: 1,
-      justifyContent: "center",
-    },
-    bodyQuiz: {
-      flexGrow: 1,
-      justifyContent: "center",
-      gap: Space.xl,
-    },
-    question: {
-      fontSize: 22,
-      fontWeight: "700",
-      color: theme.text,
-      lineHeight: 28,
-      marginBottom: 40,
     },
     status: {
       ...Type.body,
@@ -188,9 +158,22 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       gap: Space.lg,
     },
-    typedWrap: {
+    footer: {
       paddingHorizontal: Space.lg,
       paddingBottom: Space.md,
+      gap: Space.sm,
+    },
+    error: {
+      ...Type.secondary,
+      color: theme.danger,
+      textAlign: "center",
+    },
+    actions: {
+      flexDirection: "row",
+      gap: Space.sm,
+    },
+    actionBtn: {
+      flex: 1,
     },
   });
 }

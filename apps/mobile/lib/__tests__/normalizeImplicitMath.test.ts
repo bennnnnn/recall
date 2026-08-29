@@ -58,6 +58,39 @@ describe("normalizeImplicitMath", () => {
     expect(out).toBe("- Base = 8 cm\n- Height = 5 cm");
   });
 
+  it("BUG FIX regression: keeps math on a $-wrapped bullet instead of dumping raw LaTeX", () => {
+    // Reported live: Isolate-x step showed `1\cdot x = 2 - 3^{\frac{2}{3}}`
+    // as source. The model wrapped the bullet as `$- 1\cdot x = …$`; the
+    // prose-bullet unwrap stripped the dollars after wrapInlineLatexCommands
+    // had already skipped the interior `$…$`, so `\cdot` / `\frac` never
+    // reached MathText.
+    const input = String.raw`$- 1\cdot x = 2 - 3^{\frac{2}{3}}$`;
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toBe(String.raw`- $1\cdot x = 2 - 3^{\frac{2}{3}}$`);
+    expect(out).not.toMatch(/^- 1\\cdot/);
+  });
+
+  it("BUG FIX regression: wraps a bare list-item equation that contains \\cdot / \\frac", () => {
+    const input = String.raw`- 1\cdot x = 2 - 3^{\frac{2}{3}}`;
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toBe(String.raw`- $1\cdot x = 2 - 3^{\frac{2}{3}}$`);
+  });
+
+  it("BUG FIX regression: wraps \\sqrt[3]{9} including the index, not just \\sqrt", () => {
+    const input = String.raw`Since \sqrt[3]{9} equals the root.`;
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toContain(String.raw`$\sqrt[3]{9}$`);
+    expect(out).not.toContain(String.raw`$\sqrt$`);
+  });
+
+  it("BUG FIX regression: wraps 3^{\\frac{2}{3}} as one math span, not shattered commands", () => {
+    const input = String.raw`Since the root is 3^{\frac{2}{3}}, isolate.`;
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toContain(String.raw`$3^{\frac{2}{3}}$`);
+    expect(out).not.toContain(String.raw`$3^{$`);
+    expect(out).not.toContain(String.raw`$\frac{2}{3}$}`);
+  });
+
   it("BUG FIX regression: does not swallow a bold-prefixed line into math delimiters", () => {
     // BARE_EQUATION_RE's char class allows `*` for multiplication, which also
     // matches markdown's `**bold**` markers — a line like "**Solve** 2^x + 5 = 7"

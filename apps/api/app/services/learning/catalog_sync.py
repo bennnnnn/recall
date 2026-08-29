@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.content.vocab_catalog import all_catalog_decks, word_id
+from app.content.vocab_catalog import all_catalog_decks, path_decks_for_language, word_id
 from app.models.orm import VocabDeck, VocabEntry
 
 _CHUNK = 500
@@ -21,36 +21,58 @@ _CHUNK = 500
 
 async def ensure_catalog_rows(session: AsyncSession) -> None:
     """Insert any catalog decks/words missing from the DB. Existing rows stay."""
-    decks = all_catalog_decks()
+    decks = _sync_decks()
     if not decks:
         return
-    deck_rows = [
-        {
-            "id": deck.id,
-            "target_language": deck.language,
-            "slug": deck.slug,
-            "title": deck.title,
-            "domain": deck.domain,
-            "kind": deck.kind,
-            "sort_order": deck.sort_order,
-        }
-        for deck in decks
-    ]
+    deck_rows: list[dict[str, Any]] = []
+    seen_decks: set[Any] = set()
+    for deck in decks:
+        if deck.id in seen_decks:
+            continue
+        seen_decks.add(deck.id)
+        deck_rows.append(
+            {
+                "id": deck.id,
+                "target_language": deck.language,
+                "slug": deck.slug,
+                "title": deck.title,
+                "domain": deck.domain,
+                "kind": deck.kind,
+                "sort_order": deck.sort_order,
+            }
+        )
     await _insert_ignore(session, VocabDeck, deck_rows)
-    entry_rows = [
-        {
-            "id": word_id(deck, word),
-            "deck_id": deck.id,
-            "content": word.content,
-            "definition": word.definition,
-            "example_sentence": word.example_sentence,
-            "sort_order": index,
-        }
-        for deck in decks
-        for index, word in enumerate(deck.words)
-    ]
+    entry_rows: list[dict[str, Any]] = []
+    seen_words: set[Any] = set()
+    for deck in decks:
+        for index, word in enumerate(deck.words):
+            entry_id = word_id(deck, word)
+            if entry_id in seen_words:
+                continue
+            seen_words.add(entry_id)
+            entry_rows.append(
+                {
+                    "id": entry_id,
+                    "deck_id": deck.id,
+                    "content": word.content,
+                    "definition": word.definition,
+                    "example_sentence": word.example_sentence,
+                    "ipa": word.ipa,
+                    "part_of_speech": word.part_of_speech,
+                    "simple_gloss": word.simple_gloss,
+                    "sort_order": index,
+                }
+            )
     await _insert_ignore(session, VocabEntry, entry_rows)
     await session.flush()
+
+
+def _sync_decks() -> list[Any]:
+    """Source banks plus merged English path decks so extra lemmas get UUID5 rows."""
+    decks = list(all_catalog_decks())
+    decks.extend(path_decks_for_language("en"))
+    decks.extend(path_decks_for_language("es"))
+    return decks
 
 
 async def _insert_ignore(

@@ -45,6 +45,9 @@ def _item(content: str, list_title: str, *, mastered: bool = False) -> MagicMock
     item.mastered = mastered
     item.definition = f"def {content}"
     item.example_sentence = None
+    item.ipa = None
+    item.part_of_speech = None
+    item.simple_gloss = None
     item.note = None
     item.created_at = datetime(2024, 1, 1, tzinfo=UTC)
     item.mastered_at = None
@@ -131,6 +134,17 @@ def test_sort_list_titles_puts_unknown_decks_last():
         "Food",
         "Travel",
     ]
+
+
+def test_group_items_omits_lists_not_on_the_path():
+    project_id = uuid4()
+    hello = _item("hi", "Hello")
+    hello.project_id = project_id
+    hotel = _item("lobby", "Hotel services")
+    hotel.project_id = project_id
+    groups = group_items([hello, hotel], learning_path=["Hello"], target_language="en")
+    assert [group.list_title for group in groups] == ["Hello"]
+    assert groups[0].items[0].content == "hi"
 
 
 def test_format_projects_block_includes_path():

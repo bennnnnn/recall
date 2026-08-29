@@ -34,11 +34,32 @@ def test_spanish_catalog_is_a_domain_tree():
     assert catalog_word_count("es") == sum(len(deck.words) for deck in decks_for_language("es"))
 
 
-def test_english_catalog_includes_sat_domain():
-    # SAT is on the English lesson map; catalog_path_titles still defaults off.
+def test_english_path_is_conversation_grouped():
     titles = catalog_path_titles("en")
-    assert "Hotel services" in titles
+    assert titles[0] == "Hello"
+    assert titles == catalog_domains("en")
+    assert "Feelings" in titles
+    assert "Please and thanks" not in titles
+    assert "Get and give" not in titles
+    assert "Hotel services" not in titles
     assert "SAT" not in titles
+    assert catalog_domains("en") == [
+        "Hello",
+        "Feelings",
+        "Everyday actions",
+        "Communication",
+        "Thinking",
+        "Describing",
+        "Conversation words",
+        "American conversational",
+        "Mouth and body sounds",
+        "Eating and drinking",
+        "Face and eyes",
+        "Body movement",
+        "Hands",
+        "Body reactions",
+        "Household actions",
+    ]
     sat_decks = decks_for_language("en", include_sat=True)
     assert any(deck.kind == "sat" for deck in sat_decks)
     sat = next(deck for deck in sat_decks if deck.kind == "sat")
@@ -46,8 +67,35 @@ def test_english_catalog_includes_sat_domain():
     assert sat.words
     entry = sat.words[0]
     assert word_id(sat, entry) != sat.id
-    # Default excludes SAT from domains.
     assert "SAT" not in catalog_domains("en")
+    assert "Hotel services" in [deck.title for deck in decks_for_language("en")]
+
+
+def test_english_path_words_have_study_fields():
+    for deck in path_decks_for_language("en"):
+        assert deck.words
+        for word in deck.words:
+            assert word.ipa
+            assert word.part_of_speech
+            assert word.simple_gloss
+            assert word.example_sentence
+
+
+def test_english_path_lemmas_are_unique():
+    seen: dict[str, str] = {}
+    for deck in path_decks_for_language("en"):
+        for word in deck.words:
+            key = word.content.casefold()
+            assert key not in seen, f"{word.content!r} in {seen[key]} and {deck.slug}"
+            seen[key] = deck.slug
+
+
+def test_english_path_is_one_group_per_theme():
+    decks = path_decks_for_language("en")
+    assert len(decks) == len({deck.domain for deck in decks})
+    for deck in decks:
+        assert deck.title == deck.domain
+        assert len(deck.words) >= 16
 
 
 def test_catalog_leaf_titles_are_unique_per_language():
@@ -71,19 +119,12 @@ def test_unknown_language_falls_back_to_english():
 def test_lesson_map_is_the_full_tree_not_level_gated():
     assert "Family" in catalog_domains("es")
     assert "Immediate family" in catalog_path_titles("es")
-    assert catalog_domains("en") == [
-        "Greetings",
-        "Family",
-        "Food",
-        "Home",
-        "Hotel",
-        "Travel",
-        "Daily life",
-        "Numbers and time",
-    ]
+    assert "Feelings" in catalog_domains("en")
     assert "SAT" in catalog_domains("en", include_sat=True)
     en_path = [deck.domain for deck in path_decks_for_language("en")]
-    assert "SAT" in en_path
+    assert "SAT" not in en_path
+    assert "Hotel" not in en_path
+    assert "Feelings" in en_path
     es_path = [deck.domain for deck in path_decks_for_language("es")]
     assert "SAT" not in es_path
     assert "Family" in es_path
@@ -98,6 +139,9 @@ def test_level_to_int():
     assert level_to_int("level0") == 1  # clamped
 
 
-def test_word_count_covers_the_full_bank():
-    assert catalog_word_count("en") == sum(len(deck.words) for deck in decks_for_language("en"))
+def test_word_count_covers_the_path():
+    assert catalog_word_count("en") == sum(
+        len(deck.words) for deck in path_decks_for_language("en")
+    )
     assert catalog_word_count("en", include_sat=True) > catalog_word_count("en")
+    assert catalog_word_count("es") == sum(len(deck.words) for deck in decks_for_language("es"))

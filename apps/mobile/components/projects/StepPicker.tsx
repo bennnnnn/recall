@@ -29,9 +29,8 @@ type Props<T> = {
  * One step of the project-creation flow: a label, a hint, a list of
  * tappable options (single- or multi-select — the caller's `onSelect`
  * decides which, this component only reflects `isSelected`), and a
- * back/continue action row. Shared by the level/topics/trivia-difficulty/
- * daily-goal steps in app/projects/index.tsx, which were previously four
- * separately hand-written ~40-line copies of this exact structure.
+ * back/continue action row. Used by the daily-goal step on
+ * `app/projects/create.tsx`.
  */
 export function StepPicker<T>({
   label,

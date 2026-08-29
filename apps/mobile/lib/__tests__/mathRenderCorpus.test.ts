@@ -73,6 +73,31 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
     expect(spans).toContain("x^2 + 1");
   });
 
+  it("BUG FIX regression: dollar-wrapped bullet equation is math, not raw \\cdot/\\frac", () => {
+    const input = String.raw`1. Isolate x
+$- 1\cdot x = 2 - 3^{\frac{2}{3}}$`;
+    const prepared = preprocessMarkdown(input);
+    expect(prepared).toContain(String.raw`$1\cdot x = 2 - 3^{\frac{2}{3}}$`);
+    const spans = mathSpansAfterPreprocess(input);
+    expect(spans.some((s) => s.includes("\\cdot") && s.includes("\\frac{2}{3}"))).toBe(true);
+    const prose = (() => {
+      const tokens = markdownItInstance.parse(prepared, {});
+      const texts: string[] = [];
+      const walk = (ts: Array<{ type: string; content?: string; children?: unknown[] | null }>) => {
+        for (const t of ts) {
+          if (t.type === "text" && t.content) texts.push(t.content);
+          if (t.children) walk(t.children as typeof ts);
+        }
+      };
+      walk(tokens);
+      return texts
+        .flatMap((c) => splitInlineMath(c).filter((p) => p.type === "text").map((p) => p.value))
+        .join("");
+    })();
+    expect(prose).not.toMatch(/\\cdot/);
+    expect(prose).not.toMatch(/\\frac/);
+  });
+
   it("table cells with inline math still produce math spans", () => {
     const input = "| Qty | Formula |\n| --- | --- |\n| area | $\\pi r^2$ |";
     const spans = mathSpansAfterPreprocess(input);

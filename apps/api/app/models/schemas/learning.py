@@ -93,6 +93,9 @@ class LearningItemOut(BaseModel):
     note: str | None
     definition: str | None
     example_sentence: str | None
+    ipa: str | None = None
+    part_of_speech: str | None = None
+    simple_gloss: str | None = None
     status: VocabStatus
     mastered: bool
     mastered_at: datetime | None

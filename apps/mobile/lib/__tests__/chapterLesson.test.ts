@@ -3,6 +3,9 @@ import {
   chapterIsComplete,
   chapterItems,
   chapterQueue,
+  exampleSentences,
+  highlightLemmaParts,
+  isChapterReview,
   itemToCard,
   overlayItemOutcomes,
   resolveLessonChapter,
@@ -45,9 +48,24 @@ describe("chapterLesson", () => {
     expect(chapterQueue(items).map((row) => row.content)).toEqual(["hola"]);
   });
 
+  it("queues learning words before new ones", () => {
+    const items = [item("new"), item("retry", "learning"), item("fresh")];
+    expect(chapterQueue(items).map((row) => row.content)).toEqual(["retry", "new", "fresh"]);
+  });
+
   it("caps the pending queue to the daily goal", () => {
     const items = [item("a"), item("b"), item("c"), item("d")];
     expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b"]);
+  });
+
+  it("replays a finished chapter as an uncapped review", () => {
+    const items = [
+      item("a", "mastered"),
+      item("b", "mastered"),
+      item("c", "mastered"),
+    ];
+    expect(isChapterReview(items)).toBe(true);
+    expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b", "c"]);
   });
 
   it("treats a chapter complete only when every word is mastered", () => {
@@ -76,5 +94,38 @@ describe("chapterLesson", () => {
       definition: "def hola",
       exampleSentence: "ex hola",
     });
+    expect(
+      itemToCard({
+        ...item("resilient"),
+        ipa: "rɪˈzɪliənt",
+        part_of_speech: "adjective",
+        simple_gloss: "you bounce back",
+      }),
+    ).toEqual({
+      word: "resilient",
+      definition: "def resilient",
+      exampleSentence: "ex resilient",
+      ipa: "rɪˈzɪliənt",
+      partOfSpeech: "adjective",
+      simpleGloss: "you bounce back",
+    });
+  });
+
+  it("highlights the lemma inside an example", () => {
+    expect(highlightLemmaParts("She stayed resilient after losing her job.", "resilient")).toEqual(
+      [
+        { text: "She stayed ", match: false },
+        { text: "resilient", match: true },
+        { text: " after losing her job.", match: false },
+      ],
+    );
+  });
+
+  it("splits at most two example sentences", () => {
+    expect(exampleSentences("See you later.\nSee you tomorrow.\nExtra.")).toEqual([
+      "See you later.",
+      "See you tomorrow.",
+    ]);
+    expect(exampleSentences("  only one  ")).toEqual(["only one"]);
   });
 });
