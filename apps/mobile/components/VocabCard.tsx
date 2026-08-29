@@ -6,13 +6,16 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-import type { ParsedVocabCard } from "@/lib/parseVocabCard";
 import { cleanQuizWord } from "@/lib/parseVocabQuiz";
 import { speakWord } from "@/lib/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
+import {
+  highlightLemmaParts,
+  type LessonVocabCard,
+} from "@/lib/projects/chapterLesson";
 
 type Props = {
-  card: ParsedVocabCard;
+  card: LessonVocabCard;
   language?: string;
 };
 
@@ -22,6 +25,11 @@ export function VocabCard({ card, language = "en" }: Props) {
   const { t } = useTranslation();
   const token = useAuthToken();
   const word = cleanQuizWord(card.word);
+  const ipa = card.ipa?.trim();
+  const pos = card.partOfSpeech?.trim();
+  const gloss = card.simpleGloss?.trim();
+  const example = card.exampleSentence?.trim();
+  const exampleParts = example ? highlightLemmaParts(example, word) : [];
 
   const handleSpeak = () => {
     void speakWord(word, {
@@ -32,23 +40,51 @@ export function VocabCard({ card, language = "en" }: Props) {
 
   return (
     <View style={s.card} accessibilityRole="summary">
-      <View style={s.wordRow}>
-        <Text style={s.word}>{word}</Text>
+      <Text style={s.word}>{word}</Text>
+      <View style={s.metaRow}>
+        {ipa ? <Text style={s.ipa}>/{ipa}/</Text> : null}
         <Pressable
           onPress={handleSpeak}
           style={s.speakBtn}
           accessibilityRole="button"
-          accessibilityLabel={t("quiz.pronunciation_unavailable_title")}
+          accessibilityLabel={t("lesson.speak")}
         >
-          <Icon name="volume-medium-outline" size={24} color={theme.primary} />
+          <Icon name="volume-medium-outline" size={22} color={theme.primary} />
         </Pressable>
-      </View>
-      <View style={s.details}>
-        <Text style={s.definition}>{card.definition}</Text>
-        {card.exampleSentence ? (
-          <Text style={s.example}>{card.exampleSentence}</Text>
+        {pos ? (
+          <View style={s.posChip}>
+            <Text style={s.posText}>{pos}</Text>
+          </View>
         ) : null}
       </View>
+      {gloss ? (
+        <View style={s.glossWell}>
+          <Text style={s.glossText}>{gloss}</Text>
+        </View>
+      ) : null}
+      <View style={s.section}>
+        <Text style={s.sectionLabel}>{t("lesson.meaning")}</Text>
+        <Text style={s.definition}>{card.definition}</Text>
+      </View>
+      {gloss && gloss.toLowerCase() !== card.definition.trim().toLowerCase() ? (
+        <View style={s.simpleWell}>
+          <Text style={s.simpleText}>
+            {t("lesson.in_simple_words", { gloss })}
+          </Text>
+        </View>
+      ) : null}
+      {example ? (
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>{t("lesson.example")}</Text>
+          <Text style={s.example}>
+            {exampleParts.map((part, index) => (
+              <Text key={`${index}-${part.text}`} style={part.match ? s.lemma : undefined}>
+                {part.text}
+              </Text>
+            ))}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -57,46 +93,86 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     card: {
       alignSelf: "stretch",
-      alignItems: "center",
       gap: Space.md,
-      paddingVertical: Space.xl,
-      paddingHorizontal: Space.lg,
-      backgroundColor: t.surfaceAlt,
-      borderRadius: Radius.xl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-    },
-    wordRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.sm,
+      paddingVertical: Space.lg,
     },
     word: {
-      fontSize: 30,
-      fontWeight: "700",
+      ...Type.display,
+      fontSize: 34,
+      lineHeight: 40,
       color: t.text,
-      textAlign: "center",
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: Space.sm,
+    },
+    ipa: {
+      ...Type.secondary,
+      color: t.textSecondary,
     },
     speakBtn: {
-      padding: Space.xxs,
-    },
-    details: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       alignItems: "center",
-      gap: Space.sm,
-      maxWidth: 320,
+      justifyContent: "center",
+      backgroundColor: t.successLight,
+    },
+    posChip: {
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xxs,
+      borderRadius: Radius.full,
+      backgroundColor: t.successLight,
+    },
+    posText: {
+      ...Type.caption,
+      color: t.success,
+      textTransform: "lowercase",
+    },
+    glossWell: {
+      backgroundColor: t.successLight,
+      borderRadius: Radius.lg,
+      paddingVertical: Space.xl,
+      paddingHorizontal: Space.lg,
+      alignItems: "center",
+      minHeight: 88,
+      justifyContent: "center",
+    },
+    glossText: {
+      ...Type.body,
+      color: t.success,
+      textAlign: "center",
+    },
+    section: {
+      gap: Space.xs,
+    },
+    sectionLabel: {
+      ...Type.label,
+      color: t.success,
     },
     definition: {
       ...Type.body,
-      color: t.textSecondary,
-      textAlign: "center",
+      color: t.text,
+    },
+    simpleWell: {
+      backgroundColor: t.surfaceAlt,
+      borderRadius: Radius.md,
+      paddingVertical: Space.sm,
+      paddingHorizontal: Space.md,
+    },
+    simpleText: {
+      ...Type.secondary,
+      color: t.text,
     },
     example: {
-      fontSize: 15,
-      lineHeight: 21,
-      color: t.textTertiary,
-      fontStyle: "italic",
-      textAlign: "center",
+      ...Type.body,
+      color: t.text,
+    },
+    lemma: {
+      fontWeight: "700",
+      color: t.success,
     },
   });
 }
