@@ -530,8 +530,8 @@ were removed. Programming help lives in main chat.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived
   (mastered/total; a chapter is complete when every word is mastered). The lesson
-  map lists each domain as a parent with its branches nested under it; tap an
-  unlocked branch to open the teaching window. The main flow is
+  map is a vertical node path grouped by domain; tap an unlocked node to open the
+  word page. The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
   screen). Compact stats, PDF export, and delete live in Settings/Learning. A
   thin "today" progress line sits above the path tree. Locked chapters stay
