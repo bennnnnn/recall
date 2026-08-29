@@ -30,7 +30,10 @@ const PROTECTED_SPAN_RE = /```[\s\S]*?```|\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\(
 // command span itself.
 const INLINE_LATEX_CMD_RE = /\\[a-zA-Z]+/g;
 
-const BARE_EQUATION_RE = /^[0-9a-zA-Z+\-*/^=±√\\_.\s]+$/i;
+// `{` `}` / `[` `]` / `()` / `!` so `3^{\frac{2}{3}}` and `\sqrt[3]{9}` and
+// `8!` still count as a bare equation. `*` stays for multiplication (bold is
+// rejected separately in isMathLike).
+const BARE_EQUATION_RE = /^[0-9a-zA-Z+\-*/^=±√\\_.{}[\]()!\s]+$/i;
 
 export function fixImplicitExponents(expr: string): string {
   let s = expr.trim();
@@ -95,8 +98,12 @@ function looksLikeBareEquation(line: string): boolean {
   const s = fixImplicitExponents(line.trim());
   if (!/=/.test(s)) return false;
   if (!BARE_EQUATION_RE.test(s) || !isMathLike(s)) return false;
+  // Strip command names first — otherwise `\cdot` / `\frac` contribute
+  // "cdot"/"frac" letter-runs that fail MATH_LINE_WORDS and block wrapping
+  // a real equation like `1\cdot x = 2 - 3^{\frac{2}{3}}`.
+  const withoutCmds = s.replace(/\\[a-zA-Z]+/g, " ");
   // "So r + 1/r = 17/4" used to wrap including "So" → MathText painted "Sor".
-  const words = s.match(/[A-Za-z]{2,}/g) ?? [];
+  const words = withoutCmds.match(/[A-Za-z]{2,}/g) ?? [];
   return words.every((w) => MATH_LINE_WORDS.test(w));
 }
 
@@ -135,6 +142,122 @@ function skipBraceGroups(s: string, start: number): number {
   return i;
 }
 
+/** Optional `[...]` args (`\sqrt[3]{9}`) immediately after a command name. */
+function skipOptionalBrackets(s: string, start: number): number {
+  let i = start;
+  while (s[i] === " ") i += 1;
+  if (s[i] !== "[") return i;
+  let depth = 0;
+  for (let j = i; j < s.length; j += 1) {
+    if (s[j] === "[") depth += 1;
+    else if (s[j] === "]") {
+      depth -= 1;
+      if (depth === 0) return j + 1;
+    }
+  }
+  return i;
+}
+
+function skipLatexCommandArgs(s: string, start: number): number {
+  return skipBraceGroups(s, skipOptionalBrackets(s, start));
+}
+
+const LIST_MARKER_RE = /^(?:\s*(?:[-*•]|\d+[.)])\s+)/;
+
+function listMarkerEnd(seg: string): number {
+  const m = LIST_MARKER_RE.exec(seg);
+  return m ? m[0].length : 0;
+}
+
+/** Walk right from `i` over one math token; null if the next char is prose. */
+function consumeMathRight(seg: string, i: number): number | null {
+  if (i >= seg.length) return null;
+  const c = seg[i] ?? "";
+  if (c === " " || c === "\t") return i + 1;
+  if (c === "\\") {
+    const rest = seg.slice(i + 1);
+    const cmd = rest.match(/^[a-zA-Z]+/);
+    if (cmd) return skipLatexCommandArgs(seg, i + 1 + cmd[0].length);
+    if (rest.length > 0) return i + 2;
+    return i + 1;
+  }
+  if (c === "{") {
+    const next = skipBraceGroups(seg, i);
+    return next > i ? next : null;
+  }
+  if (c === "[") {
+    const next = skipOptionalBrackets(seg, i);
+    return next > i ? next : null;
+  }
+  if (c === ".") {
+    if (/\d/.test(seg[i - 1] ?? "") && /\d/.test(seg[i + 1] ?? "")) return i + 1;
+    return null;
+  }
+  if (/[0-9+\-=^_})\]()|!]/.test(c) || c === "/") return i + 1;
+  if (/[a-zA-Z]/.test(c)) {
+    const m = seg.slice(i).match(/^[a-zA-Z]+/);
+    if (!m || m[0].length > 1) return null;
+    return i + 1;
+  }
+  return null;
+}
+
+function expandMathIslandRight(seg: string, start: number): number {
+  let i = start;
+  let lastNonSpace = start;
+  while (true) {
+    const next = consumeMathRight(seg, i);
+    if (next == null || next <= i) break;
+    const ch = seg[i] ?? "";
+    if (ch !== " " && ch !== "\t") lastNonSpace = next;
+    i = next;
+  }
+  return lastNonSpace;
+}
+
+function expandMathIslandLeft(seg: string, start: number): number {
+  const min = listMarkerEnd(seg);
+  let i = start;
+  while (i > min) {
+    const c = seg[i - 1] ?? "";
+    if (c === " " || c === "\t") {
+      i -= 1;
+      continue;
+    }
+    if (c === "\\") {
+      i -= 1;
+      continue;
+    }
+    if (c === ".") {
+      if (/\d/.test(seg[i] ?? "") && /\d/.test(seg[i - 2] ?? "")) {
+        i -= 1;
+        continue;
+      }
+      break;
+    }
+    if (/[0-9+\-=^_{}[\]()|!/]/.test(c)) {
+      i -= 1;
+      continue;
+    }
+    if (/[a-zA-Z]/.test(c)) {
+      let runStart = i - 1;
+      while (runStart > min && /[a-zA-Z]/.test(seg[runStart - 1] ?? "")) {
+        runStart -= 1;
+      }
+      const run = seg.slice(runStart, i);
+      const afterBs = runStart > min && seg[runStart - 1] === "\\";
+      if (afterBs || run.length <= 1) {
+        i = afterBs ? runStart - 1 : runStart;
+        continue;
+      }
+      break;
+    }
+    break;
+  }
+  while (i < start && (seg[i] === " " || seg[i] === "\t")) i += 1;
+  return i;
+}
+
 /** Apply `fn` only to the non-`$...$` segments of a line, leaving already-
  * delimited inline math spans untouched. Without this, a heuristic like
  * MATH_IN_PARENS_RE re-wraps parentheticals INSIDE an existing `$...$`
@@ -165,8 +288,15 @@ function wrapInlineLatexCommandsInSegment(seg: string): string {
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = INLINE_LATEX_CMD_RE.exec(seg)) !== null) {
-    const start = match.index;
-    const end = skipBraceGroups(seg, INLINE_LATEX_CMD_RE.lastIndex);
+    if (match.index < last) {
+      INLINE_LATEX_CMD_RE.lastIndex = last;
+      continue;
+    }
+    const cmdEnd = skipLatexCommandArgs(seg, INLINE_LATEX_CMD_RE.lastIndex);
+    // Wrap the whole island (`3^{\frac{2}{3}}`, `1\cdot x = …`) — wrapping
+    // only the command shatters `3^{$\frac{2}{3}$}` and leaves `^{` `}` raw.
+    const start = expandMathIslandLeft(seg, match.index);
+    const end = expandMathIslandRight(seg, cmdEnd);
     out += seg.slice(last, start) + `$${seg.slice(start, end)}$`;
     last = end;
     INLINE_LATEX_CMD_RE.lastIndex = end;
@@ -221,8 +351,16 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
     }
   }
 
+  const listLead = out.match(/^(\s*(?:[-*•]|\d+[.)])\s+)(.*)$/);
+  if (listLead && !listLead[2].includes("$")) {
+    const expr = listLead[2].trim();
+    if (looksLikeBareEquation(expr)) {
+      return `${listLead[1]}${wrapMath(expr, format)}`;
+    }
+  }
+
   const trimmed = out.trim();
-  if (looksLikeBareEquation(trimmed) && !trimmed.includes("$") && !/^[-*]\s/.test(trimmed)) {
+  if (looksLikeBareEquation(trimmed) && !trimmed.includes("$") && !/^[-*•]\s/.test(trimmed)) {
     return out.replace(trimmed, wrapMath(trimmed, format));
   }
 
@@ -233,8 +371,22 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
   );
 
   out = wrapInlineLatexCommands(out);
-
-  return out.replace(/^(\s*)\$\-\s*(.+?)\s*\$$/, "$1- $2");
+  // Model often wraps a whole bullet as `$- 1\cdot x = …$`. Stripping those
+  // dollars so `- Base = 8 cm` stays prose also used to dump real latex
+  // (`\cdot`, `\frac`) onto the list item as raw source. Keep `$…$` when
+  // the inner span is math; then re-wrap any leftover bare commands.
+  out = out.replace(
+    /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
+    (_full, indent: string, mark: string, inner: string) => {
+      const body = String(inner).trim();
+      if (/\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body)) {
+        return `${indent}${mark} $${body}$`;
+      }
+      return `${indent}${mark} ${body}`;
+    },
+  );
+  out = wrapInlineLatexCommands(out);
+  return out;
 }
 
 export function normalizeImplicitMathInProse(

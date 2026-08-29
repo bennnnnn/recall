@@ -120,8 +120,17 @@ function toVerticalForm(value: string, map: Record<string, string>): string | nu
 }
 
 /** Return the Unicode superscript for `value` (e.g. "x" → "ˣ", "2" → "²"),
- * or null if any character lacks a Unicode superscript. */
+ * or null if any character lacks a Unicode superscript.
+ * `2/3` → `²⁄³` (fraction slash) so `3^{2/3}` does not paint as baseline "32/3". */
 export function toSuperscript(value: string): string | null {
+  if (value.includes("/")) {
+    const parts = value.split("/");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+    const num = toVerticalForm(parts[0], SUPERSCRIPT);
+    const den = toVerticalForm(parts[1], SUPERSCRIPT);
+    if (!num || !den) return null;
+    return `${num}\u2044${den}`;
+  }
   return toVerticalForm(value, SUPERSCRIPT);
 }
 

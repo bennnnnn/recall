@@ -14,8 +14,13 @@ describe("toSuperscript", () => {
     expect(toSuperscript("(2)")).toBe("⁽²⁾");
   });
 
+  it("maps a slash fraction so 3^{2/3} is not baseline 32/3", () => {
+    expect(toSuperscript("2/3")).toBe("²\u2044³");
+    expect(toSuperscript("1/2")).toBe("¹\u2044²");
+    expect(toSuperscript("2/q")).toBeNull();
+  });
+
   it("returns null when any char lacks a Unicode superscript", () => {
-    // q, C, comma have no Unicode superscript.
     expect(toSuperscript("q")).toBeNull();
     expect(toSuperscript("C")).toBeNull();
     expect(toSuperscript("2,3")).toBeNull();

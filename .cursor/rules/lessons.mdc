@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Isolate-x step showed raw `1\cdot x = 2 - 3^{\frac{2}{3}}`; `3^{2/3}` looked like `32/3`.**
+  Model `$`-wrapped the bullet (`$- 1\cdot x = …$`); prose-bullet unwrap stripped
+  dollars after command-wrap had skipped the interior, so `\cdot`/`\frac` never
+  reached MathText. Keep `$…$` when the inner span is math. Wrapping only
+  `\frac` also shattered `3^{$\frac{2}{3}$}`. Wrap the whole island. `toSuperscript("2/3")`
+  was null so styles.sup sat at baseline next to `3` — map `2/3` → `²⁄³`.
 - **Chart / bare email interviewed; coffee mermaid parse-failed.** `CLARIFICATION_HINT`
   is on every non-quiz turn and fought the layout hints: no rainfall numbers or a
   bare `escribeme un correo` became 1–3 questions instead of ` ```chart ` /
