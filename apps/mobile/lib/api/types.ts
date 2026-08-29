@@ -129,6 +129,9 @@ export type ProjectItem = {
   note: string | null;
   definition: string | null;
   example_sentence: string | null;
+  ipa?: string | null;
+  part_of_speech?: string | null;
+  simple_gloss?: string | null;
   status: VocabStatus;
   mastered: boolean;
   mastered_at: string | null;

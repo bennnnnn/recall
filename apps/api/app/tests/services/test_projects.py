@@ -87,6 +87,9 @@ def _item(
     item.note = None
     item.definition = f"definition of {content}"
     item.example_sentence = None
+    item.ipa = None
+    item.part_of_speech = None
+    item.simple_gloss = None
     item.status = "mastered" if mastered else "new"
     item.mastered = mastered
     item.created_at = datetime.now(UTC)

@@ -147,6 +147,11 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
                     leftover = leftovers.pop(_list_key(word.content), None)
                     if leftover is not None:
                         leftover.list_title = deck.title
+                        leftover.ipa = word.ipa
+                        leftover.part_of_speech = word.part_of_speech
+                        leftover.simple_gloss = word.simple_gloss
+                        if leftover.catalog_entry_id is None:
+                            leftover.catalog_entry_id = word_id(deck, word)
                         have_pairs.add(pair)
                         continue
                     await create_item(
@@ -157,6 +162,9 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
                         list_title=deck.title,
                         definition=word.definition,
                         example_sentence=word.example_sentence,
+                        ipa=word.ipa,
+                        part_of_speech=word.part_of_speech,
+                        simple_gloss=word.simple_gloss,
                         status="new",
                         catalog_entry_id=word_id(deck, word),
                         commit=False,

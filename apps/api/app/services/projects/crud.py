@@ -18,6 +18,7 @@ from app.services.projects.common import (
     DEFAULT_LIST,
     LEARNING_PRODUCT_KINDS,
     _is_language_project,
+    _list_key,
     is_learning_product_kind,
     locale_language,
     normalize_project_kind,
@@ -44,13 +45,31 @@ def group_items(
     items: list[ProjectItem],
     *,
     learning_path: list[str] | None = None,
+    target_language: str | None = None,
 ) -> list[ProjectListGroup]:
+    """Group items by chapter title.
+
+    Leftover catalog chapters that are not on this class's path (for example
+    English Hotel/SAT after the conversation-path switch) stay out of PDF
+    ``lists``. Unspecified titles such as General still appear.
+    """
+    path_keys = {_list_key(title) for title in (learning_path or [])}
+    off_path_catalog: set[str] = set()
+    if path_keys:
+        from app.content.vocab_catalog import decks_for_language
+
+        lang = (target_language or "en").strip().lower() or "en"
+        off_path_catalog = {
+            _list_key(deck.title) for deck in decks_for_language(lang, include_sat=True)
+        } - path_keys
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
         lst = item.list_title.strip() or DEFAULT_LIST
         by_list.setdefault(lst, []).append(item)
     groups: list[ProjectListGroup] = []
     for list_title in sort_list_titles(list(by_list.keys()), learning_path):
+        if _list_key(list_title) in off_path_catalog:
+            continue
         groups.append(
             ProjectListGroup(
                 list_title=list_title,
@@ -383,7 +402,11 @@ async def get_project_detail(
     lists: list[Any] = []
     path = parse_learning_path(item)
     if include_lists:
-        lists = group_items(project_items, learning_path=path)
+        lists = group_items(
+            project_items,
+            learning_path=path,
+            target_language=getattr(item, "target_language", None),
+        )
     path_progress = build_path_progress(item, project_items)
     return {
         **ProjectOut.model_validate(item).model_dump(),

@@ -261,6 +261,9 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     item.note = None
     item.definition = "hello"
     item.example_sentence = None
+    item.ipa = None
+    item.part_of_speech = None
+    item.simple_gloss = None
     item.status = "new"
     item.mastered = False
     item.mastered_at = None

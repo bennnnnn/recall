@@ -44,6 +44,9 @@ async def ensure_catalog_rows(session: AsyncSession) -> None:
             "content": word.content,
             "definition": word.definition,
             "example_sentence": word.example_sentence,
+            "ipa": word.ipa,
+            "part_of_speech": word.part_of_speech,
+            "simple_gloss": word.simple_gloss,
             "sort_order": index,
         }
         for deck in decks

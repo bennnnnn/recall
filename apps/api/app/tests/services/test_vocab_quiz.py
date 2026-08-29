@@ -103,6 +103,9 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
     covered.definition = None
     covered.note = None
     covered.example_sentence = None
+    covered.ipa = None
+    covered.part_of_speech = None
+    covered.simple_gloss = None
     covered.last_incorrect_at = None
     list_for_user = AsyncMock(return_value=[covered])
 
