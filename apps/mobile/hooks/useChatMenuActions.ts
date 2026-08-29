@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { type IoniconName } from "@/lib/icons";
 import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
 import { shareConversation } from "@/lib/share";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Params = {
   token: string | null;
@@ -30,6 +32,7 @@ export function useChatMenuActions({
   removeChatFromGroupsById,
 }: Params) {
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const [menuChat, setMenuChat] = useState<Chat | null>(null);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
@@ -69,9 +72,9 @@ export function useChatMenuActions({
       await shareConversation(chat.title, msgs);
     } catch {
       dismissActionBanner();
-      Alert.alert(t("common.error"), t("chat.share_failed"));
+      reportRecoverableError(feedback, t("chat.share_failed"));
     }
-  }, [token, menuChat, closeMenu, dismissActionBanner, showActionBanner, t]);
+  }, [token, menuChat, closeMenu, dismissActionBanner, showActionBanner, feedback, t]);
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat) return;
@@ -96,9 +99,9 @@ export function useChatMenuActions({
       showActionBanner(t("chat.renamed_toast"), "pencil-outline");
     } catch {
       patchChatInGroups(renameTarget.id, { title: prevTitle ?? null });
-      Alert.alert(t("common.error"), t("chat.rename_failed"));
+      reportRecoverableError(feedback, t("chat.rename_failed"));
     }
-  }, [renameText, renameTarget, token, patchChatInGroups, showActionBanner, t]);
+  }, [renameText, renameTarget, token, patchChatInGroups, showActionBanner, feedback, t]);
 
   const togglePinChat = useCallback(async () => {
     if (!token || !menuChat) return;
@@ -114,9 +117,9 @@ export function useChatMenuActions({
       );
     } catch {
       moveChatPinState(chat.id, !next);
-      Alert.alert(t("common.error"), t("chat.pin_failed"));
+      reportRecoverableError(feedback, t("chat.pin_failed"));
     }
-  }, [token, menuChat, closeMenu, moveChatPinState, showActionBanner, t]);
+  }, [token, menuChat, closeMenu, moveChatPinState, showActionBanner, feedback, t]);
 
   const toggleArchiveChat = useCallback(async () => {
     if (!token || !menuChat) return;
@@ -132,9 +135,9 @@ export function useChatMenuActions({
       );
     } catch {
       moveChatArchiveState(chat.id, !next);
-      Alert.alert(t("common.error"), t("common.error"));
+      reportRecoverableError(feedback, t("common.error"));
     }
-  }, [token, menuChat, closeMenu, moveChatArchiveState, showActionBanner, t]);
+  }, [token, menuChat, closeMenu, moveChatArchiveState, showActionBanner, feedback, t]);
 
   const requestDeleteChat = useCallback(
     (chat: Chat) => {
@@ -153,13 +156,13 @@ export function useChatMenuActions({
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
             } catch {
               insertChatInGroups(chat);
-              Alert.alert(t("common.error"), t("chat.delete_failed"));
+              reportRecoverableError(feedback, t("chat.delete_failed"));
             }
           },
         },
       ]);
     },
-    [token, removeChatFromGroupsById, insertChatInGroups, showActionBanner, t],
+    [token, removeChatFromGroupsById, insertChatInGroups, showActionBanner, feedback, t],
   );
 
   const confirmDeleteChat = useCallback(() => {

@@ -15,6 +15,8 @@ import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const SERVER_MESSAGE_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -48,6 +50,7 @@ export function useChatActions({
   router,
   t,
 }: Options) {
+  const feedback = useActionFeedbackOptional();
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
@@ -84,11 +87,11 @@ export function useChatActions({
               mm.id === messageId ? { ...mm, feedback: previous } : mm,
             ),
           );
-          Alert.alert(t("common.error"), t("chat.feedback_failed"));
+          reportRecoverableError(feedback, t("chat.feedback_failed"));
         });
       }
     },
-    [token, chatId, setMessages, t],
+    [token, chatId, setMessages, feedback, t],
   );
 
   const loadTranscriptMessages = useCallback(async () => {
@@ -116,9 +119,9 @@ export function useChatActions({
     } catch (error) {
       dismissActionBanner();
       if (isShareCancelled(error)) return;
-      Alert.alert(t("common.error"), t("chat.export_pdf_failed"));
+      reportRecoverableError(feedback, t("chat.export_pdf_failed"));
     }
-  }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, t]);
+  }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, feedback, t]);
 
   const openRename = useCallback(() => {
     setRenameText(chatTitle ?? "");
@@ -143,9 +146,9 @@ export function useChatActions({
     } catch {
       setChatTitle(prevTitle);
       patchChatGlobal(chatId, { title: prevTitle });
-      Alert.alert(t("common.error"), t("chat.rename_failed"));
+      reportRecoverableError(feedback, t("chat.rename_failed"));
     }
-  }, [renameText, chatId, chatTitle, token, setChatTitle, showActionBanner, t]);
+  }, [renameText, chatId, chatTitle, token, setChatTitle, showActionBanner, feedback, t]);
 
   const togglePin = useCallback(async () => {
     if (!chatId || !token) return;
@@ -160,9 +163,9 @@ export function useChatActions({
       );
     } catch {
       setPinned(!next);
-      Alert.alert(t("common.error"), t("chat.pin_failed"));
+      reportRecoverableError(feedback, t("chat.pin_failed"));
     }
-  }, [chatId, token, pinned, setPinned, showActionBanner, t]);
+  }, [chatId, token, pinned, setPinned, showActionBanner, feedback, t]);
 
   const toggleArchive = useCallback(async () => {
     if (!chatId || !token) return;
@@ -179,9 +182,9 @@ export function useChatActions({
     } catch {
       setArchived(!next);
       moveChatArchiveGlobal(chatId, !next);
-      Alert.alert(t("common.error"), t("chat.archive_failed"));
+      reportRecoverableError(feedback, t("chat.archive_failed"));
     }
-  }, [chatId, token, archived, setArchived, showActionBanner, t]);
+  }, [chatId, token, archived, setArchived, showActionBanner, feedback, t]);
 
   const confirmDelete = useCallback(() => {
     Alert.alert(
@@ -219,13 +222,13 @@ export function useChatActions({
               }, 700);
             } catch {
               insertChatGlobal(snapshot);
-              Alert.alert(t("common.error"), t("chat.delete_failed"));
+              reportRecoverableError(feedback, t("chat.delete_failed"));
             }
           },
         },
       ],
     );
-  }, [archived, chatId, chatTitle, messages, pinned, token, router, showActionBanner, t]);
+  }, [archived, chatId, chatTitle, messages, pinned, token, router, showActionBanner, feedback, t]);
 
   const onShareFromMenu = useCallback(() => {
     tap();

@@ -11,13 +11,16 @@ import {
   SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useDataControls } from "@/hooks/useDataControls";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 export default function DataControlsScreen() {
   const { token, progress, exportData, deleteAccount } = useDataControls();
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -43,7 +46,7 @@ export default function DataControlsScreen() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (!message.toLowerCase().includes("cancel")) {
-        Alert.alert(t("common.error"), t("settings.export_failed"));
+        reportRecoverableError(feedback, t("settings.export_failed"));
       }
     }
   };
@@ -67,7 +70,7 @@ export default function DataControlsScreen() {
     if (deleted) {
       router.replace("/login");
     } else {
-      Alert.alert(t("common.error"), t("settings.delete_failed"));
+      reportRecoverableError(feedback, t("settings.delete_failed"));
     }
   };
 

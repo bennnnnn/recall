@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -20,6 +19,7 @@ import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type AttachmentListItem } from "@/lib/api";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { shareChatAttachment } from "@/lib/downloadChatAttachment";
@@ -35,6 +35,7 @@ import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const NUM_COLUMNS = 3;
 
@@ -45,6 +46,7 @@ export default function GalleryScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const token = useAuthToken();
+  const feedback = useActionFeedbackOptional();
   const { width } = useWindowDimensions();
   const thumbSize = galleryThumbSize(width - Space.md * 2, NUM_COLUMNS, Space.xs);
 
@@ -94,15 +96,15 @@ export default function GalleryScreen() {
           fileName: galleryFileName(item.content_type, item.original_filename),
         });
       } catch (shareError) {
-        Alert.alert(
-          t("common.download_failed"),
+        reportRecoverableError(
+          feedback,
           shareError instanceof Error ? shareError.message : t("common.error"),
         );
       } finally {
         sharingRef.current = false;
       }
     },
-    [t, token],
+    [t, token, feedback],
   );
 
   const openChat = useCallback(() => {

@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { resolveChatError } from "@/lib/chatErrorMessage";
 import { notifyWarning } from "@/lib/haptics";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   IMAGE_GEN_FAILED_ASSISTANT_ID,
   IMAGE_GEN_PENDING_ASSISTANT_ID,
@@ -75,6 +76,7 @@ export function useImageGeneration({
   newMessageCountRef,
   t,
 }: Options) {
+  const feedback = useActionFeedbackOptional();
   const [generating, setGenerating] = useState(false);
   // Refs so submitPrompt never no-ops on a stale streaming/generating closure
   // from a prior Fast Refresh or a turn that just finished.
@@ -113,7 +115,7 @@ export function useImageGeneration({
       if (!authToken) return;
       if (generatingRef.current) return;
       if (streamingRef.current) {
-        Alert.alert(t("chat.error_title"), t("chat.busy"));
+        reportRecoverableError(feedback, t("chat.busy"));
         return;
       }
       // Don't trust client isPro alone — try the API; HTTP 403 opens upgrade.
@@ -220,9 +222,6 @@ export function useImageGeneration({
         const message = error instanceof Error ? error.message : t("common.error");
         const resolved = resolveChatError({ message, isPro, t });
         setMessages((prev) => applyImageGenFailure(prev, "failed", resolved.message));
-        if (resolved.kind === "quota") {
-          Alert.alert(t("chat.error_title"), resolved.message);
-        }
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
         generatingRef.current = false;
@@ -238,6 +237,7 @@ export function useImageGeneration({
       newMessageCountRef,
       onScrollToLatest,
       onOpenUpgrade,
+      feedback,
       t,
     ],
   );

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type Suggestion } from "@/lib/api";
 import { consumeCreatedSuggestionSkip } from "@/lib/cache/chatListCache";
 import {
   chatSuggestionLoadAction,
   shouldFetchChatSuggestions,
 } from "@/lib/chatTurnRefresh";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Options = {
   token: string | null;
@@ -26,6 +27,7 @@ export function useChatSuggestions({
   refreshKey,
 }: Options) {
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const prevRefreshKeyRef = useRef(refreshKey);
   const prevHasMessagesRef = useRef(hasMessages);
@@ -75,11 +77,11 @@ export function useChatSuggestions({
       try {
         await api.dismissSuggestion(token, id);
       } catch {
-        Alert.alert(t("common.error"), t("reminders.dismiss_failed"));
+        reportRecoverableError(feedback, t("reminders.dismiss_failed"));
         void load();
       }
     },
-    [token, load, t],
+    [token, load, feedback, t],
   );
 
   return { suggestions, dismiss, refresh: load };

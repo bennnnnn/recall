@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, Alert } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
@@ -29,7 +29,9 @@ import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { speechLocale } from "@/lib/i18n/languages";
 import { useAuth, useAuthToken } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTranslation } from "react-i18next";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Props = {
   message: Message;
@@ -145,6 +147,7 @@ function AssistantActions({
   const { t } = useTranslation();
   const { user } = useAuth();
   const token = useAuthToken();
+  const feedbackApi = useActionFeedbackOptional();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const speakGenRef = useRef(0);
@@ -171,7 +174,7 @@ function AssistantActions({
     if (gen !== speakGenRef.current) return;
     setSpeaking(false);
     if (!result.ok) {
-      Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
+      reportRecoverableError(feedbackApi, t("chat.read_aloud_unavailable_body"));
     }
   };
 

@@ -123,7 +123,7 @@ export function useTodosActions({
       const topic = name.trim();
       if (!topic || isDefaultListTopic(topic)) return;
       if (groupOrder.some((entry) => entry.toLowerCase() === topic.toLowerCase())) {
-        Alert.alert(t("todos.error"), t("lists.group_exists"));
+        reportError("lists.group_exists");
         return;
       }
       const nextOrder = [...groupOrder, topic];
@@ -319,7 +319,7 @@ export function useTodosActions({
         (item) => !item.due_at && normalizeTopic(item.topic) === normalized,
       );
       if (items.some((item) => !item.checked)) {
-        Alert.alert(t("lists.delete_group_blocked_title"), t("lists.delete_group_blocked_body"));
+        reportError("lists.delete_group_blocked_body");
         return;
       }
       Alert.alert(

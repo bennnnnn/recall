@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { api } from "@/lib/api";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   LIVE_TALK_ECHO_GUARD_MS,
   liveTalkErrorGate,
@@ -23,6 +25,7 @@ type Options = {
 };
 
 export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
+  const feedback = useActionFeedbackOptional();
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
@@ -40,22 +43,31 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   visibleRef.current = visible;
 
   const alertForGate = useCallback(
-    (gate: LiveTalkGate) => {
+    (gate: LiveTalkGate, opts?: { overModal?: boolean }) => {
       if (gate === "upgrade") {
         onUpgrade();
         return;
       }
-      if (gate === "limit") {
-        Alert.alert(t("chat.live_talk_limit_title"), t("chat.live_talk_limit_body"));
+      const overModal = opts?.overModal === true;
+      const message =
+        gate === "limit"
+          ? t("chat.live_talk_limit_body")
+          : gate === "offline"
+            ? t("chat.offline_body")
+            : t("chat.live_talk_unavailable_body");
+      if (overModal) {
+        const title =
+          gate === "limit"
+            ? t("chat.live_talk_limit_title")
+            : gate === "offline"
+              ? t("common.error")
+              : t("chat.live_talk_unavailable_title");
+        Alert.alert(title, message);
         return;
       }
-      if (gate === "offline") {
-        Alert.alert(t("common.error"), t("chat.offline_body"));
-        return;
-      }
-      Alert.alert(t("chat.live_talk_unavailable_title"), t("chat.live_talk_unavailable_body"));
+      reportRecoverableError(feedback, message);
     },
-    [onUpgrade, t],
+    [feedback, onUpgrade, t],
   );
 
   const voice = useVoiceInput({
@@ -150,7 +162,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
         endingUtteranceRef.current = false;
         return;
       }
-      alertForGate(liveTalkErrorGate(error));
+      alertForGate(liveTalkErrorGate(error), { overModal: true });
       setPhase("idle");
     } finally {
       endingUtteranceRef.current = false;
@@ -170,7 +182,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   const open = useCallback(async () => {
     if (!token) return;
     if (!isVoiceInputAvailable() || !voice.voiceInputAvailable) {
-      Alert.alert(t("chat.live_talk_unavailable_title"), t("chat.live_talk_unavailable_body"));
+      reportRecoverableError(feedback, t("chat.live_talk_unavailable_body"));
       return;
     }
     try {
@@ -189,7 +201,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     } catch (error) {
       alertForGate(liveTalkErrorGate(error));
     }
-  }, [token, isOffline, voice.voiceInputAvailable, t, alertForGate]);
+  }, [token, isOffline, voice.voiceInputAvailable, t, alertForGate, feedback]);
 
   const toggle = useCallback(async () => {
     if (phase === "thinking") return;

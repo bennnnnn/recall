@@ -116,11 +116,11 @@ export default function LoginScreen() {
       return;
     }
     if (!isGoogleWebClientConfigured()) {
-      Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
+      showSignInError(t("login.error_not_configured"));
       return;
     }
     if (Platform.OS === "ios" && !isGoogleSignInConfigured()) {
-      Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
+      showSignInError(t("login.error_not_configured"));
       return;
     }
     busyRef.current = true;

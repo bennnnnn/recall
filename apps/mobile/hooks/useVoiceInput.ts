@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { transcribeSpeech } from "@/lib/api";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   isVoiceInputAvailable,
   loadExpoAudio,
@@ -30,6 +32,7 @@ export function useVoiceInput({
   recordingFormat = "aac",
   onTranscribeError,
 }: Options) {
+  const feedback = useActionFeedbackOptional();
   const recordingRef = useRef<VoiceRecorder | null>(null);
   const meterUnsubRef = useRef<(() => void) | null>(null);
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,8 +47,8 @@ export function useVoiceInput({
   }, []);
 
   const showUnavailable = useCallback(() => {
-    Alert.alert(t("chat.voice_unavailable_title"), t("chat.voice_unavailable_body"));
-  }, [t]);
+    reportRecoverableError(feedback, t("chat.voice_unavailable_body"));
+  }, [feedback, t]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
     if (maxTimerRef.current != null) {
@@ -95,10 +98,10 @@ export function useVoiceInput({
       }, VOICE_MAX_RECORDING_MS);
       return true;
     } catch {
-      Alert.alert(t("common.error"), t("chat.voice_start_failed"));
+      reportRecoverableError(feedback, t("chat.voice_start_failed"));
       return false;
     }
-  }, [token, recording, transcribing, t, showUnavailable, recordingFormat, onTranscribeError]);
+  }, [token, recording, transcribing, t, showUnavailable, recordingFormat, onTranscribeError, feedback]);
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
@@ -108,7 +111,7 @@ export function useVoiceInput({
       setTranscribing(false);
       onTranscribeError?.("empty");
       if (!onTranscribeError) {
-        Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
+        reportRecoverableError(feedback, t("chat.voice_recording_empty"));
       }
       return null;
     }
@@ -129,20 +132,20 @@ export function useVoiceInput({
       onTranscribeError?.(reason);
       if (!onTranscribeError) {
         if (reason === "network") {
-          Alert.alert(t("common.error"), t("chat.voice_network_failed"));
+          reportRecoverableError(feedback, t("chat.voice_network_failed"));
         } else if (message.includes("recording_empty")) {
-          Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
+          reportRecoverableError(feedback, t("chat.voice_recording_empty"));
         } else if (message.includes("transcribe_empty")) {
-          Alert.alert(t("common.error"), t("chat.voice_transcribe_empty"));
+          reportRecoverableError(feedback, t("chat.voice_transcribe_empty"));
         } else {
-          Alert.alert(t("common.error"), t("chat.voice_transcribe_failed"));
+          reportRecoverableError(feedback, t("chat.voice_transcribe_failed"));
         }
       }
       return null;
     } finally {
       setTranscribing(false);
     }
-  }, [token, stopRecording, onTranscript, onTranscribeError, t]);
+  }, [token, stopRecording, onTranscript, onTranscribeError, feedback, t]);
 
   finishRecordingRef.current = finishRecording;
 

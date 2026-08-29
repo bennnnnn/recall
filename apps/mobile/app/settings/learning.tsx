@@ -14,6 +14,7 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { type LanguageLevel, type Project } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
@@ -172,7 +173,7 @@ export default function LearningSettingsScreen() {
       });
     } catch (error) {
       if (isShareCancelled(error)) return;
-      Alert.alert(t("common.error"), t("projects.export_pdf_failed"));
+      reportRecoverableError(feedback, t("projects.export_pdf_failed"));
     } finally {
       setExportingId(null);
     }

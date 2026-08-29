@@ -19,6 +19,7 @@ import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useMemoryActions } from "@/hooks/useMemoryActions";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
@@ -27,6 +28,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
 const COLLAPSED_LINES = 3;
@@ -161,6 +163,7 @@ function MemorySectionCard({
 export default function MemoryScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -312,7 +315,7 @@ export default function MemoryScreen() {
                         return next;
                       });
                       if (!(await deleteSection(section.type))) {
-                        Alert.alert(t("common.error"), t("memory.delete_failed"));
+                        reportRecoverableError(feedback, t("memory.delete_failed"));
                       }
                     },
                   },
@@ -331,7 +334,7 @@ export default function MemoryScreen() {
                     style: "destructive",
                     onPress: async () => {
                       if (!(await deleteFact(section, factIndex, factText))) {
-                        Alert.alert(t("common.error"), t("memory.delete_failed"));
+                        reportRecoverableError(feedback, t("memory.delete_failed"));
                       }
                     },
                   },
