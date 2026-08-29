@@ -1,3 +1,9 @@
+import {
+  collectClosedFenceBodies,
+  mapClosedLangFence,
+  stripClosedLangFence,
+} from "@/lib/mdFenceScan";
+
 export type PlaceItem = {
   name: string;
   url: string;
@@ -6,8 +12,8 @@ export type PlaceItem = {
   price?: string;
 };
 
-const PLACES_FENCE_RE = /```places\s*\n([\s\S]*?)```/gi;
-const PLACES_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)```/gi;
+const PLACES_FENCE_RE = /```places\s*\n([\s\S]*?)(?:```|$)/gi;
+const PLACES_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)(?:```|$)/gi;
 const PRICE_IN_NOTE_RE = /\(\s*\$+\s*\)/;
 const NUMBERED_LINE_RE = /^\s*\d+\.\s+/;
 const SECTION_HEADING_RE = /^\s*#{1,6}\s+/;
@@ -111,19 +117,16 @@ export function extractPlacesFromMarkdownList(content: string): PlaceItem[] {
 }
 
 export function parseAllPlacesFences(content: string): PlaceItem[] {
-  const places: PlaceItem[] = [];
-  for (const match of content.matchAll(PLACES_FENCE_RE)) {
-    places.push(...parsePlacesJson(match[1]?.trim() ?? ""));
-  }
-  return places;
+  return collectClosedFenceBodies(content, "places").flatMap((body) =>
+    parsePlacesJson(body.trim()),
+  );
 }
 
 /** Hide ```places / ```json venue blocks from markdown (incl. while streaming). */
 export function stripGeoFenceBlocks(text: string): string {
-  return text
-    .replace(/```(?:places|json)\s*\n[\s\S]*?(?:```|$)/gi, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
+  let out = stripClosedLangFence(text, "places");
+  out = stripClosedLangFence(out, "json");
+  return out.replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
 /** Unified venue list — ```places fences, or ```json arrays the model mis-tagged. */
@@ -136,13 +139,15 @@ export function resolvePlaces(content: string): PlaceItem[] {
 /** Remove places/json venue fences from prose (leave markdown body intact). */
 export function stripPlacesContent(content: string, places: PlaceItem[]): string {
   if (places.length === 0) return content;
-  let stripped = content.replace(PLACES_FENCE_RE, "");
-  if (stripped.includes("```json")) {
-    stripped = stripped.replace(PLACES_JSON_FENCE_RE, (block, raw: string) => {
+  let stripped = stripClosedLangFence(content, "places");
+  if (stripped.toLowerCase().includes("```json")) {
+    stripped = mapClosedLangFence(stripped, "json", (body) => {
       try {
-        return looksLikePlacesArray(JSON.parse(String(raw).trim())) ? "" : block;
+        return looksLikePlacesArray(JSON.parse(body.trim()))
+          ? ""
+          : `\`\`\`json\n${body}\`\`\``;
       } catch {
-        return block;
+        return `\`\`\`json\n${body}\`\`\``;
       }
     });
   }
@@ -211,10 +216,9 @@ function looksLikePlacesArray(parsed: unknown): boolean {
 
 function parsePlacesJsonFences(content: string): PlaceItem[] {
   const places: PlaceItem[] = [];
-  for (const match of content.matchAll(PLACES_JSON_FENCE_RE)) {
-    const raw = match[1]?.trim() ?? "";
+  for (const raw of collectClosedFenceBodies(content, "json")) {
     try {
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw.trim());
       if (looksLikePlacesArray(parsed)) {
         places.push(...normalizePlaceRows(parsed));
       }
@@ -261,7 +265,7 @@ export function parsePlacesFence(content: string): PlaceItem[] {
 }
 
 export function stripPlacesFence(content: string): string {
-  return content.replace(PLACES_FENCE_RE, "").trimEnd();
+  return stripClosedLangFence(content, "places").trimEnd();
 }
 
 /** Fix model output where markdown links use $url$ instead of (url).

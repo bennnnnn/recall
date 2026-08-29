@@ -6,6 +6,11 @@ import json
 import re
 
 from app.gateways.web_search_gateway import WebSearchHit
+from app.services.md_fence_scan import (
+    is_fence_closer,
+    next_fence_marker_line,
+    strip_closed_fences,
+)
 from app.services.web_search.patterns import (
     _ADDRESS_RE,
     _NUMBERED_VENUE_LINE,
@@ -184,7 +189,7 @@ def places_payload_from_hits(hits: list[WebSearchHit]) -> list[dict[str, str]]:
         if address:
             row["address"] = address
         if note:
-            row["note"] = note[:160]
+            row["note"] = _sanitize_fence_json_text(note[:160])
         if url and not _is_generic_search_url(url):
             row["url"] = url
         else:
@@ -226,9 +231,12 @@ def strip_duplicate_venue_list(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
-_SOURCES_FENCE_RE = re.compile(r"```sources\s*\n([\s\S]*?)```", re.IGNORECASE)
-_BARE_SOURCES_FENCE_RE = re.compile(r"```\s*\n(\[[\s\S]*?\])\s*```")
 _SOURCES_LABEL_RE = re.compile(r"(?:\*\*)?sources(?:\*\*)?\s*:?\s*$", re.IGNORECASE)
+
+
+def _sanitize_fence_json_text(value: str) -> str:
+    """Backticks inside a fenced JSON body would terminate the fence on reload."""
+    return value.replace("```", "'''").replace("`", "'")
 
 
 def _parse_sources_json(raw: str) -> list[dict[str, str]]:
@@ -256,29 +264,40 @@ def _parse_sources_json(raw: str) -> list[dict[str, str]]:
     return rows
 
 
-def _find_trailing_sources_json(text: str) -> tuple[list[dict[str, str]], int] | None:
-    trimmed = text.rstrip()
-    index = trimmed.rfind("[")
-    while index >= 0:
-        candidate = trimmed[index:]
-        rows = _parse_sources_json(candidate)
-        if rows:
-            return rows, index
-        index = trimmed.rfind("[", 0, index)
-    return None
+def _strip_bare_source_array_fences(text: str) -> str:
+    """Drop unlabeled ``` fences whose body is a sources JSON array."""
+    pieces: list[str] = []
+    index = 0
+    while True:
+        marker = next_fence_marker_line(text, index)
+        if marker is None:
+            pieces.append(text[index:])
+            break
+        start, after_opener, stripped = marker
+        lang = stripped.lstrip("`").strip()
+        if lang:
+            pieces.append(text[index:after_opener])
+            index = after_opener
+            continue
+        closer = next_fence_marker_line(text, after_opener)
+        if closer is None or not is_fence_closer(closer[2]):
+            pieces.append(text[index:after_opener])
+            index = after_opener
+            continue
+        body = text[after_opener : closer[0]]
+        if _parse_sources_json(body):
+            pieces.append(text[index:start])
+            index = closer[1]
+            continue
+        pieces.append(text[index : closer[1]])
+        index = closer[1]
+    return "".join(pieces)
 
 
 def strip_sources_from_text(text: str) -> str:
-    """Remove ```sources fences and trailing LLM-emitted source JSON from assistant text."""
-
-    def _drop_bare(match: re.Match[str]) -> str:
-        return "" if _parse_sources_json(match.group(1)) else match.group(0)
-
-    cleaned = _SOURCES_FENCE_RE.sub("", text)
-    cleaned = _BARE_SOURCES_FENCE_RE.sub(_drop_bare, cleaned)
-    trailing = _find_trailing_sources_json(cleaned)
-    if trailing:
-        cleaned = cleaned[: trailing[1]].rstrip()
+    """Remove ```sources fences and unlabeled source-JSON fences from assistant text."""
+    cleaned = strip_closed_fences(text, "sources")
+    cleaned = _strip_bare_source_array_fences(cleaned)
     cleaned = _SOURCES_LABEL_RE.sub("", cleaned).rstrip()
     return cleaned.rstrip()
 
@@ -290,7 +309,11 @@ def format_sources_fence(hits: list[WebSearchHit]) -> str:
 
 
 def sources_payload(hits: list[WebSearchHit]) -> list[dict[str, str]]:
-    return [{"title": hit.title, "url": hit.url, "snippet": hit.snippet[:280]} for hit in hits]
+    rows: list[dict[str, str]] = []
+    for hit in hits:
+        snippet = _sanitize_fence_json_text(hit.snippet[:280])
+        rows.append({"title": hit.title, "url": hit.url, "snippet": snippet})
+    return rows
 
 
 def format_search_empty_block(queries: list[str], *, local_places: bool = False) -> str:

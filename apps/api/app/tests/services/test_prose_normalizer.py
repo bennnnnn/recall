@@ -28,6 +28,20 @@ class TestNormalizeProseArtifacts:
         # it's not on its own line — it's part of a code line.
         assert "x: int = 0" in result
 
+    def test_lone_colon_line_inside_yaml_fence_preserved(self):
+        text = "```yaml\nkey: value\n:\nnested: 1\n```"
+        result = normalize_prose_artifacts(text)
+        assert ":\n" in result or "\n:" in result
+        assert "nested: 1" in result
+
+    def test_blank_lines_inside_python_fence_preserved(self):
+        text = "```python\ndef a():\n    return 1\n\n\n\ndef b():\n    return 2\n```"
+        result = normalize_prose_artifacts(text)
+        assert "def a():" in result
+        assert "def b():" in result
+        inner = result.split("```python")[1].split("```")[0]
+        assert inner.count("\n\n\n") >= 1
+
     def test_multiple_orphan_colons_removed(self):
         text = "Step 1\n:\nStep 2\n:\nStep 3"
         result = normalize_prose_artifacts(text)

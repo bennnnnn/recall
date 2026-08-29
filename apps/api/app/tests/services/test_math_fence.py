@@ -343,6 +343,27 @@ def test_rewrites_answer_fence_from_canonical() -> None:
     assert "x = 99" not in out
 
 
+def test_result_fence_is_not_rewritten_as_math_answer() -> None:
+    content = "```result\nAll 12 tests passed\n```"
+    out = validate_math_fences(
+        content,
+        verified=_verified({"type": "answer", "content": "x = 4"}),
+    )
+    assert "All 12 tests passed" in out
+    assert "```result" in out
+
+
+def test_unclosed_graph_does_not_swallow_following_python_fence() -> None:
+    content = (
+        'See the plot:\n\n```graph\n{"type":"function","expr":"x"\n'
+        "then the code:\n\n```python\nprint(1)\n```"
+    )
+    out = validate_math_fences(content)
+    assert "print(1)" in out
+    assert "```python" in out
+    assert "Could not render that diagram" in out
+
+
 def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
     """Wrong-kind canonical must not clobber an ```answer body; geometry is appended."""
     content = "```answer\nx = 2\n```"

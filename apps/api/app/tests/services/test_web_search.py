@@ -278,17 +278,40 @@ def test_strip_sources_from_text_removes_fence_and_bare_json():
     fenced = 'Answer here.\n\n```sources\n[{"title":"A","url":"https://a.com","snippet":"x"}]\n```'
     assert strip_sources_from_text(fenced) == "Answer here."
 
-    bare = (
-        'Answer here.\n\n[{"title":"World Cup","url":"https://example.com",'
-        '"snippet":"Scores today."}]'
-    )
-    assert strip_sources_from_text(bare) == "Answer here."
-
     labeled = (
         "Afternoon in DC.\n\n**sources**\n```\n"
         '[{"title":"DC time","url":"https://example.com/dc"}]\n```'
     )
     assert strip_sources_from_text(labeled) == "Afternoon in DC."
+
+    nav = (
+        "Here is the config you asked for:\n\n"
+        '```json\n[{"title":"Home","url":"/home"},{"title":"Docs","url":"/docs"}]\n```'
+    )
+    assert strip_sources_from_text(nav) == nav.strip()
+
+    trailing = (
+        'Answer here.\n\n[{"title":"World Cup","url":"https://example.com",'
+        '"snippet":"Scores today."}]'
+    )
+    assert "World Cup" in strip_sources_from_text(trailing)
+
+
+def test_format_sources_fence_sanitizes_backticks_in_snippets():
+    from app.services.web_search.formatting import format_sources_fence, strip_sources_from_text
+
+    block = format_sources_fence(
+        [
+            WebSearchHit(
+                title="Docs",
+                url="https://example.com",
+                snippet="Use ```python\nprint(1)\n``` in docs",
+            )
+        ]
+    )
+    assert "```python" not in block
+    cleaned = strip_sources_from_text("Hello" + block)
+    assert cleaned == "Hello"
 
 
 @pytest.mark.asyncio

@@ -22,7 +22,6 @@ not duplicated as a result card).
 from __future__ import annotations
 
 import json
-import re
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
@@ -42,13 +41,16 @@ from app.models.math_schemas import (
 )
 from app.services import math_service
 from app.services.math_service import MathServiceError
+from app.services.md_fence_scan import (
+    find_lang_opener,
+    has_closed_fence,
+    is_fence_closer,
+    map_closed_fences,
+    next_fence_marker_line,
+)
 
 if TYPE_CHECKING:
     from app.services.math_tools import VerifiedMathBlock
-
-_GEOMETRY_FENCE = re.compile(r"```geometry\s*\n([\s\S]*?)```", re.IGNORECASE)
-_GRAPH_FENCE = re.compile(r"```graph\s*\n([\s\S]*?)```", re.IGNORECASE)
-_ANSWER_FENCE = re.compile(r"```(?:answer|result|final)\s*\n([\s\S]*?)```", re.IGNORECASE)
 
 # Below this count a continuous y=f(x) fence is treated as "sparse key points"
 # the model listed for prose, not a renderable curve sample.
@@ -332,37 +334,45 @@ def _replace_unclosed_graph_fence(
     """Replace a ```graph fence the model left unclosed (truncated mid-JSON,
     usually because it stopped copying the verified points array at EOS).
 
-    _GRAPH_FENCE requires a closing ```, so a truncated fence is never matched
-    and the raw half-pasted points array reaches the client (where it renders
-    as "Could not render function graph."). When this turn has a verified
-    canonical fence, swap the whole truncated tail for the complete fence.
-
-    With ``densify=True`` (the normal post-stream path) the canonical fence is
-    re-sampled so a sparse curve draws smoothly. With ``densify=False`` (the
-    timeout-fallback path) the canonical fence is substituted as-is — it is
-    already a complete, dense spec from the pre-stream SymPy solve, and
-    calling ``densify_sparse_graph`` here would re-enter SymPy on the timeout
-    path, defeating the point of failing closed.
+    Closed fences are handled separately. This only fires when the next
+    fence marker is another opener (```python) or the message ends — so
+    following prose is not swallowed into the graph body.
     """
-    m = re.search(r"```graph\s*\n(?![\s\S]*```)([\s\S]*)$", content)
-    if m is None:
+    opener = find_lang_opener(content, "graph")
+    while opener is not None:
+        newline = content.find("\n", opener)
+        if newline < 0:
+            head, rest = content[:opener], ""
+            break
+        marker = next_fence_marker_line(content, newline + 1)
+        if marker is None:
+            head, rest = content[:opener], ""
+            break
+        line_start, after, stripped = marker
+        if is_fence_closer(stripped):
+            opener = find_lang_opener(content, "graph", after)
+            continue
+        head, rest = content[:opener], content[line_start:]
+        break
+    else:
         return content
-    head = content[: m.start()]
+
     if canonical_fence is None or canonical_fence.get("type") not in {
         "function",
         "vertical",
         "number_line",
         "trajectory",
     }:
-        # No verified fence — strip the truncated JSON so the user doesn't see
-        # a half-pasted points array.
-        return head + "\n*Could not render that diagram.*\n"
+        note = "\n*Could not render that diagram.*\n"
+        return head + note + rest
     try:
         parsed = GraphBlockSpec.model_validate(canonical_fence)
     except (ValidationError, TypeError):
-        return head + "\n*Could not render that diagram.*\n"
+        note = "\n*Could not render that diagram.*\n"
+        return head + note + rest
     spec = densify_sparse_graph(parsed) if densify else parsed
-    return head + "\n" + _graph_fence_body(spec) + "\n"
+    suffix = rest if rest.startswith("\n") else ("\n" + rest if rest else "\n")
+    return head + "\n" + _graph_fence_body(spec) + suffix
 
 
 def replace_unclosed_graph_fence_safe(
@@ -443,12 +453,13 @@ def _sample_function_graph_from_json(raw: str) -> GraphBlockSpec | None:
 
 
 def _replace_fence(
-    match: re.Match[str],
+    raw: str,
     label: str,
+    original: str,
     canonical_fence: dict[str, object] | None,
     canonical_fences: list[dict[str, object]] | None = None,
 ) -> str:
-    raw = match.group(1).strip()
+    raw = raw.strip()
     corrected = _canonical_replacement(raw, canonical_fence, canonical_fences)
     if corrected is not None:
         if label != "graph":
@@ -467,14 +478,14 @@ def _replace_fence(
         if label == "geometry":
             if not _validate_geometry(raw):
                 raise ValueError("invalid geometry")
-            return match.group(0)
+            return original
         parsed = GraphBlockSpec.model_validate(json.loads(raw))
         rewritten = _rewrite_inequality_graph(parsed)
         if rewritten is not parsed:
             return _graph_fence_body(rewritten)
         densified = densify_sparse_graph(parsed)
         if densified is parsed:
-            return match.group(0)
+            return original
         return _graph_fence_body(densified)
     except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
         if label == "graph":
@@ -610,17 +621,17 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     answer_body = _canonical_answer_body(verified)
     if (
         answer_body
-        and _ANSWER_FENCE.search(content) is None
+        and not has_closed_fence(content, "answer")
         and not _prose_already_states_answer(content, answer_body)
     ):
         extras.append(_markdown_fence("answer", answer_body))
 
     specs = _collect_canonical_specs(verified)
     geo = next((spec for spec in specs if _spec_fence_kind(spec) == "geometry"), None)
-    if geo is not None and _GEOMETRY_FENCE.search(content) is None:
+    if geo is not None and not has_closed_fence(content, "geometry"):
         extras.append(_markdown_fence("geometry", json.dumps(geo, separators=(",", ":"))))
     graph = next((spec for spec in specs if _spec_fence_kind(spec) == "graph"), None)
-    if graph is not None and _GRAPH_FENCE.search(content) is None:
+    if graph is not None and not has_closed_fence(content, "graph"):
         extras.append(_markdown_fence("graph", json.dumps(graph, separators=(",", ":"))))
 
     if not extras:
@@ -631,10 +642,10 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     return "\n\n".join(extras) + "\n"
 
 
-def _replace_answer_fence(match: re.Match[str], answer_body: str | None) -> str:
+def _replace_answer_fence(raw: str, original: str, answer_body: str | None) -> str:
     """Rewrite ```answer bodies from SymPy when this turn computed one."""
     if not answer_body:
-        return match.group(0)
+        return original
     return f"```answer\n{answer_body}\n```"
 
 
@@ -755,25 +766,39 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     # of the structured tool_calls API — convert graph calls to real fences and
     # strip the rest before fence validation runs.
     content = convert_function_call_text(content)
-    content = _ANSWER_FENCE.sub(
-        lambda m: _replace_answer_fence(m, answer_body),
+    content = map_closed_fences(
         content,
-        count=_MAX_ANSWER_FENCES,
+        "answer",
+        lambda body: _replace_answer_fence(body, f"```answer\n{body}```", answer_body),
+        max_count=_MAX_ANSWER_FENCES,
     )
-    content = _GEOMETRY_FENCE.sub(
-        lambda m: _replace_fence(m, "geometry", canonical_fence, canonical_fences),
+    content = map_closed_fences(
         content,
-        count=_MAX_GEOMETRY_FENCES,
+        "geometry",
+        lambda body: _replace_fence(
+            body,
+            "geometry",
+            f"```geometry\n{body}```",
+            canonical_fence,
+            canonical_fences,
+        ),
+        max_count=_MAX_GEOMETRY_FENCES,
     )
-    content = _GRAPH_FENCE.sub(
-        lambda m: _replace_fence(m, "graph", canonical_fence, canonical_fences),
+    content = map_closed_fences(
         content,
-        count=_MAX_GRAPH_FENCES,
+        "graph",
+        lambda body: _replace_fence(
+            body,
+            "graph",
+            f"```graph\n{body}```",
+            canonical_fence,
+            canonical_fences,
+        ),
+        max_count=_MAX_GRAPH_FENCES,
     )
     # A ```graph fence the model truncated mid-JSON (stopped copying the
-    # verified points at EOS) is left unclosed, so _GRAPH_FENCE never matches
-    # it. Swap the truncated tail for the verified canonical fence so the
-    # renderer gets a complete spec instead of "Could not render function graph."
+    # verified points at EOS) is left unclosed. Swap it for the verified
+    # canonical fence so the renderer gets a complete spec.
     content = _replace_unclosed_graph_fence(content, canonical_fence)
     return _append_missing_canonical_fences(content, verified)
 
