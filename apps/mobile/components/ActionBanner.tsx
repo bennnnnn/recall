@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -86,35 +86,34 @@ export function ActionBanner({
         : tone === "info"
           ? theme.primary
           : theme.success;
+  const liveRegion = tone === "error" || tone === "warning" ? "assertive" : "polite";
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onDismiss}>
-      <View style={s.overlay} pointerEvents="box-none">
-        <Animated.View
-          style={[
-            s.wrap,
-            {
-              bottom: insets.bottom + bottomOffset,
-            },
-            bannerStyle,
-          ]}
-          pointerEvents="box-none"
+    <View testID="action-banner-host" style={s.host} pointerEvents="box-none">
+      <Animated.View
+        style={[
+          s.wrap,
+          {
+            bottom: insets.bottom + bottomOffset,
+          },
+          bannerStyle,
+        ]}
+        pointerEvents="box-none"
+      >
+        <Pressable
+          style={s.toast}
+          onPress={onDismiss}
+          accessibilityRole="alert"
+          accessibilityLiveRegion={liveRegion}
+          accessibilityLabel={message}
         >
-          <Pressable
-            style={s.toast}
-            onPress={onDismiss}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-            accessibilityLabel={message}
-          >
-            <Icon name={icon} size={18} color={iconColor} />
-            <Text style={s.text} numberOfLines={2}>
-              {message}
-            </Text>
-          </Pressable>
-        </Animated.View>
-      </View>
-    </Modal>
+          <Icon name={icon} size={18} color={iconColor} />
+          <Text style={s.text} numberOfLines={2}>
+            {message}
+          </Text>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -123,17 +122,20 @@ function makeStyles(theme: Theme) {
   const toastText = theme.isDark ? theme.text : theme.onPrimary;
 
   return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      justifyContent: "flex-end",
-      alignItems: "center",
+    host: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: Layer.toast,
+      elevation: Layer.toast,
     },
     wrap: {
       position: "absolute",
       left: 24,
       right: 24,
       alignItems: "center",
-      zIndex: Layer.toast,
     },
     toast: {
       flexDirection: "row",

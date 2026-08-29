@@ -272,12 +272,6 @@ export function ConversationList(_props: unknown) {
 
   return (
     <View style={s.root}>
-      <ActionBanner
-        message={actionBanner?.message ?? null}
-        icon={actionBanner?.icon}
-        bottomOffset={FOOTER_CHROME + 16}
-        onDismiss={dismissActionBanner}
-      />
       <ChatActionsSheet
         visible={menuChat != null}
         title={menuChat?.title ?? null}
@@ -390,6 +384,13 @@ export function ConversationList(_props: unknown) {
           }}
         />
       )}
+
+      <ActionBanner
+        message={actionBanner?.message ?? null}
+        icon={actionBanner?.icon}
+        bottomOffset={FOOTER_CHROME + 16}
+        onDismiss={dismissActionBanner}
+      />
     </View>
   );
 }
