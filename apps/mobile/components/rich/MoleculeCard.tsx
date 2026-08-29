@@ -6,8 +6,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
+import { VisualCard } from "@/components/rich/VisualCard";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
 import { Molecule3DView } from "@/components/rich/Molecule3DBlock";
 import { parseMoleculeFence } from "@/lib/moleculePair";
@@ -36,59 +36,51 @@ export function MoleculeCard({ content }: { content: string }) {
 
   if (!parsed) {
     return (
-      <View style={s.wrap}>
-        <View style={s.header}>
-          <View style={s.headerLeft}>
-            <Icon name="flask-outline" size={16} color={theme.primary} />
-            <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
-          </View>
-        </View>
+      <VisualCard label={t("rich.chemistry_structure")} icon="flask-outline">
         <View style={s.previewBox}>
           <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
         </View>
-      </View>
+      </VisualCard>
     );
   }
 
   const active: Mode = show3d && mode === "3d" ? "3d" : "2d";
+  const modeToggle = show3d ? (
+    <View style={s.toggle}>
+      <Pressable
+        style={[s.toggleBtn, active === "2d" && s.toggleBtnActive]}
+        onPress={() => setMode("2d")}
+        testID="molecule-mode-2d"
+        accessibilityRole="button"
+        accessibilityState={{ selected: active === "2d" }}
+        accessibilityLabel={t("rich.chemistry_2d")}
+      >
+        <Text style={[s.toggleText, active === "2d" && s.toggleTextActive]}>
+          {t("rich.chemistry_2d")}
+        </Text>
+      </Pressable>
+      <Pressable
+        style={[s.toggleBtn, active === "3d" && s.toggleBtnActive]}
+        onPress={() => setMode("3d")}
+        testID="molecule-mode-3d"
+        accessibilityRole="button"
+        accessibilityState={{ selected: active === "3d" }}
+        accessibilityLabel={t("rich.chemistry_3d")}
+      >
+        <Text style={[s.toggleText, active === "3d" && s.toggleTextActive]}>
+          {t("rich.chemistry_3d")}
+        </Text>
+      </Pressable>
+    </View>
+  ) : undefined;
 
   return (
-    <View style={s.wrap}>
-      <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Icon name="flask-outline" size={16} color={theme.primary} />
-          <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
-        </View>
-        {show3d ? (
-          <View style={s.toggle}>
-            <Pressable
-              style={[s.toggleBtn, active === "2d" && s.toggleBtnActive]}
-              onPress={() => setMode("2d")}
-              testID="molecule-mode-2d"
-              accessibilityRole="button"
-              accessibilityState={{ selected: active === "2d" }}
-              accessibilityLabel={t("rich.chemistry_2d")}
-            >
-              <Text style={[s.toggleText, active === "2d" && s.toggleTextActive]}>
-                {t("rich.chemistry_2d")}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[s.toggleBtn, active === "3d" && s.toggleBtnActive]}
-              onPress={() => setMode("3d")}
-              testID="molecule-mode-3d"
-              accessibilityRole="button"
-              accessibilityState={{ selected: active === "3d" }}
-              accessibilityLabel={t("rich.chemistry_3d")}
-            >
-              <Text style={[s.toggleText, active === "3d" && s.toggleTextActive]}>
-                {t("rich.chemistry_3d")}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-
+    <VisualCard
+      label={t("rich.chemistry_structure")}
+      icon="flask-outline"
+      headerRight={modeToggle}
+      actions={<CopyButton text={smiles} />}
+    >
       {caption ? (
         <View style={s.captionBox}>
           <Text style={s.captionText}>{caption}</Text>
@@ -96,37 +88,12 @@ export function MoleculeCard({ content }: { content: string }) {
       ) : null}
 
       {active === "3d" && sdf ? <Molecule3DView sdf={sdf} /> : <Chemistry2DView smiles={smiles} />}
-
-      <View style={s.actions}>
-        <CopyButton text={smiles} />
-      </View>
-    </View>
+    </VisualCard>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      marginVertical: 8,
-      borderRadius: 14,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      overflow: "hidden",
-      backgroundColor: t.bg,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      backgroundColor: t.surface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-      gap: 8,
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
-    headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     toggle: { flexDirection: "row", gap: 4 },
     toggleBtn: {
       paddingHorizontal: 10,
@@ -156,6 +123,5 @@ function makeStyles(t: Theme) {
       alignItems: "center",
     },
     fallbackHint: { fontSize: 13, color: t.textTertiary, textAlign: "center" },
-    actions: { flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
   });
 }

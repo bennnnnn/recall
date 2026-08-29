@@ -1,7 +1,9 @@
 import {
   detectJsonRichFenceKind,
   parseEmailDraft,
+  parseKeyValue,
   parseQuoteAttribution,
+  parseSteps,
 } from "@/lib/richBlocks";
 
 describe("detectJsonRichFenceKind", () => {
@@ -114,5 +116,30 @@ describe("parseEmailDraft", () => {
       subject: "Friday off",
       body: "Hi Jane,\n\nSee [the policy](https://example.com/pto).",
     });
+  });
+});
+
+describe("parseKeyValue", () => {
+  it("returns rows for key: value lines", () => {
+    expect(parseKeyValue("Name: Ada\nRole: Engineer")).toEqual([
+      { key: "Name", value: "Ada" },
+      { key: "Role", value: "Engineer" },
+    ]);
+  });
+
+  it("fails closed on garbage", () => {
+    expect(parseKeyValue("just a paragraph\nno pairs here")).toEqual([]);
+    expect(parseKeyValue(":")).toEqual([]);
+    expect(parseKeyValue("")).toEqual([]);
+  });
+});
+
+describe("parseSteps", () => {
+  it("keeps numbered and bulleted steps", () => {
+    expect(parseSteps("1. Mix\n2. Bake\n- Cool")).toEqual(["Mix", "Bake", "Cool"]);
+  });
+
+  it("fails closed on unstructured prose", () => {
+    expect(parseSteps("Just mix and bake until done.")).toEqual([]);
   });
 });
