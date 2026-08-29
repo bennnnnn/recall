@@ -244,7 +244,10 @@ def _verified_block_right_triangle(
     lines.append(
         "Put all three interior-angle degree labels on the vertices (not only the 90° square)."
     )
-    return _diagram_block(lines, rt_spec, f"{rt_geo.area:g}")
+    # Draw-and-label asks are the diagram — do not attach a leftover area pill
+    # (6x4 default used to dump a gray "12" under a 3-4-5 request).
+    answer = f"{rt_geo.area:g}" if intent.wants_area else None
+    return _diagram_block(lines, rt_spec, answer)
 
 
 def _verified_block_triangle_sides(

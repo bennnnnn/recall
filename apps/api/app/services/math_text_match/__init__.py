@@ -52,6 +52,7 @@ from app.services.math_text_match.scan import (
     has_math_keyword,
     number_after,
     prepare,
+    two_numbers_after,
 )
 from app.services.math_text_match.types import (
     CombinatoricsOp,
@@ -95,5 +96,6 @@ __all__ = [
     "stats_signal",
     "triangle_angles_signal",
     "triangle_sides_signal",
+    "two_numbers_after",
     "vertical_line_x",
 ]

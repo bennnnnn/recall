@@ -576,6 +576,24 @@ def test_skips_answer_pill_when_prose_already_states_result() -> None:
     assert "```answer" not in out
 
 
+def test_draw_geometry_without_canonical_answer_does_not_append_pill() -> None:
+    from app.services.math_tools import VerifiedMathBlock
+
+    verified = VerifiedMathBlock(
+        text="unused",
+        canonical_fence={
+            "type": "right_triangle",
+            "base": 3,
+            "height": 4,
+            "show_hypotenuse": True,
+        },
+        canonical_answer=None,
+    )
+    out = validate_math_fences("Here's the right triangle.", verified=verified)
+    assert "```answer" not in out
+    assert "```geometry" in out
+
+
 def test_short_integer_in_exponent_does_not_suppress_answer_pill() -> None:
     verified = _verified({"type": "answer", "content": "2"})
     out = validate_math_fences("Consider $x^2$ for this problem.", verified=verified)

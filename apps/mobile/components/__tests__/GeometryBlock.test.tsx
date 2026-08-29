@@ -104,7 +104,8 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("90°");
     expect(tree).toContain("36.9°");
     expect(tree).toContain("53.1°");
-    expect(tree).toContain("RNSVGPath");
+    expect(tree).toContain("3 cm");
+    expect(tree).toContain("4 cm");
     expect(tree).toContain("RNSVGRect");
     expect(tree).not.toContain("right-angle-mark");
   });

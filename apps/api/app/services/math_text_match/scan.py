@@ -236,3 +236,26 @@ def number_after(text: str, label: str) -> float | None:
         return None
     m = _NUM.search(text, idx + len(label))
     return float(m.group(0)) if m else None
+
+
+def two_numbers_after(text: str, label: str) -> tuple[float, float] | None:
+    """``legs 3 and 4`` / ``legs 3, 4`` → (3, 4). Linear ``find`` + digit scan."""
+    lower = text.lower()
+    idx = lower.find(label)
+    if idx == -1:
+        return None
+    found: list[float] = []
+    pos = idx + len(label)
+    while True:
+        m = _NUM.search(text, pos)
+        if m is None:
+            break
+        try:
+            found.append(float(m.group(0)))
+        except ValueError:
+            pos = m.end()
+            continue
+        if len(found) >= 2:
+            return found[0], found[1]
+        pos = m.end()
+    return None
