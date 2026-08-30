@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse, StreamingResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +27,7 @@ from app.models.schemas import (
     UserOut,
     UserUpdate,
 )
-from app.services import account_lifecycle, export_service
+from app.services import account_lifecycle, export_service, web_session
 from app.services import auth as auth_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import subscription as subscription_service
@@ -77,12 +77,13 @@ async def google_login(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
-) -> AuthResponse:
+) -> JSONResponse:
     await _enforce_login_rate_limit(redis, request, settings, provider="google")
     try:
-        return await auth_service.login_with_google(session, settings, body.id_token, redis)
+        auth = await auth_service.login_with_google(session, settings, body.id_token, redis)
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    return web_session.auth_json_response(request, settings, auth)
 
 
 @router.post("/apple", response_model=AuthResponse)
@@ -92,10 +93,10 @@ async def apple_login(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
-) -> AuthResponse:
+) -> JSONResponse:
     await _enforce_login_rate_limit(redis, request, settings, provider="apple")
     try:
-        return await auth_service.login_with_apple(
+        auth = await auth_service.login_with_apple(
             session,
             settings,
             body.id_token,
@@ -104,6 +105,7 @@ async def apple_login(
         )
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    return web_session.auth_json_response(request, settings, auth)
 
 
 @router.post("/dev", response_model=AuthResponse)
@@ -113,7 +115,7 @@ async def dev_login(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
-) -> AuthResponse:
+) -> JSONResponse:
     if not settings.dev_auth_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev auth disabled")
     # Dev auth bypasses provider token verification, so without a limit a
@@ -129,7 +131,7 @@ async def dev_login(
     if not settings.dev_auth_allow_remote and not is_loopback_ip(peer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
-        return await auth_service.login_dev(
+        auth = await auth_service.login_dev(
             session,
             settings,
             email=body.email,
@@ -138,6 +140,7 @@ async def dev_login(
         )
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    return web_session.auth_json_response(request, settings, auth)
 
 
 @router.get("/me", response_model=UserOut)
@@ -152,7 +155,7 @@ async def refresh_session(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
-) -> AuthResponse:
+) -> JSONResponse:
     # Rate-limit refresh: a leaked refresh token shouldn't be hammerable
     # online. Reuse the login throttle pattern with its own per-IP bucket.
     allowed = await allow_request_fail_closed(
@@ -167,18 +170,36 @@ async def refresh_session(
             detail="Too many refresh attempts. Try again shortly.",
             headers={"Retry-After": str(_REFRESH_RATE_WINDOW_SECONDS)},
         )
+    cookie_refresh = web_session.cookie_value(request, web_session.REFRESH_COOKIE)
+    presented = (body.refresh_token or "").strip() or cookie_refresh
+    if not presented:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing refresh token",
+        )
+    if cookie_refresh and not (body.refresh_token or "").strip():
+        if not web_session.is_web_origin(request, settings):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing refresh token",
+            )
+        web_session.require_web_csrf(request)
     try:
         access_token, refresh_token, user = await tokens_service.refresh_token_pair(
-            redis, body.refresh_token, session, settings
+            redis, presented, session, settings
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
-    return AuthResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=user,
+    return web_session.auth_json_response(
+        request,
+        settings,
+        AuthResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=user,
+        ),
     )
 
 
@@ -188,12 +209,16 @@ async def logout(
     request: Request,
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
-) -> None:
-    # M5: access token is optional — if it's expired and refresh already
-    # failed, the client can still revoke the refresh token by itself so a
-    # stolen refresh can't mint new access tokens after the victim signed
-    # out locally. Extract the bearer token from the header manually so
-    # FastAPI doesn't 401 before we reach the handler.
+) -> Response:
+    cookie_refresh = web_session.cookie_value(request, web_session.REFRESH_COOKIE)
+    refresh_token = body.refresh_token or cookie_refresh
+    if cookie_refresh and not body.refresh_token:
+        if not web_session.is_web_origin(request, settings):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing refresh token",
+            )
+        web_session.require_web_csrf(request)
     auth_header = request.headers.get("authorization", "")
     access_token: str | None = None
     if auth_header.lower().startswith("bearer "):
@@ -203,12 +228,16 @@ async def logout(
             redis,
             settings,
             access_token=access_token,
-            refresh_token=body.refresh_token,
+            refresh_token=refresh_token,
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    if web_session.is_web_origin(request, settings):
+        web_session.clear_web_session_cookies(response, settings)
+    return response
 
 
 @router.patch("/me", response_model=UserOut)

@@ -152,7 +152,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Charts** — `chart` / `vega` / `vega-lite` fences render inline via a sandboxed WebView
   (Vega; needs a dev build).
 - ✅ **HTML/CSS/JS preview** — `html` fences get a sandboxed WebView preview ("run" → modal) plus
-  "open in browser" (needs a dev build; see the code-execution policy below).
+  "open in browser" (needs a dev build; see the code-execution policy below). Run may load
+  scripts/styles only from `cdn.jsdelivr.net`, `unpkg.com`, `cdnjs.cloudflare.com`, and Google
+  Fonts — not open `https:`.
 - ✅ **Rich blocks** — callouts (`> [!NOTE]`), key-value, comparison, step lists, and
   email/message/social "copy" cards.
 - ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
@@ -313,8 +315,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
   (dev/production builds only; skipped in Expo Go). Restore purchases supported.
-- ✅ **Backend entitlement** — RevenueCat webhook (Redis `SET NX` claim before process; done-marker
-  after success) + `POST /auth/me/sync-subscription`; `users.plan`
+- ✅ **Backend entitlement** — RevenueCat webhook resolves plan via REST (same as TRANSFER)
+  before stamping Pro; Redis `SET NX` claim; missing `event_id` hashes the canonical payload;
+  done-marker after success. `POST /auth/me/sync-subscription`; `users.plan`
   drives quota limits and model access.
 - ✅ **Upgrade sheet** — locked Pro models open an upgrade sheet with subscribe/restore when RevenueCat
   is configured.
@@ -386,6 +389,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 15. Code execution policy
 - ⚠️ **Sandboxed HTML/CSS/JS preview only** — `html` fences can be previewed/run in an isolated
   WebView (no app token is exposed to it), and charts render via a sandboxed Vega WebView.
+  HTML Run CSP allowlists known CDNs (jsDelivr, unpkg, cdnjs, Google Fonts); it does not allow
+  arbitrary `https:` script/`fetch`.
 - 🔒 **No other code execution** — all other code (Python, shell, etc.) is rendered/highlighted
   only, and nothing runs outside the sandboxed preview WebView. (By design.)
 
@@ -718,7 +723,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   push, RevenueCat, deck Modal, autoscroll, markdown throttle).
 - 🔜 **Frontend launch-readiness (audit, deferred)** — Pressable a11y coverage, `textTertiary`
   contrast, tablet readable-width, icon stroke unification, web KaTeX/Mermaid/Vega /
-  httpOnly cookies / stream virtualization, QA matrix assistive-tech pass. Not the current
+  stream virtualization, QA matrix assistive-tech pass. Not the current
   backlog.
 - ✅ **FlashList migration** — `ConversationList` and Schedule now use `FlashList`
   (v2, auto-measured). Chat drawer rows are virtualized; the calendar day-view
@@ -823,9 +828,10 @@ A future **web version that reuses this same API** — one backend, multiple cli
 
 - 🔜 **Shared API + types** — the web app consumes the same HTTP/WebSocket endpoints and
   request/response shapes; eventually extract the `lib/api.ts` types/client into a package both
-  apps import. Bearer-token (JWT) auth already works cross-origin.
-- 🔜 **Web-specific swaps** — `expo-secure-store` → httpOnly cookie / web storage; native Google
-  Sign-In → web OAuth; the `react-native-webview` previews → a real `<iframe>` / native HTML.
+  apps import. Mobile uses Bearer JWT; the web client uses an in-memory access token plus an
+  httpOnly refresh cookie.
+- 🔜 **Web-specific swaps** — native Google Sign-In → web OAuth (GIS is in slice 1);
+  the `react-native-webview` previews → a real `<iframe>` / native HTML.
   Keep rich-block rendering behind components so only the renderer differs per platform.
 - 🔜 **Backend** — add the web origin(s) to `cors_origins` (CORS is locked down by env) and allow
   them on the WebSocket; no other backend change needed.
@@ -837,12 +843,14 @@ A future **web version that reuses this same API** — one backend, multiple cli
   stop (abort), regenerate, GFM markdown (including tables and images). Source links
   render under the reply; JSON rich fences (graph/chart/places/…) degrade to a short
   label instead of a code dump. Adjacent SMILES + molecule3d share one
-  “Chemical structure” label (no 2D/3D viewer yet). No KaTeX/Mermaid/Vega/HTML iframe yet. Tokens in
-  `sessionStorage` (tab-scoped); 401 → refresh → retry.
-  CORS origin documented in `apps/api/.env.example`. Follows the mobile chat-ux-bans.
+  “Chemical structure” label (no 2D/3D viewer yet). No KaTeX/Mermaid/Vega/HTML iframe yet.
+  Access token is in memory; refresh is an httpOnly cookie + CSRF (`X-CSRF-Token`) on the
+  web origin (mobile stays Bearer + secure-store). Reload bootstraps via `POST /auth/refresh`.
+  CORS origin documented in `apps/api/.env.example` — cookie sessions need an explicit
+  `CORS_ORIGINS` list (empty `*` disables cookies). Follows the mobile chat-ux-bans.
 - 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/
   Learning/settings/attachments/image gen, `packages/api-types` extracted from
-  `lib/api/types.ts`, httpOnly refresh cookie + CSRF, Apple Sign-In on web, prod deploy.
+  `lib/api/types.ts`, Apple Sign-In on web, prod deploy.
 
 ---
 

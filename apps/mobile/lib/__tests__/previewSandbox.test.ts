@@ -35,12 +35,19 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP.startsWith(PREVIEW_CSP_INLINE)).toBe(true);
   });
 
-  it("PREVIEW_CSP_LIVE allows https subresources for HTML Run demos", () => {
-    expect(PREVIEW_CSP_LIVE).toContain("script-src 'unsafe-inline' https: http:");
-    expect(PREVIEW_CSP_LIVE).toContain("style-src 'unsafe-inline' https: http:");
-    expect(PREVIEW_CSP_LIVE).toContain("connect-src https: http:");
+  it("PREVIEW_CSP_LIVE allowlists known CDNs instead of open https", () => {
+    expect(PREVIEW_CSP_LIVE).toContain("https://cdn.jsdelivr.net");
+    expect(PREVIEW_CSP_LIVE).toContain("https://unpkg.com");
+    expect(PREVIEW_CSP_LIVE).toContain("https://cdnjs.cloudflare.com");
+    expect(PREVIEW_CSP_LIVE).toContain("https://fonts.googleapis.com");
+    expect(PREVIEW_CSP_LIVE).toContain("https://fonts.gstatic.com");
     expect(PREVIEW_CSP_LIVE).toContain("form-action 'none'");
+    expect(PREVIEW_CSP_LIVE).toContain("frame-src 'none'");
     expect(PREVIEW_CSP_LIVE).not.toContain("sandbox");
+    expect(PREVIEW_CSP_LIVE).not.toContain("https: http:");
+    const tokens = PREVIEW_CSP_LIVE.split(/[;\s]+/);
+    expect(tokens).not.toContain("https:");
+    expect(tokens).not.toContain("http:");
   });
 });
 
@@ -50,7 +57,8 @@ describe("prepareHtmlRunDocument", () => {
       "<!DOCTYPE html><html><head></head><body><h1>Hi</h1></body></html>",
     );
     expect(out).toContain("Content-Security-Policy");
-    expect(out).toContain("connect-src https: http:");
+    expect(out).toContain("https://cdn.jsdelivr.net");
+    expect(out).not.toContain("connect-src https: http:");
     expect(out).toContain("addEventListener(\"click\"");
     expect(out).toContain("<h1>Hi</h1>");
   });

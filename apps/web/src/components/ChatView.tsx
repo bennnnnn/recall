@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useChat } from "@/hooks/useChat";
+import { getAccessToken } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import { MessageBubble } from "@/components/MessageBubble";
 import { Composer } from "@/components/Composer";
@@ -9,7 +10,7 @@ export function ChatView() {
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const accessToken = sessionStorage.getItem("recall.access_token");
+  const accessToken = getAccessToken();
   const { messages, loading, streaming, statusPhase, error, send, stop, regenerate } =
     useChat(accessToken ?? "", chatId ?? null);
   const bottomRef = useRef<HTMLDivElement>(null);

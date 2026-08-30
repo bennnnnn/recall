@@ -1,3 +1,5 @@
+import { HTML_RUN_CDN_CSP } from "@/lib/htmlRunCdn";
+
 /**
  * Content-Security-Policy for the sandboxed HTML/JS preview.
  *
@@ -45,21 +47,21 @@ export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
 /**
  * HTML Run tab — still isolated from the app (no shared cookies / tokens),
- * but allows http(s) subresources so CDN CSS/JS demos actually paint.
+ * but allows an explicit CDN allowlist so CSS/JS demos actually paint.
  * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
  * via form-action 'none' plus stripping meta-refresh. There is no native nav
  * guard on this path — iOS mis-labels CDN fetches as top-frame.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
-  "style-src 'unsafe-inline' https: http:",
-  "script-src 'unsafe-inline' https: http:",
-  "img-src data: blob: https: http:",
-  "font-src data: https: http:",
-  "media-src data: blob: https: http:",
-  "connect-src https: http:",
-  "frame-src https: http:",
-  "worker-src blob: https: http:",
+  `style-src 'unsafe-inline' ${HTML_RUN_CDN_CSP}`,
+  `script-src 'unsafe-inline' ${HTML_RUN_CDN_CSP}`,
+  `img-src data: blob: ${HTML_RUN_CDN_CSP}`,
+  `font-src data: ${HTML_RUN_CDN_CSP}`,
+  `media-src data: blob: ${HTML_RUN_CDN_CSP}`,
+  `connect-src ${HTML_RUN_CDN_CSP}`,
+  "frame-src 'none'",
+  `worker-src blob: ${HTML_RUN_CDN_CSP}`,
   "base-uri 'none'",
   "form-action 'none'",
 ].join("; ");

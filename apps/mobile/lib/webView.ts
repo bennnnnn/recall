@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { NativeModules, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
+import { HTML_RUN_CDN_HOSTS } from "@/lib/htmlRunCdn";
 import {
   createStaticOnlyNavigationGuard,
   type StaticOnlyNavigationGuard,
@@ -78,6 +79,12 @@ export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [
   "https://localhost*",
   "http://127.0.0.1*",
   "https://127.0.0.1*",
+];
+
+/** HTML Run may load scripts from the CDN allowlist (not open `https:`). */
+export const HTML_RUN_ORIGIN_WHITELIST: string[] = [
+  ...STATIC_HTML_ORIGIN_WHITELIST,
+  ...HTML_RUN_CDN_HOSTS.map((host) => `${host}*`),
 ];
 
 /** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
