@@ -1,4 +1,4 @@
-"""Reminders & Lists service — public re-export barrel.
+"""Schedule / reminder service — public re-export barrel.
 
 Callers: ``from app.services import todos as todos_service``.
 Private helpers live in submodules; import those directly when needed.

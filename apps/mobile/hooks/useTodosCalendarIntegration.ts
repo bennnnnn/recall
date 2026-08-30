@@ -26,11 +26,8 @@ import {
   suggestedRemindersOnDay,
 } from "@/lib/todos/reminderCalendar";
 
-type FocusSection = "list" | "reminders" | null;
-
 type Params = {
   token: string | null;
-  focusSection: FocusSection;
   todos: Todo[];
   highlight?: string;
   refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
@@ -40,7 +37,6 @@ type Params = {
 
 export function useTodosCalendarIntegration({
   token,
-  focusSection,
   todos,
   highlight,
   refresh,
@@ -89,7 +85,7 @@ export function useTodosCalendarIntegration({
 
   const loadCalendarEvents = useCallback(async () => {
     const accessToken = tokenRef.current;
-    if (!accessToken || focusSection === "list") return;
+    if (!accessToken) return;
 
     const gen = ++calendarLoadGen.current;
     setCalendarLoadError(false);
@@ -103,11 +99,11 @@ export function useTodosCalendarIntegration({
       setCalendarEvents([]);
       setCalendarLoadError(true);
     }
-  }, [focusSection]);
+  }, []);
 
   const loadSuggestedReminders = useCallback(async () => {
     const accessToken = tokenRef.current;
-    if (!accessToken || focusSection === "list") return;
+    if (!accessToken) return;
     try {
       const result = await fetchSuggestedReminders(accessToken);
       setSuggestedReminders(result?.reminders ?? []);
@@ -116,25 +112,24 @@ export function useTodosCalendarIntegration({
       setSuggestedReminders([]);
       setSuggestedLoadError(true);
     }
-  }, [focusSection]);
+  }, []);
 
   const loadCalendarEventsRef = useRef(loadCalendarEvents);
   loadCalendarEventsRef.current = loadCalendarEvents;
   const loadSuggestedRemindersRef = useRef(loadSuggestedReminders);
   loadSuggestedRemindersRef.current = loadSuggestedReminders;
 
-  // Depend only on focusSection so a mid-screen token refresh does not
-  // re-trigger calendar load and flip the spinner back on.
+  // Empty deps so a mid-screen token refresh does not re-trigger calendar
+  // load and flip the spinner back on.
   useFocusEffect(
     useCallback(() => {
       void refreshRef.current({ silent: true });
-      if (focusSection === "list") return;
       void markSeenRef.current();
       if (tokenRef.current) {
         void loadCalendarEventsRef.current();
         void loadSuggestedRemindersRef.current();
       }
-    }, [focusSection]),
+    }, []),
   );
 
   const overlapNotes = useMemo(() => {

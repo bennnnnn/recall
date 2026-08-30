@@ -1,4 +1,4 @@
-"""Regex bank and query/transcript classifiers for Reminders & Lists."""
+"""Regex bank and query/transcript classifiers for Schedule reminders."""
 
 from __future__ import annotations
 
@@ -17,17 +17,19 @@ _BULK_SHIFT_TO_TOMORROW = re.compile(
 # Fixed-keyword branch only — phrases with unbounded ``.+`` are linear scans below.
 _TODO_QUERY_FIXED = re.compile(
     r"\b("
-    r"todo|todos|task|tasks|reminder|reminders|list|lists|checklist|"
-    r"grocery|groceries|shopping|errand|errands|due|overdue|"
-    r"what('?s| is) (?:on|in) my|show my|my (?:list|lists|reminders?|tasks?)|"
-    r"reschedule|shopping list"
+    r"todo|todos|task|tasks|reminder|reminders|"
+    r"due|overdue|"
+    r"what('?s| is) (?:on|in) my (?:reminders?|schedule|todos?|tasks?|calendar)|"
+    r"show my (?:reminders?|schedule|todos?|tasks?)|"
+    r"my (?:reminders?|schedule|todos?|tasks?)|"
+    r"reschedule"
     r")\b",
     re.IGNORECASE,
 )
 _TODO_SYNC_TRANSCRIPT_FIXED = re.compile(
     r"\b("
     r"added (?:to|on)|removed from|marked (?:as )?(?:done|complete)|"
-    r"new (?:list|reminder|task)|delete(?:d)? (?:the )?list|delete all|"
+    r"new (?:reminder|task)|delete all|"
     r"delete overdue|removed (?:those |the )?overdue|"
     # Overdue nudge → model says "I'll delete …" (prompted future tense)
     r"I(?:'ll| will) delete|I deleted|I(?:'ve| have) (?:removed|deleted)|"
@@ -35,7 +37,7 @@ _TODO_SYNC_TRANSCRIPT_FIXED = re.compile(
     r"delete(?:d)? (?:the )?(?:reminder|task|todo|it)|"
     r"delete it|remove(?:d)? (?:the )?(?:reminder|task|todo)|"
     r"set (?:a )?(?:due|reminder)|"
-    r"check(?:ed)? off|uncheck(?:ed)?|groceries|shopping list|"
+    r"check(?:ed)? off|uncheck(?:ed)?|"
     r"reminder for|due (?:at|on|tomorrow|today)|"
     # Past-tense / emoji confirms the model still emits despite the future-tense hint
     r"reminder set|reminders? (?:are |is )?set|"
@@ -66,28 +68,14 @@ _AFFIRMATIVE = re.compile(
 )
 _USER_LINE = re.compile(r"(?:^|\n)User:\s*(.+?)(?:\n|$)", re.IGNORECASE)
 _ASSISTANT_LABEL = re.compile(r"(?:^|\n)Assistant:\s*", re.IGNORECASE)
-_REMINDER_OR_TODO_WORD = re.compile(r"\b(reminders?|todos?|tasks?|lists?)\b", re.IGNORECASE)
+_REMINDER_OR_TODO_WORD = re.compile(r"\b(reminders?|todos?|tasks?|schedule)\b", re.IGNORECASE)
 
-# Bound gaps for linear "add … to … list" style scans (no ``.+`` ReDoS).
+# Bound gaps for linear "move X to tomorrow" scans (no ``.+`` ReDoS).
 _TODO_PHRASE_GAP = 80
 
 
 def _find_ci(haystack: str, needle: str, start: int = 0) -> int:
     return haystack.find(needle, start)
-
-
-def _implies_add_to_list(low: str) -> bool:
-    """``add milk to my grocery list`` — linear scan, no ``add .+ to …list``."""
-    start = 0
-    while True:
-        i = _find_ci(low, "add ", start)
-        if i == -1:
-            return False
-        window = low[i : i + 4 + _TODO_PHRASE_GAP]
-        to_i = _find_ci(window, " to ", 4)
-        if to_i != -1 and "list" in window[to_i:]:
-            return True
-        start = i + 1
 
 
 def _implies_mark_done(low: str) -> bool:
@@ -147,7 +135,7 @@ def query_implies_todos(query_text: str | None) -> bool:
     if is_scheduled_event_time_question(text):
         return True
     low = text.lower()
-    return _implies_add_to_list(low) or _implies_mark_done(low) or _implies_move_to_tomorrow(low)
+    return _implies_mark_done(low) or _implies_move_to_tomorrow(low)
 
 
 def transcript_implies_todo_sync(transcript: str) -> bool:

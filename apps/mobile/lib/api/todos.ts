@@ -3,7 +3,6 @@ import type { Todo } from "@/lib/api/types";
 
 export const todosApi = {
   listTodos: (token: string) => request<Todo[]>("/todos", token),
-  listTodoTopics: (token: string) => request<string[]>("/todos/topics", token),
   createTodo: (
     token: string,
     content: string,
@@ -46,16 +45,6 @@ export const todosApi = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  reorderTodos: (
-    token: string,
-    items: { id: string; sort_order: number; topic?: string }[],
-  ) =>
-    request<Todo[]>("/todos/reorder", token, {
-      method: "POST",
-      body: JSON.stringify({ items }),
-    }),
   deleteTodo: (token: string, id: string) =>
     request<void>(`/todos/${id}`, token, { method: "DELETE" }),
-  deleteTodoTopic: (token: string, topic: string) =>
-    request<void>(`/todos/topic/${encodeURIComponent(topic)}`, token, { method: "DELETE" }),
 };

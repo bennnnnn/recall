@@ -78,7 +78,7 @@ function RootNavigator() {
             ...stackUtilityTransition(reduceMotion),
             ...header,
             headerShown: true,
-            title: t("todos.title"),
+            title: t("drawer.reminders"),
             headerBackVisible: false,
             headerLeft: () => <StackBackButton />,
           }}

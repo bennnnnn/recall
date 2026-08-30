@@ -354,7 +354,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
-            content="add eggs to groceries",
+            content="remind me to call mom tomorrow",
         ):
             pass
 
@@ -366,7 +366,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     from app.services import chat as chat_module
 
     async def fake_stream(**kwargs):
-        yield "Added eggs to your grocery list."
+        yield "I'll set a reminder for Call mom."
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
@@ -413,7 +413,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
-            content="add eggs to groceries",
+            content="remind me to call mom tomorrow",
             result=result,
         ):
             pass

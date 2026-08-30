@@ -119,6 +119,10 @@ class _TodoApplyState:
 
 
 def _prepare_todo_action(action: TodoActionItem) -> TodoActionItem | None:
+    if action.action == "add" and action.due_at is None:
+        return None
+    if action.action == "clear_due":
+        return None
     topic = action.topic.strip()
     if not topic:
         # Dated reminders don't need a list title — land in Reminders via due_at.
@@ -138,8 +142,10 @@ async def _todo_action_add(state: _TodoApplyState, action: TodoActionItem) -> in
     if _find_item_any_state(state.items, topic, content):
         return 0
     due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
-    recurrence = action.recurrence_rule if due_at is not None else None
-    if due_at is not None and recurrence:
+    if due_at is None:
+        return 0
+    recurrence = action.recurrence_rule
+    if recurrence:
         due_at = snap_first_due(due_at, recurrence, timezone=state.user_timezone)
     new_todo = await todos_repo.create(
         state.session,

@@ -177,7 +177,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 ## Mobile map
 
-Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Lists, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
+Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
 - Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,projects,integrations,attachments,images,account,discover,connectivity,types}.ts`
 - Tokens: `expo-secure-store` only

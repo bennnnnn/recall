@@ -155,11 +155,6 @@ export function ConversationList(_props: unknown) {
     startNewChatGlobal();
   }, []);
 
-  const openLists = useCallback(() => {
-    closeDrawer();
-    router.push({ pathname: "/todos", params: { focus: "list" } });
-  }, [router]);
-
   const openReminders = useCallback(() => {
     closeDrawer();
     router.push({ pathname: "/todos", params: { focus: "reminders" } });
@@ -229,7 +224,6 @@ export function ConversationList(_props: unknown) {
           showIndicator={showIndicator}
           unseenCount={unseenCount}
           onProjects={openProjects}
-          onLists={openLists}
           onReminders={openReminders}
           onGallery={openGallery}
         />
@@ -252,7 +246,6 @@ export function ConversationList(_props: unknown) {
       showIndicator,
       unseenCount,
       openProjects,
-      openLists,
       openReminders,
       openGallery,
       loading,

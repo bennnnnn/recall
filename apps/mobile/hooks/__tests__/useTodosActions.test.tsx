@@ -15,7 +15,6 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
 
 jest.mock("@/lib/todos/todoReminders", () => ({
   cancelTodoReminder: jest.fn(async () => undefined),
-  ensureNotificationPermission: jest.fn(),
   syncTodoReminders: jest.fn(),
 }));
 
@@ -25,11 +24,9 @@ jest.mock("@/lib/reminderSeen", () => ({
 
 jest.mock("@/lib/api", () => ({
   api: {
-    deleteTodoTopic: jest.fn(),
     createTodo: jest.fn(),
     updateTodo: jest.fn(),
     deleteTodo: jest.fn(),
-    reorderTodos: jest.fn(),
   },
 }));
 
@@ -48,107 +45,26 @@ function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   };
 }
 
-const persistGroupOrder = jest.fn(async () => undefined);
 const setTodos = jest.fn();
 const refresh = jest.fn(async () => undefined);
 
 let actions: ReturnType<typeof useTodosActions>;
 
-function Probe({ todos, groupOrder }: { todos: Todo[]; groupOrder: string[] }) {
+function Probe({ todos }: { todos: Todo[] }) {
   actions = useTodosActions({
     token: "tok",
     userId: "user-1",
     todos,
     setTodos,
     refresh,
-    groupOrder,
-    persistGroupOrder,
     goToDay: jest.fn(),
-    isRemindersPage: false,
   });
   return <Text>todos actions</Text>;
 }
 
-async function confirmDelete() {
-  const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as
-    | { text: string; onPress?: () => void | Promise<void> }[]
-    | undefined;
-  const destructive = buttons?.find((b) => b.text === "common.delete");
-  await act(async () => {
-    await destructive?.onPress?.();
-  });
-}
-
-describe("useTodosActions lists", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    persistGroupOrder.mockResolvedValue(undefined);
-    (api.deleteTodoTopic as jest.Mock).mockResolvedValue(undefined);
-    jest.spyOn(Alert, "alert").mockImplementation(() => {});
-  });
-
-  it("keeps a second add when the first create is still in flight", async () => {
-    let finish: (created: Todo) => void = () => undefined;
-    (api.createTodo as jest.Mock).mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-    );
-    await act(async () => {
-      render(<Probe todos={[]} groupOrder={["Groceries"]} />);
-    });
-
-    let first = false;
-    await act(async () => {
-      first = actions.handleCreateListItem("Groceries", "milk");
-    });
-    expect(first).toBe(true);
-    expect(actions.handleCreateListItem("Groceries", "eggs")).toBe(false);
-
-    await act(async () => {
-      finish(todo({ id: "s1", content: "milk", topic: "Groceries" }));
-    });
-  });
-
-  it("creates a list by appending to saved order", async () => {
-    await act(async () => {
-      render(<Probe todos={[]} groupOrder={["Groceries"]} />);
-    });
-    await act(async () => {
-      await actions.handleCreateList("Shopping", () => undefined);
-    });
-    expect(persistGroupOrder).toHaveBeenCalledWith(["Groceries", "Shopping"]);
-  });
-
-  it("deletes an empty list without calling the topic API", async () => {
-    await act(async () => {
-      render(<Probe todos={[]} groupOrder={["Shopping"]} />);
-    });
-    actions.handleDeleteList("Shopping");
-    await confirmDelete();
-    expect(api.deleteTodoTopic).not.toHaveBeenCalled();
-    expect(persistGroupOrder).toHaveBeenCalledWith([]);
-  });
-
-  it("deletes a list with only checked items via the topic API", async () => {
-    await act(async () => {
-      render(
-        <Probe
-          todos={[todo({ id: "1", content: "Milk", topic: "Groceries", checked: true })]}
-          groupOrder={["Groceries"]}
-        />,
-      );
-    });
-    actions.handleDeleteList("Groceries");
-    await confirmDelete();
-    expect(api.deleteTodoTopic).toHaveBeenCalledWith("tok", "Groceries");
-  });
-});
-
 describe("useTodosActions reminders", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    persistGroupOrder.mockResolvedValue(undefined);
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
@@ -162,7 +78,7 @@ describe("useTodosActions reminders", () => {
     const onCreated = jest.fn();
     const due = new Date("2026-08-24T18:00:00.000Z");
     await act(async () => {
-      render(<Probe todos={[]} groupOrder={[]} />);
+      render(<Probe todos={[]} />);
     });
 
     let createPromise: Promise<void> = Promise.resolve();
@@ -199,7 +115,7 @@ describe("useTodosActions reminders", () => {
     (api.createTodo as jest.Mock).mockRejectedValue(new Error("fail"));
     const onCreated = jest.fn();
     await act(async () => {
-      render(<Probe todos={[]} groupOrder={[]} />);
+      render(<Probe todos={[]} />);
     });
 
     await act(async () => {
@@ -225,7 +141,7 @@ describe("useTodosActions reminders", () => {
       due_at: "2026-08-23T18:00:00.000Z",
     });
     await act(async () => {
-      render(<Probe todos={[existing]} groupOrder={[]} />);
+      render(<Probe todos={[existing]} />);
     });
 
     await act(async () => {

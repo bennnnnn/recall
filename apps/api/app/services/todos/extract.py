@@ -1,4 +1,4 @@
-"""LLM extraction of reminder/list actions from a chat turn."""
+"""LLM extraction of reminder actions from a chat turn."""
 
 from __future__ import annotations
 
@@ -25,38 +25,34 @@ async def extract_todo_actions(
         {
             "role": "system",
             "content": (
-                "Extract Schedule and Lists changes requested in this conversation turn. "
+                "Extract Schedule changes requested in this conversation turn. "
                 f"User timezone: {tz_note}. "
-                "Current Schedule & Lists JSON:\n"
+                "Current Schedule JSON (dated reminders only):\n"
                 f"{snapshot}\n\n"
                 "Return ONLY JSON (no markdown): "
-                '{"actions": [{"action": "add|complete|uncheck|delete|set_due|clear_due", '
-                '"topic": "list title", "content": "item text", '
+                '{"actions": [{"action": "add|complete|uncheck|delete|set_due", '
+                '"topic": "Reminders", "content": "item text", '
                 '"due_at": "ISO-8601 datetime or null", '
                 '"recurrence_rule": "daily|weekdays|weekly|monthly or null"}]}. '
                 "Rules:\n"
-                "- For add WITHOUT a due date (list item): only when the user gave a clear "
-                "list title AND item text. If they want a new list but no title yet, return "
-                "empty actions. Topic must be the agreed list name (e.g. Groceries, Taxes) — "
-                "never invent list titles.\n"
-                "- For add WITH a due date (Schedule item): content = short title; "
-                "due_at = the agreed ISO-8601 datetime from the transcript (including prior "
-                'turns when the user only said Yes/Sure). Topic may be "Reminders" or '
-                "omitted. Set recurrence_rule when they asked for a repeat "
-                "(every day / weekdays / every week / every month). "
-                "Do NOT skip just because there is no grocery-style list title.\n"
+                "- There is no shopping-list / checklist feature. Never add an item "
+                "without due_at. Skip grocery, packing, or undated checklist requests.\n"
+                "- For add: content = short title; due_at = the agreed ISO-8601 datetime "
+                "from the transcript (including prior turns when the user only said "
+                'Yes/Sure). Topic may be "Reminders" or omitted. Set recurrence_rule '
+                "when they asked for a repeat (every day / weekdays / every week / "
+                "every month).\n"
                 "- When the assistant confirmed setting a reminder (e.g. Reminder set / "
                 "I'll set a reminder) and the transcript has a title + date/time, emit that "
                 "add with due_at.\n"
-                "- For add/set_due: due_at optional on list adds; required on set_due and on "
-                "reminder adds. Interpret relative dates in the user's timezone "
-                "(tomorrow, Friday 5pm).\n"
+                "- For add/set_due: due_at is required. Interpret relative dates in the "
+                "user's timezone (tomorrow, Friday 5pm).\n"
                 "- Bulk reschedule (all reminders due today → tomorrow): emit one set_due "
                 'per affected item, OR a single set_due with content="*" when moving every '
                 "open item due today.\n"
                 "- If the user says you missed some / only moved one, emit set_due for every "
                 "remaining item still due today in the snapshot.\n"
-                "- For clear_due: remove due date from the matched item.\n"
+                "- Never emit clear_due — Schedule items must keep a due date.\n"
                 "- For complete/uncheck/delete: match existing items; use their topic.\n"
                 "- Bulk delete overdue: when the user says delete overdue / delete all "
                 "overdue reminders, emit one delete action per open overdue item in the "
