@@ -44,6 +44,7 @@ class SpeechTtsOut(BaseModel):
 class SpeechLiveSpeakIn(BaseModel):
     audio_base64: str = Field(max_length=SPEECH_MAX_B64_CHARS)
     filename: str = "speech.m4a"
+    chat_id: UUID | None = None
 
 
 class SpeechLiveSpeakOut(BaseModel):

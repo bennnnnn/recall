@@ -90,6 +90,21 @@ def test_live_talk_chat_payload_streams_pcm16():
     assert live_talk_chat_payload(b"not-audio", filename="speech.m4a", model="x") is None
 
 
+def test_live_talk_chat_payload_includes_recent_text():
+    wav = pcm_to_wav(b"\x00\x00" * 16)
+    payload = live_talk_chat_payload(
+        wav,
+        filename="speech.wav",
+        model="openai/gpt-audio-mini",
+        history=[("user", "what is 2+2"), ("assistant", "4")],
+    )
+    assert payload is not None
+    messages = payload["messages"]
+    assert isinstance(messages, list)
+    assert messages[1] == {"role": "user", "content": "what is 2+2"}
+    assert messages[2] == {"role": "assistant", "content": "4"}
+
+
 @pytest.mark.asyncio
 async def test_transcribe_openrouter_json_api():
     settings = Settings(
@@ -435,6 +450,33 @@ def test_parse_audio_sse_delta_reads_stream_chunks():
     assert text == "Hi"
 
 
+def test_parse_audio_sse_delta_falls_back_to_content():
+    from app.gateways.speech_gateway import parse_audio_sse_delta
+
+    audio, text = parse_audio_sse_delta({"choices": [{"delta": {"content": "Hello"}}]})
+    assert audio == ""
+    assert text == "Hello"
+
+
+def test_merge_stream_transcript_cumulative_or_incremental():
+    from app.gateways.speech_gateway import merge_stream_transcript
+
+    assert merge_stream_transcript("Hi", "Hi there") == "Hi there"
+    assert merge_stream_transcript("Hi", " there") == "Hi there"
+    assert merge_stream_transcript("Hi there", "there") == "Hi there"
+
+
+def test_decode_audio_b64_incremental_keeps_remainder():
+    from app.gateways.speech_gateway import decode_audio_b64_incremental
+
+    pcm, rest = decode_audio_b64_incremental("", "aG")
+    assert pcm == b""
+    assert rest == "aG"
+    pcm, rest = decode_audio_b64_incremental(rest, "VsbG8=")
+    assert pcm == b"hello"
+    assert rest == ""
+
+
 def test_decode_joined_audio_b64():
     from app.gateways.speech_gateway import decode_joined_audio_b64
 
@@ -458,6 +500,43 @@ async def test_speech_to_speech_mock_without_key():
     assert content_type == "audio/wav"
     assert audio[:4] == b"RIFF"
     assert transcript.startswith("This is a mock")
+
+
+@pytest.mark.asyncio
+async def test_iter_speech_to_speech_emits_clip_before_stream_ends():
+    from app.services.live_talk_stream import iter_speech_to_speech
+
+    wav = pcm_to_wav(b"\x00\x00" * 16)
+    order: list[str] = []
+
+    async def fake_gateway(*_args: object, **_kwargs: object):
+        order.append("first-pcm")
+        yield b"\x00\x00" * 20_000, "Hi"
+        order.append("rest-pcm")
+        yield b"\x00\x00" * 1_000, "Hi there"
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_live_talk_enabled=True,
+        speech_transcription_enabled=True,
+    )
+    with (
+        patch("app.services.live_talk_stream.mock_llm.should_mock_llm", return_value=False),
+        patch(
+            "app.services.live_talk_stream.transcribe_audio",
+            AsyncMock(return_value="hello"),
+        ),
+        patch(
+            "app.services.live_talk_stream.speech_gateway.iter_speech_to_speech_via_openrouter",
+            fake_gateway,
+        ),
+    ):
+        async for event in iter_speech_to_speech(settings, wav, filename="speech.wav"):
+            if event.kind == "audio" and "yielded-clip" not in order:
+                order.append("yielded-clip")
+
+    assert order.index("yielded-clip") < order.index("rest-pcm")
 
 
 @pytest.mark.asyncio

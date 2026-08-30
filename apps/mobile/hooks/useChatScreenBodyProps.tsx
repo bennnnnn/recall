@@ -120,6 +120,12 @@ export type UseChatScreenBodyPropsParams = {
     toggleVoiceInput: () => void | Promise<void>;
     onLiveTalkPress?: () => void;
   };
+  liveTalkSession?: {
+    muted: boolean;
+    onClose: () => void;
+    onMutePress: () => void;
+    onYield: () => void;
+  } | null;
   listFooter?: ReactElement | null;
   hideHomeStarters?: boolean;
 };
@@ -196,6 +202,7 @@ export function useChatScreenBodyProps({
     toggleVoiceInput,
     onLiveTalkPress,
   },
+  liveTalkSession = null,
   listFooter = null,
   hideHomeStarters = false,
 }: UseChatScreenBodyPropsParams): { bodyProps: ChatScreenBodyProps; openUpgradeSheet: () => void } {
@@ -371,6 +378,7 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
+      liveTalkSession,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,
@@ -438,6 +446,7 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
+      liveTalkSession,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,

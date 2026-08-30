@@ -21,6 +21,44 @@ export const LIVE_TALK_MAX_RECORDING_MS = 30_000;
 /** Stop if the meter never crosses speech level (covered mic, low gain). */
 export const LIVE_TALK_NO_SPEECH_MS = 8_000;
 
+export type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
+
+/** Orb tap: start/stop a listen or cancel a wait. Mute is the mic control, not the orb. */
+export function liveTalkOrbAction(phase: LiveTalkPhase): LiveTalkOrbAction {
+  if (phase === "thinking") return "cancelThink";
+  if (phase === "speaking") return "none";
+  if (phase === "recording") return "finishListen";
+  return "begin";
+}
+
+/** Mute drops an in-flight listen so the model never hears it. Playback keeps going. */
+export function liveTalkDiscardListenOnMute(phase: LiveTalkPhase): boolean {
+  return phase === "recording" || phase === "thinking";
+}
+
+/** Speak control: cut playback and take the floor. Not full duplex. */
+export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
+  return phase === "speaking";
+}
+
+export function liveTalkMuteA11yKey(
+  muted: boolean,
+): "chat.live_talk_mute_a11y" | "chat.live_talk_unmute_a11y" {
+  return muted ? "chat.live_talk_unmute_a11y" : "chat.live_talk_mute_a11y";
+}
+
+/** Mic + close sit beside an empty composer; typing takes the full row. */
+export function liveTalkShowsSideChrome(draft: string): boolean {
+  return draft.trim().length === 0;
+}
+
+export function liveTalkOrbA11yKey(
+  phase: LiveTalkPhase,
+): "chat.live_talk_cancel_a11y" | "chat.live_talk_a11y" {
+  if (phase === "thinking") return "chat.live_talk_cancel_a11y";
+  return "chat.live_talk_a11y";
+}
+
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
   if (isOffline) return "offline";
   if (!status || !status.enabled) return "unavailable";

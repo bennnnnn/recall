@@ -350,8 +350,20 @@ function ChatScreen() {
 
   const liveTalk = useLiveTalk({
     token,
+    chatId,
+    setChatId,
+    setChatTitle,
+    setMessages,
+    draft,
+    router,
+    selectedModel,
     isOffline,
     onUpgrade: () => openUpgradeRef.current?.(),
+    onScrollToLatest: scroll.scrollToLatest,
+    newMessageCountRef: scroll.newMessageCountRef,
+    onFirstReply: () => {
+      void onFirstReplyRef.current();
+    },
     t,
   });
 
@@ -568,6 +580,14 @@ function ChatScreen() {
       toggleVoiceInput,
       onLiveTalkPress: liveTalk.open,
     },
+    liveTalkSession: liveTalk.visible
+      ? {
+          muted: liveTalk.muted,
+          onClose: liveTalk.close,
+          onMutePress: liveTalk.toggleMute,
+          onYield: liveTalk.yieldToComposer,
+        }
+      : null,
   });
   openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
   const chatScreenBodyProps = chatScreenBody.bodyProps;
@@ -582,7 +602,8 @@ function ChatScreen() {
         phase={liveTalk.phase}
         meterLevel={liveTalk.meterLevel}
         recording={liveTalk.recording}
-        onClose={liveTalk.close}
+        headerInset={drawerOpen ? 0 : layout.headerInset}
+        composerClearance={layout.composerClearance}
         onToggle={() => void liveTalk.toggle()}
       />
 

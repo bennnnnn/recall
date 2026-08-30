@@ -1,21 +1,21 @@
 import { useMemo } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
 import { LiveTalkOrb } from "@/components/chat/LiveTalkOrb";
-import { type LiveTalkPhase } from "@/lib/liveTalkLogic";
+import { liveTalkOrbA11yKey, liveTalkOrbAction, type LiveTalkPhase } from "@/lib/liveTalkLogic";
 import { useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
   phase: LiveTalkPhase;
   meterLevel: number;
   recording: boolean;
-  onClose: () => void;
+  /** Leave this strip open so ChatHeader (hamburger / ⋮) stays tappable. */
+  headerInset: number;
+  /** Leave the real composer (type / attach) uncovered. */
+  composerClearance: number;
   onToggle: () => void;
 };
 
@@ -24,102 +24,62 @@ export function LiveTalkOverlay({
   phase,
   meterLevel,
   recording,
-  onClose,
+  headerInset,
+  composerClearance,
   onToggle,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const busy = phase === "thinking";
+  const orbAction = liveTalkOrbAction(phase);
+
+  if (!visible) return null;
+
+  const orb = (
+    <LiveTalkOrb
+      theme={theme}
+      phase={phase}
+      meterLevel={meterLevel}
+      recording={recording}
+      reduceMotion={reduceMotion}
+    />
+  );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
+    <View
+      style={[s.overlay, { top: headerInset, bottom: composerClearance }]}
+      testID="live-talk-overlay"
     >
-      <View style={[s.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
-        <View style={s.center}>
+      <View style={s.body}>
+        {orbAction === "none" ? (
+          <View testID="live-talk-orb">{orb}</View>
+        ) : (
           <Pressable
-            onPress={() => {
-              if (!busy) onToggle();
-            }}
-            disabled={busy}
+            onPress={onToggle}
             accessibilityRole="button"
-            accessibilityLabel={t("chat.live_talk_a11y")}
+            accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
             testID="live-talk-orb"
           >
-            <LiveTalkOrb
-              theme={theme}
-              phase={phase}
-              meterLevel={meterLevel}
-              recording={recording}
-              reduceMotion={reduceMotion}
-            />
+            {orb}
           </Pressable>
-        </View>
-
-        <View style={s.bottom}>
-          <View
-            style={[s.pill, { backgroundColor: theme.inputBg, borderColor: theme.composerBorder }]}
-          >
-            <Icon name="add-outline" size={22} color={theme.text} />
-            <Text style={s.pillText}>{t("chat.live_talk_ask")}</Text>
-          </View>
-          <Pressable
-            onPress={onClose}
-            style={s.closeBtn}
-            accessibilityRole="button"
-            accessibilityLabel={t("chat.live_talk_close_a11y")}
-          >
-            <Icon name="close" size={22} color={theme.onPrimary} />
-          </Pressable>
-        </View>
+        )}
       </View>
-    </Modal>
+    </View>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    root: {
+    overlay: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      zIndex: 120,
+    },
+    body: {
       flex: 1,
       backgroundColor: theme.bg,
-      paddingHorizontal: 16,
-    },
-    center: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    bottom: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingHorizontal: 4,
-    },
-    pill: {
-      flex: 1,
-      height: 52,
-      borderRadius: 26,
-      borderWidth: StyleSheet.hairlineWidth,
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 16,
-      gap: 8,
-    },
-    pillText: {
-      ...Type.body,
-      color: theme.textTertiary,
-    },
-    closeBtn: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: theme.text,
       alignItems: "center",
       justifyContent: "center",
     },

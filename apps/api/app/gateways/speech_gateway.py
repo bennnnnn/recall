@@ -32,8 +32,11 @@ _PCM_SAMPLE_WIDTH = 2
 _MPEG_SYNC = frozenset({0xFB, 0xF3, 0xF2, 0xFA})
 _LIVE_TALK_INSTRUCTIONS = (
     "You are Recall, a personal voice assistant. Reply in a natural spoken voice. "
-    "Keep answers short unless the user asks for more. No markdown or lists."
+    "Answer in one or two short sentences unless the user asks for more. "
+    "No markdown, lists, or spelling-aloud."
 )
+_LIVE_TALK_HISTORY_MAX = 10
+_LIVE_TALK_HISTORY_CHARS = 600
 
 _OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".m4a": "m4a",
@@ -69,30 +72,41 @@ def live_talk_chat_payload(
     *,
     filename: str,
     model: str,
+    history: list[tuple[str, str]] | None = None,
 ) -> dict[str, object] | None:
     audio_format = openai_input_audio_format(filename, audio_bytes)
     if audio_format is None:
         return None
+    messages: list[dict[str, object]] = [
+        {"role": "system", "content": _LIVE_TALK_INSTRUCTIONS},
+    ]
+    for role, content in (history or [])[-_LIVE_TALK_HISTORY_MAX:]:
+        if role not in {"user", "assistant"}:
+            continue
+        text = " ".join((content or "").split()).strip()[:_LIVE_TALK_HISTORY_CHARS]
+        if not text:
+            continue
+        messages.append({"role": role, "content": text})
+    messages.append(
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_audio",
+                    "input_audio": {
+                        "data": base64.b64encode(audio_bytes).decode("ascii"),
+                        "format": audio_format,
+                    },
+                }
+            ],
+        }
+    )
     return {
         "model": model,
         "stream": True,
         "modalities": ["text", "audio"],
         "audio": {"voice": _LIVE_TALK_VOICE, "format": _LIVE_TALK_STREAM_FORMAT},
-        "messages": [
-            {"role": "system", "content": _LIVE_TALK_INSTRUCTIONS},
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_audio",
-                        "input_audio": {
-                            "data": base64.b64encode(audio_bytes).decode("ascii"),
-                            "format": audio_format,
-                        },
-                    }
-                ],
-            },
-        ],
+        "messages": messages,
     }
 
 
@@ -336,15 +350,44 @@ def parse_audio_sse_delta(payload: dict[str, object]) -> tuple[str, str]:
         delta = first.get("message")
     if not isinstance(delta, dict):
         return "", ""
+    audio_b64 = ""
+    transcript = ""
     audio = delta.get("audio")
-    if not isinstance(audio, dict):
-        return "", ""
-    data = audio.get("data")
-    transcript = audio.get("transcript")
-    return (
-        data if isinstance(data, str) else "",
-        transcript if isinstance(transcript, str) else "",
-    )
+    if isinstance(audio, dict):
+        data = audio.get("data")
+        audio_b64 = data if isinstance(data, str) else ""
+        text = audio.get("transcript")
+        transcript = text if isinstance(text, str) else ""
+    if not transcript:
+        content = delta.get("content")
+        transcript = content if isinstance(content, str) else ""
+    return audio_b64, transcript
+
+
+def merge_stream_transcript(current: str, incoming: str) -> str:
+    """OpenAI may send cumulative or incremental transcript deltas."""
+    if not incoming:
+        return current
+    if not current:
+        return incoming
+    if incoming.startswith(current):
+        return incoming
+    if current.endswith(incoming):
+        return current
+    return current + incoming
+
+
+def decode_audio_b64_incremental(pending: str, fragment: str) -> tuple[bytes, str]:
+    """Decode complete base64 quartets; keep a remainder for the next chunk."""
+    buffer = f"{pending}{fragment}"
+    complete = len(buffer) - (len(buffer) % 4)
+    if complete <= 0:
+        return b"", buffer
+    try:
+        decoded = base64.b64decode(buffer[:complete], validate=False)
+    except (binascii.Error, ValueError):
+        return b"", buffer
+    return decoded, buffer[complete:]
 
 
 def decode_joined_audio_b64(fragments: list[str]) -> bytes:
@@ -365,15 +408,16 @@ def decode_joined_audio_b64(fragments: list[str]) -> bytes:
         return b"".join(chunks)
 
 
-async def speech_to_speech_via_openrouter(
+async def iter_speech_to_speech_via_openrouter(
     settings: Settings,
     audio_bytes: bytes,
     *,
     filename: str,
     model: str,
-) -> tuple[bytes, str, str] | None:
-    """Audio in → spoken audio out via an OpenRouter audio chat model. Not Whisper."""
-    payload = live_talk_chat_payload(audio_bytes, filename=filename, model=model)
+    history: list[tuple[str, str]] | None = None,
+) -> AsyncIterator[tuple[bytes, str]]:
+    """Yield (pcm_chunk, transcript_so_far) as OpenRouter streams. Do not buffer the clip."""
+    payload = live_talk_chat_payload(audio_bytes, filename=filename, model=model, history=history)
     if payload is None:
         logger.warning(
             "Live talk input format unsupported filename=%s size=%s magic=%s",
@@ -381,9 +425,9 @@ async def speech_to_speech_via_openrouter(
             len(audio_bytes),
             audio_bytes[:8].hex(),
         )
-        return None
-    audio_parts: list[str] = []
-    transcript_parts: list[str] = []
+        return
+    transcript = ""
+    b64_rest = ""
     try:
         client = get_pooled_client(_AUDIO_CHAT_TIMEOUT)
         async with client.stream(
@@ -403,7 +447,7 @@ async def speech_to_speech_via_openrouter(
                     response.status_code,
                     error_body,
                 )
-                return None
+                return
             async for line in response.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -423,24 +467,58 @@ async def speech_to_speech_via_openrouter(
                         model,
                         str(stream_error)[:500],
                     )
-                    return None
-                audio_b64, transcript = parse_audio_sse_delta(parsed)
+                    return
+                audio_b64, piece = parse_audio_sse_delta(parsed)
+                if piece:
+                    transcript = merge_stream_transcript(transcript, piece)
+                pcm = b""
                 if audio_b64:
-                    audio_parts.append(audio_b64)
-                if transcript:
-                    transcript_parts.append(transcript)
+                    pcm, b64_rest = decode_audio_b64_incremental(b64_rest, audio_b64)
+                if pcm or piece:
+                    yield pcm, transcript
+            if b64_rest:
+                pad = "=" * ((4 - len(b64_rest) % 4) % 4)
+                try:
+                    extra = base64.b64decode(b64_rest + pad, validate=False)
+                except (binascii.Error, ValueError):
+                    extra = b""
+                if extra:
+                    yield extra, transcript
     except Exception:
         logger.exception("Speech-to-speech failed model=%s size=%s", model, len(audio_bytes))
-        return None
+        return
 
-    raw = decode_joined_audio_b64(audio_parts)
+
+async def speech_to_speech_via_openrouter(
+    settings: Settings,
+    audio_bytes: bytes,
+    *,
+    filename: str,
+    model: str,
+    history: list[tuple[str, str]] | None = None,
+) -> tuple[bytes, str, str] | None:
+    """Audio in → spoken audio out via an OpenRouter audio chat model. Not Whisper."""
+    pcm_parts: list[bytes] = []
+    transcript = ""
+    async for pcm, text in iter_speech_to_speech_via_openrouter(
+        settings,
+        audio_bytes,
+        filename=filename,
+        model=model,
+        history=history,
+    ):
+        if pcm:
+            pcm_parts.append(pcm)
+        if text:
+            transcript = text
+    raw = b"".join(pcm_parts)
     if not raw:
         logger.warning(
             "OpenRouter speech-to-speech returned no audio model=%s transcript_chars=%s",
             model,
-            len("".join(transcript_parts)),
+            len(transcript),
         )
         return None
     if raw[:4] != b"RIFF":
         raw = pcm_to_wav(raw)
-    return raw, "audio/wav", "".join(transcript_parts).strip()
+    return raw, "audio/wav", transcript.strip()

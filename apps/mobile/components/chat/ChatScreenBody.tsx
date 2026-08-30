@@ -89,6 +89,12 @@ export type ChatScreenBodyProps = {
   voiceMeterLevel: number;
   onVoicePress?: () => void;
   onLiveTalkPress?: () => void;
+  liveTalkSession?: {
+    muted: boolean;
+    onClose: () => void;
+    onMutePress: () => void;
+    onYield: () => void;
+  } | null;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
   listFooter?: ReactElement | null;
@@ -158,6 +164,7 @@ export function ChatScreenBody({
   voiceMeterLevel,
   onVoicePress,
   onLiveTalkPress,
+  liveTalkSession = null,
   upgradeVisible,
   onCloseUpgrade,
   listFooter = null,
@@ -237,7 +244,10 @@ export function ChatScreenBody({
         onCancelEdit={onCancelEdit}
         onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
-        onSend={onSend}
+        onSend={(text) => {
+          liveTalkSession?.onYield();
+          onSend(text);
+        }}
         onStop={onStop}
         isOffline={isOffline}
         voiceAvailable={voiceAvailable}
@@ -246,6 +256,7 @@ export function ChatScreenBody({
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
         onLiveTalkPress={onLiveTalkPress}
+        liveTalkChrome={liveTalkSession}
         onOpenMathScanner={onOpenMathScanner}
         onMathChromeHeightChange={onMathChromeHeightChange}
         mathContext={mathContext}

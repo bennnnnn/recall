@@ -1,6 +1,7 @@
 import base64
 import binascii
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -9,14 +10,14 @@ from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.core.deps import get_current_user, get_settings_dep, redis_unavailable_http_exception
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
-from app.models.orm import User
+from app.models.orm import Message, User
 from app.models.schemas import (
     SpeechLiveSpeakIn,
-    SpeechLiveSpeakOut,
     SpeechLiveStatusOut,
     SpeechTranscriptionIn,
     SpeechTranscriptionOut,
@@ -24,11 +25,14 @@ from app.models.schemas import (
     SpeechTtsOut,
 )
 from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES, SPEECH_MAX_REQUEST_BYTES
+from app.services import live_talk as live_talk_service
 from app.services import plan as plan_service
 from app.services import quota as quota_service
 from app.services import speech as speech_service
+from app.services.live_talk_stream import LiveTalkStreamEvent, iter_speech_to_speech
 
 router = APIRouter(prefix="/speech", tags=["speech"])
+logger = logging.getLogger(__name__)
 
 TTS_STREAM_MEDIA_TYPE = "audio/L16;rate=24000;channels=1"
 
@@ -510,13 +514,29 @@ async def live_talk_commit(
         raise redis_unavailable_http_exception(exc) from exc
 
 
-@router.post("/live/speak", response_model=SpeechLiveSpeakOut)
+def _sse_data(payload: dict[str, object]) -> str:
+    return f"data: {json.dumps(payload, default=str)}\n\n"
+
+
+def _live_talk_event_sse(event: LiveTalkStreamEvent) -> str:
+    if event.kind == "audio":
+        return _sse_data(
+            {
+                "type": "audio",
+                "audio_base64": base64.b64encode(event.audio_wav).decode("ascii"),
+                "content_type": "audio/wav",
+            }
+        )
+    return _sse_data({"type": event.kind, "text": event.text})
+
+
+@router.post("/live/speak")
 async def live_talk_speak(
     body: SpeechLiveSpeakIn,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
-) -> SpeechLiveSpeakOut:
-    """Speech-to-speech live talk. Does not use Whisper transcription."""
+) -> StreamingResponse:
+    """Speech-to-speech live talk. Streams WAV clips; persists transcripts as chat."""
     if not settings.speech_live_talk_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     if not plan_service.is_pro(user):
@@ -534,58 +554,118 @@ async def live_talk_speak(
         ) from exc
     _reject_oversized_audio(data)
 
+    history: list[tuple[str, str]] | None = None
+    untitled = False
+    chat_id = body.chat_id
+    if chat_id is not None:
+        async with SessionLocal() as session:
+            loaded = await live_talk_service.load_live_talk_history(
+                session, chat_id=chat_id, user_id=user.id
+            )
+        if loaded is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+        history, untitled = loaded
+
     redis = get_redis_client()
     rate_limit = settings.speech_rate_limit_per_minute
     reserved = False
-    try:
-        if rate_limit > 0:
+    if rate_limit > 0:
+        try:
             allowed = await allow_request_fail_closed(
                 redis,
                 f"speech_live_rl:{user.id}",
                 limit=rate_limit,
                 window_seconds=60,
             )
-            if not allowed:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
-                )
-        daily_limit = quota_service.live_talk_limit_for_user(user, settings)
+        except RedisUnavailableError as exc:
+            raise redis_unavailable_http_exception(exc) from exc
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
+            )
+    daily_limit = quota_service.live_talk_limit_for_user(user, settings)
+    try:
         if not await quota_service.reserve_live_talk(redis, user.id, limit=daily_limit):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=quota_service.live_talk_limit_exceeded_message(user),
             )
-        reserved = True
-        result = await speech_service.speech_to_speech(
-            settings,
-            data,
-            filename=body.filename,
-        )
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Could not complete live talk",
-            )
-        audio_bytes, content_type, transcript = result
-        await quota_service.clear_live_talk_pending(redis, user.id)
-        status_out = await _live_talk_status(user, settings)
-        return SpeechLiveSpeakOut(
-            audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
-            content_type=content_type,
-            transcript=transcript,
-            remaining=status_out.remaining,
-            limit=status_out.limit,
-        )
-    except HTTPException as exc:
-        if reserved and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
-            await quota_service.refund_live_talk_if_pending(redis, user.id)
-        raise
     except RedisUnavailableError as exc:
-        if reserved:
-            await quota_service.refund_live_talk_if_pending(redis, user.id)
         raise redis_unavailable_http_exception(exc) from exc
-    except Exception:
-        if reserved:
-            await quota_service.refund_live_talk_if_pending(redis, user.id)
-        raise
+    reserved = True
+
+    async def body_iter() -> AsyncIterator[str]:
+        got_audio = False
+        user_text = ""
+        assistant_text = ""
+        persisted = False
+
+        async def persist_if_needed() -> tuple[Message | None, Message | None]:
+            nonlocal persisted
+            if persisted or chat_id is None:
+                return None, None
+            if not user_text and not assistant_text:
+                return None, None
+            persisted = True
+            return await live_talk_service.persist_live_talk_turn(
+                user=user,
+                chat_id=chat_id,
+                user_text=user_text,
+                assistant_text=assistant_text,
+                untitled=untitled,
+                settings=settings,
+                redis=redis,
+            )
+
+        try:
+            async for event in iter_speech_to_speech(
+                settings,
+                data,
+                filename=body.filename,
+                history=history,
+            ):
+                if event.kind == "audio":
+                    got_audio = True
+                elif event.kind == "user":
+                    user_text = event.text
+                elif event.kind == "assistant":
+                    assistant_text = event.text
+                yield _live_talk_event_sse(event)
+            if not got_audio:
+                if reserved:
+                    await quota_service.refund_live_talk_if_pending(redis, user.id)
+                yield _sse_data({"type": "error", "detail": "Could not complete live talk"})
+                return
+            await quota_service.clear_live_talk_pending(redis, user.id)
+            user_msg, asst_msg = await persist_if_needed()
+            status_out = await _live_talk_status(user, settings)
+            yield _sse_data(
+                {
+                    "type": "done",
+                    "remaining": status_out.remaining,
+                    "limit": status_out.limit,
+                    "user_message": live_talk_service.message_out_payload(user_msg),
+                    "assistant_message": live_talk_service.message_out_payload(asst_msg),
+                }
+            )
+        except Exception:
+            if got_audio:
+                try:
+                    await quota_service.clear_live_talk_pending(redis, user.id)
+                    await persist_if_needed()
+                except Exception:
+                    logger.exception("Live talk persist after stream error failed")
+            elif reserved:
+                await quota_service.refund_live_talk_if_pending(redis, user.id)
+            raise
+
+    return StreamingResponse(
+        body_iter(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
