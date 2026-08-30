@@ -1,6 +1,7 @@
 """Attachment router tests."""
 
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -1224,6 +1225,7 @@ def test_list_attachments_local_backend():
     user = _fake_user()
     row = _attachment_row()
     gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.resolve_local_path.return_value = Path("/recall-present.png")
 
     with (
         patch(
@@ -1237,6 +1239,33 @@ def test_list_attachments_local_backend():
 
     assert r.status_code == 200
     assert r.json()["items"][0]["download_url"] == f"/attachments/{row.id}/file"
+
+
+def test_list_attachments_omits_local_rows_whose_blob_is_gone():
+    """Gallery listed Neon rows whose /tmp blobs were gone, then each /file 404'd."""
+    user = _fake_user()
+    gone = _attachment_row()
+    gone.storage_key = "user/gone"
+    present = _attachment_row()
+    present.storage_key = "user/present"
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.resolve_local_path.side_effect = lambda key: (
+        None if key == "user/gone" else Path("/recall-present.png")
+    )
+
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            AsyncMock(return_value=([gone, present], False)),
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    items = r.json()["items"]
+    assert [item["id"] for item in items] == [str(present.id)]
 
 
 def test_list_attachments_empty():

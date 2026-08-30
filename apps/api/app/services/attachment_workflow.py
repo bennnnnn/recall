@@ -99,8 +99,15 @@ async def list_attachments(
     )
     message_ids = [row.message_id for row in rows if row.message_id is not None]
     chat_by_message = await attachments_repo.chat_ids_for_message_ids(session, message_ids)
+    gateway = get_storage_gateway(settings)
     items: list[AttachmentListItemOut] = []
     for row in rows:
+        if (
+            isinstance(gateway, LocalStorageGateway)
+            and gateway.resolve_local_path(row.storage_key) is None
+        ):
+            # Neon still has the row after /tmp (or a moved datadir) lost the blob.
+            continue
         url = f"/attachments/{row.id}/file"
         items.append(
             AttachmentListItemOut(
@@ -246,6 +253,11 @@ async def get_file_access(
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)
         if path is None:
+            logger.warning(
+                "attachment blob missing on disk attachment_id=%s storage_key=%s",
+                attachment_id,
+                row.storage_key,
+            )
             await _drop_row_for_missing_file(session, row.id)
             raise AttachmentWorkflowError(404, "File missing")
         return FileAccess(content_type=row.content_type, local_path=path)

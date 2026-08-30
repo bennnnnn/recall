@@ -113,7 +113,8 @@ class Settings(BaseSettings):
     # downloads directly — blobs never touch the API. R2 creds come from the
     # r2_* settings below; when missing in dev we fall back to local.
     storage_backend: str = "local"
-    storage_local_path: str = "/tmp/recall-attachments"  # noqa: S108  # dev default; overridden in prod
+    # Home dir, not /tmp: macOS purges /tmp (and Neon rows then 404 on /file).
+    storage_local_path: str = "~/.recall/attachments"
     r2_account_id: str = ""
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""

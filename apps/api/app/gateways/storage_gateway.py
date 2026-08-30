@@ -50,7 +50,7 @@ class LocalStorageGateway:
     """Dev/test storage — files under STORAGE_LOCAL_PATH."""
 
     def __init__(self, base_path: Path) -> None:
-        self.base_path = base_path.resolve()
+        self.base_path = Path(base_path).expanduser().resolve()
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _path_under_base(self, storage_key: str) -> Path:
