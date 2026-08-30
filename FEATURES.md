@@ -332,8 +332,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   reintroduce a Lists row, list composer, or undated checklist UI. (Learning chapter
   `lists` are vocab word groups, not this feature.)
 - ✅ **Schedule** — dated items (formerly Reminders) with optional repeat
-  (`daily` / `weekdays` / `weekly` / `monthly`). Repeats fire a **device push**
-  only (notification bar), not email. Chat can set `repeat` on the ` ```reminder `
+  (`daily` / `weekdays` / `weekly` / `monthly`). New reminder Repeat is a single
+  dropdown (not wrapping chips). Repeats fire a **device push** only
+  (notification bar), not email. Chat can set `repeat` on the ` ```reminder `
   fence. Route `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
 - ✅ **Todos API** — create, check off, delete dated reminders; optional `due_at`.

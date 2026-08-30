@@ -13,12 +13,15 @@ import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
+import {
+  RepeatPickerSheet,
+  repeatMessageKey,
+} from "@/components/todos/RepeatPickerSheet";
 import { defaultDueDate } from "@/components/todos/todoHelpers";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { describeDueAt, toDueAtIso } from "@/lib/todos/dueDate";
 import { findOverlappingReminder } from "@/lib/todos/reminderOverlap";
-import { RECURRENCE_RULES } from "@/lib/todos/recurrence";
 import { useTheme } from "@/lib/theme";
 
 export function AddReminderSheet({
@@ -41,6 +44,7 @@ export function AddReminderSheet({
   const [dueDate, setDueDate] = useState(() => defaultDueDate());
   const [repeat, setRepeat] = useState<RecurrenceRule | null>(null);
   const [showPicker, setShowPicker] = useState(Platform.OS === "ios");
+  const [repeatPickerOpen, setRepeatPickerOpen] = useState(false);
 
   const overlap = useMemo(
     () => findOverlappingReminder(todos, dueDate),
@@ -52,6 +56,7 @@ export function AddReminderSheet({
     setDueDate(defaultDueDate());
     setRepeat(null);
     setShowPicker(Platform.OS === "ios");
+    setRepeatPickerOpen(false);
   };
 
   useEffect(() => {
@@ -79,6 +84,8 @@ export function AddReminderSheet({
     if (!canSave) return;
     onSave(text, dueDate, repeat);
   };
+
+  const repeatLabel = t(repeatMessageKey(repeat));
 
   return (
     <AppSheet
@@ -151,35 +158,34 @@ export function AddReminderSheet({
         ) : null}
 
         <Text style={[s.formLabel, s.fieldGap]}>{t("todos.repeat_label")}</Text>
-        <View style={s.repeatRow}>
+        <View>
           <Pressable
-            style={[s.repeatChip, repeat == null && s.repeatChipOn]}
-            onPress={() => setRepeat(null)}
+            style={[s.repeatField, repeatPickerOpen && s.repeatFieldOpen]}
+            onPress={() => {
+              Keyboard.dismiss();
+              setRepeatPickerOpen((open) => !open);
+            }}
             disabled={saving}
             accessibilityRole="button"
-            accessibilityState={{ selected: repeat == null }}
+            accessibilityState={{ expanded: repeatPickerOpen }}
+            accessibilityLabel={`${t("todos.repeat_label")}, ${repeatLabel}`}
           >
-            <Text style={[s.repeatChipText, repeat == null && s.repeatChipTextOn]}>
-              {t("todos.repeat_none")}
-            </Text>
+            <Text style={s.repeatFieldText}>{repeatLabel}</Text>
+            <Icon
+              name={repeatPickerOpen ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={C.textTertiary}
+            />
           </Pressable>
-          {RECURRENCE_RULES.map((rule) => {
-            const on = repeat === rule;
-            return (
-              <Pressable
-                key={rule}
-                style={[s.repeatChip, on && s.repeatChipOn]}
-                onPress={() => setRepeat(rule)}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-              >
-                <Text style={[s.repeatChipText, on && s.repeatChipTextOn]}>
-                  {t(`todos.repeat_${rule}`)}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {repeatPickerOpen ? (
+            <RepeatPickerSheet
+              selected={repeat}
+              onSelect={(rule) => {
+                setRepeat(rule);
+                setRepeatPickerOpen(false);
+              }}
+            />
+          ) : null}
         </View>
 
         {overlap ? (
