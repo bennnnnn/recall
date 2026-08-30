@@ -388,6 +388,67 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-slot-nroot-index")).toBeTruthy();
   });
 
+  it("moves into the radicand after filling the nth-root index with π", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-nroot"));
+    expect(getByTestId("math-slot-nroot-index-caret")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-key-pi"));
+    expect(queryByTestId("math-slot-nroot-index-caret")).toBeNull();
+    expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
+  });
+
+  it("second ⁿ√ tap moves from a filled index into the radicand", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-nroot"));
+    await fireEvent.press(getByTestId("math-key-digit-3"));
+    expect(getByTestId("math-slot-nroot-index-caret-end")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-key-nroot"));
+    expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
+  });
+
+  it("° on an empty composer inserts a base box", async () => {
+    let latest = "";
+    function Harness() {
+      const [input, setInput] = useState("");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
+    await fireEvent.press(getByTestId("math-key-deg"));
+    expect(latest).toBe("$^{\\circ}$");
+    await fireEvent.press(getByTestId("math-key-digit-3"));
+    expect(latest).toBe("$3^{\\circ}$");
+  });
+
+  it("logₙ auto-advances from the base into the argument after π", async () => {
+    let latest = "";
+    function Harness() {
+      const [input, setInput] = useState("");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
+    await fireEvent.press(getByTestId("math-key-logn"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-basics"));
+    await fireEvent.press(getByTestId("math-key-pi"));
+    expect(latest).toBe("$\\log_{\\pi }()$");
+    expect(getByTestId("math-slot-group-caret")).toBeTruthy();
+  });
+
   it("types a comma and y from the number pad", async () => {
     function Harness() {
       const [input, setInput] = useState("");

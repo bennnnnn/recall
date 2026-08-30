@@ -84,7 +84,7 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "infty", label: "∞", insert: "\\infty ", group: "calc" }),
   key({ id: "partial", label: "∂", insert: "\\partial ", group: "calc" }),
   key({ id: "der", label: "d/dx", insert: "\\frac{d}{dx}", group: "calc" }),
-  key({ id: "der2", label: "d²", insert: "\\frac{d^{2}}{dx^{2}}", group: "calc" }),
+  key({ id: "der2", label: "d²/dx²", insert: "\\frac{d^{2}}{dx^{2}}", group: "calc" }),
   key({ id: "to", label: "→", insert: "\\to ", group: "calc" }),
   key({ id: "dx", label: "dx", insert: "\\,dx", group: "calc" }),
   key({ id: "log", label: "log", insert: "\\log()", group: "calc" }),
@@ -330,6 +330,21 @@ function scriptAttachInsert(
   return { insert: `x${mark}{}`, cursorOffset: 3 };
 }
 
+const DEG_CIRC = "^{\\circ}";
+
+/**
+ * °: attach after an existing base. On empty, land in front of `^{\circ}` so
+ * digits prepend (`30^{\circ}`) instead of wrapping a `{30}` group the preview
+ * would paint as literal braces.
+ */
+function degAttachInsert(text: string, start: number): { insert: string; cursorOffset: number } {
+  const prev = lastNonSpaceChar(text, start);
+  if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
+    return { insert: DEG_CIRC, cursorOffset: DEG_CIRC.length };
+  }
+  return { insert: DEG_CIRC, cursorOffset: 0 };
+}
+
 function resolveInsert(
   text: string,
   start: number,
@@ -338,6 +353,7 @@ function resolveInsert(
   if (spec.id === "sup") return scriptAttachInsert(text, start, "^");
   if (spec.id === "sub") return scriptAttachInsert(text, start, "_");
   if (spec.id === "fact") return factAttachInsert(text, start);
+  if (spec.id === "deg") return degAttachInsert(text, start);
   return spec;
 }
 
@@ -566,14 +582,134 @@ export function caretForInsert(text: string, caret: number, spec: MathKeyboardSy
   return current.close + 1;
 }
 
-/** Second tap on fraction: jump num → empty den instead of inserting another \\frac. */
-export function fracTapAdvancesToDen(text: string, caret: number): number | null {
-  for (const frac of findFracSlots(text)) {
-    const numFilled = frac.num.close - frac.num.open > 1;
-    const denEmpty = frac.den.close - frac.den.open === 1;
-    if (numFilled && denEmpty && caretInGroup(caret, frac.num)) return frac.den.close;
+type SlotPair = { first: LatexGroup; second: LatexGroup };
+
+function slotEmpty(group: LatexGroup): boolean {
+  return group.close - group.open === 1;
+}
+
+function slotFilled(group: LatexGroup): boolean {
+  return group.close - group.open > 1;
+}
+
+export function findNrootSlots(text: string): { index: LatexGroup; radicand: LatexGroup }[] {
+  const out: { index: LatexGroup; radicand: LatexGroup }[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const idx = text.indexOf("\\sqrt[", i);
+    if (idx === -1) break;
+    const index = readDelimGroup(text, idx + 5, "[", "]");
+    if (!index) {
+      i = idx + 5;
+      continue;
+    }
+    const radicand = readBraceGroup(text, index.close + 1);
+    if (!radicand) {
+      i = index.close + 1;
+      continue;
+    }
+    out.push({ index, radicand });
+    i = radicand.close + 1;
+  }
+  return out;
+}
+
+export function findLognSlots(text: string): { base: LatexGroup; arg: LatexGroup }[] {
+  const out: { base: LatexGroup; arg: LatexGroup }[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const idx = text.indexOf("\\log_", i);
+    if (idx === -1) break;
+    const base = readBraceGroup(text, idx + 5);
+    if (!base) {
+      i = idx + 5;
+      continue;
+    }
+    let j = base.close + 1;
+    while (j < text.length && text[j] === " ") j += 1;
+    const arg = readDelimGroup(text, j, "(", ")");
+    if (!arg) {
+      i = base.close + 1;
+      continue;
+    }
+    out.push({ base, arg });
+    i = arg.close + 1;
+  }
+  return out;
+}
+
+function fracPairs(text: string): SlotPair[] {
+  return findFracSlots(text).map((f) => ({ first: f.num, second: f.den }));
+}
+
+function nrootPairs(text: string): SlotPair[] {
+  return findNrootSlots(text).map((f) => ({ first: f.index, second: f.radicand }));
+}
+
+function lognPairs(text: string): SlotPair[] {
+  return findLognSlots(text).map((f) => ({ first: f.base, second: f.arg }));
+}
+
+function pairsForTap(specId: string): ((text: string) => SlotPair[]) | null {
+  if (specId === "frac") return fracPairs;
+  if (specId === "nroot") return nrootPairs;
+  if (specId === "logn") return lognPairs;
+  return null;
+}
+
+function tapAdvancesPair(
+  text: string,
+  caret: number,
+  findPairs: (text: string) => SlotPair[],
+): number | null {
+  for (const pair of findPairs(text)) {
+    if (slotFilled(pair.first) && slotEmpty(pair.second) && caretInGroup(caret, pair.first)) {
+      return pair.second.close;
+    }
   }
   return null;
+}
+
+/** Second tap on frac / ⁿ√ / logₙ: jump the filled first box → empty second box. */
+export function tapAdvancesToNextSlot(text: string, caret: number, specId: string): number | null {
+  const find = pairsForTap(specId);
+  if (!find) return null;
+  return tapAdvancesPair(text, caret, find);
+}
+
+/** Second tap on fraction: jump num → empty den instead of inserting another \\frac. */
+export function fracTapAdvancesToDen(text: string, caret: number): number | null {
+  return tapAdvancesToNextSlot(text, caret, "frac");
+}
+
+function autoAdvancePair(
+  before: string,
+  beforeCaret: number,
+  after: string,
+  afterCaret: number,
+  findPairs: (text: string) => SlotPair[],
+): number | null {
+  const beforePair = findPairs(before).find((p) => caretInGroup(beforeCaret, p.first));
+  if (!beforePair || !slotEmpty(beforePair.first)) return null;
+  const afterPair = findPairs(after).find((p) => caretInGroup(afterCaret, p.first));
+  if (!afterPair || !slotFilled(afterPair.first) || !slotEmpty(afterPair.second)) return null;
+  return afterPair.second.close;
+}
+
+/** After filling an empty first box with a non-digit atom, land in the empty second box. */
+export function autoAdvanceNextEmptySlot(
+  before: string,
+  beforeCaret: number,
+  after: string,
+  afterCaret: number,
+  spec: MathKeyboardSymbol,
+): number | null {
+  if (STAY_IN_SLOT.test(spec.id)) return null;
+  return (
+    autoAdvancePair(before, beforeCaret, after, afterCaret, fracPairs) ??
+    autoAdvancePair(before, beforeCaret, after, afterCaret, nrootPairs) ??
+    autoAdvancePair(before, beforeCaret, after, afterCaret, lognPairs)
+  );
 }
 
 /** After filling an empty frac numerator with a non-digit atom, land in the den. */
@@ -585,14 +721,7 @@ export function autoAdvanceFracDen(
   spec: MathKeyboardSymbol,
 ): number | null {
   if (STAY_IN_SLOT.test(spec.id)) return null;
-  const beforeFrac = findFracSlots(before).find((f) => caretInGroup(beforeCaret, f.num));
-  if (!beforeFrac) return null;
-  if (beforeFrac.num.close - beforeFrac.num.open !== 1) return null;
-  const afterFrac = findFracSlots(after).find((f) => caretInGroup(afterCaret, f.num));
-  if (!afterFrac) return null;
-  if (afterFrac.num.close - afterFrac.num.open <= 1) return null;
-  if (afterFrac.den.close - afterFrac.den.open !== 1) return null;
-  return afterFrac.den.close;
+  return autoAdvancePair(before, beforeCaret, after, afterCaret, fracPairs);
 }
 
 export type PadCell =

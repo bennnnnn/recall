@@ -1,9 +1,12 @@
 import {
   autoAdvanceFracDen,
+  autoAdvanceNextEmptySlot,
   caretForInsert,
   caretInGroup,
   converterResultSpec,
   findFracSlots,
+  findLognSlots,
+  findNrootSlots,
   fracTapAdvancesToDen,
   isCursorInsideInlineMath,
   MATH_KEYBOARD_SYMBOLS,
@@ -19,6 +22,7 @@ import {
   symbolA11yLabel,
   symbolsInGroup,
   symbolRowsForGroup,
+  tapAdvancesToNextSlot,
 } from "@/lib/mathKeyboardSymbols";
 
 describe("spliceMathInsert", () => {
@@ -96,6 +100,26 @@ describe("spliceMathInsert", () => {
     const result = spliceMathInsert("", { start: 0, end: 0 }, ddv);
     expect(result.text).toBe("$\\frac{d}{d{}}$");
     expect(result.text.slice(result.selection.start - 1, result.selection.start + 1)).toBe("{}");
+  });
+
+  it("° attaches to a number, or inserts a base box on an empty draft", () => {
+    const deg = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "deg")!;
+    const empty = spliceMathInsert("", { start: 0, end: 0 }, deg);
+    expect(empty.text).toBe("$^{\\circ}$");
+    expect(empty.text[empty.selection.start]).toBe("^");
+    const typed = spliceMathInsert(empty.text, empty.selection, {
+      id: "digit-3",
+      label: "3",
+      insert: "3",
+      cursorOffset: 1,
+      group: "pad" as const,
+    });
+    expect(typed.text).toBe("$3^{\\circ}$");
+    expect(spliceMathInsert("$30$", { start: 3, end: 3 }, deg).text).toBe("$30^{\\circ}$");
+  });
+
+  it("labels second derivative as d²/dx²", () => {
+    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "der2")?.label).toBe("d²/dx²");
   });
 
   it("digits stay prose inside a convert draft", () => {
@@ -269,6 +293,73 @@ describe("slot navigation", () => {
     const at = caretForInsert(text, den.close, times);
     const result = spliceMathInsert(text, { start: at, end: at }, times);
     expect(result.text).toBe("$\\frac{8}{8}\\times $");
+  });
+
+  it("auto-advances from a filled nth-root index into the radicand", () => {
+    const nroot = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nroot")!;
+    const pi = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "pi")!;
+    const afterRoot = spliceMathInsert("", { start: 0, end: 0 }, nroot);
+    expect(caretInGroup(afterRoot.selection.start, findNrootSlots(afterRoot.text)[0]!.index)).toBe(
+      true,
+    );
+    const afterPi = spliceMathInsert(afterRoot.text, afterRoot.selection, pi);
+    const jump = autoAdvanceNextEmptySlot(
+      afterRoot.text,
+      afterRoot.selection.start,
+      afterPi.text,
+      afterPi.selection.start,
+      pi,
+    );
+    expect(jump).not.toBeNull();
+    expect(caretInGroup(jump!, findNrootSlots(afterPi.text)[0]!.radicand)).toBe(true);
+  });
+
+  it("does not auto-advance an nth-root index after a digit", () => {
+    const nroot = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nroot")!;
+    const three = { id: "digit-3", label: "3", insert: "3", cursorOffset: 1, group: "pad" as const };
+    const afterRoot = spliceMathInsert("", { start: 0, end: 0 }, nroot);
+    const afterThree = spliceMathInsert(afterRoot.text, afterRoot.selection, three);
+    expect(
+      autoAdvanceNextEmptySlot(
+        afterRoot.text,
+        afterRoot.selection.start,
+        afterThree.text,
+        afterThree.selection.start,
+        three,
+      ),
+    ).toBeNull();
+    expect(
+      tapAdvancesToNextSlot(afterThree.text, afterThree.selection.start, "nroot"),
+    ).toBe(findNrootSlots(afterThree.text)[0]!.radicand.close);
+  });
+
+  it("auto-advances from a filled logₙ base into the argument", () => {
+    const logn = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "logn")!;
+    const pi = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "pi")!;
+    const afterLog = spliceMathInsert("", { start: 0, end: 0 }, logn);
+    expect(caretInGroup(afterLog.selection.start, findLognSlots(afterLog.text)[0]!.base)).toBe(
+      true,
+    );
+    const afterPi = spliceMathInsert(afterLog.text, afterLog.selection, pi);
+    const jump = autoAdvanceNextEmptySlot(
+      afterLog.text,
+      afterLog.selection.start,
+      afterPi.text,
+      afterPi.selection.start,
+      pi,
+    );
+    expect(jump).not.toBeNull();
+    expect(caretInGroup(jump!, findLognSlots(afterPi.text)[0]!.arg)).toBe(true);
+  });
+
+  it("second logₙ tap jumps from a filled base into the empty argument", () => {
+    const logn = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "logn")!;
+    const two = { id: "digit-2", label: "2", insert: "2", cursorOffset: 1, group: "pad" as const };
+    const afterLog = spliceMathInsert("", { start: 0, end: 0 }, logn);
+    const afterTwo = spliceMathInsert(afterLog.text, afterLog.selection, two);
+    expect(tapAdvancesToNextSlot(afterTwo.text, afterTwo.selection.start, "logn")).toBe(
+      findLognSlots(afterTwo.text)[0]!.arg.close,
+    );
   });
 });
 
