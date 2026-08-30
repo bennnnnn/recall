@@ -146,6 +146,9 @@ async function fetchCloudTtsClip(
 
 /** Cloud TTS clip playback (expo-audio). Never mix with expo-speech. */
 type PlaybackHandle = {
+  play: () => void;
+  pause: () => void;
+  remove: () => void;
   addListener: (
     event: "playbackStatusUpdate",
     listener: (status: { didJustFinish: boolean }) => void,
@@ -154,6 +157,7 @@ type PlaybackHandle = {
 
 const CLOUD_PLAYBACK_MAX_MS = 300_000;
 let cloudPlaybackFinish: (() => void) | null = null;
+let cloudPlayer: PlaybackHandle | null = null;
 
 function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MAX_MS): Promise<void> {
   return new Promise((resolve) => {
@@ -196,8 +200,10 @@ async function playCloudBase64(
     const path = `${cacheDirectory}recall-tts-${Date.now()}.${ext}`;
     await writeAsStringAsync(path, audioBase64, { encoding: EncodingType.Base64 });
     if (!isCurrentSpeak(generation)) return { ok: true };
-    const player = Audio.createAudioPlayer(path);
+    const player = Audio.createAudioPlayer(path) as PlaybackHandle;
+    cloudPlayer = player;
     cloudPlayerCleanup = () => {
+      cloudPlayer = null;
       try {
         player.pause();
       } catch {
@@ -465,6 +471,28 @@ export function stopSpeaking(): void {
   ttsAbort = null;
   stopCloudPlayer();
   stopDeviceSpeech();
+}
+
+/** Pause the current cloud clip without ending the utterance. */
+export function pauseSpeaking(): boolean {
+  if (!cloudPlayer) return false;
+  try {
+    cloudPlayer.pause();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Resume a clip paused with `pauseSpeaking`. */
+export function resumeSpeaking(): boolean {
+  if (!cloudPlayer) return false;
+  try {
+    cloudPlayer.play();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Placeholder for future Whisper-based pronunciation check. */

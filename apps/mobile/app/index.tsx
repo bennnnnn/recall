@@ -584,6 +584,7 @@ function ChatScreen() {
         recording={liveTalk.recording}
         onClose={liveTalk.close}
         onToggle={() => void liveTalk.toggle()}
+        onInterrupt={liveTalk.interrupt}
       />
 
       <ChatScreenMenuSheets

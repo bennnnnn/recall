@@ -7,14 +7,16 @@ import { api } from "@/lib/api";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   LIVE_TALK_ECHO_GUARD_MS,
+  liveTalkCanTakeFloor,
   liveTalkErrorGate,
   liveTalkGate,
+  liveTalkOrbAction,
   liveTalkSilenceDecision,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
-import { playSpeechAudio, stopSpeaking } from "@/lib/pronunciation";
+import { pauseSpeaking, playSpeechAudio, resumeSpeaking, stopSpeaking } from "@/lib/pronunciation";
 import { isVoiceInputAvailable, readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
 
 type Options = {
@@ -204,20 +206,50 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   }, [token, isOffline, voice.voiceInputAvailable, t, alertForGate, feedback]);
 
   const toggle = useCallback(async () => {
-    if (phase === "thinking") return;
-    if (phase === "speaking") {
+    const action = liveTalkOrbAction(phase);
+    if (action === "cancelThink") {
       sessionGen.current += 1;
-      stopSpeaking();
+      endingUtteranceRef.current = false;
       autoListenRef.current = true;
       setPhase("idle");
       return;
     }
-    if (phase === "recording") {
+    if (action === "pause") {
+      if (!pauseSpeaking()) {
+        sessionGen.current += 1;
+        stopSpeaking();
+        autoListenRef.current = true;
+        setPhase("idle");
+        return;
+      }
+      setPhase("paused");
+      return;
+    }
+    if (action === "resume") {
+      if (!resumeSpeaking()) {
+        sessionGen.current += 1;
+        stopSpeaking();
+        autoListenRef.current = true;
+        setPhase("idle");
+        return;
+      }
+      setPhase("speaking");
+      return;
+    }
+    if (action === "finishListen") {
       await finishListen();
       return;
     }
     await beginListen();
   }, [phase, finishListen, beginListen]);
+
+  const interrupt = useCallback(() => {
+    if (!liveTalkCanTakeFloor(phase)) return;
+    sessionGen.current += 1;
+    stopSpeaking();
+    autoListenRef.current = true;
+    setPhase("idle");
+  }, [phase]);
 
   useEffect(() => {
     if (!visible || phase !== "idle" || !autoListenRef.current) return;
@@ -253,5 +285,6 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     open,
     close,
     toggle,
+    interrupt,
   };
 }

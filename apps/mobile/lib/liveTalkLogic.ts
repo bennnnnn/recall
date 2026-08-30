@@ -1,4 +1,4 @@
-export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
+export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking" | "paused";
 
 export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline";
 
@@ -20,6 +20,50 @@ export const LIVE_TALK_ECHO_GUARD_MS = 250;
 export const LIVE_TALK_MAX_RECORDING_MS = 30_000;
 /** Stop if the meter never crosses speech level (covered mic, low gain). */
 export const LIVE_TALK_NO_SPEECH_MS = 8_000;
+
+export type LiveTalkOrbAction = "begin" | "finishListen" | "pause" | "resume" | "cancelThink";
+
+/** Orb tap: pause/resume speech, cancel a wait, or start/stop a listen. */
+export function liveTalkOrbAction(phase: LiveTalkPhase): LiveTalkOrbAction {
+  if (phase === "thinking") return "cancelThink";
+  if (phase === "speaking") return "pause";
+  if (phase === "paused") return "resume";
+  if (phase === "recording") return "finishListen";
+  return "begin";
+}
+
+/** Speak control: cut playback and take the floor. Not full duplex. */
+export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
+  return phase === "speaking" || phase === "paused";
+}
+
+export function liveTalkHintKey(
+  phase: LiveTalkPhase,
+):
+  | "chat.live_talk_listening"
+  | "chat.live_talk_thinking"
+  | "chat.live_talk_speaking"
+  | "chat.live_talk_paused"
+  | "chat.live_talk_tap" {
+  if (phase === "recording") return "chat.live_talk_listening";
+  if (phase === "thinking") return "chat.live_talk_thinking";
+  if (phase === "speaking") return "chat.live_talk_speaking";
+  if (phase === "paused") return "chat.live_talk_paused";
+  return "chat.live_talk_tap";
+}
+
+export function liveTalkOrbA11yKey(
+  phase: LiveTalkPhase,
+):
+  | "chat.live_talk_pause_a11y"
+  | "chat.live_talk_resume_a11y"
+  | "chat.live_talk_cancel_a11y"
+  | "chat.live_talk_a11y" {
+  if (phase === "speaking") return "chat.live_talk_pause_a11y";
+  if (phase === "paused") return "chat.live_talk_resume_a11y";
+  if (phase === "thinking") return "chat.live_talk_cancel_a11y";
+  return "chat.live_talk_a11y";
+}
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
   if (isOffline) return "offline";

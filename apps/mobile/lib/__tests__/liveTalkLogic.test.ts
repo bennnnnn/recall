@@ -1,8 +1,10 @@
 import {
   LIVE_TALK_MAX_RECORDING_MS,
   LIVE_TALK_NO_SPEECH_MS,
+  liveTalkCanTakeFloor,
   liveTalkErrorGate,
   liveTalkGate,
+  liveTalkOrbAction,
   liveTalkSilenceDecision,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
@@ -40,6 +42,23 @@ describe("liveTalkErrorGate", () => {
   it("maps 403 to upgrade and 429 to limit", () => {
     expect(liveTalkErrorGate({ status: 403 })).toBe("upgrade");
     expect(liveTalkErrorGate({ status: 429 })).toBe("limit");
+  });
+});
+
+describe("liveTalkOrbAction", () => {
+  it("pauses speech, resumes, and cancels thinking", () => {
+    expect(liveTalkOrbAction("speaking")).toBe("pause");
+    expect(liveTalkOrbAction("paused")).toBe("resume");
+    expect(liveTalkOrbAction("thinking")).toBe("cancelThink");
+    expect(liveTalkOrbAction("recording")).toBe("finishListen");
+    expect(liveTalkOrbAction("idle")).toBe("begin");
+  });
+
+  it("offers Speak only while audio is playing or paused", () => {
+    expect(liveTalkCanTakeFloor("speaking")).toBe(true);
+    expect(liveTalkCanTakeFloor("paused")).toBe(true);
+    expect(liveTalkCanTakeFloor("recording")).toBe(false);
+    expect(liveTalkCanTakeFloor("thinking")).toBe(false);
   });
 });
 

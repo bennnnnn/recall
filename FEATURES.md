@@ -94,11 +94,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (OpenAI GPT Audio via OpenRouter: audio in → spoken reply, **not Whisper**). Short pause
   ends your turn; the orb never shows “Transcribing…”. Not full duplex. Free is blocked
   (upgrade). Pro: **30 turns/day** (UTC). Composer mic STT remains Whisper.
+  Tap the orb to pause/resume speech; Speak interrupts and you talk.
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
   (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
   remains for non-streaming clients.
-- 🔜 Reactions, read receipts; full duplex / interruptible live voice (later).
+- 🔜 Full duplex live voice (talk over playback without tapping) later.
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
@@ -610,7 +611,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
   (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
   uuid4 rows are unchanged.
-- 🔜 **Full locale translation** — key-set parity is enforced (**960** keys); ~350 strings still
+- 🔜 **Full locale translation** — key-set parity is enforced (**959** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
@@ -642,7 +643,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   fences. Standalone `molecule3d` stays 3D-only. Web slice 1 skips the second
   “Chemical structure” label for that pair.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
-  response caching, full duplex / interruptible voice (later).
+  response caching, full duplex live voice (later).
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 - ✅ **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
@@ -659,7 +660,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 |------|-----------------|
 | Auth | Email/password, magic links, multi-device session management |
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
-| Messaging | Reactions, read receipts; full duplex / interruptible voice; music generation (composer send + compact inline player) |
+| Messaging | Reactions, read receipts; full duplex live voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
 | Learning | Generic `learning` kind; other target languages; certificates; **SM-2 review-queue UI**; Settings deck browse; typed-answer lesson path |
@@ -698,7 +699,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**960** keys);
+- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**959** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized).
@@ -774,7 +775,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; not Whisper; not full duplex) |
+| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; pause/resume + Speak interrupt; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
@@ -879,8 +880,8 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex / interruptible voice (later) |
-| Live talk speech-to-speech (Pro, 30 turns/day) | — |
+| Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex live voice (later) |
+| Live talk speech-to-speech (Pro, 30 turns/day; pause / Speak interrupt) | — |
 | Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
 
 ### Cost guards (recent)
@@ -948,7 +949,7 @@ weakness. No video generation. Native share is enough unless we later decide we 
 - Google Docs, GitHub (owned integrations).
 - **User-wide attachment RAG** — chunks stay per `chat_id`; later turns in that chat only.
 - **SM-2 review-queue UI / Settings deck browse / typed-answer lesson path.**
-- Full duplex / interruptible live voice.
+- Full duplex live voice (talk over playback without tapping).
 - Code execution beyond the sandboxed HTML/chart WebView.
 - Web client (same API).
 - Locale prose + legal page bodies.

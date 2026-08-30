@@ -5,7 +5,12 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { LiveTalkOrb } from "@/components/chat/LiveTalkOrb";
-import { type LiveTalkPhase } from "@/lib/liveTalkLogic";
+import {
+  liveTalkCanTakeFloor,
+  liveTalkHintKey,
+  liveTalkOrbA11yKey,
+  type LiveTalkPhase,
+} from "@/lib/liveTalkLogic";
 import { useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -17,6 +22,7 @@ type Props = {
   recording: boolean;
   onClose: () => void;
   onToggle: () => void;
+  onInterrupt: () => void;
 };
 
 export function LiveTalkOverlay({
@@ -26,13 +32,15 @@ export function LiveTalkOverlay({
   recording,
   onClose,
   onToggle,
+  onInterrupt,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const busy = phase === "thinking";
+  const takeFloor = liveTalkCanTakeFloor(phase);
+  const hint = t(liveTalkHintKey(phase));
 
   return (
     <Modal
@@ -44,31 +52,41 @@ export function LiveTalkOverlay({
       <View style={[s.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
         <View style={s.center}>
           <Pressable
-            onPress={() => {
-              if (!busy) onToggle();
-            }}
-            disabled={busy}
+            onPress={onToggle}
             accessibilityRole="button"
-            accessibilityLabel={t("chat.live_talk_a11y")}
+            accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
             testID="live-talk-orb"
           >
             <LiveTalkOrb
               theme={theme}
-              phase={phase}
+              phase={phase === "paused" ? "idle" : phase}
               meterLevel={meterLevel}
               recording={recording}
               reduceMotion={reduceMotion}
             />
           </Pressable>
+          <Text style={s.hint}>{hint}</Text>
         </View>
 
         <View style={s.bottom}>
-          <View
-            style={[s.pill, { backgroundColor: theme.inputBg, borderColor: theme.composerBorder }]}
-          >
-            <Icon name="add-outline" size={22} color={theme.text} />
-            <Text style={s.pillText}>{t("chat.live_talk_ask")}</Text>
-          </View>
+          {takeFloor ? (
+            <Pressable
+              onPress={onInterrupt}
+              style={[s.pill, s.pillPress, { backgroundColor: theme.inputBg, borderColor: theme.composerBorder }]}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.live_talk_interrupt_a11y")}
+            >
+              <Icon name="mic-outline" size={22} color={theme.text} />
+              <Text style={s.pillAction}>{t("chat.live_talk_interrupt")}</Text>
+            </Pressable>
+          ) : (
+            <View
+              style={[s.pill, { backgroundColor: theme.inputBg, borderColor: theme.composerBorder }]}
+            >
+              <Icon name="add-outline" size={22} color={theme.text} />
+              <Text style={s.pillText}>{t("chat.live_talk_ask")}</Text>
+            </View>
+          )}
           <Pressable
             onPress={onClose}
             style={s.closeBtn}
@@ -94,6 +112,12 @@ function makeStyles(theme: Theme) {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
+      gap: 20,
+    },
+    hint: {
+      ...Type.secondary,
+      color: theme.textSecondary,
+      textAlign: "center",
     },
     bottom: {
       flexDirection: "row",
@@ -111,9 +135,17 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 16,
       gap: 8,
     },
+    pillPress: {
+      minHeight: 52,
+    },
     pillText: {
       ...Type.body,
       color: theme.textTertiary,
+    },
+    pillAction: {
+      ...Type.body,
+      fontWeight: "600",
+      color: theme.text,
     },
     closeBtn: {
       width: 52,
