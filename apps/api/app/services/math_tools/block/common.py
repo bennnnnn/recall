@@ -88,11 +88,22 @@ def _format_equation_answer(
     solutions_latex: list[str],
     solution_kind: str,
 ) -> str:
-    if solutions_latex:
-        return ", ".join(solutions_latex)
-    if solution_kind == "infinite":
-        return r"\text{all real numbers}"
-    return r"\text{no solution}"
+    if not solutions_latex:
+        if solution_kind == "infinite":
+            return r"\text{all real numbers}"
+        return r"\text{no solution}"
+    if len(solutions_latex) == 1:
+        return solutions_latex[0]
+    # One root per line in a display environment so the gray answer pill
+    # uses KaTeX and wraps. A comma-joined native MathText run clips.
+    rows: list[str] = []
+    for item in solutions_latex:
+        if " = " in item:
+            left, right = item.split(" = ", 1)
+            rows.append(f"{left} &= {right}")
+        else:
+            rows.append(item)
+    return "\\begin{aligned}\n" + " \\\\\n".join(rows) + "\n\\end{aligned}"
 
 
 def _format_system_answer(

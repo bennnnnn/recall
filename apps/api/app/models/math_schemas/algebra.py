@@ -172,6 +172,8 @@ class MathImageExtract(BaseModel):
 
 class MathSolveResult(BaseModel):
     solutions_latex: list[str]
+    # Compact ± / conjugate grouping for the ```answer pill. Empty → use solutions_latex.
+    canonical_solutions_latex: list[str] = Field(default_factory=list)
     steps: list[str] = Field(default_factory=list)
     lhs_latex: str = ""
     rhs_latex: str = ""

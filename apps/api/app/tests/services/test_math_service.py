@@ -173,6 +173,16 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
     assert "\\sqrt{4x}" not in steps_text
 
 
+def test_canonical_sixth_roots_group_conjugates() -> None:
+    result = math_service.solve_equation(EquationInput(lhs="x**6", rhs="1", variables=["x"]))
+    assert len(result.solutions_latex) == 6
+    assert len(result.canonical_solutions_latex) == 3
+    joined = " ".join(result.canonical_solutions_latex)
+    assert r"\pm 1" in joined
+    assert r"\pm" in joined
+    assert " i" in joined
+
+
 def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
     """BUG FIX regression: a general quadratic ax^2 + bx + c = 0 (b != 0) used
     to get NO worked steps (only the pure-quadratic b=0 case had them), so the
@@ -544,6 +554,7 @@ def test_try_extract_equation_strips_leading_trigger_words(text: str, expected_l
     assert eq.variables == ["x"]
     result = math_service.solve_equation(eq)
     assert result.solutions_latex == ["x = -2", "x = 2"]
+    assert result.canonical_solutions_latex == [r"x = \pm 2"]
 
 
 def test_try_extract_equations_from_text_finds_every_clause() -> None:

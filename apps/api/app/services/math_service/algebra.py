@@ -5,14 +5,17 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from sympy import (
+    Abs,
     Eq,
     Integral,
     Mul,
     Sum,
     Symbol,
+    conjugate,
     diff,
     expand,
     factor,
+    im,
     integrate,
     latex,
     limit,
@@ -39,6 +42,95 @@ from app.services.math_service.parse import (
     _parse_expression,
     parse_equation,
 )
+
+
+def _expr_equal(left: Any, right: Any) -> bool:
+    try:
+        return bool(simplify(left - right) == 0)
+    except Exception:
+        return False
+
+
+def _is_real_value(val: Any) -> bool:
+    try:
+        return bool(simplify(im(val)) == 0)
+    except Exception:
+        return False
+
+
+def _solution_value_latex(val: Any) -> str:
+    """``a + b i`` with ``i`` outside the fraction, not ``\\frac{\\sqrt{3} i}{2}``."""
+    val = simplify(val)
+    real, imag = val.as_real_imag()
+    real, imag = simplify(real), simplify(imag)
+    if imag == 0:
+        return str(latex(real))
+    if real == 0:
+        if imag == 1:
+            return "i"
+        if imag == -1:
+            return "-i"
+        return f"{latex(imag)} i"
+    if imag.is_number and imag < 0:
+        return f"{latex(real)} - {latex(-imag)} i"
+    return f"{latex(real)} + {latex(imag)} i"
+
+
+def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
+    """Pair ± reals and conjugate complexes so the answer pill is readable.
+
+    ``x^6 = 1`` becomes three lines (``\\pm 1`` and two ``a \\pm b i``) instead
+    of six comma-joined sympy strings that clip off the side of the gray box.
+    """
+    pool = [simplify(v) for v in values]
+    used = [False] * len(pool)
+    lines: list[str] = []
+    var_l = str(latex(Symbol(variable)))
+
+    for i, v in enumerate(pool):
+        if used[i] or not _is_real_value(v) or _expr_equal(v, 0):
+            continue
+        for j, w in enumerate(pool):
+            if used[j] or i == j or not _is_real_value(w):
+                continue
+            if not _expr_equal(v + w, 0):
+                continue
+            pos = v
+            if v.is_number and w.is_number:
+                pos = v if v >= 0 else w
+            elif v.is_number and v < 0:
+                pos = -v
+            pos = simplify(Abs(pos)) if _is_real_value(pos) else simplify(pos)
+            lines.append(f"{var_l} = \\pm {_solution_value_latex(pos)}")
+            used[i] = used[j] = True
+            break
+
+    for i, v in enumerate(pool):
+        if used[i] or _is_real_value(v):
+            continue
+        conj = simplify(conjugate(v))
+        if _expr_equal(v, conj):
+            continue
+        for j, w in enumerate(pool):
+            if used[j] or i == j:
+                continue
+            if not _expr_equal(w, conj):
+                continue
+            real, imag = v.as_real_imag()
+            real, imag_abs = simplify(real), simplify(Abs(simplify(imag)))
+            if real == 0:
+                lines.append(f"{var_l} = \\pm {_solution_value_latex(imag_abs)} i")
+            else:
+                real_l = _solution_value_latex(real)
+                imag_l = _solution_value_latex(imag_abs)
+                lines.append(f"{var_l} = {real_l} \\pm {imag_l} i")
+            used[i] = used[j] = True
+            break
+
+    for i, v in enumerate(pool):
+        if not used[i]:
+            lines.append(f"{var_l} = {_solution_value_latex(v)}")
+    return lines
 
 
 def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
@@ -176,12 +268,21 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         raise MathServiceError("Could not solve equation") from exc
 
     solutions_latex: list[str] = []
+    values_by_var: dict[str, list[Any]] = {}
     for sol in raw_solutions:
-        parts = [f"{latex(sym)} = {latex(val)}" for sym, val in sol.items()]
-        solutions_latex.extend(parts)
+        for sym, val in sol.items():
+            solutions_latex.append(f"{latex(sym)} = {_solution_value_latex(val)}")
+            values_by_var.setdefault(str(sym), []).append(val)
 
     if not solutions_latex and raw_solutions:
         solutions_latex = [latex(s) for s in raw_solutions]
+
+    canonical_solutions_latex: list[str] = []
+    if len(data.variables) == 1 and data.variables[0] in values_by_var:
+        canonical_solutions_latex = compact_root_answer_lines(
+            data.variables[0],
+            values_by_var[data.variables[0]],
+        )
 
     steps = [
         f"Equation: {latex(lhs)} = {latex(rhs)}",
@@ -205,6 +306,7 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
 
     return MathSolveResult(
         solutions_latex=solutions_latex,
+        canonical_solutions_latex=canonical_solutions_latex,
         steps=steps,
         lhs_latex=latex(lhs),
         rhs_latex=latex(rhs),
