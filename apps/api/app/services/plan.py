@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.core.config import Settings
+from app.exceptions import UnknownModelOverrideError
 from app.services import model_catalog, routing
 
 if TYPE_CHECKING:
@@ -109,19 +110,14 @@ def resolve_user_model_override(
     """Pick a concrete model, honoring a per-message override when allowed.
 
     A per-chat/per-message picker passes ``model_alias`` over the WS. Use it
-    only if it's a concrete alias the user has enabled (and their plan allows);
-    ``auto`` (or an alias not in the user's enabled pool) falls back to the
-    Settings-based resolution so free users can't bypass plan gates and a
-    disabled model can't be forced through the picker.
-
-    L8: non-selectable aliases (not in ``_override_pool``) silently fall back
-    to ``resolve_user_model`` rather than 400 — this is intentional: the
-    mobile picker only sends selectable aliases, so an unknown value means
-    a stale client / older app version, and failing would break their chat.
+    only if it's a concrete alias the user has enabled (and their plan allows).
+    ``auto`` and ``None`` route within the Settings pool. A concrete alias
+    that is not in that pool raises rather than silently switching models.
     """
     if model_alias and model_alias != AUTO_ALIAS:
-        if model_alias in _override_pool(user, settings):
-            return model_alias
+        if model_alias not in _override_pool(user, settings):
+            raise UnknownModelOverrideError(model_alias)
+        return model_alias
     return resolve_user_model(user, content, settings)
 
 
@@ -144,8 +140,9 @@ def resolve_regenerate_model(
     """
     pool = _override_pool(user, settings)
     if model_alias and model_alias != AUTO_ALIAS:
-        if model_alias in pool:
-            return model_alias
+        if model_alias not in pool:
+            raise UnknownModelOverrideError(model_alias)
+        return model_alias
     if (
         prior_assistant_model
         and prior_assistant_model != AUTO_ALIAS

@@ -90,7 +90,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
   vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips
   `web_search` on a turn that still needs live results, the backend searches once. One Tavily
-  reservation per turn.
+  reservation per turn. A Redis reserve failure (or a missing user) fails closed to **DuckDuckGo
+  only** — DDG is uncapped (latency only). Search cache keys include `user_id`. When the sync
+  search heuristic is weak, the tool-loop gate consults the LLM classifier (`should_web_search`)
+  so factual lookups still get a tool round.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
@@ -465,7 +468,8 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   adapters once before streaming (legacy; skipped when the tool loop is on).
 - ✅ **Full tool-calling loop** — **on by default**, but **not on every turn.**
   Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
-  when the turn still looks like web search (and heuristic search did not already
+  when the turn still looks like web search (sync heuristic, then the LLM
+  classifier when that heuristic is weak — and heuristic search did not already
   fill sources), unsolved math, calendar create, or Pro image gen. If that round
   finishes without tools, the text is shown — the stream does not call the model
   a second time. Adapters: `web_search` / `sympy` / `calendar` / `image_gen`,
@@ -922,7 +926,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex live voice (later) |
 | Live talk speech-to-speech (Pro, 30 turns/day; streamed clips; turns persist as chat; mic mute beside close; typing hides mute/close; type/attach) | — |
-| Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
+| Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)
 | Guard | Free | Pro |

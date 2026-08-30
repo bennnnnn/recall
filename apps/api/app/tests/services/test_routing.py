@@ -5,7 +5,7 @@ import time
 import pytest
 
 from app.core.config import Settings
-from app.services import model_catalog
+from app.services import model_catalog, routing
 from app.services import plan as plan_service
 from app.services.routing import resolve_alias, resolve_alias_in_pool, route_chat_model
 
@@ -201,6 +201,18 @@ def test_auto_hard_question_picks_strongest_when_smart_tier_absent() -> None:
         model_catalog.tier_rank(model_catalog.get(mid)) for mid in pool
     )
     assert resolved != "free-chat"
+
+
+def test_pick_smart_from_pool_prefers_strongest_not_cheapest() -> None:
+    """When the preferred smart alias is missing, pick strongest remaining smart
+    model — not cheapest (glm-5.2 would win on price)."""
+    pool = ["glm-5.2", "gpt-5.5"]
+    assert routing._pick_smart_from_pool(pool) == "gpt-5.5"
+    cheap = model_catalog.price_sort_key(model_catalog.get("glm-5.2"))
+    dear = model_catalog.price_sort_key(model_catalog.get("gpt-5.5"))
+    assert cheap < dear
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    assert resolve_alias_in_pool("auto", "prove p = np", pool, settings) == "gpt-5.5"
 
 
 def test_explicit_weak_pick_does_not_escalate() -> None:

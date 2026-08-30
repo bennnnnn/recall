@@ -525,3 +525,82 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
             should_cancel=None,
         )
     assert ctx.search_sources == [hit]
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
+    from uuid import uuid4
+
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "Who is the CEO of Anthropic?"
+    ctx.search_sources = []
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.model = "free-chat"
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch(
+            "app.services.tool_loop.run_tool_rounds",
+            AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
+        ) as run,
+        patch(
+            "app.services.web_search.detection.should_web_search",
+            AsyncMock(return_value=True),
+        ) as classify,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            _settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    classify.assert_awaited_once()
+    run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
+    from uuid import uuid4
+
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "What's the latest news on SpaceX?"
+    ctx.search_sources = []
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.model = "free-chat"
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch(
+            "app.services.tool_loop.run_tool_rounds",
+            AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
+        ),
+        patch(
+            "app.services.web_search.detection.should_web_search",
+            AsyncMock(side_effect=AssertionError("heuristic already yes")),
+        ) as classify,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            _settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    classify.assert_not_awaited()

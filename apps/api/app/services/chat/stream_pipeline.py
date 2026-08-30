@@ -54,16 +54,37 @@ async def run_tool_loop_path(
 
     content = ctx.user_message_content if isinstance(ctx.user_message_content, str) else ""
     sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
+    lightweight = bool(ctx.lightweight_turn)
+    has_instant = ctx.instant_reply is not None
+    has_verified = ctx.verified_math is not None
+    has_sources = bool(sources)
+    # Sync heuristic first (math / news / calendar). Classifier only when
+    # that gate is weak so we do not add an LLM round to already-needed turns.
     if not tool_loop_service.turn_needs_tool_loop(
         content,
-        lightweight=bool(ctx.lightweight_turn),
-        has_instant_reply=ctx.instant_reply is not None,
-        has_verified_math=ctx.verified_math is not None,
-        has_search_sources=bool(sources),
+        lightweight=lightweight,
+        has_instant_reply=has_instant,
+        has_verified_math=has_verified,
+        has_search_sources=has_sources,
         settings=settings,
         user=ctx.user,
     ):
-        return
+        web_search_flag: bool | None = None
+        if settings.web_search_enabled and not sources:
+            from app.services.web_search.detection import should_web_search
+
+            web_search_flag = await should_web_search(content, settings)
+        if not tool_loop_service.turn_needs_tool_loop(
+            content,
+            lightweight=lightweight,
+            has_instant_reply=has_instant,
+            has_verified_math=has_verified,
+            has_search_sources=has_sources,
+            web_search=web_search_flag,
+            settings=settings,
+            user=ctx.user,
+        ):
+            return
     if await seams.quota_service.global_spend_exceeded(redis, settings):
         logger.warning(
             "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
