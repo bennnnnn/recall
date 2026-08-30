@@ -618,6 +618,81 @@ async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis)
 
 
 @pytest.mark.asyncio
+async def test_skip_tavily_when_user_missing(fake_redis):
+    """No user on the budget must not run uncapped Tavily."""
+    from app.services.web_search.search_cache import _TurnTavilyBudget
+
+    settings = Settings(tavily_api_key="test-key")
+    budget = _TurnTavilyBudget(settings=settings, user=None)
+    reserve = AsyncMock(side_effect=AssertionError("must not reserve without a user"))
+    with patch(
+        "app.services.web_search.search_cache.quota_service.reserve_tavily_search",
+        reserve,
+    ):
+        assert await budget.skip_tavily(fake_redis) is True
+        assert await budget.skip_tavily(fake_redis) is True
+    reserve.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_skip_tavily_on_redis_reserve_error(fake_redis):
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.exceptions import RedisUnavailableError
+    from app.services.web_search.search_cache import _TurnTavilyBudget
+
+    settings = Settings(tavily_api_key="test-key")
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+    budget = _TurnTavilyBudget(settings=settings, user=user)
+    with patch(
+        "app.services.web_search.search_cache.quota_service.reserve_tavily_search",
+        AsyncMock(side_effect=RedisUnavailableError()),
+    ):
+        assert await budget.skip_tavily(fake_redis) is True
+        assert await budget.skip_tavily(fake_redis) is True
+
+
+@pytest.mark.asyncio
+async def test_search_cache_is_per_user(fake_redis):
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.services.web_search.search_cache import _search_with_cache, _TurnTavilyBudget
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True, tavily_api_key="")
+    u1 = MagicMock()
+    u1.id = uuid4()
+    u1.plan = "free"
+    u2 = MagicMock()
+    u2.id = uuid4()
+    u2.plan = "free"
+    hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
+    search_mock = AsyncMock(return_value=[hit])
+    with (
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch("app.services.web_search.search_cache.web_search_gateway.search_web", search_mock),
+    ):
+        await _search_with_cache(
+            settings,
+            "same query",
+            max_results=3,
+            budget=_TurnTavilyBudget(settings=settings, user=u1),
+            redis=fake_redis,
+        )
+        await _search_with_cache(
+            settings,
+            "same query",
+            max_results=3,
+            budget=_TurnTavilyBudget(settings=settings, user=u2),
+            redis=fake_redis,
+        )
+    assert search_mock.call_count == 2
+
+
+@pytest.mark.asyncio
 async def test_run_search_dedupes_across_queries_and_respects_limit():
     from app.services.web_search.search_cache import _run_search
 
@@ -733,6 +808,13 @@ def test_search_cache_key_includes_max_results():
 
     assert _search_cache_key("Foo", 3) != _search_cache_key("Foo", 5)
     assert _search_cache_key("Foo", 3) == _search_cache_key("foo", 3)
+
+
+def test_search_cache_key_includes_user_id():
+    from app.services.web_search.search_cache import _search_cache_key
+
+    assert _search_cache_key("Foo", 3, user_id="a") != _search_cache_key("Foo", 3, user_id="b")
+    assert _search_cache_key("Foo", 3) == _search_cache_key("Foo", 3, user_id="anon")
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,9 @@
 """Tests for app.services.plan — plan gates and model pools."""
 
+import pytest
+
 from app.core.config import Settings
+from app.exceptions import UnknownModelOverrideError
 from app.services import model_catalog
 from app.services import plan as plan_service
 
@@ -98,13 +101,11 @@ def test_override_falls_back_when_alias_is_auto():
     assert resolved in plan_service.model_pool(user, settings)
 
 
-def test_override_ignores_pro_model_on_free_plan():
+def test_override_rejects_pro_model_on_free_plan():
     user = FakeUser()  # free plan
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    # smart-chat is pro-only; free user can't override to it — falls back.
-    resolved = plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
-    assert resolved != "smart-chat"
-    assert resolved in plan_service.free_pool(settings)
+    with pytest.raises(UnknownModelOverrideError, match="smart-chat"):
+        plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
 
 
 def test_override_none_falls_back_to_resolve_user_model():
@@ -114,15 +115,20 @@ def test_override_none_falls_back_to_resolve_user_model():
     assert resolved == plan_service.resolve_user_model(user, "hi", settings)
 
 
-def test_override_respects_disabled_in_enabled_models():
+def test_override_rejects_disabled_in_enabled_models():
     """A pro user who disabled smart-chat in Settings can't override to it."""
     user = ProUser()
     user.enabled_models = ["auto", "free-chat"]  # smart-chat disabled
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    resolved = plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
-    # smart-chat is plan-allowed but not enabled → rejected → routes within pool.
-    assert resolved != "smart-chat"
-    assert resolved in plan_service.model_pool(user, settings)
+    with pytest.raises(UnknownModelOverrideError, match="smart-chat"):
+        plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
+
+
+def test_override_unknown_alias_raises():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    with pytest.raises(UnknownModelOverrideError, match="not-a-model"):
+        plan_service.resolve_user_model_override(user, "not-a-model", "hi", settings)
 
 
 def test_override_allowed_when_enabled_models_is_none():
@@ -154,6 +160,13 @@ def test_regenerate_explicit_override_beats_prior_model():
         user, "free-chat", "debug this crash", "smart-chat", settings
     )
     assert resolved == "free-chat"
+
+
+def test_regenerate_rejects_disallowed_override():
+    user = FakeUser()  # free plan
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    with pytest.raises(UnknownModelOverrideError, match="smart-chat"):
+        plan_service.resolve_regenerate_model(user, "smart-chat", "hi", "free-chat", settings)
 
 
 def test_regenerate_auto_falls_back_when_prior_model_unavailable():

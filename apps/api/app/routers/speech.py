@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import binascii
 import hashlib
@@ -56,6 +57,15 @@ async def _live_talk_status(
         remaining=remaining,
         limit=limit,
         refunded=refunded,
+    )
+
+
+def _raise_live_talk_route_gone(settings: Settings) -> None:
+    if not settings.speech_live_talk_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Live talk reserves on POST /speech/live/speak",
     )
 
 
@@ -335,6 +345,10 @@ async def synthesize_speech(
         if reserved_quota and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
             await quota_service.refund_speech_tts(redis, user.id)
         raise
+    except asyncio.CancelledError:
+        if reserved_quota:
+            await quota_service.refund_speech_tts(redis, user.id)
+        raise
     except Exception:
         if reserved_quota:
             await quota_service.refund_speech_tts(redis, user.id)
@@ -474,44 +488,13 @@ async def live_talk_status(
         raise redis_unavailable_http_exception(exc) from exc
 
 
-@router.post("/live/turn", response_model=SpeechLiveStatusOut)
+@router.post("/live/turn")
 async def live_talk_turn(
-    user: User = Depends(get_current_user),
+    _user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
-) -> SpeechLiveStatusOut:
-    if not settings.speech_live_talk_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    if not plan_service.is_pro(user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=quota_service.LIVE_TALK_REQUIRES_PRO_MESSAGE,
-        )
-
-    redis = get_redis_client()
-    rate_limit = settings.speech_rate_limit_per_minute
-    try:
-        if rate_limit > 0:
-            allowed = await allow_request_fail_closed(
-                redis,
-                f"speech_live_rl:{user.id}",
-                limit=rate_limit,
-                window_seconds=60,
-            )
-            if not allowed:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
-                )
-
-        daily_limit = quota_service.live_talk_limit_for_user(user, settings)
-        if not await quota_service.reserve_live_talk(redis, user.id, limit=daily_limit):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=quota_service.live_talk_limit_exceeded_message(user),
-            )
-        return await _live_talk_status(user, settings)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+) -> None:
+    """Gone — speak self-reserves. Stale clients get 410 instead of a second slot."""
+    _raise_live_talk_route_gone(settings)
 
 
 @router.post("/live/refund", response_model=SpeechLiveStatusOut)
@@ -529,20 +512,13 @@ async def live_talk_refund(
         raise redis_unavailable_http_exception(exc) from exc
 
 
-@router.post("/live/commit", response_model=SpeechLiveStatusOut)
+@router.post("/live/commit")
 async def live_talk_commit(
-    user: User = Depends(get_current_user),
+    _user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
-) -> SpeechLiveStatusOut:
-    """Lock in the reserved turn so a later refund cannot claw it back."""
-    if not settings.speech_live_talk_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    redis = get_redis_client()
-    try:
-        await quota_service.clear_live_talk_pending(redis, user.id)
-        return await _live_talk_status(user, settings)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+) -> None:
+    """Gone — speak clears pending after audio; refund stays for abort-before-clip."""
+    _raise_live_talk_route_gone(settings)
 
 
 def _sse_data(payload: dict[str, object]) -> str:

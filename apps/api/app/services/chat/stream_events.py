@@ -16,6 +16,7 @@ from app.exceptions import (
     ChatServiceError,
     QuotaExceededError,
     RedisUnavailableError,
+    UnknownModelOverrideError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
 
@@ -154,6 +155,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "unavailable", "message": exc.message}
     if isinstance(exc, ChatBusyError):
         return {"type": "error", "code": "busy", "message": exc.message}
+    if isinstance(exc, UnknownModelOverrideError):
+        return {"type": "error", "code": "unknown_model", "message": exc.message}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):

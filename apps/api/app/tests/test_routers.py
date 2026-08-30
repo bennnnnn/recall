@@ -2319,6 +2319,35 @@ def test_speech_tts_ok():
     assert base64.b64decode(body["audio_base64"]) == b"fake-mp3"
 
 
+def test_speech_tts_cancelled_refunds():
+    import asyncio
+
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+
+    async def boom(*_args: object, **_kwargs: object) -> tuple[bytes, str]:
+        raise asyncio.CancelledError()
+
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.routers.speech.speech_service.synthesize_speech", boom),
+        patch(
+            "app.routers.speech.quota_service.refund_speech_tts",
+            AsyncMock(),
+        ) as refund,
+    ):
+        with pytest.raises((asyncio.CancelledError, RuntimeError)):
+            client.post(
+                "/speech/tts",
+                headers={"Authorization": "Bearer tok"},
+                json={"text": "hello"},
+            )
+    refund.assert_awaited()
+
+
 def test_speech_tts_daily_cap():
     import fakeredis.aioredis
 
@@ -2618,68 +2647,56 @@ def test_speech_live_status_pro_remaining():
     assert body["limit"] == 30
 
 
-def test_speech_live_turn_requires_pro():
-    import fakeredis.aioredis
-
+def test_speech_live_turn_gone():
     user = _fake_user(plan="free")
     client = TestClient(_app_with_user(user))
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
-        r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 403
-    assert "Pro" in r.json()["detail"]
+    r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 410
+    assert "speak" in r.json()["detail"].lower()
 
 
-def test_speech_live_turn_pro_ok_then_cap():
-    import fakeredis.aioredis
-
-    from app.core.deps import get_current_user, get_settings_dep
-
-    user = _fake_user(plan="pro")
-    app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_live_talk_pro=1)
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    client = TestClient(app)
-    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
-        ok = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-        capped = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-    assert ok.status_code == 200
-    assert ok.json()["remaining"] == 0
-    assert capped.status_code == 429
-
-
-def test_speech_live_refund_pending_slot():
-    import fakeredis.aioredis
-
+def test_speech_live_turn_pro_also_gone():
     user = _fake_user(plan="pro")
     client = TestClient(_app_with_user(user))
+    r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_speech_live_refund_pending_slot():
+    import fakeredis.aioredis
+    from httpx import ASGITransport, AsyncClient
+
+    from app.services import quota as quota_service
+
+    user = _fake_user(plan="pro")
+    app = _app_with_user(user)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    await quota_service.reserve_live_talk(fake_redis, user.id, limit=30)
     with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
-        turn = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-        refund = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
-        again = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
-    assert turn.status_code == 200
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            refund = await client.post(
+                "/speech/live/refund",
+                headers={"Authorization": "Bearer tok"},
+            )
+            again = await client.post(
+                "/speech/live/refund",
+                headers={"Authorization": "Bearer tok"},
+            )
     assert refund.status_code == 200
     assert refund.json()["refunded"] is True
     assert refund.json()["remaining"] == 30
     assert again.json()["refunded"] is False
 
 
-def test_speech_live_commit_blocks_refund():
-    import fakeredis.aioredis
-
+def test_speech_live_commit_gone():
     user = _fake_user(plan="pro")
     client = TestClient(_app_with_user(user))
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
-        turn = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
-        commit = client.post("/speech/live/commit", headers={"Authorization": "Bearer tok"})
-        refund = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
-    assert turn.status_code == 200
-    assert commit.status_code == 200
-    assert refund.json()["refunded"] is False
-    assert refund.json()["remaining"] == 29
+    r = client.post("/speech/live/commit", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 410
 
 
 def test_speech_live_speak_requires_pro():

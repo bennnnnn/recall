@@ -134,7 +134,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 |---|------|-----|---------|-------|
 | 10.1 | Image generation (Pro) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap enforced (free blocked) |
 | 10.2 | Image gen intent detected from plain prompt (no attach-menu row) | ☐ | ☐ | Intent → `/images/generate`; no second modal |
-| 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; DuckDuckGo fallback if no Tavily key |
+| 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; MCP tool path wraps hits + chips; one Tavily reservation per turn; Redis reserve fail → DuckDuckGo (uncapped); no Tavily key → DDG |
 | 10.4 | Math scanner — open, frame equation, resize (pinch), move (pan) | ☐ | ☐ | Dev build (camera). Close + cancel + reset work |
 | 10.5 | Math scanner — capture → LaTeX into composer | ☐ | ☐ | Recognized expression editable before send |
 

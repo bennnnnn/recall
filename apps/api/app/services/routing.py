@@ -249,10 +249,9 @@ def _pick_strongest_from_pool(pool: list[str]) -> str:
 
 def _pick_smart_from_pool(pool: list[str]) -> str:
     models = _models_in_pool(pool)
-    smart = [m for m in models if m.tier in {"smart", "max"}]
+    smart = [m.id for m in models if m.tier in {"smart", "max"}]
     if smart:
-        smart.sort(key=model_catalog.price_sort_key)
-        return smart[0].id
+        return _pick_strongest_from_pool(smart)
     return _pick_strongest_from_pool(pool)
 
 

@@ -49,23 +49,44 @@ class _TurnTavilyBudget:
     _skip_tavily: bool = False
 
     async def skip_tavily(self, redis: Redis) -> bool:
-        """Whether this turn must skip Tavily (daily cap hit). Reserves once."""
-        if self.user is None:
-            return False
-        # Only spend the daily Tavily budget when Tavily can actually run. With
-        # no key (or web search off) the turn falls back to free, uncapped
-        # DuckDuckGo, so reserving here would burn a slot for a search Tavily
-        # never performs.
-        if not web_search_gateway.is_configured(self.settings):
-            return False
+        """Whether this turn must skip Tavily (daily cap, no user, or Redis fail).
+
+        Reserves at most once. DuckDuckGo stays uncapped (latency only) when
+        this returns True. A missing user or a Redis error fail closed to DDG
+        so we never run Tavily without a counted slot.
+        """
         async with self._lock:
-            if not self._decided:
-                limit = quota_service.tavily_search_limit_for_user(self.user, self.settings)
+            if self._decided:
+                return self._skip_tavily
+            if self.user is None:
+                self._skip_tavily = True
+                self._decided = True
+                logger.warning("Tavily cap: missing user; DuckDuckGo only")
+                return True
+            # Only spend the daily Tavily budget when Tavily can actually run.
+            # With no key (or web search off) the turn falls back to free,
+            # uncapped DuckDuckGo, so reserving here would burn a slot for a
+            # search Tavily never performs.
+            if not web_search_gateway.is_configured(self.settings):
+                self._skip_tavily = False
+                self._decided = True
+                return False
+            limit = quota_service.tavily_search_limit_for_user(self.user, self.settings)
+            try:
                 reserved = await quota_service.reserve_tavily_search(
                     redis, self.user.id, limit=limit
                 )
                 self._skip_tavily = not reserved
-                self._decided = True
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.warning(
+                    "Tavily reserve failed; falling back to DuckDuckGo user_id=%s",
+                    self.user.id,
+                    exc_info=True,
+                )
+                self._skip_tavily = True
+            self._decided = True
             return self._skip_tavily
 
 
@@ -133,9 +154,9 @@ async def _run_search(
     return merged, list(queries)
 
 
-def _search_cache_key(query: str, max_results: int) -> str:
+def _search_cache_key(query: str, max_results: int, *, user_id: str = "anon") -> str:
     digest = hashlib.sha256(query.strip().lower().encode()).hexdigest()[:32]
-    return f"websearch:{max_results}:{digest}"
+    return f"websearch:{user_id}:{max_results}:{digest}"
 
 
 async def _search_with_cache(
@@ -150,7 +171,10 @@ async def _search_with_cache(
     if not cleaned:
         return []
 
-    cache_key = _search_cache_key(cleaned, max_results)
+    user_id = "anon"
+    if budget is not None and budget.user is not None:
+        user_id = str(budget.user.id)
+    cache_key = _search_cache_key(cleaned, max_results, user_id=user_id)
     cache_redis = redis if redis is not None else get_redis_client()
 
     def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
