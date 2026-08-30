@@ -3,7 +3,6 @@
 import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
 import { requestRaw } from "@/lib/api/client";
-import { canUseVoiceInput } from "@/lib/expoRuntime";
 import { markdownToPlainText } from "@/lib/markdownPlain";
 import { splitTtsChunks } from "@/lib/ttsLead";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
@@ -39,12 +38,9 @@ function logTtsSpeechStarted(): void {
   logTtsLatency("speech_started");
 }
 
-/** Sync require keeps expo-speech in the main bundle (async import() breaks Metro module IDs). */
+/** Sync require keeps expo-speech in the main bundle (async import() breaks Metro module IDs).
+ * Mic permission is not required — read-aloud is independent of voice input. */
 function loadSpeech(): SpeechModule | null {
-  if (!canUseVoiceInput()) {
-    speechModule = null;
-    return null;
-  }
   if (speechModule === null) return null;
   if (speechModule) return speechModule;
   try {
@@ -88,7 +84,7 @@ function stopDeviceSpeech(): void {
 
 const TTS_JSON_TIMEOUT_MS = 60_000;
 
-type TtsClip = { audio_base64: string; content_type: string };
+type TtsClip = { audio_base64: string; content_type: string; lead_hash?: string | null };
 
 type PrefetchState = {
   key: string;
@@ -97,6 +93,7 @@ type PrefetchState = {
   abort: AbortController;
   clips: Array<TtsClip | null>;
   inflight: Array<Promise<TtsClip | null> | null>;
+  leadHash: string | null;
 };
 
 let prefetch: PrefetchState | null = null;
@@ -112,21 +109,26 @@ async function fetchCloudTtsClip(
   model: string,
   part: "full" | "lead" | "rest",
   signal: AbortSignal,
+  leadHash?: string | null,
 ): Promise<TtsClip | null> {
   const plain = text.slice(0, 4000).trim();
   if (!plain) return null;
+  const body: Record<string, string> = {
+    text: plain,
+    language,
+    model,
+    part,
+  };
+  if (part === "rest" && leadHash) {
+    body.lead_hash = leadHash;
+  }
   const response = await requestRaw(
     "/speech/tts",
     token,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: plain,
-        language,
-        model,
-        part,
-      }),
+      body: JSON.stringify(body),
       signal,
     },
     true,
@@ -136,11 +138,13 @@ async function fetchCloudTtsClip(
   const data = (await response.json()) as {
     audio_base64?: string;
     content_type?: string;
+    lead_hash?: string | null;
   };
   if (!data.audio_base64) return null;
   return {
     audio_base64: data.audio_base64,
     content_type: data.content_type ?? "audio/mpeg",
+    lead_hash: data.lead_hash ?? null,
   };
 }
 
@@ -331,6 +335,7 @@ function ensurePrefetchState(text: string, model: string): PrefetchState {
     abort: new AbortController(),
     clips: chunks.map(() => null),
     inflight: chunks.map(() => null),
+    leadHash: null,
   };
   prefetch = next;
   return next;
@@ -344,7 +349,10 @@ function ensureChunk(
   signal: AbortSignal,
 ): Promise<TtsClip | null> {
   const cached = state.clips[index];
-  if (cached) return Promise.resolve(cached);
+  if (cached) {
+    if (cached.lead_hash) state.leadHash = cached.lead_hash;
+    return Promise.resolve(cached);
+  }
   const pending = state.inflight[index];
   if (pending) return pending;
   const chunk = state.chunks[index];
@@ -356,8 +364,10 @@ function ensureChunk(
     state.model,
     ttsPartForChunk(index, state.chunks.length),
     signal,
+    state.leadHash,
   )
     .then((clip) => {
+      if (clip?.lead_hash) state.leadHash = clip.lead_hash;
       if (state.clips[index] == null) state.clips[index] = clip;
       if (state.inflight[index] === request) state.inflight[index] = null;
       return state.clips[index];
@@ -437,7 +447,7 @@ export async function speakPlainText(
     : options?.preferCloud && ttsModel === TTS_DEVICE_MODEL
       ? TTS_QUALITY_MODEL
       : ttsModel;
-  const useCloud = Boolean(token && canUseVoiceInput()) && cloudModel !== TTS_DEVICE_MODEL;
+  const useCloud = Boolean(token) && cloudModel !== TTS_DEVICE_MODEL;
   if (!useCloud || !token) {
     return beginDeviceSpeech(plain, language, generation);
   }

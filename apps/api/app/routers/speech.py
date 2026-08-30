@@ -1,5 +1,6 @@
 import base64
 import binascii
+import hashlib
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -98,14 +99,26 @@ local raw = redis.call('GET', KEYS[1])
 if not raw then
   return 0
 end
-local clips, chars
-local sep = string.find(raw, ':')
-if sep then
-  clips = tonumber(string.sub(raw, 1, sep - 1)) or 0
-  chars = tonumber(string.sub(raw, sep + 1)) or 0
-else
+local clips, chars, stored_hash
+local first = string.find(raw, ':')
+if not first then
   clips = tonumber(raw) or 0
   chars = tonumber(ARGV[3]) or 0
+  stored_hash = ''
+else
+  local second = string.find(raw, ':', first + 1)
+  clips = tonumber(string.sub(raw, 1, first - 1)) or 0
+  if second then
+    chars = tonumber(string.sub(raw, first + 1, second - 1)) or 0
+    stored_hash = string.sub(raw, second + 1)
+  else
+    chars = tonumber(string.sub(raw, first + 1)) or 0
+    stored_hash = ''
+  end
+end
+local want_hash = ARGV[4] or ''
+if stored_hash == '' or want_hash == '' or stored_hash ~= want_hash then
+  return 0
 end
 local need = tonumber(ARGV[1]) or 0
 local ttl = tonumber(ARGV[2]) or 0
@@ -117,7 +130,7 @@ chars = chars - need
 if clips < 1 or chars < 1 then
   redis.call('DEL', KEYS[1])
 else
-  redis.call('SET', KEYS[1], clips .. ':' .. chars, 'EX', ttl)
+  redis.call('SET', KEYS[1], clips .. ':' .. chars .. ':' .. stored_hash, 'EX', ttl)
 end
 return 1
 """
@@ -125,6 +138,10 @@ return 1
 
 def _tts_followup_key(user_id: object) -> str:
     return f"speech_tts_followup:{user_id}"
+
+
+def _tts_lead_hash(lead_text: str) -> str:
+    return hashlib.sha256(lead_text.encode("utf-8")).hexdigest()[:16]
 
 
 def _normalize_tts_part(raw: str | None) -> str:
@@ -138,30 +155,33 @@ def _tts_followup_payload(lead_text: str) -> str | None:
     remaining_chars = _TTS_FOLLOWUP_MAX_CHARS - len(lead_text)
     if remaining_chars <= 0:
         return None
-    return f"{_TTS_FOLLOWUP_MAX_CHUNKS}:{remaining_chars}"
+    return f"{_TTS_FOLLOWUP_MAX_CHUNKS}:{remaining_chars}:{_tts_lead_hash(lead_text)}"
 
 
-def _parse_tts_followup(raw: object) -> tuple[int, int] | None:
+def _parse_tts_followup(raw: object) -> tuple[int, int, str] | None:
     if raw is None:
         return None
     text = raw.decode() if isinstance(raw, bytes | bytearray) else str(raw)
-    if ":" in text:
-        clips_s, chars_s = text.split(":", 1)
-        try:
-            return int(clips_s), int(chars_s)
-        except ValueError:
-            return None
+    parts = text.split(":", 2)
     try:
-        return int(text), _TTS_FOLLOWUP_MAX_CHARS
+        if len(parts) == 3:
+            return int(parts[0]), int(parts[1]), parts[2]
+        if len(parts) == 2:
+            return int(parts[0]), int(parts[1]), ""
+        return int(text), _TTS_FOLLOWUP_MAX_CHARS, ""
     except ValueError:
         return None
 
 
-async def _try_consume_tts_followup_plain(redis: Redis, key: str, char_count: int) -> bool:
+async def _try_consume_tts_followup_plain(
+    redis: Redis, key: str, char_count: int, lead_hash: str
+) -> bool:
     parsed = _parse_tts_followup(await redis.get(key))
     if parsed is None:
         return False
-    clips, chars = parsed
+    clips, chars, stored_hash = parsed
+    if not stored_hash or stored_hash != lead_hash:
+        return False
     if clips < 1 or chars < char_count:
         return False
     clips -= 1
@@ -169,11 +189,17 @@ async def _try_consume_tts_followup_plain(redis: Redis, key: str, char_count: in
     if clips < 1 or chars < 1:
         await redis.delete(key)
     else:
-        await redis.set(key, f"{clips}:{chars}", ex=_TTS_FOLLOWUP_TTL_SECONDS)
+        await redis.set(
+            key,
+            f"{clips}:{chars}:{stored_hash}",
+            ex=_TTS_FOLLOWUP_TTL_SECONDS,
+        )
     return True
 
 
-async def _try_consume_tts_followup(redis: Redis, key: str, char_count: int) -> bool:
+async def _try_consume_tts_followup(
+    redis: Redis, key: str, char_count: int, lead_hash: str
+) -> bool:
     try:
         result = await redis.eval(
             _CONSUME_TTS_FOLLOWUP_LUA,
@@ -182,10 +208,11 @@ async def _try_consume_tts_followup(redis: Redis, key: str, char_count: int) -> 
             char_count,
             _TTS_FOLLOWUP_TTL_SECONDS,
             _TTS_FOLLOWUP_MAX_CHARS,
+            lead_hash,
         )
         return int(result) == 1
     except ResponseError:
-        return await _try_consume_tts_followup_plain(redis, key, char_count)
+        return await _try_consume_tts_followup_plain(redis, key, char_count, lead_hash)
 
 
 def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
@@ -249,8 +276,11 @@ async def synthesize_speech(
     reserved_quota = False
     followup_key = _tts_followup_key(user.id)
     consumed_followup = False
+    lead_hash = (body.lead_hash or "").strip()
     if part == "rest":
-        consumed_followup = await _try_consume_tts_followup(redis, followup_key, len(body.text))
+        consumed_followup = await _try_consume_tts_followup(
+            redis, followup_key, len(body.text), lead_hash
+        )
     # Same utterance as the lead: short clips within the char budget share one slot.
     billed = not consumed_followup
     if billed and rate_limit > 0:
@@ -299,6 +329,7 @@ async def synthesize_speech(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,
             model=alias,
+            lead_hash=_tts_lead_hash(body.text) if part == "lead" else None,
         )
     except HTTPException as exc:
         if reserved_quota and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:

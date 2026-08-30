@@ -67,6 +67,9 @@ from app.services.memory.text import (
     embedding_text_hash as embedding_text_hash,
 )
 from app.services.memory.text import (
+    exclude_sensitive_for_query as exclude_sensitive_for_query,
+)
+from app.services.memory.text import (
     is_sensitive_memory_text as is_sensitive_memory_text,
 )
 from app.services.memory.text import (

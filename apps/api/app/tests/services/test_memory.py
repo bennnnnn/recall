@@ -7,6 +7,7 @@ from app.core.config import Settings
 from app.services.memory import (
     accept_memory_section_rewrite,
     consolidation_rewrite_preserves_facts,
+    exclude_sensitive_for_query,
     extract_consolidation_anchors,
     is_sensitive_memory_text,
     normalize_memory_text,
@@ -68,6 +69,14 @@ def test_is_sensitive_memory_text_flags_health_and_finance():
     assert is_sensitive_memory_text("Has a peanut allergy") is True
     assert is_sensitive_memory_text("As of 2026-07-20: Paying off credit card debt") is True
     assert is_sensitive_memory_text("Likes Italian cooking") is False
+
+
+def test_exclude_sensitive_for_query_injects_only_on_matching_asks():
+    assert exclude_sensitive_for_query(None) is True
+    assert exclude_sensitive_for_query("  ") is True
+    assert exclude_sensitive_for_query("what's the weather") is True
+    assert exclude_sensitive_for_query("I have a peanut allergy, what can I eat?") is False
+    assert exclude_sensitive_for_query("help with my credit card debt") is False
 
 
 def test_section_needs_consolidation_detects_repetition():

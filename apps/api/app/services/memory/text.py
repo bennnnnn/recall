@@ -48,6 +48,14 @@ def is_sensitive_memory_text(text: str) -> bool:
     return bool(_SENSITIVE_MEMORY_RE.search(strip_memory_as_of(text)))
 
 
+def exclude_sensitive_for_query(query_text: str | None) -> bool:
+    """Omit health/legal/finance memories unless this ask is about those topics."""
+    text = (query_text or "").strip()
+    if not text:
+        return True
+    return not is_sensitive_memory_text(text)
+
+
 def embedding_text_hash(text: str) -> str:
     """Hash of the exact text an embedding was computed from — stored
     alongside the vector so a later pass can tell "stale" from "current"

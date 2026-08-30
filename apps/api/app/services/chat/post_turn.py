@@ -20,6 +20,7 @@ from app.services import todos as todos_service
 from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
+from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
 from app.services.quota import utc_today
 from app.services.text_normalize import cap_text_head_tail
 
@@ -27,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 # Memory extraction only needs recent head+tail; keep the job payload bounded.
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
+
+
+def memory_extract_user_text(content: str) -> str:
+    """User prose only — drop attachment OCR/excerpts so they cannot become memories."""
+    return text_before_attachment_markers(strip_untrusted_blocks(content or "")).strip()
 
 
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
@@ -265,6 +271,10 @@ async def enqueue_post_turn_jobs(
     assistant_text: str,
 ) -> None:
     transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
+    # Extract from the user line only (stripped). Assistant restatements and
+    # attachment OCR must not become durable memories.
+    memory_user_text = memory_extract_user_text(ctx.user_message_content)
+    memory_transcript = f"User: {memory_user_text}" if memory_user_text else ""
     # (job_type, payload, dedupe_key|None) — dedupe prevents at-least-once
     # redelivery from double-applying side effects (duplicate todos, etc.).
     job_specs: list[tuple[str, dict[str, str], str | None]] = []
@@ -291,6 +301,7 @@ async def enqueue_post_turn_jobs(
         and should_extract_memory
         and ctx.user is not None
         and ctx.user.memory_enabled
+        and memory_transcript
     ):
         # Dedupe per assistant message. Lock-busy retries use `{stem}:lock{n}`.
         job_specs.append(
@@ -299,7 +310,9 @@ async def enqueue_post_turn_jobs(
                 {
                     "user_id": str(ctx.user_id),
                     "chat_id": str(ctx.chat_id),
-                    "transcript": cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
+                    "transcript": cap_text_head_tail(
+                        memory_transcript, _MEMORY_TRANSCRIPT_MAX_CHARS
+                    ),
                     "assistant_message_id": turn_key,
                 },
                 f"memory:{turn_key}",

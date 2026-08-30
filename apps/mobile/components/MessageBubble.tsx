@@ -167,11 +167,19 @@ function AssistantActions({
     const gen = ++speakGenRef.current;
     tap();
     setSpeaking(true);
-    const result = await speakPlainText(content, speechLocale(user?.locale), { token });
+    const result = await speakPlainText(content, speechLocale(user?.locale), {
+      token,
+      preferCloud: true,
+    });
     if (gen !== speakGenRef.current) return;
     setSpeaking(false);
     if (!result.ok) {
-      reportRecoverableError(feedbackApi, t("chat.read_aloud_unavailable_body"));
+      reportRecoverableError(
+        feedbackApi,
+        result.reason === "unavailable"
+          ? t("chat.read_aloud_unavailable_body")
+          : t("chat.read_aloud_failed_body"),
+      );
     }
   };
 

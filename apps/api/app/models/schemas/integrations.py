@@ -33,12 +33,15 @@ class SpeechTtsIn(BaseModel):
     model: str | None = Field(default=None, max_length=64)
     # "lead" + one or more "rest" clips are one user tap: reserve quota on lead only.
     part: str | None = Field(default="full", max_length=8)
+    # SHA-256 prefix of the lead clip text. Required for unbilled ``rest``.
+    lead_hash: str | None = Field(default=None, max_length=64)
 
 
 class SpeechTtsOut(BaseModel):
     audio_base64: str
     content_type: str = "audio/mpeg"
     model: str = "speech-tts-model"
+    lead_hash: str | None = None
 
 
 class SpeechLiveSpeakIn(BaseModel):

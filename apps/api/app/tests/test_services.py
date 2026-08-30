@@ -201,6 +201,8 @@ async def test_revise_memory_sections_prompt_user_stated_only():
     system = captured["messages"][0]["content"]  # type: ignore[index]
     assert "explicitly stated or confirmed by the User line" in system
     assert "never from assistant inferences" in system
+    assert "Merge new user-stated facts into the existing section" in system
+    assert "Rewrite the full section when updating" not in system
     user = captured["messages"][1]["content"]  # type: ignore[index]
     assert "[BEGIN UNTRUSTED CONTENT — conversation transcript]" in user
     assert "User: I work at Acme" in user
