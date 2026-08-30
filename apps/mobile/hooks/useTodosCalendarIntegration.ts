@@ -33,6 +33,7 @@ type Params = {
   refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
   markSeen: () => Promise<void>;
   setTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
+  pushEnabled?: boolean;
 };
 
 export function useTodosCalendarIntegration({
@@ -42,6 +43,7 @@ export function useTodosCalendarIntegration({
   refresh,
   markSeen,
   setTodos,
+  pushEnabled,
 }: Params) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -174,7 +176,7 @@ export function useTodosCalendarIntegration({
       try {
         const created = await api.addSuggestedReminder(token, reminder.id);
         setTodos((prev) => [created, ...prev]);
-        void syncTodoReminders([created, ...todos]);
+        void syncTodoReminders([created, ...todos], { pushEnabled });
         void refresh({ silent: true, force: true });
       } catch {
         undeleteSuggestedReminder(reminder, setSuggestedReminders);
@@ -184,7 +186,7 @@ export function useTodosCalendarIntegration({
         setSuggestionBusyId(null);
       }
     },
-    [refresh, reportError, setTodos, todos, token],
+    [pushEnabled, refresh, reportError, setTodos, todos, token],
   );
 
   const handleDismissSuggestion = useCallback(

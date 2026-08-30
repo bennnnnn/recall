@@ -346,18 +346,10 @@ async def get_project_detail(
         from app.services.learning.path_seed import (
             apply_full_catalog_path,
             needs_catalog_sync,
-            seed_language_path,
         )
 
         if needs_catalog_sync(item, project_items):
-            await seed_language_path(None, user_id=user_id, project_id=item.id)
-            session.expire_all()
-            reloaded = await projects_repo.get_by_id(session, project_id, user_id)
-            if reloaded is not None:
-                item = reloaded
-            project_items = await project_items_repo.list_for_user(
-                session, user_id, project_id=project_id, limit=5000
-            )
+            await enqueue_language_path_job(user_id, item.id)
         apply_full_catalog_path(item)
     # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
     # mutable column, so a later miss on an item silently erased which day an earlier

@@ -37,7 +37,7 @@ class ListItemCreate(BaseModel):
     topic: str = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
     project_id: UUID | None = None
-    due_at: datetime | None = None
+    due_at: datetime
     recurrence_rule: RecurrenceRule | None = None
 
     @model_validator(mode="after")
@@ -57,6 +57,12 @@ class ListItemUpdate(BaseModel):
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = Field(default=None, ge=0)
     project_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def due_at_cannot_be_cleared(self) -> Self:
+        if "due_at" in self.model_fields_set and self.due_at is None:
+            raise ValueError("due_at cannot be cleared")
+        return self
 
 
 class ListReorderItem(BaseModel):

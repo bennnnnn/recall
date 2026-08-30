@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.models.orm import TodoItem, User
 from app.services import push_notifications as push_service
 
 
@@ -645,6 +646,59 @@ async def test_finalize_marks_todo_loaded_on_finalize_session():
     assert finalize_session.get.await_args.args[1] == todo_id
     assert attached.notification_sent_at == now
     assert detached.notification_sent_at == now
+    finalize_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_finalize_advances_recurring_todo_and_clears_sent():
+    finalize_session = AsyncMock()
+    redis = AsyncMock()
+    now = datetime(2026, 8, 22, 12, 0, tzinfo=UTC)
+    due = datetime(2026, 8, 22, 8, 0, tzinfo=UTC)
+    todo_id = uuid4()
+    user_id = uuid4()
+    attached = MagicMock()
+    attached.id = todo_id
+    attached.user_id = user_id
+    attached.due_at = due
+    attached.recurrence_rule = "daily"
+    attached.notification_sent_at = now
+    attached.email_sent_at = now
+    user = MagicMock()
+    user.timezone = "UTC"
+
+    async def session_get(model: object, ident: object) -> object:
+        if model is TodoItem:
+            return attached
+        if model is User:
+            return user
+        return None
+
+    finalize_session.get = AsyncMock(side_effect=session_get)
+    detached = MagicMock()
+    detached.id = todo_id
+    detached.due_at = due
+    detached.recurrence_rule = "daily"
+    detached.notification_sent_at = now
+
+    await push_service.finalize_push_deliveries(
+        finalize_session,
+        redis,
+        [
+            push_service.OutboundPush(
+                message={"to": "ExponentPushToken[abc]"},
+                todos=[detached],
+            )
+        ],
+        [True],
+        now=now,
+    )
+
+    assert attached.due_at > due
+    assert attached.notification_sent_at is None
+    assert attached.email_sent_at is None
+    assert detached.due_at == attached.due_at
+    assert detached.notification_sent_at is None
     finalize_session.commit.assert_awaited_once()
 
 

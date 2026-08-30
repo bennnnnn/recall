@@ -252,13 +252,11 @@ def test_needs_catalog_sync_when_path_was_level_gated():
 
 
 @pytest.mark.asyncio
-async def test_get_project_detail_does_not_lazy_load_user_after_expire_all():
-    """expire_all() after path seed must not touch user.id (MissingGreenlet)."""
+async def test_get_project_detail_enqueues_catalog_sync_without_blocking_get():
+    """GET must not seed+expire_all; catalog sync is the language_path job."""
     from datetime import UTC, datetime
     from types import SimpleNamespace
     from uuid import uuid4
-
-    from sqlalchemy.exc import MissingGreenlet
 
     from app.repositories import project_items as project_items_repo
     from app.repositories import projects as projects_repo
@@ -267,23 +265,9 @@ async def test_get_project_detail_does_not_lazy_load_user_after_expire_all():
     user_id = uuid4()
     project_id = uuid4()
     now = datetime.now(UTC)
-
-    class _User:
-        timezone = "UTC"
-
-        def __init__(self) -> None:
-            self._expired = False
-
-        @property
-        def id(self) -> object:
-            if self._expired:
-                raise MissingGreenlet("expired")
-            return user_id
-
-        def expire(self) -> None:
-            self._expired = True
-
-    user = _User()
+    user = MagicMock()
+    user.id = user_id
+    user.timezone = "UTC"
     item = SimpleNamespace(
         id=project_id,
         title="Spanish",
@@ -300,17 +284,21 @@ async def test_get_project_detail_does_not_lazy_load_user_after_expire_all():
         daily_goal_history=None,
     )
     session = MagicMock()
-    session.expire_all.side_effect = user.expire
+    enqueue = AsyncMock()
+    seed = AsyncMock()
 
     with (
         patch.object(projects_repo, "get_by_id", AsyncMock(return_value=item)),
         patch.object(project_items_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(project_items_repo, "list_miss_events_for_items", AsyncMock(return_value={})),
-        patch("app.services.learning.path_seed.seed_language_path", AsyncMock()),
+        patch("app.services.projects.crud.enqueue_language_path_job", enqueue),
+        patch("app.services.learning.path_seed.seed_language_path", seed),
         patch("app.services.learning.path_seed.needs_catalog_sync", return_value=True),
     ):
         detail = await get_project_detail(session, user, project_id)
 
     assert detail is not None
     assert detail["id"] == project_id
-    assert user._expired is True
+    enqueue.assert_awaited_once_with(user_id, project_id)
+    seed.assert_not_called()
+    session.expire_all.assert_not_called()

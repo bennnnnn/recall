@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { useAuthOptional } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { api, type SuggestedReminder } from "@/lib/api";
@@ -24,6 +25,7 @@ export function useSuggestedReminders(
 ) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
+  const auth = useAuthOptional();
   const todosCtx = useTodosOptional();
   const [reminders, setReminders] = useState<SuggestedReminder[]>(
     () => getCachedSuggestedReminders()?.reminders.slice(0, 3) ?? [],
@@ -59,7 +61,9 @@ export function useSuggestedReminders(
         if (todosCtx) {
           const next = [created, ...todosCtx.todos.filter((item) => item.id !== created.id)];
           todosCtx.setTodos(next);
-          void syncTodoReminders(next);
+          void syncTodoReminders(next, {
+            pushEnabled: auth?.user?.push_notifications_enabled ?? true,
+          });
         }
         callbacks?.onAdded?.();
       } else {

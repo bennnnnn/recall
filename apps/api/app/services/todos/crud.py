@@ -103,9 +103,11 @@ async def update_todo(
         if project is None:
             raise TodosError("Project not found", status_code=400)
     if "due_at" in patch:
+        if patch["due_at"] is None:
+            raise TodosError("due_at cannot be cleared", status_code=422)
         patch["due_at"] = normalize_due_at(patch["due_at"], user.timezone)
         if patch["due_at"] is None:
-            patch["recurrence_rule"] = None
+            raise TodosError("due_at cannot be cleared", status_code=422)
         if patch["due_at"] != item.due_at:
             patch["notification_sent_at"] = None
             patch["email_sent_at"] = None

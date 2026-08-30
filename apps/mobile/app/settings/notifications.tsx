@@ -21,7 +21,7 @@ import {
   syncReminderLeadFromServer,
 } from "@/lib/reminderPrefs";
 import { normalizeReminderLeadMinutes } from "@/lib/todos/reminderTiming";
-import { syncTodoReminders } from "@/lib/todos/todoReminders";
+import { cancelAllTodoReminders, syncTodoReminders } from "@/lib/todos/todoReminders";
 import {
   ensureNotificationPermission,
   registerRemotePushToken,
@@ -66,7 +66,9 @@ export default function NotificationsSettingsScreen() {
         setReminderLeadMinutesState(normalized);
         await setReminderLeadMinutes(normalized);
         await updateUser({ reminder_lead_minutes: normalized });
-        await syncTodoReminders(todos);
+        await syncTodoReminders(todos, {
+          pushEnabled: user?.push_notifications_enabled ?? true,
+        });
       } catch {
         setReminderLeadMinutesState(previous);
         await setReminderLeadMinutes(previous).catch(() => {});
@@ -77,7 +79,7 @@ export default function NotificationsSettingsScreen() {
         setBusyAction(null);
       }
     },
-    [feedback, reminderLeadMinutes, t, todos, updateUser],
+    [feedback, reminderLeadMinutes, t, todos, updateUser, user?.push_notifications_enabled],
   );
 
   const togglePush = useCallback(
@@ -93,6 +95,8 @@ export default function NotificationsSettingsScreen() {
         // notifications until the token is overwritten or expires.
           await updateUser({ push_notifications_enabled: false });
           await unregisterRemotePushToken(token);
+          await cancelAllTodoReminders();
+          await syncTodoReminders(todos, { pushEnabled: false });
           return;
         }
       // Enabling: the server flag alone does nothing on-device — we must also
@@ -108,6 +112,7 @@ export default function NotificationsSettingsScreen() {
         }
         await registerRemotePushToken(token, true);
         await updateUser({ push_notifications_enabled: true });
+        await cancelAllTodoReminders();
       } catch {
         if (feedback) feedback.error(t("settings.push_register_failed"));
         else Alert.alert(t("common.error"), t("settings.push_register_failed"));
@@ -116,7 +121,7 @@ export default function NotificationsSettingsScreen() {
         setBusyAction(null);
       }
     },
-    [feedback, t, token, updateUser],
+    [feedback, t, token, todos, updateUser],
   );
 
   const toggleEmailReminders = useCallback(

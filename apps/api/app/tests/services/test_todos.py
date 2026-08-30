@@ -3,9 +3,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
+from app.models.schemas.lists import ListItemCreate, ListItemUpdate
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import home as home_service
@@ -29,6 +31,29 @@ class _FakeSessionCM:
 
 def _session_local_side_effect(session: AsyncMock):
     return [_FakeSessionCM(session), _FakeSessionCM(session)]
+
+
+def test_list_item_create_requires_due_at():
+    with pytest.raises(ValidationError):
+        ListItemCreate(content="Call mom")
+
+
+def test_list_item_update_rejects_cleared_due_at():
+    with pytest.raises(ValidationError):
+        ListItemUpdate(due_at=None)
+
+
+@pytest.mark.asyncio
+async def test_update_todo_rejects_cleared_due_at():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    item = MagicMock()
+    item.due_at = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
+    with patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)):
+        with pytest.raises(todos_crud.TodosError) as exc:
+            await todos_crud.update_todo(session, user, uuid4(), {"due_at": None})
+    assert exc.value.status_code == 422
 
 
 def _item(content: str, topic: str = "Groceries", checked: bool = False):
