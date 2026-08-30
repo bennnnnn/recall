@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Repeat on New reminder did nothing.** Nested `AppSheet` is a second RN
+  `Modal`; iOS will not present it over the add-reminder sheet. Put the
+  pick-one list in the same sheet (expand in place).
 - **Library always skeletoned after Back.** `useGalleryData` stored lastFetchAt in
   the hook, so leaving `/gallery` dropped the 20s skip. Use a module
   `StaleResourceCache` (hydrate + drawer prefetch All); invalidate on logout,
