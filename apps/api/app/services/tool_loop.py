@@ -29,6 +29,7 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
+from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
@@ -74,6 +75,98 @@ def _canonical_answer_from_tool_result(result: Any) -> str | None:
         return None
     answer = data.get("canonical_answer")
     return answer.strip() if isinstance(answer, str) and answer.strip() else None
+
+
+def _search_hits_from_tool_result(result: Any) -> list[WebSearchHit]:
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return []
+    raw = data.get("hits")
+    if not isinstance(raw, list):
+        return []
+    hits: list[WebSearchHit] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "")
+        url = str(item.get("url") or "")
+        snippet = str(item.get("snippet") or "")
+        if title or url:
+            hits.append(WebSearchHit(title=title, url=url, snippet=snippet))
+    return hits
+
+
+def _last_user_content(messages: list[dict[str, Any]]) -> str:
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            content = msg.get("content")
+            return content.strip() if isinstance(content, str) else ""
+    return ""
+
+
+def _web_search_was_called(messages: list[dict[str, Any]]) -> bool:
+    for msg in messages:
+        if msg.get("role") != "assistant":
+            continue
+        for call in msg.get("tool_calls") or []:
+            if not isinstance(call, dict):
+                continue
+            name = str((call.get("function") or {}).get("name") or "")
+            if name == "web_search":
+                return True
+    return False
+
+
+def _merge_search_hits(existing: list[WebSearchHit], incoming: list[WebSearchHit]) -> None:
+    seen = {hit.url.strip().lower() or hit.title.strip().lower() for hit in existing}
+    for hit in incoming:
+        key = hit.url.strip().lower() or hit.title.strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        existing.append(hit)
+
+
+async def _force_web_search_if_needed(
+    *,
+    settings: Settings,
+    messages: list[dict[str, Any]],
+    search_hits: list[WebSearchHit],
+    user: User | None,
+    redis: Redis | None,
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> tuple[list[dict[str, Any]], list[WebSearchHit]]:
+    """If the model skipped web_search on a turn that needs live results, search once."""
+    if search_hits or _web_search_was_called(messages):
+        return messages, search_hits
+    if should_cancel and should_cancel():
+        return messages, search_hits
+    if not settings.web_search_enabled:
+        return messages, search_hits
+    user_text = _last_user_content(messages)
+    if not user_text:
+        return messages, search_hits
+    from app.services.prompt_inject import inject_before_last_user
+    from app.services.prompt_safety import wrap_untrusted
+    from app.services.web_search.detection import needs_web_search
+    from app.services.web_search.formatting import format_search_block
+    from app.services.web_search.search_cache import run_cached_search
+
+    if not needs_web_search(user_text):
+        return messages, search_hits
+    if on_status is not None:
+        await on_status("searching", clip_status_detail(user_text))
+    hits, _tried = await run_cached_search(
+        settings,
+        [user_text],
+        user=user,
+        redis=redis,
+    )
+    if not hits:
+        return messages, search_hits
+    block = wrap_untrusted("web search", format_search_block(hits))
+    return inject_before_last_user(messages, block), hits
 
 
 def _terminal_image_from_tool_result(result: Any) -> TerminalImageResult | None:
@@ -201,26 +294,27 @@ async def run_tool_rounds(
     list[dict[str, Any]],
     VerifiedMathBlock | None,
     TerminalImageResult | None,
+    list[WebSearchHit],
 ]:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
-    Returns ``(messages, verified_math, terminal_image)``. Tool-call rounds stay
-    non-streaming. After tools execute, the caller streams the user-visible
-    answer (tools omitted) instead of a discarded leftover completion.
+    Returns ``(messages, verified_math, terminal_image, search_hits)``. Tool-call
+    rounds stay non-streaming. After tools execute, the caller streams the
+    user-visible answer (tools omitted) instead of a discarded leftover completion.
     """
     if not settings.mcp_tool_loop_enabled:
-        return messages, None, None
+        return messages, None, None, []
 
     tools = _tools_for_user(settings, user)
     if not tools:
-        return messages, None, None
+        return messages, None, None, []
 
     with (
-        bind_search_quota_context(user=user, redis=redis),
+        bind_search_quota_context(user=user, redis=redis, settings=settings),
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),
     ):
-        return await _run_tool_rounds_bound(
+        working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,
             model_alias=model_alias,
             messages=messages,
@@ -229,6 +323,16 @@ async def run_tool_rounds(
             on_status=on_status,
             should_cancel=should_cancel,
         )
+        working, hits = await _force_web_search_if_needed(
+            settings=settings,
+            messages=working,
+            search_hits=hits,
+            user=user,
+            redis=redis,
+            on_status=on_status,
+            should_cancel=should_cancel,
+        )
+        return working, verified, terminal, hits
 
 
 async def _run_tool_rounds_bound(
@@ -244,6 +348,7 @@ async def _run_tool_rounds_bound(
     list[dict[str, Any]],
     VerifiedMathBlock | None,
     TerminalImageResult | None,
+    list[WebSearchHit],
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
@@ -252,6 +357,7 @@ async def _run_tool_rounds_bound(
     canonical_by_type: dict[str, dict[str, Any]] = {}
     canonical_answer: str | None = None
     terminal_image: TerminalImageResult | None = None
+    search_hits: list[WebSearchHit] = []
 
     for _ in range(max_rounds):
         if should_cancel and should_cancel():
@@ -311,6 +417,8 @@ async def _run_tool_rounds_bound(
             image = _terminal_image_from_tool_result(result) if result else None
             if image is not None:
                 terminal_image = image
+            if result is not None:
+                _merge_search_hits(search_hits, _search_hits_from_tool_result(result))
             working.append(
                 {
                     "role": "tool",
@@ -346,7 +454,7 @@ async def _run_tool_rounds_bound(
         if all_fences or canonical_answer
         else None
     )
-    return working, verified, terminal_image
+    return working, verified, terminal_image, search_hits
 
 
 def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:

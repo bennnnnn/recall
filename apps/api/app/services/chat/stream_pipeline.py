@@ -75,6 +75,7 @@ async def run_tool_loop_path(
         ctx.prompt_messages,
         tool_verified,
         terminal_image,
+        tool_search_hits,
     ) = await tool_loop_service.run_tool_rounds(
         settings=settings,
         model_alias=ctx.model,
@@ -92,6 +93,8 @@ async def run_tool_loop_path(
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
         ctx.terminal_image_model = terminal_image.resolved_model
+    if tool_search_hits and not ctx.search_sources:
+        ctx.search_sources = tool_search_hits
 
 
 async def run_llm_token_stream(

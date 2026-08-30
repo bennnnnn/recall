@@ -6,6 +6,9 @@ import asyncio
 import hashlib
 import json
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 
 from redis.asyncio import Redis
@@ -18,6 +21,12 @@ from app.models.orm import User
 from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
+
+# Shared across every run_cached_search in one chat turn (MCP may invoke
+# web_search more than once). Unbound → each _run_search makes its own budget.
+_bound_tavily_budget: ContextVar[_TurnTavilyBudget | None] = ContextVar(
+    "tavily_turn_budget", default=None
+)
 
 
 @dataclass
@@ -60,6 +69,17 @@ class _TurnTavilyBudget:
             return self._skip_tavily
 
 
+@contextmanager
+def bind_tavily_turn_budget(*, settings: Settings, user: User | None) -> Iterator[None]:
+    """One Tavily reservation for every cached search in this turn."""
+    budget = _TurnTavilyBudget(settings=settings, user=user)
+    token = _bound_tavily_budget.set(budget)
+    try:
+        yield
+    finally:
+        _bound_tavily_budget.reset(token)
+
+
 async def run_cached_search(
     settings: Settings,
     queries: list[str],
@@ -86,9 +106,11 @@ async def _run_search(
     if not queries:
         return [], []
 
-    # One Tavily reservation for the whole turn, shared by the fanned-out
-    # queries — a multi-query turn spends one daily search, not one per query.
-    budget = _TurnTavilyBudget(settings=settings, user=user)
+    # Prefer a turn-scoped budget (MCP may call web_search more than once).
+    # Unbound: one reservation for this call's fanned-out queries only.
+    budget = _bound_tavily_budget.get()
+    if budget is None:
+        budget = _TurnTavilyBudget(settings=settings, user=user)
     results = await asyncio.gather(
         *(
             _search_with_cache(settings, query, max_results=limit, budget=budget, redis=redis)

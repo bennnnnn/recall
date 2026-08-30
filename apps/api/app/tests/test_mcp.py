@@ -44,7 +44,12 @@ async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_red
     assert cached.await_args.args[1] == ["latest news"]
     assert cached.await_args.kwargs["user"] is user
     assert cached.await_args.kwargs["redis"] is fake_redis
-    assert result.content == "- T: https://example.com\n  s"
+    assert "BEGIN UNTRUSTED CONTENT — web search" in result.content
+    assert "- T: https://example.com" in result.content
+    assert result.data is not None
+    assert result.data["hits"] == [
+        {"title": "T", "url": "https://example.com", "snippet": "s"},
+    ]
 
 
 @pytest.mark.asyncio

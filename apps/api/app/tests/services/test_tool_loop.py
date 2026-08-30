@@ -5,6 +5,8 @@ import pytest
 from app.core.config import Settings
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
+from app.gateways.mcp.base import ToolResult
+from app.gateways.web_search_gateway import WebSearchHit
 from app.services import tool_loop
 from app.services.mcp.web_search_adapter import WebSearchAdapter
 
@@ -35,7 +37,7 @@ def web_search_registered():
 @pytest.mark.asyncio
 async def test_tool_loop_disabled_passthrough():
     messages = [{"role": "user", "content": "hi"}]
-    out, verified, terminal = await tool_loop.run_tool_rounds(
+    out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
         settings=_settings(mcp_tool_loop_enabled=False),
         model_alias="free-chat",
         messages=messages,
@@ -68,7 +70,21 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
             },
         ]
     )
-    invoke = AsyncMock(return_value=MagicMock(content="- Example: https://example.com\n  snippet"))
+    invoke = AsyncMock(
+        return_value=ToolResult(
+            name="web_search",
+            content="- Example: https://example.com\n  snippet",
+            data={
+                "hits": [
+                    {
+                        "title": "Example",
+                        "url": "https://example.com",
+                        "snippet": "snippet",
+                    }
+                ]
+            },
+        )
+    )
     statuses: list[tuple[str, str | None]] = []
 
     async def on_status(phase: str, detail: str | None = None) -> None:
@@ -78,7 +94,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out, verified, terminal = await tool_loop.run_tool_rounds(
+        out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -94,6 +110,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
     assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
     assert verified is None
     assert terminal is None
+    assert hits == [WebSearchHit(title="Example", url="https://example.com", snippet="snippet")]
 
 
 @pytest.mark.asyncio
@@ -166,7 +183,7 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        _out, verified, terminal = await tool_loop.run_tool_rounds(
+        _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -213,7 +230,7 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out, _verified, terminal = await tool_loop.run_tool_rounds(
+        out, _verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -308,7 +325,7 @@ async def test_tool_loop_generate_image_is_terminal():
             patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
             patch("app.services.tool_loop.plan_service.is_pro", return_value=True),
         ):
-            _out, verified, terminal = await tool_loop.run_tool_rounds(
+            _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
                 settings=_settings(
                     mcp_tool_loop_enabled=True,
                     mcp_tool_loop_max_rounds=3,
@@ -378,8 +395,14 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     """Probe found no tools — stream the answer; never complete_with_tools twice."""
     messages = [{"role": "user", "content": "search the latest news"}]
     complete = AsyncMock(return_value={"content": "Tokyo is the capital.", "tool_calls": []})
-    with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
-        out, verified, terminal = await tool_loop.run_tool_rounds(
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch(
+            "app.services.web_search.search_cache.run_cached_search",
+            AsyncMock(return_value=([], [])),
+        ),
+    ):
+        out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True),
             model_alias="free-chat",
             messages=messages,
@@ -400,7 +423,13 @@ def test_tool_loop_completion_alias_avoids_reasoning_models():
 async def test_tool_loop_uses_fast_alias_for_smart_chat(web_search_registered):
     messages = [{"role": "user", "content": "search the latest news"}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
-    with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch(
+            "app.services.web_search.search_cache.run_cached_search",
+            AsyncMock(return_value=([], [])),
+        ),
+    ):
         await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True),
             model_alias="smart-chat",
@@ -416,8 +445,14 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
     complete = AsyncMock(
         side_effect=ModelUnavailableError("down", failed_alias="free-chat"),
     )
-    with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
-        out, verified, terminal = await tool_loop.run_tool_rounds(
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch(
+            "app.services.web_search.search_cache.run_cached_search",
+            AsyncMock(return_value=([], [])),
+        ),
+    ):
+        out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True),
             model_alias="smart-chat",
             messages=messages,
@@ -426,3 +461,67 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
     assert out == messages
     assert verified is None
     assert terminal is None
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_registered):
+    messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
+    hit = WebSearchHit(title="SpaceX", url="https://example.com/sx", snippet="landed")
+    complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
+    forced = AsyncMock(return_value=([hit], ["What's the latest news on SpaceX?"]))
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.web_search.search_cache.run_cached_search", forced),
+    ):
+        out, verified, terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+    complete.assert_awaited_once()
+    forced.assert_awaited_once()
+    assert hits == [hit]
+    assert any(
+        m.get("role") == "system"
+        and "BEGIN UNTRUSTED CONTENT — web search" in str(m.get("content"))
+        for m in out
+    )
+    assert verified is None
+    assert terminal is None
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_copies_tool_hits_onto_context():
+    from uuid import uuid4
+
+    from app.services.chat.stream import _run_tool_loop_path
+
+    hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "What's the latest news on SpaceX?"
+    ctx.search_sources = []
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.model = "free-chat"
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch(
+            "app.services.tool_loop.run_tool_rounds",
+            AsyncMock(return_value=(ctx.prompt_messages, None, None, [hit])),
+        ),
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            _settings(mcp_tool_loop_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    assert ctx.search_sources == [hit]
