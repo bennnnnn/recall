@@ -90,7 +90,7 @@ export function TodosScreenHeader({
       ) : showRemindersEmptyHero ? (
         <StateView
           variant="empty"
-          icon="notifications-outline"
+          icon="calendar-outline"
           title={t("todos.empty_title")}
         />
       ) : null}
