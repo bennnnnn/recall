@@ -7,14 +7,14 @@ import {
 
 import { clipboardIsImageOnly } from "@/lib/math/mathClipboard";
 import {
-  autoAdvanceFracDen,
+  autoAdvanceNextEmptySlot,
   caretForInsert,
-  fracTapAdvancesToDen,
   MATH_KEYBOARD_SYMBOLS,
   type MathKeyboardGroup,
   nextEditSlotCaret,
   prevEditSlotCaret,
   spliceMathInsert,
+  tapAdvancesToNextSlot,
   type MathKeyboardSymbol,
   type TextSelection,
 } from "@/lib/mathKeyboardSymbols";
@@ -96,19 +96,17 @@ export function useMathKeyboardInsert(options: {
     (spec: MathKeyboardSymbol) => {
       const sel = pinRef.current ?? selection;
       const text = textRef.current;
-      if (spec.id === "frac") {
-        const jump = fracTapAdvancesToDen(text, sel.start);
-        if (jump != null) {
-          pinSelection({ start: jump, end: jump });
-          return;
-        }
+      const jump = tapAdvancesToNextSlot(text, sel.start, spec.id);
+      if (jump != null) {
+        pinSelection({ start: jump, end: jump });
+        return;
       }
       const at = caretForInsert(text, sel.start, spec);
       const insertAt = at === sel.start ? sel : { start: at, end: at };
       const result = spliceMathInsert(text, insertAt, spec);
       const advanced =
         at === sel.start
-          ? autoAdvanceFracDen(text, sel.start, result.text, result.selection.start, spec)
+          ? autoAdvanceNextEmptySlot(text, sel.start, result.text, result.selection.start, spec)
           : null;
       const caret = advanced ?? result.selection.start;
       textRef.current = result.text;
