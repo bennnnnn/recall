@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -68,7 +70,14 @@ def _string_field(payload: dict[str, Any], key: str) -> str | None:
 
 
 def _event_id(payload: dict[str, Any]) -> str | None:
-    return _string_field(payload, "event_id") or _string_field(payload, "id")
+    explicit = _string_field(payload, "event_id") or _string_field(payload, "id")
+    if explicit:
+        return explicit
+    event = _event(payload)
+    if event is None:
+        return None
+    canonical = json.dumps(event, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _app_user_id(payload: dict[str, Any]) -> str | None:
@@ -162,10 +171,18 @@ async def _dispatch_event(
             transferred_from=[old_id for old_id in from_list if isinstance(old_id, str)],
         )
     if event_type in _PRO_EVENTS:
+        plan = await subscription_service.resolve_plan_from_revenuecat(settings, app_user_id)
+        if plan is None:
+            logger.warning(
+                "RevenueCat %s deferred; subscriber fetch failed app_user_id=%s",
+                event_type,
+                app_user_id,
+            )
+            return False
         applied = await subscription_service.apply_plan_for_app_user_id(
-            session, app_user_id, plan="pro"
+            session, app_user_id, plan=plan
         )
-        if applied and settings.email_enabled:
+        if applied and plan == "pro" and settings.email_enabled:
             await receipt_enqueuer(
                 redis,
                 app_user_id,

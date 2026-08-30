@@ -107,10 +107,10 @@ async def test_cors_allow_headers_explicit():
             headers={
                 "Origin": "http://example.com",
                 "Access-Control-Request-Method": "POST",
-                "Access-Control-Request-Headers": "authorization, x-request-id",
+                "Access-Control-Request-Headers": "authorization, x-request-id, x-csrf-token",
             },
         )
     allow_headers = response.headers.get("access-control-allow-headers", "")
     assert "*" not in allow_headers
-    for header in ("authorization", "content-type", "x-request-id"):
+    for header in ("authorization", "content-type", "x-request-id", "x-csrf-token"):
         assert header in allow_headers.lower()

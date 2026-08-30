@@ -1,4 +1,4 @@
-import { apiUrl, fetchWithTimeout, setTokenPair } from "@/api/client";
+import { apiUrl, csrfHeaders, fetchWithTimeout, setAccessSession } from "@/api/client";
 import type { AuthResult } from "@/api/types";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
@@ -12,7 +12,7 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
     throw new Error(detail || "Google login failed");
   }
   const result = (await response.json()) as AuthResult;
-  setTokenPair(result.access_token, result.refresh_token);
+  setAccessSession(result.access_token, result.csrf_token);
   return result;
 }
 
@@ -30,22 +30,21 @@ export async function loginWithDev(
     throw new Error(text || "Dev login failed — is the API running?");
   }
   const result = (await response.json()) as AuthResult;
-  setTokenPair(result.access_token, result.refresh_token);
+  setAccessSession(result.access_token, result.csrf_token);
   return result;
 }
 
-export async function logoutSession(
-  token: string,
-  refreshToken: string | null,
-): Promise<void> {
+export async function logoutSession(token: string): Promise<void> {
   try {
     await fetch(apiUrl("/auth/logout"), {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        ...csrfHeaders(),
       },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({}),
     });
   } catch {
     /* best-effort */

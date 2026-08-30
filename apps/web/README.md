@@ -36,13 +36,16 @@ Without this, the GIS token client will throw `Origin not allowed`.
 
 ### CORS
 
-Add the web origin to `CORS_ORIGINS` in `apps/api/.env`:
+Add the web origin to `CORS_ORIGINS` in `apps/api/.env` (required for cookie
+sessions — an empty value falls back to `*`, which cannot send credentials):
 
 ```
 CORS_ORIGINS=https://app.recall.app,http://localhost:5173
 ```
 
-Locally an empty `CORS_ORIGINS` falls back to `*`, so it works out of the box.
+The web origin and API must be same-site (e.g. sibling subdomains) so the
+`SameSite=Lax` refresh cookie is sent on `fetch`. Mobile does not need to be
+listed; it uses Bearer tokens, not cookies.
 
 ### Dev login
 
@@ -59,14 +62,14 @@ without Google — useful for local dev without a configured OAuth client.
   (sources, places, graph, chart, …) become a short human label, not a code dump
 - Named source links under the reply (`search_sources` on `done`, or the
   trailing ` ```sources ` fence on history reload)
-- Token storage in `sessionStorage` (tab-scoped); refresh on 401
+- Access token in memory; httpOnly refresh cookie + CSRF (`X-CSRF-Token`);
+  reload bootstraps via `POST /auth/refresh`. Mobile stays Bearer + secure-store.
 
 ## Later slices (not yet)
 
 - Rich fences (math, charts, Mermaid, sandboxed HTML preview)
 - Memory, Lists, Learning, settings, attachments, image gen
 - `packages/api-types` extracted from `lib/api/types.ts`
-- httpOnly refresh cookie + CSRF
 - Apple Sign-In on web (separate Services ID)
 - Prod deploy (Cloudflare Pages or Fly)
 

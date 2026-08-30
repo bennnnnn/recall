@@ -62,7 +62,8 @@ export type ChatList = {
 
 export type AuthResult = {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
+  csrf_token?: string | null;
   user: User;
 };
 

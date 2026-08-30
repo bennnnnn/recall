@@ -10,8 +10,8 @@ import type { ReactNode } from "react";
 
 import {
   getAccessToken,
-  getRefreshToken,
   clearTokens,
+  refreshAccessToken,
   request,
 } from "@/api/client";
 import { loginWithDev, loginWithGoogle, logoutSession } from "@/api/auth";
@@ -33,24 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // On mount: if a token is stored, fetch /auth/me to restore the session.
   useEffect(() => {
     let cancelled = false;
-    const token = getAccessToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    request<User>("/auth/me", token)
-      .then((u) => {
-        if (!cancelled) setUser(u);
-      })
-      .catch(() => {
-        if (!cancelled) clearTokens();
-      })
-      .finally(() => {
+    (async () => {
+      let token = getAccessToken();
+      if (!token) {
+        token = await refreshAccessToken();
+      }
+      if (!token) {
         if (!cancelled) setLoading(false);
-      });
+        return;
+      }
+      try {
+        const u = await request<User>("/auth/me", token);
+        if (!cancelled) setUser(u);
+      } catch {
+        if (!cancelled) clearTokens();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -80,8 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const access = getAccessToken();
-    const refresh = getRefreshToken();
-    if (access) await logoutSession(access, refresh);
+    if (access) await logoutSession(access);
     clearTokens();
     setUser(null);
   }, []);

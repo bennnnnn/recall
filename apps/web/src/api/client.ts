@@ -17,6 +17,7 @@ export class ApiRequestError extends Error {
 }
 
 const AUTH_TIMEOUT_MS = 15_000;
+const CSRF_KEY = "recall.csrf";
 
 async function fetchWithTimeout(
   url: string,
@@ -26,7 +27,7 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...init, signal: controller.signal, credentials: "include" });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("Could not reach the Recall API. Is it running?");
@@ -37,25 +38,44 @@ async function fetchWithTimeout(
   }
 }
 
-// Token storage — tab-scoped (sessionStorage). A refresh-token cookie + CSRF
-// is a later slice; for now access + refresh live in sessionStorage so a new
-// tab starts logged out, matching a personal app on a shared machine.
-const ACCESS_KEY = "recall.access_token";
-const REFRESH_KEY = "recall.refresh_token";
+/** Access lives in memory; refresh is an httpOnly cookie; CSRF is session-scoped. */
+let accessToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  return sessionStorage.getItem(ACCESS_KEY);
+  return accessToken;
 }
-export function getRefreshToken(): string | null {
-  return sessionStorage.getItem(REFRESH_KEY);
+
+export function getCsrfToken(): string | null {
+  try {
+    return sessionStorage.getItem(CSRF_KEY);
+  } catch {
+    return null;
+  }
 }
-export function setTokenPair(access: string, refresh: string): void {
-  sessionStorage.setItem(ACCESS_KEY, access);
-  sessionStorage.setItem(REFRESH_KEY, refresh);
+
+export function setAccessSession(access: string, csrf?: string | null): void {
+  accessToken = access;
+  if (csrf) {
+    try {
+      sessionStorage.setItem(CSRF_KEY, csrf);
+    } catch {
+      /* private mode */
+    }
+  }
 }
+
 export function clearTokens(): void {
-  sessionStorage.removeItem(ACCESS_KEY);
-  sessionStorage.removeItem(REFRESH_KEY);
+  accessToken = null;
+  try {
+    sessionStorage.removeItem(CSRF_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function csrfHeaders(): Record<string, string> {
+  const csrf = getCsrfToken();
+  return csrf ? { "X-CSRF-Token": csrf } : {};
 }
 
 let refreshInFlight: Promise<string | null> | null = null;
@@ -64,16 +84,14 @@ export async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) return null;
       const response = await fetchWithTimeout(apiUrl("/auth/refresh"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        headers: { "Content-Type": "application/json", ...csrfHeaders() },
+        body: JSON.stringify({}),
       });
       if (!response.ok) return null;
       const data = (await response.json()) as AuthResult;
-      setTokenPair(data.access_token, data.refresh_token);
+      setAccessSession(data.access_token, data.csrf_token);
       return data.access_token;
     } catch {
       return null;
@@ -84,7 +102,6 @@ export async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
-// Authed JSON request with 401 -> refresh -> retry.
 export async function request<T>(
   path: string,
   token: string,
@@ -101,9 +118,11 @@ export async function request<T>(
     const response = await fetch(apiUrl(path), {
       ...init,
       signal: controller.signal,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        ...csrfHeaders(),
         ...(init?.headers ?? {}),
       },
     });
@@ -126,8 +145,6 @@ export async function request<T>(
   }
 }
 
-// Authed fetch returning the raw Response (for SSE streaming). Same 401 ->
-// refresh -> retry as request().
 export async function requestRaw(
   path: string,
   token: string,
@@ -144,8 +161,10 @@ export async function requestRaw(
     const response = await fetch(apiUrl(path), {
       ...init,
       signal: controller.signal,
+      credentials: "include",
       headers: {
         Authorization: `Bearer ${token}`,
+        ...csrfHeaders(),
         ...init.headers,
       },
     });

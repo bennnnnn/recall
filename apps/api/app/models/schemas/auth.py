@@ -155,10 +155,11 @@ class AuthResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UserOut
+    csrf_token: str | None = None
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str = Field(min_length=1)
+    refresh_token: str | None = None
 
 
 class LogoutRequest(BaseModel):

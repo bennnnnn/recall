@@ -76,7 +76,7 @@ def create_app() -> FastAPI:
         # method/header the client might use and lets the browser block the
         # rest, instead of echoing whatever the client sends.
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-CSRF-Token"],
     )
     # Baseline security headers (nosniff / no-frame / no-referrer / HSTS in
     # production behind TLS). Added last so it wraps the whole stack on the

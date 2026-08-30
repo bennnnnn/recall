@@ -963,6 +963,10 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
@@ -1000,6 +1004,10 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=False),
         ),
@@ -1031,6 +1039,10 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
     payload = {"event": {"type": "EXPIRATION", "app_user_id": str(uid)}}
 
     with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
         patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
@@ -1214,6 +1226,10 @@ def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
@@ -1272,6 +1288,10 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
@@ -1328,6 +1348,10 @@ def test_revenuecat_webhook_huge_expiration_still_succeeds():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
@@ -1366,6 +1390,10 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
@@ -1378,6 +1406,90 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
     assert r1.status_code == 204
     assert r2.status_code == 204
     apply_mock.assert_awaited_once()
+
+
+def test_revenuecat_webhook_missing_event_id_hashes_payload_for_dedupe():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "app_user_id": str(uid),
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r1 = client.post("/webhooks/revenuecat", json=payload)
+        r2 = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r1.status_code == 204
+    assert r2.status_code == 204
+    apply_mock.assert_awaited_once()
+
+
+def test_revenuecat_webhook_pro_event_defers_when_entitlement_unresolved():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "event_id": "evt_unresolved",
+            "app_user_id": str(uid),
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    apply_mock.assert_not_awaited()
 
 
 def test_revenuecat_webhook_concurrent_claim_only_processes_once():
@@ -1416,6 +1528,10 @@ def test_revenuecat_webhook_concurrent_claim_only_processes_once():
     with (
         patch.object(webhooks_mod, "_try_claim", side_effect=claim_side_effect),
         patch.object(webhooks_mod, "_already_processed", AsyncMock(return_value=False)),
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
         patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
@@ -1461,10 +1577,16 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
         }
     }
 
-    with patch(
-        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
-        AsyncMock(side_effect=[RuntimeError("boom"), True]),
-    ) as apply_mock:
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(side_effect=[RuntimeError("boom"), True]),
+        ) as apply_mock,
+    ):
         client = TestClient(app)
         with pytest.raises(RuntimeError):
             client.post("/webhooks/revenuecat", json=payload)
@@ -1495,6 +1617,10 @@ def test_revenuecat_webhook_requires_auth_in_production():
     payload = {"event": {"type": "INITIAL_PURCHASE", "app_user_id": str(uid)}}
 
     with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
         patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
@@ -1541,6 +1667,10 @@ def test_revenuecat_webhook_ignores_sandbox_in_production():
 
     with (
         patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
@@ -1585,6 +1715,10 @@ def test_revenuecat_webhook_processes_sandbox_in_development():
     }
 
     with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
         patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
@@ -1754,6 +1888,10 @@ def test_revenuecat_webhook_subscriber_lock_busy_returns_503():
 
     with (
         patch.object(webhooks_mod, "acquire_lock", AsyncMock(return_value=None)),
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
         patch(
             "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),

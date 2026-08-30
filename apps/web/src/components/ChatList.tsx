@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { chatsApi } from "@/api/chats";
+import { getAccessToken } from "@/api/client";
 import { useAuth } from "@/auth/AuthContext";
 import type { Chat, ChatList as ChatListData } from "@/api/types";
 
@@ -22,7 +23,7 @@ export function ChatList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const accessToken = sessionStorage.getItem("recall.access_token");
+  const accessToken = getAccessToken();
 
   const load = () => {
     if (!accessToken) return;

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { renderGoogleButton } from "@/auth/googleGis";
 
 export function Login() {
-  const { signInWithGoogle, signInWithDev, error } = useAuth();
+  const { user, loading, signInWithGoogle, signInWithDev, error } = useAuth();
   const navigate = useNavigate();
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const [devEmail, setDevEmail] = useState("dev@recall.local");
@@ -13,6 +13,7 @@ export function Login() {
 
   // Render the Google button if a client ID is configured.
   useEffect(() => {
+    if (loading || user) return;
     if (!googleButtonRef.current) return;
     renderGoogleButton(googleButtonRef.current, async (idToken) => {
       try {
@@ -25,7 +26,7 @@ export function Login() {
       // No client ID configured — GIS not available; dev login still works.
       setLocalError(null);
     });
-  }, [signInWithGoogle, navigate]);
+  }, [signInWithGoogle, navigate, loading, user]);
 
   const onDev = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +37,9 @@ export function Login() {
       setLocalError(err instanceof Error ? err.message : "Dev login failed");
     }
   };
+
+  if (loading) return <div className="loading-screen">Loading…</div>;
+  if (user) return <Navigate to="/chats" replace />;
 
   return (
     <div className="login">
