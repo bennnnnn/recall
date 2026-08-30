@@ -96,8 +96,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (upgrade). Pro: **30 turns/day** (UTC). Composer mic STT remains Whisper.
   Tap the mic (next to close) to mute so Recall cannot hear you; it turns
   red. Playback is not paused. No Listening/Speaking labels. The normal
-  composer stays so you can type and attach in voice mode. The chat header
-  (drawer / ⋮) stays available.
+  composer stays so you can type and attach in voice mode. Typing a draft
+  hides mute and close so the field uses the full row; they return when
+  the draft is empty. The chat header (drawer / ⋮) stays available.
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
   (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
@@ -778,7 +779,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; mic mute beside close; type/attach in session; not full duplex) |
+| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; mic mute beside close; typing hides mute/close; type/attach in session; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
@@ -884,7 +885,7 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex live voice (later) |
-| Live talk speech-to-speech (Pro, 30 turns/day; mic mute beside close; type/attach) | — |
+| Live talk speech-to-speech (Pro, 30 turns/day; mic mute beside close; typing hides mute/close; type/attach) | — |
 | Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
 
 ### Cost guards (recent)

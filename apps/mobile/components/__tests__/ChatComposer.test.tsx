@@ -670,4 +670,41 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("chat-composer-input")).toBeTruthy();
     expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
   });
+
+  it("hides mute and close while the user is typing in live talk", async () => {
+    const chrome = {
+      muted: false,
+      onClose: jest.fn(),
+      onMutePress: jest.fn(),
+      onYield: jest.fn(),
+    };
+    const { queryByTestId, rerender } = await render(
+      <ChatComposer
+        {...baseProps}
+        input="hello"
+        onLiveTalkPress={jest.fn()}
+        liveTalkChrome={chrome}
+      />,
+    );
+    expect(queryByTestId("live-talk-mute")).toBeNull();
+    expect(queryByTestId("live-talk-close")).toBeNull();
+    expect(queryByTestId("chat-composer-input")).toBeTruthy();
+
+    await rerender(
+      <ChatComposer
+        {...baseProps}
+        input=""
+        onLiveTalkPress={jest.fn()}
+        liveTalkChrome={chrome}
+        pendingAttachment={{
+          kind: "image",
+          localUri: "file://photo.jpg",
+          contentType: "image/jpeg",
+          fileName: "photo.jpg",
+        }}
+      />,
+    );
+    expect(queryByTestId("live-talk-mute")).toBeTruthy();
+    expect(queryByTestId("live-talk-close")).toBeTruthy();
+  });
 });

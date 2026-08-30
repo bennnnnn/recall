@@ -47,6 +47,11 @@ export function liveTalkMuteA11yKey(
   return muted ? "chat.live_talk_unmute_a11y" : "chat.live_talk_mute_a11y";
 }
 
+/** Mic + close sit beside an empty composer; typing takes the full row. */
+export function liveTalkShowsSideChrome(draft: string): boolean {
+  return draft.trim().length === 0;
+}
+
 export function liveTalkOrbA11yKey(
   phase: LiveTalkPhase,
 ): "chat.live_talk_cancel_a11y" | "chat.live_talk_a11y" {

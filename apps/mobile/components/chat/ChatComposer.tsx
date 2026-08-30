@@ -33,6 +33,7 @@ import {
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
+import { liveTalkShowsSideChrome } from "@/lib/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
@@ -183,6 +184,8 @@ export const ChatComposer = memo(function ChatComposer({
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
+  const showLiveTalkSideChrome =
+    Boolean(liveTalkChrome) && liveTalkShowsSideChrome(input);
   const parkInput = showMathPreview;
   const showEmptyCaret = math.mathBarOpen && !showMathPreview && !input.trim();
   const showMic = composerShowsMic({
@@ -245,8 +248,8 @@ export const ChatComposer = memo(function ChatComposer({
                 <Icon name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
             ) : null}
-          <View style={liveTalkChrome ? s.liveTalkRow : undefined}>
-          <View style={[s.inputWrap, liveTalkChrome ? s.inputWrapFlex : null]}>
+          <View style={showLiveTalkSideChrome ? s.liveTalkRow : undefined}>
+          <View style={[s.inputWrap, showLiveTalkSideChrome ? s.inputWrapFlex : null]}>
             {pendingAttachment ? (
               <ComposerAttachmentPreview
                 attachment={pendingAttachment}
@@ -414,7 +417,7 @@ export const ChatComposer = memo(function ChatComposer({
               </Text>
             ) : null}
           </View>
-          {liveTalkChrome ? (
+          {liveTalkChrome && showLiveTalkSideChrome ? (
             <LiveTalkComposerControls
               muted={liveTalkChrome.muted}
               onMutePress={liveTalkChrome.onMutePress}
