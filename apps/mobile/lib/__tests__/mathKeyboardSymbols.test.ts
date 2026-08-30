@@ -84,6 +84,13 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("$x$", { start: 2, end: 2 }, sup).text).toBe("$x^{}$");
   });
 
+  it("eⁿ inserts Euler's number with an exponent box", () => {
+    const euler = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "euler")!;
+    const result = spliceMathInsert("", { start: 0, end: 0 }, euler);
+    expect(result.text).toBe("$e^{}$");
+    expect(result.text[result.selection.start]).toBe("}");
+  });
+
   it("d/d□ lands in the variable slot", () => {
     const ddv = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "ddv")!;
     const result = spliceMathInsert("", { start: 0, end: 0 }, ddv);
@@ -162,7 +169,7 @@ describe("key insert matches the button", () => {
     ["approx", "\\approx "],
     ["binom", "\\binom{}{}"],
     ["percent", "\\%"],
-    ["euler", "e"],
+    ["euler", "e^{}"],
     ["imag", "i"],
     ["oint", "\\oint "],
     ["iiint", "\\iiint "],
