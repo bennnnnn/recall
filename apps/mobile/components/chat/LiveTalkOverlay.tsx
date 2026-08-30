@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -9,6 +9,9 @@ import {
   liveTalkCanTakeFloor,
   liveTalkHintKey,
   liveTalkOrbA11yKey,
+  liveTalkOrbAction,
+  liveTalkSpeakerA11yKey,
+  liveTalkSpeakerAction,
   type LiveTalkPhase,
 } from "@/lib/liveTalkLogic";
 import { useReduceMotion } from "@/lib/motion";
@@ -20,8 +23,11 @@ type Props = {
   phase: LiveTalkPhase;
   meterLevel: number;
   recording: boolean;
+  /** Leave this strip open so ChatHeader (hamburger / ⋮) stays tappable. */
+  headerInset: number;
   onClose: () => void;
   onToggle: () => void;
+  onSpeakerPress: () => void;
   onInterrupt: () => void;
 };
 
@@ -30,8 +36,10 @@ export function LiveTalkOverlay({
   phase,
   meterLevel,
   recording,
+  headerInset,
   onClose,
   onToggle,
+  onSpeakerPress,
   onInterrupt,
 }: Props) {
   const { t } = useTranslation();
@@ -41,31 +49,54 @@ export function LiveTalkOverlay({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const takeFloor = liveTalkCanTakeFloor(phase);
   const hint = t(liveTalkHintKey(phase));
+  const orbAction = liveTalkOrbAction(phase);
+  const speakerAction = liveTalkSpeakerAction(phase);
+  const speakerA11y = liveTalkSpeakerA11yKey(phase);
+
+  if (!visible) return null;
+
+  const orb = (
+    <LiveTalkOrb
+      theme={theme}
+      phase={phase === "paused" ? "idle" : phase}
+      meterLevel={meterLevel}
+      recording={recording}
+      reduceMotion={reduceMotion}
+    />
+  );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
-    >
-      <View style={[s.root, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
+    <View style={[s.overlay, { top: headerInset }]} testID="live-talk-overlay">
+      <View style={[s.body, { paddingBottom: insets.bottom + 16 }]}>
         <View style={s.center}>
-          <Pressable
-            onPress={onToggle}
-            accessibilityRole="button"
-            accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
-            testID="live-talk-orb"
-          >
-            <LiveTalkOrb
-              theme={theme}
-              phase={phase === "paused" ? "idle" : phase}
-              meterLevel={meterLevel}
-              recording={recording}
-              reduceMotion={reduceMotion}
-            />
-          </Pressable>
+          {orbAction === "none" ? (
+            <View testID="live-talk-orb">{orb}</View>
+          ) : (
+            <Pressable
+              onPress={onToggle}
+              accessibilityRole="button"
+              accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
+              testID="live-talk-orb"
+            >
+              {orb}
+            </Pressable>
+          )}
           <Text style={s.hint}>{hint}</Text>
+          {speakerAction && speakerA11y ? (
+            <Pressable
+              onPress={onSpeakerPress}
+              style={[s.speakerBtn, { borderColor: theme.composerBorder, backgroundColor: theme.inputBg }]}
+              accessibilityRole="button"
+              accessibilityLabel={t(speakerA11y)}
+              testID="live-talk-speaker"
+            >
+              <Icon
+                name={speakerAction === "pause" ? "volume-high" : "volume-high-outline"}
+                size={26}
+                color={theme.text}
+              />
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={s.bottom}>
@@ -97,13 +128,20 @@ export function LiveTalkOverlay({
           </Pressable>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    root: {
+    overlay: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 120,
+    },
+    body: {
       flex: 1,
       backgroundColor: theme.bg,
       paddingHorizontal: 16,
@@ -118,6 +156,14 @@ function makeStyles(theme: Theme) {
       ...Type.secondary,
       color: theme.textSecondary,
       textAlign: "center",
+    },
+    speakerBtn: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      borderWidth: StyleSheet.hairlineWidth,
+      alignItems: "center",
+      justifyContent: "center",
     },
     bottom: {
       flexDirection: "row",

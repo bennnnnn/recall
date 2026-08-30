@@ -582,8 +582,10 @@ function ChatScreen() {
         phase={liveTalk.phase}
         meterLevel={liveTalk.meterLevel}
         recording={liveTalk.recording}
+        headerInset={drawerOpen ? 0 : layout.headerInset}
         onClose={liveTalk.close}
         onToggle={() => void liveTalk.toggle()}
+        onSpeakerPress={liveTalk.togglePlayback}
         onInterrupt={liveTalk.interrupt}
       />
 

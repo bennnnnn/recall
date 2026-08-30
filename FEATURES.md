@@ -94,7 +94,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (OpenAI GPT Audio via OpenRouter: audio in → spoken reply, **not Whisper**). Short pause
   ends your turn; the orb never shows “Transcribing…”. Not full duplex. Free is blocked
   (upgrade). Pro: **30 turns/day** (UTC). Composer mic STT remains Whisper.
-  Tap the orb to pause/resume speech; Speak interrupts and you talk.
+  Tap the speaker to pause/resume speech (not the orb). Speak interrupts and
+  you talk. The chat header (drawer / ⋮) stays available.
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
   (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
@@ -775,7 +776,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; pause/resume + Speak interrupt; not full duplex) |
+| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; speaker pause/resume + Speak interrupt; chat header stays; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
@@ -881,7 +882,7 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex live voice (later) |
-| Live talk speech-to-speech (Pro, 30 turns/day; pause / Speak interrupt) | — |
+| Live talk speech-to-speech (Pro, 30 turns/day; speaker pause / Speak interrupt) | — |
 | Device TTS + streaming cloud TTS (`POST /speech/tts/stream`, daily caps) | — |
 
 ### Cost guards (recent)

@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk hid the chat hamburger.** Full-screen `Modal` is a new window, so
+  ChatHeader under it cannot open the drawer. In-tree overlay with `top:
+  headerInset` (0 while the drawer is open). Pause is the speaker control, not
+  the orb.
 - **Gallery `GET /attachments/{id}/file` 404 after a reboot.** List 200s from Neon, then each thumb 404s. Cause: local backend defaulted to `/tmp/recall-attachments`; macOS wipes `/tmp`, rows stay. Fix: store under `~/.recall/attachments` (`expanduser`); omit local rows whose blob is gone from the gallery list; log `attachment blob missing on disk` on `/file`.
 - **Repeat on New reminder did nothing.** Nested `AppSheet` is a second RN
   `Modal`; iOS will not present it over the add-reminder sheet. Put the

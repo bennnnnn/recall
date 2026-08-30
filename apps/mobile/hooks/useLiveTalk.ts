@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, BackHandler } from "react-native";
+
+import { useDrawer } from "@/contexts/DrawerContext";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -28,6 +30,7 @@ type Options = {
 
 export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   const feedback = useActionFeedbackOptional();
+  const drawerOpen = useDrawer().isOpen;
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
@@ -207,6 +210,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
 
   const toggle = useCallback(async () => {
     const action = liveTalkOrbAction(phase);
+    if (action === "none") return;
     if (action === "cancelThink") {
       sessionGen.current += 1;
       endingUtteranceRef.current = false;
@@ -214,7 +218,15 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
       setPhase("idle");
       return;
     }
-    if (action === "pause") {
+    if (action === "finishListen") {
+      await finishListen();
+      return;
+    }
+    await beginListen();
+  }, [phase, finishListen, beginListen]);
+
+  const togglePlayback = useCallback(() => {
+    if (phaseRef.current === "speaking") {
       if (!pauseSpeaking()) {
         sessionGen.current += 1;
         stopSpeaking();
@@ -225,7 +237,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
       setPhase("paused");
       return;
     }
-    if (action === "resume") {
+    if (phaseRef.current === "paused") {
       if (!resumeSpeaking()) {
         sessionGen.current += 1;
         stopSpeaking();
@@ -234,14 +246,8 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
         return;
       }
       setPhase("speaking");
-      return;
     }
-    if (action === "finishListen") {
-      await finishListen();
-      return;
-    }
-    await beginListen();
-  }, [phase, finishListen, beginListen]);
+  }, []);
 
   const interrupt = useCallback(() => {
     if (!liveTalkCanTakeFloor(phase)) return;
@@ -272,6 +278,16 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   }, [phase, voice.voiceMeterLevel, finishListen]);
 
   useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (drawerOpen) return false;
+      close();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, drawerOpen, close]);
+
+  useEffect(() => {
     return () => {
       stopSpeaking();
     };
@@ -285,6 +301,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     open,
     close,
     toggle,
+    togglePlayback,
     interrupt,
   };
 }

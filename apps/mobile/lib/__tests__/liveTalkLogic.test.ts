@@ -5,6 +5,7 @@ import {
   liveTalkErrorGate,
   liveTalkGate,
   liveTalkOrbAction,
+  liveTalkSpeakerAction,
   liveTalkSilenceDecision,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
@@ -46,12 +47,15 @@ describe("liveTalkErrorGate", () => {
 });
 
 describe("liveTalkOrbAction", () => {
-  it("pauses speech, resumes, and cancels thinking", () => {
-    expect(liveTalkOrbAction("speaking")).toBe("pause");
-    expect(liveTalkOrbAction("paused")).toBe("resume");
+  it("does not pause from the orb; speaker owns pause/resume", () => {
+    expect(liveTalkOrbAction("speaking")).toBe("none");
+    expect(liveTalkOrbAction("paused")).toBe("none");
     expect(liveTalkOrbAction("thinking")).toBe("cancelThink");
     expect(liveTalkOrbAction("recording")).toBe("finishListen");
     expect(liveTalkOrbAction("idle")).toBe("begin");
+    expect(liveTalkSpeakerAction("speaking")).toBe("pause");
+    expect(liveTalkSpeakerAction("paused")).toBe("resume");
+    expect(liveTalkSpeakerAction("recording")).toBeNull();
   });
 
   it("offers Speak only while audio is playing or paused", () => {
