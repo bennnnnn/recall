@@ -59,7 +59,7 @@ export function DrawerNavLinks({
         }
       >
         <View style={s.navIconWrap}>
-          <Icon name="notifications-outline" size={18} />
+          <Icon name="calendar-outline" size={18} />
           {showIndicator ? (
             <ReminderBadge count={unseenCount} style={s.navBadge} />
           ) : null}
