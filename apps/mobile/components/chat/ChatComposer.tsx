@@ -14,6 +14,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { LiveTalkButton } from "@/components/chat/LiveTalkButton";
+import { LiveTalkComposerControls } from "@/components/chat/LiveTalkComposerControls";
 import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
 import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
 import {
@@ -32,6 +33,7 @@ import {
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
+import type { LiveTalkPhase } from "@/lib/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
@@ -82,6 +84,13 @@ type Props = {
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
   onLiveTalkPress?: () => void;
+  /** Speaker + close beside the real composer while live talk is open. */
+  liveTalkChrome?: {
+    phase: LiveTalkPhase;
+    onClose: () => void;
+    onSpeakerPress: () => void;
+    onYield: () => void;
+  } | null;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
   docked?: boolean;
   onOpenMathScanner?: () => void;
@@ -117,6 +126,7 @@ export const ChatComposer = memo(function ChatComposer({
   voiceMeterLevel = 0.12,
   onVoicePress,
   onLiveTalkPress,
+  liveTalkChrome = null,
   docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
@@ -177,7 +187,7 @@ export const ChatComposer = memo(function ChatComposer({
   const parkInput = showMathPreview;
   const showEmptyCaret = math.mathBarOpen && !showMathPreview && !input.trim();
   const showMic = composerShowsMic({
-    voiceAvailable: Boolean(voiceAvailable && onVoicePress && token),
+    voiceAvailable: Boolean(voiceAvailable && onVoicePress && token && !liveTalkChrome),
     voiceRecording,
     voiceTranscribing,
     hasSendableContent,
@@ -236,7 +246,8 @@ export const ChatComposer = memo(function ChatComposer({
                 <Icon name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
             ) : null}
-          <View style={s.inputWrap}>
+          <View style={liveTalkChrome ? s.liveTalkRow : undefined}>
+          <View style={[s.inputWrap, liveTalkChrome ? s.inputWrapFlex : null]}>
             {pendingAttachment ? (
               <ComposerAttachmentPreview
                 attachment={pendingAttachment}
@@ -247,7 +258,10 @@ export const ChatComposer = memo(function ChatComposer({
             <View style={s.inputRowMain}>
               <Pressable
                 style={s.attachBtn}
-                onPress={onPickAttachment}
+                onPress={() => {
+                  liveTalkChrome?.onYield();
+                  onPickAttachment();
+                }}
                 disabled={attachBusy || attachPicking || sendBusy || streaming}
                 hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 accessibilityRole="button"
@@ -313,7 +327,10 @@ export const ChatComposer = memo(function ChatComposer({
                     caretHidden={showMathPreview || math.mathBarOpen}
                     pointerEvents={parkInput || math.mathBarOpen ? "none" : "auto"}
                     showSoftInputOnFocus={!math.mathBarOpen}
-                    onFocus={onCloseAttachSheet}
+                    onFocus={() => {
+                      onCloseAttachSheet();
+                      liveTalkChrome?.onYield();
+                    }}
                     multiline
                     returnKeyType="default"
                   />
@@ -346,6 +363,7 @@ export const ChatComposer = memo(function ChatComposer({
                       />
                     ) : null}
                     {onLiveTalkPress &&
+                    !liveTalkChrome &&
                     !voiceRecording &&
                     !voiceTranscribing &&
                     !showSend &&
@@ -397,6 +415,13 @@ export const ChatComposer = memo(function ChatComposer({
               </Text>
             ) : null}
           </View>
+          {liveTalkChrome ? (
+            <LiveTalkComposerControls
+              phase={liveTalkChrome.phase}
+              onSpeakerPress={liveTalkChrome.onSpeakerPress}
+              onClose={liveTalkChrome.onClose}
+            />
+          ) : null}
           </View>
           {math.mathBarOpen ? (
             <MathKeyboardBar
@@ -420,6 +445,7 @@ export const ChatComposer = memo(function ChatComposer({
               onStepCaret={math.stepCaret}
             />
           ) : null}
+        </View>
         </View>
       </View>
     </Animated.View>
@@ -460,6 +486,11 @@ function makeStyles(theme: Theme) {
     editBannerCancel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
     composer: { paddingVertical: 6, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
+    liveTalkRow: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 8,
+    },
     inputWrap: {
       backgroundColor: theme.inputBg,
       borderRadius: Radius.lg,
@@ -469,6 +500,7 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
     },
+    inputWrapFlex: { flex: 1, minWidth: 0 },
     tokenHint: {
       marginTop: 4,
       marginLeft: 40,

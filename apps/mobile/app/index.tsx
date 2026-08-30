@@ -568,6 +568,14 @@ function ChatScreen() {
       toggleVoiceInput,
       onLiveTalkPress: liveTalk.open,
     },
+    liveTalkSession: liveTalk.visible
+      ? {
+          phase: liveTalk.phase,
+          onClose: liveTalk.close,
+          onSpeakerPress: liveTalk.togglePlayback,
+          onYield: liveTalk.yieldToComposer,
+        }
+      : null,
   });
   openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
   const chatScreenBodyProps = chatScreenBody.bodyProps;
@@ -583,10 +591,8 @@ function ChatScreen() {
         meterLevel={liveTalk.meterLevel}
         recording={liveTalk.recording}
         headerInset={drawerOpen ? 0 : layout.headerInset}
-        onClose={liveTalk.close}
+        composerClearance={layout.composerClearance}
         onToggle={() => void liveTalk.toggle()}
-        onSpeakerPress={liveTalk.togglePlayback}
-        onInterrupt={liveTalk.interrupt}
       />
 
       <ChatScreenMenuSheets

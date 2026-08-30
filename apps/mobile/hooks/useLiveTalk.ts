@@ -254,8 +254,19 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     sessionGen.current += 1;
     stopSpeaking();
     autoListenRef.current = true;
+    void cancelRecordingRef.current();
     setPhase("idle");
   }, [phase]);
+
+  const yieldToComposer = useCallback(() => {
+    if (!visibleRef.current) return;
+    sessionGen.current += 1;
+    stopSpeaking();
+    endingUtteranceRef.current = false;
+    autoListenRef.current = false;
+    void cancelRecordingRef.current();
+    setPhase("idle");
+  }, []);
 
   useEffect(() => {
     if (!visible || phase !== "idle" || !autoListenRef.current) return;
@@ -302,6 +313,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     close,
     toggle,
     togglePlayback,
+    yieldToComposer,
     interrupt,
   };
 }

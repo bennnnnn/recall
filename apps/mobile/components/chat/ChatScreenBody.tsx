@@ -22,6 +22,7 @@ import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { type IoniconName } from "@/lib/icons";
 import { messagesLookLikeMath } from "@/lib/math/mathComposerIntent";
 import type { Theme } from "@/lib/theme";
+import type { LiveTalkPhase } from "@/lib/liveTalkLogic";
 
 export type ChatScreenBodyProps = {
   styles: ChatScreenStyles;
@@ -89,6 +90,12 @@ export type ChatScreenBodyProps = {
   voiceMeterLevel: number;
   onVoicePress?: () => void;
   onLiveTalkPress?: () => void;
+  liveTalkSession?: {
+    phase: LiveTalkPhase;
+    onClose: () => void;
+    onSpeakerPress: () => void;
+    onYield: () => void;
+  } | null;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
   listFooter?: ReactElement | null;
@@ -158,6 +165,7 @@ export function ChatScreenBody({
   voiceMeterLevel,
   onVoicePress,
   onLiveTalkPress,
+  liveTalkSession = null,
   upgradeVisible,
   onCloseUpgrade,
   listFooter = null,
@@ -237,7 +245,10 @@ export function ChatScreenBody({
         onCancelEdit={onCancelEdit}
         onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
-        onSend={onSend}
+        onSend={(text) => {
+          liveTalkSession?.onYield();
+          onSend(text);
+        }}
         onStop={onStop}
         isOffline={isOffline}
         voiceAvailable={voiceAvailable}
@@ -246,6 +257,7 @@ export function ChatScreenBody({
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
         onLiveTalkPress={onLiveTalkPress}
+        liveTalkChrome={liveTalkSession}
         onOpenMathScanner={onOpenMathScanner}
         onMathChromeHeightChange={onMathChromeHeightChange}
         mathContext={mathContext}

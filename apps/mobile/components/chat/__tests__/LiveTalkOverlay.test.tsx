@@ -32,38 +32,24 @@ describe("LiveTalkOverlay", () => {
     meterLevel: 0.2,
     recording: false,
     headerInset: 96,
-    onClose: jest.fn(),
+    composerClearance: 88,
     onToggle: jest.fn(),
-    onSpeakerPress: jest.fn(),
-    onInterrupt: jest.fn(),
   };
 
-  it("pauses from the speaker, not the orb, and takes the floor from Speak", async () => {
+  it("does not pause from the orb and has no Listening/Speaking copy", async () => {
     const onToggle = jest.fn();
-    const onSpeakerPress = jest.fn();
-    const onInterrupt = jest.fn();
-    const { getByLabelText, getByTestId, getByText, queryByLabelText } = await render(
-      <LiveTalkOverlay
-        {...base}
-        phase="speaking"
-        onToggle={onToggle}
-        onSpeakerPress={onSpeakerPress}
-        onInterrupt={onInterrupt}
-      />,
+    const { getByTestId, queryByText } = await render(
+      <LiveTalkOverlay {...base} phase="speaking" onToggle={onToggle} />,
     );
 
-    expect(getByText("chat.live_talk_speaking")).toBeTruthy();
+    expect(queryByText("chat.live_talk_speaking")).toBeNull();
+    expect(queryByText("chat.live_talk_listening")).toBeNull();
     await fireEvent.press(getByTestId("live-talk-orb"));
     expect(onToggle).not.toHaveBeenCalled();
-    expect(queryByLabelText("chat.live_talk_pause_a11y")).toBeTruthy();
-    await fireEvent.press(getByLabelText("chat.live_talk_pause_a11y"));
-    expect(onSpeakerPress).toHaveBeenCalled();
-    await fireEvent.press(getByLabelText("chat.live_talk_interrupt_a11y"));
-    expect(onInterrupt).toHaveBeenCalled();
   });
 
-  it("starts below the chat header", async () => {
+  it("starts below the chat header and above the composer", async () => {
     const { getByTestId } = await render(<LiveTalkOverlay {...base} phase="idle" />);
-    expect(getByTestId("live-talk-overlay")).toHaveStyle({ top: 96 });
+    expect(getByTestId("live-talk-overlay")).toHaveStyle({ top: 96, bottom: 88 });
   });
 });

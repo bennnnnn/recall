@@ -649,4 +649,25 @@ describe("ChatComposer math keyboard", () => {
     );
     expect(queryByTestId("live-talk-button")).toBeNull();
   });
+
+  it("keeps type and attach and puts speaker next to close in live talk", async () => {
+    const onYield = jest.fn();
+    const { getByTestId, getByLabelText, queryByTestId } = await render(
+      <ChatComposer
+        {...baseProps}
+        onLiveTalkPress={jest.fn()}
+        liveTalkChrome={{
+          phase: "speaking",
+          onClose: jest.fn(),
+          onSpeakerPress: jest.fn(),
+          onYield,
+        }}
+      />,
+    );
+    expect(queryByTestId("live-talk-button")).toBeNull();
+    expect(getByTestId("live-talk-speaker")).toBeTruthy();
+    expect(getByTestId("live-talk-close")).toBeTruthy();
+    expect(getByTestId("chat-composer-input")).toBeTruthy();
+    expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
+  });
 });

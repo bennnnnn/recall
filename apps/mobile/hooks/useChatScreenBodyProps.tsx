@@ -25,6 +25,7 @@ import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { openDrawer } from "@/lib/drawer";
+import type { LiveTalkPhase } from "@/lib/liveTalkLogic";
 import type { Theme } from "@/lib/theme";
 
 type QuotaNudge = {
@@ -120,6 +121,12 @@ export type UseChatScreenBodyPropsParams = {
     toggleVoiceInput: () => void | Promise<void>;
     onLiveTalkPress?: () => void;
   };
+  liveTalkSession?: {
+    phase: LiveTalkPhase;
+    onClose: () => void;
+    onSpeakerPress: () => void;
+    onYield: () => void;
+  } | null;
   listFooter?: ReactElement | null;
   hideHomeStarters?: boolean;
 };
@@ -196,6 +203,7 @@ export function useChatScreenBodyProps({
     toggleVoiceInput,
     onLiveTalkPress,
   },
+  liveTalkSession = null,
   listFooter = null,
   hideHomeStarters = false,
 }: UseChatScreenBodyPropsParams): { bodyProps: ChatScreenBodyProps; openUpgradeSheet: () => void } {
@@ -371,6 +379,7 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
+      liveTalkSession,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,
@@ -438,6 +447,7 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
+      liveTalkSession,
       upgradeVisible,
       onCloseUpgrade,
       listFooter,

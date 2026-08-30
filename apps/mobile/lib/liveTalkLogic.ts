@@ -32,7 +32,7 @@ export function liveTalkOrbAction(phase: LiveTalkPhase): LiveTalkOrbAction {
   return "begin";
 }
 
-/** Speaker control: pause/resume playback. Hidden unless audio is up. */
+/** Speaker control: pause while audio is up, resume while paused. */
 export function liveTalkSpeakerAction(phase: LiveTalkPhase): LiveTalkSpeakerAction | null {
   if (phase === "speaking") return "pause";
   if (phase === "paused") return "resume";
@@ -44,21 +44,6 @@ export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
   return phase === "speaking" || phase === "paused";
 }
 
-export function liveTalkHintKey(
-  phase: LiveTalkPhase,
-):
-  | "chat.live_talk_listening"
-  | "chat.live_talk_thinking"
-  | "chat.live_talk_speaking"
-  | "chat.live_talk_paused"
-  | "chat.live_talk_tap" {
-  if (phase === "recording") return "chat.live_talk_listening";
-  if (phase === "thinking") return "chat.live_talk_thinking";
-  if (phase === "speaking") return "chat.live_talk_speaking";
-  if (phase === "paused") return "chat.live_talk_paused";
-  return "chat.live_talk_tap";
-}
-
 export function liveTalkOrbA11yKey(
   phase: LiveTalkPhase,
 ): "chat.live_talk_cancel_a11y" | "chat.live_talk_a11y" {
@@ -68,10 +53,9 @@ export function liveTalkOrbA11yKey(
 
 export function liveTalkSpeakerA11yKey(
   phase: LiveTalkPhase,
-): "chat.live_talk_pause_a11y" | "chat.live_talk_resume_a11y" | null {
-  if (phase === "speaking") return "chat.live_talk_pause_a11y";
+): "chat.live_talk_pause_a11y" | "chat.live_talk_resume_a11y" {
   if (phase === "paused") return "chat.live_talk_resume_a11y";
-  return null;
+  return "chat.live_talk_pause_a11y";
 }
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {
