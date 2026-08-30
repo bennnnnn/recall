@@ -85,8 +85,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Edit & resend** — edit a user message (pencil under the bubble); truncates forward from that
   turn, rewrites the message, and re-runs.
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
-  DuckDuckGo fallback) and injects results; source links render under the reply (skipped on vocab
-  quiz turns).
+  DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
+  vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips
+  `web_search` on a turn that still needs live results, the backend searches once. One Tavily
+  reservation per turn.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
@@ -627,7 +629,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   then the same excerpt + attachment RAG path. Cap + timeout in `attachment_ocr_*`.
   Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
-  SymPy + web search kept. See [§29](#29-next-actions-product-decisions).
+  SymPy still runs. Web search is the tool loop (source chips + wrap; forced search if
+  the model skips). See [§29](#29-next-actions-product-decisions).
 - 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
   Google Docs + GitHub (and similar) are later owned integrations, not user-hosted MCP.
 - 🔜 **Code execution** beyond sandboxed HTML/chart preview — later, not now. Keep the
@@ -941,8 +944,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
    `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
    The calendar adapter conflict-checks **Google Calendar** (plus optional caller
-   stubs); it does not create on Google. Heuristic SymPy + first-turn web search
-   still run. Add Docs/GitHub later as owned tools — not user MCP servers.
+   stubs); it does not create on Google. Heuristic SymPy still runs. Web search is
+   the owned tool loop (source chips + wrap); a skipped `web_search` still runs
+   one cached search. Add Docs/GitHub later as owned tools — not user MCP servers.
 2. ✅ **Scanned-PDF OCR** — text-layer extract on prepare (no vision); empty PDFs
    render pages → `vision-chat` on the **index job** → same excerpt + chunk/embed
    RAG. No second pipeline.

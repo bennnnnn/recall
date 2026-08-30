@@ -2246,7 +2246,7 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         stack.enter_context(
             patch(
                 "app.services.tool_loop.run_tool_rounds",
-                AsyncMock(return_value=(after_tools, None, None)),
+                AsyncMock(return_value=(after_tools, None, None, [])),
             )
         )
         stack.enter_context(

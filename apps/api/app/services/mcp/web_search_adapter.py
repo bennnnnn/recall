@@ -13,7 +13,9 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
 from app.models.tool_schemas import WebSearchToolInput
-from app.services.web_search.search_cache import run_cached_search
+from app.services.prompt_safety import wrap_untrusted
+from app.services.web_search.formatting import sources_payload
+from app.services.web_search.search_cache import bind_tavily_turn_budget, run_cached_search
 
 # Request-scoped quota/cache identity for concurrent chat turns sharing the
 # process-global adapter registry. Set by the tool loop before invoke().
@@ -26,12 +28,17 @@ def bind_search_quota_context(
     *,
     user: User | None = None,
     redis: Redis | None = None,
+    settings: Settings | None = None,
 ) -> Iterator[None]:
-    """Bind the calling turn's user/redis for Tavily quota + search cache."""
+    """Bind the calling turn's user/redis and one Tavily budget for the turn."""
     token_user = _search_user.set(user)
     token_redis = _search_redis.set(redis)
     try:
-        yield
+        if settings is not None:
+            with bind_tavily_turn_budget(settings=settings, user=user):
+                yield
+        else:
+            yield
     finally:
         _search_user.reset(token_user)
         _search_redis.reset(token_redis)
@@ -71,5 +78,10 @@ class WebSearchAdapter:
         )
         if not hits:
             return ToolResult(name=self.name, content="No results.")
-        lines = [f"- {hit.title}: {hit.url}\n  {hit.snippet}" for hit in hits[:5]]
-        return ToolResult(name=self.name, content="\n".join(lines))
+        shown = hits[:5]
+        lines = [f"- {hit.title}: {hit.url}\n  {hit.snippet}" for hit in shown]
+        return ToolResult(
+            name=self.name,
+            content=wrap_untrusted("web search", "\n".join(lines)),
+            data={"hits": sources_payload(shown)},
+        )

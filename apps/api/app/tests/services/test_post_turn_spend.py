@@ -207,7 +207,7 @@ async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
         patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
             "app.services.tool_loop.run_tool_rounds",
-            AsyncMock(return_value=(tool_messages, None, None)),
+            AsyncMock(return_value=(tool_messages, None, None, [])),
         ) as run,
     ):
         await _run_tool_loop_path(
