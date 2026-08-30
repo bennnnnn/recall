@@ -26,6 +26,7 @@ import {
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { chatsFromSelection } from "@/lib/drawerChatSelection";
+import { prefetchGallery } from "@/lib/cache/galleryListCache";
 import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";
@@ -166,9 +167,10 @@ export function ConversationList(_props: unknown) {
   }, [router]);
 
   const openGallery = useCallback(() => {
+    if (token) prefetchGallery(token);
     closeDrawer();
     router.push("/gallery");
-  }, [router]);
+  }, [router, token]);
 
   const onShowRowMenu = useCallback(
     (chat: Chat) => {

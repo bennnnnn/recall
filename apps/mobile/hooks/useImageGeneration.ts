@@ -18,6 +18,7 @@ import {
   restoreImageGenPending,
 } from "@/lib/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
+import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 
 type DraftChat = {
   prepareDraftChat: (
@@ -204,6 +205,7 @@ export function useImageGeneration({
           );
           return [...without, result.user_message, result.assistant_message];
         });
+        invalidateGalleryCache();
         optimisticUserIdRef.current = null;
         lastSubmitRef.current = null;
         onScrollToLatest();

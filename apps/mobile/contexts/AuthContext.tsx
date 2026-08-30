@@ -223,6 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
       try {
+        const { invalidateGalleryCache } = await import("@/lib/cache/galleryListCache");
+        invalidateGalleryCache();
+      } catch {
+        /* best-effort */
+      }
+      try {
         const { invalidateIntegrationStatusCache } = await import(
           "@/lib/integrationStatusCache"
         );

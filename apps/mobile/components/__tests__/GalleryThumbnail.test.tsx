@@ -70,4 +70,17 @@ describe("GalleryThumbnail", () => {
     expect(getByTestId("gallery-thumb-image")).toBeTruthy();
     expect(queryByTestId("gallery-thumb-loading")).toBeNull();
   });
+
+  it("reports a missing file once on error", async () => {
+    const onMissing = jest.fn();
+    const { getByTestId, queryByTestId } = await render(
+      <GalleryThumbnail attachmentId="gone" size={40} onMissing={onMissing} />,
+    );
+    await act(async () => {
+      getByTestId("gallery-thumb-image").props.onError();
+    });
+    expect(onMissing).toHaveBeenCalledTimes(1);
+    expect(onMissing).toHaveBeenCalledWith("gone");
+    expect(queryByTestId("gallery-thumb-image")).toBeNull();
+  });
 });

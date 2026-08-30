@@ -46,6 +46,12 @@ export class StaleResourceCache<Key, Value> {
     return this.set(key, updater(current?.data), current?.fetchedAt);
   }
 
+  updateEach(updater: (value: Value) => Value): void {
+    for (const [key, entry] of this.entries) {
+      this.entries.set(key, { data: updater(entry.data), fetchedAt: entry.fetchedAt });
+    }
+  }
+
   hasInflight(key: Key): boolean {
     return this.inflight.has(key);
   }

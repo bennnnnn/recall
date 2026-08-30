@@ -24,6 +24,8 @@ describe("gallery helpers", () => {
     expect(galleryEmptyKey("all")).toBe("gallery.empty");
     expect(galleryEmptyKey("generated")).toBe("gallery.empty_generated");
     expect(galleryEmptyKey("uploaded")).toBe("gallery.empty_uploaded");
+    expect(galleryEmptyKey("all", "cat")).toBe("gallery.empty_search");
+    expect(galleryEmptyKey("files", "  ")).toBe("gallery.empty_files");
   });
 
   it("maps tabs to category and source query params", () => {

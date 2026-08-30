@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Library always skeletoned after Back.** `useGalleryData` stored lastFetchAt in
+  the hook, so leaving `/gallery` dropped the 20s skip. Use a module
+  `StaleResourceCache` (hydrate + drawer prefetch All); invalidate on logout,
+  chat delete, upload, and image-gen. Keep per-tab snapshots so filter switches
+  do not paint the previous tab. Drop a 404 thumb from the list in-session.
 - **Chat ⋮ Share icon did nothing (no Messages/Mail sheet).** `onShareFromMenu` called
   `closeMenu()` then `Share.share`. AppSheet is an RN `Modal`; presenting the OS
   activity sheet on a dismissing modal makes iOS drop it. Keep the sheet up until
