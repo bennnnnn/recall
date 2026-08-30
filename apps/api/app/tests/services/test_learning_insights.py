@@ -91,18 +91,3 @@ def test_pick_learning_nudge_stays_silent_once_goal_met_even_with_review_or_new_
         "days_inactive": 0,
     }
     assert learning_insights.pick_learning_nudge(P(), stats, daily_goal=10) is None
-
-
-def test_suggest_level_change_promotes_high_mastery():
-    class P:
-        kind = "language"
-        level = "level2"
-
-    stats = {
-        "total": 40,
-        "mastered_count": 36,
-        "learning_count": 3,
-        "new_count": 1,
-        "quiz_accuracy_pct": 82,
-    }
-    assert learning_insights.suggest_level_change(P(), stats) == "up"

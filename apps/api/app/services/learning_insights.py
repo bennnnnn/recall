@@ -7,9 +7,6 @@ from app.services.learning.insights import (
     LEARNING_PROJECT_KINDS as LEARNING_PROJECT_KINDS,
 )
 from app.services.learning.insights import (
-    LEVEL_ORDER as LEVEL_ORDER,
-)
-from app.services.learning.insights import (
     UUID as UUID,
 )
 from app.services.learning.insights import (
@@ -23,9 +20,6 @@ from app.services.learning.insights import (
 )
 from app.services.learning.insights import (
     Project as Project,
-)
-from app.services.learning.insights import (
-    SuggestedLevel as SuggestedLevel,
 )
 from app.services.learning.insights import (
     ZoneInfo as ZoneInfo,
@@ -59,9 +53,6 @@ from app.services.learning.insights import (
 )
 from app.services.learning.insights import (
     quiz_accuracy_pct as quiz_accuracy_pct,
-)
-from app.services.learning.insights import (
-    suggest_level_change as suggest_level_change,
 )
 
 sys.modules[__name__] = _impl

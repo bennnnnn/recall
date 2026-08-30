@@ -23,7 +23,7 @@ _PROJECT_SYNC_TRANSCRIPT = re.compile(
     r"\b("
     r"learning topic|vocab(?:ulary)?|add(?:ed)? (?:word|words)|"
     r"master(?:ed)?|quiz|flashcard|"
-    r"set_level|trivia|general knowledge|"
+    r"trivia|general knowledge|"
     r"save (?:to|this)|new list|word list|"
     r"create (?:a )?(?:learning )?(?:topic|project)"
     r")\b",

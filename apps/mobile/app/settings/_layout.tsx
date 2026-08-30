@@ -38,6 +38,10 @@ export default function SettingsLayout() {
     >
       <Stack.Screen name="index" options={{ title: t("settings.title") }} />
       <Stack.Screen
+        name="profile"
+        options={subScreen(t("settings.profile"), header)}
+      />
+      <Stack.Screen
         name="models"
         options={subScreen(t("settings.model"), header)}
       />

@@ -1,10 +1,10 @@
 import type { LanguageLevel, Project, ProjectKind } from "@/lib/api";
 import { LEARNING_LANGUAGES, languageLabel } from "@/lib/i18n/languages";
-import { levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
 
 export type CreateStep = "language" | "daily";
 
+/** API still requires a class level; unused for vocab (full catalog for everyone). */
 export const CREATE_DEFAULT_LEVEL: LanguageLevel = "level1";
 
 export function createStepsForKind(kind: ProjectKind | null): CreateStep[] {
@@ -25,13 +25,8 @@ export function languageClassTitle(targetLanguage = "en"): string {
   return languageLabel(targetLanguage);
 }
 
-export function languageProjectTitle(level: LanguageLevel, targetLanguage = "en"): string {
-  return `${languageLabel(targetLanguage)} · ${levelLabel(level)}`;
-}
-
 export function fallbackProjectTitle(
   kind: ProjectKind,
-  _level: LanguageLevel,
   t: (key: string) => string,
 ): string {
   if (kind === "language" || kind === "vocabulary") {
@@ -43,14 +38,13 @@ export function fallbackProjectTitle(
 export function resolveProjectTitle(
   titleInput: string,
   kind: ProjectKind,
-  level: LanguageLevel,
   t: (key: string) => string,
 ): string {
   const title = titleInput.trim();
   if (title.length > 0) {
     return title.length <= 80 ? title : `${title.slice(0, 77)}…`;
   }
-  return fallbackProjectTitle(kind, level, t);
+  return fallbackProjectTitle(kind, t);
 }
 
 /** Omit description when empty or identical to title (avoids duplicate subtitle on detail). */

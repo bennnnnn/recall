@@ -5,7 +5,6 @@ from app.content.vocab_catalog import (
     catalog_path_titles,
     catalog_word_count,
     decks_for_language,
-    level_to_int,
     path_decks_for_language,
     word_id,
 )
@@ -159,15 +158,6 @@ def test_lesson_map_is_the_full_tree_not_level_gated():
     es_path = [deck.domain for deck in path_decks_for_language("es")]
     assert "SAT" not in es_path
     assert "Family" in es_path
-
-
-def test_level_to_int():
-    assert level_to_int("level1") == 1
-    assert level_to_int("level6") == 6
-    assert level_to_int(None) == 1
-    assert level_to_int("garbage") == 1
-    assert level_to_int("level99") == 6  # clamped
-    assert level_to_int("level0") == 1  # clamped
 
 
 def test_word_count_covers_the_path():

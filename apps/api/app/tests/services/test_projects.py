@@ -116,7 +116,7 @@ def test_format_projects_block_groups_lists():
     item_a = _item("hello", project.id)
     item_b = _item("goodbye", project.id, mastered=True)
     block = projects_service.format_projects_block([project], [item_a, item_b])
-    assert f"### Learning English (id={project.id}, language, level1)" in block
+    assert f"### Learning English (id={project.id}, language)" in block
     assert "1/2 mastered" in block
     assert "#### Travel" in block
     assert "○ hello" in block
@@ -1714,7 +1714,7 @@ async def test_apply_project_actions_blocks_delete_list_by_default():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_set_level_and_description():
+async def test_apply_project_actions_ignores_set_level():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
@@ -1751,8 +1751,8 @@ async def test_apply_project_actions_set_level_and_description():
                 ),
             ],
         )
-    assert applied == 2
-    assert update_mock.await_count == 2
+    assert applied == 1
+    assert update_mock.await_count == 1
 
 
 @pytest.mark.asyncio

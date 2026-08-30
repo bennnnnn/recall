@@ -11,7 +11,6 @@ import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { type IoniconName } from "@/lib/icons";
-import { levelLabelT } from "@/lib/languageLevels";
 import {
   formatDailyGoalShort,
   resolveDailyGoal,
@@ -111,7 +110,6 @@ export default function ProjectsScreen() {
               <LearningProjectCard
                 project={project}
                 icon={kindIcon(project.kind)}
-                levelLabel={levelLabelT(project.level, t)}
                 dailyLabel={dailyValue}
                 onOpen={openProject}
               />

@@ -109,6 +109,19 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-keyboard-toggle")).toBeTruthy();
   });
 
+  it("reserves a gap above the floating math chip so action icons are not flush", async () => {
+    const onMathChromeHeightChange = jest.fn();
+    await render(
+      <ChatComposer
+        {...baseProps}
+        onMathChromeHeightChange={onMathChromeHeightChange}
+      />,
+    );
+    await waitFor(() => {
+      expect(onMathChromeHeightChange).toHaveBeenLastCalledWith(56);
+    });
+  });
+
   it("toggles the symbol bar and inserts a fraction at the caret", async () => {
     const onChangeInput = jest.fn();
     const { getByTestId, queryByTestId } = await render(

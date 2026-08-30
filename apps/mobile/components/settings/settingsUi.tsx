@@ -615,17 +615,24 @@ export function makeSettingsStyles(t: Theme) {
     rowPressed: { opacity: 0.55 },
 
     profileHeader: {
+      width: "100%",
       alignItems: "center",
       gap: Space.xs,
-      marginBottom: Space.xxs,
+      marginBottom: Space.sm,
       paddingTop: Space.sm,
-      paddingBottom: Space.xxs,
+      paddingBottom: Space.sm,
     },
-    profileName: {
-      ...Type.title,
-      fontSize: 22,
-      color: t.text,
-      marginTop: Space.xs,
+    profileAvatarWrap: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
+      alignSelf: "center",
+      backgroundColor: t.surfaceAlt,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
     },
     profileEmail: {
       ...Type.secondary,

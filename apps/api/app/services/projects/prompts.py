@@ -35,32 +35,9 @@ PROJECT_HINT = (
     "project was already created or updated in this turn.\n"
     "At most ONE language project per target language. "
     "You MAY create a second language project when they want a different language "
-    "(e.g. Spanish when they already have English). Use set_level on the existing project "
-    "when skill in that language grows.\n"
-    "When telling the user their level, use the plain label only (Beginner, Elementary, "
-    "Intermediate, …) — do not mention CEFR or A1–C2 codes unless they ask.\n"
+    "(e.g. Spanish when they already have English).\n"
     "Do not invent titles or list names the user did not choose."
 )
-
-
-LEVEL_GUIDANCE: dict[str, str] = {
-    "level1": (
-        "Beginner: only basic high-frequency words — cat, eat, book, go, hello, water. "
-        "Never quiz or add advanced/rare words (ubiquitous, pragmatic, ephemeral, mitigate)."
-    ),
-    "level2": (
-        "Elementary: everyday words a new learner meets in simple conversations. "
-        "Avoid academic or rare vocabulary."
-    ),
-    "level3": (
-        "Intermediate: common words plus some idioms. Still avoid highly specialized jargon."
-    ),
-    "level4": (
-        "Upper intermediate: broader vocabulary including less common but still useful words."
-    ),
-    "level5": ("Advanced: sophisticated vocabulary including nuance and formal register."),
-    "level6": ("Fluent: full range including rare, literary, and technical words when relevant."),
-}
 
 
 VOCAB_QUIZ_FENCE_EXAMPLE = (
@@ -190,20 +167,6 @@ def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None)
     )
 
 
-def _level_guidance(level: str) -> str:
-    return LEVEL_GUIDANCE.get(level or "level1", LEVEL_GUIDANCE["level1"])
-
-
-_LEVEL_LABELS: dict[str, str] = {
-    "level1": "Beginner",
-    "level2": "Elementary",
-    "level3": "Intermediate",
-    "level4": "Upper intermediate",
-    "level5": "Advanced",
-    "level6": "Fluent",
-}
-
-
 def _language_progress_line(stats: ProjectStats) -> str:
     if stats.total == 0:
         return "I have no words yet — help me add some first."
@@ -215,16 +178,12 @@ def _language_progress_line(stats: ProjectStats) -> str:
 
 def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
     title = project.title.strip()
-    lvl = _LEVEL_LABELS.get(project.level or "level1", "Beginner")
-    goal = (
-        f" {project.description.strip()}."
-        if project.description and project.description.strip()
-        else ""
-    )
+    desc = (project.description or "").strip()
     name = language_display_name(getattr(project, "target_language", None))
+    goal_line = f"{desc}.\n" if desc else ""
     return (
         f'Start today\'s vocabulary session for my "{title}" {name} project.\n'
-        f"My {name} level: {lvl}.{goal}\n"
+        f"{goal_line}"
         f"{_language_progress_line(stats)}\n\n"
         "Open the lesson to practice — do not quiz in this chat. "
         "Start with words I failed recently, then new ones."

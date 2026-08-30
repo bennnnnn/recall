@@ -5,7 +5,6 @@ import {
   resolveProjectDescription,
   resolveProjectTitle,
   languageClassTitle,
-  languageProjectTitle,
 } from "@/lib/projects/projectCreateFlow";
 import type { Project } from "@/lib/api";
 
@@ -23,22 +22,17 @@ describe("projectCreateFlow", () => {
     expect(CREATE_DEFAULT_LEVEL).toBe("level1");
   });
 
-  it("builds settings title from level and target", () => {
-    expect(languageProjectTitle("level2", "es")).toBe("Español · Elementary");
-    expect(languageProjectTitle("level1", "en")).toBe("English · Beginner");
-  });
-
   it("drops description when it matches title", () => {
     expect(resolveProjectDescription("Calculus", "Calculus")).toBe("");
     expect(resolveProjectDescription("Calculus", "Exam prep")).toBe("Exam prep");
   });
 
   it("uses title input when provided", () => {
-    expect(resolveProjectTitle("Spanish class", "language", "level1", t)).toBe("Spanish class");
+    expect(resolveProjectTitle("Spanish class", "language", t)).toBe("Spanish class");
   });
 
   it("falls back to the language label without a level suffix", () => {
-    expect(resolveProjectTitle("", "language", "level3", t)).toBe("English");
+    expect(resolveProjectTitle("", "language", t)).toBe("English");
   });
 
   it("allows add learning until English and Spanish exist", () => {

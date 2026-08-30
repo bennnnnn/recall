@@ -1,5 +1,5 @@
 import type { HomeProjectHighlight, Project, ProjectDetail, ProjectStats } from "@/lib/api";
-import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
 import { learningProjectTitle } from "@/lib/projects/projectUi";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
@@ -129,11 +129,10 @@ export function buildProjectAskPrompt(
   const screenTitle = options.screenTitle?.trim() || defaultScreenTitle(project);
 
   if (isLanguageProject(project.kind)) {
-    const lvl = levelLabel(project.level);
     const daily = resolveProjectDailyGoal(project);
     if (isDailyGoalMet(project)) {
       return (
-        `I finished my daily goal of ${daily} words on my ${screenTitle} session (Level: ${lvl}).\n` +
+        `I finished my daily goal of ${daily} words on my ${screenTitle} session.\n` +
         `${progressLine(project)}\n\n` +
         "Tell me clearly that today's goal is complete — congratulate me. " +
         "Do NOT add or sync new words unless I explicitly ask for a bonus batch beyond today's goal. " +
@@ -142,7 +141,7 @@ export function buildProjectAskPrompt(
     }
     return (
       `Continue my ${screenTitle} session.\n` +
-      `Level: ${lvl}. ${todayProgressClause(project)}. ${LESSON_HANDOFF}`
+      `${todayProgressClause(project)}. ${LESSON_HANDOFF}`
     );
   }
 
@@ -162,10 +161,9 @@ export function buildChapterLessonPrompt(
 ): string {
   const chapter = chapterTitle.trim();
   const name = languageLabel(project.target_language);
-  const lvl = levelLabel(project.level);
   return (
     `Continue my ${name} lesson in the "${chapter}" chapter.\n` +
-    `Level: ${lvl}. ${todayProgressClause(project)}\n` +
+    `${todayProgressClause(project)}\n` +
     `Teach only this chapter. Add any new words to "${chapter}". ${LESSON_HANDOFF}`
   );
 }
@@ -173,12 +171,11 @@ export function buildChapterLessonPrompt(
 /** Explicit opt-in when the user wants words beyond today's daily goal. */
 export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   const daily = resolveProjectDailyGoal(project);
-  const lvl = levelLabel(project.level);
   return (
     `I already finished my daily goal of ${daily} words on "${project.title}" today ` +
-    `(${project.stats.mastered_today}/${daily} mastered). My level: ${lvl}.\n\n` +
+    `(${project.stats.mastered_today}/${daily} mastered).\n\n` +
     `I want a BONUS batch beyond today's goal. Confirm I'm ok with extra words, then add up to ${daily} ` +
-    "fresh words at my level — teach and quiz them one at a time. Do not start until I confirm."
+    "fresh words — teach and quiz them one at a time. Do not start until I confirm."
   );
 }
 
@@ -192,7 +189,6 @@ export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
 
 /** Starts an interactive multiple-choice vocabulary quiz in chat. */
 export function buildProjectQuizPrompt(project: ProjectDetail): string {
-  const lvl = levelLabel(project.level);
   const name = languageLabel(project.target_language);
   const goal = project.description?.trim() ? ` ${project.description.trim()}.` : "";
   const daily = resolveProjectDailyGoal(project);
@@ -208,7 +204,7 @@ export function buildProjectQuizPrompt(project: ProjectDetail): string {
 
   return (
     `Start today's vocabulary session for my "${project.title}" ${name} project.\n` +
-    `My ${name} level: ${lvl}.${goal}\n` +
+    `${goal ? goal.trim() + "\n" : ""}` +
     `${progressLine(project)}\n\n` +
     LESSON_HANDOFF
   );

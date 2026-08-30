@@ -237,12 +237,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account** — shows name + email; profile picture from Google (initials fallback).
-- ✅ **Settings chrome** — Account / App / Data & privacy on the home list, plus the
+- ✅ **Account** — shows email and plan; profile picture from Google (initials fallback).
+  Profile (name, age, country, job, plan) is a row under that header.
+- ✅ **Settings chrome** — identity header, then App / Data & privacy on the home list, plus the
   same icon wells and one-line subtitles on nested screens. Choice rows expand
   inline (no picker sheet). Same destinations.
 - ✅ **Structured profile** — name, age, country, and job editable in Settings → Profile;
-  persisted on `users` and injected into the chat system prompt (see [§6](#6-memory-remembering-the-user)).
+  plan (Free / Pro) is shown there. Persisted on `users` and injected into the chat
+  system prompt (see [§6](#6-memory-remembering-the-user)).
 - ✅ **Default model** — Flash / Pro.
 - ✅ **Response style** — short / balanced / detailed (changes the assistant's verbosity).
 - ✅ **Memory** — on/off toggle + link to manage saved memories.
@@ -512,7 +514,8 @@ were removed. Programming help lives in main chat.
   There is no due-queue of old mastered words across groups. Reopening a
   **completed** group on the map is a same-group review pass, not SM-2.
   Settings has PDF export, not a deck browser. `buildProjectReviewPrompt` is unused.
-- ⚠️ **Adaptive level hints** — computed server-side; Settings does not surface them.
+- ❌ **Class CEFR level** — unused. Vocab is the full catalog for everyone;
+  Settings has daily goal + PDF + delete only. Chat extract `set_level` is a no-op.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges show “inactive for N days” copy (streak count is not included in notification text).
 - ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch.
@@ -528,10 +531,8 @@ were removed. Programming help lives in main chat.
   Casual expressions last). Spanish
   keeps the Greetings / Family / Food / … tree. Older English Hotel/SAT rows stay
   in the catalog tables for existing `catalog_entry_id` links but are **not** on
-  the English lesson map. **Every class sees its full path** — class level
-  does not hide later groups. Create is a full-screen flow: **language**, then
-  **daily goal** (5/10/15). Class level defaults to beginner and lives in
-  Settings (tutor hints only — it does not gate the tree). Create opens the
+  the English lesson map. **Every class sees its full path.** Create is a
+  full-screen flow: **language**, then **daily goal** (5/10/15). Create opens the
   **lesson map** (not a tutor chat that invents words). Main chat gets a progress overview (class, daily
   counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s

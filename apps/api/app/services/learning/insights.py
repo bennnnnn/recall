@@ -1,4 +1,4 @@
-"""Streak, nudge scoring, and adaptive level helpers for learning projects."""
+"""Streak, nudge scoring, and daily-goal helpers for learning projects."""
 
 from __future__ import annotations
 
@@ -11,8 +11,6 @@ from app.models.orm import Project
 from app.services.learning.daily import completed_today_count
 
 LEARNING_PROJECT_KINDS = ("language", "vocabulary")
-LEVEL_ORDER = ("level1", "level2", "level3", "level4", "level5", "level6")
-SuggestedLevel = Literal["up", "down"]
 NudgeType = Literal["learning_daily_goal", "learning_review", "learning_continue"]
 
 
@@ -62,29 +60,6 @@ def quiz_accuracy_pct(items: list[Any], *, min_attempts: int = 8) -> int | None:
     return round(100 * correct / attempts)
 
 
-def suggest_level_change(project: Project, stats: dict[str, Any]) -> SuggestedLevel | None:
-    if project.kind not in ("language", "vocabulary"):
-        return None
-    total = int(stats.get("total") or 0)
-    if total < 25:
-        return None
-    level = (project.level or "level1").strip()
-    idx = LEVEL_ORDER.index(level) if level in LEVEL_ORDER else 0
-    mastered = int(stats.get("mastered_count") or 0)
-    ratio = mastered / total
-    accuracy = stats.get("quiz_accuracy_pct")
-    if ratio >= 0.88 and (accuracy is None or accuracy >= 78) and idx < len(LEVEL_ORDER) - 1:
-        return "up"
-    if (
-        ratio < 0.45
-        and int(stats.get("learning_count") or 0) > int(stats.get("new_count") or 0)
-        and (accuracy is None or accuracy < 55)
-        and idx > 0
-    ):
-        return "down"
-    return None
-
-
 def enrich_learning_stats(
     stats: dict[str, Any],
     *,
@@ -107,7 +82,7 @@ def enrich_learning_stats(
     else:
         stats["streak_days"] = 0
     stats["quiz_accuracy_pct"] = quiz_accuracy_pct(items)
-    stats["suggested_level"] = suggest_level_change(project, stats)
+    stats["suggested_level"] = None
     return stats
 
 
