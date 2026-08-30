@@ -19,9 +19,7 @@ from app.services.projects.common import (
     language_display_name,
 )
 from app.services.projects.prompts import (
-    _LEVEL_LABELS,
     VOCAB_LEARNING_FORMATS_BLOCK,
-    _level_guidance,
 )
 from app.services.vocab_quiz import QuizAnswerGrade
 
@@ -227,7 +225,6 @@ async def load_project_quiz_context(
             and (i.content or "").strip().lower() == answered_label.lower()
         )
     ]
-    level = project.level or "level1"
     if retry_same and answered_label:
         follow = (
             f'WRONG on "{answered_label}" (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}) — '
@@ -251,9 +248,7 @@ async def load_project_quiz_context(
             "(teach→use, use→define, or occasional MCQ). Never repeat a mastered word."
         )
     lines = [
-        f"Active vocabulary session — project: {project.title} ({_LEVEL_LABELS.get(level, level)}).",
-        f"{language_display_name(getattr(project, 'target_language', None))} skill: "
-        f"{_level_guidance(level)}",
+        f"Active vocabulary session — project: {project.title}.",
         follow,
     ]
     # LANG-TEACH-007/008: tell the model which language to teach and which
@@ -272,7 +267,7 @@ async def load_project_quiz_context(
         lines.append(
             f"Teach {language_display_name(target_lang)} vocabulary. "
             "Use the target language for words, examples, and quizzes; "
-            "use English for brief explanations when the user's level needs it."
+            "use English for brief explanations when helpful."
         )
     if not retry_same:
         lines.extend(

@@ -14,7 +14,6 @@ type Props = {
   project: Project;
   icon: IoniconName;
   onOpen: (projectId: string) => void;
-  levelLabel: string;
   dailyLabel: string;
 };
 
@@ -22,7 +21,6 @@ export const LearningProjectCard = memo(function LearningProjectCard({
   project,
   icon,
   onOpen,
-  levelLabel,
   dailyLabel,
 }: Props) {
   const { t } = useTranslation();
@@ -47,7 +45,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
 
   const lifetimeLine = t("projects.list.lifetime_words", { count: lifetimeTotal });
 
-  const chips = [levelLabel, `${dailyLabel}/day`];
+  const chips = [`${dailyLabel}/day`];
 
   return (
     <View style={s.section}>

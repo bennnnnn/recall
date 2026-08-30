@@ -45,6 +45,8 @@ export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
 const MATH_KEYBOARD_CHIP_HEIGHT = 44;
+/** Space above the floating keypad so message action icons are not flush with it. */
+const MATH_KEYBOARD_CHIP_GAP = 12;
 export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
@@ -142,7 +144,11 @@ export const ChatComposer = memo(function ChatComposer({
   const draftTokens = estimateTokens(input);
   const showTokenHint = shouldShowDraftTokenHint(draftTokens);
   const mathChromeHeight =
-    (math.mathBarOpen ? math.padHeight : showMathChip ? MATH_KEYBOARD_CHIP_HEIGHT : 0) +
+    (math.mathBarOpen
+      ? math.padHeight
+      : showMathChip
+        ? MATH_KEYBOARD_CHIP_HEIGHT + MATH_KEYBOARD_CHIP_GAP
+        : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? 40 : 0) +
     (showTokenHint ? COMPOSER_TOKEN_HINT_HEIGHT : 0);
@@ -218,8 +224,8 @@ export const ChatComposer = memo(function ChatComposer({
               </Pressable>
             </View>
           ) : null}
-          {showMathChip ? (
-            <View style={s.chipRow}>
+          <View style={s.inputStack}>
+            {showMathChip ? (
               <Pressable
                 onPress={onToggleMathBar}
                 style={({ pressed }) => [s.chip, pressed && s.chipPressed]}
@@ -229,8 +235,7 @@ export const ChatComposer = memo(function ChatComposer({
               >
                 <Icon name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
-            </View>
-          ) : null}
+            ) : null}
           <View style={s.inputWrap}>
             {pendingAttachment ? (
               <ComposerAttachmentPreview
@@ -392,6 +397,7 @@ export const ChatComposer = memo(function ChatComposer({
               </Text>
             ) : null}
           </View>
+          </View>
           {math.mathBarOpen ? (
             <MathKeyboardBar
               open
@@ -427,16 +433,18 @@ function makeStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 110,
+      overflow: "visible",
       backgroundColor: theme.composerBg,
       paddingHorizontal: 12,
       paddingTop: 2,
     },
     composerDocked: {
+      overflow: "visible",
       backgroundColor: theme.composerBg,
       paddingHorizontal: 12,
       paddingTop: 2,
     },
-    composerAnchor: { position: "relative" },
+    composerAnchor: { position: "relative", overflow: "visible" },
     editBanner: {
       flexDirection: "row",
       alignItems: "center",
@@ -450,7 +458,8 @@ function makeStyles(theme: Theme) {
     },
     editBannerText: { fontSize: 13, fontWeight: "600", color: theme.primary },
     editBannerCancel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
-    composer: { paddingVertical: 6 },
+    composer: { paddingVertical: 6, overflow: "visible" },
+    inputStack: { position: "relative", overflow: "visible" },
     inputWrap: {
       backgroundColor: theme.inputBg,
       borderRadius: Radius.lg,
@@ -483,13 +492,11 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       marginBottom: 0,
     },
-    chipRow: {
-      height: MATH_KEYBOARD_CHIP_HEIGHT,
-      marginBottom: 4,
-      flexDirection: "row",
-      alignItems: "center",
-    },
     chip: {
+      position: "absolute",
+      left: 0,
+      top: -(MATH_KEYBOARD_CHIP_HEIGHT + 4),
+      zIndex: 1,
       minWidth: 44,
       minHeight: 44,
       height: 44,
@@ -497,9 +504,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 16,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: theme.surfaceAlt,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
+      backgroundColor: "transparent",
     },
     chipPressed: { opacity: 0.55 },
     input: {

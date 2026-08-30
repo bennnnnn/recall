@@ -179,11 +179,9 @@ async def _project_action_set_description(
 
 
 async def _project_action_set_level(state: _ProjectApplyState, action: ProjectActionItem) -> int:
-    matched = _find_project(state.projects, action.project_title)
-    if not matched or not action.level:
-        return 0
-    await projects_repo.update(state.session, matched, commit=False, level=action.level)
-    return 1
+    """Class level is unused; ignore leftover extractor output."""
+    del state, action
+    return 0
 
 
 async def _project_action_add(state: _ProjectApplyState, action: ProjectActionItem) -> int:

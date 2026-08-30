@@ -16,16 +16,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { type LanguageLevel, type Project } from "@/lib/api";
+import { type Project } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import {
   dailyGoalPickerOptions,
   formatDailyGoalShort,
   resolveDailyGoal,
 } from "@/lib/projects/dailyGoals";
-import { isLanguageProject, levelLabelT, levelPickerOptions } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
-import { languageProjectTitle } from "@/lib/projects/projectCreateFlow";
 import {
   exportProjectAsPdf,
   projectHasExportableItems,
@@ -77,33 +76,6 @@ export default function LearningSettingsScreen() {
     setProjects((prev) => mergeProjectRow(prev, { ...project, daily_goal: nextGoal }));
     try {
       const updated = await updateProject(project.id, { daily_goal: nextGoal });
-      setProjects((prev) => mergeProjectRow(prev, updated));
-      void refresh({ silent: true, force: true });
-    } catch {
-      setProjects((prev) => mergeProjectRow(prev, project));
-      if (feedback) feedback.error(t("settings.learning.save_failed"));
-      else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
-    } finally {
-      setSavingKey((cur) => (cur === key ? null : cur));
-    }
-  };
-
-  const saveLevel = async (project: Project, level: LanguageLevel) => {
-    if (!token) return;
-    const key = `${project.id}-level`;
-    if (savingKey === key) return;
-    const draft: Project = {
-      ...project,
-      level,
-      title: languageProjectTitle(level, project.target_language),
-    };
-    setSavingKey(key);
-    setProjects((prev) => mergeProjectRow(prev, draft));
-    try {
-      const updated = await updateProject(project.id, {
-        level,
-        title: draft.title,
-      });
       setProjects((prev) => mergeProjectRow(prev, updated));
       void refresh({ silent: true, force: true });
     } catch {
@@ -217,20 +189,6 @@ export default function LearningSettingsScreen() {
                       </View>
                     </View>
                   ) : null}
-                  <SettingsInlinePicker
-                    icon="school-outline"
-                    title={t("settings.learning.level_label")}
-                    value={levelLabelT(languageProject.level, t)}
-                    options={levelPickerOptions(t)}
-                    selectedKey={languageProject.level}
-                    expanded={openPicker === `${languageProject.id}-level`}
-                    busy={savingKey === `${languageProject.id}-level`}
-                    onToggle={() => togglePicker(`${languageProject.id}-level`)}
-                    onSelect={(key) => void saveLevel(languageProject, key as LanguageLevel)}
-                    styles={s}
-                    theme={theme}
-                  />
-                  <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
                   <SettingsInlinePicker
                     icon="book-outline"
                     title={t("settings.learning.words_label")}

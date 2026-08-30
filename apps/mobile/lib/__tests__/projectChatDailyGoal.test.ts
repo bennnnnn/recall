@@ -13,7 +13,7 @@ function languageProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail 
   return {
     id: "lang-1",
     kind: "language",
-    title: "English · Beginner",
+    title: "English",
     description: null,
     level: "level1",
     target_language: "en",
@@ -48,10 +48,10 @@ describe("projectChat daily goal helpers", () => {
     ).toBe(0);
   });
 
-  it("in-progress words prompt includes level and today progress", () => {
+  it("in-progress words prompt includes today progress", () => {
     const prompt = buildProjectAskPrompt(languageProject(), { screenTitle: "Words" });
     expect(prompt).toContain("Continue my Words session.");
-    expect(prompt).toContain("Level: Beginner.");
+    expect(prompt).not.toContain("Level:");
     expect(prompt).toContain("Today: 3/5 done (3 mastered, 0 failed)");
     expect(prompt).toContain("Do not quiz in this chat");
     expect(prompt).not.toContain("Goal:");
@@ -70,7 +70,7 @@ describe("projectChat daily goal helpers", () => {
 
   it("language ask prompt uses the target language as the screen title", () => {
     const prompt = buildProjectAskPromptFromProject(
-      languageProject({ target_language: "fr", title: "Français · Beginner" }),
+      languageProject({ target_language: "fr", title: "Français" }),
       t,
     );
     expect(prompt).toContain("Continue my Français session.");

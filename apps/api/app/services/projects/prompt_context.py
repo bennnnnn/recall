@@ -33,7 +33,6 @@ from app.services.projects.common import (
 from app.services.projects.prompts import (
     CHAT_LEARNING_HANDOFF_HINT,
     _language_tutor_hint,
-    _level_guidance,
     _quiz_mode_banner,
 )
 from app.services.projects.quiz_context import (
@@ -57,18 +56,11 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
         project_items = by_project.get(project.id, [])
         stats = _stats_for_items(project_items)
         desc = f" — {project.description}" if project.description else ""
-        level = getattr(project, "level", "level1") or "level1"
-        guidance = _level_guidance(level)
         meta = project.kind
-        if _is_language_project(project):
-            meta = f"{project.kind}, {level}"
         skill_line = ""
         if _is_language_project(project):
             name = language_display_name(project.target_language)
-            skill_line = (
-                f"{name} skill: {guidance}\n"
-                f"Daily goal: {_language_daily_goal(project)} new words per session\n"
-            )
+            skill_line = f"Daily goal: {_language_daily_goal(project)} new words per session\n"
             # LANG-TEACH-007/008: tell the model which language to teach and
             # which language the user speaks natively so explanations use
             # the right contrast language.
@@ -83,8 +75,7 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
             else:
                 skill_line += (
                     f"Teach {name} vocabulary. Use {name} for words, examples, "
-                    f"and quizzes; use English for brief explanations when the "
-                    f"user's level needs it.\n"
+                    f"and quizzes; use English for brief explanations when helpful.\n"
                 )
         lines.append(
             f"\n### {project.title} (id={project.id}, {meta}){desc}\n"
@@ -175,17 +166,10 @@ def format_learning_overview_block(projects: list[Project], items: list[ProjectI
         project_items = by_project.get(project.id, [])
         stats = _stats_for_items(project_items)
         desc = f" — {project.description}" if project.description else ""
-        level = getattr(project, "level", "level1") or "level1"
         meta = project.kind
-        if _is_language_project(project):
-            meta = f"{project.kind}, {level}"
         skill_line = ""
         if _is_language_project(project):
-            name = language_display_name(project.target_language)
-            skill_line = (
-                f"{name} skill: {_level_guidance(level)}\n"
-                f"Daily goal: {_language_daily_goal(project)} new words per session\n"
-            )
+            skill_line = f"Daily goal: {_language_daily_goal(project)} new words per session\n"
         lines.append(
             f"\n### {project.title} (id={project.id}, {meta}){desc}\n"
             f"{skill_line}"

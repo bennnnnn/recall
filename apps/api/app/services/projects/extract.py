@@ -28,12 +28,11 @@ async def extract_project_actions(
                 f"{state}\n\n"
                 "Return ONLY JSON (no markdown): "
                 '{"actions": [{"action": '
-                '"create_project|delete_project|set_description|set_level|add|start_learning|'
+                '"create_project|delete_project|set_description|add|start_learning|'
                 'master|unmaster|delete|delete_list", '
                 '"project_title": "must match a topic title from state when possible", '
                 '"kind": "language (vocabulary in a target language)", '
                 '"target_language": "ISO 639-1 for language projects: en|es", '
-                '"level": "level1-level6 (for language topics)", '
                 '"description": "optional description", '
                 '"list_title": "chapter/deck name from the project path (e.g. Greetings)", '
                 '"content": "one word/phrase per add action", '
@@ -56,7 +55,6 @@ async def extract_project_actions(
                 "- master: ONLY when the user answered correctly this turn. "
                 "NEVER emit master if the user was wrong, the assistant said their "
                 "answer was wrong, or the assistant corrected them to a different option.\n"
-                "- set_level: when user moves up (level1=beginner … level6=fluent in that language).\n"
                 "- Return empty actions array if nothing should change."
             ),
         },

@@ -154,23 +154,12 @@ def all_catalog_decks() -> tuple[CatalogDeck, ...]:
     return tuple([*spanish_decks(), *english_decks()])
 
 
-def level_to_int(level: str | None) -> int:
-    """Convert 'level3' → 3; unknown/missing → 1 (beginner-safe default)."""
-    if not isinstance(level, str):
-        return 1
-    digits = level.removeprefix("level").strip()
-    n = int(digits) if digits.isdigit() else 1
-    return max(1, min(6, n))
-
-
 def decks_for_language(
     language: str,
     *,
     include_sat: bool = False,
 ) -> list[CatalogDeck]:
-    """All curated decks for a language. Later chapters lock in the lesson map;
-    they are not hidden by class level.
-    """
+    """All curated decks for a language. Later chapters lock in the lesson map."""
     lang = (language or "en").strip().lower()
     found = [deck for deck in all_catalog_decks() if deck.language == lang]
     if not include_sat:
