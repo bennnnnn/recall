@@ -210,3 +210,8 @@ export function converterAskText(digits: string, fromPrompt: string, toPrompt: s
   const left = digits.endsWith(".") ? digits.slice(0, -1) : digits;
   return `convert ${left} ${fromPrompt} to ${toPrompt}`;
 }
+
+/** LaTeX snippet for inserting a live convert result into the composer. */
+export function converterInsertSnippet(value: string, symbol: string): string {
+  return `${value}\\,\\text{${symbol}}`;
+}

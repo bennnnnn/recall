@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { MathConverterUnitSheet } from "@/components/chat/MathConverterUnitSheet";
 import { selection as hapticSelection } from "@/lib/haptics";
+import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/mathKeyboardSymbols";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   CONVERTER_DEFAULT_DIGITS,
@@ -21,6 +22,7 @@ type Props = {
   onAsk: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
+  onInsert: (spec: MathKeyboardSymbol) => void;
 };
 
 function buzz() {
@@ -31,6 +33,7 @@ export const MathConverterPad = memo(function MathConverterPad({
   onAsk,
   onStop,
   streaming,
+  onInsert,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -66,6 +69,12 @@ export const MathConverterPad = memo(function MathConverterPad({
     if (pickerFor === "from") setFromId(id);
     if (pickerFor === "to") setToId(id);
     setPickerFor(null);
+  };
+
+  const insert = () => {
+    buzz();
+    if (raw == null || !to) return;
+    onInsert(converterResultSpec(result, to.symbol));
   };
 
   const ask = () => {
@@ -137,6 +146,16 @@ export const MathConverterPad = memo(function MathConverterPad({
                   accent
                   trailing={streaming ? "■" : "↑"}
                 />
+              ) : cell === "insert" ? (
+                <Key
+                  key={cell}
+                  label={t("chat.math_converter_insert")}
+                  testID="math-converter-insert"
+                  onPress={insert}
+                  theme={theme}
+                  accent
+                  disabled={raw == null}
+                />
               ) : (
                 <Key
                   key={cell}
@@ -167,7 +186,7 @@ const CONVERTER_PAD = [
   ["7", "8", "9", "AC"],
   ["4", "5", "6", "back"],
   ["1", "2", "3", "±"],
-  ["0", ".", "ask"],
+  ["0", ".", "insert", "ask"],
 ] as const;
 
 function UnitChip({
@@ -205,6 +224,7 @@ function Key({
   theme,
   accent,
   trailing,
+  disabled,
 }: {
   label: string;
   testID: string;
@@ -212,14 +232,17 @@ function Key({
   theme: Theme;
   accent?: boolean;
   trailing?: string;
+  disabled?: boolean;
 }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [s.key, accent && s.keyAccent, pressed && s.pressed]}
+      disabled={disabled}
+      style={({ pressed }) => [s.key, accent && s.keyAccent, pressed && s.pressed, disabled && s.keyDisabled]}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
       testID={testID}
     >
       <View style={s.keyInner}>
@@ -270,6 +293,7 @@ const makeStyles = (theme: Theme) =>
       borderColor: theme.border,
     },
     keyAccent: { backgroundColor: theme.primaryLight },
+    keyDisabled: { opacity: 0.4 },
     keyInner: { flexDirection: "row", alignItems: "center", gap: 4 },
     keyLabel: { fontSize: 17, fontWeight: "600", color: theme.text },
     keyTrailing: { fontSize: 16, fontWeight: "700", color: theme.primary },

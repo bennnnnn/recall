@@ -7,11 +7,12 @@ import { MathConverterPad } from "@/components/chat/MathConverterPad";
 import { selection as hapticSelection } from "@/lib/haptics";
 import {
   MATH_KEYBOARD_GROUPS,
+  MATH_KEYBOARD_SYMBOLS,
   MATH_NUMPAD_ROWS,
   mathGroupCanToggleDigits,
   mathGroupShowsNumpad,
   symbolA11yLabel,
-  symbolsInGroup,
+  symbolRowsForGroup,
   type MathKeyboardGroup,
   type MathKeyboardSymbol,
   type PadCell,
@@ -19,6 +20,17 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 
 export const MATH_KEYBOARD_PAD_HEIGHT = 320;
+
+const PAD_PADDING_V = 20;
+const PAD_GAP = 6;
+const KEY_HEIGHT_MIN = 42;
+const KEY_HEIGHT_MAX = 72;
+
+function fillKeyHeight(padHeight: number, tabHeight: number, keyRows: number): number {
+  const gaps = keyRows * PAD_GAP;
+  const inner = padHeight - PAD_PADDING_V - tabHeight - gaps;
+  return Math.min(KEY_HEIGHT_MAX, Math.max(KEY_HEIGHT_MIN, Math.floor(inner / keyRows)));
+}
 
 type Props = {
   open: boolean;
@@ -61,19 +73,36 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [digitsOpen, setDigitsOpen] = useState(false);
+  const [tabHeight, setTabHeight] = useState(36);
   const canToggleDigits = mathGroupCanToggleDigits(group);
   const showNumpad = mathGroupShowsNumpad(group) || (canToggleDigits && digitsOpen);
-  const fnRows = useMemo(() => {
-    const functions = symbolsInGroup(group);
-    const rows: MathKeyboardSymbol[][] = [];
-    for (let i = 0; i < functions.length; i += 6) {
-      rows.push(functions.slice(i, i + 6));
-    }
-    return rows;
-  }, [group]);
+  const fnRows = useMemo(() => symbolRowsForGroup(group), [group]);
+  const digitsKeyRows = MATH_NUMPAD_ROWS.length + 1;
+  const keyHeight = digitsOpen
+    ? fillKeyHeight(height, tabHeight, digitsKeyRows)
+    : KEY_HEIGHT_MIN;
+  const trigFill = useMemo(
+    () => ({
+      theta: MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-theta")!,
+      pi: MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-pi")!,
+    }),
+    [],
+  );
   const changeGroup = (next: MathKeyboardGroup) => {
     if (!mathGroupCanToggleDigits(next)) setDigitsOpen(false);
     onGroupChange(next);
+  };
+  const padNav = {
+    onInsert,
+    onBackspace,
+    onNextSlot,
+    onPrevSlot,
+    backspaceLabel: t("chat.math_keyboard_backspace"),
+    nextLabel: t("chat.math_keyboard_next_slot"),
+    prevLabel: t("chat.math_keyboard_prev_slot"),
+    theme,
+    styles: s,
+    keyHeight,
   };
 
   if (!open) return null;
@@ -84,7 +113,10 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
       accessibilityLabel={t("chat.math_keyboard_a11y")}
       testID="math-keyboard-pad"
     >
-      <View style={s.tabs}>
+      <View
+        style={s.tabs}
+        onLayout={(e) => setTabHeight(Math.round(e.nativeEvent.layout.height))}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -151,14 +183,19 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           style={({ pressed }) => [s.abc, pressed && s.pressed]}
           accessibilityRole="button"
           accessibilityLabel={t("chat.math_keyboard_abc")}
-          testID="math-keyboard-toggle"
+          testID="math-keyboard-abc"
         >
           <Text style={s.abcLabel}>{t("chat.math_keyboard_abc")}</Text>
         </Pressable>
         </View>
       </View>
       {group === "converter" ? (
-        <MathConverterPad onAsk={onAsk} onStop={onStop} streaming={streaming} />
+        <MathConverterPad
+          onAsk={onAsk}
+          onStop={onStop}
+          streaming={streaming}
+          onInsert={onInsert}
+        />
       ) : (
         <>
       {canToggleDigits && digitsOpen
@@ -166,18 +203,8 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
         : fnRows.map((row, r) =>
         row.length === 0 ? null : (
           <View key={r} style={s.row}>
-            {row.map((spec) => (
-              <KeyBtn
-                key={spec.id}
-                label={spec.label}
-                testID={`math-key-${spec.id}`}
-                onPress={() => {
-                  buzz();
-                  onInsert(spec);
-                }}
-                accessibilityLabel={symbolA11yLabel(spec)}
-                theme={theme}
-              />
+            {row.map((cell, c) => (
+              <PadKey key={`${r}-${c}`} cell={cell} {...padNav} />
             ))}
           </View>
         ),
@@ -187,18 +214,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           {MATH_NUMPAD_ROWS.map((row, r) => (
             <View key={r} style={s.row}>
               {row.map((cell, c) => (
-                <PadKey
-                  key={`${r}-${c}`}
-                  cell={cell}
-                  onInsert={onInsert}
-                  onBackspace={onBackspace}
-                  onNextSlot={onNextSlot}
-                  onPrevSlot={onPrevSlot}
-                  backspaceLabel={t("chat.math_keyboard_backspace")}
-                  nextLabel={t("chat.math_keyboard_next_slot")}
-                  prevLabel={t("chat.math_keyboard_prev_slot")}
-                  theme={theme}
-                />
+                <PadKey key={`${r}-${c}`} cell={cell} {...padNav} />
               ))}
             </View>
           ))}
@@ -218,50 +234,28 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
             accessibilityLabel={
               digitsOpen ? t(`chat.math_keyboard_group_${group}`) : t("chat.math_keyboard_123")
             }
-            theme={theme}
+            styles={s}
+            keyHeight={keyHeight}
             accent
           />
           {digitsOpen ? (
-            <>
-              <View style={s.keySpacer} />
-              <View style={s.keySpacer} />
-              <View style={s.keySpacer} />
-            </>
+            group === "trig" ? (
+              <>
+                <PadKey
+                  cell={{ kind: "insert", spec: trigFill.theta }}
+                  {...padNav}
+                />
+                <PadKey
+                  cell={{ kind: "insert", spec: trigFill.pi }}
+                  {...padNav}
+                />
+              </>
+            ) : null
           ) : (
             <>
-              <PadKey
-                cell={{ kind: "backspace" }}
-                onInsert={onInsert}
-                onBackspace={onBackspace}
-                onNextSlot={onNextSlot}
-                onPrevSlot={onPrevSlot}
-                backspaceLabel={t("chat.math_keyboard_backspace")}
-                nextLabel={t("chat.math_keyboard_next_slot")}
-                prevLabel={t("chat.math_keyboard_prev_slot")}
-                theme={theme}
-              />
-              <PadKey
-                cell={{ kind: "prev" }}
-                onInsert={onInsert}
-                onBackspace={onBackspace}
-                onNextSlot={onNextSlot}
-                onPrevSlot={onPrevSlot}
-                backspaceLabel={t("chat.math_keyboard_backspace")}
-                nextLabel={t("chat.math_keyboard_next_slot")}
-                prevLabel={t("chat.math_keyboard_prev_slot")}
-                theme={theme}
-              />
-              <PadKey
-                cell={{ kind: "next" }}
-                onInsert={onInsert}
-                onBackspace={onBackspace}
-                onNextSlot={onNextSlot}
-                onPrevSlot={onPrevSlot}
-                backspaceLabel={t("chat.math_keyboard_backspace")}
-                nextLabel={t("chat.math_keyboard_next_slot")}
-                prevLabel={t("chat.math_keyboard_prev_slot")}
-                theme={theme}
-              />
+              <PadKey cell={{ kind: "backspace" }} {...padNav} />
+              <PadKey cell={{ kind: "prev" }} {...padNav} />
+              <PadKey cell={{ kind: "next" }} {...padNav} />
             </>
           )}
         </View>
@@ -271,6 +265,8 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
     </View>
   );
 });
+
+type PadStyles = ReturnType<typeof makeStyles>;
 
 function PadKey({
   cell,
@@ -282,6 +278,8 @@ function PadKey({
   nextLabel,
   prevLabel,
   theme,
+  styles: s,
+  keyHeight = KEY_HEIGHT_MIN,
 }: {
   cell: PadCell;
   onInsert: (spec: MathKeyboardSymbol) => void;
@@ -292,7 +290,12 @@ function PadKey({
   nextLabel: string;
   prevLabel: string;
   theme: Theme;
+  styles: PadStyles;
+  keyHeight?: number;
 }) {
+  if (cell.kind === "spacer") {
+    return <View style={s.keySpacer} />;
+  }
   if (cell.kind === "backspace") {
     return (
       <KeyBtn
@@ -302,7 +305,8 @@ function PadKey({
           onBackspace();
         }}
         accessibilityLabel={backspaceLabel}
-        theme={theme}
+        styles={s}
+        keyHeight={keyHeight}
         accent
       >
         <Icon name="backspace-outline" size={20} color={theme.text} />
@@ -319,7 +323,8 @@ function PadKey({
           onPrevSlot();
         }}
         accessibilityLabel={prevLabel}
-        theme={theme}
+        styles={s}
+        keyHeight={keyHeight}
         accent
       />
     );
@@ -334,7 +339,8 @@ function PadKey({
           onNextSlot();
         }}
         accessibilityLabel={nextLabel}
-        theme={theme}
+        styles={s}
+        keyHeight={keyHeight}
         accent
       />
     );
@@ -348,7 +354,8 @@ function PadKey({
         onInsert(cell.spec);
       }}
       accessibilityLabel={symbolA11yLabel(cell.spec)}
-      theme={theme}
+      styles={s}
+      keyHeight={keyHeight}
     />
   );
 }
@@ -358,7 +365,8 @@ function KeyBtn({
   testID,
   onPress,
   accessibilityLabel,
-  theme,
+  styles: s,
+  keyHeight = KEY_HEIGHT_MIN,
   accent,
   children,
 }: {
@@ -366,15 +374,20 @@ function KeyBtn({
   testID: string;
   onPress: () => void;
   accessibilityLabel?: string;
-  theme: Theme;
+  styles: PadStyles;
+  keyHeight?: number;
   accent?: boolean;
   children?: ReactNode;
 }) {
-  const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [s.key, accent && s.keyAccent, pressed && s.pressed]}
+      style={({ pressed }) => [
+        s.key,
+        { height: keyHeight },
+        accent && s.keyAccent,
+        pressed && s.pressed,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       testID={testID}

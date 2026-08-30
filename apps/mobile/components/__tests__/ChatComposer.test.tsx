@@ -131,6 +131,8 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-key-frac")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(queryByTestId("math-keyboard-toggle")).toBeNull();
+    expect(getByTestId("math-keyboard-abc")).toBeTruthy();
     expect(getByTestId("math-composer-caret")).toBeTruthy();
     expect(getByTestId("math-key-frac")).toBeTruthy();
 
@@ -185,6 +187,20 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-converter")).toBeTruthy();
   });
 
+  it("inserts the converter result into the composer as math", async () => {
+    let latest = "";
+    function Harness() {
+      const [input, setInput] = useState("");
+      latest = input;
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    await fireEvent.press(getByTestId("math-converter-insert"));
+    expect(latest).toBe("$100\\,\\text{cm}$");
+  });
+
   it("turns Ask into Stop while a reply is generating", async () => {
     const onSend = jest.fn();
     const onStop = jest.fn();
@@ -204,7 +220,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
     expect(getByTestId("math-converter")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(queryByTestId("math-converter")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-converter")).toBeTruthy();
@@ -240,11 +256,16 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-key-arccot")).toBeTruthy();
     expect(getByTestId("math-key-rad")).toBeTruthy();
     expect(getByTestId("math-key-arcsinh")).toBeTruthy();
+    expect(getByTestId("math-key-arccosh")).toBeTruthy();
+    expect(getByTestId("math-key-digit-1")).toBeTruthy();
+    expect(getByTestId("math-key-digit-7")).toBeTruthy();
     expect(queryByTestId("math-key-log")).toBeNull();
     expect(getByTestId("math-keyboard-123")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-123"));
     expect(getByTestId("math-keyboard-numpad")).toBeTruthy();
     expect(getByTestId("math-key-digit-7")).toBeTruthy();
+    expect(getByTestId("math-key-trig-theta")).toBeTruthy();
+    expect(getByTestId("math-key-trig-pi")).toBeTruthy();
     expect(queryByTestId("math-key-arccos")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-123"));
     expect(queryByTestId("math-keyboard-numpad")).toBeNull();
@@ -253,6 +274,9 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-keyboard-numpad")).toBeNull();
     expect(getByTestId("math-key-der")).toBeTruthy();
     expect(getByTestId("math-key-log")).toBeTruthy();
+    expect(getByTestId("math-key-oint")).toBeTruthy();
+    expect(getByTestId("math-key-vec")).toBeTruthy();
+    expect(getByTestId("math-key-ddv")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-tab-greek"));
     expect(queryByTestId("math-keyboard-numpad")).toBeNull();
     expect(queryByTestId("math-key-digit-7")).toBeNull();
@@ -503,7 +527,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-key-frac"));
     await fireEvent.press(getByTestId("math-key-digit-9"));
     expect(getByTestId("math-slot-num-caret-end")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(getByTestId("math-draft-preview")).toBeTruthy();
     expect(getByTestId("math-frac")).toBeTruthy();
     expect(queryByTestId("math-key-frac")).toBeNull();
@@ -521,7 +545,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-key-frac")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(queryByTestId("math-key-frac")).toBeNull();
   });
 
