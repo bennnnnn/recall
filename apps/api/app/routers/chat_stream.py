@@ -23,6 +23,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
+from app.services.chat.finalize_registry import register_inflight_stream
 from app.services.chat.prompt_builder import StreamReasoningFn
 from app.services.chat.stream_events import (
     await_finalize_commit,
@@ -131,6 +132,7 @@ async def _stream_tokens_sse(
             pass
 
     producer = asyncio.create_task(produce_tokens())
+    register_inflight_stream(chat_id, producer)
     disconnect_watcher = asyncio.create_task(watch_disconnect())
 
     try:

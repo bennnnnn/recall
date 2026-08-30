@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from app.models.orm import Message, User
 from app.models.schemas import MessageOut
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
+from app.services import quota as quota_service
 from app.services import todos as todos_service
 from app.services.speech import LIVE_TALK_ALIAS
 from app.services.text_normalize import cap_text_head_tail
@@ -179,3 +181,25 @@ async def _enqueue_live_talk_jobs(
             await jobs.enqueue(redis, name, payload, dedupe_key=dedupe_key)
     except Exception:
         logger.exception("Live talk post-turn enqueue failed chat_id=%s", chat_id)
+
+
+async def settle_live_talk_after_stream(
+    *,
+    got_audio: bool,
+    reserved: bool,
+    redis: Redis,
+    user_id: UUID,
+    persist: Callable[[], Awaitable[object]] | None = None,
+) -> None:
+    """Refund if no audio; otherwise clear the pending flag and persist transcripts.
+
+    Must run on cancel (CancelledError / GeneratorExit) as well as success —
+    ``except Exception`` misses those.
+    """
+    if got_audio:
+        await quota_service.clear_live_talk_pending(redis, user_id)
+        if persist is not None:
+            await persist()
+        return
+    if reserved:
+        await quota_service.refund_live_talk_if_pending(redis, user_id)

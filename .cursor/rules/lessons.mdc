@@ -12,6 +12,15 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **SSE New chat aborted the in-flight reply.** SSE has no `cancel` message —
+  Stop *is* abort (close the fetch). New chat / leave must not `abort()`; latch
+  `chatId` so leftover events cannot paint the next thread. Register the SSE
+  producer with `register_inflight_stream` so `GET /messages` can wait like WS.
+- **Live talk abort skipped refund.** `body_iter` refunded in `except Exception`;
+  abort is `CancelledError` / `GeneratorExit`. Settle in `finally`: no audio →
+  refund; audio → clear pending + persist. Unsupported containers fail closed
+  (no Whisper+TTS echo). Client abort before the first `audio` event hits
+  `POST /live/refund`.
 - **Live talk waited 20s and left no chat.** `/speech/live/speak` drained the
   full OpenRouter SSE, wrapped one WAV, then JSON; the client ignored
   `transcript`. Stream WAV clips as PCM arrives, Whisper the user in

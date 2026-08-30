@@ -98,6 +98,41 @@ async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_stream_tokens_sse_registers_inflight_producer(monkeypatch):
+    """GET /messages waits on the SSE producer the same way it waits on WS."""
+    import app.routers.chat_stream as chat_stream
+
+    monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
+    request = AsyncMock()
+    request.is_disconnected = AsyncMock(return_value=False)
+    chat_id = uuid4()
+    registered: list[object] = []
+    original = chat_stream.register_inflight_stream
+
+    def capture(cid: object, task: object) -> None:
+        registered.append(cid)
+        original(cid, task)
+
+    monkeypatch.setattr(chat_stream, "register_inflight_stream", capture)
+
+    async def stream_factory(_result, _on_status, _on_reasoning, _should_cancel):
+        yield "hi"
+
+    chunks = [
+        chunk
+        async for chunk in chat_stream._stream_tokens_sse(
+            chat_id=chat_id,
+            settings=Settings(),
+            stream_factory=stream_factory,
+            request=request,
+            cancel_event=asyncio.Event(),
+        )
+    ]
+    assert registered == [chat_id]
+    assert any('"type":"token"' in c for c in chunks)
+
+
+@pytest.mark.asyncio
 async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch):
     """Disconnect must cancel the producer while it is blocked waiting on the
     first LiteLLM chunk — not only between yielded tokens."""

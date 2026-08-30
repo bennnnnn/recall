@@ -13,7 +13,6 @@ from app.gateways import mock_llm, speech_gateway
 from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES
 from app.services.speech import (
     resolve_live_talk_model,
-    synthesize_speech,
     transcribe_audio,
 )
 
@@ -72,16 +71,10 @@ async def iter_speech_to_speech(
     if not settings.openrouter_api_key:
         return
     if speech_gateway.openai_input_audio_format(filename, audio_bytes) is None:
-        transcript = await transcribe_audio(settings, audio_bytes, filename=filename)
-        if not transcript:
-            return
-        tts = await synthesize_speech(settings, transcript)
-        if not tts:
-            return
-        audio, _content_type = tts
-        yield LiveTalkStreamEvent(kind="user", text=transcript)
-        yield LiveTalkStreamEvent(kind="audio", audio_wav=audio)
-        yield LiveTalkStreamEvent(kind="assistant", text=transcript)
+        logger.warning(
+            "Live talk rejected unsupported audio container filename=%s",
+            filename,
+        )
         return
 
     whisper_task = asyncio.create_task(transcribe_audio(settings, audio_bytes, filename=filename))

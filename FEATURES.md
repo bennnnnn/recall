@@ -74,6 +74,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept. Hard WS/SSE disconnect with tokens already streamed also finalizes (same as soft stop).
+  **New chat / leave does not abort SSE** (Stop still does); leftover events are ignored for the
+  next thread. `GET /messages` waits for the in-flight SSE producer the same way it waits on WS.
 - ✅ **Regenerate** — re-run the last assistant reply.
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do
@@ -104,6 +106,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (what you said + the reply) so they are in the thread when you close.
   Playback starts as the first audio clip arrives — it does not wait for
   the full reply. The chat header (drawer / ⋮) stays available.
+  Abort before the first audio clip refunds the turn (`POST /speech/live/refund`);
+  cancel after audio still persists transcripts. Unsupported containers fail
+  closed (no Whisper+TTS echo of the user as the assistant).
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
   (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
   is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
@@ -720,6 +725,8 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   cannot drop unacked entries.
 - ✅ **JWT refresh / logout** — 1h access + refresh rotation; mobile auto-refresh on 401.
 - ✅ **HTTP SSE chat fallback** — `POST /chats/{id}/messages/stream` when WebSocket fails.
+  New chat does not abort the fetch; Stop still does. The producer is registered as
+  in-flight so `GET /messages` can wait out a leave.
 
 ### Architecture review follow-ups (Jul 2026)
 

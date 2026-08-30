@@ -633,11 +633,8 @@ async def live_talk_speak(
                     assistant_text = event.text
                 yield _live_talk_event_sse(event)
             if not got_audio:
-                if reserved:
-                    await quota_service.refund_live_talk_if_pending(redis, user.id)
                 yield _sse_data({"type": "error", "detail": "Could not complete live talk"})
                 return
-            await quota_service.clear_live_talk_pending(redis, user.id)
             user_msg, asst_msg = await persist_if_needed()
             status_out = await _live_talk_status(user, settings)
             yield _sse_data(
@@ -651,14 +648,19 @@ async def live_talk_speak(
             )
         except Exception:
             if got_audio:
-                try:
-                    await quota_service.clear_live_talk_pending(redis, user.id)
-                    await persist_if_needed()
-                except Exception:
-                    logger.exception("Live talk persist after stream error failed")
-            elif reserved:
-                await quota_service.refund_live_talk_if_pending(redis, user.id)
+                logger.exception("Live talk stream error after audio")
             raise
+        finally:
+            try:
+                await live_talk_service.settle_live_talk_after_stream(
+                    got_audio=got_audio,
+                    reserved=reserved,
+                    redis=redis,
+                    user_id=user.id,
+                    persist=persist_if_needed,
+                )
+            except Exception:
+                logger.exception("Live talk settle after stream failed")
 
     return StreamingResponse(
         body_iter(),

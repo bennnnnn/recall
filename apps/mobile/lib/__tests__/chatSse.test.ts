@@ -15,7 +15,7 @@ jest.mock("@/lib/api/client", () => ({
   refreshAccessToken: jest.fn(),
 }));
 
-import { isSseAbortError, parseSseChunk, streamChatMessageSse } from "@/lib/chatSse";
+import { isSseAbortError, parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/lib/chatSse";
 import { notifyUnauthorized, requestSse } from "@/lib/api/client";
 
 describe("parseSseChunk", () => {
@@ -35,6 +35,14 @@ describe("isSseAbortError", () => {
   it("detects AbortError from fetch cancellation", () => {
     expect(isSseAbortError(new DOMException("aborted", "AbortError"))).toBe(true);
     expect(isSseAbortError(new Error("network"))).toBe(false);
+  });
+});
+
+describe("shouldAbortPriorSse", () => {
+  it("aborts only when replacing a stream in the same chat", () => {
+    expect(shouldAbortPriorSse("chat-a", "chat-a")).toBe(true);
+    expect(shouldAbortPriorSse("chat-a", "chat-b")).toBe(false);
+    expect(shouldAbortPriorSse(null, "chat-b")).toBe(false);
   });
 });
 

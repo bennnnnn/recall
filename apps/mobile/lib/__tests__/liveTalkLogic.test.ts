@@ -1,6 +1,7 @@
 import {
   LIVE_TALK_MAX_RECORDING_MS,
   LIVE_TALK_NO_SPEECH_MS,
+  liveTalkAbortRefundNeeded,
   liveTalkCanTakeFloor,
   liveTalkErrorGate,
   liveTalkGate,
@@ -18,6 +19,13 @@ const proReady: LiveTalkStatus = {
   remaining: 12,
   limit: 30,
 };
+
+describe("liveTalkAbortRefundNeeded", () => {
+  it("refunds only when the client abort beat the first audio clip", () => {
+    expect(liveTalkAbortRefundNeeded(false)).toBe(true);
+    expect(liveTalkAbortRefundNeeded(true)).toBe(false);
+  });
+});
 
 describe("liveTalkGate", () => {
   it("blocks offline before status", () => {
