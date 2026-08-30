@@ -2512,15 +2512,23 @@ def test_speech_live_speak_pro_returns_audio():
 
     import fakeredis.aioredis
 
+    from app.services.live_talk_stream import LiveTalkStreamEvent
+
     user = _fake_user(plan="pro")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     wav = b"RIFF" + b"\x00" * 12
+
+    async def fake_iter(*_args: object, **_kwargs: object):
+        yield LiveTalkStreamEvent(kind="user", text="Hi there")
+        yield LiveTalkStreamEvent(kind="audio", audio_wav=wav)
+        yield LiveTalkStreamEvent(kind="assistant", text="Hello")
+
     with (
         patch("app.routers.speech.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.speech_to_speech",
-            AsyncMock(return_value=(wav, "audio/wav", "Hello")),
+            "app.routers.speech.iter_speech_to_speech",
+            fake_iter,
         ),
     ):
         r = client.post(
@@ -2528,15 +2536,15 @@ def test_speech_live_speak_pro_returns_audio():
             headers={"Authorization": "Bearer tok"},
             json={
                 "audio_base64": base64.b64encode(b"abc").decode("ascii"),
-                "filename": "speech.m4a",
+                "filename": "speech.wav",
             },
         )
     assert r.status_code == 200
-    body = r.json()
-    assert body["transcript"] == "Hello"
-    assert body["content_type"] == "audio/wav"
-    assert body["remaining"] == 29
-    assert base64.b64decode(body["audio_base64"]) == wav
+    assert "text/event-stream" in r.headers["content-type"]
+    assert '"type": "audio"' in r.text
+    assert "Hello" in r.text
+    assert '"type": "done"' in r.text
+    assert '"remaining"' in r.text
 
 
 def test_speech_live_disabled():

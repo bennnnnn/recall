@@ -267,6 +267,7 @@ export async function requestSse(
   body: Record<string, unknown>,
   signal?: AbortSignal,
   allowRefresh = true,
+  timeoutMs = 30_000,
 ): Promise<Response> {
   return requestRaw(
     path,
@@ -281,5 +282,6 @@ export async function requestSse(
       body: JSON.stringify(body),
     },
     allowRefresh,
+    timeoutMs,
   );
 }

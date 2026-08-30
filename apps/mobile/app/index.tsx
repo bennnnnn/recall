@@ -350,8 +350,20 @@ function ChatScreen() {
 
   const liveTalk = useLiveTalk({
     token,
+    chatId,
+    setChatId,
+    setChatTitle,
+    setMessages,
+    draft,
+    router,
+    selectedModel,
     isOffline,
     onUpgrade: () => openUpgradeRef.current?.(),
+    onScrollToLatest: scroll.scrollToLatest,
+    newMessageCountRef: scroll.newMessageCountRef,
+    onFirstReply: () => {
+      void onFirstReplyRef.current();
+    },
     t,
   });
 

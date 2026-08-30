@@ -230,9 +230,26 @@ export async function playSpeechAudio(
   audioBase64: string,
   contentType: string,
 ): Promise<SpeakResult> {
+  const generation = beginSpeechPlayback();
+  await preparePlaybackAudioMode();
+  if (!isCurrentSpeak(generation)) return { ok: true };
+  return playCloudBase64(audioBase64, contentType, generation);
+}
+
+/** Stop prior speech and return the generation for a clip queue. */
+export function beginSpeechPlayback(): number {
   markTtsTap();
   stopSpeaking();
-  const generation = speakGeneration;
+  return speakGeneration;
+}
+
+/** Play one WAV/MP3 clip without aborting the rest of this utterance. */
+export async function playSpeechAudioClip(
+  audioBase64: string,
+  contentType: string,
+  generation: number,
+): Promise<SpeakResult> {
+  if (!isCurrentSpeak(generation)) return { ok: true };
   await preparePlaybackAudioMode();
   if (!isCurrentSpeak(generation)) return { ok: true };
   return playCloudBase64(audioBase64, contentType, generation);

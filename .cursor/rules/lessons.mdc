@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk waited 20s and left no chat.** `/speech/live/speak` drained the
+  full OpenRouter SSE, wrapped one WAV, then JSON; the client ignored
+  `transcript`. Stream WAV clips as PCM arrives, Whisper the user in
+  parallel, persist both sides as chat rows, play clips as they land.
 - **Live talk hid the chat hamburger.** Full-screen `Modal` is a new window, so
   ChatHeader under it cannot open the drawer. In-tree overlay with `top:
   headerInset` and `bottom: composerClearance` (0 header inset while the

@@ -262,6 +262,7 @@ async def speech_to_speech(
     audio_bytes: bytes,
     *,
     filename: str = "speech.m4a",
+    history: list[tuple[str, str]] | None = None,
 ) -> tuple[bytes, str, str] | None:
     """Spoken reply from user audio. Uses the live-talk audio model, not Whisper."""
     if not settings.speech_live_talk_enabled:
@@ -292,4 +293,5 @@ async def speech_to_speech(
         audio_bytes,
         filename=filename,
         model=model,
+        history=history,
     )
