@@ -593,7 +593,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Math WebView expand / fullscreen** — tall KaTeX/MathJax blocks offer Expand → full-screen
   modal (`MathFormulaWebView`; #537).
 - ✅ **Algebra `canonical_fence` / ` ```answer ` rewrite** — SymPy attaches canonical answer
-  fences; post-stream `validate_math_fences` rewrites drifted finals (#538).
+  fences; post-stream `validate_math_fences` rewrites drifted finals (#538). Multi-root
+  answers group ± reals and conjugates (`x^6 = 1` → three `aligned` lines, not six
+  clipped commas).
 - ✅ **Persist assistant reply on hard WS/SSE disconnect** — mid-stream `CancelledError` with
   tokens finalizes like soft stop (#539).
 - ✅ **RevenueCat webhook atomic claim** — Redis `SET NX` claim before processing; done-marker

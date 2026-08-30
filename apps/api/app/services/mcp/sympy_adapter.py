@@ -119,7 +119,10 @@ class SympyAdapter:
         if result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         # Parity with heuristic solve: attach ```answer for post-stream rewrite.
-        answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
+        answer = math_tools._format_equation_answer(
+            result.canonical_solutions_latex or result.solutions_latex,
+            result.solution_kind,
+        )
         return ToolResult(
             name=self.name,
             content=_verified_content("\n".join(result.steps) + f"\nVerified result: {answer}"),

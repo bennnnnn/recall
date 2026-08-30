@@ -32,7 +32,10 @@ def _verified_block_equation(
     )
     result = math_service.solve_equation(eq)
     lines.extend(result.steps)
-    answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
+    answer = _format_equation_answer(
+        result.canonical_solutions_latex or result.solutions_latex,
+        result.solution_kind,
+    )
     lines.append(
         "Formula shape: INLINE $...$ for every step (never backticks around "
         "`$...$`; never ```math for step equations — those stream blank). "
@@ -41,7 +44,10 @@ def _verified_block_equation(
         "verified steps above verbatim — including any 'both sides' line "
         "(e.g. F + 3 - 3 = 3 - 3) before you simplify. Do NOT skip to "
         "F = 3 - 3. Do NOT derive intermediate algebra yourself. "
-        "Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters."
+        "Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters. "
+        "For several roots: real vs complex in compact $...$ with \\pm "
+        "(conjugates). Do NOT dump a numbered list of every root with stacked "
+        "fractions — Recall's answer box already lists them."
     )
     return _finish_with_answer(lines, answer)
 
