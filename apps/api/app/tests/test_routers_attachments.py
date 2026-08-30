@@ -835,6 +835,7 @@ def test_download_url_local_backend():
 
     assert r.status_code == 200
     assert r.json()["download_url"] == f"/attachments/{attachment_id}/file"
+    assert r.json()["indexed"] is True
 
 
 def test_upload_accepts_docx_bytes_matching_claimed_type():

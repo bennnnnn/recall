@@ -520,3 +520,17 @@ async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
 
     # Both rows were removed from the DB; the bad storage delete is best-effort.
     assert deleted == 2
+
+
+@pytest.mark.asyncio
+async def test_sweep_user_storage_deletes_user_prefix():
+    user_id = uuid4()
+    gateway = MagicMock()
+    gateway.delete_prefix = AsyncMock(return_value=3)
+    with patch(
+        "app.services.attachment_lifecycle.get_storage_gateway",
+        return_value=gateway,
+    ):
+        deleted = await attachment_lifecycle.sweep_user_storage(Settings(), user_id)
+    assert deleted == 3
+    gateway.delete_prefix.assert_awaited_once_with(f"{user_id}/")

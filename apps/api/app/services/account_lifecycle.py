@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.jobs import enqueue
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.repositories import users as users_repo
@@ -99,7 +100,14 @@ async def delete_account(
         )
 
     await attachment_lifecycle.purge_attachments_for_user(session, settings, user.id)
+    user_id = user.id
     await users_repo.delete_user(session, user.id)
+    await enqueue(
+        redis,
+        "storage_sweep",
+        {"user_id": str(user_id)},
+        dedupe_key=f"storage_sweep:{user_id}",
+    )
 
 
 __all__ = [

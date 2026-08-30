@@ -43,6 +43,7 @@ export const attachmentsApi = {
       size_bytes: number;
       download_url: string;
       created_at: string;
+      indexed?: boolean;
     }>(`/attachments/${attachmentId}/url`, token),
   listAttachments: (
     token: string,

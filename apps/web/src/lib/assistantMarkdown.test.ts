@@ -32,3 +32,30 @@ describe("prepareAssistantMarkdown molecule pair", () => {
     assert.equal(out.includes("V2000"), false);
   });
 });
+
+describe("prepareAssistantMarkdown drafts and tables", () => {
+  it("renders sms/social fences as sanitized cards not pre", () => {
+    const out = prepareAssistantMarkdown(
+      "```sms\nHey [Your Name], on my way.\n```",
+    );
+    assert.equal(out.includes("```"), false);
+    assert.equal(out.includes("[Your Name]"), false);
+    assert.match(out, /Text message/);
+    assert.match(out, /on my way/);
+  });
+
+  it("splits a swallowed GFM table out of a python fence", () => {
+    const markdown = [
+      "```python",
+      "print(1)",
+      "",
+      "| Lang | Use |",
+      "| --- | --- |",
+      "| Python | Data |",
+      "```",
+    ].join("\n");
+    const out = prepareAssistantMarkdown(markdown);
+    assert.match(out, /```python/);
+    assert.match(out, /\| Lang \| Use \|/);
+  });
+});

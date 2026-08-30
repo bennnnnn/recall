@@ -51,6 +51,48 @@ def test_chunk_text_terminates_when_overlap_meets_or_exceeds_chunk_size():
 
 
 @pytest.mark.asyncio
+async def test_retrieve_for_prompt_includes_filename_and_page():
+    settings = Settings(mock_llm_enabled=True, attachment_rag_enabled=True)
+    att_id = uuid4()
+    chunk = MagicMock()
+    chunk.attachment_id = att_id
+    chunk.text = "[page 3] hello from notes"
+    file_row = MagicMock()
+    file_row.id = att_id
+    file_row.original_filename = "notes.pdf"
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.get_or_embed_query",
+            AsyncMock(return_value=[0.1] * 1536),
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.search_semantic",
+            AsyncMock(return_value=[chunk]),
+        ),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_ids",
+            AsyncMock(return_value=[file_row]),
+        ),
+        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+    ):
+        block = await retrieve_for_prompt(
+            settings=settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            query="summarize page 3",
+        )
+
+    assert "(notes.pdf)" in block
+    assert "[page 3] hello from notes" in block
+
+
+@pytest.mark.asyncio
 async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
     """BUG FIX: a pgvector/DB-level error in search_semantic used to have no
     catch anywhere in this call chain and would propagate up to fail the

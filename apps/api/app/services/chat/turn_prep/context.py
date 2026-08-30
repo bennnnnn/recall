@@ -103,6 +103,8 @@ class StreamContext:
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
     verified_math: VerifiedMathBlock | None = None
+    # Camera/solver fall-through: surface an honest "couldn't verify" note.
+    math_unverified: bool = False
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
     # False = casual chat (skip memory/todos/projects). Status theater
@@ -140,6 +142,7 @@ class TurnPromptBundle:
     geo: ClientGeoContext
     local_tz: str
     verified_math: VerifiedMathBlock | None = None
+    math_unverified: bool = False
 
 
 def stream_context_from_bundle(
@@ -194,6 +197,7 @@ def stream_context_from_bundle(
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
         verified_math=bundle.verified_math,
+        math_unverified=getattr(bundle, "math_unverified", False) is True,
         timing=timing,
         lightweight_turn=bundle.lightweight
         or bundle.active_vocab_turn
@@ -585,6 +589,9 @@ async def build_stream_prompt_context(
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
 
+    math_unverified = (
+        math_block is not None and verified_math is None and math_block.startswith("Math note:")
+    )
     return TurnPromptBundle(
         prompt_messages=prompt_messages,
         meta=meta,
@@ -602,4 +609,5 @@ async def build_stream_prompt_context(
         geo=geo,
         local_tz=local_tz,
         verified_math=verified_math,
+        math_unverified=math_unverified,
     )

@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useAttachmentIndexed } from "@/hooks/useAttachmentIndexed";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
@@ -46,6 +47,7 @@ export function ChatMessagePdf({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme, compact), [theme, compact]);
   const token = useAuthToken();
+  const indexed = useAttachmentIndexed(attachmentId);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [previewBase64, setPreviewBase64] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -125,7 +127,7 @@ export function ChatMessagePdf({
           <Text style={s.name} numberOfLines={2}>
             {fileName}
           </Text>
-          <Text style={s.kind}>PDF</Text>
+          <Text style={s.kind}>{indexed ? "PDF" : t("chat.file_indexing")}</Text>
         </View>
         <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
       </Pressable>

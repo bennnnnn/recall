@@ -160,6 +160,10 @@ function tidyLonelyGreeting(body: string): string {
   return body;
 }
 
+export function stripDraftFormSlots(text: string): string {
+  return stripFormSlots(text);
+}
+
 export function sanitizeEmailDraft(draft: EmailDraftFields): EmailDraftFields {
   const toRaw = draft.to?.trim() ?? "";
   const to = toRaw && !isPlaceholderAddress(toRaw) ? toRaw : undefined;

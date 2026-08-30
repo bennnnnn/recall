@@ -214,6 +214,7 @@ async def retrieve_for_prompt(
     # the way up and failed the whole chat turn instead of just proceeding
     # without attachment context — RAG is best-effort background context,
     # same as memory/todos/projects, and must degrade the same way.
+    filenames: dict[UUID, str] = {}
     try:
         async with SessionLocal() as search_session:
             rows = await chunks_repo.search_semantic(
@@ -224,6 +225,12 @@ async def retrieve_for_prompt(
                 limit=settings.attachment_rag_chunk_limit,
                 max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
             )
+            att_ids = list({row.attachment_id for row in rows})
+            if att_ids:
+                loaded = await attachments_repo.get_by_ids(search_session, att_ids, user_id)
+                filenames = {
+                    row.id: (row.original_filename or "").strip() or "attachment" for row in loaded
+                }
     except Exception:
         logger.warning("Attachment RAG retrieval failed for chat_id=%s", chat_id, exc_info=True)
         return ""
@@ -243,5 +250,8 @@ async def retrieve_for_prompt(
     if not rows:
         return ""
 
-    lines = [f"[{i + 1}] {row.text}" for i, row in enumerate(rows)]
+    lines = []
+    for i, row in enumerate(rows):
+        name = filenames.get(row.attachment_id) or "attachment"
+        lines.append(f"[{i + 1}] ({name}) {row.text}")
     return wrap_untrusted("attached documents", "\n\n".join(lines))

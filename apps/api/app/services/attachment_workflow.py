@@ -13,6 +13,7 @@ from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
 from app.models.orm import User
 from app.models.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
+from app.repositories import attachment_chunks as chunks_repo
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
 from app.services.attachment_content import (
@@ -279,10 +280,18 @@ async def get_download(
         if isinstance(gateway, LocalStorageGateway)
         else await gateway.presign_download(row.storage_key)
     )
+    indexed = True
+    if not is_image_content_type(row.content_type):
+        try:
+            indexed = await chunks_repo.has_chunks_for_attachment(session, user.id, attachment_id)
+        except Exception:
+            logger.debug("attachment indexed probe failed id=%s", attachment_id, exc_info=True)
+            indexed = False
     return AttachmentOut(
         id=row.id,
         content_type=row.content_type,
         size_bytes=row.size_bytes,
         download_url=url,
         created_at=row.created_at,
+        indexed=indexed,
     )

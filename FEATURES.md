@@ -218,7 +218,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   into the system prompt on **later turns in the same chat** (`chat_id` on chunks — **not**
   a user-wide file library). Prepare uses the **text layer only**; scanned-PDF vision OCR
   runs on the **index job**, not the pre-stream path. First turn uses the inline
-  text-layer excerpt. Invalidated on attachment delete. Flag: `attachment_rag_enabled`
+  text-layer excerpt. File chip shows “still indexing” until chunks exist; inject
+  includes filename (and `[page n]` when known). Invalidated on attachment delete. Flag: `attachment_rag_enabled`
   (default on).
 - ✅ **Chat-history semantic RAG** — background `message_index` embeds past turns into
   `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
@@ -613,8 +614,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar).
 - ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs **in that chat**
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
-  Text-layer extract on prepare; vision OCR on the index job only.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision → SymPy → LaTeX/steps.
+  Text-layer extract on prepare; vision OCR on the index job only. File chip shows
+  indexing until chunks exist; wrapped inject includes filename.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision extract → SymPy on the supported subset. Unverified fall-through is labeled in the reply (`Couldn't verify this with SymPy.`). Not every photographed problem verifies.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -642,7 +644,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
   (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
   uuid4 rows are unchanged.
-- 🔜 **Full locale translation** — key-set parity is enforced (**959** keys); ~350 strings still
+- 🔜 **Full locale translation** — key-set parity is enforced (**960** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
@@ -731,7 +733,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**959** keys);
+- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**960** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized).
@@ -814,7 +816,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
-| Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |
+| Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; unverified labeled) |
 | Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
 | Full duplex voice mode | 🔜 Later |
 
@@ -912,7 +914,7 @@ drawer FTS search ✅.
 | Vision routing for images + scanned-PDF OCR (**index job**, not prepare) | — |
 | PDF text extract + pgvector RAG **per conversation** | User-wide attachment corpus |
 | Chat-history corpus RAG (pgvector top-k, not full transcript) | — |
-| Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
+| Camera math solver (vision extract → SymPy subset; unverified labeled) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | — |
 
 ### Voice
