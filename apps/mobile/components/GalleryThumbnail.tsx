@@ -13,19 +13,27 @@ type Props = {
   downloadUrl?: string | null;
   /** Square thumbnail size in px. */
   size?: number;
+  /** Called once when the thumb 404s or never loads — drop the gallery row. */
+  onMissing?: (attachmentId: string) => void;
 };
 
 const LOAD_TIMEOUT_MS = 20_000;
 
 export { LOAD_TIMEOUT_MS };
 
-function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
+function GalleryThumbnailBase({
+  attachmentId,
+  downloadUrl,
+  size = 1,
+  onMissing,
+}: Props) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const token = useAuthToken();
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const missingNotifiedRef = useRef(false);
 
   const uri = resolveAttachmentUri({
     attachmentId,
@@ -42,6 +50,9 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
 
   const dimension = { width: size, height: size };
 
+  const onMissingRef = useRef(onMissing);
+  onMissingRef.current = onMissing;
+
   const clearLoadTimer = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -49,14 +60,24 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
     }
   };
 
+  const reportMissing = () => {
+    if (missingNotifiedRef.current) return;
+    missingNotifiedRef.current = true;
+    onMissingRef.current?.(attachmentId);
+  };
+
   // Fallback: if onLoad doesn't fire within the timeout, mark as failed.
   // React Native's Image doesn't always call onError for corrupt/missing data.
   useEffect(() => {
     setFailed(false);
     setLoaded(false);
+    missingNotifiedRef.current = false;
     clearLoadTimer();
     timerRef.current = setTimeout(() => {
       setFailed(true);
+      if (missingNotifiedRef.current) return;
+      missingNotifiedRef.current = true;
+      onMissingRef.current?.(attachmentId);
     }, LOAD_TIMEOUT_MS);
     return clearLoadTimer;
   }, [attachmentId, uri]);
@@ -87,6 +108,7 @@ function GalleryThumbnailBase({ attachmentId, downloadUrl, size = 1 }: Props) {
             onError={() => {
               clearLoadTimer();
               setFailed(true);
+              reportMissing();
             }}
           />
         </>

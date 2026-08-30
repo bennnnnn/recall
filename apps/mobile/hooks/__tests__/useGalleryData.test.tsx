@@ -26,6 +26,7 @@ jest.mock("@/lib/api", () => ({
 }));
 
 import { api } from "@/lib/api";
+import { invalidateGalleryCache, setGalleryPage } from "@/lib/cache/galleryListCache";
 
 function item(id: string): AttachmentListItem {
   return {
@@ -58,6 +59,7 @@ describe("useGalleryData", () => {
     latest = null;
     setProbeFilter = null;
     jest.clearAllMocks();
+    invalidateGalleryCache();
     (api.listAttachments as jest.Mock).mockReset();
   });
 
@@ -122,6 +124,65 @@ describe("useGalleryData", () => {
       expect(latest?.items.map((row) => row.id)).toEqual(["img-1"]);
     });
     expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("hydrates from cache without refetching while fresh", async () => {
+    const list = api.listAttachments as jest.Mock;
+    setGalleryPage("all", "", { items: [item("cached")], hasMore: false });
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["cached"]);
+    });
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it("restores a fresh tab snapshot without refetching", async () => {
+    const list = api.listAttachments as jest.Mock;
+    list
+      .mockResolvedValueOnce({ items: [item("pdf-1")], has_more: false })
+      .mockResolvedValueOnce({ items: [item("img-1")], has_more: false });
+
+    await act(async () => {
+      render(<FilterSwitchProbe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["pdf-1"]);
+    });
+
+    await act(async () => {
+      setProbeFilter?.("all");
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["img-1"]);
+    });
+
+    await act(async () => {
+      setProbeFilter?.("files");
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["pdf-1"]);
+    });
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops a missing attachment from the grid", async () => {
+    const list = api.listAttachments as jest.Mock;
+    list.mockResolvedValue({ items: [item("a"), item("b")], has_more: false });
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["a", "b"]);
+    });
+
+    await act(async () => {
+      latest?.removeItem("a");
+    });
+    expect(latest?.items.map((row) => row.id)).toEqual(["b"]);
   });
 
   it("appends the next page after loadMore", async () => {

@@ -42,6 +42,17 @@ describe("StaleResourceCache", () => {
     expect(cache.getEntry("key")).toEqual({ data: 2, fetchedAt: 123 });
   });
 
+  it("maps every cached value in place", () => {
+    const cache = new StaleResourceCache<string, number[]>(1_000);
+    cache.set("a", [1, 2], 10);
+    cache.set("b", [2, 3], 20);
+    cache.updateEach((value) => value.filter((n) => n !== 2));
+
+    expect(cache.get("a")).toEqual([1]);
+    expect(cache.get("b")).toEqual([3]);
+    expect(cache.getEntry("a")?.fetchedAt).toBe(10);
+  });
+
   it("invalidates cached and in-flight state", async () => {
     const cache = new StaleResourceCache<string, number>(1_000);
     cache.set("key", 1);

@@ -2,35 +2,58 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type AttachmentListItem } from "@/lib/api";
+import { type AttachmentListItem } from "@/lib/api";
+import {
+  fetchGalleryNextPage,
+  fetchGalleryPage,
+  getCachedGalleryPage,
+  isGalleryPageFresh,
+  removeCachedGalleryItem,
+  type GalleryPage,
+} from "@/lib/cache/galleryListCache";
 import {
   GALLERY_SEARCH_DEBOUNCE_MS,
   galleryListCacheKey,
-  galleryListParams,
-  mergeGalleryItems,
-  shouldSkipGalleryFocusReload,
   type GalleryFilter,
 } from "@/lib/gallery";
 
 export type { GalleryFilter };
 
-const PAGE_SIZE = 30;
+function pageFromCache(snapshot: GalleryPage | undefined): {
+  items: AttachmentListItem[];
+  hasMore: boolean;
+  loading: boolean;
+} {
+  if (!snapshot) return { items: [], hasMore: false, loading: true };
+  return { items: snapshot.items, hasMore: snapshot.hasMore, loading: false };
+}
 
 export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
   const { token } = useAuth();
   const trimmedQuery = searchQuery.trim();
   const [debouncedQuery, setDebouncedQuery] = useState(trimmedQuery);
-  const [items, setItems] = useState<AttachmentListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = galleryListCacheKey(filter, debouncedQuery);
+  const snapshot = getCachedGalleryPage(filter, debouncedQuery);
+  const initial = pageFromCache(snapshot);
+
+  const [pageKey, setPageKey] = useState(cacheKey);
+  const [items, setItems] = useState<AttachmentListItem[]>(initial.items);
+  const [loading, setLoading] = useState(initial.loading);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initial.hasMore);
   const [pullRefreshing, setPullRefreshing] = useState(false);
-  const offsetRef = useRef(0);
   const inFlightRef = useRef(false);
   const genRef = useRef(0);
-  const lastFetchAtRef = useRef<Map<string, number>>(new Map());
-  const shownKeyRef = useRef<string | null>(null);
+
+  if (pageKey !== cacheKey) {
+    const next = pageFromCache(snapshot);
+    setPageKey(cacheKey);
+    setItems(next.items);
+    setHasMore(next.hasMore);
+    setLoading(next.loading);
+    setError(false);
+  }
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(trimmedQuery), GALLERY_SEARCH_DEBOUNCE_MS);
@@ -41,45 +64,39 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     async (options: { reset?: boolean; silent?: boolean; force?: boolean } = {}) => {
       if (!token) return;
       const reset = options.reset ?? true;
-      const cacheKey = galleryListCacheKey(filter, debouncedQuery);
-      if (
-        reset &&
-        shownKeyRef.current === cacheKey &&
-        shouldSkipGalleryFocusReload({
-          lastFetchedAt: lastFetchAtRef.current.get(cacheKey),
-          force: options.force,
-        })
-      ) {
-        return;
-      }
       if (!reset && inFlightRef.current) return;
+
+      if (reset && !options.force && isGalleryPageFresh(filter, debouncedQuery)) {
+        const cached = getCachedGalleryPage(filter, debouncedQuery);
+        if (cached) {
+          setItems(cached.items);
+          setHasMore(cached.hasMore);
+          setLoading(false);
+          setError(false);
+          return;
+        }
+      }
+
       if (reset) genRef.current += 1;
       const gen = genRef.current;
       inFlightRef.current = true;
+      const cached = getCachedGalleryPage(filter, debouncedQuery);
       if (!options.silent) {
-        if (reset) setLoading(true);
-        else setLoadingMore(true);
+        if (reset && !cached) setLoading(true);
+        else if (!reset) setLoadingMore(true);
       }
       try {
-        const offset = reset ? 0 : offsetRef.current;
-        const response = await api.listAttachments(token, {
-          ...galleryListParams(filter),
-          ...(debouncedQuery ? { q: debouncedQuery } : {}),
-          limit: PAGE_SIZE,
-          offset,
-        });
+        const page = reset
+          ? await fetchGalleryPage(token, filter, debouncedQuery, { force: options.force })
+          : await fetchGalleryNextPage(token, filter, debouncedQuery);
         if (gen !== genRef.current) return;
-        setItems((current) => mergeGalleryItems(current, response.items, reset));
-        setHasMore(response.has_more);
-        offsetRef.current = offset + response.items.length;
-        if (reset) {
-          lastFetchAtRef.current.set(cacheKey, Date.now());
-          shownKeyRef.current = cacheKey;
+        if (!page) {
+          if (reset && !cached) setError(true);
+          return;
         }
+        setItems(page.items);
+        setHasMore(page.hasMore);
         setError(false);
-      } catch {
-        if (gen !== genRef.current) return;
-        if (reset) setError(true);
       } finally {
         if (gen === genRef.current) {
           inFlightRef.current = false;
@@ -108,6 +125,11 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     void load({ reset: false });
   }, [hasMore, load, loading, loadingMore]);
 
+  const removeItem = useCallback((id: string) => {
+    removeCachedGalleryItem(id);
+    setItems((current) => current.filter((row) => row.id !== id));
+  }, []);
+
   return {
     items,
     loading,
@@ -117,5 +139,6 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     refresh,
     loadMore,
     retry: load,
+    removeItem,
   };
 }

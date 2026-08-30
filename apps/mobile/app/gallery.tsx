@@ -52,7 +52,7 @@ export default function GalleryScreen() {
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [viewerId, setViewerId] = useState<string | null>(null);
   const sharingRef = useRef(false);
   const {
     items,
@@ -63,6 +63,7 @@ export default function GalleryScreen() {
     refresh,
     loadMore,
     retry,
+    removeItem,
   } = useGalleryData(filter, searchQuery);
 
   useFocusEffect(
@@ -78,7 +79,7 @@ export default function GalleryScreen() {
     { key: "files", label: t("gallery.filter.files") },
   ];
 
-  const viewerItem = viewerIndex != null ? items[viewerIndex] ?? null : null;
+  const viewerItem = viewerId ? items.find((item) => item.id === viewerId) ?? null : null;
 
   const shareFile = useCallback(
     async (item: AttachmentListItem) => {
@@ -121,14 +122,14 @@ export default function GalleryScreen() {
   }, [router, viewerItem]);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: AttachmentListItem; index: number }) => {
+    ({ item }: { item: AttachmentListItem }) => {
       const action = galleryPressAction(item.content_type);
       if (action === "view-image") {
         return (
           <Pressable
             onPress={() => {
               tap();
-              setViewerIndex(index);
+              setViewerId(item.id);
             }}
             accessibilityRole="button"
             accessibilityLabel={t("chat.image_view_a11y")}
@@ -137,6 +138,7 @@ export default function GalleryScreen() {
               attachmentId={item.id}
               downloadUrl={item.download_url}
               size={thumbSize}
+              onMissing={removeItem}
             />
           </Pressable>
         );
@@ -161,7 +163,7 @@ export default function GalleryScreen() {
         </Pressable>
       );
     },
-    [t, s, C, thumbSize, shareFile],
+    [t, s, C, thumbSize, shareFile, removeItem],
   );
 
   return (
@@ -178,6 +180,17 @@ export default function GalleryScreen() {
             autoCorrect={false}
             returnKeyType="search"
           />
+          {searchQuery.length > 0 ? (
+            <Pressable
+              onPress={() => setSearchQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel={t("gallery.search_clear_a11y")}
+              testID="gallery-search-clear"
+              hitSlop={8}
+            >
+              <Icon name="close-circle-outline" size={18} color={C.textTertiary} />
+            </Pressable>
+          ) : null}
         </View>
         <View style={s.tabs}>
           {filters.map((tab) => {
@@ -188,10 +201,11 @@ export default function GalleryScreen() {
                 style={[s.tab, active && s.tabActive]}
                 onPress={() => {
                   tap();
-                  setViewerIndex(null);
+                  setViewerId(null);
                   setFilter(tab.key);
                 }}
                 accessibilityRole="button"
+                accessibilityLabel={tab.label}
                 accessibilityState={{ selected: active }}
               >
                 <Text style={[s.tabText, active && s.tabTextActive]}>
@@ -239,7 +253,7 @@ export default function GalleryScreen() {
             <StateView
               variant="empty"
               icon="library-outline"
-              title={t(galleryEmptyKey(filter))}
+              title={t(galleryEmptyKey(filter, searchQuery))}
             />
           }
           renderItem={renderItem}
@@ -248,7 +262,7 @@ export default function GalleryScreen() {
 
       <AttachmentImageViewer
         visible={viewerItem != null && galleryPressAction(viewerItem.content_type) === "view-image"}
-        onClose={() => setViewerIndex(null)}
+        onClose={() => setViewerId(null)}
         attachmentId={viewerItem?.id}
         path={viewerItem?.download_url ?? null}
         onOpenChat={viewerItem?.chat_id ? openChat : undefined}

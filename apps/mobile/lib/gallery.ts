@@ -2,6 +2,7 @@ import type { AttachmentListItem } from "@/lib/api";
 import { isContextFresh } from "@/lib/cache/contextRefresh";
 
 export const GALLERY_SEARCH_DEBOUNCE_MS = 300;
+export const GALLERY_PAGE_SIZE = 30;
 
 export type GalleryFilter = "all" | "generated" | "uploaded" | "files";
 
@@ -20,7 +21,14 @@ export function galleryPressAction(contentType: string): "view-image" | "share-f
 
 export function galleryEmptyKey(
   filter: GalleryFilter,
-): "gallery.empty" | "gallery.empty_files" | "gallery.empty_generated" | "gallery.empty_uploaded" {
+  query = "",
+):
+  | "gallery.empty"
+  | "gallery.empty_files"
+  | "gallery.empty_generated"
+  | "gallery.empty_search"
+  | "gallery.empty_uploaded" {
+  if (query.trim()) return "gallery.empty_search";
   if (filter === "files") return "gallery.empty_files";
   if (filter === "generated") return "gallery.empty_generated";
   if (filter === "uploaded") return "gallery.empty_uploaded";

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { type IoniconName } from "@/lib/icons";
 import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
@@ -154,6 +155,7 @@ export function useChatMenuActions({
             try {
               await api.deleteChat(token, chat.id);
               void clearCachedChatMessages(chat.id);
+              invalidateGalleryCache();
               abandonActiveChatIfDeleted([chat.id]);
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
             } catch {

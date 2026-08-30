@@ -10,6 +10,7 @@ import { insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlo
 import { api, type Chat, type Message } from "@/lib/api";
 import { FREE_CHAT_MODEL_ID } from "@/lib/modelCatalogFallback";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
@@ -220,6 +221,7 @@ export function useChatActions({
             try {
               await api.deleteChat(token, chatId);
               void clearCachedChatMessages(chatId);
+              invalidateGalleryCache();
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
               setTimeout(() => {
                 if (router.canGoBack()) {

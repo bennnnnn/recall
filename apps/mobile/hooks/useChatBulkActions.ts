@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, Chat } from "@/lib/api";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
 import { type IoniconName } from "@/lib/icons";
@@ -98,6 +99,7 @@ export function useChatBulkActions({
                 for (const id of deletedIds) {
                   void clearCachedChatMessages(id);
                 }
+                invalidateGalleryCache();
                 abandonActiveChatIfDeleted(deletedIds);
                 showActionBanner(
                   t("drawer.bulk_deleted_toast", { count: chats.length }),

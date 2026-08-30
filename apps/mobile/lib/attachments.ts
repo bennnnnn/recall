@@ -279,6 +279,13 @@ export async function uploadChatAttachment(
       await api.confirmAttachment(token, presign.attachment_id);
     }
 
+    try {
+      const { invalidateGalleryCache } = await import("@/lib/cache/galleryListCache");
+      invalidateGalleryCache();
+    } catch {
+      /* best-effort */
+    }
+
     return presign.attachment_id;
   } catch (error) {
     try {
