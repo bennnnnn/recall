@@ -103,6 +103,18 @@ export function useLessonSession(projectId: string) {
     void refreshHome({ silent: true, force: true });
   }, [load, projectId, refreshHome, refreshProjects]);
 
+  const recordWrongAnswer = useCallback(() => {
+    if (!token || !step) return;
+    void api
+      .updateProjectItem(token, projectId, step.itemId, {
+        status: "learning",
+        was_correct: false,
+      })
+      .catch(() => {
+        // Best-effort miss ledger — continue still saves mastered on the last step.
+      });
+  }, [projectId, step, token]);
+
   const finishWord = useCallback(
     async (itemId: string): Promise<boolean> => {
       if (!token || !project || !chapter) return false;
@@ -170,6 +182,7 @@ export function useLessonSession(projectId: string) {
     saving,
     canAdvance,
     submitLetter,
+    recordWrongAnswer,
     continueLesson,
   };
 }

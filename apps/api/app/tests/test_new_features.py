@@ -13,6 +13,8 @@ from app.models.schemas import (
 )
 from app.tests.test_routers import _app_with_user, _fake_user
 
+_DUE_AT = "2026-08-30T18:00:00Z"
+
 # ── todos router ────────────────────────────────────────────────────────────
 
 
@@ -111,7 +113,7 @@ def test_create_todo():
         r = client.post(
             "/todos",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "Test todo"},
+            json={"content": "Test todo", "due_at": _DUE_AT},
         )
     assert r.status_code == 201
     assert r.json()["content"] == "Test todo"
@@ -152,7 +154,7 @@ def test_create_todo_with_chat_id():
         r = client.post(
             "/todos",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "From chat", "chat_id": str(cid)},
+            json={"content": "From chat", "chat_id": str(cid), "due_at": _DUE_AT},
         )
     assert r.status_code == 201
 
@@ -185,7 +187,7 @@ def test_create_todo_with_other_users_chat_id_rejected():
         r = client.post(
             "/todos",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "x", "chat_id": str(cid)},
+            json={"content": "x", "chat_id": str(cid), "due_at": _DUE_AT},
         )
     assert r.status_code == 400
     assert "Chat not found" in r.json()["detail"]
@@ -201,7 +203,7 @@ def test_create_todo_with_unowned_chat_id_404s():
         r = client.post(
             "/todos",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "x", "chat_id": str(uuid4())},
+            json={"content": "x", "chat_id": str(uuid4()), "due_at": _DUE_AT},
         )
     assert r.status_code == 400
 
@@ -241,7 +243,7 @@ def test_create_todo_with_project_id():
         r = client.post(
             "/todos",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "Study vocab", "project_id": str(pid)},
+            json={"content": "Study vocab", "project_id": str(pid), "due_at": _DUE_AT},
         )
     assert r.status_code == 201
     assert r.json()["project_id"] == str(pid)
@@ -259,7 +261,7 @@ def test_create_todo_with_other_users_project_id_rejected():
         r = client.post(
             "/todos",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "x", "project_id": str(pid)},
+            json={"content": "x", "project_id": str(pid), "due_at": _DUE_AT},
         )
     assert r.status_code == 400
     assert "Project not found" in r.json()["detail"]
@@ -469,8 +471,22 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     assert due_at.hour == 14
 
 
-def test_create_todo_passes_none_due_at_unchanged():
-    """When no due_at is sent, the repo receives None (not a normalized empty value)."""
+def test_create_todo_requires_due_at():
+    """Schedule items must have a due date — undated creates 422."""
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    client = TestClient(app)
+    r = client.post(
+        "/todos",
+        headers={"Authorization": "Bearer tok"},
+        json={"content": "Test"},
+    )
+    assert r.status_code == 422
+
+
+def test_update_todo_clearing_due_at_returns_422():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
@@ -480,28 +496,25 @@ def test_create_todo_passes_none_due_at_unchanged():
     todo_mock.content = "Test"
     todo_mock.topic = "General"
     todo_mock.checked = False
-    todo_mock.due_at = None
-    todo_mock.sort_order = None
+    todo_mock.due_at = now
     todo_mock.chat_id = None
     todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
-    user = _fake_user(timezone="America/New_York")
+    user = _fake_user()
     app = _app_with_user(user)
-    create_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.services.todos.crud.todos_repo.create", create_mock),
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.todos_repo.update", AsyncMock(return_value=todo_mock)),
     ):
         client = TestClient(app)
-        r = client.post(
-            "/todos",
+        r = client.patch(
+            f"/todos/{tid}",
             headers={"Authorization": "Bearer tok"},
-            json={"content": "Test"},
+            json={"due_at": None},
         )
-    assert r.status_code == 201
-    assert create_mock.await_args.kwargs["due_at"] is None
+    assert r.status_code == 422
 
 
 def test_update_todo_normalizes_naive_due_at():

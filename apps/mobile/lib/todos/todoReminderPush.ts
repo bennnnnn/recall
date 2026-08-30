@@ -14,3 +14,10 @@ export function todoIdFromNotificationData(
   const id = data.todo_id;
   return typeof id === "string" && id.length > 0 ? id : null;
 }
+
+/** Server owns due-at while push is on; skip expo-notifications scheduling. */
+export function shouldSyncLocalTodoReminders(
+  pushEnabled: boolean | null | undefined,
+): boolean {
+  return pushEnabled !== true;
+}

@@ -43,6 +43,7 @@ from app.services.reminder_timing import (
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
+from app.services.todos.recurrence import is_recurrence_rule, next_recurring_due
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +497,30 @@ async def process_calendar_nudges(
     return messages
 
 
+async def _mark_todo_after_successful_push(
+    session: AsyncSession,
+    todo_target: TodoItem,
+    todo: TodoItem,
+    *,
+    now: datetime,
+) -> None:
+    """Stamp sent for one-shot items; advance recurring due so the next fire can run."""
+    rule = getattr(todo_target, "recurrence_rule", None)
+    due = getattr(todo_target, "due_at", None)
+    if is_recurrence_rule(rule) and due is not None:
+        user_row = await session.get(User, getattr(todo_target, "user_id", None))
+        timezone = getattr(user_row, "timezone", None) if user_row is not None else None
+        nxt = next_recurring_due(due, rule, now=now, timezone=timezone)
+        todo_target.due_at = nxt
+        todo_target.notification_sent_at = None
+        todo_target.email_sent_at = None
+        todo.due_at = nxt
+        todo.notification_sent_at = None
+        return
+    todo_target.notification_sent_at = now
+    todo.notification_sent_at = now
+
+
 async def _finalize_push_deliveries(
     session: AsyncSession,
     redis: Redis,
@@ -526,8 +551,7 @@ async def _finalize_push_deliveries(
             # row loaded here or the UPDATE never flushes.
             todo_row = await session.get(TodoItem, todo_id)
             todo_target = todo_row if todo_row is not None else todo
-            todo_target.notification_sent_at = now
-            todo.notification_sent_at = now
+            await _mark_todo_after_successful_push(session, todo_target, todo, now=now)
             todos_marked.add(todo_id)
         for suggestion in item.suggestions:
             suggestion_id = getattr(suggestion, "id", None)
@@ -566,9 +590,8 @@ async def collect_push_outbound(
 
     now = now or datetime.now(UTC)
 
-    # Local (expo-notifications) reminders handle todo due-at alerts; server
-    # todo push is disabled by default to avoid double notifications.
-    # Re-enable via server_todo_push_enabled=true (e.g. for web-only clients).
+    # Server owns dated-todo alerts (local expo-notifications is skipped while
+    # the user has push enabled). Set false to force device-only scheduling.
     todo_msgs: list[OutboundPush] = []
     if settings.server_todo_push_enabled:
         todo_msgs = await process_todo_reminders(session, now=now)

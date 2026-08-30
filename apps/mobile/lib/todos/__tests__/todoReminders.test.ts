@@ -1,5 +1,6 @@
 import {
   isRemotePushTrigger,
+  shouldSyncLocalTodoReminders,
   todoIdFromNotificationData,
 } from "@/lib/todos/todoReminderPush";
 
@@ -19,5 +20,13 @@ describe("todo reminder push helpers", () => {
     expect(isRemotePushTrigger({ type: "push" })).toBe(true);
     expect(isRemotePushTrigger({ type: "date", date: new Date() })).toBe(false);
     expect(isRemotePushTrigger(null)).toBe(false);
+  });
+});
+
+describe("shouldSyncLocalTodoReminders", () => {
+  it("skips on-device scheduling when push is on", () => {
+    expect(shouldSyncLocalTodoReminders(true)).toBe(false);
+    expect(shouldSyncLocalTodoReminders(false)).toBe(true);
+    expect(shouldSyncLocalTodoReminders(undefined)).toBe(true);
   });
 });

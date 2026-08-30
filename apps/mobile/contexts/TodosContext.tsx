@@ -57,6 +57,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const token = auth?.token;
   const userId = auth?.user?.id;
   const leadMinutes = auth?.user?.reminder_lead_minutes ?? undefined;
+  const pushEnabled = auth?.user?.push_notifications_enabled ?? true;
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -142,7 +143,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
               void api.updateTodo(token, todo.id, { due_at: todo.due_at });
             }
             await applyBadge(items);
-            void syncTodoReminders(items);
+            void syncTodoReminders(items, { pushEnabled });
             return items;
           },
           { force: opts?.force || !hadTodos },
@@ -155,7 +156,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         setRemindersReady(true);
       }
     },
-    [applyBadge, token],
+    [applyBadge, pushEnabled, token],
   );
 
   const markSeen = useCallback(async () => {

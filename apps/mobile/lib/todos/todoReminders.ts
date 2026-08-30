@@ -10,6 +10,7 @@ import {
   leadMsFromMinutes,
   reminderNotifyDate,
 } from "@/lib/todos/reminderTiming";
+import { shouldSyncLocalTodoReminders } from "@/lib/todos/todoReminderPush";
 
 export { ensureNotificationPermission };
 
@@ -87,7 +88,11 @@ export async function scheduleTodoReminder(todo: Todo): Promise<void> {
   });
 }
 
-export async function syncTodoReminders(todos: Todo[]): Promise<void> {
+export async function syncTodoReminders(
+  todos: Todo[],
+  options?: { pushEnabled?: boolean | null },
+): Promise<void> {
+  if (!shouldSyncLocalTodoReminders(options?.pushEnabled)) return;
   if (Platform.OS === "web") return;
   await ensureAndroidChannel();
 

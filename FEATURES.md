@@ -349,10 +349,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Schedule** — dated items (formerly Reminders) with optional repeat
   (`daily` / `weekdays` / `weekly` / `monthly`). New reminder Repeat is a single
   dropdown (not wrapping chips). Repeats fire a **device push** only
-  (notification bar), not email. Chat can set `repeat` on the ` ```reminder `
+  (notification bar), not email. After a successful server todo push, a recurring
+  item advances `due_at` and clears `notification_sent_at` so the next occurrence
+  can fire. Chat can set `repeat` on the ` ```reminder `
   fence. Route `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
-- ✅ **Todos API** — create, check off, delete dated reminders; optional `due_at`.
+- ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
+  on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.
 - ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete /
   set_due from chat (dated items only); injects Schedule + overdue summary into the
@@ -361,10 +364,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
-- ✅ **Local due reminders** — schedules a device notification at due time; resyncs on
-  login, foreground, and todo changes; tap opens **Schedule** (`/todos?focus=reminders`).
-  Lead time configurable (5 / 10 / 15 / 30 / **60 min** before due). A server todo-due
-  push cancels the matching local scheduled alert so both do not fire.
+- ✅ **Local due reminders** — schedules a device notification at due time **when
+  push is off**; resyncs on login, foreground, and todo changes; tap opens **Schedule**
+  (`/todos?focus=reminders`). Lead time configurable (5 / 10 / 15 / 30 / **60 min**
+  before due). With push on, the server owns due-at (`server_todo_push_enabled` defaults
+  true) and local scheduling is skipped so both do not fire. Turning push off cancels
+  leftover local alerts then re-schedules them on-device.
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
@@ -517,7 +522,8 @@ were removed. Programming help lives in main chat.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
   (word, IPA, POS, meaning, example), then the existing A–D **lesson choice cards**
-  (gapped sentence, then meaning in that sentence). Continue is enabled after a correct
+  (gapped sentence, then meaning in that sentence). A wrong tap PATCHes
+  `was_correct: false` (miss ledger / Failed metric). Continue is enabled after a correct
   tap; that last check marks the word `mastered` (already-mastered review pages without a
   PATCH). No per-word illustration. The next group stays locked until every word in the
   current chapter is mastered. Chat must not render A–D quiz chips, `vocab_card` study

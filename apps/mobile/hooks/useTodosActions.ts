@@ -22,6 +22,7 @@ import { DEFAULT_TOPIC } from "@/lib/todoTopics";
 type Params = {
   token: string | null;
   userId: string | undefined;
+  pushEnabled?: boolean;
   todos: Todo[];
   setTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
   refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
@@ -31,6 +32,7 @@ type Params = {
 export function useTodosActions({
   token,
   userId,
+  pushEnabled,
   todos,
   setTodos,
   refresh,
@@ -86,7 +88,7 @@ export function useTodosActions({
       setPending(optimistic.id, true);
       setTodos((prev) => {
         const next = [optimistic, ...prev];
-        void syncTodoReminders(next);
+        void syncTodoReminders(next, { pushEnabled });
         return next;
       });
       onCreated();
@@ -107,7 +109,7 @@ export function useTodosActions({
         setSavingReminder(false);
       }
     },
-    [goToDay, refresh, reportError, setPending, setTodos, token, userId],
+    [goToDay, pushEnabled, refresh, reportError, setPending, setTodos, token, userId],
   );
 
   const handleToggle = useCallback(
@@ -121,14 +123,14 @@ export function useTodosActions({
         const next = prev.map((item) =>
           item.id === todo.id ? { ...item, checked: nextChecked } : item,
         );
-        void syncTodoReminders(next);
+        void syncTodoReminders(next, { pushEnabled });
         return next;
       });
       try {
         const updated = await api.updateTodo(token, todo.id, { checked: nextChecked });
         setTodos((prev) => {
           const next = prev.map((item) => (item.id === todo.id ? updated : item));
-          void syncTodoReminders(next);
+          void syncTodoReminders(next, { pushEnabled });
           return next;
         });
       } catch {
@@ -140,7 +142,7 @@ export function useTodosActions({
         void refresh({ silent: true, force: true });
       }
     },
-    [refresh, reportError, setPending, setTodos, todos, token],
+    [pushEnabled, refresh, reportError, setPending, setTodos, todos, token],
   );
 
   const handleDeleteItem = useCallback(
@@ -157,14 +159,14 @@ export function useTodosActions({
             await cancelTodoReminder(todo.id);
             setTodos((prev) => {
               const next = prev.filter((item) => item.id !== todo.id);
-              void syncTodoReminders(next);
+              void syncTodoReminders(next, { pushEnabled });
               return next;
             });
             try {
               await api.deleteTodo(token, todo.id);
             } catch {
               setTodos(snapshot);
-              void syncTodoReminders(snapshot);
+              void syncTodoReminders(snapshot, { pushEnabled });
               reportError("todos.error_delete");
             } finally {
               setPending(todo.id, false);
@@ -174,7 +176,7 @@ export function useTodosActions({
         },
       ]);
     },
-    [refresh, reportError, setPending, setTodos, t, todos, token],
+    [pushEnabled, refresh, reportError, setPending, setTodos, t, todos, token],
   );
 
   const applyDueDate = useCallback(
@@ -191,7 +193,7 @@ export function useTodosActions({
         const next = prev.map((item) =>
           item.id === todo.id ? { ...item, due_at: dueIso } : item,
         );
-        void syncTodoReminders(next);
+        void syncTodoReminders(next, { pushEnabled });
         return next;
       });
       try {
@@ -201,7 +203,7 @@ export function useTodosActions({
         goToDay(dayKeyForDue(date, updated.due_at ?? dueIso));
         setTodos((prev) => {
           const next = prev.map((item) => (item.id === todo.id ? updated : item));
-          void syncTodoReminders(next);
+          void syncTodoReminders(next, { pushEnabled });
           return next;
         });
         void refresh({ silent: true, force: true });
@@ -217,7 +219,7 @@ export function useTodosActions({
         setPending(todo.id, false);
       }
     },
-    [goToDay, refresh, reportError, setPending, setTodos, todos, token],
+    [goToDay, pushEnabled, refresh, reportError, setPending, setTodos, todos, token],
   );
 
   const openDuePicker = useCallback((todo: Todo) => {

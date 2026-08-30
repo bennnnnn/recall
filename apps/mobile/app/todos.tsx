@@ -46,6 +46,7 @@ export default function TodosScreen() {
     refresh,
     markSeen,
     setTodos,
+    pushEnabled: user?.push_notifications_enabled ?? true,
   });
 
   const { openReminders, showRemindersEmptyHero } = useTodosDerivedState(todos);
@@ -53,6 +54,7 @@ export default function TodosScreen() {
   const actions = useTodosActions({
     token,
     userId: user?.id,
+    pushEnabled: user?.push_notifications_enabled ?? true,
     todos,
     setTodos,
     refresh,

@@ -40,6 +40,7 @@ export default function LearningLessonPlayScreen() {
     saving,
     canAdvance,
     submitLetter,
+    recordWrongAnswer,
     continueLesson,
   } = useLessonSession(projectId);
 
@@ -98,6 +99,7 @@ export default function LearningLessonPlayScreen() {
             disabled={saving}
             resetToken={`${quizStep.itemId}:${quizStep.kind}`}
             onSelect={submitLetter}
+            onWrongAnswer={recordWrongAnswer}
           />
         ) : null}
         {!step && !empty && !complete && !sessionEndedEarly ? (

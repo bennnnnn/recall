@@ -49,18 +49,21 @@ describe("LessonQuizCards", () => {
     );
   });
 
-  it("only reports a correct tap to onSelect", async () => {
+    it("only reports a correct tap to onSelect", async () => {
     const onSelect = jest.fn();
+    const onWrongAnswer = jest.fn();
     const { getByTestId } = await render(
       <LessonQuizCards
         choices={choices}
         correctLetter="B"
         onSelect={onSelect}
+        onWrongAnswer={onWrongAnswer}
       />,
     );
 
     fireEvent.press(getByTestId("lesson-choice-A"));
     expect(onSelect).not.toHaveBeenCalled();
+    expect(onWrongAnswer).toHaveBeenCalledTimes(1);
     fireEvent.press(getByTestId("lesson-choice-B"));
     expect(onSelect).toHaveBeenCalledWith("B");
   });

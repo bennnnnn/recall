@@ -25,6 +25,12 @@ const existingTodo = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthOptional: () => ({
+    user: { push_notifications_enabled: false },
+  }),
+}));
+
 jest.mock("@/contexts/TodosContext", () => ({
   useTodosOptional: () => ({
     todos: [existingTodo],
@@ -108,7 +114,7 @@ describe("useSuggestedReminders", () => {
     const next = mockSetTodos.mock.calls[0][0] as typeof created[];
     expect(next[0]).toEqual(created);
     expect(next).toEqual(expect.arrayContaining([existingTodo]));
-    expect(syncTodoReminders).toHaveBeenCalledWith(next);
+    expect(syncTodoReminders).toHaveBeenCalledWith(next, { pushEnabled: false });
   });
 
   it("does not refetch on chat-composer focus", async () => {
