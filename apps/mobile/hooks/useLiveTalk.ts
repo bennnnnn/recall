@@ -12,6 +12,7 @@ import { isSseAbortError } from "@/lib/chatSse";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   LIVE_TALK_ECHO_GUARD_MS,
+  liveTalkAbortRefundNeeded,
   liveTalkCanTakeFloor,
   liveTalkDiscardListenOnMute,
   liveTalkErrorGate,
@@ -217,6 +218,7 @@ export function useLiveTalk({
     emptyStreakRef.current = 0;
     const abort = new AbortController();
     speakAbortRef.current = abort;
+    let gotAudio = false;
     try {
       const chatId = await ensureChatId();
       if (sessionGen.current !== gen) {
@@ -245,6 +247,7 @@ export function useLiveTalk({
             });
           }
           if (event.type !== "audio") return;
+          gotAudio = true;
           if (!playbackStarted) {
             playbackStarted = true;
             playbackGen = beginSpeechPlayback();
@@ -278,12 +281,14 @@ export function useLiveTalk({
       autoListenRef.current = !mutedRef.current;
       setPhase("idle");
     } catch (error) {
-      if (
-        sessionGen.current !== gen ||
+      const aborted =
         isSseAbortError(error) ||
         (error instanceof Error &&
-          (error.name === "AbortError" || error.name === "CanceledError"))
-      ) {
+          (error.name === "AbortError" || error.name === "CanceledError"));
+      if (aborted && liveTalkAbortRefundNeeded(gotAudio)) {
+        void api.refundLiveTalkTurn(token);
+      }
+      if (sessionGen.current !== gen || aborted) {
         endingUtteranceRef.current = false;
         return;
       }

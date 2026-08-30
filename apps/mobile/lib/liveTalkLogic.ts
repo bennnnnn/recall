@@ -41,6 +41,11 @@ export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
   return phase === "speaking";
 }
 
+/** Client abort before the first audio clip must refund the reserved turn. */
+export function liveTalkAbortRefundNeeded(gotAudio: boolean): boolean {
+  return !gotAudio;
+}
+
 export function liveTalkMuteA11yKey(
   muted: boolean,
 ): "chat.live_talk_mute_a11y" | "chat.live_talk_unmute_a11y" {

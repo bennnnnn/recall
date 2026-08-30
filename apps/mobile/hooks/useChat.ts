@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
-import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, type ChatSsePayload } from "@/lib/chatSse";
+import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import {
@@ -53,6 +53,9 @@ export function useChat(
   const connectingRef = useRef<Promise<void> | null>(null);
   const preferSseRef = useRef(false);
   const sseAbortRef = useRef<AbortController | null>(null);
+  const sseAbortChatIdRef = useRef<string | null>(null);
+  const viewingChatIdRef = useRef(chatId);
+  viewingChatIdRef.current = chatId;
   const assistantBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
   const draftRafRef = useRef<number | null>(null);
@@ -113,11 +116,14 @@ export function useChat(
   }, []);
 
   const beginSseStream = useCallback(() => {
-    sseAbortRef.current?.abort();
+    if (shouldAbortPriorSse(sseAbortChatIdRef.current, chatId)) {
+      sseAbortRef.current?.abort();
+    }
     const controller = new AbortController();
     sseAbortRef.current = controller;
+    sseAbortChatIdRef.current = chatId;
     return controller.signal;
-  }, []);
+  }, [chatId]);
 
   const clearStreamingBubble = useCallback(() => {
     updateStreamingDraft(null);
@@ -182,15 +188,14 @@ export function useChat(
         cancelAnimationFrame(draftRafRef.current);
       }
       clearTodoSyncTimers();
-      sseAbortRef.current?.abort();
+      // Do not abort SSE on unmount — New chat / leave must drain like WS.
       wsRef.current?.close();
     };
   }, []);
 
-  // Close and reset socket when chat changes
+  // Close and reset socket when chat changes. Do not abort SSE — Stop is the
+  // only hard cancel. Leftover SSE events are ignored via viewingChatIdRef.
   useEffect(() => {
-    sseAbortRef.current?.abort();
-    sseAbortRef.current = null;
     wsRef.current?.close();
     wsRef.current = null;
     connectingRef.current = null;
@@ -350,6 +355,14 @@ export function useChat(
     ],
   );
 
+  const handleChatPayloadForChat = useCallback(
+    (boundChatId: string | null, payload: ChatSsePayload) => {
+      if (viewingChatIdRef.current !== boundChatId) return;
+      handleChatPayload(payload);
+    },
+    [handleChatPayload],
+  );
+
   const preservePartialStream = useCallback((): boolean => {
     const draft = streamingDraftRef.current;
     const partial = (draft?.content ?? assistantBuffer.current).trim();
@@ -473,7 +486,7 @@ export function useChat(
         receivedAnyMessage = true;
         const payload = parseChatWsPayload(String(event.data));
         if (!payload) return;
-        handleChatPayload(payload);
+        handleChatPayloadForChat(chatId, payload);
       };
     });
 
@@ -494,7 +507,7 @@ export function useChat(
     clearStreamingBubble,
     restoreRegenerateBackup,
     reportError,
-    handleChatPayload,
+    handleChatPayloadForChat,
     updateStreamingDraft,
     t,
   ]);
@@ -532,7 +545,7 @@ export function useChat(
           model: options?.model,
           clientGeo: options?.clientGeo,
           signal,
-          onEvent: handleChatPayload,
+          onEvent: (payload) => handleChatPayloadForChat(chatId, payload),
         });
       } catch (err) {
         if (isSseAbortError(err)) return;
@@ -551,7 +564,7 @@ export function useChat(
       token,
       chatId,
       beginSseStream,
-      handleChatPayload,
+      handleChatPayloadForChat,
       preservePartialStream,
       clearStreamingBubble,
       reportError,
@@ -570,7 +583,7 @@ export function useChat(
           model,
           clientGeo,
           signal,
-          onEvent: handleChatPayload,
+          onEvent: (payload) => handleChatPayloadForChat(chatId, payload),
         });
       } catch (err) {
         if (isSseAbortError(err)) return;
@@ -590,7 +603,7 @@ export function useChat(
       token,
       chatId,
       beginSseStream,
-      handleChatPayload,
+      handleChatPayloadForChat,
       preservePartialStream,
       restoreRegenerateBackup,
       reportError,
@@ -764,7 +777,7 @@ export function useChat(
             model,
             clientGeo,
             signal,
-            onEvent: handleChatPayload,
+            onEvent: (payload) => handleChatPayloadForChat(chatId, payload),
           });
         } catch (err) {
           if (isSseAbortError(err)) return;
@@ -789,7 +802,7 @@ export function useChat(
       chatId,
       ensureConnected,
       beginSseStream,
-      handleChatPayload,
+      handleChatPayloadForChat,
       reportError,
       appendStreamingPlaceholder,
       restoreEditBackup,

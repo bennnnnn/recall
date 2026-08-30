@@ -540,6 +540,35 @@ async def test_iter_speech_to_speech_emits_clip_before_stream_ends():
 
 
 @pytest.mark.asyncio
+async def test_iter_speech_to_speech_rejects_unsupported_container_without_echo():
+    from app.services.live_talk_stream import iter_speech_to_speech
+
+    mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 8
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_live_talk_enabled=True,
+        speech_transcription_enabled=True,
+        speech_tts_enabled=True,
+    )
+    transcribe = AsyncMock(return_value="hello")
+    with (
+        patch("app.services.live_talk_stream.mock_llm.should_mock_llm", return_value=False),
+        patch("app.services.live_talk_stream.transcribe_audio", transcribe),
+        patch(
+            "app.services.live_talk_stream.speech_gateway.iter_speech_to_speech_via_openrouter",
+            AsyncMock(),
+        ) as gateway,
+    ):
+        events = [
+            event async for event in iter_speech_to_speech(settings, mp4, filename="speech.m4a")
+        ]
+    assert events == []
+    transcribe.assert_not_called()
+    gateway.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_speech_to_speech_falls_back_for_non_wav_input():
     from app.services.speech import speech_to_speech
 

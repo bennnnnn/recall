@@ -67,7 +67,7 @@ def register_pending_finalize(chat_id: UUID, task: asyncio.Task[None]) -> None:
 
 
 def register_inflight_stream(chat_id: UUID, task: asyncio.Task[None]) -> None:
-    """Track the WS producer so GET /messages can wait out a New-chat leave."""
+    """Track the WS/SSE producer so GET /messages can wait out a New-chat leave."""
     _track(_inflight, chat_id, task)
 
 
@@ -88,7 +88,7 @@ async def clear_pending_finalize(redis: Redis, chat_id: UUID) -> None:
 
 
 async def wait_for_inflight_stream(chat_id: UUID) -> None:
-    """Wait (bounded) for this process's WS producer. Never used by the producer."""
+    """Wait (bounded) for this process's WS/SSE producer. Never used by the producer."""
     task = _inflight.get(chat_id)
     if task is None or task.done():
         return

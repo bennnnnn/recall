@@ -10,6 +10,17 @@ export function isSseAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === "AbortError";
 }
 
+/** Abort the previous SSE only when replacing a stream in the same chat.
+ * New chat / leave must not abort — Stop is the only hard cancel (WS drains
+ * on disconnect; SSE Stop is abort, so a chat switch must leave the fetch
+ * running). */
+export function shouldAbortPriorSse(
+  previousChatId: string | null,
+  nextChatId: string | null,
+): boolean {
+  return previousChatId != null && nextChatId != null && previousChatId === nextChatId;
+}
+
 type StreamChatSseClient = {
   token: string;
   chatId: string;
