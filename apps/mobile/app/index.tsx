@@ -570,9 +570,9 @@ function ChatScreen() {
     },
     liveTalkSession: liveTalk.visible
       ? {
-          phase: liveTalk.phase,
+          muted: liveTalk.muted,
           onClose: liveTalk.close,
-          onSpeakerPress: liveTalk.togglePlayback,
+          onMutePress: liveTalk.toggleMute,
           onYield: liveTalk.yieldToComposer,
         }
       : null,

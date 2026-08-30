@@ -5,7 +5,8 @@ import {
   liveTalkErrorGate,
   liveTalkGate,
   liveTalkOrbAction,
-  liveTalkSpeakerAction,
+  liveTalkDiscardListenOnMute,
+  liveTalkMuteA11yKey,
   liveTalkSilenceDecision,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
@@ -47,20 +48,20 @@ describe("liveTalkErrorGate", () => {
 });
 
 describe("liveTalkOrbAction", () => {
-  it("does not pause from the orb; speaker owns pause/resume", () => {
+  it("does not mute from the orb; mic control owns mute", () => {
     expect(liveTalkOrbAction("speaking")).toBe("none");
-    expect(liveTalkOrbAction("paused")).toBe("none");
     expect(liveTalkOrbAction("thinking")).toBe("cancelThink");
     expect(liveTalkOrbAction("recording")).toBe("finishListen");
     expect(liveTalkOrbAction("idle")).toBe("begin");
-    expect(liveTalkSpeakerAction("speaking")).toBe("pause");
-    expect(liveTalkSpeakerAction("paused")).toBe("resume");
-    expect(liveTalkSpeakerAction("recording")).toBeNull();
+    expect(liveTalkDiscardListenOnMute("recording")).toBe(true);
+    expect(liveTalkDiscardListenOnMute("thinking")).toBe(true);
+    expect(liveTalkDiscardListenOnMute("speaking")).toBe(false);
+    expect(liveTalkMuteA11yKey(false)).toBe("chat.live_talk_mute_a11y");
+    expect(liveTalkMuteA11yKey(true)).toBe("chat.live_talk_unmute_a11y");
   });
 
-  it("offers Speak only while audio is playing or paused", () => {
+  it("offers Speak only while audio is playing", () => {
     expect(liveTalkCanTakeFloor("speaking")).toBe(true);
-    expect(liveTalkCanTakeFloor("paused")).toBe(true);
     expect(liveTalkCanTakeFloor("recording")).toBe(false);
     expect(liveTalkCanTakeFloor("thinking")).toBe(false);
   });

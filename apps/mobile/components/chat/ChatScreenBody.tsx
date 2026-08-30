@@ -22,7 +22,6 @@ import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { type IoniconName } from "@/lib/icons";
 import { messagesLookLikeMath } from "@/lib/math/mathComposerIntent";
 import type { Theme } from "@/lib/theme";
-import type { LiveTalkPhase } from "@/lib/liveTalkLogic";
 
 export type ChatScreenBodyProps = {
   styles: ChatScreenStyles;
@@ -91,9 +90,9 @@ export type ChatScreenBodyProps = {
   onVoicePress?: () => void;
   onLiveTalkPress?: () => void;
   liveTalkSession?: {
-    phase: LiveTalkPhase;
+    muted: boolean;
     onClose: () => void;
-    onSpeakerPress: () => void;
+    onMutePress: () => void;
     onYield: () => void;
   } | null;
   upgradeVisible: boolean;

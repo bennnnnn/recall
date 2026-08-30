@@ -39,7 +39,7 @@ export function LiveTalkOverlay({
   const orb = (
     <LiveTalkOrb
       theme={theme}
-      phase={phase === "paused" ? "idle" : phase}
+      phase={phase}
       meterLevel={meterLevel}
       recording={recording}
       reduceMotion={reduceMotion}

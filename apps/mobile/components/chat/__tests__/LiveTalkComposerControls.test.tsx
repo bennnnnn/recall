@@ -13,15 +13,19 @@ jest.mock("react-i18next", () => ({
 }));
 
 describe("LiveTalkComposerControls", () => {
-  it("puts the speaker next to close and pauses from the speaker", async () => {
-    const onSpeakerPress = jest.fn();
+  it("puts mute next to close and turns red when muted", async () => {
+    const onMutePress = jest.fn();
     const onClose = jest.fn();
-    const { getByLabelText, getByTestId } = await render(
-      <LiveTalkComposerControls phase="speaking" onSpeakerPress={onSpeakerPress} onClose={onClose} />,
+    const { getByLabelText, getByTestId, rerender } = await render(
+      <LiveTalkComposerControls muted={false} onMutePress={onMutePress} onClose={onClose} />,
     );
 
-    await fireEvent.press(getByLabelText("chat.live_talk_pause_a11y"));
-    expect(onSpeakerPress).toHaveBeenCalled();
+    await fireEvent.press(getByLabelText("chat.live_talk_mute_a11y"));
+    expect(onMutePress).toHaveBeenCalled();
+    await rerender(
+      <LiveTalkComposerControls muted onMutePress={onMutePress} onClose={onClose} />,
+    );
+    expect(getByLabelText("chat.live_talk_unmute_a11y")).toBeTruthy();
     await fireEvent.press(getByTestId("live-talk-close"));
     expect(onClose).toHaveBeenCalled();
   });

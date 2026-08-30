@@ -25,7 +25,6 @@ import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { openDrawer } from "@/lib/drawer";
-import type { LiveTalkPhase } from "@/lib/liveTalkLogic";
 import type { Theme } from "@/lib/theme";
 
 type QuotaNudge = {
@@ -122,9 +121,9 @@ export type UseChatScreenBodyPropsParams = {
     onLiveTalkPress?: () => void;
   };
   liveTalkSession?: {
-    phase: LiveTalkPhase;
+    muted: boolean;
     onClose: () => void;
-    onSpeakerPress: () => void;
+    onMutePress: () => void;
     onYield: () => void;
   } | null;
   listFooter?: ReactElement | null;

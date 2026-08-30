@@ -2,39 +2,38 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
-import {
-  liveTalkSpeakerA11yKey,
-  liveTalkSpeakerAction,
-  type LiveTalkPhase,
-} from "@/lib/liveTalkLogic";
+import { liveTalkMuteA11yKey } from "@/lib/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
-  phase: LiveTalkPhase;
-  onSpeakerPress: () => void;
+  muted: boolean;
+  onMutePress: () => void;
   onClose: () => void;
 };
 
-/** Speaker + close, same row as the composer (ChatGPT voice chrome). */
-export function LiveTalkComposerControls({ phase, onSpeakerPress, onClose }: Props) {
+/** Mic mute + close, same row as the composer. Red means the model cannot hear you. */
+export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const speakerAction = liveTalkSpeakerAction(phase);
-  const speakerA11y = liveTalkSpeakerA11yKey(phase);
 
   return (
     <View style={styles.row}>
       <Pressable
-        onPress={onSpeakerPress}
-        style={[styles.round, { borderColor: theme.composerBorder, backgroundColor: theme.inputBg }]}
+        onPress={onMutePress}
+        style={[
+          styles.round,
+          muted
+            ? { backgroundColor: theme.danger, borderColor: theme.danger }
+            : { backgroundColor: theme.inputBg, borderColor: theme.composerBorder },
+        ]}
         accessibilityRole="button"
-        accessibilityLabel={t(speakerA11y)}
-        testID="live-talk-speaker"
+        accessibilityLabel={t(liveTalkMuteA11yKey(muted))}
+        testID="live-talk-mute"
       >
         <Icon
-          name={speakerAction === "pause" ? "volume-high" : "volume-high-outline"}
-          size={26}
-          color={theme.text}
+          name={muted ? "mic-off" : "mic-outline"}
+          size={24}
+          color={muted ? theme.onPrimary : theme.text}
         />
       </Pressable>
       <Pressable

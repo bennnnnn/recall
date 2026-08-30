@@ -1,4 +1,4 @@
-export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking" | "paused";
+export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
 export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline";
 
@@ -22,26 +22,29 @@ export const LIVE_TALK_MAX_RECORDING_MS = 30_000;
 export const LIVE_TALK_NO_SPEECH_MS = 8_000;
 
 export type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
-export type LiveTalkSpeakerAction = "pause" | "resume";
 
-/** Orb tap: start/stop a listen or cancel a wait. Pause is the speaker, not the orb. */
+/** Orb tap: start/stop a listen or cancel a wait. Mute is the mic control, not the orb. */
 export function liveTalkOrbAction(phase: LiveTalkPhase): LiveTalkOrbAction {
   if (phase === "thinking") return "cancelThink";
-  if (phase === "speaking" || phase === "paused") return "none";
+  if (phase === "speaking") return "none";
   if (phase === "recording") return "finishListen";
   return "begin";
 }
 
-/** Speaker control: pause while audio is up, resume while paused. */
-export function liveTalkSpeakerAction(phase: LiveTalkPhase): LiveTalkSpeakerAction | null {
-  if (phase === "speaking") return "pause";
-  if (phase === "paused") return "resume";
-  return null;
+/** Mute drops an in-flight listen so the model never hears it. Playback keeps going. */
+export function liveTalkDiscardListenOnMute(phase: LiveTalkPhase): boolean {
+  return phase === "recording" || phase === "thinking";
 }
 
 /** Speak control: cut playback and take the floor. Not full duplex. */
 export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
-  return phase === "speaking" || phase === "paused";
+  return phase === "speaking";
+}
+
+export function liveTalkMuteA11yKey(
+  muted: boolean,
+): "chat.live_talk_mute_a11y" | "chat.live_talk_unmute_a11y" {
+  return muted ? "chat.live_talk_unmute_a11y" : "chat.live_talk_mute_a11y";
 }
 
 export function liveTalkOrbA11yKey(
@@ -49,13 +52,6 @@ export function liveTalkOrbA11yKey(
 ): "chat.live_talk_cancel_a11y" | "chat.live_talk_a11y" {
   if (phase === "thinking") return "chat.live_talk_cancel_a11y";
   return "chat.live_talk_a11y";
-}
-
-export function liveTalkSpeakerA11yKey(
-  phase: LiveTalkPhase,
-): "chat.live_talk_pause_a11y" | "chat.live_talk_resume_a11y" {
-  if (phase === "paused") return "chat.live_talk_resume_a11y";
-  return "chat.live_talk_pause_a11y";
 }
 
 export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean): LiveTalkGate {

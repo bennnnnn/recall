@@ -10,6 +10,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   LIVE_TALK_ECHO_GUARD_MS,
   liveTalkCanTakeFloor,
+  liveTalkDiscardListenOnMute,
   liveTalkErrorGate,
   liveTalkGate,
   liveTalkOrbAction,
@@ -18,7 +19,7 @@ import {
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
-import { pauseSpeaking, playSpeechAudio, resumeSpeaking, stopSpeaking } from "@/lib/pronunciation";
+import { playSpeechAudio, stopSpeaking } from "@/lib/pronunciation";
 import { isVoiceInputAvailable, readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
 
 type Options = {
@@ -33,9 +34,11 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   const drawerOpen = useDrawer().isOpen;
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
+  const [muted, setMuted] = useState(false);
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
   const phaseRef = useRef(phase);
   const visibleRef = useRef(false);
+  const mutedRef = useRef(false);
   const sessionGen = useRef(0);
   const heardSpeechRef = useRef(false);
   const silenceStartedAtRef = useRef<number | null>(null);
@@ -46,6 +49,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
 
   phaseRef.current = phase;
   visibleRef.current = visible;
+  mutedRef.current = muted;
 
   const alertForGate = useCallback(
     (gate: LiveTalkGate, opts?: { overModal?: boolean }) => {
@@ -89,14 +93,14 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
   cancelRecordingRef.current = voice.cancelRecording;
 
   const beginListen = useCallback(async () => {
-    if (!token || isOffline || !visibleRef.current) return;
+    if (!token || isOffline || !visibleRef.current || mutedRef.current) return;
     if (phaseRef.current === "recording" || phaseRef.current === "thinking") return;
     heardSpeechRef.current = false;
     silenceStartedAtRef.current = null;
     recordingStartedAtRef.current = Date.now();
     const started = await startRecordingRef.current();
     if (!started) return;
-    if (!visibleRef.current) {
+    if (!visibleRef.current || mutedRef.current) {
       void cancelRecordingRef.current();
       return;
     }
@@ -160,7 +164,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
           return;
         }
       }
-      autoListenRef.current = true;
+      autoListenRef.current = !mutedRef.current;
       setPhase("idle");
     } catch (error) {
       if (sessionGen.current !== gen) {
@@ -181,6 +185,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     autoListenRef.current = false;
     void cancelRecordingRef.current();
     setPhase("idle");
+    setMuted(false);
     setVisible(false);
   }, []);
 
@@ -201,6 +206,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
       sessionGen.current += 1;
       emptyStreakRef.current = 0;
       autoListenRef.current = true;
+      setMuted(false);
       setPhase("idle");
       setVisible(true);
     } catch (error) {
@@ -214,7 +220,7 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     if (action === "cancelThink") {
       sessionGen.current += 1;
       endingUtteranceRef.current = false;
-      autoListenRef.current = true;
+      autoListenRef.current = !mutedRef.current;
       setPhase("idle");
       return;
     }
@@ -225,35 +231,32 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     await beginListen();
   }, [phase, finishListen, beginListen]);
 
-  const togglePlayback = useCallback(() => {
-    if (phaseRef.current === "speaking") {
-      if (!pauseSpeaking()) {
-        sessionGen.current += 1;
-        stopSpeaking();
+  const toggleMute = useCallback(() => {
+    if (mutedRef.current) {
+      mutedRef.current = false;
+      setMuted(false);
+      if (phaseRef.current === "idle" && visibleRef.current) {
         autoListenRef.current = true;
-        setPhase("idle");
-        return;
+        void beginListen();
       }
-      setPhase("paused");
       return;
     }
-    if (phaseRef.current === "paused") {
-      if (!resumeSpeaking()) {
-        sessionGen.current += 1;
-        stopSpeaking();
-        autoListenRef.current = true;
-        setPhase("idle");
-        return;
-      }
-      setPhase("speaking");
+    mutedRef.current = true;
+    setMuted(true);
+    autoListenRef.current = false;
+    if (liveTalkDiscardListenOnMute(phaseRef.current)) {
+      sessionGen.current += 1;
+      endingUtteranceRef.current = false;
+      void cancelRecordingRef.current();
+      setPhase("idle");
     }
-  }, []);
+  }, [beginListen]);
 
   const interrupt = useCallback(() => {
     if (!liveTalkCanTakeFloor(phase)) return;
     sessionGen.current += 1;
     stopSpeaking();
-    autoListenRef.current = true;
+    autoListenRef.current = !mutedRef.current;
     void cancelRecordingRef.current();
     setPhase("idle");
   }, [phase]);
@@ -309,10 +312,11 @@ export function useLiveTalk({ token, isOffline, onUpgrade, t }: Options) {
     phase,
     meterLevel: voice.voiceMeterLevel,
     recording: phase === "recording",
+    muted,
     open,
     close,
     toggle,
-    togglePlayback,
+    toggleMute,
     yieldToComposer,
     interrupt,
   };

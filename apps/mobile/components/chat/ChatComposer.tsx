@@ -33,7 +33,6 @@ import {
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
-import type { LiveTalkPhase } from "@/lib/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
@@ -84,11 +83,11 @@ type Props = {
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
   onLiveTalkPress?: () => void;
-  /** Speaker + close beside the real composer while live talk is open. */
+  /** Mic mute + close beside the real composer while live talk is open. */
   liveTalkChrome?: {
-    phase: LiveTalkPhase;
+    muted: boolean;
     onClose: () => void;
-    onSpeakerPress: () => void;
+    onMutePress: () => void;
     onYield: () => void;
   } | null;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
@@ -417,8 +416,8 @@ export const ChatComposer = memo(function ChatComposer({
           </View>
           {liveTalkChrome ? (
             <LiveTalkComposerControls
-              phase={liveTalkChrome.phase}
-              onSpeakerPress={liveTalkChrome.onSpeakerPress}
+              muted={liveTalkChrome.muted}
+              onMutePress={liveTalkChrome.onMutePress}
               onClose={liveTalkChrome.onClose}
             />
           ) : null}
