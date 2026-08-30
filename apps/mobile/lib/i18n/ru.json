@@ -63,6 +63,7 @@
   "chat.export_pdf_default_title": "Recall report",
   "chat.export_pdf_failed": "Could not create the PDF. Try again.",
   "chat.feedback_failed": "Не удалось сохранить отзыв.",
+  "chat.file_indexing": "Ещё индексируется…",
   "chat.generation_stopped": "Генерация остановлена.",
   "chat.heic_unsupported_body": "Этот формат фото не поддерживается. Конвертируйте в JPEG или выберите другое фото.",
   "chat.heic_unsupported_title": "HEIC не поддерживается",

@@ -24,6 +24,7 @@ class AttachmentOut(BaseModel):
     size_bytes: int
     download_url: str
     created_at: datetime
+    indexed: bool = True
 
 
 class AttachmentListItemOut(BaseModel):

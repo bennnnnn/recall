@@ -70,6 +70,7 @@ def test_delete_account_returns_204():
             side_effect=purge,
         ),
         patch("app.services.account_lifecycle.users_repo.delete_user", side_effect=delete_user),
+        patch("app.services.account_lifecycle.enqueue", AsyncMock()) as enqueue_mock,
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
@@ -78,6 +79,8 @@ def test_delete_account_returns_204():
     # working access token after the row is gone, with only the (now-deleted)
     # DB user check to stop it.
     assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
+    enqueue_mock.assert_awaited_once()
+    assert enqueue_mock.await_args.args[1] == "storage_sweep"
 
 
 def test_delete_account_continues_when_google_revoke_fails():
@@ -115,6 +118,7 @@ def test_delete_account_continues_when_google_revoke_fails():
             side_effect=purge,
         ),
         patch("app.services.account_lifecycle.users_repo.delete_user", side_effect=delete_user),
+        patch("app.services.account_lifecycle.enqueue", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
@@ -167,6 +171,7 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
             return_value=gateway,
         ),
         patch("app.services.account_lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,
+        patch("app.services.account_lifecycle.enqueue", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})

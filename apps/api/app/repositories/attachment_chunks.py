@@ -52,6 +52,23 @@ async def has_chunks_for_chat(
     return result.scalar_one_or_none() is not None
 
 
+async def has_chunks_for_attachment(
+    session: AsyncSession,
+    user_id: UUID,
+    attachment_id: UUID,
+) -> bool:
+    result = await session.execute(
+        select(AttachmentChunk.id)
+        .where(
+            AttachmentChunk.user_id == user_id,
+            AttachmentChunk.attachment_id == attachment_id,
+            AttachmentChunk.embedding.isnot(None),
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def replace_chunks(
     session: AsyncSession,
     *,

@@ -219,6 +219,9 @@ async def enrich_final_content(
                 assistant_text, canonical
             )
 
+        if ctx.math_unverified is True:
+            assistant_text = seams.math_fence_service.append_unverified_math_note(assistant_text)
+
         from app.services.vocab_quiz import strip_vocab_session_metadata
 
         assistant_text = strip_vocab_session_metadata(assistant_text)

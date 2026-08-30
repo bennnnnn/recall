@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/CopyButton";
 import { CardShell } from "@/components/rich/CardShell";
+import { stripDraftFormSlots } from "@/lib/emailDraftSanitize";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { text: string; label?: string };
@@ -13,16 +14,17 @@ export function MessagePreview({ text, label }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const resolvedLabel = label ?? t("rich.message_draft");
+  const sanitized = useMemo(() => stripDraftFormSlots(text), [text]);
 
   return (
     <CardShell
       label={resolvedLabel}
       icon="chatbubble-outline"
       accent={false}
-      headerActions={<CopyButton text={text} />}
+      headerActions={<CopyButton text={sanitized} />}
     >
       <Text style={s.body} selectable>
-        {text}
+        {sanitized}
       </Text>
     </CardShell>
   );

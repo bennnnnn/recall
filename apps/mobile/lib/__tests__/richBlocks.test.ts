@@ -5,6 +5,7 @@ import {
   parseQuoteAttribution,
   parseSteps,
 } from "@/lib/richBlocks";
+import { stripDraftFormSlots } from "@/lib/emailDraftSanitize";
 
 describe("detectJsonRichFenceKind", () => {
   it("BUG FIX regression: recognizes a mistagged ```json geometry fence", () => {
@@ -116,6 +117,17 @@ describe("parseEmailDraft", () => {
       subject: "Friday off",
       body: "Hi Jane,\n\nSee [the policy](https://example.com/pto).",
     });
+  });
+});
+
+describe("stripDraftFormSlots", () => {
+  it("strips [Your Name] from SMS and social copy", () => {
+    expect(stripDraftFormSlots("Hey [Your Name], running late.")).toBe(
+      "Hey , running late.",
+    );
+    expect(
+      stripDraftFormSlots("Posted by [Your Name]\nSee you Friday."),
+    ).not.toContain("[Your Name]");
   });
 });
 

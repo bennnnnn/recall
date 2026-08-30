@@ -10,6 +10,7 @@ import {
   sentMessageShowsMathPreview,
   MathDraftPreview,
 } from "@/components/chat/MathDraftPreview";
+import { useAttachmentIndexed } from "@/hooks/useAttachmentIndexed";
 import { Message } from "@/lib/api";
 import {
   fileLabelFromContentType,
@@ -49,6 +50,7 @@ export function UserMessageContent({ message }: Props) {
   const nonPdfFileLabel =
     message.local_file_name ??
     fileLabelFromContentType(nonPdfFile?.contentType, t("chat.attached_file"));
+  const fileIndexed = useAttachmentIndexed(nonPdfFile?.attachmentId);
   const showCaption =
     parsed.caption.length > 0 &&
     !(showPdf && (parsed.caption === pdfFileName || parsed.caption.endsWith(".pdf")));
@@ -88,10 +90,15 @@ export function UserMessageContent({ message }: Props) {
         <CollapsibleMessageBody collapsible={collapseText} fadeColor={C.userBubble}>
           <View style={[s.textBubble, hasImages && s.textBubbleBelowImage]}>
             {parsed.hasFileAttachment && !showPdf ? (
-              <View style={s.fileChip} accessibilityLabel={nonPdfFileLabel}>
+              <View
+                style={s.fileChip}
+                accessibilityLabel={
+                  fileIndexed ? nonPdfFileLabel : t("chat.file_indexing")
+                }
+              >
                 <Icon name="document-outline" size={16} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>
-                  {nonPdfFileLabel}
+                  {fileIndexed ? nonPdfFileLabel : t("chat.file_indexing")}
                 </Text>
               </View>
             ) : null}

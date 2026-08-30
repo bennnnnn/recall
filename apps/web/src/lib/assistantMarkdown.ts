@@ -2,6 +2,8 @@
  * turn remaining rich fences into a short human label, never dump JSON. */
 
 import type { SearchSource } from "@/api/types";
+import { stripDraftFormSlots } from "./draftSanitize.ts";
+import { normalizeMarkdownTables, splitSwallowedCodeFenceTables } from "./markdownTables.ts";
 
 export type { SearchSource };
 
@@ -46,6 +48,8 @@ const CALLOUT_LANGS = new Set([
 ]);
 
 const ANSWER_LANGS = new Set(["answer", "result", "final"]);
+
+const DRAFT_LANGS = new Set(["email", "sms", "social"]);
 
 function fenceLang(info: string): string {
   const stripped = info.trim();
@@ -215,6 +219,14 @@ function visualFallback(lang: string, body: string): string {
   return title ? `*${label}: ${title}*` : `*${label}*`;
 }
 
+function draftFallback(lang: string, body: string): string {
+  const sanitized = stripDraftFormSlots(body);
+  if (!sanitized) return "";
+  const label = lang === "email" ? "Email" : lang === "sms" ? "Text message" : "Post";
+  const quoted = sanitized.replace(/\n/g, "\n> ");
+  return `> **${label}**\n> ${quoted}`;
+}
+
 function fallbackForFence(fence: Fence): string {
   const lang = fence.lang;
   if (isSourcesFence(fence)) return "";
@@ -237,6 +249,9 @@ function fallbackForFence(fence: Fence): string {
     const body = fence.body.trim();
     return body ? `> ${body.replace(/\n/g, "\n> ")}` : "";
   }
+  if (DRAFT_LANGS.has(lang)) {
+    return draftFallback(lang, fence.body);
+  }
   // Unknown / code / math: keep the original fence so marked can render a <pre>.
   return "";
 }
@@ -248,6 +263,7 @@ function shouldReplaceFence(fence: Fence): boolean {
   if (ANSWER_LANGS.has(fence.lang)) return true;
   if (fence.lang in VISUAL_LABELS) return true;
   if (CALLOUT_LANGS.has(fence.lang)) return true;
+  if (DRAFT_LANGS.has(fence.lang)) return true;
   return false;
 }
 
@@ -291,5 +307,7 @@ export function replaceRichFences(markdown: string): string {
 }
 
 export function prepareAssistantMarkdown(markdown: string): string {
-  return replaceRichFences(stripSearchSourcesFromContent(markdown ?? ""));
+  const stripped = stripSearchSourcesFromContent(markdown ?? "");
+  const split = splitSwallowedCodeFenceTables(stripped, iterFences(stripped));
+  return replaceRichFences(normalizeMarkdownTables(split));
 }

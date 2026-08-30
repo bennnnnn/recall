@@ -14,7 +14,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 from app.core.config import Settings
 
@@ -42,6 +42,8 @@ class StorageGateway(Protocol):
     async def read_bytes(self, storage_key: str) -> bytes | None: ...
 
     async def delete_bytes(self, storage_key: str) -> None: ...
+
+    async def delete_prefix(self, prefix: str) -> int: ...
 
     def resolve_local_path(self, storage_key: str) -> Path | None: ...
 
@@ -95,6 +97,22 @@ class LocalStorageGateway:
             path.unlink(missing_ok=True)
         except IsADirectoryError:
             pass
+
+    async def delete_prefix(self, prefix: str) -> int:
+        """Delete every object under ``prefix`` (account-wipe residual sweep)."""
+        import shutil
+
+        if not prefix or prefix.startswith("/") or ".." in Path(prefix).parts:
+            return 0
+        root = (self.base_path / prefix).resolve()
+        if not root.is_relative_to(self.base_path) or not root.exists():
+            return 0
+        if root.is_file():
+            root.unlink(missing_ok=True)
+            return 1
+        deleted = sum(1 for path in root.rglob("*") if path.is_file())
+        shutil.rmtree(root)
+        return deleted
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
         try:
@@ -208,6 +226,46 @@ class R2StorageGateway:
         except Exception:
             logger.debug("R2 delete_object failed for %s", storage_key, exc_info=True)
 
+    async def delete_prefix(self, prefix: str) -> int:
+        import asyncio
+
+        if not prefix or ".." in prefix or prefix.startswith("/"):
+            return 0
+        deleted = 0
+        token: str | None = None
+        while True:
+            kwargs: dict[str, object] = {
+                "Bucket": self._bucket,
+                "Prefix": prefix,
+                "MaxKeys": 1000,
+            }
+            if token:
+                kwargs["ContinuationToken"] = token
+
+            def _list_page(params: dict[str, object]) -> dict[str, Any]:
+                return cast(dict[str, Any], self._client.list_objects_v2(**params))
+
+            resp = await asyncio.to_thread(_list_page, kwargs)
+            contents = resp.get("Contents") or []
+            keys = [
+                obj["Key"]
+                for obj in contents
+                if isinstance(obj, dict) and isinstance(obj.get("Key"), str)
+            ]
+            if keys:
+                await asyncio.to_thread(
+                    self._client.delete_objects,
+                    Bucket=self._bucket,
+                    Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},
+                )
+                deleted += len(keys)
+            if not resp.get("IsTruncated"):
+                break
+            token = resp.get("NextContinuationToken")
+            if not token:
+                break
+        return deleted
+
     def resolve_local_path(self, storage_key: str) -> Path | None:
         return None
 
@@ -233,6 +291,9 @@ class UnconfiguredStorageGateway:
 
     async def delete_bytes(self, storage_key: str) -> None:
         return None
+
+    async def delete_prefix(self, prefix: str) -> int:
+        return 0
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
         return None

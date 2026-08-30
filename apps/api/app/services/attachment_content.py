@@ -78,10 +78,10 @@ _CONTENT_TYPE_ALIASES = {
     "image/pjpeg": "image/jpeg",
 }
 
-# Text-ish types have no reliable magic signature; we accept any bytes for them
-# (they can't impersonate a dangerous binary type, and the renderer treats them
-# as text). HEIC/HEIF use an ISO BMFF ftyp box that's awkward to sniff here and
-# are rare via the local upload path, so they're accepted on trust for now.
+# Text-ish types have no reliable magic signature. Accept only clean UTF-8
+# with no NUL (rejects polyglot binaries claimed as txt/json/csv/md). HEIC/HEIF
+# use an ISO BMFF ftyp box that's awkward to sniff here and are rare via the
+# local upload path, so they're accepted on trust for now.
 _TEXTISH_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "application/json"})
 _UNVERIFIABLE_TYPES: frozenset[str] = frozenset()
 
@@ -154,6 +154,17 @@ def _sniff_signature(data: bytes) -> str | None:
     return None
 
 
+def _is_clean_textish(data: bytes) -> bool:
+    """UTF-8 text with no NUL — rejects polyglot binaries claimed as txt/json/csv/md."""
+    if b"\x00" in data:
+        return False
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
 def bytes_match_claimed(claimed: str, data: bytes) -> bool:
     """True if the uploaded bytes are consistent with the claimed content type.
 
@@ -169,8 +180,14 @@ def bytes_match_claimed(claimed: str, data: bytes) -> bool:
     if detected is None:
         # No binary signature. Accept only for text-ish claims; an image/pdf
         # claim with no matching signature is a spoof.
-        return norm in _TEXTISH_TYPES
-    return detected == norm
+        if norm not in _TEXTISH_TYPES:
+            return False
+        return _is_clean_textish(data)
+    if detected != norm:
+        return False
+    if norm in _TEXTISH_TYPES:
+        return _is_clean_textish(data)
+    return True
 
 
 def normalize_content_type(content_type: str) -> str:
@@ -214,10 +231,10 @@ def extract_text_from_bytes(
 
             reader = PdfReader(io.BytesIO(data))
             parts: list[str] = []
-            for page in reader.pages[:25]:
+            for index, page in enumerate(reader.pages[:25], start=1):
                 page_text = page.extract_text()
                 if page_text:
-                    parts.append(page_text.strip())
+                    parts.append(f"[page {index}] {page_text.strip()}")
             joined = "\n\n".join(parts).strip()
             return joined[:max_chars] if joined else None
         except Exception:

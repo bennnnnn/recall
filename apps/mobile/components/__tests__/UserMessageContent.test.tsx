@@ -29,6 +29,9 @@ jest.mock("@/components/CollapsibleMessageBody", () => {
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
 }));
+jest.mock("@/hooks/useAttachmentIndexed", () => ({
+  useAttachmentIndexed: () => true,
+}));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("expo-haptics", () => ({

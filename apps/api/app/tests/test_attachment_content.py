@@ -123,6 +123,10 @@ def test_bytes_match_claimed_rejects_spoofed_image():
     assert bytes_match_claimed("image/png", png_header) is True
     assert bytes_match_claimed("image/png", b"#!/bin/bash\n") is False
     assert bytes_match_claimed("text/plain", b"hello") is True
+    assert bytes_match_claimed("text/plain", b"hello\x00world") is False
+    assert bytes_match_claimed("text/plain", b"\xff\xfe not utf-8") is False
+    assert bytes_match_claimed("text/plain", png_header) is False
+    assert bytes_match_claimed("application/json", b'{"ok": true}') is True
 
 
 def test_extract_text_from_pdf_bytes():

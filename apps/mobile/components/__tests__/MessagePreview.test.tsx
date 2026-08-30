@@ -22,9 +22,9 @@ jest.mock("react-i18next", () => ({
 describe("MessagePreview", () => {
   it("renders draft copy on a white card, not a brand-blue bubble", async () => {
     const { getByText } = await render(
-      <MessagePreview text="Hey [Friend's Name]! 👋" />,
+      <MessagePreview text="Hey Sam! 👋" />,
     );
-    const text = getByText("Hey [Friend's Name]! 👋");
+    const text = getByText("Hey Sam! 👋");
     expect(StyleSheet.flatten(text.props.style)).toMatchObject({
       color: lightTheme.text,
     });
@@ -68,5 +68,13 @@ describe("MessagePreview", () => {
       node = node.parent as typeof node;
     }
     expect(sawPrimaryAccent).toBe(false);
+  });
+
+  it("strips form-slot placeholders before display", async () => {
+    const { queryByText, getByText } = await render(
+      <MessagePreview text="Hey [Friend's Name]! 👋" />,
+    );
+    expect(queryByText("Hey [Friend's Name]! 👋")).toBeNull();
+    expect(getByText("Hey ! 👋")).toBeTruthy();
   });
 });

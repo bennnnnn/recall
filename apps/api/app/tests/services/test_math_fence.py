@@ -634,3 +634,11 @@ def test_does_not_duplicate_existing_answer_fence() -> None:
     assert out.count("```answer") == 1
     assert "```answer\nx = 2\n```" in out
     assert "x = 99" not in out
+
+
+def test_append_unverified_math_note_once() -> None:
+    from app.services.math_fence import append_unverified_math_note
+
+    labeled = append_unverified_math_note("The roots are $x=1$.")
+    assert labeled.endswith("*Couldn't verify this with SymPy.*")
+    assert append_unverified_math_note(labeled) == labeled

@@ -30,8 +30,8 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
+from app.services import attachment_lifecycle, suggestion_generation
 from app.services import quota as quota_service
-from app.services import suggestion_generation
 from app.services import transactional_email as transactional_email_service
 from app.services.chat import compaction
 from app.services.memory import consolidation_workflow as memory_consolidation
@@ -263,6 +263,21 @@ async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> 
     await message_indexing.index_message_job(settings, payload)
 
 
+async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> None:
+    """GDPR residual: prefix-delete leftover R2 objects after account wipe.
+
+    Must not be spend-capped — leftover blobs are a privacy residual, not
+    optional enrichment.
+    """
+    raw = payload.get("user_id")
+    try:
+        user_id = UUID(str(raw))
+    except (TypeError, ValueError):
+        logger.warning("storage_sweep invalid user_id=%r", raw)
+        return
+    await attachment_lifecycle.sweep_user_storage(settings, user_id)
+
+
 def register_all() -> None:
     """Register every live job type. Idempotent — `register` overwrites by key."""
     register("topic", _handle_topic)
@@ -277,3 +292,4 @@ def register_all() -> None:
     register("transactional_email", _handle_transactional_email)
     register("attachment_index", _handle_attachment_index)
     register("message_index", _handle_message_index)
+    register("storage_sweep", _handle_storage_sweep)

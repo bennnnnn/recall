@@ -198,3 +198,19 @@ async def reap_orphan_attachments(settings: Settings) -> int:
                     )
     logger.info("Reaped %d orphan attachment(s)", len(removed_keys))
     return len(removed_keys)
+
+
+async def sweep_user_storage(settings: Settings, user_id: UUID) -> int:
+    """Delete leftover objects under ``{user_id}/`` after account wipe.
+
+    Complements ``purge_attachments_for_user`` when Redis pending-delete never
+    ran. Prefix is the user UUID only — never ``/`` or ``..``.
+    """
+    prefix = f"{user_id}/"
+    if ".." in prefix or prefix.startswith("/"):
+        return 0
+    gateway = get_storage_gateway(settings)
+    deleted = await gateway.delete_prefix(prefix)
+    if deleted:
+        logger.info("storage_sweep user_id=%s deleted=%s", user_id, deleted)
+    return deleted

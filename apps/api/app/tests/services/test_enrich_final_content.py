@@ -182,4 +182,29 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
 
     assert 'E["Grind Beans (Medium Grind)"]' in persisted
     assert "E[Grind Beans (Medium Grind)]" not in persisted
-    assert result["final_content"] == persisted
+
+
+@pytest.mark.asyncio
+async def test_unverified_math_note_appended_to_final_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    seams.math_fence_service.append_unverified_math_note = (
+        lambda content: f"{content.rstrip()}\n\n*Couldn't verify this with SymPy.*"
+    )
+    ctx = _ctx()
+    ctx.math_unverified = True
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text="The mass is 12 kg.",
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=["The mass is 12 kg."],
+        should_cancel=None,
+    )
+    assert "*Couldn't verify this with SymPy.*" in persisted

@@ -806,3 +806,19 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
 def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
     """Picklable entry for ``sympy_executor.run_sympy`` (positional args only)."""
     return validate_math_fences(content, verified=verified)
+
+
+_UNVERIFIED_MATH_NOTE = "*Couldn't verify this with SymPy.*"
+
+
+def append_unverified_math_note(content: str) -> str:
+    """Honest label when camera/solver intent fired but SymPy produced nothing.
+
+    Italic markdown in the reply body — not a banned assistant status chip.
+    """
+    if _UNVERIFIED_MATH_NOTE in content:
+        return content
+    stripped = content.rstrip()
+    if not stripped:
+        return _UNVERIFIED_MATH_NOTE
+    return f"{stripped}\n\n{_UNVERIFIED_MATH_NOTE}"

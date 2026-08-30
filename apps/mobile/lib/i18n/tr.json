@@ -63,6 +63,7 @@
   "chat.export_pdf_default_title": "Recall report",
   "chat.export_pdf_failed": "Could not create the PDF. Try again.",
   "chat.feedback_failed": "Geri bildiriminiz kaydedilemedi.",
+  "chat.file_indexing": "Dizinleniyor…",
   "chat.generation_stopped": "Üretim durduruldu.",
   "chat.heic_unsupported_body": "Bu fotoğraf biçimi desteklenmiyor. JPEG'e dönüştürün veya başka bir fotoğraf seçin.",
   "chat.heic_unsupported_title": "HEIC desteklenmiyor",

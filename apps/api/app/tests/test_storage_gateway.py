@@ -156,3 +156,47 @@ async def test_r2_read_bytes_returns_none_on_failure():
         mock_client.return_value = s3
         gateway = R2StorageGateway(_r2_settings())
         assert await gateway.read_bytes("user-1/missing") is None
+
+
+@pytest.mark.asyncio
+async def test_local_delete_prefix_removes_user_objects(tmp_path: Path):
+    gateway = LocalStorageGateway(tmp_path)
+    await gateway.write_bytes("user-1/a", b"one")
+    await gateway.write_bytes("user-1/nested/b", b"two")
+    await gateway.write_bytes("user-2/c", b"keep")
+
+    deleted = await gateway.delete_prefix("user-1/")
+    assert deleted == 2
+    assert await gateway.read_bytes("user-1/a") is None
+    assert await gateway.read_bytes("user-2/c") == b"keep"
+
+
+@pytest.mark.asyncio
+async def test_local_delete_prefix_rejects_traversal(tmp_path: Path):
+    gateway = LocalStorageGateway(tmp_path)
+    await gateway.write_bytes("safe/a", b"x")
+    assert await gateway.delete_prefix("") == 0
+    assert await gateway.delete_prefix("/etc") == 0
+    assert await gateway.delete_prefix("../") == 0
+    assert await gateway.read_bytes("safe/a") == b"x"
+
+
+@pytest.mark.asyncio
+async def test_r2_delete_prefix_batches_keys():
+    with patch("boto3.client") as mock_client:
+        s3 = MagicMock()
+        s3.list_objects_v2.return_value = {
+            "Contents": [{"Key": "uid/a"}, {"Key": "uid/b"}],
+            "IsTruncated": False,
+        }
+        mock_client.return_value = s3
+        gateway = R2StorageGateway(_r2_settings())
+        deleted = await gateway.delete_prefix("uid/")
+        assert deleted == 2
+        s3.delete_objects.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_delete_prefix_is_noop():
+    gateway = UnconfiguredStorageGateway()
+    assert await gateway.delete_prefix("uid/") == 0
