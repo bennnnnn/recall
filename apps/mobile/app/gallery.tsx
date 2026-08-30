@@ -238,7 +238,7 @@ export default function GalleryScreen() {
           ListEmptyComponent={
             <StateView
               variant="empty"
-              icon="images-outline"
+              icon="library-outline"
               title={t(galleryEmptyKey(filter))}
             />
           }

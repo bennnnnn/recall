@@ -7,11 +7,9 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { dayKeyForDue, defaultDueDate } from "@/components/todos/todoHelpers";
 import { api, type RecurrenceRule, Todo } from "@/lib/api";
 import { toDueAtIso } from "@/lib/todos/dueDate";
-import { isDefaultListTopic, mergeGroupOrder } from "@/lib/listGroups";
 import { markReminderIdsSeen } from "@/lib/reminderSeen";
 import {
   cancelTodoReminder,
-  ensureNotificationPermission,
   syncTodoReminders,
 } from "@/lib/todos/todoReminders";
 import {
@@ -19,7 +17,7 @@ import {
   removeTodoById,
   replaceTodoById,
 } from "@/lib/todos/optimisticTodo";
-import { DEFAULT_TOPIC, normalizeTopic } from "@/lib/todoTopics";
+import { DEFAULT_TOPIC } from "@/lib/todoTopics";
 
 type Params = {
   token: string | null;
@@ -27,10 +25,7 @@ type Params = {
   todos: Todo[];
   setTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
   refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
-  groupOrder: string[];
-  persistGroupOrder: (order: string[]) => Promise<void>;
   goToDay: (dayKey: string) => void;
-  isRemindersPage: boolean;
 };
 
 export function useTodosActions({
@@ -39,10 +34,7 @@ export function useTodosActions({
   todos,
   setTodos,
   refresh,
-  groupOrder,
-  persistGroupOrder,
   goToDay,
-  isRemindersPage,
 }: Params) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -53,13 +45,9 @@ export function useTodosActions({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [duePicker, setDuePicker] = useState<{ todo: Todo; date: Date } | null>(null);
   const [savingReminder, setSavingReminder] = useState(false);
-  const [creatingList, setCreatingList] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const pendingIdsRef = useRef(new Set<string>());
-  const creatingListRef = useRef(false);
-  const creatingItemRef = useRef(false);
   const savingReminderRef = useRef(false);
-  const reorderRef = useRef(false);
 
   const setPending = useCallback((id: string, pending: boolean) => {
     const next = new Set(pendingIdsRef.current);
@@ -74,129 +62,6 @@ export function useTodosActions({
     if (togglingId) next.add(togglingId);
     return next;
   }, [pendingIds, togglingId]);
-
-  const handleCreateListItem = useCallback(
-    (topic: string, content: string): boolean => {
-      if (!token || !content.trim() || creatingItemRef.current) return false;
-      creatingItemRef.current = true;
-      const trimmed = content.trim();
-      const normalizedTopic = normalizeTopic(topic);
-      const openInTopic = todos.filter(
-        (item) =>
-          !item.due_at &&
-          !item.checked &&
-          normalizeTopic(item.topic) === normalizedTopic,
-      );
-      const nextSort =
-        openInTopic.reduce(
-          (max, item) => Math.max(max, item.sort_order ?? Number.MAX_SAFE_INTEGER),
-          -1,
-        ) + 1;
-      const optimistic = buildOptimisticTodo({
-        content: trimmed,
-        topic: normalizedTopic,
-        sortOrder: nextSort,
-      });
-      setPending(optimistic.id, true);
-      setTodos((prev) => [...prev, optimistic]);
-      void persistGroupOrder(mergeGroupOrder(groupOrder, [normalizedTopic]));
-      void (async () => {
-        try {
-          const created = await api.createTodo(token, trimmed, topic);
-          setTodos((prev) => replaceTodoById(prev, optimistic.id, created));
-        } catch {
-          setTodos((prev) => removeTodoById(prev, optimistic.id));
-          reportError("todos.error_create");
-        } finally {
-          creatingItemRef.current = false;
-          setPending(optimistic.id, false);
-        }
-      })();
-      return true;
-    },
-    [groupOrder, persistGroupOrder, reportError, setPending, setTodos, todos, token],
-  );
-
-  const handleCreateList = useCallback(
-    async (name: string, onCreated: () => void) => {
-      if (creatingListRef.current) return;
-      const topic = name.trim();
-      if (!topic || isDefaultListTopic(topic)) return;
-      if (groupOrder.some((entry) => entry.toLowerCase() === topic.toLowerCase())) {
-        reportError("lists.group_exists");
-        return;
-      }
-      const nextOrder = [...groupOrder, topic];
-      creatingListRef.current = true;
-      setCreatingList(true);
-      try {
-        await persistGroupOrder(nextOrder);
-        onCreated();
-      } catch {
-        reportError("todos.error_create");
-      } finally {
-        creatingListRef.current = false;
-        setCreatingList(false);
-      }
-    },
-    [groupOrder, persistGroupOrder, reportError],
-  );
-
-  const handleReorderGroups = useCallback(
-    async (topics: string[]) => {
-      if (reorderRef.current) return;
-      reorderRef.current = true;
-      try {
-        await persistGroupOrder(topics);
-      } catch {
-        reportError("todos.error_toggle");
-      } finally {
-        reorderRef.current = false;
-      }
-    },
-    [persistGroupOrder, reportError],
-  );
-
-  const handleReorderItems = useCallback(
-    async (topic: string, ordered: Todo[]) => {
-      if (!token || reorderRef.current) return;
-      reorderRef.current = true;
-      const orderedIds = new Set(ordered.map((item) => item.id));
-      const withPending = new Set(pendingIdsRef.current);
-      orderedIds.forEach((id) => withPending.add(id));
-      pendingIdsRef.current = withPending;
-      setPendingIds(withPending);
-      const original = [...todos];
-      const orderMap = new Map(ordered.map((item, index) => [item.id, index]));
-      setTodos((prev) =>
-        prev.map((item) =>
-          orderMap.has(item.id)
-            ? { ...item, sort_order: orderMap.get(item.id)!, topic }
-            : item,
-        ),
-      );
-      try {
-        const updated = await api.reorderTodos(
-          token,
-          ordered.map((item, index) => ({ id: item.id, sort_order: index, topic })),
-        );
-        setTodos((prev) => {
-          const byId = new Map(updated.map((item) => [item.id, item]));
-          return prev.map((item) => byId.get(item.id) ?? item);
-        });
-      } catch {
-        setTodos(original);
-        reportError("todos.error_toggle");
-      } finally {
-        const withoutPending = new Set(pendingIdsRef.current);
-        orderedIds.forEach((id) => withoutPending.delete(id));
-        pendingIdsRef.current = withoutPending;
-        setPendingIds(withoutPending);
-        reorderRef.current = false;
-      }
-    },
-    [reportError, setTodos, todos, token],
-  );
 
   const handleCreateReminder = useCallback(
     async (
@@ -312,66 +177,6 @@ export function useTodosActions({
     [refresh, reportError, setPending, setTodos, t, todos, token],
   );
 
-  const handleDeleteList = useCallback(
-    (topic: string) => {
-      const normalized = normalizeTopic(topic);
-      const items = todos.filter(
-        (item) => !item.due_at && normalizeTopic(item.topic) === normalized,
-      );
-      if (items.some((item) => !item.checked)) {
-        reportError("lists.delete_group_blocked_body");
-        return;
-      }
-      Alert.alert(
-        t("lists.delete_group_confirm"),
-        t("lists.delete_group_body", { name: topic }),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("common.delete"),
-            style: "destructive",
-            onPress: async () => {
-              if (items.some((item) => pendingIdsRef.current.has(item.id))) return;
-              if (items.length > 0 && !token) return;
-              const snapshot = [...todos];
-              items.forEach((item) => setPending(item.id, true));
-              for (const item of items) {
-                await cancelTodoReminder(item.id);
-              }
-              setTodos((prev) => {
-                const filtered = prev.filter(
-                  (item) =>
-                    item.due_at != null || normalizeTopic(item.topic) !== normalized,
-                );
-                void syncTodoReminders(filtered);
-                return filtered;
-              });
-              const snapshotOrder = [...groupOrder];
-              const nextOrder = groupOrder.filter((entry) => entry !== topic);
-              try {
-                await persistGroupOrder(nextOrder);
-                // Empty list-first names are device order only — no server
-                // rows, and DELETE /todos/topic 404s when nothing is removed.
-                if (items.length > 0 && token) {
-                  await api.deleteTodoTopic(token, topic);
-                }
-              } catch {
-                setTodos(snapshot);
-                void syncTodoReminders(snapshot);
-                await persistGroupOrder(snapshotOrder).catch(() => {});
-                reportError("todos.error_delete");
-              } finally {
-                items.forEach((item) => setPending(item.id, false));
-                void refresh({ silent: true, force: true });
-              }
-            },
-          },
-        ],
-      );
-    },
-    [groupOrder, persistGroupOrder, refresh, reportError, setPending, setTodos, t, todos, token],
-  );
-
   const applyDueDate = useCallback(
     async (todo: Todo, date: Date) => {
       if (!token || pendingIdsRef.current.has(todo.id)) return false;
@@ -381,9 +186,7 @@ export function useTodosActions({
         ? dayKeyForDue(new Date(todo.due_at), todo.due_at)
         : null;
       setPending(todo.id, true);
-      if (isRemindersPage) {
-        goToDay(dayKeyForDue(date, dueIso));
-      }
+      goToDay(dayKeyForDue(date, dueIso));
       setTodos((prev) => {
         const next = prev.map((item) =>
           item.id === todo.id ? { ...item, due_at: dueIso } : item,
@@ -395,9 +198,7 @@ export function useTodosActions({
         const updated = await api.updateTodo(token, todo.id, {
           due_at: dueIso,
         });
-        if (isRemindersPage) {
-          goToDay(dayKeyForDue(date, updated.due_at ?? dueIso));
-        }
+        goToDay(dayKeyForDue(date, updated.due_at ?? dueIso));
         setTodos((prev) => {
           const next = prev.map((item) => (item.id === todo.id ? updated : item));
           void syncTodoReminders(next);
@@ -407,7 +208,7 @@ export function useTodosActions({
         return true;
       } catch {
         setTodos(original);
-        if (isRemindersPage && previousDay) {
+        if (previousDay) {
           goToDay(previousDay);
         }
         reportError("todos.error_due");
@@ -416,16 +217,14 @@ export function useTodosActions({
         setPending(todo.id, false);
       }
     },
-    [goToDay, isRemindersPage, refresh, reportError, setPending, setTodos, todos, token],
+    [goToDay, refresh, reportError, setPending, setTodos, todos, token],
   );
 
   const openDuePicker = useCallback((todo: Todo) => {
-    void ensureNotificationPermission();
-    const date =
-      todo.due_at && !Number.isNaN(new Date(todo.due_at).getTime())
-        ? new Date(todo.due_at)
-        : defaultDueDate();
-    setDuePicker({ todo, date });
+    setDuePicker({
+      todo,
+      date: todo.due_at ? new Date(todo.due_at) : defaultDueDate(),
+    });
   }, []);
 
   const onDuePickerChange = useCallback(
@@ -457,15 +256,9 @@ export function useTodosActions({
     duePicker,
     setDuePicker,
     savingReminder,
-    creatingList,
-    handleCreateListItem,
-    handleCreateList,
-    handleReorderGroups,
-    handleReorderItems,
     handleCreateReminder,
     handleToggle,
     handleDeleteItem,
-    handleDeleteList,
     openDuePicker,
     onDuePickerChange,
     confirmDuePicker,

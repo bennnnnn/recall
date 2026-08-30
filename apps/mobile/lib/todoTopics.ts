@@ -1,4 +1,4 @@
-/** Default topic for app-created todos (lists are chat/LLM only — hidden from UI). */
+/** Default topic for app-created reminders. */
 export const DEFAULT_TOPIC = "General";
 
 const LEGACY_INBOX_TOPIC = "__inbox__";

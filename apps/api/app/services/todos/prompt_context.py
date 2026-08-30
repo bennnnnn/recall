@@ -55,7 +55,7 @@ def _todo_priority(
     query_text: str | None,
     user_timezone: str | None,
 ) -> tuple[int, int, datetime]:
-    """Lower tuple sorts first — overdue/today reminders beat distant lists."""
+    """Lower tuple sorts first — overdue/today reminders beat later dates."""
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
     bucket = 50
@@ -95,10 +95,10 @@ def select_todos_for_prompt(
     """Trim large todo snapshots — always keep overdue/today open reminders."""
     limit = max(8, settings.todo_prompt_limit)
     if len(items) <= limit:
-        return items
+        return [item for item in items if item.due_at is not None]
 
     ranked = sorted(
-        items,
+        [item for item in items if item.due_at is not None],
         key=lambda item: _todo_priority(item, query_text=query_text, user_timezone=user_timezone),
     )
     return ranked[:limit]
@@ -109,7 +109,8 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
         return ""
 
     reminders = [item for item in items if item.due_at is not None]
-    list_items = [item for item in items if item.due_at is None]
+    if not reminders:
+        return ""
 
     overdue_open = [
         item
@@ -127,52 +128,37 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
             f"⚠ {len(overdue_open)} overdue reminder(s): {names}{extra} — nudge if relevant."
         )
 
-    if reminders:
-        lines.append("User Schedule (in-app calendar — grouped by day):")
-        open_reminders = [item for item in reminders if not item.checked]
-        done_reminders = [item for item in reminders if item.checked]
-        display = open_reminders + done_reminders
+    lines.append("User Schedule (in-app calendar — grouped by day):")
+    open_reminders = [item for item in reminders if not item.checked]
+    done_reminders = [item for item in reminders if item.checked]
+    display = open_reminders + done_reminders
 
-        grouped: dict[tuple[str, str], list[TodoItem]] = {}
-        for todo in display:
-            key = _reminder_day_group(todo, user_timezone)
-            grouped.setdefault(key, []).append(todo)
+    grouped: dict[tuple[str, str], list[TodoItem]] = {}
+    for todo in display:
+        key = _reminder_day_group(todo, user_timezone)
+        grouped.setdefault(key, []).append(todo)
 
-        for key in sorted(grouped.keys(), key=lambda item: item[0]):
-            heading = key[1]
-            lines.append(f"\n### {heading}")
-            day_items = sorted(
-                grouped[key],
-                key=lambda item: _due_local(item.due_at, user_timezone),  # type: ignore[arg-type]
+    for key in sorted(grouped.keys(), key=lambda item: item[0]):
+        heading = key[1]
+        lines.append(f"\n### {heading}")
+        day_items = sorted(
+            grouped[key],
+            key=lambda item: _due_local(item.due_at, user_timezone),  # type: ignore[arg-type]
+        )
+        for todo in day_items:
+            status = "done" if todo.checked else "open"
+            mark = "✓" if todo.checked else "○"
+            due_local = _due_local(todo.due_at, user_timezone)  # type: ignore[arg-type]
+            clock = due_local.strftime("%H:%M")
+            due_label = time_context_service.describe_due_at(
+                todo.due_at, user_timezone, checked=todo.checked
             )
-            for todo in day_items:
-                status = "done" if todo.checked else "open"
-                mark = "✓" if todo.checked else "○"
-                due_local = _due_local(todo.due_at, user_timezone)  # type: ignore[arg-type]
-                clock = due_local.strftime("%H:%M")
-                due_label = time_context_service.describe_due_at(
-                    todo.due_at, user_timezone, checked=todo.checked
-                )
-                rel = f", {due_label}" if due_label else ""
-                topic = todo.topic.strip() or DEFAULT_TOPIC
-                repeat = f", repeats {todo.recurrence_rule}" if todo.recurrence_rule else ""
-                lines.append(
-                    f"- {mark} {todo.content} at {clock}{rel}{repeat} ({status}, topic: {topic})"
-                )
-
-    if list_items:
-        by_topic: dict[str, list[TodoItem]] = {}
-        for item in list_items:
-            topic = item.topic.strip() or DEFAULT_TOPIC
-            by_topic.setdefault(topic, []).append(item)
-
-        lines.append("\nUser Lists (no due date — checklists only, not on the Schedule calendar):")
-        for topic in sorted(by_topic.keys(), key=str.casefold):
-            lines.append(f"\n## {topic}")
-            for todo in by_topic[topic]:
-                status = "done" if todo.checked else "open"
-                mark = "✓" if todo.checked else "○"
-                lines.append(f"- {mark} {todo.content} ({status})")
+            rel = f", {due_label}" if due_label else ""
+            topic = todo.topic.strip() or DEFAULT_TOPIC
+            repeat = f", repeats {todo.recurrence_rule}" if todo.recurrence_rule else ""
+            lines.append(
+                f"- {mark} {todo.content} at {clock}{rel}{repeat} ({status}, topic: {topic})"
+            )
 
     return "\n".join(lines)
 

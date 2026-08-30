@@ -184,8 +184,9 @@ These were explicitly removed. If any reappears, it's a regression.
 | 14.2 | Show more / Show less on assistant message bodies | ☐ | ☐ | Code-block fold is OK; assistant body stays unfolded |
 | 14.3 | `chat.model_fallback` / "switched to…" / "summarized" chips | ☐ | ☐ | Backend may send; UI must not surface |
 | 14.4 | Image-gen prompt sheet / attach-menu "Generate image" | ☐ | ☐ | Composer-only; no second intercept |
-| 14.5 | Project filter chips / "Link to project" on lists or reminders | ☐ | ☐ | Lists, Reminders, Learning stay separate |
-| 14.6 | Empty-state body / "Add" button duplicating the FAB | ☐ | ☐ | Learning + Lists empty: icon + title only |
+| 14.5 | Project filter chips / "Link to project" on reminders | ☐ | ☐ | Schedule and Learning stay separate |
+| 14.6 | Empty-state body / "Add" button duplicating the FAB | ☐ | ☐ | Learning + Schedule empty: icon + title only |
+| 14.7 | Drawer Lists row / shopping checklist UI | ☐ | ☐ | Lists feature removed; do not reintroduce |
 
 ---
 

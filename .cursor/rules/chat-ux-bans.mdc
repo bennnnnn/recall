@@ -24,12 +24,12 @@ FEATURES grade-ups, or “parity” work.
 When the user says **remove**, leave it removed. Do **not** bring these back in later PRs,
 “polish”, FEATURES grade-ups, or “parity” work.
 
-## 3. No project filter chips on Lists / Todos
-- Do **not** show a horizontal chip row to filter todos by Learning project on the Lists screen.
-- Do **not** show a folder / “Link to project” control on reminder or list rows — Learning
-  classes are not project destinations for todos. The top filter bar must not return either.
-- Do **not** show a “Linked to {{title}}” (or `todos.project_linked`) subtitle on list or
-  reminder rows. Lists, Schedule, and Learning stay separate.
+## 3. No project filter chips on Schedule
+- Do **not** show a horizontal chip row to filter reminders by Learning project.
+- Do **not** show a folder / “Link to project” control on reminder rows — Learning
+  classes are not project destinations for reminders. The top filter bar must not return either.
+- Do **not** show a “Linked to {{title}}” (or `todos.project_linked`) subtitle on
+  reminder rows. Schedule and Learning stay separate.
 
 ## 4. No model-fallback / context-summarized chips on assistant messages
 - Do **not** show `chat.model_fallback`, “switched to …”, or “N earlier messages summarized”
@@ -38,9 +38,8 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
   must not surface them**.
 
 ## 5. No empty-state body / primary CTA when a FAB already adds
-- Learning and Lists empty states: **icon + title only** (e.g. “No learning yet” / “No lists yet”).
+- Learning and Schedule empty states: **icon + title only** (e.g. “No learning yet” / “Nothing scheduled”).
 - Do **not** add body copy or an “Add …” `Button` that duplicates the bottom (+) FAB.
-- Schedule empty may stay title-only too (FAB covers create).
 
 ## 6. No image-generation confirmation sheet
 - Image gen is **composer only**: user types the request and hits send; Pro generates immediately.
@@ -49,6 +48,12 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 
 ## 7. No swipe-to-delete on drawer chat titles
 - Do **not** wrap conversation rows in `Swipeable` / reveal a red Delete action on swipe.
-- Delete stays on long-press row menu and multi-select. Lists/todos swipe-delete is separate.
+- Delete stays on long-press row menu and multi-select. Schedule swipe-delete is separate.
+
+## 8. No Lists (shopping / packing checklists)
+- Do **not** add a drawer **Lists** row, list composer, `ListGroupsView`, or undated
+  checklist UI. Chat must not create items without a due date.
+- **Schedule** (dated reminders) stays. Learning chapter `lists` are vocab word groups,
+  not this feature.
 
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

@@ -63,12 +63,11 @@ state, labels, and retry controls must remain meaningful without relying on colo
 - Preferences, memory, models, notifications, and Learning settings: per-control guards,
   compact busy indicators, optimistic rollback where applicable, and shared failures.
 
-### Lists, reminders, and Learning
+### Schedule and Learning
 
-- List item create, toggle, due-date save, delete, list delete, and item reorder: row-level
+- Reminder create, toggle, due-date save, and delete: row-level
   busy state, duplicate guard, rollback, and operation-appropriate error copy.
-- List create and reminder create: guarded forms that stay recoverable while saving.
-- Group-order persistence: restores the previous order when local persistence fails.
+- Reminder create: guarded form that stays recoverable while saving.
 - Suggested reminders: guarded accept/dismiss controls and shared recovery feedback.
 - Learning project create, item status update, delete, and settings: affected-control busy
   state, duplicate guard, and recoverable failure.

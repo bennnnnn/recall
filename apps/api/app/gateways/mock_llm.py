@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from typing import cast, get_args
 
 from app.core.config import Settings
@@ -299,7 +300,12 @@ async def mock_todo_actions(user_message: str, current_todos: list[dict[str, obj
                 content = line.split(":", 1)[-1].strip()
                 if len(content) > 3:
                     actions.append(
-                        TodoActionItem(action="add", topic="General", content=content[:200])
+                        TodoActionItem(
+                            action="add",
+                            topic="Reminders",
+                            content=content[:200],
+                            due_at=datetime.now(UTC) + timedelta(hours=1),
+                        )
                     )
                     break
     if "done" in text or "complete" in text or "finished" in text:
@@ -329,25 +335,6 @@ def _match_project_title(transcript: str, projects: list[dict[str, object]]) -> 
     if projects and isinstance(projects[0], dict):
         return str(projects[0].get("title") or "").strip() or None
     return None
-
-
-def _infer_list_title(transcript: str) -> str:
-    text = transcript.lower()
-    for pattern in (
-        r"(?:to|in|on|under)\s+(?:the\s+)?([a-z0-9][a-z0-9\s-]{1,40}?)\s+list",
-        r"list[:\s]+([a-z0-9][a-z0-9\s-]{1,40})",
-        r"([a-z0-9][a-z0-9\s-]{1,30})\s+group",
-    ):
-        match = re.search(pattern, text)
-        if match:
-            name = match.group(1).strip(" .,-")
-            if name and name not in ("my", "the", "a", "this", "your"):
-                return name.title()
-    if "travel" in text:
-        return "Travel"
-    if "food" in text:
-        return "Food"
-    return "General"
 
 
 def _extract_vocab_terms(transcript: str) -> list[str]:

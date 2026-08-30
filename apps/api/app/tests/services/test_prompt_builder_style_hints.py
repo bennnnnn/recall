@@ -370,13 +370,13 @@ def test_integration_hints_wraps_todos_section():
         prompt_location=None,
         memory_block="",
         attachment_rag_block="",
-        todos_section="User Lists\n## Groceries\n- ○ Milk (open)",
+        todos_section="User Schedule\n### Today\n- ○ Milk at 09:00 (open, topic: Reminders)",
         is_day_plan=False,
         projects_block="",
         summary=None,
     )
     joined = "\n".join(parts)
-    assert "[BEGIN UNTRUSTED CONTENT — reminders and lists]" in joined
+    assert "[BEGIN UNTRUSTED CONTENT — schedule]" in joined
     assert "○ Milk" in joined
 
 

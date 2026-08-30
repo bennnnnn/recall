@@ -321,21 +321,20 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   production). Health probes and CORS preflight are skipped. No bodies or query
   strings.
 
-## 14. Lists, Schedule & suggestions
-- ✅ **Lists** — named lists (topics) with a list-first UX: create a list title, then add
-  items. Drawer has separate **Lists** and **Schedule** entries (not a single Todos
-  item, and not per-list submenus). Empty named lists persist in on-device group order
-  until the user deletes them (no server list entity).
+## 14. Schedule & suggestions
+- ❌ **Lists** — removed. No shopping/packing checklists in the drawer or chat. Do not
+  reintroduce a Lists row, list composer, or undated checklist UI. (Learning chapter
+  `lists` are vocab word groups, not this feature.)
 - ✅ **Schedule** — dated items (formerly Reminders) with optional repeat
   (`daily` / `weekdays` / `weekly` / `monthly`). Repeats fire a **device push**
   only (notification bar), not email. Chat can set `repeat` on the ` ```reminder `
   fence. Route `focus=reminders` still works; `focus=schedule` is an alias.
-- ✅ **Todos API** — create, check off, delete items; delete entire list by topic (items
-  without `due_at` only); optional `due_at`.
+  `/todos?focus=list` redirects to Schedule.
+- ✅ **Todos API** — create, check off, delete dated reminders; optional `due_at`.
+  Chat extract skips undated adds.
 - ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete /
-  set_due / clear_due from chat; injects current lists + overdue summary into the
-  system prompt. Whole-list delete from chat is **not** supported (`delete_list` is not
-  an action). “What time is my flight / meeting / …” loads Reminders (and Calendar) on
+  set_due from chat (dated items only); injects Schedule + overdue summary into the
+  system prompt. “What time is my flight / meeting / …” loads Schedule (and Calendar) on
   the first turn.
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
   labels in prompts (overdue, due today, due in N days); user timezone synced from
@@ -555,8 +554,8 @@ were removed. Programming help lives in main chat.
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
   injection scopes to that one project (+ tutor hints) instead of all projects.
 - ❌ **Link todos to Learning** — optional `project_id` may exist on todo rows in the API.
-  Mobile must not show it (no “Linked to …”, no filter chips, no folder control). Lists,
-  Schedule, and Learning stay separate.
+  Mobile must not show it (no “Linked to …”, no filter chips, no folder control). Schedule
+  and Learning stay separate.
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
@@ -603,7 +602,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
   (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
   uuid4 rows are unchanged.
-- 🔜 **Full locale translation** — key-set parity is enforced (**929** keys); ~350 strings still
+- 🔜 **Full locale translation** — key-set parity is enforced (**960** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - ✅ **Full chat-history semantic RAG** — `message_chunks` + `message_index` job + top-k
   at turn start (excludes the recent window). Same shape as attachment RAG.
@@ -685,13 +684,13 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   contrast, tablet readable-width, icon stroke unification, web KaTeX/Mermaid/Vega /
   httpOnly cookies / stream virtualization, QA matrix assistive-tech pass. Not the current
   backlog.
-- ✅ **FlashList migration** — `ConversationList` and Lists / Reminders now use `FlashList`
-  (v2, auto-measured). Chat drawer rows and the flat reminders/done lists are
-  virtualized; the calendar day-view and `ListGroupsView` render in the header
-  (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
+- ✅ **FlashList migration** — `ConversationList` and Schedule now use `FlashList`
+  (v2, auto-measured). Chat drawer rows are virtualized; the calendar day-view
+  renders in the header (bounded/structured, not row-virtualized). Verify
+  scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**929** keys);
+- 🔜 **Locale prose translations** — **future.** Key-set parity is enforced (**960** keys);
   ~350 non-en values are still English. Structural i18n is complete.
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized).
@@ -802,7 +801,7 @@ A future **web version that reuses this same API** — one backend, multiple cli
   “Chemical structure” label (no 2D/3D viewer yet). No KaTeX/Mermaid/Vega/HTML iframe yet. Tokens in
   `sessionStorage` (tab-scoped); 401 → refresh → retry.
   CORS origin documented in `apps/api/.env.example`. Follows the mobile chat-ux-bans.
-- 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/Lists/
+- 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/
   Learning/settings/attachments/image gen, `packages/api-types` extracted from
   `lib/api/types.ts`, httpOnly refresh cookie + CSRF, Apple Sign-In on web, prod deploy.
 
@@ -815,7 +814,7 @@ Internal product snapshot for leadership, engineering, design, GTM, and App Stor
 
 ### Mission
 Recall is a **personal AI utility** — not a generic chatbot. It remembers who you are, helps you
-act (lists, reminders, calendar, email), and supports **Learning** (English and Spanish
+act (reminders, calendar, email), and supports **Learning** (English and Spanish
 vocabulary). One trusted assistant combining ChatGPT-grade conversation with durable memory and
 everyday productivity. **Programming help lives in main chat** (code blocks, previews) — not as a
 structured Learning topic type.
@@ -825,14 +824,14 @@ structured Learning topic type.
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, status while working |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
-| Utility beyond chat | Lists, Schedule, Learning, integrations, home starters |
+| Utility beyond chat | Schedule, Learning, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
 
 ### Release plan
 | Phase | Scope | Status |
 |-------|--------|--------|
-| MVP (mobile) | Chat + memory + Lists/Reminders + Learning + calendar/Gmail + attachments | ~95% code-complete |
+| MVP (mobile) | Chat + memory + Schedule + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
 | v1.1 | Web client (same API), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
@@ -847,7 +846,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Language (`language`) — en/es catalog tree, teach-then-A/D lesson cards, SM-2 fields | Other target languages; trivia |
 | Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
-| Project-scoped chats, home highlight (Learning only — not Lists) | In-app code runner (later) |
+| Project-scoped chats, home highlight (Learning only) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | ~~Hidden chat `vocab_quiz` as the lesson path~~ **removed** |
 
 ### Rich rendering (§4 summary)

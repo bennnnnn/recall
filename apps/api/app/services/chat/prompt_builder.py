@@ -697,7 +697,7 @@ def _integration_hints(
     if attachment_rag_block:
         parts.append(attachment_rag_block)
     if todos_section:
-        parts.append(wrap_untrusted("reminders and lists", todos_section, first_party=True))
+        parts.append(wrap_untrusted("schedule", todos_section, first_party=True))
     if not is_day_plan:
         parts.append(projects_service.PROJECT_HINT)
     if projects_block:

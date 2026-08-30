@@ -315,7 +315,7 @@ def test_format_chat_transcript_strips_untrusted_and_ocr():
     assert "Sure." in text
 
 
-def test_format_todos_block_groups_by_topic():
+def test_format_todos_block_skips_undated_items():
     block = todos_service.format_todos_block(
         [
             _item("Milk", "Groceries"),
@@ -323,17 +323,10 @@ def test_format_todos_block_groups_by_topic():
             _item("Eggs", "Groceries", checked=True),
         ]
     )
-    assert "User Lists" in block
-    assert "User Schedule" not in block
-    assert "## Groceries" in block
-    assert "## Work" in block
-    assert "○ Milk" in block
-    assert "(open)" in block
-    assert "✓ Eggs" in block
-    assert "(done)" in block
+    assert block == ""
 
 
-def test_format_todos_block_splits_reminders_and_lists():
+def test_format_todos_block_schedule_only():
     due_item = _item("Reading at 10", "General")
     due_item.due_at = datetime(2026, 7, 1, 10, 0, tzinfo=UTC)
     block = todos_service.format_todos_block(
@@ -346,9 +339,8 @@ def test_format_todos_block_splits_reminders_and_lists():
     assert "User Schedule" in block
     assert "Reading at 10" in block
     assert "### " in block
-    assert "User Lists" in block
-    assert "## Groceries" in block
-    assert block.index("User Schedule") < block.index("User Lists")
+    assert "User Lists" not in block
+    assert "Milk" not in block
 
 
 @pytest.mark.asyncio
@@ -419,6 +411,8 @@ def test_select_todos_for_prompt_prioritizes_overdue():
     future = _item("Later task")
     future.due_at = now + timedelta(days=30)
     filler = [_item(f"Filler {i}") for i in range(50)]
+    for offset, item in enumerate(filler):
+        item.due_at = now + timedelta(days=60 + offset)
     items = [*filler, future, overdue]
     selected = todos_service.select_todos_for_prompt(
         items,
@@ -434,7 +428,7 @@ def test_select_todos_for_prompt_prioritizes_overdue():
 def test_query_implies_todos():
     assert todos_service.query_implies_todos("What's on my todo list?")
     assert todos_service.query_implies_todos("mis recordatorios")
-    assert todos_service.query_implies_todos("Add milk to my grocery list")
+    assert not todos_service.query_implies_todos("Add milk to my grocery list")
     assert todos_service.query_implies_todos("mark laundry done")
     assert todos_service.query_implies_todos("move dentist to tomorrow")
     assert todos_service.query_implies_todos("What time is my flight")
@@ -464,13 +458,13 @@ def test_todo_hint_does_not_promise_pre_reply_application():
     assert "pre-reply sync" not in hint
     # The honest phrasing must be present.
     assert "right after" in hint
-    # Whole-list delete is blocked from chat — the prompt must say so.
-    assert "whole-list delete is NOT supported from chat" in hint
+    assert "shopping-list" in hint or "checklist" in hint
+    assert "whole-list delete" not in hint
 
 
 def test_transcript_implies_todo_sync():
     assert todos_service.transcript_implies_todo_sync(
-        "User: add eggs\nAssistant: Added eggs to Groceries."
+        "User: remind me to call mom tomorrow\nAssistant: I'll set a reminder."
     )
     assert todos_service.transcript_implies_todo_sync(
         "User: move all reminders due today to tomorrow\nAssistant: Done."
@@ -721,7 +715,7 @@ def test_should_inject_todos_prompt():
     assert not todos_service.should_inject_todos_prompt(
         [_item("Milk")], query_text="Tell me a joke", user_timezone="UTC"
     )
-    assert todos_service.should_inject_todos_prompt(
+    assert not todos_service.should_inject_todos_prompt(
         [_item("Milk")], query_text="Show my grocery list", user_timezone="UTC"
     )
     assert todos_service.should_inject_todos_prompt(
@@ -732,9 +726,28 @@ def test_should_inject_todos_prompt():
 
 
 @pytest.mark.asyncio
+async def test_apply_todo_actions_skips_undated_add():
+    session = AsyncMock()
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(action="add", topic="Groceries", content="Buy milk"),
+            ],
+        )
+    assert applied == 0
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_apply_todo_actions_dedupes_add():
     session = AsyncMock()
     existing = _item("Buy milk", "Groceries")
+    existing.due_at = datetime.now(UTC) + timedelta(days=1)
     with (
         patch.object(
             todos_repo,
@@ -751,7 +764,12 @@ async def test_apply_todo_actions_dedupes_add():
             session,
             user_id=uuid4(),
             actions=[
-                TodoActionItem(action="add", topic="Groceries", content="Buy milk"),
+                TodoActionItem(
+                    action="add",
+                    topic="Groceries",
+                    content="Buy milk",
+                    due_at=existing.due_at,
+                ),
             ],
         )
     assert applied == 0
@@ -763,7 +781,9 @@ async def test_apply_todo_actions_add_appends_for_same_batch_dedupe():
     """After an add, the next action must see the new row in state.items
     without a full list_for_user reload."""
     session = AsyncMock()
+    due = datetime.now(UTC) + timedelta(days=1)
     created = _item("Eggs", "Groceries")
+    created.due_at = due
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])) as list_mock,
         patch.object(todos_repo, "create", AsyncMock(return_value=created)) as create_mock,
@@ -772,8 +792,8 @@ async def test_apply_todo_actions_add_appends_for_same_batch_dedupe():
             session,
             user_id=uuid4(),
             actions=[
-                TodoActionItem(action="add", topic="Groceries", content="Eggs"),
-                TodoActionItem(action="add", topic="Groceries", content="Eggs"),
+                TodoActionItem(action="add", topic="Groceries", content="Eggs", due_at=due),
+                TodoActionItem(action="add", topic="Groceries", content="Eggs", due_at=due),
             ],
         )
     assert applied == 1
@@ -886,16 +906,19 @@ async def test_build_todos_system_section_returns_hint_and_block():
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"
+    dated = _item("Task")
+    dated.due_at = datetime.now(UTC) + timedelta(hours=2)
     with patch.object(
         todos_repo,
         "list_for_user",
-        AsyncMock(return_value=[_item("Task")]),
+        AsyncMock(return_value=[dated]),
     ):
         section = await todos_service.build_todos_system_section(
             session, user, Settings(), query_text="Show my tasks"
         )
     assert section is not None
-    assert "Recall has two features" in section
+    assert "Schedule" in section
+    assert "shopping-list" in section or "checklist" in section
     assert "two todo features" not in section
-    assert "Never call these features todos or tasks" in section
+    assert "Never call this feature todos, tasks, or lists" in section
     assert "Task" in section

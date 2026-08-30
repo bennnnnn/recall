@@ -383,12 +383,6 @@ async def test_mock_todo_actions_add_and_complete():
     assert any(a.action == "complete" for a in done.actions)
 
 
-def test_mock_llm_infer_list_title():
-    from app.gateways.mock_llm import _infer_list_title
-
-    assert _infer_list_title("add to my travel list") == "My Travel"
-
-
 @pytest.mark.asyncio
 async def test_mock_summary_concatenates_messages():
     from app.gateways.mock_llm import mock_summary

@@ -14,7 +14,6 @@ type Props = {
   showIndicator: boolean;
   unseenCount: number;
   onProjects: () => void;
-  onLists: () => void;
   onReminders: () => void;
   onGallery: () => void;
 };
@@ -25,7 +24,6 @@ export function DrawerNavLinks({
   showIndicator,
   unseenCount,
   onProjects,
-  onLists,
   onReminders,
   onGallery,
 }: Props) {
@@ -44,20 +42,6 @@ export function DrawerNavLinks({
       >
         <Icon name="school-outline" size={18} />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
-      </Pressable>
-
-      <Pressable
-        style={s.todosLink}
-        onPress={() => {
-          tap();
-          onLists();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={t("drawer.lists")}
-      >
-        <Icon name="list-outline" size={18} />
-        <Text style={s.todosLinkText}>{t("drawer.lists")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
@@ -93,7 +77,7 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.gallery")}
       >
-        <Icon name="images-outline" size={18} />
+        <Icon name="library-outline" size={18} />
         <Text style={s.todosLinkText}>{t("drawer.gallery")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
