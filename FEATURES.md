@@ -768,7 +768,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
-| Library (drawer grid of generated + uploaded images and files) | ✅ Shipped |
+| Library (drawer grid of generated + uploaded images and files) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
