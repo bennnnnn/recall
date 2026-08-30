@@ -57,6 +57,47 @@ async def test_default_memory_interval_runs_turn_three():
 
 
 @pytest.mark.asyncio
+async def test_memory_job_strips_attachments_and_drops_assistant():
+    ctx = _ctx(prior_count=0)  # turn 1 always extracts
+    ctx.user_message_content = (
+        "I live in Seattle\n"
+        "[BEGIN UNTRUSTED CONTENT — user attachments]\n"
+        "Prescription: lisinopril 10mg\n"
+        "[END UNTRUSTED CONTENT — user attachments]\n"
+        "[Image: rx.jpg]"
+    )
+    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(history_compression_enabled=False, chat_history_rag_enabled=False),
+            ctx,
+            "You live in Seattle and take lisinopril.",
+        )
+    memory_call = next(c for c in enqueue.call_args_list if c.args[1] == "memory")
+    transcript = memory_call.args[2]["transcript"]
+    assert transcript == "User: I live in Seattle"
+    assert "Assistant" not in transcript
+    assert "lisinopril" not in transcript
+    assert "[Image:" not in transcript
+
+
+@pytest.mark.asyncio
+async def test_memory_job_skips_when_user_text_is_only_an_attachment():
+    ctx = _ctx(prior_count=0)
+    ctx.user_message_content = "[Image: cat.jpg]"
+    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(history_compression_enabled=False, chat_history_rag_enabled=False),
+            ctx,
+            "Cute cat.",
+        )
+    job_types = [c.args[1] for c in enqueue.call_args_list]
+    assert "memory" not in job_types
+    assert "topic" in job_types
+
+
+@pytest.mark.asyncio
 async def test_spend_cap_keeps_topic_drops_llm_jobs():
     ctx = _ctx(prior_count=0, run_title=True)  # turn 1 would enqueue memory
     with (

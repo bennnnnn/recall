@@ -110,9 +110,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   cancel after audio still persists transcripts. Unsupported containers fail
   closed (no Whisper+TTS echo of the user as the assistant).
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
-  (`POST /speech/tts` lead then rest) and starts playback on the first sentence; **Kokoro 82M**
-  is the cheap alternative (`speech-tts-fast-model`). Dev build required. JSON `POST /speech/tts`
-  remains for non-streaming clients.
+  (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
+  another utterance's unbilled quota) and starts playback on the first sentence; **Kokoro 82M**
+  is the cheap alternative (`speech-tts-fast-model`). Mic permission is not required.
+  Cloud 502 falls back to on-device `expo-speech` (a speech 502 is not an API outage).
+  Cloud clip playback needs a **dev build** (`expo-audio`); Expo Go still reads aloud via
+  device TTS. JSON `POST /speech/tts` remains for non-streaming clients.
 - 🔜 Full duplex live voice (talk over playback without tapping) later.
 
 ## 4. Formatting & rendering
@@ -188,14 +191,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 6. Memory (remembering the user)
 - ✅ **Automatic extraction** — durable facts are extracted in the background every N
   turns (`memory_extract_every_n_turns=3` by default; always on turn 1).
-- ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript capped ~4k
-  (head+tail); memory wrapped as first-party notes (fence kept); account email injected
-  only for email/draft/inbox intents.
+- ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript is the **user
+  line only** (assistant restatements dropped), capped ~4k (head+tail); attachment OCR /
+  untrusted blocks stripped before extract; memory wrapped as first-party notes (fence kept);
+  account email injected only for email/draft/inbox intents.
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (captures things
   like interests, what they're working on, name, job, country when mentioned).
 - ✅ **Quality controls** — confidence threshold, de-duplication, priority ordering, capped count.
 - ✅ **Prompt injection** — profile/preference always; fact/focus/project only when
   similarity clears `memory_min_similarity` (default 0.35), with a char budget.
+  Health / legal / finance memories stay **stripped on casual turns** and inject only when
+  the user's ask itself looks like those topics (`exclude_sensitive_for_query`).
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).
@@ -780,7 +786,8 @@ Still open (non-blocking):
 - ⚠️ **Android chat keyboard** — `softwareKeyboardLayoutMode: resize` is set for Reanimated's
   `useAnimatedKeyboard`; needs an **Android dev-client rebuild** and on-device composer smoke test
   (iOS confirmed smooth; Android unverified).
-- ✅ **Memory consolidation (merge-not-replace)** — per-section LLM merge via
+- ✅ **Memory consolidation (merge-not-replace)** — extract prompt merges into the existing
+  section (does not rewrite from scratch); later per-section LLM merge via
   `merge_memory_section`, with a deterministic exact-sentence dedupe pre-pass. Safety gates
   still skip merges that shrink below 50% (LLM path) or drop **≥20% of salient anchors**.
 
@@ -799,7 +806,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; streamed clips; turns persist as chat; mic mute beside close; typing hides mute/close; not full duplex) |
-| Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
+| Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
 | Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |

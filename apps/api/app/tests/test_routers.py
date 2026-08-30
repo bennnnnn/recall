@@ -2237,15 +2237,16 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
             headers={"Authorization": "Bearer tok"},
             json={"text": "first clip", "part": "lead"},
         )
+        lead_hash = lead.json()["lead_hash"]
         rest_one = client.post(
             "/speech/tts",
             headers={"Authorization": "Bearer tok"},
-            json={"text": "second clip", "part": "rest"},
+            json={"text": "second clip", "part": "rest", "lead_hash": lead_hash},
         )
         rest_two = client.post(
             "/speech/tts",
             headers={"Authorization": "Bearer tok"},
-            json={"text": "third clip", "part": "rest"},
+            json={"text": "third clip", "part": "rest", "lead_hash": lead_hash},
         )
         extra_full = client.post(
             "/speech/tts",
@@ -2256,6 +2257,53 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
     assert rest_one.status_code == 200
     assert rest_two.status_code == 200
     assert extra_full.status_code == 429
+
+
+def test_speech_tts_rest_wrong_lead_hash_is_billed():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.synthesize_speech",
+            AsyncMock(return_value=(b"ok", "audio/mpeg")),
+        ),
+    ):
+        lead = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "first clip", "part": "lead"},
+        )
+        wrong = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "text": "other utterance rest",
+                "part": "rest",
+                "lead_hash": "deadbeefdeadbeef",
+            },
+        )
+        matched = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "text": "second clip",
+                "part": "rest",
+                "lead_hash": lead.json()["lead_hash"],
+            },
+        )
+    assert lead.status_code == 200
+    assert lead.json()["lead_hash"]
+    assert wrong.status_code == 429
+    assert matched.status_code == 200
 
 
 def test_speech_tts_rest_over_char_budget_is_billed():
@@ -2284,7 +2332,11 @@ def test_speech_tts_rest_over_char_budget_is_billed():
         rest_over = client.post(
             "/speech/tts",
             headers={"Authorization": "Bearer tok"},
-            json={"text": "x" * 3999, "part": "rest"},
+            json={
+                "text": "x" * 3999,
+                "part": "rest",
+                "lead_hash": lead.json()["lead_hash"],
+            },
         )
     assert lead.status_code == 200
     assert rest_over.status_code == 429
