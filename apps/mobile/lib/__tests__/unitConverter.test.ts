@@ -2,6 +2,7 @@ import {
   appendConverterDigit,
   convertUnit,
   converterAskText,
+  converterInsertSnippet,
   defaultUnits,
   findUnit,
   formatConvertNumber,
@@ -67,6 +68,10 @@ describe("converterAskText", () => {
     expect(defaultUnits("length")).toEqual({ fromId: "m", toId: "cm" });
     expect(defaultUnits("speed")).toEqual({ fromId: "kmh", toId: "mph" });
     expect(defaultUnits("energy")).toEqual({ fromId: "j", toId: "kj" });
+  });
+
+  it("builds a LaTeX snippet for inserting the live result", () => {
+    expect(converterInsertSnippet("100", "cm")).toBe("100\\,\\text{cm}");
   });
 
   it("formats the live result without float noise", () => {

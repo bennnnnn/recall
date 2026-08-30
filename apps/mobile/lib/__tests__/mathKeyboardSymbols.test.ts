@@ -2,11 +2,13 @@ import {
   autoAdvanceFracDen,
   caretForInsert,
   caretInGroup,
+  converterResultSpec,
   findFracSlots,
   fracTapAdvancesToDen,
   isCursorInsideInlineMath,
   MATH_KEYBOARD_SYMBOLS,
   MATH_NUMPAD_ROWS,
+  MATH_SYMBOL_ROW_SIZE,
   mathGroupCanToggleDigits,
   mathGroupShowsNumpad,
   nextEditSlotCaret,
@@ -15,6 +17,8 @@ import {
   spliceMathInsert,
   SYMBOL_A11Y,
   symbolA11yLabel,
+  symbolsInGroup,
+  symbolRowsForGroup,
 } from "@/lib/mathKeyboardSymbols";
 
 describe("spliceMathInsert", () => {
@@ -67,12 +71,6 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("", { start: 0, end: 0 }, nroot).text).toBe("$\\sqrt[]{}$");
   });
 
-  it("Calc √[n] inserts an nth-root index slot", () => {
-    const nth = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nth")!;
-    expect(nth.insert).toBe("\\sqrt[]{}");
-    expect(spliceMathInsert("", { start: 0, end: 0 }, nth).text).toBe("$\\sqrt[]{}$");
-  });
-
   it("n! attaches to a number, or inserts an empty slot on an empty draft", () => {
     const fact = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "fact")!;
     expect(spliceMathInsert("", { start: 0, end: 0 }, fact).text).toBe("${}!$");
@@ -84,6 +82,13 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("", { start: 0, end: 0 }, sup).text).toBe("$x^{}$");
     expect(spliceMathInsert("$2$", { start: 2, end: 2 }, sup).text).toBe("$2^{}$");
     expect(spliceMathInsert("$x$", { start: 2, end: 2 }, sup).text).toBe("$x^{}$");
+  });
+
+  it("d/d□ lands in the variable slot", () => {
+    const ddv = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "ddv")!;
+    const result = spliceMathInsert("", { start: 0, end: 0 }, ddv);
+    expect(result.text).toBe("$\\frac{d}{d{}}$");
+    expect(result.text.slice(result.selection.start - 1, result.selection.start + 1)).toBe("{}");
   });
 
   it("digits stay prose inside a convert draft", () => {
@@ -114,6 +119,8 @@ describe("key insert matches the button", () => {
     ["minus", "-"],
     ["eq", "="],
     ["parens", "()"],
+    ["trig-theta", "\\theta "],
+    ["trig-pi", "\\pi "],
     ["sin", "\\sin()"],
     ["cos", "\\cos()"],
     ["tan", "\\tan()"],
@@ -142,7 +149,6 @@ describe("key insert matches the button", () => {
     ["int", "\\int "],
     ["dint", "\\int_{}^{}"],
     ["iint", "\\iint "],
-    ["nth", "\\sqrt[]{}"],
     ["sum", "\\sum_{}^{}"],
     ["prod", "\\prod_{}^{}"],
     ["lim", "\\lim_{}"],
@@ -158,6 +164,12 @@ describe("key insert matches the button", () => {
     ["percent", "\\%"],
     ["euler", "e"],
     ["imag", "i"],
+    ["oint", "\\oint "],
+    ["iiint", "\\iiint "],
+    ["nabla", "\\nabla "],
+    ["vec", "\\vec{}"],
+    ["cdot", "\\cdot "],
+    ["ddv", "\\frac{d}{d{}}"],
     ["alpha", "\\alpha "],
     ["beta", "\\beta "],
     ["gamma", "\\gamma "],
@@ -171,7 +183,6 @@ describe("key insert matches the button", () => {
     ["mu", "\\mu "],
     ["nu", "\\nu "],
     ["xi", "\\xi "],
-    ["pi-greek", "\\pi "],
     ["rho", "\\rho "],
     ["sigma", "\\sigma "],
     ["tau", "\\tau "],
@@ -287,14 +298,17 @@ describe("mathGroupCanToggleDigits", () => {
 });
 
 describe("MATH_NUMPAD_ROWS", () => {
-  it("is a compact calculator grid with comma, y, backspace", () => {
-    expect(MATH_NUMPAD_ROWS).toHaveLength(3);
+  it("is a 6-column calculator grid with comma, y, backspace", () => {
+    expect(MATH_NUMPAD_ROWS).toHaveLength(4);
+    expect(MATH_NUMPAD_ROWS.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
     const ids = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
       c.kind === "insert" ? [c.spec.id] : [],
     );
     expect(ids).toContain("comma");
     expect(ids).toContain("var-y");
     expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(true);
+    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "prev")).toBe(true);
+    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "next")).toBe(true);
   });
 
   it("BUG FIX regression: includes <, >, and variable z", () => {
@@ -305,6 +319,54 @@ describe("MATH_NUMPAD_ROWS", () => {
       c.kind === "insert" ? [c.spec.id] : [],
     );
     expect(padIds).toContain("var-z");
+  });
+});
+
+describe("symbol homes (no duplicate glyphs)", () => {
+  it("keeps π on Basics, θ on Greek, and ⁿ√ only on Basics", () => {
+    const homes = (id: string) => MATH_KEYBOARD_SYMBOLS.filter((s) => s.id === id).map((s) => s.group);
+    expect(homes("pi")).toEqual(["basics"]);
+    expect(homes("theta")).toEqual(["greek"]);
+    expect(homes("nroot")).toEqual(["basics"]);
+    expect(MATH_KEYBOARD_SYMBOLS.some((s) => s.id === "nth")).toBe(false);
+    expect(symbolsInGroup("trig").some((s) => s.id === "trig-pi" || s.id === "trig-theta")).toBe(
+      false,
+    );
+    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-pi")?.group).toBe("pad");
+    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-theta")?.group).toBe("pad");
+    expect(MATH_KEYBOARD_SYMBOLS.some((s) => s.id === "pi-greek")).toBe(false);
+  });
+
+  it("fills Calc and Greek in even 6-wide rows", () => {
+    expect(symbolsInGroup("calc")).toHaveLength(30);
+    expect(symbolsInGroup("calc").length % MATH_SYMBOL_ROW_SIZE).toBe(0);
+    expect(symbolsInGroup("greek").length % MATH_SYMBOL_ROW_SIZE).toBe(0);
+  });
+
+  it("keeps Trig keys 6-wide by putting 1–0 in leftover cells", () => {
+    const rows = symbolRowsForGroup("trig");
+    expect(symbolsInGroup("trig")).toHaveLength(20);
+    expect(rows.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
+    const lastFn = rows[3]!;
+    expect(lastFn[0]).toMatchObject({ kind: "insert", spec: { id: "arccosh" } });
+    expect(lastFn[1]).toMatchObject({ kind: "insert", spec: { id: "arctanh" } });
+    expect(lastFn[2]).toMatchObject({ kind: "insert", spec: { id: "digit-1" } });
+    expect(lastFn[5]).toMatchObject({ kind: "insert", spec: { id: "digit-4" } });
+    const digits = rows[4]!;
+    expect(digits.map((c) => (c.kind === "insert" ? c.spec.id : c.kind))).toEqual([
+      "digit-5",
+      "digit-6",
+      "digit-7",
+      "digit-8",
+      "digit-9",
+      "digit-0",
+    ]);
+  });
+
+  it("inserts a converter result as math with a unit", () => {
+    const spec = converterResultSpec("100", "cm");
+    expect(spec.insert).toBe("100\\,\\text{cm}");
+    expect(spliceMathInsert("", { start: 0, end: 0 }, spec).text).toBe("$100\\,\\text{cm}$");
   });
 });
 
