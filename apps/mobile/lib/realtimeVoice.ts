@@ -1,3 +1,5 @@
+import { NativeModules, TurboModuleRegistry } from "react-native";
+
 import { speechApi } from "@/lib/api/speech";
 
 export type RealtimeVoiceEvent =
@@ -25,12 +27,30 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
-function loadWebRtc(): NativeWebRtc {
-  // Native module: this intentionally requires a dev-client / production build,
-  // not Expo Go. Keeping require() here avoids loading native code for users who
-  // never open Live Talk.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require("react-native-webrtc") as NativeWebRtc;
+function isWebRtcLinked(): boolean {
+  try {
+    if (TurboModuleRegistry.get("WebRTCModule") != null) return true;
+  } catch {
+    /* ignore */
+  }
+  return Boolean((NativeModules as Record<string, unknown>).WebRTCModule);
+}
+
+function loadWebRtc(): NativeWebRtc | null {
+  if (!isWebRtcLinked()) return null;
+  try {
+    // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
+    // Metro still resolves this require at bundle time; metro.config.js maps
+    // a stub when the package is not installed so chat can still load.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("react-native-webrtc") as NativeWebRtc;
+  } catch {
+    return null;
+  }
+}
+
+export function isRealtimeVoiceAvailable(): boolean {
+  return loadWebRtc() !== null;
 }
 
 function transcriptFromEvent(event: Record<string, unknown>): string {
@@ -56,6 +76,9 @@ export async function createRealtimeVoiceSession(options: {
   onEvent: (event: RealtimeVoiceEvent) => void;
 }): Promise<RealtimeVoiceSession> {
   const webrtc = loadWebRtc();
+  if (!webrtc) {
+    throw new Error("webrtc_unavailable");
+  }
   const localStream = await webrtc.mediaDevices.getUserMedia({
     audio: {
       echoCancellation: true,

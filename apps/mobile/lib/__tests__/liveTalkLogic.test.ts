@@ -74,6 +74,10 @@ describe("liveTalkErrorGate", () => {
     expect(liveTalkErrorGate({ status: 403 })).toBe("upgrade");
     expect(liveTalkErrorGate({ status: 429 })).toBe("limit");
   });
+
+  it("maps a missing WebRTC native module to unavailable", () => {
+    expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
+  });
 });
 
 describe("liveTalkOrbAction", () => {
