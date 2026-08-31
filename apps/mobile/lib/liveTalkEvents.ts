@@ -45,6 +45,11 @@ function upsertLiveTalkMessage(
   ];
 }
 
+export function dropLiveTalkLocalTurn(messages: Message[], turnId: string): Message[] {
+  const ids = liveTalkLocalIds(turnId);
+  return messages.filter((row) => row.id !== ids.user && row.id !== ids.assistant);
+}
+
 export function applyLiveTalkChatEvent(
   messages: Message[],
   turnId: string,

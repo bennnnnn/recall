@@ -35,9 +35,16 @@ describe("cloudPlayback", () => {
     expect(wavDurationMsFromBase64(b64)).toBe(1000);
   });
 
-  it("caps wait to duration plus slack", () => {
+  it("caps wait to duration plus slack, never a 20s stall", () => {
     expect(playbackWaitMs(350)).toBe(750);
-    expect(playbackWaitMs(null)).toBe(20_000);
+    expect(playbackWaitMs(null)).toBe(2_000);
+    expect(playbackWaitMs(60_000)).toBe(2_500);
+  });
+
+  it("estimates duration from payload size when the header is unreadable", () => {
+    const pcm = new Uint8Array(24000 * 2);
+    const b64 = pcmToWavBase64(pcm);
+    expect(wavDurationMsFromBase64(`xxxx${b64}`)).toBeGreaterThan(800);
   });
 
   it("finishes on didJustFinish or currentTime at duration", () => {
