@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk spoke after ~60s, crackled, user line appeared late, stayed
+  Untitled.** Whisper + GPT Audio shared the OpenRouter key (STS waited on
+  the 60s transcribe timeout). Tiny WAV splices + `didJustFinish` misses
+  clicked; wrapping a provider WAV as PCM was static. User SSE came after
+  audio; first-turn `handleFirstReply` used React `chatId` still null so
+  the topic poll never ran. Whisper first, unwrap WAV to PCM, clip wait
+  from the WAV duration, pass the ensured chat id into title poll.
 - **TTS rest stole another utterance's quota.** Follow-up Redis key was
   `user_id` only, so a second speak's `rest` consumed the first lead's
   unbilled budget. Store `clips:chars:lead_hash`; rest must send that hash

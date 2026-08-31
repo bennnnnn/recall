@@ -1,5 +1,5 @@
 import type { Chat } from "@/lib/api";
-import { provisionalAttachmentTitle } from "@/lib/chat/chatTitle";
+import { chatNeedsGeneratedTitle, provisionalAttachmentTitle } from "@/lib/chat/chatTitle";
 
 export type FirstReplyTitlePlan = {
   insert: Chat | null;
@@ -27,7 +27,7 @@ export function firstReplyTitlePlan(
 ): FirstReplyTitlePlan {
   const chat = created ?? listed;
   if (!chat) return { insert: null, fetch: true, poll: true };
-  if (chat.title) {
+  if (chat.title && !chatNeedsGeneratedTitle(chat.title)) {
     return { insert: chat, fetch: false, poll: false };
   }
   const overlay = provisionalAttachmentTitle(firstUserText);

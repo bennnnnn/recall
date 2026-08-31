@@ -262,4 +262,34 @@ describe("useChatTitlePolling", () => {
     });
     expect(getChat).not.toHaveBeenCalled();
   });
+
+  it("polls an explicit chat id before React state has caught up", async () => {
+    const created = {
+      id: "chat-new",
+      title: null,
+      model: "free-chat",
+      pinned: false,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    peekCreated.mockImplementation((id: string) => (id === "chat-new" ? created : undefined));
+    getChat.mockResolvedValue({ title: "Voice note" });
+
+    await act(async () => {
+      render(<Probe chatId={null} />);
+    });
+    await act(async () => {
+      void current.handleFirstReply("chat-new");
+    });
+
+    expect(insertChat).toHaveBeenCalledWith(created);
+
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+    await waitFor(() => {
+      expect(getChat).toHaveBeenCalledWith("tok", "chat-new");
+    });
+    expect(patchChat).toHaveBeenCalledWith("chat-new", { title: "Voice note" });
+  });
 });

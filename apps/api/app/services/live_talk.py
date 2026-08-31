@@ -19,6 +19,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
 from app.services import todos as todos_service
+from app.services.chat_titles import needs_generated_title
 from app.services.speech import LIVE_TALK_ALIAS
 from app.services.text_normalize import cap_text_head_tail
 
@@ -40,7 +41,7 @@ async def load_live_talk_history(
         return None
     recent = await messages_repo.list_recent(session, chat_id, limit=_LIVE_TALK_RECENT)
     history = [(row.role, row.content) for row in recent if row.role in {"user", "assistant"}]
-    untitled = not (chat.title or "").strip()
+    untitled = needs_generated_title(chat.title)
     return history, untitled
 
 
@@ -126,15 +127,17 @@ async def _enqueue_live_talk_jobs(
     transcript = f"User: {user_text}\nAssistant: {assistant_text}"
     specs: list[tuple[str, dict[str, str], str | None]] = []
     turn_key = str(assistant_message_id) if assistant_message_id is not None else f"live:{chat_id}"
-    if untitled and (user_text or assistant_text):
+    topic_user = user_text or assistant_text
+    topic_assistant = assistant_text or user_text
+    if untitled and topic_user and topic_assistant:
         specs.append(
             (
                 "topic",
                 {
                     "chat_id": str(chat_id),
                     "user_id": str(user.id),
-                    "user_message": user_text or assistant_text,
-                    "assistant_message": assistant_text,
+                    "user_message": topic_user,
+                    "assistant_message": topic_assistant,
                 },
                 f"topic:{chat_id}",
             )

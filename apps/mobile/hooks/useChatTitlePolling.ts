@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
+import { chatNeedsGeneratedTitle } from "@/lib/chat/chatTitle";
 import { firstReplyTitlePlan } from "@/lib/chatTitleRefresh";
 import {
   insertChatGlobal,
@@ -16,6 +17,9 @@ type Options = {
   setChatTitle: (title: string | null) => void;
   getFirstUserText?: () => string | undefined;
 };
+
+const TITLE_POLL_ATTEMPTS = 8;
+const TITLE_POLL_MS = 2000;
 
 /** Polls for the auto-generated chat title after the first assistant reply. */
 export function useChatTitlePolling({
@@ -35,11 +39,11 @@ export function useChatTitlePolling({
         setTitleGenerating(true);
       }
       try {
-        for (let i = 0; i < 5; i++) {
-          await new Promise((r) => setTimeout(r, 2000));
+        for (let i = 0; i < TITLE_POLL_ATTEMPTS; i++) {
+          await new Promise((r) => setTimeout(r, TITLE_POLL_MS));
           try {
             const updated = await api.getChat(tid, cid);
-            if (updated.title) {
+            if (updated.title && !chatNeedsGeneratedTitle(updated.title)) {
               patchChatGlobal(cid, { title: updated.title });
               // Header follows the open chat only. Drawer patch still applies
               // after New chat / another thread (the topic job is for `cid`).
@@ -66,24 +70,25 @@ export function useChatTitlePolling({
     [setChatTitle],
   );
 
-  const handleFirstReply = useCallback(async () => {
-    if (!token || !chatId) return;
+  const handleFirstReply = useCallback(async (explicitChatId?: string | null) => {
+    const cid = explicitChatId ?? chatId;
+    if (!token || !cid) return;
     const plan = firstReplyTitlePlan(
-      peekCreatedChat(chatId),
-      getCachedChat(chatId),
+      peekCreatedChat(cid),
+      getCachedChat(cid),
       getFirstUserText?.(),
     );
     let shouldPoll = plan.poll;
     if (plan.insert) {
       insertChatGlobal(plan.insert);
-      if (plan.insert.title) {
+      if (plan.insert.title && !chatNeedsGeneratedTitle(plan.insert.title)) {
         setChatTitle(plan.insert.title);
       }
     } else if (plan.fetch) {
       try {
-        const chat = await api.getChat(token, chatId);
+        const chat = await api.getChat(token, cid);
         insertChatGlobal(chat);
-        if (chat.title) {
+        if (chat.title && !chatNeedsGeneratedTitle(chat.title)) {
           setChatTitle(chat.title);
           shouldPoll = false;
         }
@@ -92,7 +97,7 @@ export function useChatTitlePolling({
       }
     }
     if (shouldPoll) {
-      await pollForTitle(token, chatId);
+      await pollForTitle(token, cid);
     }
   }, [token, chatId, pollForTitle, setChatTitle, getFirstUserText]);
 

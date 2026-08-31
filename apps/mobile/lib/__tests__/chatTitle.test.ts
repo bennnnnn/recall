@@ -1,4 +1,5 @@
 import {
+  chatNeedsGeneratedTitle,
   displayChatTitle,
   provisionalAttachmentTitle,
   provisionalChatTitle,
@@ -22,6 +23,12 @@ describe("chatTitle", () => {
 
   it("displayChatTitle falls back to untitled", () => {
     expect(displayChatTitle(null, {}, t)).toBe("Untitled");
+  });
+
+  it("chatNeedsGeneratedTitle treats placeholders as missing", () => {
+    expect(chatNeedsGeneratedTitle(null)).toBe(true);
+    expect(chatNeedsGeneratedTitle("Untitled")).toBe(true);
+    expect(chatNeedsGeneratedTitle("Homework")).toBe(false);
   });
 
   it("provisionalChatTitle uses the first line and truncates", () => {

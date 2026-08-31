@@ -44,6 +44,14 @@ _CASUAL_OPENERS = frozenset(
 )
 
 
+def needs_generated_title(title: str | None) -> bool:
+    """True when the chat still needs the topic job (empty or a placeholder)."""
+    cleaned = unwrap_chat_title(title or "")
+    if not cleaned:
+        return True
+    return cleaned.casefold() in BORING_CHAT_TITLES
+
+
 def sanitize_manual_chat_title(raw: str) -> str | None:
     """User-chosen title — allow boring labels; trim quotes and enforce length."""
     title = unwrap_chat_title(raw)

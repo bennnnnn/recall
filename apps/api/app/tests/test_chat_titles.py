@@ -37,6 +37,15 @@ def test_normalize_chat_title(raw: str | None, expected: str | None):
     assert normalize_chat_title(raw) == expected
 
 
+def test_needs_generated_title():
+    from app.services.chat_titles import needs_generated_title
+
+    assert needs_generated_title(None) is True
+    assert needs_generated_title("") is True
+    assert needs_generated_title("Untitled") is True
+    assert needs_generated_title("Homework") is False
+
+
 def test_chat_out_sanitizes_boring_title():
     from datetime import UTC, datetime
     from uuid import uuid4

@@ -59,6 +59,44 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
 
 
 @pytest.mark.asyncio
+async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing():
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = False
+    chat_id = uuid4()
+    chat = MagicMock()
+    user_row = MagicMock()
+    user_row.id = uuid4()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.services.live_talk.messages_repo.create",
+            AsyncMock(return_value=user_row),
+        ),
+        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+    ):
+        await persist_live_talk_turn(
+            user=user,
+            chat_id=chat_id,
+            user_text="Remind me to pack",
+            assistant_text="",
+            untitled=True,
+            settings=MagicMock(chat_history_rag_enabled=False),
+            redis=AsyncMock(),
+        )
+
+    topic = next(call for call in enqueue.await_args_list if call.args[1] == "topic")
+    assert topic.args[2]["user_message"] == "Remind me to pack"
+    assert topic.args[2]["assistant_message"] == "Remind me to pack"
+
+
+@pytest.mark.asyncio
 async def test_settle_live_talk_after_stream_refunds_before_audio():
     persist = AsyncMock()
     user_id = uuid4()

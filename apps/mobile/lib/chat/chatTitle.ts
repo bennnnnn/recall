@@ -73,6 +73,14 @@ export function provisionalAttachmentTitle(text: string | undefined): string | n
   return null;
 }
 
+const PLACEHOLDER_TITLES = new Set(["untitled", "new chat", "chat", "conversation", "new conversation"]);
+
+/** Empty or boring labels still need the topic job. */
+export function chatNeedsGeneratedTitle(title: string | null | undefined): boolean {
+  const trimmed = unwrapChatTitle(title ?? "").toLowerCase();
+  return !trimmed || PLACEHOLDER_TITLES.has(trimmed);
+}
+
 /** Trim quotes and enforce max length before PATCH /chats/{id}. */
 export function sanitizeManualChatTitle(raw: string): string | null {
   const title = unwrapChatTitle(raw);

@@ -99,7 +99,7 @@ function ChatScreen() {
     useChatErrorHandlers(isPro);
   const activeChatId = draft.activeChatId;
 
-  const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
+  const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
   const setInputRef = useRef<(value: string) => void>(() => {});
   const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
@@ -361,8 +361,8 @@ function ChatScreen() {
     onUpgrade: () => openUpgradeRef.current?.(),
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
-    onFirstReply: () => {
-      void onFirstReplyRef.current();
+    onFirstReply: (id?: string | null) => {
+      void onFirstReplyRef.current(id);
     },
     t,
   });
