@@ -167,28 +167,13 @@ async def create_realtime_webrtc_call(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> RealtimeOfferOut:
-    """Legacy server-proxied SDP path kept temporarily for old mobile builds."""
-    history = await _load_history_or_404(body.chat_id, user)
-    redis = await _reserve_realtime_or_raise(user, settings)
-
-    result = await openai_speech_gateway.create_realtime_call(
-        settings,
-        offer_sdp=body.sdp,
-        instructions=_realtime_instructions(history),
-        safety_identifier=_safety_identifier(user),
-    )
-    if result is None:
-        await quota_service.refund_live_talk_if_pending(redis, user.id)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not start realtime voice",
-        )
-    session_id = await live_talk_service.issue_realtime_session(redis, user.id)
-    await quota_service.clear_live_talk_pending(redis, user.id)
-    return RealtimeOfferOut(
-        sdp=result.answer_sdp,
-        call_id=session_id,
-        model=openai_speech_gateway.realtime_model(settings),
+    """Reject stale clients that still use the removed server-proxied SDP transport."""
+    raise HTTPException(
+        status_code=status.HTTP_426_UPGRADE_REQUIRED,
+        detail=(
+            "Legacy Live Talk client detected. Pull the latest main branch, restart Metro "
+            "with a cleared cache, and reopen the dev client."
+        ),
     )
 
 
