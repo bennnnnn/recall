@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.gateways import openai_speech_gateway
-from app.gateways.openai_speech_gateway import RealtimeCallResult, RealtimeClientSecretResult
+from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.routers.speech_realtime import _realtime_instructions
 from app.tests.test_routers import _fake_user
