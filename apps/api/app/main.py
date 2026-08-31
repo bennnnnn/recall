@@ -27,6 +27,7 @@ from app.routers import (
     projects,
     search,
     speech,
+    speech_realtime,
     suggestions,
     todos,
     users,
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(integrations.router)
     app.include_router(gmail_integrations.router)
     app.include_router(speech.router)
+    app.include_router(speech_realtime.router)
     app.include_router(images.router)
     app.include_router(ws.router)
 
