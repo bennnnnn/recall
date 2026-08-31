@@ -183,26 +183,17 @@ export function recordingOptionsForFormat(
 
 let exclusiveMicStop: (() => Promise<void>) | null = null;
 
-/** Stop dictation and put the session in record mode so WebRTC can take the mic. */
+/** Stop dictation so WebRTC can take the mic. Do not call expo-audio
+ *  setAudioModeAsync here — after read-aloud that leaves the session in
+ *  playback and WebRTC capture stays silent. */
 export async function yieldMicToWebRtc(): Promise<void> {
   const stop = exclusiveMicStop;
   exclusiveMicStop = null;
-  if (stop) {
-    try {
-      await stop();
-    } catch {
-      /* WebRTC still needs the session */
-    }
-  }
-  const mod = loadExpoAudio();
-  if (!mod) return;
+  if (!stop) return;
   try {
-    await mod.setAudioModeAsync({
-      allowsRecording: true,
-      playsInSilentMode: true,
-    });
+    await stop();
   } catch {
-    /* native audio may already be tearing down */
+    /* WebRTC still needs the session */
   }
 }
 

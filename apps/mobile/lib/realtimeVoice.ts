@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 
 import { speechApi } from "@/lib/api/speech";
+import { liveTalkDataChannelText } from "@/lib/liveTalkLogic";
 import { yieldMicToWebRtc } from "@/lib/voiceAudio";
 
 export type RealtimeVoiceEvent =
@@ -101,6 +102,10 @@ export async function createRealtimeVoiceSession(options: {
     audio: webRtcMicConstraints(),
     video: false,
   });
+  if (localStream.getAudioTracks().length === 0) {
+    for (const track of localStream.getTracks()) track.stop();
+    throw new Error("webrtc_unavailable");
+  }
   try {
     webrtc.RTCAudioSession?.audioSessionDidActivate();
   } catch {
@@ -125,10 +130,11 @@ export async function createRealtimeVoiceSession(options: {
   };
   dataChannel.onerror = () => emitError("Realtime voice data channel failed");
   dataChannel.onmessage = (message: { data?: unknown }) => {
-    if (typeof message.data !== "string") return;
+    const raw = liveTalkDataChannelText(message.data);
+    if (raw == null) return;
     let event: Record<string, unknown>;
     try {
-      event = JSON.parse(message.data) as Record<string, unknown>;
+      event = JSON.parse(raw) as Record<string, unknown>;
     } catch {
       return;
     }
@@ -213,6 +219,11 @@ export async function createRealtimeVoiceSession(options: {
     await pc.setRemoteDescription(
       new webrtc.RTCSessionDescription({ type: "answer", sdp: answer.sdp }),
     );
+    try {
+      webrtc.RTCAudioSession?.audioSessionDidActivate();
+    } catch {
+      /* playback + capture after the remote track is attached */
+    }
   } catch (error) {
     tearDownAudio();
     throw error;

@@ -8,6 +8,7 @@ import {
   liveTalkIsEmptyTranscriptError,
   liveTalkOrbAction,
   liveTalkShouldAttachSession,
+  liveTalkDataChannelText,
   liveTalkShouldSendRecording,
   liveTalkDiscardListenOnMute,
   liveTalkMuteA11yKey,
@@ -74,6 +75,14 @@ describe("liveTalkShouldAttachSession", () => {
   it("drops the session when close or a newer open bumped the generation", () => {
     expect(liveTalkShouldAttachSession(3, 3)).toBe(true);
     expect(liveTalkShouldAttachSession(3, 4)).toBe(false);
+  });
+});
+
+describe("liveTalkDataChannelText", () => {
+  it("reads string payloads and UTF-8 bytes", () => {
+    expect(liveTalkDataChannelText('{"type":"response.done"}')).toBe('{"type":"response.done"}');
+    expect(liveTalkDataChannelText(new TextEncoder().encode('{"type":"x"}'))).toBe('{"type":"x"}');
+    expect(liveTalkDataChannelText(null)).toBeNull();
   });
 });
 

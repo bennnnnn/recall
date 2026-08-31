@@ -88,6 +88,18 @@ export function liveTalkShouldAttachSession(startedGen: number, currentGen: numb
   return startedGen === currentGen;
 }
 
+/** react-native-webrtc may deliver data-channel payloads as a string or bytes. */
+export function liveTalkDataChannelText(data: unknown): string | null {
+  if (typeof data === "string") return data;
+  if (data instanceof ArrayBuffer) {
+    return new TextDecoder().decode(data);
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new TextDecoder().decode(data);
+  }
+  return null;
+}
+
 export function liveTalkErrorGate(error: unknown): LiveTalkGate {
   if (error instanceof Error && error.message === "webrtc_unavailable") {
     return "unavailable";

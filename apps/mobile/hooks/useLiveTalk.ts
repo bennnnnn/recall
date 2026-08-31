@@ -390,7 +390,16 @@ export function useLiveTalk({
     return () => sub.remove();
   }, [visible, drawerOpen, close]);
 
-  useEffect(() => () => closeRef.current(), []);
+  useEffect(() => {
+    // Fast Refresh preserves `visible` and drops the native peer. A leftover
+    // overlay with no session looks like Live Talk is on and hears nothing.
+    if (visible && !sessionRef.current) {
+      visibleRef.current = false;
+      setVisible(false);
+      setPhase("idle");
+    }
+    return () => closeRef.current();
+  }, []);
 
   return {
     visible,
