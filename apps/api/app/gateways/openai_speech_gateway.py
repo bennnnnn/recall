@@ -6,6 +6,7 @@ voice latency is not coupled to an extra routing hop.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -137,11 +138,7 @@ async def create_realtime_call(
             },
             files={
                 "sdp": (None, offer_sdp, "application/sdp"),
-                "session": (
-                    None,
-                    __import__("json").dumps(session),
-                    "application/json",
-                ),
+                "session": (None, json.dumps(session), "application/json"),
             },
         )
         if response.status_code >= 400:
