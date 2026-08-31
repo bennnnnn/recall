@@ -4,22 +4,30 @@ Each external gateway (Tavily, Google Calendar, Gmail) used to open a fresh
 httpx.AsyncClient per call, paying a new TCP+TLS handshake every time even
 for repeated calls to the same host within seconds. Gateways call
 get_pooled_client(timeout) instead, which lazily creates one client per
-distinct timeout value and reuses it (keep-alive connection pooling) for the
-life of the process.
+distinct timeout/retry policy and reuses it for the life of the process.
 """
 
 from __future__ import annotations
 
 import httpx
 
-_clients: dict[float, httpx.AsyncClient] = {}
+_clients: dict[tuple[float, int], httpx.AsyncClient] = {}
 
 
-def get_pooled_client(timeout: float) -> httpx.AsyncClient:
-    client = _clients.get(timeout)
+def get_pooled_client(timeout: float, *, connect_retries: int = 0) -> httpx.AsyncClient:
+    """Return a pooled client; optionally retry connection setup failures.
+
+    httpx transport retries are intentionally limited to connection errors and
+    connection timeouts. They do not replay arbitrary HTTP responses, so using
+    them for the Realtime token-mint request is safe and keeps a transient TLS
+    failure from immediately killing Live Talk.
+    """
+    key = (timeout, connect_retries)
+    client = _clients.get(key)
     if client is None or client.is_closed:
-        client = httpx.AsyncClient(timeout=timeout)
-        _clients[timeout] = client
+        transport = httpx.AsyncHTTPTransport(retries=connect_retries)
+        client = httpx.AsyncClient(timeout=timeout, transport=transport)
+        _clients[key] = client
     return client
 
 

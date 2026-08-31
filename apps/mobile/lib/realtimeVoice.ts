@@ -30,8 +30,10 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
+const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const CONNECTION_TIMEOUT_MS = 10_000;
+const SDP_EXCHANGE_TIMEOUT_MS = 10_000;
 const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
 
 function debug(stage: string, detail?: unknown): void {
@@ -46,11 +48,6 @@ function debug(stage: string, detail?: unknown): void {
 function loadWebRtc(): NativeWebRtc | null {
   try {
     // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
-    // Metro still extracts this require at bundle time; metro.config.js maps
-    // a stub when the package is not installed so chat can still load.
-    // Do not gate on NativeModules.WebRTCModule first — New Arch interop can
-    // leave that key empty until the JS package loads, which falsely looked
-    // like Expo Go on a linked dev client.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const webrtc = require("react-native-webrtc") as NativeWebRtc;
     if (webrtc.__WEBRTC_STUB__) return null;
@@ -65,9 +62,9 @@ export function isRealtimeVoiceAvailable(): boolean {
 }
 
 /**
- * VoiceProcessing IO (AEC) deadlocks CoreAudio on the iOS Simulator when
- * expo-audio has also touched the session — SIGABRT `AURemoteIO RPC timeout`.
- * Keep AEC on Android; iOS uses a plain RemoteIO unit.
+ * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
+ * expo-audio has also touched the session. Keep processing on Android; iOS
+ * uses a plain RemoteIO unit and react-native-webrtc owns the audio session.
  */
 export function webRtcMicConstraints(): {
   echoCancellation: boolean;
@@ -100,12 +97,6 @@ function sendRealtimeEvent(
   }
 }
 
-/**
- * The Realtime calls endpoint is a one-shot SDP exchange; there is no second
- * signalling request for trickled local ICE candidates. React Native WebRTC
- * updates localDescription as gathering progresses, so give it a short window
- * and send the freshest SDP rather than the original createOffer() snapshot.
- */
 async function waitForIceGathering(pc: any): Promise<void> {
   if (pc.iceGatheringState === "complete") return;
   await new Promise<void>((resolve) => {
@@ -138,11 +129,39 @@ function enableRemoteAudioTrack(track: any): void {
     /* remote audio is still auto-rendered by react-native-webrtc */
   }
   try {
-    // react-native-webrtc automatically handles remote audio. Explicitly
-    // restore its per-track gain in case a reused/native track starts muted.
     if (typeof track._setVolume === "function") track._setVolume(1);
   } catch {
     /* best-effort */
+  }
+}
+
+async function exchangeSdpDirectly(clientSecret: string, sdp: string): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SDP_EXCHANGE_TIMEOUT_MS);
+  try {
+    const response = await fetch(OPENAI_REALTIME_CALLS_URL, {
+      method: "POST",
+      body: sdp,
+      headers: {
+        Authorization: `Bearer ${clientSecret}`,
+        "Content-Type": "application/sdp",
+      },
+      signal: controller.signal,
+    });
+    const answerSdp = await response.text();
+    if (!response.ok) {
+      const error = new Error(
+        `OpenAI Realtime SDP exchange failed (${response.status}): ${answerSdp.slice(0, 240)}`,
+      ) as Error & { status?: number };
+      error.status = response.status;
+      throw error;
+    }
+    if (!answerSdp.includes("v=0")) {
+      throw new Error("OpenAI Realtime returned an invalid SDP answer");
+    }
+    return answerSdp;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -171,6 +190,13 @@ export async function createRealtimeVoiceSession(options: {
     tracks: localAudioTracks.length,
     enabled: localAudioTracks.map((track: any) => track.enabled),
     readyState: localAudioTracks.map((track: any) => track.readyState),
+  });
+
+  // Mint the short-lived credential while local ICE gathering proceeds. The
+  // permanent OpenAI API key stays on Recall's server; only this ek_ token is
+  // ever exposed to the app.
+  const credentialPromise = speechApi.createRealtimeSession(options.token, {
+    chatId: options.chatId,
   });
 
   const pc = new webrtc.RTCPeerConnection({});
@@ -344,34 +370,34 @@ export async function createRealtimeVoiceSession(options: {
   };
 
   try {
-    // Match OpenAI's WebRTC flow: add the microphone, create a normal offer,
-    // set it locally, then exchange SDP with /v1/realtime/calls.
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await waitForIceGathering(pc);
     const sdp = String(pc.localDescription?.sdp || offer.sdp || "");
     if (!sdp) throw new Error("Could not create realtime audio offer");
     debug("sending-sdp", {
+      transport: "direct-ephemeral",
       hasAudio: sdp.includes("m=audio"),
       hasData: sdp.includes("m=application"),
     });
 
-    const answer = await speechApi.exchangeRealtimeSdp(options.token, {
-      sdp,
-      chatId: options.chatId,
+    const credential = await credentialPromise;
+    callId = credential.call_id;
+    debug("client-secret-ready", {
+      model: credential.model,
+      expiresAt: credential.expires_at,
     });
-    callId = answer.call_id ?? null;
+
+    const answerSdp = await exchangeSdpDirectly(credential.client_secret, sdp);
     debug("received-sdp-answer", {
-      hasAudio: answer.sdp.includes("m=audio"),
-      hasData: answer.sdp.includes("m=application"),
+      transport: "direct-ephemeral",
+      hasAudio: answerSdp.includes("m=audio"),
+      hasData: answerSdp.includes("m=application"),
     });
     await pc.setRemoteDescription(
-      new webrtc.RTCSessionDescription({ type: "answer", sdp: answer.sdp }),
+      new webrtc.RTCSessionDescription({ type: "answer", sdp: answerSdp }),
     );
 
-    // ontrack fires before setRemoteDescription resolves in react-native-webrtc,
-    // but also inspect receivers defensively so a remote audio track can never
-    // stay disabled simply because a platform skipped the JS track callback.
     for (const receiver of pc.getReceivers?.() ?? []) {
       if (receiver.track?.kind === "audio") {
         remoteAudioTracks.add(receiver.track);
@@ -379,13 +405,6 @@ export async function createRealtimeVoiceSession(options: {
       }
     }
 
-    // Do not call RTCAudioSession.audioSessionDidActivate() here. That hook is
-    // specifically for CallKit-managed activation. Recall is not using CallKit;
-    // react-native-webrtc must own its normal capture/playback audio session.
-
-    // Do not report Live Talk as recording until OpenAI's data channel is
-    // actually usable. Previously this function returned after SDP alone, so a
-    // failed ICE handshake looked like a working session that never answered.
     await Promise.race([
       connectedPromise,
       new Promise<never>((_, reject) =>
