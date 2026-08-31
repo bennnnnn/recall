@@ -51,6 +51,13 @@ type Options = {
   t: (key: string) => string;
 };
 
+type CompletedTurn = {
+  id: string;
+  chatId: string | null;
+  userText: string;
+  assistantText: string;
+};
+
 const REALTIME_TRANSCRIPT_GRACE_MS = 350;
 
 export function useLiveTalk({
@@ -132,79 +139,93 @@ export function useLiveTalk({
     [newMessageCountRef, onScrollToLatest, setMessages],
   );
 
-  const finishTurn = useCallback(async () => {
-    const completedTurnId = turnIdRef.current;
-    if (!completedTurnId) return;
-    const completedChatId = turnChatIdRef.current;
-    const completedUserText = userTextRef.current.trim();
-    const completedAssistantText = assistantTextRef.current.trim();
+  const captureCurrentTurn = useCallback((): CompletedTurn | null => {
+    const id = turnIdRef.current;
+    if (!id) return null;
+    const completed: CompletedTurn = {
+      id,
+      chatId: turnChatIdRef.current,
+      userText: userTextRef.current.trim(),
+      assistantText: assistantTextRef.current.trim(),
+    };
+    turnIdRef.current = "";
+    userTextRef.current = "";
+    assistantTextRef.current = "";
+    return completed;
+  }, []);
 
-    // Persistence, title generation, memory extraction, todo extraction, and RAG
-    // indexing are deliberately outside the first-audio path. Capture the final
-    // transcript now and let the server hydrate canonical message rows later.
-    if (token && completedChatId && (completedUserText || completedAssistantText)) {
-      void api
-        .persistRealtimeLiveTalkTurn(token, {
-          chatId: completedChatId,
-          userText: completedUserText,
-          assistantText: completedAssistantText,
-        })
-        .then(() => api.listMessages(token, completedChatId, { limit: 40 }))
-        .then((page) => {
-          if (page.messages.length > 0) setMessages(page.messages);
-        })
-        .catch((error: unknown) => {
-          reportRecoverableError(
-            feedback,
-            error instanceof Error ? error.message : t("chat.live_talk_failed"),
-          );
-        });
-    }
-
-    try {
-      const next = token ? await api.liveTalkStatus(token) : status;
-      if (next) setStatus(next);
-      applyEvent(
-        {
-          type: "done",
-          remaining: next?.remaining ?? status?.remaining ?? 0,
-          limit: next?.limit ?? status?.limit ?? 0,
-          user_message: null,
-          assistant_message: null,
-        },
-        completedTurnId,
-      );
-      onFirstReply(completedChatId);
-    } catch {
-      // The spoken response already succeeded. Status refresh must not make the
-      // completed voice turn look failed.
-      applyEvent(
-        {
-          type: "done",
-          remaining: status?.remaining ?? 0,
-          limit: status?.limit ?? 0,
-          user_message: null,
-          assistant_message: null,
-        },
-        completedTurnId,
-      );
-    } finally {
-      if (turnIdRef.current === completedTurnId) {
-        turnIdRef.current = "";
-        assistantTextRef.current = "";
-        userTextRef.current = "";
-        setPhase("idle");
+  const finishTurn = useCallback(
+    async (completed: CompletedTurn) => {
+      // Persistence, title generation, memory extraction, todo extraction, and
+      // RAG indexing stay outside the audio path. The completed turn is an
+      // immutable snapshot so a fast barge-in cannot mutate what gets saved.
+      if (token && completed.chatId && (completed.userText || completed.assistantText)) {
+        void api
+          .persistRealtimeLiveTalkTurn(token, {
+            chatId: completed.chatId,
+            userText: completed.userText,
+            assistantText: completed.assistantText,
+          })
+          .then(() => api.listMessages(token, completed.chatId!, { limit: 40 }))
+          .then((page) => {
+            if (page.messages.length > 0) setMessages(page.messages);
+          })
+          .catch((error: unknown) => {
+            reportRecoverableError(
+              feedback,
+              error instanceof Error ? error.message : t("chat.live_talk_failed"),
+            );
+          });
       }
-    }
-  }, [applyEvent, feedback, onFirstReply, setMessages, status, t, token]);
+
+      try {
+        const next = token ? await api.liveTalkStatus(token) : status;
+        if (next) setStatus(next);
+        applyEvent(
+          {
+            type: "done",
+            remaining: next?.remaining ?? status?.remaining ?? 0,
+            limit: next?.limit ?? status?.limit ?? 0,
+            user_message: null,
+            assistant_message: null,
+          },
+          completed.id,
+        );
+        onFirstReply(completed.chatId);
+      } catch {
+        // Voice already succeeded. A status refresh failure must not make the
+        // completed turn look failed.
+        applyEvent(
+          {
+            type: "done",
+            remaining: status?.remaining ?? 0,
+            limit: status?.limit ?? 0,
+            user_message: null,
+            assistant_message: null,
+          },
+          completed.id,
+        );
+      }
+    },
+    [applyEvent, feedback, onFirstReply, setMessages, status, t, token],
+  );
+
+  const finalizeCurrentTurn = useCallback(() => {
+    const completed = captureCurrentTurn();
+    if (!completed) return;
+    setPhase("idle");
+    void finishTurn(completed);
+  }, [captureCurrentTurn, finishTurn]);
 
   const flushPendingTurn = useCallback(() => {
     if (finishTimerRef.current != null) {
       clearTimeout(finishTimerRef.current);
       finishTimerRef.current = null;
-      void finishTurn();
     }
-  }, [finishTurn]);
+    if (turnIdRef.current && (userTextRef.current || assistantTextRef.current)) {
+      finalizeCurrentTurn();
+    }
+  }, [finalizeCurrentTurn]);
 
   const handleRealtimeEvent = useCallback(
     (event: RealtimeVoiceEvent) => {
@@ -214,10 +235,12 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "speech_started") {
+        // If the user barges in while the prior response is finishing, freeze
+        // that completed turn before starting a new one.
         flushPendingTurn();
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
-        assistantTextRef.current = "";
+        turnIdRef.current = String(Date.now());
         userTextRef.current = "";
+        assistantTextRef.current = "";
         setPhase("recording");
         return;
       }
@@ -245,9 +268,12 @@ export function useLiveTalk({
       }
       if (event.type === "response_done") {
         if (finishTimerRef.current != null) clearTimeout(finishTimerRef.current);
+        // This grace affects only persistence/UI canonicalization, never audible
+        // audio. It allows the final input-transcription event to arrive if it
+        // trails response.done by a few network frames.
         finishTimerRef.current = setTimeout(() => {
           finishTimerRef.current = null;
-          void finishTurn();
+          finalizeCurrentTurn();
         }, REALTIME_TRANSCRIPT_GRACE_MS);
         return;
       }
@@ -256,7 +282,7 @@ export function useLiveTalk({
         setPhase("idle");
       }
     },
-    [applyEvent, feedback, finishTurn, flushPendingTurn, t],
+    [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],
   );
 
   const close = useCallback(() => {
@@ -264,15 +290,16 @@ export function useLiveTalk({
       clearTimeout(finishTimerRef.current);
       finishTimerRef.current = null;
     }
+    const completed = captureCurrentTurn();
+    if (completed && (completed.userText || completed.assistantText)) {
+      void finishTurn(completed);
+    }
     sessionRef.current?.close();
     sessionRef.current = null;
-    turnIdRef.current = "";
-    assistantTextRef.current = "";
-    userTextRef.current = "";
     setMuted(false);
     setPhase("idle");
     setVisible(false);
-  }, []);
+  }, [captureCurrentTurn, finishTurn]);
 
   const open = useCallback(async () => {
     if (!token) return;
