@@ -41,7 +41,7 @@ export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
   return phase === "speaking";
 }
 
-/** Client abort before the first audio clip must refund the reserved turn. */
+/** Client abort before the first audio clip or spoken reply must refund. */
 export function liveTalkAbortRefundNeeded(gotAudio: boolean): boolean {
   return !gotAudio;
 }

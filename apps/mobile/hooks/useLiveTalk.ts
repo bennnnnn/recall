@@ -310,8 +310,8 @@ export function useLiveTalk({
             }
           }
           if (sessionGen.current !== gen) return;
+          if (event.type === "audio" || event.type === "assistant") gotAudio = true;
           if (event.type !== "audio") return;
-          gotAudio = true;
           if (playbackStarted) return;
           if (!clipGen) {
             clipGen = beginSpeechPlayback();

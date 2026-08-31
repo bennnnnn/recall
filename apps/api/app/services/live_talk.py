@@ -205,7 +205,7 @@ async def settle_live_talk_after_stream(
     user_id: UUID,
     persist: Callable[[], Awaitable[object]] | None = None,
 ) -> None:
-    """Refund if no audio; otherwise clear the pending flag.
+    """Refund if no spoken reply (audio clip or assistant text); otherwise clear pending.
 
     Persist runs either way so Whisper text is not dropped on cancel.
     Must run on cancel (CancelledError / GeneratorExit) as well as success —

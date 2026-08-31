@@ -25,7 +25,7 @@ const proReady: LiveTalkStatus = {
 };
 
 describe("liveTalkAbortRefundNeeded", () => {
-  it("refunds only when the client abort beat the first audio clip", () => {
+  it("refunds only when the client abort beat the first audio clip or spoken reply", () => {
     expect(liveTalkAbortRefundNeeded(false)).toBe(true);
     expect(liveTalkAbortRefundNeeded(true)).toBe(false);
   });

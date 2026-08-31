@@ -693,7 +693,8 @@ async def live_talk_speak(
                 yield _live_talk_event_sse(event)
                 if event.kind == "user":
                     await persist_user_now()
-            if not got_audio:
+            turn_ok = got_audio or bool(assistant_text)
+            if not turn_ok:
                 detail = (
                     LIVE_TALK_EMPTY_TRANSCRIPT if not user_text else "Could not complete live talk"
                 )
@@ -711,13 +712,13 @@ async def live_talk_speak(
                 }
             )
         except Exception:
-            if got_audio:
+            if got_audio or assistant_text:
                 logger.exception("Live talk stream error after audio")
             raise
         finally:
             try:
                 await live_talk_service.settle_live_talk_after_stream(
-                    got_audio=got_audio,
+                    got_audio=got_audio or bool(assistant_text),
                     reserved=reserved,
                     redis=redis,
                     user_id=user.id,

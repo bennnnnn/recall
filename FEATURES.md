@@ -97,26 +97,23 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
-- ✅ **Live talk (Pro)** — waveform on the composer opens a **speech-to-speech** session
-  (OpenAI GPT Audio via OpenRouter: audio in → spoken reply, **not Whisper**). Short pause
-  ends your turn; the orb never shows “Transcribing…”. Not full duplex. Free is blocked
-  (upgrade). Pro: **30 turns/day** (UTC). Composer mic STT remains Whisper.
-  Tap the mic (next to close) to mute so Recall cannot hear you; it turns
-  red. Playback is not paused. No Listening/Speaking labels. The normal
-  composer stays so you can type and attach in voice mode. Typing a draft
-  hides mute and close so the field uses the full row; they return when
-  the draft is empty. Spoken turns are saved as normal chat messages
-  (what you said + the reply) so they are in the thread when you close.
-  GPT Audio still produces the reply. Clips start as soon as PCM
-  arrives; the phone **also speaks the transcript with on-device TTS as
-  soon as words arrive**, not after the full stream (waiting for `done`
-  was ~1–2 min of silence). Device TTS stops clip splices so a silent
-  player cannot hold the speaker. Whisper for the chat bubble
-  runs **before** GPT Audio. Empty Whisper still runs STS (simulator
-  mics often look silent to Whisper).
-  The user line is persisted as soon as Whisper returns. Auto-stop without
-  a speech spike discards the clip instead of uploading silence. The chat
-  header (drawer / ⋮) stays available.
+- ✅ **Live talk (Pro)** — waveform on the composer opens a **voice session**.
+  Short pause ends your turn; the orb never shows “Transcribing…”. Not full
+  duplex. Free is blocked (upgrade). Pro: **30 turns/day** (UTC). Composer
+  mic STT remains Whisper. Tap the mic (next to close) to mute so Recall
+  cannot hear you; it turns red. Playback is not paused. No
+  Listening/Speaking labels. The normal composer stays so you can type
+  and attach in voice mode. Typing a draft hides mute and close so the
+  field uses the full row; they return when the draft is empty. Spoken
+  turns are saved as normal chat messages (what you said + the reply)
+  so they are in the thread when you close.
+  When Whisper hears you, the reply is a **short spoken text turn**
+  (`free-chat`, 1–2 sentences) that the phone speaks as words arrive —
+  not a full GPT Audio generation (that wait was ~1–2 min of silence).
+  GPT Audio STS is only the fallback when Whisper is empty or the text
+  reply fails. The user line is persisted as soon as Whisper returns.
+  Auto-stop without a speech spike discards the clip instead of uploading
+  silence. The chat header (drawer / ⋮) stays available.
   Abort before the first audio clip refunds the turn (`POST /speech/live/refund`);
   cancel after audio still persists transcripts. Unsupported containers fail
   closed (no Whisper+TTS echo of the user as the assistant).
@@ -824,7 +821,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; streamed clips; turns persist as chat; mic mute beside close; typing hides mute/close; not full duplex) |
+| Live talk (Pro + daily cap) | ✅ Shipped (Whisper + short spoken text reply; GPT Audio fallback if Whisper empty; turns persist as chat; mic mute beside close; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
