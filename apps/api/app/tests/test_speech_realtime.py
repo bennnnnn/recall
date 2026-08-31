@@ -61,7 +61,7 @@ async def test_realtime_call_uses_semantic_vad_and_server_key():
     assert session["audio"]["input"]["turn_detection"] == {
         "type": "semantic_vad",
         "create_response": True,
-        "interrupt_response": False,
+        "interrupt_response": True,
     }
     assert session["audio"]["input"]["transcription"] == {"model": "gpt-transcribe"}
 

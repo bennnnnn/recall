@@ -1,11 +1,6 @@
 import { Platform } from "react-native";
 
 import { speechApi } from "@/lib/api/speech";
-import {
-  LIVE_TALK_ECHO_GUARD_MS,
-  liveTalkHoldMicForAssistant,
-  liveTalkUplinkMuted,
-} from "@/lib/liveTalkLogic";
 import { yieldMicToWebRtc } from "@/lib/voiceAudio";
 
 export type RealtimeVoiceEvent =
@@ -120,14 +115,6 @@ export async function createRealtimeVoiceSession(options: {
   let assistantTranscript = "";
   let closed = false;
   let callId: string | null = null;
-  let userMuted = false;
-  let playbackHold = false;
-  let unmuteTimer: ReturnType<typeof setTimeout> | null = null;
-
-  const applyUplinkMute = () => {
-    const muted = liveTalkUplinkMuted(userMuted, playbackHold);
-    for (const track of localStream.getAudioTracks()) track.enabled = !muted;
-  };
 
   const emitError = (message: string) => {
     if (!closed) options.onEvent({ type: "error", message });
@@ -147,8 +134,6 @@ export async function createRealtimeVoiceSession(options: {
     }
     const type = typeof event.type === "string" ? event.type : "";
     if (type === "input_audio_buffer.speech_started") {
-      const hold = liveTalkHoldMicForAssistant("speech_started", playbackHold);
-      if (hold.dropSpeechStarted) return;
       options.onEvent({ type: "speech_started" });
       return;
     }
@@ -158,13 +143,6 @@ export async function createRealtimeVoiceSession(options: {
     }
     if (type === "response.created") {
       assistantTranscript = "";
-      const hold = liveTalkHoldMicForAssistant("response_started", playbackHold);
-      playbackHold = hold.holding;
-      if (unmuteTimer != null) {
-        clearTimeout(unmuteTimer);
-        unmuteTimer = null;
-      }
-      applyUplinkMute();
       options.onEvent({ type: "response_started" });
       return;
     }
@@ -199,13 +177,6 @@ export async function createRealtimeVoiceSession(options: {
       return;
     }
     if (type === "response.done") {
-      const hold = liveTalkHoldMicForAssistant("response_done", playbackHold);
-      if (unmuteTimer != null) clearTimeout(unmuteTimer);
-      unmuteTimer = setTimeout(() => {
-        unmuteTimer = null;
-        playbackHold = hold.holding;
-        applyUplinkMute();
-      }, LIVE_TALK_ECHO_GUARD_MS);
       options.onEvent({ type: "response_done" });
       return;
     }
@@ -250,17 +221,12 @@ export async function createRealtimeVoiceSession(options: {
   return {
     callId,
     setMuted: (muted: boolean) => {
-      userMuted = muted;
-      applyUplinkMute();
+      for (const track of localStream.getAudioTracks()) track.enabled = !muted;
     },
     cancelResponse: () => sendRealtimeEvent(dataChannel, "response.cancel"),
     close: () => {
       if (closed) return;
       closed = true;
-      if (unmuteTimer != null) {
-        clearTimeout(unmuteTimer);
-        unmuteTimer = null;
-      }
       try {
         dataChannel.close();
       } catch {

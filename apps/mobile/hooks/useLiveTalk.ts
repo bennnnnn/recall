@@ -363,8 +363,8 @@ export function useLiveTalk({
     sessionRef.current?.setMuted(next);
   }, [muted]);
 
-  // Semantic VAD owns turn boundaries. Playback holds the mic so speaker
-  // echo cannot barge in (Live Talk is not full duplex).
+  // Semantic VAD owns turn boundaries. Normal interruption is simply speaking
+  // over the assistant; the Realtime session has interrupt_response enabled.
   const toggle = useCallback(async () => {
     if (phase === "thinking") {
       sessionRef.current?.cancelResponse();
@@ -373,8 +373,7 @@ export function useLiveTalk({
   }, [phase]);
 
   const interrupt = useCallback(() => {
-    // Take-floor remains a UI contract; acoustic barge-in is off so echo
-    // cannot cut the assistant mid-sentence.
+    // Kept for the existing UI contract. Barge-in is automatic in Realtime.
   }, []);
 
   const yieldToComposer = useCallback(() => {
