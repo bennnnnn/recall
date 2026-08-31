@@ -9,12 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES, SPEECH_MAX_B64_CHARS
+from app.services import live_talk as live_talk_service
 from app.services import plan as plan_service
 from app.services import quota as quota_service
 
@@ -51,6 +53,12 @@ class RealtimeOfferOut(BaseModel):
     sdp: str
     call_id: str | None = None
     model: str
+
+
+class RealtimePersistIn(BaseModel):
+    chat_id: UUID
+    user_text: str = Field(default="", max_length=20_000)
+    assistant_text: str = Field(default="", max_length=20_000)
 
 
 def _decode_audio(raw: str) -> bytes:
@@ -177,8 +185,44 @@ async def create_realtime_webrtc_call(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not start realtime voice",
         )
+    # Realtime quota is billed once when the persistent voice session is
+    # successfully established; later transcript persistence never touches it.
+    await quota_service.clear_live_talk_pending(redis, user.id)
     return RealtimeOfferOut(
         sdp=result.answer_sdp,
         call_id=result.call_id,
         model=openai_speech_gateway.realtime_model(),
+    )
+
+
+@router.post("/live/persist", status_code=status.HTTP_204_NO_CONTENT)
+async def persist_realtime_turn(
+    body: RealtimePersistIn,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> None:
+    user_text = body.user_text.strip()
+    assistant_text = body.assistant_text.strip()
+    if not user_text and not assistant_text:
+        return
+
+    async with SessionLocal() as session:
+        loaded = await live_talk_service.load_live_talk_history(
+            session,
+            chat_id=body.chat_id,
+            user_id=user.id,
+        )
+    if loaded is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+    _, untitled = loaded
+
+    await live_talk_service.persist_live_talk_turn(
+        user=user,
+        chat_id=body.chat_id,
+        user_text=user_text,
+        assistant_text=assistant_text,
+        untitled=untitled,
+        settings=settings,
+        redis=get_redis_client(),
+        enqueue_jobs=True,
     )
