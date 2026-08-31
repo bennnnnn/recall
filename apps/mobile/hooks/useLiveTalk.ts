@@ -51,6 +51,8 @@ type Options = {
   t: (key: string) => string;
 };
 
+const REALTIME_TRANSCRIPT_GRACE_MS = 350;
+
 export function useLiveTalk({
   token,
   chatId,
@@ -79,6 +81,7 @@ export function useLiveTalk({
   const assistantTextRef = useRef("");
   const userTextRef = useRef("");
   const visibleRef = useRef(false);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   visibleRef.current = visible;
 
@@ -118,8 +121,7 @@ export function useLiveTalk({
   }, [chatId, draft, router, selectedModel, setChatId, setChatTitle]);
 
   const applyEvent = useCallback(
-    (event: LiveTalkSpeakEvent) => {
-      const turnId = turnIdRef.current;
+    (event: LiveTalkSpeakEvent, turnId = turnIdRef.current) => {
       if (!turnId) return;
       setMessages((prev) => applyLiveTalkChatEvent(prev, turnId, event));
       if (event.type === "done") {
@@ -131,7 +133,8 @@ export function useLiveTalk({
   );
 
   const finishTurn = useCallback(async () => {
-    if (!turnIdRef.current) return;
+    const completedTurnId = turnIdRef.current;
+    if (!completedTurnId) return;
     const completedChatId = turnChatIdRef.current;
     const completedUserText = userTextRef.current.trim();
     const completedAssistantText = assistantTextRef.current.trim();
@@ -161,31 +164,47 @@ export function useLiveTalk({
     try {
       const next = token ? await api.liveTalkStatus(token) : status;
       if (next) setStatus(next);
-      applyEvent({
-        type: "done",
-        remaining: next?.remaining ?? status?.remaining ?? 0,
-        limit: next?.limit ?? status?.limit ?? 0,
-        user_message: null,
-        assistant_message: null,
-      });
+      applyEvent(
+        {
+          type: "done",
+          remaining: next?.remaining ?? status?.remaining ?? 0,
+          limit: next?.limit ?? status?.limit ?? 0,
+          user_message: null,
+          assistant_message: null,
+        },
+        completedTurnId,
+      );
       onFirstReply(completedChatId);
     } catch {
       // The spoken response already succeeded. Status refresh must not make the
       // completed voice turn look failed.
-      applyEvent({
-        type: "done",
-        remaining: status?.remaining ?? 0,
-        limit: status?.limit ?? 0,
-        user_message: null,
-        assistant_message: null,
-      });
+      applyEvent(
+        {
+          type: "done",
+          remaining: status?.remaining ?? 0,
+          limit: status?.limit ?? 0,
+          user_message: null,
+          assistant_message: null,
+        },
+        completedTurnId,
+      );
     } finally {
-      turnIdRef.current = "";
-      assistantTextRef.current = "";
-      userTextRef.current = "";
-      setPhase("idle");
+      if (turnIdRef.current === completedTurnId) {
+        turnIdRef.current = "";
+        assistantTextRef.current = "";
+        userTextRef.current = "";
+        setPhase("idle");
+      }
     }
   }, [applyEvent, feedback, onFirstReply, setMessages, status, t, token]);
+
+  const flushPendingTurn = useCallback(() => {
+    if (finishTimerRef.current != null) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+      void finishTurn();
+    }
+  }, [finishTurn]);
 
   const handleRealtimeEvent = useCallback(
     (event: RealtimeVoiceEvent) => {
@@ -195,6 +214,7 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "speech_started") {
+        flushPendingTurn();
         if (!turnIdRef.current) turnIdRef.current = String(Date.now());
         assistantTextRef.current = "";
         userTextRef.current = "";
@@ -224,7 +244,11 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "response_done") {
-        void finishTurn();
+        if (finishTimerRef.current != null) clearTimeout(finishTimerRef.current);
+        finishTimerRef.current = setTimeout(() => {
+          finishTimerRef.current = null;
+          void finishTurn();
+        }, REALTIME_TRANSCRIPT_GRACE_MS);
         return;
       }
       if (event.type === "error") {
@@ -232,10 +256,14 @@ export function useLiveTalk({
         setPhase("idle");
       }
     },
-    [applyEvent, feedback, finishTurn, t],
+    [applyEvent, feedback, finishTurn, flushPendingTurn, t],
   );
 
   const close = useCallback(() => {
+    if (finishTimerRef.current != null) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    }
     sessionRef.current?.close();
     sessionRef.current = null;
     turnIdRef.current = "";
