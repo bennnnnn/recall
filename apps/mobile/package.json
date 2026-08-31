@@ -11,6 +11,7 @@
     }
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "^15.0.2",
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/dom-webview": "^57.0.1",
     "@expo/vector-icons": "^15.1.1",
@@ -51,7 +52,7 @@
     "i18next": "^26.3.2",
     "katex": "^0.18.4",
     "markdown-it": "^14.2.0",
-    "markdown-it-task-lists": "^2.1.1",
+    "markdown-it-task-lists": "^14.2.0",
     "prismjs": "^1.30.0",
     "punycode": "^2.3.1",
     "react": "19.2.3",
@@ -69,6 +70,7 @@
     "react-native-screens": "4.27.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
+    "react-native-webrtc": "124.0.8",
     "react-native-webview": "^14.0.1",
     "react-native-worklets": "0.10.0"
   },
