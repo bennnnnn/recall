@@ -81,7 +81,9 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
         openai_realtime_model="gpt-realtime-2.1",
     )
 
-    with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client) as pooled:
+    with patch(
+        "app.gateways.openai_speech_gateway.get_pooled_client", return_value=client
+    ) as pooled:
         result = await openai_speech_gateway.create_realtime_client_secret(
             settings,
             instructions="be concise",
