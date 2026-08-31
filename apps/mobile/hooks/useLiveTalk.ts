@@ -132,6 +132,32 @@ export function useLiveTalk({
 
   const finishTurn = useCallback(async () => {
     if (!turnIdRef.current) return;
+    const completedChatId = turnChatIdRef.current;
+    const completedUserText = userTextRef.current.trim();
+    const completedAssistantText = assistantTextRef.current.trim();
+
+    // Persistence, title generation, memory extraction, todo extraction, and RAG
+    // indexing are deliberately outside the first-audio path. Capture the final
+    // transcript now and let the server hydrate canonical message rows later.
+    if (token && completedChatId && (completedUserText || completedAssistantText)) {
+      void api
+        .persistRealtimeLiveTalkTurn(token, {
+          chatId: completedChatId,
+          userText: completedUserText,
+          assistantText: completedAssistantText,
+        })
+        .then(() => api.listMessages(token, completedChatId, { limit: 40 }))
+        .then((page) => {
+          if (page.messages.length > 0) setMessages(page.messages);
+        })
+        .catch((error: unknown) => {
+          reportRecoverableError(
+            feedback,
+            error instanceof Error ? error.message : t("chat.live_talk_failed"),
+          );
+        });
+    }
+
     try {
       const next = token ? await api.liveTalkStatus(token) : status;
       if (next) setStatus(next);
@@ -142,7 +168,7 @@ export function useLiveTalk({
         user_message: null,
         assistant_message: null,
       });
-      onFirstReply(turnChatIdRef.current);
+      onFirstReply(completedChatId);
     } catch {
       // The spoken response already succeeded. Status refresh must not make the
       // completed voice turn look failed.
@@ -159,7 +185,7 @@ export function useLiveTalk({
       userTextRef.current = "";
       setPhase("idle");
     }
-  }, [applyEvent, onFirstReply, status, token]);
+  }, [applyEvent, feedback, onFirstReply, setMessages, status, t, token]);
 
   const handleRealtimeEvent = useCallback(
     (event: RealtimeVoiceEvent) => {
@@ -263,18 +289,14 @@ export function useLiveTalk({
     sessionRef.current?.setMuted(next);
   }, [muted]);
 
-  // With semantic VAD the orb no longer manually starts/stops file recording.
-  // During a response it serves as a lightweight cancel/idle control; normal
-  // interruption is simply speaking over the assistant (Realtime barge-in).
+  // Semantic VAD owns turn boundaries. Normal interruption is simply speaking
+  // over the assistant; the Realtime session has interrupt_response enabled.
   const toggle = useCallback(async () => {
-    if (phase === "thinking") {
-      setPhase("idle");
-    }
+    if (phase === "thinking") setPhase("idle");
   }, [phase]);
 
   const interrupt = useCallback(() => {
-    // Realtime semantic VAD + interrupt_response handles barge-in automatically.
-    // Keeping this callback preserves the existing UI contract.
+    // Kept for the existing UI contract. Barge-in is automatic in Realtime.
   }, []);
 
   const yieldToComposer = useCallback(() => {
