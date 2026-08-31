@@ -511,9 +511,9 @@ async def test_iter_speech_to_speech_emits_clip_before_stream_ends():
 
     async def fake_gateway(*_args: object, **_kwargs: object):
         order.append("first-pcm")
-        yield b"\x00\x00" * 20_000, "Hi"
+        yield (10_000).to_bytes(2, "little", signed=True) * 20_000, "Hi"
         order.append("rest-pcm")
-        yield b"\x00\x00" * 1_000, "Hi there"
+        yield (10_000).to_bytes(2, "little", signed=True) * 1_000, "Hi there"
 
     settings = Settings(
         mock_llm_enabled=False,
@@ -566,6 +566,84 @@ async def test_iter_speech_to_speech_rejects_unsupported_container_without_echo(
     assert events == []
     transcribe.assert_not_called()
     gateway.assert_not_called()
+
+
+def test_trim_wav_silence_shortens_quiet_file():
+    from app.services.live_talk_stream import trim_wav_silence
+
+    quiet = pcm_to_wav(b"\x00\x00" * (24000 * 8))
+    trimmed = trim_wav_silence(quiet)
+    assert len(trimmed) < len(quiet)
+    assert trimmed[:4] == b"RIFF"
+
+
+def test_trim_wav_silence_keeps_speech_island():
+    from app.services.live_talk_stream import trim_wav_silence
+
+    loud = (10_000).to_bytes(2, "little", signed=True)
+    pad = b"\x00\x00" * 24000
+    original = pcm_to_wav(pad + loud * 2400 + pad)
+    trimmed = trim_wav_silence(original)
+    assert len(trimmed) < len(original)
+    assert trimmed[:4] == b"RIFF"
+
+
+def test_take_live_talk_pcm_unwraps_wav_instead_of_playing_headers():
+    from app.gateways.speech_gateway import take_live_talk_pcm
+
+    pcm = (10_000).to_bytes(2, "little", signed=True) * 80
+    wav = pcm_to_wav(pcm)
+    stash = bytearray()
+    assert take_live_talk_pcm(stash, wav[:24]) == b""
+    out = take_live_talk_pcm(stash, wav[24:])
+    assert out == pcm
+    assert not stash
+
+
+def test_take_live_talk_pcm_passes_raw_pcm16():
+    from app.gateways.speech_gateway import take_live_talk_pcm
+
+    pcm = (10_000).to_bytes(2, "little", signed=True) * 40
+    stash = bytearray()
+    assert take_live_talk_pcm(stash, pcm) == pcm
+    assert not stash
+
+
+@pytest.mark.asyncio
+async def test_iter_speech_to_speech_emits_user_before_audio():
+    from app.services.live_talk_stream import iter_speech_to_speech
+
+    wav = pcm_to_wav((10_000).to_bytes(2, "little", signed=True) * 16)
+    order: list[str] = []
+
+    async def transcribe(*_args: object, **_kwargs: object) -> str:
+        order.append("whisper")
+        return "hello"
+
+    async def fake_gateway(*_args: object, **_kwargs: object):
+        order.append("sts")
+        yield (10_000).to_bytes(2, "little", signed=True) * 20_000, "Hi"
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        speech_live_talk_enabled=True,
+        speech_transcription_enabled=True,
+    )
+    with (
+        patch("app.services.live_talk_stream.mock_llm.should_mock_llm", return_value=False),
+        patch("app.services.live_talk_stream.transcribe_audio", transcribe),
+        patch(
+            "app.services.live_talk_stream.speech_gateway.iter_speech_to_speech_via_openrouter",
+            fake_gateway,
+        ),
+    ):
+        events = [
+            event async for event in iter_speech_to_speech(settings, wav, filename="speech.wav")
+        ]
+    assert order == ["whisper", "sts"]
+    kinds = [event.kind for event in events]
+    assert kinds.index("user") < kinds.index("audio")
 
 
 @pytest.mark.asyncio

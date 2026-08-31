@@ -3,6 +3,11 @@
 import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
 import { requestRaw } from "@/lib/api/client";
+import {
+  playbackStatusFinished,
+  playbackWaitMs,
+  wavDurationMsFromBase64,
+} from "@/lib/cloudPlayback";
 import { markdownToPlainText } from "@/lib/markdownPlain";
 import { splitTtsChunks } from "@/lib/ttsLead";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
@@ -148,20 +153,29 @@ async function fetchCloudTtsClip(
   };
 }
 
+type PlaybackStatus = {
+  didJustFinish?: boolean;
+  currentTime?: number;
+  duration?: number;
+};
+
 /** Cloud TTS clip playback (expo-audio). Never mix with expo-speech. */
 type PlaybackHandle = {
   play: () => void;
   pause: () => void;
   remove: () => void;
+  currentTime?: number;
+  duration?: number;
   addListener: (
     event: "playbackStatusUpdate",
-    listener: (status: { didJustFinish: boolean }) => void,
+    listener: (status: PlaybackStatus) => void,
   ) => { remove: () => void };
 };
 
 const CLOUD_PLAYBACK_MAX_MS = 300_000;
 let cloudPlaybackFinish: (() => void) | null = null;
 let cloudPlayer: PlaybackHandle | null = null;
+let playbackModeGeneration = -1;
 
 function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MAX_MS): Promise<void> {
   return new Promise((resolve) => {
@@ -172,6 +186,7 @@ function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MA
       settled = true;
       if (cloudPlaybackFinish === finish) cloudPlaybackFinish = null;
       clearTimeout(timer);
+      clearInterval(poll);
       try {
         sub?.remove();
       } catch {
@@ -181,8 +196,18 @@ function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MA
     };
     cloudPlaybackFinish = finish;
     sub = player.addListener("playbackStatusUpdate", (status) => {
-      if (status.didJustFinish) finish();
+      if (playbackStatusFinished(status)) finish();
     });
+    const poll = setInterval(() => {
+      if (
+        playbackStatusFinished({
+          currentTime: player.currentTime,
+          duration: player.duration,
+        })
+      ) {
+        finish();
+      }
+    }, 50);
     const timer = setTimeout(finish, maxMs);
   });
 }
@@ -254,9 +279,13 @@ export async function playSpeechAudioClip(
   generation: number,
 ): Promise<SpeakResult> {
   if (!isCurrentSpeak(generation)) return { ok: true };
-  await preparePlaybackAudioMode();
+  if (playbackModeGeneration !== generation) {
+    await preparePlaybackAudioMode();
+    playbackModeGeneration = generation;
+  }
   if (!isCurrentSpeak(generation)) return { ok: true };
-  return playCloudBase64(audioBase64, contentType, generation);
+  const durationMs = contentType.includes("wav") ? wavDurationMsFromBase64(audioBase64) : null;
+  return playCloudBase64(audioBase64, contentType, generation, playbackWaitMs(durationMs));
 }
 
 async function playRemoteAudio(url: string): Promise<SpeakResult> {

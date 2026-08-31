@@ -86,6 +86,15 @@ describe("firstReplyTitlePlan", () => {
     });
   });
 
+  it("still polls when the stored title is Untitled", () => {
+    const created = chat("new", "Untitled");
+    expect(firstReplyTitlePlan(created, undefined)).toEqual({
+      insert: created,
+      fetch: false,
+      poll: true,
+    });
+  });
+
   it("falls back to GET only when nothing is cached", () => {
     expect(firstReplyTitlePlan(undefined, undefined)).toEqual({
       insert: null,

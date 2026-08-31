@@ -107,8 +107,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   hides mute and close so the field uses the full row; they return when
   the draft is empty. Spoken turns are saved as normal chat messages
   (what you said + the reply) so they are in the thread when you close.
-  Playback starts as the first audio clip arrives — it does not wait for
-  the full reply. The chat header (drawer / ⋮) stays available.
+    Playback starts as the first audio clip arrives — it does not wait for
+  the full reply. Whisper for the chat bubble runs **before** GPT Audio so
+  your line appears first and the two OpenRouter jobs do not stall each
+  other. The chat header (drawer / ⋮) stays available.
   Abort before the first audio clip refunds the turn (`POST /speech/live/refund`);
   cancel after audio still persists transcripts. Unsupported containers fail
   closed (no Whisper+TTS echo of the user as the assistant).

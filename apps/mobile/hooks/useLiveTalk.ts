@@ -58,7 +58,7 @@ type Options = {
   onUpgrade: () => void;
   onScrollToLatest: () => void;
   newMessageCountRef: React.MutableRefObject<number>;
-  onFirstReply: () => void;
+  onFirstReply: (chatId?: string | null) => void;
   t: (key: string) => string;
 };
 
@@ -165,10 +165,9 @@ export function useLiveTalk({
       if (event.type === "done") {
         newMessageCountRef.current += 2;
         onScrollToLatest();
-        onFirstReply();
       }
     },
-    [newMessageCountRef, onFirstReply, onScrollToLatest, setMessages],
+    [newMessageCountRef, onScrollToLatest, setMessages],
   );
 
   const beginListen = useCallback(async () => {
@@ -220,7 +219,7 @@ export function useLiveTalk({
     speakAbortRef.current = abort;
     let gotAudio = false;
     try {
-      const chatId = await ensureChatId();
+      const turnChatId = await ensureChatId();
       if (sessionGen.current !== gen) {
         endingUtteranceRef.current = false;
         return;
@@ -233,7 +232,7 @@ export function useLiveTalk({
         token,
         audioBase64,
         filename: speechUploadFromUri(uri).name,
-        chatId,
+        chatId: turnChatId,
         signal: abort.signal,
         onEvent: (event: LiveTalkSpeakEvent) => {
           if (sessionGen.current !== gen) return;
@@ -245,6 +244,7 @@ export function useLiveTalk({
               remaining: event.remaining,
               limit: event.limit,
             });
+            onFirstReply(turnChatId);
           }
           if (event.type !== "audio") return;
           gotAudio = true;
@@ -298,7 +298,7 @@ export function useLiveTalk({
       if (speakAbortRef.current === abort) speakAbortRef.current = null;
       endingUtteranceRef.current = false;
     }
-  }, [token, alertForGate, t, ensureChatId, applyChatEvent]);
+  }, [token, alertForGate, t, ensureChatId, applyChatEvent, onFirstReply]);
 
   const close = useCallback(() => {
     sessionGen.current += 1;

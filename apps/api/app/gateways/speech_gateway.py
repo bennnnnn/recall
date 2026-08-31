@@ -7,6 +7,7 @@ import binascii
 import io
 import json
 import logging
+import time
 import wave
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -408,6 +409,59 @@ def decode_joined_audio_b64(fragments: list[str]) -> bytes:
         return b"".join(chunks)
 
 
+def riff_payload_complete(data: bytes | bytearray) -> bool:
+    if len(data) < 8 or bytes(data[:4]) != b"RIFF":
+        return False
+    declared = int.from_bytes(data[4:8], "little") + 8
+    return declared >= 12 and len(data) >= declared
+
+
+def wav_pcm_frames(data: bytes) -> bytes | None:
+    try:
+        with wave.open(io.BytesIO(data), "rb") as src:
+            if src.getsampwidth() != _PCM_SAMPLE_WIDTH:
+                return None
+            return src.readframes(src.getnframes())
+    except wave.Error:
+        return None
+
+
+def take_live_talk_pcm(stash: bytearray, incoming: bytes) -> bytes:
+    """Normalize OpenRouter audio bytes to pcm16. Do not play a WAV file as samples."""
+    if incoming:
+        stash.extend(incoming)
+    if not stash:
+        return b""
+    if len(stash) >= 2 and (stash[:3] == b"ID3" or (stash[0] == 0xFF and stash[1] in _MPEG_SYNC)):
+        logger.warning("Live talk OpenRouter sent MPEG instead of pcm16; dropping")
+        stash.clear()
+        return b""
+    if len(stash) < 4:
+        return b""
+    if stash[:4] == b"RIFF":
+        if len(stash) < 12:
+            return b""
+        if stash[8:12] != b"WAVE":
+            n = (len(stash) // 2) * 2
+            out = bytes(stash[:n])
+            del stash[:n]
+            return out
+        if not riff_payload_complete(stash):
+            return b""
+        declared = int.from_bytes(stash[4:8], "little") + 8
+        blob = bytes(stash[:declared])
+        del stash[:declared]
+        frames = wav_pcm_frames(blob)
+        if frames is None:
+            logger.warning("Live talk WAV unwrap failed size=%s", len(blob))
+            return b""
+        return frames
+    n = (len(stash) // 2) * 2
+    out = bytes(stash[:n])
+    del stash[:n]
+    return out
+
+
 async def iter_speech_to_speech_via_openrouter(
     settings: Settings,
     audio_bytes: bytes,
@@ -428,6 +482,9 @@ async def iter_speech_to_speech_via_openrouter(
         return
     transcript = ""
     b64_rest = ""
+    pcm_stash = bytearray()
+    started = time.perf_counter()
+    first_pcm_logged = False
     try:
         client = get_pooled_client(_AUDIO_CHAT_TIMEOUT)
         async with client.stream(
@@ -448,6 +505,12 @@ async def iter_speech_to_speech_via_openrouter(
                     error_body,
                 )
                 return
+            logger.info(
+                "Live talk OpenRouter headers after %.0fms model=%s status=%s",
+                (time.perf_counter() - started) * 1000,
+                model,
+                response.status_code,
+            )
             async for line in response.aiter_lines():
                 if not line.startswith("data:"):
                     continue
@@ -473,7 +536,16 @@ async def iter_speech_to_speech_via_openrouter(
                     transcript = merge_stream_transcript(transcript, piece)
                 pcm = b""
                 if audio_b64:
-                    pcm, b64_rest = decode_audio_b64_incremental(b64_rest, audio_b64)
+                    decoded, b64_rest = decode_audio_b64_incremental(b64_rest, audio_b64)
+                    pcm = take_live_talk_pcm(pcm_stash, decoded)
+                if pcm and not first_pcm_logged:
+                    first_pcm_logged = True
+                    logger.info(
+                        "Live talk OpenRouter first PCM after %.0fms model=%s bytes=%s",
+                        (time.perf_counter() - started) * 1000,
+                        model,
+                        len(pcm),
+                    )
                 if pcm or piece:
                     yield pcm, transcript
             if b64_rest:
@@ -482,8 +554,12 @@ async def iter_speech_to_speech_via_openrouter(
                     extra = base64.b64decode(b64_rest + pad, validate=False)
                 except (binascii.Error, ValueError):
                     extra = b""
-                if extra:
-                    yield extra, transcript
+                extra_pcm = take_live_talk_pcm(pcm_stash, extra)
+                if extra_pcm:
+                    yield extra_pcm, transcript
+            leftover = take_live_talk_pcm(pcm_stash, b"")
+            if leftover:
+                yield leftover, transcript
     except Exception:
         logger.exception("Speech-to-speech failed model=%s size=%s", model, len(audio_bytes))
         return
