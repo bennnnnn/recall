@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,28 @@ logger = logging.getLogger(__name__)
 
 _LIVE_TALK_RECENT = 12
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
+_REALTIME_SESSION_TTL_SECONDS = 2 * 60 * 60
+
+
+def _realtime_session_key(user_id: UUID, session_id: str) -> str:
+    return f"live_talk_rt:{user_id}:{session_id}"
+
+
+async def issue_realtime_session(redis: Redis, user_id: UUID) -> str:
+    session_id = str(uuid4())
+    await redis.set(
+        _realtime_session_key(user_id, session_id),
+        "1",
+        ex=_REALTIME_SESSION_TTL_SECONDS,
+    )
+    return session_id
+
+
+async def realtime_session_is_active(redis: Redis, user_id: UUID, session_id: str) -> bool:
+    token = (session_id or "").strip()
+    if not token:
+        return False
+    return bool(await redis.get(_realtime_session_key(user_id, token)))
 
 
 async def load_live_talk_history(

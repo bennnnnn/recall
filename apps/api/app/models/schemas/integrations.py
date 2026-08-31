@@ -25,6 +25,7 @@ class SpeechTranscriptionOut(BaseModel):
 class SpeechTranscriptionIn(BaseModel):
     audio_base64: str = Field(max_length=SPEECH_MAX_B64_CHARS)
     filename: str = "speech.m4a"
+    language: str | None = Field(default=None, max_length=16)
 
 
 class SpeechTtsIn(BaseModel):

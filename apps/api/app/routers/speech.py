@@ -258,6 +258,7 @@ async def _transcribe_bytes(
     settings: Settings,
     data: bytes,
     filename: str,
+    language: str | None = None,
 ) -> SpeechTranscriptionOut:
     if not settings.speech_transcription_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
@@ -265,6 +266,7 @@ async def _transcribe_bytes(
         settings,
         data,
         filename=filename,
+        language=language,
     )
     if text is None:
         raise HTTPException(
@@ -412,6 +414,7 @@ async def transcribe_speech(
     # Size first — a 6MB clip used to pass the 7.5MB body cap, reserve quota,
     # then fail as 502 when the service rejected at 5MB.
     content_type = request.headers.get("content-type", "")
+    language: str | None = None
     if "application/json" in content_type:
         _reject_oversized_speech_body(request.headers.get("content-length"), 0)
         try:
@@ -426,6 +429,7 @@ async def transcribe_speech(
             ) from exc
         _reject_oversized_audio(data)
         filename = payload.filename
+        language = payload.language
     else:
         # Multipart: check Content-Length BEFORE request.form() parses the body.
         _reject_oversized_speech_body(request.headers.get("content-length"), 0)
@@ -469,7 +473,7 @@ async def transcribe_speech(
         )
 
     try:
-        return await _transcribe_bytes(settings, data, filename)
+        return await _transcribe_bytes(settings, data, filename, language)
     except HTTPException as exc:
         if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
             await quota_service.refund_speech_transcription(redis, user.id)

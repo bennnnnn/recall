@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     jwt_refresh_expire_days: int = 30
 
     openrouter_api_key: str = ""
+    # Direct OpenAI key for Live Talk WebRTC only. Composer STT uses OpenRouter.
+    # OpenRouter has no Realtime/WebRTC API, so this cannot share that hop.
+    openai_api_key: str = ""
     tavily_api_key: str = ""
 
     google_calendar_enabled: bool = True
@@ -165,7 +168,7 @@ class Settings(BaseSettings):
     worker_health_port: int = 8001
     speech_transcription_enabled: bool = True
     # Operator override (raw OpenRouter slug). Empty → catalog alias
-    # `speech-stt-model` is the source of truth.
+    # `speech-stt-model` (`openai/gpt-transcribe`) is the source of truth.
     speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
     daily_speech_transcriptions: int = 30
@@ -177,11 +180,14 @@ class Settings(BaseSettings):
     speech_tts_voice: str = ""
     daily_speech_tts: int = 20
     daily_speech_tts_pro: int = 100
-    # Turn-taking live voice: OpenAI GPT Audio speech-to-speech (not Whisper).
+    # Turn-taking live voice: WebRTC + OpenAI gpt-realtime (not OpenRouter).
     # Free limit 0 = Pro-only; Pro still has a daily turn cap.
     speech_live_talk_enabled: bool = True
     # Operator override (raw OpenRouter slug). Empty → catalog `live-talk-model`.
+    # Legacy batch `/speech/live/speak` only; WebRTC uses openai_realtime_model.
     speech_live_talk_model: str = ""
+    openai_realtime_model: str = "gpt-realtime-2.1"
+    speech_realtime_voice_enabled: bool = True
     daily_live_talk: int = 0
     daily_live_talk_pro: int = 30
 

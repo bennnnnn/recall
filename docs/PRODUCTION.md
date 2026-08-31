@@ -75,7 +75,8 @@ exact production web origin and only the headers used by presigned uploads.
 | `REDIS_URL` | yes | `rediss://` |
 | `GOOGLE_CLIENT_ID` | yes | |
 | `GOOGLE_CLIENT_SECRET` | yes | Calendar/Gmail OAuth |
-| `OPENROUTER_API_KEY` | yes | |
+| `OPENROUTER_API_KEY` | yes | Chat + composer STT (`gpt-transcribe`) |
+| `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
 | `OAUTH_TOKEN_ENCRYPTION_KEY` | yes | Fernet key |
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |

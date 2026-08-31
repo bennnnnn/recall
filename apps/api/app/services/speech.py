@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
 from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES
 from app.services.model_catalog import openrouter_slug
+from app.services.transcript_validation import sanitize_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,7 @@ async def transcribe_audio(
     audio_bytes: bytes,
     *,
     filename: str = "speech.m4a",
+    language: str | None = None,
 ) -> str | None:
     if not settings.speech_transcription_enabled:
         return None
@@ -128,12 +130,16 @@ async def transcribe_audio(
         return None
 
     model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
-    return await speech_gateway.transcribe_via_openrouter(
+    text = await speech_gateway.transcribe_via_openrouter(
         settings,
         audio_bytes,
         filename=filename,
         model=model,
+        language=language,
     )
+    if text is None:
+        return None
+    return sanitize_transcript(text, audio_size=len(audio_bytes))
 
 
 async def synthesize_speech(

@@ -187,3 +187,9 @@ def test_is_available_without_keys():
     )
     minimax = model_catalog.get("minimax-m2")
     assert model_catalog.is_available(minimax, settings) is False
+
+
+def test_speech_stt_alias_uses_openrouter_gpt_transcribe():
+    stt = model_catalog.get("speech-stt-model")
+    assert stt.model == "openrouter/openai/gpt-transcribe"
+    assert model_catalog.openrouter_slug("speech-stt-model") == "openai/gpt-transcribe"

@@ -927,8 +927,8 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → Whisper → composer (dev build), waveform UI, rate limits | Full duplex live voice (later) |
-| Live talk speech-to-speech (Pro, 30 turns/day; streamed clips; turns persist as chat; mic mute beside close; typing hides mute/close; type/attach) | — |
+| Record → OpenRouter `gpt-transcribe` → composer (app-language hint, no-speech gate) | Streaming live transcription |
+| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; semantic VAD; barge-in; persist off the audio path). Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. | Full duplex / interruptible voice beyond barge-in |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)

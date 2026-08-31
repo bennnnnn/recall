@@ -54,6 +54,7 @@ type Options = {
 type CompletedTurn = {
   id: string;
   chatId: string | null;
+  callId: string | null;
   userText: string;
   assistantText: string;
 };
@@ -83,6 +84,7 @@ export function useLiveTalk({
   const [muted, setMuted] = useState(false);
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
   const sessionRef = useRef<RealtimeVoiceSession | null>(null);
+  const callIdRef = useRef<string | null>(null);
   const turnIdRef = useRef("");
   const turnChatIdRef = useRef<string | null>(null);
   const assistantTextRef = useRef("");
@@ -145,6 +147,7 @@ export function useLiveTalk({
     const completed: CompletedTurn = {
       id,
       chatId: turnChatIdRef.current,
+      callId: callIdRef.current,
       userText: userTextRef.current.trim(),
       assistantText: assistantTextRef.current.trim(),
     };
@@ -159,10 +162,11 @@ export function useLiveTalk({
       // Persistence, title generation, memory extraction, todo extraction, and
       // RAG indexing stay outside the audio path. The completed turn is an
       // immutable snapshot so a fast barge-in cannot mutate what gets saved.
-      if (token && completed.chatId && (completed.userText || completed.assistantText)) {
+      if (token && completed.chatId && completed.callId && (completed.userText || completed.assistantText)) {
         void api
           .persistRealtimeLiveTalkTurn(token, {
             chatId: completed.chatId,
+            callId: completed.callId,
             userText: completed.userText,
             assistantText: completed.assistantText,
           })
@@ -296,6 +300,7 @@ export function useLiveTalk({
     }
     sessionRef.current?.close();
     sessionRef.current = null;
+    callIdRef.current = null;
     setMuted(false);
     setPhase("idle");
     setVisible(false);
@@ -330,6 +335,7 @@ export function useLiveTalk({
         return;
       }
       sessionRef.current = session;
+      callIdRef.current = session.callId;
       setPhase("idle");
     } catch (error) {
       setVisible(false);
@@ -347,7 +353,10 @@ export function useLiveTalk({
   // Semantic VAD owns turn boundaries. Normal interruption is simply speaking
   // over the assistant; the Realtime session has interrupt_response enabled.
   const toggle = useCallback(async () => {
-    if (phase === "thinking") setPhase("idle");
+    if (phase === "thinking") {
+      sessionRef.current?.cancelResponse();
+      setPhase("idle");
+    }
   }, [phase]);
 
   const interrupt = useCallback(() => {

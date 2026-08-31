@@ -2098,8 +2098,36 @@ def test_speech_transcribe_json_ok():
     assert r.json()["text"] == "hello json"
 
 
+def test_speech_transcribe_json_forwards_language():
+    import base64
+
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    payload = {
+        "audio_base64": base64.b64encode(b"fake-audio").decode(),
+        "filename": "speech.m4a",
+        "language": "es-MX",
+    }
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    transcribe = AsyncMock(return_value="hola")
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.routers.speech.speech_service.transcribe_audio", transcribe),
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok", "Content-Type": "application/json"},
+            json=payload,
+        )
+    assert r.status_code == 200
+    assert r.json()["text"] == "hola"
+    assert transcribe.await_args.kwargs["language"] == "es-MX"
+
+
 def test_speech_transcribe_empty_text_ok():
-    """Whisper heard no speech — 200 with empty text, not a 502 outage."""
+    """Empty transcript is a valid no-speech result — 200 with empty text, not a 502 outage."""
     import fakeredis.aioredis
 
     user = _fake_user()

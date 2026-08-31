@@ -1,4 +1,4 @@
-import { apiUrl, notifyUnauthorized, refreshAccessToken } from "@/lib/api/client";
+import { speechApi } from "@/lib/api/speech";
 
 export type RealtimeVoiceEvent =
   | { type: "connected" }
@@ -19,7 +19,9 @@ type NativeWebRtc = {
 };
 
 export type RealtimeVoiceSession = {
+  callId: string | null;
   setMuted: (muted: boolean) => void;
+  cancelResponse: () => void;
   close: () => void;
 };
 
@@ -31,41 +33,21 @@ function loadWebRtc(): NativeWebRtc {
   return require("react-native-webrtc") as NativeWebRtc;
 }
 
-async function postOffer(
-  token: string,
-  sdp: string,
-  chatId?: string | null,
-  allowRefresh = true,
-): Promise<{ sdp: string; call_id?: string | null; model: string }> {
-  const response = await fetch(apiUrl("/speech/live/webrtc"), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ sdp, ...(chatId ? { chat_id: chatId } : {}) }),
-  });
-  if (response.status === 401 && allowRefresh) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) return postOffer(refreshed, sdp, chatId, false);
-    notifyUnauthorized();
-  }
-  if (!response.ok) {
-    const text = await response.text();
-    const error = Object.assign(new Error(text || `Realtime voice failed: ${response.status}`), {
-      status: response.status,
-    });
-    throw error;
-  }
-  return response.json() as Promise<{ sdp: string; call_id?: string | null; model: string }>;
-}
-
 function transcriptFromEvent(event: Record<string, unknown>): string {
   const transcript = event.transcript;
   if (typeof transcript === "string") return transcript.trim();
   const delta = event.delta;
   if (typeof delta === "string") return delta;
   return "";
+}
+
+function sendRealtimeEvent(channel: { readyState?: string; send?: (data: string) => void }, type: string) {
+  if (channel.readyState !== "open" || typeof channel.send !== "function") return;
+  try {
+    channel.send(JSON.stringify({ type }));
+  } catch {
+    /* best-effort */
+  }
 }
 
 export async function createRealtimeVoiceSession(options: {
@@ -90,6 +72,7 @@ export async function createRealtimeVoiceSession(options: {
   const dataChannel = pc.createDataChannel("oai-events");
   let assistantTranscript = "";
   let closed = false;
+  let callId: string | null = null;
 
   const emitError = (message: string) => {
     if (!closed) options.onEvent({ type: "error", message });
@@ -170,7 +153,11 @@ export async function createRealtimeVoiceSession(options: {
     await pc.setLocalDescription(offer);
     const sdp = String(offer.sdp || pc.localDescription?.sdp || "");
     if (!sdp) throw new Error("Could not create realtime audio offer");
-    const answer = await postOffer(options.token, sdp, options.chatId);
+    const answer = await speechApi.exchangeRealtimeSdp(options.token, {
+      sdp,
+      chatId: options.chatId,
+    });
+    callId = answer.call_id ?? null;
     await pc.setRemoteDescription(
       new webrtc.RTCSessionDescription({ type: "answer", sdp: answer.sdp }),
     );
@@ -181,9 +168,11 @@ export async function createRealtimeVoiceSession(options: {
   }
 
   return {
+    callId,
     setMuted: (muted: boolean) => {
       for (const track of localStream.getAudioTracks()) track.enabled = !muted;
     },
+    cancelResponse: () => sendRealtimeEvent(dataChannel, "response.cancel"),
     close: () => {
       if (closed) return;
       closed = true;

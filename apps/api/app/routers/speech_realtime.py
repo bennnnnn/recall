@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import base64
-import binascii
 import hashlib
 from uuid import UUID
 
@@ -15,17 +13,12 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
-from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES, SPEECH_MAX_B64_CHARS
 from app.services import live_talk as live_talk_service
 from app.services import plan as plan_service
 from app.services import quota as quota_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 
-_STT_PROMPT = (
-    "Conversational dictation for a personal AI assistant. "
-    "Preserve what the speaker actually said. Do not invent closing phrases, captions, or filler."
-)
 _REALTIME_INSTRUCTIONS = (
     "You are Recall, a personal voice assistant. Speak naturally and respond quickly. "
     "Prefer one or two concise spoken sentences unless the user asks for detail. "
@@ -33,17 +26,6 @@ _REALTIME_INSTRUCTIONS = (
 )
 _REALTIME_HISTORY_MAX = 10
 _REALTIME_HISTORY_CHARS = 600
-
-
-class DirectTranscriptionIn(BaseModel):
-    audio_base64: str = Field(max_length=SPEECH_MAX_B64_CHARS)
-    filename: str = Field(default="speech.m4a", max_length=255)
-    language: str | None = Field(default=None, max_length=16)
-
-
-class DirectTranscriptionOut(BaseModel):
-    text: str
-    model: str
 
 
 class RealtimeOfferIn(BaseModel):
@@ -59,26 +41,9 @@ class RealtimeOfferOut(BaseModel):
 
 class RealtimePersistIn(BaseModel):
     chat_id: UUID
+    call_id: str = Field(min_length=8, max_length=128)
     user_text: str = Field(default="", max_length=20_000)
     assistant_text: str = Field(default="", max_length=20_000)
-
-
-def _decode_audio(raw: str) -> bytes:
-    try:
-        data = base64.b64decode(raw, validate=True)
-    except (ValueError, binascii.Error) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid audio payload",
-        ) from exc
-    if not data:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty audio payload")
-    if len(data) > SPEECH_MAX_AUDIO_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Audio payload too large",
-        )
-    return data
 
 
 def _safety_identifier(user: User) -> str:
@@ -101,71 +66,20 @@ def _realtime_instructions(history: list[tuple[str, str]] | None) -> str:
     return f"{_REALTIME_INSTRUCTIONS}\n\nRecent conversation context:\n{context}"
 
 
-@router.post("/transcribe/v2", response_model=DirectTranscriptionOut)
-async def transcribe_v2(
-    body: DirectTranscriptionIn,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> DirectTranscriptionOut:
-    if not settings.speech_transcription_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    if not openai_speech_gateway.api_key():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Direct speech transcription is not configured",
-        )
-
-    redis = get_redis_client()
-    if settings.speech_rate_limit_per_minute > 0:
-        allowed = await allow_request_fail_closed(
-            redis,
-            f"speech_v2_rl:{user.id}",
-            limit=settings.speech_rate_limit_per_minute,
-            window_seconds=60,
-        )
-        if not allowed:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=quota_service.SPEECH_RATE_LIMIT_MESSAGE,
-            )
-
-    daily_limit = quota_service.speech_transcription_limit_for_user(user, settings)
-    if not await quota_service.reserve_speech_transcription(redis, user.id, limit=daily_limit):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=quota_service.speech_limit_exceeded_message(user),
-        )
-
-    data = _decode_audio(body.audio_base64)
-    text = await openai_speech_gateway.transcribe(
-        data,
-        filename=body.filename,
-        language=body.language,
-        prompt=_STT_PROMPT,
-    )
-    if text is None:
-        await quota_service.refund_speech_transcription(redis, user.id)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not transcribe audio",
-        )
-    return DirectTranscriptionOut(text=text, model=openai_speech_gateway.stt_model())
-
-
 @router.post("/live/webrtc", response_model=RealtimeOfferOut)
 async def create_realtime_webrtc_call(
     body: RealtimeOfferIn,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> RealtimeOfferOut:
-    if not settings.speech_live_talk_enabled or not openai_speech_gateway.realtime_enabled():
+    if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     if not plan_service.is_pro(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=quota_service.LIVE_TALK_REQUIRES_PRO_MESSAGE,
         )
-    if not openai_speech_gateway.api_key():
+    if not settings.openai_api_key.strip():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Realtime voice is not configured",
@@ -205,6 +119,7 @@ async def create_realtime_webrtc_call(
         )
 
     result = await openai_speech_gateway.create_realtime_call(
+        settings,
         offer_sdp=body.sdp,
         instructions=_realtime_instructions(history),
         safety_identifier=_safety_identifier(user),
@@ -215,13 +130,14 @@ async def create_realtime_webrtc_call(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not start realtime voice",
         )
+    session_id = await live_talk_service.issue_realtime_session(redis, user.id)
     # Realtime quota is billed once when the persistent voice session is
     # successfully established; later transcript persistence never touches it.
     await quota_service.clear_live_talk_pending(redis, user.id)
     return RealtimeOfferOut(
         sdp=result.answer_sdp,
-        call_id=result.call_id,
-        model=openai_speech_gateway.realtime_model(),
+        call_id=session_id,
+        model=openai_speech_gateway.realtime_model(settings),
     )
 
 
@@ -231,10 +147,19 @@ async def persist_realtime_turn(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
+    if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     user_text = body.user_text.strip()
     assistant_text = body.assistant_text.strip()
     if not user_text and not assistant_text:
         return
+
+    redis = get_redis_client()
+    if not await live_talk_service.realtime_session_is_active(redis, user.id, body.call_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Realtime session is not active",
+        )
 
     async with SessionLocal() as session:
         loaded = await live_talk_service.load_live_talk_history(
@@ -253,6 +178,6 @@ async def persist_realtime_turn(
         assistant_text=assistant_text,
         untitled=untitled,
         settings=settings,
-        redis=get_redis_client(),
+        redis=redis,
         enqueue_jobs=True,
     )

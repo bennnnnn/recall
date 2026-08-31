@@ -1,10 +1,18 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
+import fakeredis.aioredis
 import pytest
+from fastapi.testclient import TestClient
 
+from app.core.config import Settings
+from app.core.deps import get_current_user, get_settings_dep
 from app.gateways import openai_speech_gateway
+from app.gateways.openai_speech_gateway import RealtimeCallResult
+from app.main import create_app
 from app.routers.speech_realtime import _realtime_instructions
+from app.tests.test_routers import _fake_user
 
 
 def test_realtime_instructions_include_bounded_chat_history():
@@ -21,38 +29,6 @@ def test_realtime_instructions_include_bounded_chat_history():
 
 
 @pytest.mark.asyncio
-async def test_direct_transcribe_sends_language_and_context():
-    response = MagicMock()
-    response.status_code = 200
-    response.raise_for_status = MagicMock()
-    response.json.return_value = {"text": "hello there"}
-    client = MagicMock()
-    client.post = AsyncMock(return_value=response)
-
-    with (
-        patch("app.gateways.openai_speech_gateway.api_key", return_value="sk-test"),
-        patch("app.gateways.openai_speech_gateway.stt_model", return_value="gpt-transcribe"),
-        patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client),
-    ):
-        text = await openai_speech_gateway.transcribe(
-            b"audio",
-            filename="speech.m4a",
-            language="en",
-            prompt="dictation context",
-        )
-
-    assert text == "hello there"
-    call = client.post.call_args
-    assert call.args[0] == "https://api.openai.com/v1/audio/transcriptions"
-    assert call.kwargs["data"] == {
-        "model": "gpt-transcribe",
-        "language": "en",
-        "prompt": "dictation context",
-    }
-    assert call.kwargs["files"]["file"] == ("speech.m4a", b"audio")
-
-
-@pytest.mark.asyncio
 async def test_realtime_call_uses_semantic_vad_and_server_key():
     response = MagicMock()
     response.status_code = 200
@@ -61,18 +37,15 @@ async def test_realtime_call_uses_semantic_vad_and_server_key():
     response.raise_for_status = MagicMock()
     client = MagicMock()
     client.post = AsyncMock(return_value=response)
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_realtime_voice_enabled=True,
+        openai_realtime_model="gpt-realtime-2.1",
+    )
 
-    with (
-        patch("app.gateways.openai_speech_gateway.api_key", return_value="sk-test"),
-        patch("app.gateways.openai_speech_gateway.realtime_enabled", return_value=True),
-        patch(
-            "app.gateways.openai_speech_gateway.realtime_model",
-            return_value="gpt-realtime-2.1",
-        ),
-        patch("app.gateways.openai_speech_gateway.stt_model", return_value="gpt-transcribe"),
-        patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client),
-    ):
+    with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client):
         result = await openai_speech_gateway.create_realtime_call(
+            settings,
             offer_sdp="v=0\r\noffer",
             instructions="be concise",
             safety_identifier="user-hash",
@@ -91,3 +64,74 @@ async def test_realtime_call_uses_semantic_vad_and_server_key():
         "interrupt_response": True,
     }
     assert session["audio"]["input"]["transcription"] == {"model": "gpt-transcribe"}
+
+
+def _realtime_app(user, settings: Settings):
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: settings
+    return app
+
+
+def test_persist_requires_issued_realtime_session():
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(_realtime_app(user, settings))
+    with patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis):
+        r = client.post(
+            "/speech/live/persist",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(uuid4()),
+                "call_id": "not-a-real-session",
+                "user_text": "hello",
+                "assistant_text": "hi",
+            },
+        )
+    assert r.status_code == 403
+
+
+def test_webrtc_returns_recall_session_id():
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        speech_rate_limit_per_minute=0,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(_realtime_app(user, settings))
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech_realtime.quota_service.live_talk_limit_for_user",
+            return_value=30,
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
+            AsyncMock(),
+        ),
+        patch(
+            "app.routers.speech_realtime.openai_speech_gateway.create_realtime_call",
+            AsyncMock(return_value=RealtimeCallResult(answer_sdp="v=0\r\nanswer", call_id=None)),
+        ),
+    ):
+        r = client.post(
+            "/speech/live/webrtc",
+            headers={"Authorization": "Bearer tok"},
+            json={"sdp": "v=0\r\n" + "o=recall 1 1 IN IP4 127.0.0.1\r\n"},
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["sdp"] == "v=0\r\nanswer"
+    assert body["call_id"]
+    assert body["model"] == "gpt-realtime-2.1"
