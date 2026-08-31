@@ -46,6 +46,17 @@ export function liveTalkAbortRefundNeeded(gotAudio: boolean): boolean {
   return !gotAudio;
 }
 
+export const LIVE_TALK_EMPTY_TRANSCRIPT = "empty_transcript";
+
+export function liveTalkIsEmptyTranscriptError(error: unknown): boolean {
+  return error instanceof Error && error.message === LIVE_TALK_EMPTY_TRANSCRIPT;
+}
+
+/** Auto-stop without a speech spike must not upload silence as a turn. */
+export function liveTalkShouldSendRecording(heardSpeech: boolean): boolean {
+  return heardSpeech;
+}
+
 export function liveTalkMuteA11yKey(
   muted: boolean,
 ): "chat.live_talk_mute_a11y" | "chat.live_talk_unmute_a11y" {

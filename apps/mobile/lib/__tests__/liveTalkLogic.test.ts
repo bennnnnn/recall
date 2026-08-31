@@ -5,7 +5,9 @@ import {
   liveTalkCanTakeFloor,
   liveTalkErrorGate,
   liveTalkGate,
+  liveTalkIsEmptyTranscriptError,
   liveTalkOrbAction,
+  liveTalkShouldSendRecording,
   liveTalkDiscardListenOnMute,
   liveTalkMuteA11yKey,
   liveTalkShowsSideChrome,
@@ -24,6 +26,22 @@ describe("liveTalkAbortRefundNeeded", () => {
   it("refunds only when the client abort beat the first audio clip", () => {
     expect(liveTalkAbortRefundNeeded(false)).toBe(true);
     expect(liveTalkAbortRefundNeeded(true)).toBe(false);
+  });
+});
+
+describe("liveTalkShouldSendRecording", () => {
+  it("does not upload a listen that never crossed speech level", () => {
+    expect(liveTalkShouldSendRecording(false)).toBe(false);
+    expect(liveTalkShouldSendRecording(true)).toBe(true);
+  });
+});
+
+describe("liveTalkIsEmptyTranscriptError", () => {
+  it("matches the SSE empty-transcript detail", () => {
+    expect(liveTalkIsEmptyTranscriptError(new Error("empty_transcript"))).toBe(true);
+    expect(liveTalkIsEmptyTranscriptError(new Error("Could not complete live talk"))).toBe(
+      false,
+    );
   });
 });
 

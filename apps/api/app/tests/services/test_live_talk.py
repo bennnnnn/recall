@@ -113,7 +113,7 @@ async def test_settle_live_talk_after_stream_refunds_before_audio():
         )
     qs.refund_live_talk_if_pending.assert_awaited_once_with(redis, user_id)
     qs.clear_live_talk_pending.assert_not_called()
-    persist.assert_not_called()
+    persist.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -134,3 +134,43 @@ async def test_settle_live_talk_after_stream_persists_after_audio():
     qs.clear_live_talk_pending.assert_awaited_once_with(redis, user_id)
     persist.assert_awaited_once()
     qs.refund_live_talk_if_pending.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = False
+    chat_id = uuid4()
+    chat = MagicMock()
+    asst_row = MagicMock()
+    asst_row.id = uuid4()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.services.live_talk.messages_repo.create",
+            AsyncMock(return_value=asst_row),
+        ) as create,
+        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+    ):
+        result = await persist_live_talk_turn(
+            user=user,
+            chat_id=chat_id,
+            user_text="Hello",
+            assistant_text="Hi there",
+            untitled=True,
+            settings=MagicMock(chat_history_rag_enabled=False),
+            redis=AsyncMock(),
+            write_user=False,
+        )
+
+    assert result == (None, asst_row)
+    assert create.await_count == 1
+    assert create.await_args.kwargs["role"] == "assistant"
+    assert any(call.args[1] == "topic" for call in enqueue.await_args_list)

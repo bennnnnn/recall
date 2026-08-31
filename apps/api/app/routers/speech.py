@@ -31,7 +31,11 @@ from app.services import live_talk as live_talk_service
 from app.services import plan as plan_service
 from app.services import quota as quota_service
 from app.services import speech as speech_service
-from app.services.live_talk_stream import LiveTalkStreamEvent, iter_speech_to_speech
+from app.services.live_talk_stream import (
+    LIVE_TALK_EMPTY_TRANSCRIPT,
+    LiveTalkStreamEvent,
+    iter_speech_to_speech,
+)
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 logger = logging.getLogger(__name__)
@@ -534,6 +538,13 @@ def _live_talk_event_sse(event: LiveTalkStreamEvent) -> str:
                 "content_type": "audio/wav",
             }
         )
+    if event.kind == "error":
+        return _sse_data(
+            {
+                "type": "error",
+                "detail": event.text or "Could not complete live talk",
+            }
+        )
     return _sse_data({"type": event.kind, "text": event.text})
 
 
@@ -606,24 +617,62 @@ async def live_talk_speak(
         got_audio = False
         user_text = ""
         assistant_text = ""
-        persisted = False
+        user_written = False
+        assistant_written = False
+        user_msg: Message | None = None
+        asst_msg: Message | None = None
 
-        async def persist_if_needed() -> tuple[Message | None, Message | None]:
-            nonlocal persisted
-            if persisted or chat_id is None:
-                return None, None
-            if not user_text and not assistant_text:
-                return None, None
-            persisted = True
-            return await live_talk_service.persist_live_talk_turn(
+        async def persist_user_now() -> None:
+            nonlocal user_written, user_msg
+            if user_written or chat_id is None or not user_text:
+                return
+            row, _ = await live_talk_service.persist_live_talk_turn(
                 user=user,
                 chat_id=chat_id,
                 user_text=user_text,
-                assistant_text=assistant_text,
-                untitled=untitled,
+                assistant_text="",
+                untitled=False,
                 settings=settings,
                 redis=redis,
+                write_assistant=False,
+                enqueue_jobs=False,
             )
+            user_written = True
+            user_msg = row
+
+        async def persist_if_needed() -> tuple[Message | None, Message | None]:
+            nonlocal assistant_written, asst_msg
+            if chat_id is None:
+                return user_msg, asst_msg
+            await persist_user_now()
+            if assistant_text and not assistant_written:
+                assistant_written = True
+                _, asst_msg = await live_talk_service.persist_live_talk_turn(
+                    user=user,
+                    chat_id=chat_id,
+                    user_text=user_text,
+                    assistant_text=assistant_text,
+                    untitled=untitled,
+                    settings=settings,
+                    redis=redis,
+                    write_user=False,
+                    enqueue_jobs=True,
+                )
+            elif user_written and not assistant_written:
+                assistant_written = True
+                await live_talk_service.persist_live_talk_turn(
+                    user=user,
+                    chat_id=chat_id,
+                    user_text=user_text,
+                    assistant_text=assistant_text,
+                    untitled=untitled,
+                    settings=settings,
+                    redis=redis,
+                    write_user=False,
+                    write_assistant=False,
+                    enqueue_jobs=True,
+                )
+            return user_msg, asst_msg
 
         try:
             async for event in iter_speech_to_speech(
@@ -632,6 +681,9 @@ async def live_talk_speak(
                 filename=body.filename,
                 history=history,
             ):
+                if event.kind == "error":
+                    yield _live_talk_event_sse(event)
+                    return
                 if event.kind == "audio":
                     got_audio = True
                 elif event.kind == "user":
@@ -639,8 +691,13 @@ async def live_talk_speak(
                 elif event.kind == "assistant":
                     assistant_text = event.text
                 yield _live_talk_event_sse(event)
+                if event.kind == "user":
+                    await persist_user_now()
             if not got_audio:
-                yield _sse_data({"type": "error", "detail": "Could not complete live talk"})
+                detail = (
+                    LIVE_TALK_EMPTY_TRANSCRIPT if not user_text else "Could not complete live talk"
+                )
+                yield _sse_data({"type": "error", "detail": detail})
                 return
             user_msg, asst_msg = await persist_if_needed()
             status_out = await _live_talk_status(user, settings)

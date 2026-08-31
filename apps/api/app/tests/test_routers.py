@@ -2754,6 +2754,37 @@ def test_speech_live_speak_pro_returns_audio():
     assert '"remaining"' in r.text
 
 
+def test_speech_live_speak_empty_transcript_errors_without_audio():
+    import base64
+
+    import fakeredis.aioredis
+
+    from app.services.live_talk_stream import LIVE_TALK_EMPTY_TRANSCRIPT, LiveTalkStreamEvent
+
+    user = _fake_user(plan="pro")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+
+    async def fake_iter(*_args: object, **_kwargs: object):
+        yield LiveTalkStreamEvent(kind="error", text=LIVE_TALK_EMPTY_TRANSCRIPT)
+
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.routers.speech.iter_speech_to_speech", fake_iter),
+    ):
+        r = client.post(
+            "/speech/live/speak",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "audio_base64": base64.b64encode(b"abc").decode("ascii"),
+                "filename": "speech.wav",
+            },
+        )
+    assert r.status_code == 200
+    assert LIVE_TALK_EMPTY_TRANSCRIPT in r.text
+    assert '"type": "audio"' not in r.text
+
+
 def test_speech_live_disabled():
     from app.core.deps import get_current_user, get_settings_dep
 

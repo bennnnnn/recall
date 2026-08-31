@@ -27,9 +27,12 @@ _SILENCE_PAD_MS = 80
 _SILENCE_MIN_MS = 300
 
 
+LIVE_TALK_EMPTY_TRANSCRIPT = "empty_transcript"
+
+
 @dataclass(frozen=True, slots=True)
 class LiveTalkStreamEvent:
-    kind: Literal["user", "assistant", "audio"]
+    kind: Literal["user", "assistant", "audio", "error"]
     text: str = ""
     audio_wav: bytes = b""
 
@@ -128,12 +131,18 @@ async def iter_speech_to_speech(
 
     audio_bytes = trim_wav_silence(audio_bytes)
     user_text = ""
+    whisper_failed = False
     try:
         user_text = (
             (await transcribe_audio(settings, audio_bytes, filename=filename)) or ""
         ).strip()
     except Exception:
+        whisper_failed = True
         logger.exception("Live talk user transcription failed")
+    if not user_text and not whisper_failed:
+        logger.info("Live talk skipped STS; empty transcription")
+        yield LiveTalkStreamEvent(kind="error", text=LIVE_TALK_EMPTY_TRANSCRIPT)
+        return
     if user_text:
         yield LiveTalkStreamEvent(kind="user", text=user_text)
 

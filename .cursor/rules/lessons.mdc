@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk cancel left an empty chat after a spoken turn.** No-speech
+  timeout uploaded silence (Whisper empty, no user SSE). Cancel bumped
+  sessionGen so later events were dropped, and skip-load never GET
+  `/messages`. Do not upload when the meter never heard speech; fail closed
+  on empty Whisper; persist the user row as soon as Whisper returns; keep
+  transcript events after cancel and refetch if the stream aborts.
 - **Live talk spoke after ~60s, crackled, user line appeared late, stayed
   Untitled.** Whisper + GPT Audio shared the OpenRouter key (STS waited on
   the 60s transcribe timeout). Tiny WAV splices + `didJustFinish` misses
