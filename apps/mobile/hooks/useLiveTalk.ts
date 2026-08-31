@@ -10,6 +10,7 @@ import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/lib/liveTalkE
 import {
   liveTalkErrorGate,
   liveTalkGate,
+  liveTalkShouldAttachSession,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
@@ -90,9 +91,8 @@ export function useLiveTalk({
   const assistantTextRef = useRef("");
   const userTextRef = useRef("");
   const visibleRef = useRef(false);
+  const sessionGenRef = useRef(0);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  visibleRef.current = visible;
 
   const alertForGate = useCallback(
     (gate: LiveTalkGate) => {
@@ -105,7 +105,9 @@ export function useLiveTalk({
           ? t("chat.live_talk_limit_body")
           : gate === "offline"
             ? t("chat.offline_body")
-            : t("chat.live_talk_unavailable_body");
+            : gate === "unconfigured"
+              ? t("chat.live_talk_not_configured")
+              : t("chat.live_talk_unavailable_body");
       reportRecoverableError(feedback, message);
     },
     [feedback, onUpgrade, t],
@@ -235,7 +237,7 @@ export function useLiveTalk({
     (event: RealtimeVoiceEvent) => {
       if (!visibleRef.current && event.type !== "connected") return;
       if (event.type === "connected") {
-        setPhase("idle");
+        setPhase("recording");
         return;
       }
       if (event.type === "speech_started") {
@@ -290,6 +292,8 @@ export function useLiveTalk({
   );
 
   const close = useCallback(() => {
+    sessionGenRef.current += 1;
+    visibleRef.current = false;
     if (finishTimerRef.current != null) {
       clearTimeout(finishTimerRef.current);
       finishTimerRef.current = null;
@@ -305,6 +309,8 @@ export function useLiveTalk({
     setPhase("idle");
     setVisible(false);
   }, [captureCurrentTurn, finishTurn]);
+  const closeRef = useRef(close);
+  closeRef.current = close;
 
   const open = useCallback(async () => {
     if (!token) return;
@@ -312,8 +318,11 @@ export function useLiveTalk({
       alertForGate("offline");
       return;
     }
+    const gen = sessionGenRef.current + 1;
+    sessionGenRef.current = gen;
     try {
       const next = await api.liveTalkStatus(token);
+      if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       setStatus(next);
       const gate = liveTalkGate(next, isOffline);
       if (gate !== "ok") {
@@ -321,7 +330,9 @@ export function useLiveTalk({
         return;
       }
       const activeChatId = await ensureChatId();
+      if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       turnChatIdRef.current = activeChatId;
+      visibleRef.current = true;
       setMuted(false);
       setPhase("thinking");
       setVisible(true);
@@ -330,14 +341,16 @@ export function useLiveTalk({
         chatId: activeChatId,
         onEvent: handleRealtimeEvent,
       });
-      if (!visibleRef.current) {
+      if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) {
         session.close();
         return;
       }
       sessionRef.current = session;
       callIdRef.current = session.callId;
-      setPhase("idle");
+      setPhase("recording");
     } catch (error) {
+      if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
+      visibleRef.current = false;
       setVisible(false);
       setPhase("idle");
       alertForGate(liveTalkErrorGate(error));
@@ -377,7 +390,7 @@ export function useLiveTalk({
     return () => sub.remove();
   }, [visible, drawerOpen, close]);
 
-  useEffect(() => close, [close]);
+  useEffect(() => () => closeRef.current(), []);
 
   return {
     visible,
