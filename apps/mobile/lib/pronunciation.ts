@@ -279,7 +279,7 @@ export function beginSpeechPlayback(): number {
   return speakGeneration;
 }
 
-/** Speak a live-talk reply with on-device TTS. GPT Audio file splices stall on iOS. */
+/** Speak a live-talk transcript only when GPT Audio clips never arrived. */
 export function speakLiveTalkTranscript(
   text: string,
   generation: number,

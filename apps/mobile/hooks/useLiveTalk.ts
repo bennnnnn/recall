@@ -21,8 +21,6 @@ import {
   liveTalkOrbAction,
   liveTalkShouldSendRecording,
   liveTalkSilenceDecision,
-  liveTalkSpeakFlush,
-  nextLiveTalkSpeakChunk,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
@@ -250,34 +248,10 @@ export function useLiveTalk({
         type: "user",
         text: t("chat.live_talk_voice_placeholder"),
       });
-      let playbackGen = 0;
       let clipGen = 0;
-      let playbackStarted = false;
+      let usedClips = false;
       let playChain: Promise<SpeakResult> = Promise.resolve({ ok: true });
-      let clipChain: Promise<SpeakResult> = Promise.resolve({ ok: true });
       let latestAssistant = "";
-      let spokenLen = 0;
-      const enqueueDevice = (piece: string) => {
-        const text = piece.trim();
-        if (!text) return;
-        if (!playbackStarted) {
-          playbackStarted = true;
-          playbackGen = beginSpeechPlayback();
-          setPhase("speaking");
-        }
-        playChain = playChain.then((prev) => {
-          if (!prev.ok || sessionGen.current !== gen) return prev.ok ? { ok: true } : prev;
-          return speakLiveTalkTranscript(text, playbackGen);
-        });
-      };
-      const drainDeviceChunks = (full: string) => {
-        for (let i = 0; i < 20; i += 1) {
-          const next = nextLiveTalkSpeakChunk(full, spokenLen);
-          if (!next.chunk) break;
-          spokenLen = next.consumed;
-          enqueueDevice(next.chunk);
-        }
-      };
       await api.liveTalkSpeak({
         token,
         audioBase64,
@@ -293,7 +267,6 @@ export function useLiveTalk({
             applyChatEvent(turnId, event);
             if (event.type === "assistant") {
               latestAssistant = event.text;
-              drainDeviceChunks(latestAssistant);
             }
             if (event.type === "done") {
               setStatus({
@@ -303,25 +276,19 @@ export function useLiveTalk({
                 limit: event.limit,
               });
               onFirstReply(turnChatId);
-              const full =
-                event.assistant_message?.content?.trim() || latestAssistant;
-              drainDeviceChunks(full);
-              enqueueDevice(liveTalkSpeakFlush(full, spokenLen));
             }
           }
           if (sessionGen.current !== gen) return;
           if (event.type === "audio" || event.type === "assistant") gotAudio = true;
           if (event.type !== "audio") return;
-          if (playbackStarted) return;
+          usedClips = true;
           if (!clipGen) {
             clipGen = beginSpeechPlayback();
             setPhase("speaking");
           }
           const clip = event;
-          clipChain = clipChain.then((prev) => {
-            if (!prev.ok || playbackStarted || sessionGen.current !== gen) {
-              return prev.ok ? { ok: true } : prev;
-            }
+          playChain = playChain.then((prev) => {
+            if (!prev.ok || sessionGen.current !== gen) return prev.ok ? { ok: true } : prev;
             return playSpeechAudioClip(clip.audio_base64, clip.content_type, clipGen);
           });
         },
@@ -335,14 +302,21 @@ export function useLiveTalk({
         endingUtteranceRef.current = false;
         return;
       }
-      await clipChain;
-      if (sessionGen.current !== gen) {
-        endingUtteranceRef.current = false;
-        return;
-      }
-      if (playbackStarted && !played.ok) {
+      if (!usedClips && latestAssistant.trim()) {
+        clipGen = beginSpeechPlayback();
+        setPhase("speaking");
+        const fallback = await speakLiveTalkTranscript(latestAssistant, clipGen);
+        if (sessionGen.current !== gen) {
+          endingUtteranceRef.current = false;
+          return;
+        }
+        if (!fallback.ok) {
+          Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
+        }
+      } else if (usedClips && !played.ok) {
         Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
-      } else if (playbackStarted) {
+      }
+      if (usedClips || latestAssistant.trim()) {
         await new Promise((resolve) => setTimeout(resolve, LIVE_TALK_ECHO_GUARD_MS));
         if (sessionGen.current !== gen) {
           endingUtteranceRef.current = false;

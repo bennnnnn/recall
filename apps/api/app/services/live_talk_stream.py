@@ -1,4 +1,4 @@
-"""Stream live-talk replies (Whisper, then a short spoken text turn)."""
+"""Stream live-talk audio clips + transcripts (Whisper first, then GPT Audio)."""
 
 from __future__ import annotations
 
@@ -7,13 +7,11 @@ import logging
 import wave
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Literal
 
 from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
-from app.gateways.litellm_gateway import stream_chat_completion
 from app.models.schemas.integrations import SPEECH_MAX_AUDIO_BYTES
-from app.services.model_catalog import auto_fast_alias
 from app.services.speech import (
     resolve_live_talk_model,
     transcribe_audio,
@@ -21,20 +19,12 @@ from app.services.speech import (
 
 logger = logging.getLogger(__name__)
 
-# 24 kHz 16-bit mono. Larger clips mean fewer player restarts (clicks) on device.
-_LIVE_TALK_FIRST_CLIP_PCM = 24000 * 2 // 2  # 0.5s
+# 24 kHz 16-bit mono. Larger first clip so expo-audio has a real file to play.
+_LIVE_TALK_FIRST_CLIP_PCM = 24000 * 2  # 1s
 _LIVE_TALK_CLIP_PCM = 24000 * 2 * 3 // 2  # 1.5s
 _SILENCE_ABS = 512
 _SILENCE_PAD_MS = 80
 _SILENCE_MIN_MS = 300
-_SPOKEN_REPLY_MAX_TOKENS = 180
-_SPOKEN_REPLY_HISTORY = 10
-_SPOKEN_REPLY_TURN_CHARS = 600
-_SPOKEN_REPLY_SYSTEM = (
-    "You are Recall, a personal voice assistant. Reply in a natural spoken voice. "
-    "Answer in one or two short sentences unless the user asks for more. "
-    "No markdown, lists, or spelling-aloud."
-)
 
 
 LIVE_TALK_EMPTY_TRANSCRIPT = "empty_transcript"
@@ -106,75 +96,6 @@ def _pop_live_talk_wav_clips(buffer: bytearray, *, first: bool, flush: bool) -> 
     return clips
 
 
-def _spoken_reply_messages(
-    user_text: str,
-    history: list[tuple[str, str]] | None,
-) -> list[dict[str, Any]]:
-    messages: list[dict[str, Any]] = [{"role": "system", "content": _SPOKEN_REPLY_SYSTEM}]
-    for role, content in (history or [])[-_SPOKEN_REPLY_HISTORY:]:
-        if role not in {"user", "assistant"}:
-            continue
-        text = " ".join((content or "").split()).strip()[:_SPOKEN_REPLY_TURN_CHARS]
-        if not text:
-            continue
-        messages.append({"role": role, "content": text})
-    messages.append({"role": "user", "content": user_text})
-    return messages
-
-
-async def _iter_spoken_text_reply(
-    settings: Settings,
-    user_text: str,
-    history: list[tuple[str, str]] | None,
-) -> AsyncIterator[LiveTalkStreamEvent]:
-    """Stream a short spoken reply. Do not wait for GPT Audio to finish."""
-    assistant = ""
-    async for token in stream_chat_completion(
-        settings=settings,
-        model_alias=auto_fast_alias(),
-        messages=_spoken_reply_messages(user_text, history),
-        max_tokens=_SPOKEN_REPLY_MAX_TOKENS,
-    ):
-        assistant += token
-        stripped = assistant.strip()
-        if stripped:
-            yield LiveTalkStreamEvent(kind="assistant", text=stripped)
-    if not assistant.strip():
-        raise RuntimeError("live talk spoken reply was empty")
-
-
-async def _iter_gpt_audio_reply(
-    settings: Settings,
-    audio_bytes: bytes,
-    *,
-    filename: str,
-    history: list[tuple[str, str]] | None,
-) -> AsyncIterator[LiveTalkStreamEvent]:
-    model = resolve_live_talk_model(settings)
-    pcm_buf = bytearray()
-    first_clip = True
-    assistant = ""
-    async for pcm, text in speech_gateway.iter_speech_to_speech_via_openrouter(
-        settings,
-        audio_bytes,
-        filename=filename,
-        model=model,
-        history=history,
-    ):
-        if text and text != assistant:
-            assistant = text
-            yield LiveTalkStreamEvent(kind="assistant", text=assistant.strip())
-        if pcm:
-            pcm_buf.extend(pcm)
-            clips = _pop_live_talk_wav_clips(pcm_buf, first=first_clip, flush=False)
-            if clips:
-                first_clip = False
-            for clip in clips:
-                yield LiveTalkStreamEvent(kind="audio", audio_wav=clip)
-    for clip in _pop_live_talk_wav_clips(pcm_buf, first=first_clip, flush=True):
-        yield LiveTalkStreamEvent(kind="audio", audio_wav=clip)
-
-
 async def iter_speech_to_speech(
     settings: Settings,
     audio_bytes: bytes,
@@ -182,7 +103,7 @@ async def iter_speech_to_speech(
     filename: str = "speech.m4a",
     history: list[tuple[str, str]] | None = None,
 ) -> AsyncIterator[LiveTalkStreamEvent]:
-    """Whisper the user, then a short spoken text reply (not a full GPT Audio wait)."""
+    """Whisper the user bubble, then stream GPT Audio so the spoken reply is the real model."""
     if not settings.speech_live_talk_enabled:
         return
     if not audio_bytes or len(audio_bytes) > SPEECH_MAX_AUDIO_BYTES:
@@ -218,19 +139,29 @@ async def iter_speech_to_speech(
         logger.exception("Live talk user transcription failed")
     if user_text:
         yield LiveTalkStreamEvent(kind="user", text=user_text)
-        try:
-            async for event in _iter_spoken_text_reply(settings, user_text, history):
-                yield event
-            return
-        except Exception:
-            logger.exception("Live talk spoken text reply failed; falling back to STS")
     else:
         logger.info("Live talk Whisper empty; still running STS")
 
-    async for event in _iter_gpt_audio_reply(
+    model = resolve_live_talk_model(settings)
+    pcm_buf = bytearray()
+    first_clip = True
+    assistant = ""
+    async for pcm, text in speech_gateway.iter_speech_to_speech_via_openrouter(
         settings,
         audio_bytes,
         filename=filename,
+        model=model,
         history=history,
     ):
-        yield event
+        if text and text != assistant:
+            assistant = text
+            yield LiveTalkStreamEvent(kind="assistant", text=assistant.strip())
+        if pcm:
+            pcm_buf.extend(pcm)
+            clips = _pop_live_talk_wav_clips(pcm_buf, first=first_clip, flush=False)
+            if clips:
+                first_clip = False
+            for clip in clips:
+                yield LiveTalkStreamEvent(kind="audio", audio_wav=clip)
+    for clip in _pop_live_talk_wav_clips(pcm_buf, first=first_clip, flush=True):
+        yield LiveTalkStreamEvent(kind="audio", audio_wav=clip)

@@ -12,11 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-- **Live talk still waited ~2 min for the device voice.** GPT Audio
-  streamed PCM in ~1s but the client spoke only after `done`, and file
-  splices after the mic stayed silent. When Whisper hears the user,
-  skip STS and stream a short `free-chat` reply so on-device TTS can
-  start on the first sentence. Keep GPT Audio only if Whisper is empty.
+- **Live talk device TTS stole GPT Audio.** Client spoke the transcript
+  with expo-speech as soon as assistant text arrived, which blocked clip
+  playback (`playbackStarted`). Play GPT Audio clips as the voice; device
+  TTS only if no clip arrives. Do not start Siri on assistant SSE.
 - **Live talk “fixed” clip waits and still spoke late / not at all.** Server
   PCM was ready in ~1s (`play()` logged at ~150ms) but expo-audio file
   splices stayed silent on simulator; Whisper also returned empty on 6s
