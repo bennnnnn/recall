@@ -7,4 +7,16 @@ export const speechApi = {
   refundLiveTalkTurn: (token: string) =>
     request<LiveTalkStatus>("/speech/live/refund", token, { method: "POST" }),
   liveTalkSpeak: streamLiveTalkSpeak,
+  persistRealtimeLiveTalkTurn: (
+    token: string,
+    body: { chatId: string; userText: string; assistantText: string },
+  ) =>
+    request<void>("/speech/live/persist", token, {
+      method: "POST",
+      body: JSON.stringify({
+        chat_id: body.chatId,
+        user_text: body.userText,
+        assistant_text: body.assistantText,
+      }),
+    }),
 };
