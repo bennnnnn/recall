@@ -31,6 +31,8 @@ _REALTIME_INSTRUCTIONS = (
     "Prefer one or two concise spoken sentences unless the user asks for detail. "
     "Do not use markdown or read punctuation aloud. Continue in the language the user is speaking."
 )
+_REALTIME_HISTORY_MAX = 10
+_REALTIME_HISTORY_CHARS = 600
 
 
 class DirectTranscriptionIn(BaseModel):
@@ -81,6 +83,22 @@ def _decode_audio(raw: str) -> bytes:
 
 def _safety_identifier(user: User) -> str:
     return hashlib.sha256(f"recall:{user.id}".encode()).hexdigest()
+
+
+def _realtime_instructions(history: list[tuple[str, str]] | None) -> str:
+    if not history:
+        return _REALTIME_INSTRUCTIONS
+    lines: list[str] = []
+    for role, content in history[-_REALTIME_HISTORY_MAX:]:
+        if role not in {"user", "assistant"}:
+            continue
+        text = " ".join((content or "").split()).strip()[:_REALTIME_HISTORY_CHARS]
+        if text:
+            lines.append(f"{role}: {text}")
+    if not lines:
+        return _REALTIME_INSTRUCTIONS
+    context = "\n".join(lines)
+    return f"{_REALTIME_INSTRUCTIONS}\n\nRecent conversation context:\n{context}"
 
 
 @router.post("/transcribe/v2", response_model=DirectTranscriptionOut)
@@ -153,6 +171,18 @@ async def create_realtime_webrtc_call(
             detail="Realtime voice is not configured",
         )
 
+    history: list[tuple[str, str]] | None = None
+    if body.chat_id is not None:
+        async with SessionLocal() as session:
+            loaded = await live_talk_service.load_live_talk_history(
+                session,
+                chat_id=body.chat_id,
+                user_id=user.id,
+            )
+        if loaded is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+        history, _ = loaded
+
     redis = get_redis_client()
     if settings.speech_rate_limit_per_minute > 0:
         allowed = await allow_request_fail_closed(
@@ -176,7 +206,7 @@ async def create_realtime_webrtc_call(
 
     result = await openai_speech_gateway.create_realtime_call(
         offer_sdp=body.sdp,
-        instructions=_REALTIME_INSTRUCTIONS,
+        instructions=_realtime_instructions(history),
         safety_identifier=_safety_identifier(user),
     )
     if result is None:
