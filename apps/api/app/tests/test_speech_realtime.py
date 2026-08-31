@@ -171,42 +171,18 @@ def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
     assert body["model"] == "gpt-realtime-2.1"
 
 
-def test_webrtc_returns_recall_session_id():
+def test_legacy_webrtc_endpoint_requires_current_mobile_bundle():
     user = _fake_user(plan="pro")
     settings = Settings(
         openai_api_key="sk-test",
         speech_live_talk_enabled=True,
         speech_realtime_voice_enabled=True,
-        speech_rate_limit_per_minute=0,
     )
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(_realtime_app(user, settings))
-    with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.routers.speech_realtime.quota_service.live_talk_limit_for_user",
-            return_value=30,
-        ),
-        patch(
-            "app.routers.speech_realtime.quota_service.reserve_live_talk",
-            AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
-            AsyncMock(),
-        ),
-        patch(
-            "app.routers.speech_realtime.openai_speech_gateway.create_realtime_call",
-            AsyncMock(return_value=RealtimeCallResult(answer_sdp="v=0\r\nanswer", call_id=None)),
-        ),
-    ):
-        r = client.post(
-            "/speech/live/webrtc",
-            headers={"Authorization": "Bearer tok"},
-            json={"sdp": "v=0\r\n" + "o=recall 1 1 IN IP4 127.0.0.1\r\n"},
-        )
-    assert r.status_code == 200
-    body = r.json()
-    assert body["sdp"] == "v=0\r\nanswer"
-    assert body["call_id"]
-    assert body["model"] == "gpt-realtime-2.1"
+    r = client.post(
+        "/speech/live/webrtc",
+        headers={"Authorization": "Bearer tok"},
+        json={"sdp": "v=0\r\n" + "o=recall 1 1 IN IP4 127.0.0.1\r\n"},
+    )
+    assert r.status_code == 426
+    assert "Legacy Live Talk client detected" in r.json()["detail"]
