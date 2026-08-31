@@ -28,6 +28,17 @@ _REALTIME_HISTORY_MAX = 10
 _REALTIME_HISTORY_CHARS = 600
 
 
+class RealtimeSessionIn(BaseModel):
+    chat_id: UUID | None = None
+
+
+class RealtimeSessionOut(BaseModel):
+    client_secret: str
+    expires_at: int
+    call_id: str
+    model: str
+
+
 class RealtimeOfferIn(BaseModel):
     sdp: str = Field(min_length=20, max_length=200_000)
     chat_id: UUID | None = None
@@ -66,12 +77,22 @@ def _realtime_instructions(history: list[tuple[str, str]] | None) -> str:
     return f"{_REALTIME_INSTRUCTIONS}\n\nRecent conversation context:\n{context}"
 
 
-@router.post("/live/webrtc", response_model=RealtimeOfferOut)
-async def create_realtime_webrtc_call(
-    body: RealtimeOfferIn,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> RealtimeOfferOut:
+async def _load_history_or_404(chat_id: UUID | None, user: User) -> list[tuple[str, str]] | None:
+    if chat_id is None:
+        return None
+    async with SessionLocal() as session:
+        loaded = await live_talk_service.load_live_talk_history(
+            session,
+            chat_id=chat_id,
+            user_id=user.id,
+        )
+    if loaded is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+    history, _ = loaded
+    return history
+
+
+async def _reserve_realtime_or_raise(user: User, settings: Settings):
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     if not plan_service.is_pro(user):
@@ -84,18 +105,6 @@ async def create_realtime_webrtc_call(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Realtime voice is not configured",
         )
-
-    history: list[tuple[str, str]] | None = None
-    if body.chat_id is not None:
-        async with SessionLocal() as session:
-            loaded = await live_talk_service.load_live_talk_history(
-                session,
-                chat_id=body.chat_id,
-                user_id=user.id,
-            )
-        if loaded is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-        history, _ = loaded
 
     redis = get_redis_client()
     if settings.speech_rate_limit_per_minute > 0:
@@ -117,6 +126,50 @@ async def create_realtime_webrtc_call(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=quota_service.live_talk_limit_exceeded_message(user),
         )
+    return redis
+
+
+@router.post("/live/session", response_model=RealtimeSessionOut)
+async def create_realtime_session(
+    body: RealtimeSessionIn,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> RealtimeSessionOut:
+    """Mint a short-lived key; mobile completes WebRTC directly with OpenAI."""
+    history = await _load_history_or_404(body.chat_id, user)
+    redis = await _reserve_realtime_or_raise(user, settings)
+
+    result = await openai_speech_gateway.create_realtime_client_secret(
+        settings,
+        instructions=_realtime_instructions(history),
+        safety_identifier=_safety_identifier(user),
+    )
+    if result is None:
+        await quota_service.refund_live_talk_if_pending(redis, user.id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not start realtime voice",
+        )
+
+    session_id = await live_talk_service.issue_realtime_session(redis, user.id)
+    await quota_service.clear_live_talk_pending(redis, user.id)
+    return RealtimeSessionOut(
+        client_secret=result.value,
+        expires_at=result.expires_at,
+        call_id=session_id,
+        model=openai_speech_gateway.realtime_model(settings),
+    )
+
+
+@router.post("/live/webrtc", response_model=RealtimeOfferOut)
+async def create_realtime_webrtc_call(
+    body: RealtimeOfferIn,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> RealtimeOfferOut:
+    """Legacy server-proxied SDP path kept temporarily for old mobile builds."""
+    history = await _load_history_or_404(body.chat_id, user)
+    redis = await _reserve_realtime_or_raise(user, settings)
 
     result = await openai_speech_gateway.create_realtime_call(
         settings,
@@ -131,8 +184,6 @@ async def create_realtime_webrtc_call(
             detail="Could not start realtime voice",
         )
     session_id = await live_talk_service.issue_realtime_session(redis, user.id)
-    # Realtime quota is billed once when the persistent voice session is
-    # successfully established; later transcript persistence never touches it.
     await quota_service.clear_live_talk_pending(redis, user.id)
     return RealtimeOfferOut(
         sdp=result.answer_sdp,
