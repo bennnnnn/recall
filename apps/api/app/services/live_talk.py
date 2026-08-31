@@ -60,8 +60,15 @@ async def persist_live_talk_turn(
     untitled: bool,
     settings: Settings,
     redis: Redis,
+    write_user: bool = True,
+    write_assistant: bool = True,
+    enqueue_jobs: bool = True,
 ) -> tuple[Message | None, Message | None]:
-    """Write user + assistant rows. Jobs enqueue after commit (must not raise)."""
+    """Write user + assistant rows. Jobs enqueue after commit (must not raise).
+
+    ``write_user=False`` is for the follow-up persist after Whisper already
+    saved the user line so cancel-during-STS does not drop what they said.
+    """
     user_content = (user_text or "").strip()
     assistant_content = (assistant_text or "").strip()
     if not user_content and not assistant_content:
@@ -69,47 +76,51 @@ async def persist_live_talk_turn(
 
     user_message: Message | None = None
     assistant_message: Message | None = None
-    async with SessionLocal() as session:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
-        if chat is None:
-            logger.warning("Live talk persist skipped; chat missing chat_id=%s", chat_id)
-            return None, None
-        if user_content:
-            user_message = await messages_repo.create(
-                session,
-                chat_id=chat_id,
-                user_id=user.id,
-                role="user",
-                content=user_content,
-                commit=False,
-            )
-        if assistant_content:
-            assistant_message = await messages_repo.create(
-                session,
-                chat_id=chat_id,
-                user_id=user.id,
-                role="assistant",
-                content=assistant_content,
-                model=LIVE_TALK_ALIAS,
-                commit=False,
-            )
-        chat.updated_at = datetime.now(UTC)
-        await session.commit()
-        if user_message is not None:
-            await session.refresh(user_message)
-        if assistant_message is not None:
-            await session.refresh(assistant_message)
+    should_write_user = write_user and bool(user_content)
+    should_write_assistant = write_assistant and bool(assistant_content)
+    if should_write_user or should_write_assistant:
+        async with SessionLocal() as session:
+            chat = await chats_repo.get_by_id(session, chat_id, user.id)
+            if chat is None:
+                logger.warning("Live talk persist skipped; chat missing chat_id=%s", chat_id)
+                return None, None
+            if should_write_user:
+                user_message = await messages_repo.create(
+                    session,
+                    chat_id=chat_id,
+                    user_id=user.id,
+                    role="user",
+                    content=user_content,
+                    commit=False,
+                )
+            if should_write_assistant:
+                assistant_message = await messages_repo.create(
+                    session,
+                    chat_id=chat_id,
+                    user_id=user.id,
+                    role="assistant",
+                    content=assistant_content,
+                    model=LIVE_TALK_ALIAS,
+                    commit=False,
+                )
+            chat.updated_at = datetime.now(UTC)
+            await session.commit()
+            if user_message is not None:
+                await session.refresh(user_message)
+            if assistant_message is not None:
+                await session.refresh(assistant_message)
 
-    await _enqueue_live_talk_jobs(
-        redis,
-        settings,
-        user=user,
-        chat_id=chat_id,
-        user_text=user_content,
-        assistant_text=assistant_content,
-        assistant_message_id=assistant_message.id if assistant_message is not None else None,
-        untitled=untitled,
-    )
+    if enqueue_jobs:
+        await _enqueue_live_talk_jobs(
+            redis,
+            settings,
+            user=user,
+            chat_id=chat_id,
+            user_text=user_content,
+            assistant_text=assistant_content,
+            assistant_message_id=assistant_message.id if assistant_message is not None else None,
+            untitled=untitled,
+        )
     return user_message, assistant_message
 
 
@@ -194,8 +205,9 @@ async def settle_live_talk_after_stream(
     user_id: UUID,
     persist: Callable[[], Awaitable[object]] | None = None,
 ) -> None:
-    """Refund if no audio; otherwise clear the pending flag and persist transcripts.
+    """Refund if no spoken reply (audio clip or assistant text); otherwise clear pending.
 
+    Persist runs either way so Whisper text is not dropped on cancel.
     Must run on cancel (CancelledError / GeneratorExit) as well as success —
     ``except Exception`` misses those.
     """
@@ -206,3 +218,6 @@ async def settle_live_talk_after_stream(
         return
     if reserved:
         await quota_service.refund_live_talk_if_pending(redis, user_id)
+    # Abort before audio still keeps Whisper text so the thread is not empty.
+    if persist is not None:
+        await persist()

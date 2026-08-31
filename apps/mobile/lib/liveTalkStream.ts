@@ -7,6 +7,7 @@ import {
 export type { LiveTalkSpeakEvent } from "@/lib/liveTalkEvents";
 export {
   applyLiveTalkChatEvent,
+  dropLiveTalkLocalTurn,
   liveTalkLocalIds,
   parseLiveTalkSseChunk,
   parseLiveTalkSpeakEvent,

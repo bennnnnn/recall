@@ -19,17 +19,20 @@ from app.services.speech import (
 
 logger = logging.getLogger(__name__)
 
-# 24 kHz 16-bit mono. Larger clips mean fewer player restarts (clicks) on device.
-_LIVE_TALK_FIRST_CLIP_PCM = 24000 * 2 // 2  # 0.5s
+# 24 kHz 16-bit mono. Larger first clip so expo-audio has a real file to play.
+_LIVE_TALK_FIRST_CLIP_PCM = 24000 * 2  # 1s
 _LIVE_TALK_CLIP_PCM = 24000 * 2 * 3 // 2  # 1.5s
 _SILENCE_ABS = 512
 _SILENCE_PAD_MS = 80
 _SILENCE_MIN_MS = 300
 
 
+LIVE_TALK_EMPTY_TRANSCRIPT = "empty_transcript"
+
+
 @dataclass(frozen=True, slots=True)
 class LiveTalkStreamEvent:
-    kind: Literal["user", "assistant", "audio"]
+    kind: Literal["user", "assistant", "audio", "error"]
     text: str = ""
     audio_wav: bytes = b""
 
@@ -100,7 +103,7 @@ async def iter_speech_to_speech(
     filename: str = "speech.m4a",
     history: list[tuple[str, str]] | None = None,
 ) -> AsyncIterator[LiveTalkStreamEvent]:
-    """Whisper the user first, then stream GPT Audio so OpenRouter is not shared."""
+    """Whisper the user bubble, then stream GPT Audio so the spoken reply is the real model."""
     if not settings.speech_live_talk_enabled:
         return
     if not audio_bytes or len(audio_bytes) > SPEECH_MAX_AUDIO_BYTES:
@@ -136,6 +139,8 @@ async def iter_speech_to_speech(
         logger.exception("Live talk user transcription failed")
     if user_text:
         yield LiveTalkStreamEvent(kind="user", text=user_text)
+    else:
+        logger.info("Live talk Whisper empty; still running STS")
 
     model = resolve_live_talk_model(settings)
     pcm_buf = bytearray()

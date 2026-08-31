@@ -134,6 +134,8 @@
   "chat.live_talk_speaking": "Speaking…",
   "chat.live_talk_tap": "Tap to talk",
   "chat.live_talk_thinking": "Thinking…",
+  "chat.live_talk_couldnt_hear": "I couldn't hear that. Try again.",
+  "chat.live_talk_voice_placeholder": "Voice message",
   "chat.live_talk_title": "Live talk",
   "chat.live_talk_transcribing": "Transcribing…",
   "chat.live_talk_unavailable_body": "Live talk needs a dev build with the microphone. It doesn't work in Expo Go.",
