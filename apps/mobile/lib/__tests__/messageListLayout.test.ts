@@ -69,14 +69,14 @@ describe("messageListLayout", () => {
         role: "assistant",
         content: "```vocab_quiz\n{\"word\":\"hola\"}\n```",
       }),
-    ).toBe("assistant-quiz");
+    ).toBe("assistant");
     expect(
       messageListItemType({
         id: "msg-vocab",
         role: "assistant",
         content: "```vocab_card\n{\"word\":\"hola\",\"definition\":\"hello\"}\n```",
       }),
-    ).toBe("assistant-vocab");
+    ).toBe("assistant");
     expect(
       messageListItemType({
         id: "msg-cal",

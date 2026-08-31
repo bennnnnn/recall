@@ -210,7 +210,7 @@ export function deriveAssistantMessageContent(
     !showCalendarProposals &&
     !(priorUserText != null && isLocationQuestion(priorUserText));
 
-  const interactiveQuiz = null;
+  const interactiveQuiz = null; // Chat A–D chips are banned; lesson uses LessonQuizCards.
   const learningLaunch =
     !isUser && !layoutFrozen && hasLearningLaunchFence(content)
       ? parseLearningLaunch(content)

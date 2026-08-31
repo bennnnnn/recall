@@ -131,6 +131,22 @@ def test_compact_week_plan_uses_howto_lists_not_plain_prose():
     assert "No ## headings" not in joined
 
 
+def test_compact_spanish_week_plan_uses_howto_lists():
+    from app.services.chat.prompt_constants import HOWTO_FORMAT_HINT, is_howto_question
+
+    query = "Dame un plan de 4 semanas para aprender español"
+    assert is_howto_question(query)
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert HOWTO_FORMAT_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT not in parts
+
+
 def test_day_plan_still_uses_richer_format_hint():
     parts = _style_format_hints(
         query_text="plan my day",
@@ -165,6 +181,8 @@ def test_clarification_hint_skips_interview_for_chart_email_flowchart():
     from app.services.chat.prompt_constants import CLARIFICATION_HINT, EMAIL_DRAFT_HINT
 
     assert "escribeme un correo" in CLARIFICATION_HINT
+    assert "LinkedIn" in CLARIFICATION_HINT
+    assert "caption" in CLARIFICATION_HINT
     assert "Do NOT interview for recipient" in CLARIFICATION_HINT
     assert "Do not ask for months or values" in CLARIFICATION_HINT
     assert "Do not interview for steps" in CLARIFICATION_HINT

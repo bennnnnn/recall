@@ -108,6 +108,7 @@ async def list_attachments(
             and gateway.resolve_local_path(row.storage_key) is None
         ):
             # Neon still has the row after /tmp (or a moved datadir) lost the blob.
+            await _drop_row_for_missing_file(session, row.id)
             continue
         url = f"/attachments/{row.id}/file"
         items.append(

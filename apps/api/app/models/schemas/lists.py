@@ -44,6 +44,8 @@ class ListItemCreate(BaseModel):
     def recurrence_needs_due(self) -> Self:
         if self.recurrence_rule is not None and self.due_at is None:
             raise ValueError("recurrence_rule requires due_at")
+        if "project_id" in self.model_fields_set:
+            raise ValueError("Reminders cannot be linked to a Learning project")
         return self
 
 
@@ -62,6 +64,8 @@ class ListItemUpdate(BaseModel):
     def due_at_cannot_be_cleared(self) -> Self:
         if "due_at" in self.model_fields_set and self.due_at is None:
             raise ValueError("due_at cannot be cleared")
+        if "project_id" in self.model_fields_set:
+            raise ValueError("Reminders cannot be linked to a Learning project")
         return self
 
 

@@ -38,6 +38,20 @@ def test_list_item_create_requires_due_at():
         ListItemCreate(content="Call mom")
 
 
+def test_list_item_create_rejects_project_id():
+    with pytest.raises(ValidationError):
+        ListItemCreate(
+            content="Call mom",
+            due_at=datetime.now(UTC),
+            project_id=uuid4(),
+        )
+
+
+def test_list_item_update_rejects_project_id():
+    with pytest.raises(ValidationError):
+        ListItemUpdate(project_id=uuid4())
+
+
 def test_list_item_update_rejects_cleared_due_at():
     with pytest.raises(ValidationError):
         ListItemUpdate(due_at=None)
@@ -54,6 +68,25 @@ async def test_update_todo_rejects_cleared_due_at():
         with pytest.raises(todos_crud.TodosError) as exc:
             await todos_crud.update_todo(session, user, uuid4(), {"due_at": None})
     assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_todo_rejects_project_id():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    with pytest.raises(todos_crud.TodosError) as exc:
+        await todos_crud.create_todo(
+            session,
+            user,
+            content="Study",
+            topic="Reminders",
+            chat_id=None,
+            project_id=uuid4(),
+            due_at=datetime.now(UTC),
+        )
+    assert exc.value.status_code == 400
 
 
 def _item(content: str, topic: str = "Groceries", checked: bool = False):
@@ -722,6 +755,40 @@ async def test_materialize_reminder_fences_skips_invalid():
     assert "```reminder" not in updated
     assert "Could not set that reminder" in updated
     create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_caps_creates_per_reply():
+    session = AsyncMock()
+    over = todos_service.MAX_TODO_ACTIONS_PER_TURN + 3
+    fences = [
+        f'```reminder\n{{"title":"Task {i}","due_at":"2026-07-19T15:00:00-04:00"}}\n```'
+        for i in range(over)
+    ]
+    text = "\n".join(fences)
+
+    async def _create(_session, **kwargs):
+        item = MagicMock()
+        item.content = kwargs["content"]
+        item.due_at = kwargs["due_at"]
+        item.checked = False
+        return item
+
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock(side_effect=_create)) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert created == todos_service.MAX_TODO_ACTIONS_PER_TURN
+    assert create_mock.await_count == todos_service.MAX_TODO_ACTIONS_PER_TURN
+    assert "```reminder" not in updated
 
 
 def test_todo_hint_covers_reminder_confirm_timing():

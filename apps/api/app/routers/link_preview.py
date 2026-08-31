@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
-from app.core.rate_limit import allow_request
+from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.services.link_preview import fetch_link_preview_cached
@@ -24,7 +24,7 @@ async def link_preview(
 
     # Rate limit: 20 requests per 60 seconds per user
     redis = get_redis_client()
-    allowed = await allow_request(
+    allowed = await allow_request_fail_closed(
         redis,
         f"rate:linkpreview:{_user.id}",
         limit=20,

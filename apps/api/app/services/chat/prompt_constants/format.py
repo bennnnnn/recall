@@ -173,7 +173,15 @@ _HOWTO_TURN = re.compile(
     r"\b(?:learning|study)\s+plan\b|"
     r"\bplan\s+to\s+learn\b|"
     r"^\s*(?:please\s+)?how\s+(?:do\s+i|to)\b|"
-    r"\bstep[\s-]?by[\s-]?step\b"
+    r"\bstep[\s-]?by[\s-]?step\b|"
+    r"\bplan\s+de\s+\d+[\s-]?(?:semana|semanas|semaine|semaines)\b|"
+    r"\b\d+[\s-]?wochen[\s-]?plan\b|"
+    r"\bc[oó]mo\s+(?:hago|puedo|hacer)\b|"
+    r"\bpaso\s+a\s+paso\b|"
+    r"\bcomment\s+(?:faire|je)\b|"
+    r"\b(?:etape|étape)\s+par\s+(?:etape|étape)\b|"
+    r"\bwie\s+(?:mache|kann)\s+ich\b|"
+    r"\bschritt[\s-]?f[uü]r[\s-]?schritt\b"
     r")",
     re.IGNORECASE,
 )
@@ -264,8 +272,8 @@ FORMAT_CONTRACT = (
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
-    "```copy. At most ONE such fence per response. For email/message to a named "
-    "person, draft immediately — do not ask what to write.\n"
+    "```copy. At most ONE such fence per response. For email/message/LinkedIn/caption "
+    "to a named person, draft immediately — do not ask what to write.\n"
     "\n"
     "Coding:\n"
     "  - Brief approach sentence, then a tagged code fence (```python, "

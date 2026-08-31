@@ -17,7 +17,11 @@ from app.models.schemas.todos import RecurrenceRule
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services import time_context as time_context_service
-from app.services.todos.actions import _ACTION_RELOAD_LIMIT, REMINDER_TOPIC
+from app.services.todos.actions import (
+    _ACTION_RELOAD_LIMIT,
+    MAX_TODO_ACTIONS_PER_TURN,
+    REMINDER_TOPIC,
+)
 from app.services.todos.recurrence import snap_first_due
 
 logger = logging.getLogger(__name__)
@@ -134,6 +138,9 @@ async def materialize_reminder_fences(
     last = 0
     for match in _REMINDER_FENCE.finditer(assistant_text):
         parts.append(assistant_text[last : match.start()])
+        if state.created >= MAX_TODO_ACTIONS_PER_TURN:
+            last = match.end()
+            continue
         ok = await _create_one(state, match.group(1))
         if not ok:
             parts.append("*Could not set that reminder — the format was invalid.*")

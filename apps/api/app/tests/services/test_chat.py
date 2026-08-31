@@ -363,7 +363,11 @@ def test_is_callout_question(text, expected):
         ("roadmap to learn TypeScript", True),
         ("How do I set up a React Native project from scratch?", True),
         ("week-by-week study plan for the SAT", True),
+        ("Dame un plan de 4 semanas para aprender español", True),
+        ("Comment faire un plan de 8 semaines", True),
+        ("Wie mache ich einen 4-Wochen-Plan", True),
         ("plan my day", False),
+        ("hace 3 semanas fui a Madrid", False),
         ("Give me 3 tips for staying focused while studying.", False),
         ("Compare Python vs Java", False),
         ("Make a bar chart of rainfall", False),
@@ -384,6 +388,9 @@ def test_format_hints_discourage_tables_for_how_tos():
     assert "NEVER" in blob or "Never" in blob
     assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
     assert "week-by-week" in blob.lower()
+    assert "LinkedIn" in blob
+    assert "caption" in blob.lower()
+    assert "draft immediately" in blob
 
 
 def test_universal_format_baseline_pins_answer_first_and_no_decoration():
