@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk still spoke after ~60s though the API had PCM in ~1s.**
+  Clips play strictly in series and waited up to 20s each when
+  `didJustFinish` / duration never arrived. Cap each splice to the WAV
+  length (max 2.5s) and treat `playing` false as finished.
 - **Live talk cancel left an empty chat after a spoken turn.** No-speech
   timeout uploaded silence (Whisper empty, no user SSE). Cancel bumped
   sessionGen so later events were dropped, and skip-load never GET
