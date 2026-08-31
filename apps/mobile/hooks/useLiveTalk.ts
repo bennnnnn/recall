@@ -17,16 +17,23 @@ import {
   liveTalkDiscardListenOnMute,
   liveTalkErrorGate,
   liveTalkGate,
+  liveTalkIsEmptyTranscriptError,
   liveTalkOrbAction,
+  liveTalkShouldSendRecording,
   liveTalkSilenceDecision,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
-import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/lib/liveTalkEvents";
+import {
+  applyLiveTalkChatEvent,
+  dropLiveTalkLocalTurn,
+  type LiveTalkSpeakEvent,
+} from "@/lib/liveTalkEvents";
 import {
   beginSpeechPlayback,
   playSpeechAudioClip,
+  speakLiveTalkTranscript,
   stopSpeaking,
   type SpeakResult,
 } from "@/lib/pronunciation";
@@ -185,6 +192,16 @@ export function useLiveTalk({
     setPhase("recording");
   }, [token, isOffline]);
 
+  const discardQuietListen = useCallback(async () => {
+    if (endingUtteranceRef.current) return;
+    endingUtteranceRef.current = true;
+    await cancelRecordingRef.current();
+    endingUtteranceRef.current = false;
+    emptyStreakRef.current += 1;
+    autoListenRef.current = emptyStreakRef.current < 3 && !mutedRef.current;
+    setPhase("idle");
+  }, []);
+
   const finishListen = useCallback(async () => {
     if (!token || endingUtteranceRef.current) return;
     endingUtteranceRef.current = true;
@@ -218,16 +235,23 @@ export function useLiveTalk({
     const abort = new AbortController();
     speakAbortRef.current = abort;
     let gotAudio = false;
+    let turnChatId: string | null = null;
+    let turnId = "";
     try {
-      const turnChatId = await ensureChatId();
+      turnChatId = await ensureChatId();
       if (sessionGen.current !== gen) {
         endingUtteranceRef.current = false;
         return;
       }
-      const turnId = String(Date.now());
-      let playbackGen = 0;
-      let playbackStarted = false;
+      turnId = String(Date.now());
+      applyChatEvent(turnId, {
+        type: "user",
+        text: t("chat.live_talk_voice_placeholder"),
+      });
+      let clipGen = 0;
+      let usedClips = false;
       let playChain: Promise<SpeakResult> = Promise.resolve({ ok: true });
+      let latestAssistant = "";
       await api.liveTalkSpeak({
         token,
         audioBase64,
@@ -235,28 +259,37 @@ export function useLiveTalk({
         chatId: turnChatId,
         signal: abort.signal,
         onEvent: (event: LiveTalkSpeakEvent) => {
-          if (sessionGen.current !== gen) return;
-          applyChatEvent(turnId, event);
-          if (event.type === "done") {
-            setStatus({
-              enabled: true,
-              entitled: true,
-              remaining: event.remaining,
-              limit: event.limit,
-            });
-            onFirstReply(turnChatId);
+          if (
+            event.type === "user" ||
+            event.type === "assistant" ||
+            event.type === "done"
+          ) {
+            applyChatEvent(turnId, event);
+            if (event.type === "assistant") {
+              latestAssistant = event.text;
+            }
+            if (event.type === "done") {
+              setStatus({
+                enabled: true,
+                entitled: true,
+                remaining: event.remaining,
+                limit: event.limit,
+              });
+              onFirstReply(turnChatId);
+            }
           }
+          if (sessionGen.current !== gen) return;
+          if (event.type === "audio" || event.type === "assistant") gotAudio = true;
           if (event.type !== "audio") return;
-          gotAudio = true;
-          if (!playbackStarted) {
-            playbackStarted = true;
-            playbackGen = beginSpeechPlayback();
+          usedClips = true;
+          if (!clipGen) {
+            clipGen = beginSpeechPlayback();
             setPhase("speaking");
           }
           const clip = event;
-          playChain = playChain.then(() => {
-            if (sessionGen.current !== gen) return { ok: true };
-            return playSpeechAudioClip(clip.audio_base64, clip.content_type, playbackGen);
+          playChain = playChain.then((prev) => {
+            if (!prev.ok || sessionGen.current !== gen) return prev.ok ? { ok: true } : prev;
+            return playSpeechAudioClip(clip.audio_base64, clip.content_type, clipGen);
           });
         },
       });
@@ -269,9 +302,21 @@ export function useLiveTalk({
         endingUtteranceRef.current = false;
         return;
       }
-      if (playbackStarted && !played.ok) {
+      if (!usedClips && latestAssistant.trim()) {
+        clipGen = beginSpeechPlayback();
+        setPhase("speaking");
+        const fallback = await speakLiveTalkTranscript(latestAssistant, clipGen);
+        if (sessionGen.current !== gen) {
+          endingUtteranceRef.current = false;
+          return;
+        }
+        if (!fallback.ok) {
+          Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
+        }
+      } else if (usedClips && !played.ok) {
         Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
-      } else if (playbackStarted) {
+      }
+      if (usedClips || latestAssistant.trim()) {
         await new Promise((resolve) => setTimeout(resolve, LIVE_TALK_ECHO_GUARD_MS));
         if (sessionGen.current !== gen) {
           endingUtteranceRef.current = false;
@@ -288,7 +333,33 @@ export function useLiveTalk({
       if (aborted && liveTalkAbortRefundNeeded(gotAudio)) {
         void api.refundLiveTalkTurn(token);
       }
-      if (sessionGen.current !== gen || aborted) {
+      if (liveTalkIsEmptyTranscriptError(error)) {
+        if (turnId) {
+          setMessages((prev) => dropLiveTalkLocalTurn(prev, turnId));
+        }
+        Alert.alert(t("chat.live_talk_title"), t("chat.live_talk_couldnt_hear"));
+        autoListenRef.current = !mutedRef.current;
+        setPhase("idle");
+        return;
+      }
+      if (aborted) {
+        if (turnChatId) {
+          void api
+            .listMessages(token, turnChatId, { limit: 40 })
+            .then((page) => {
+              if (page.messages.length > 0) setMessages(page.messages);
+            })
+            .catch((hydrateError: unknown) => {
+              reportRecoverableError(
+                feedback,
+                hydrateError instanceof Error ? hydrateError.message : t("chat.live_talk_failed"),
+              );
+            });
+        }
+        endingUtteranceRef.current = false;
+        return;
+      }
+      if (sessionGen.current !== gen) {
         endingUtteranceRef.current = false;
         return;
       }
@@ -298,7 +369,16 @@ export function useLiveTalk({
       if (speakAbortRef.current === abort) speakAbortRef.current = null;
       endingUtteranceRef.current = false;
     }
-  }, [token, alertForGate, t, ensureChatId, applyChatEvent, onFirstReply]);
+  }, [
+    token,
+    alertForGate,
+    t,
+    ensureChatId,
+    applyChatEvent,
+    onFirstReply,
+    setMessages,
+    feedback,
+  ]);
 
   const close = useCallback(() => {
     sessionGen.current += 1;
@@ -420,8 +500,13 @@ export function useLiveTalk({
     });
     heardSpeechRef.current = next.heardSpeech;
     silenceStartedAtRef.current = next.silenceStartedAt;
-    if (next.shouldStop) void finishListen();
-  }, [phase, voice.voiceMeterLevel, finishListen]);
+    if (!next.shouldStop) return;
+    if (liveTalkShouldSendRecording(next.heardSpeech)) {
+      void finishListen();
+      return;
+    }
+    void discardQuietListen();
+  }, [phase, voice.voiceMeterLevel, finishListen, discardQuietListen]);
 
   useEffect(() => {
     if (!visible) return;
