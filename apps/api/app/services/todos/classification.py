@@ -66,12 +66,32 @@ _AFFIRMATIVE = re.compile(
     r"^(yes|yeah|yep|sure|ok(?:ay)?|do it|confirm(?:ed)?|go ahead|please)\.?!?$",
     re.IGNORECASE,
 )
-_USER_LINE = re.compile(r"(?:^|\n)User:\s*(.+?)(?:\n|$)", re.IGNORECASE)
 _ASSISTANT_LABEL = re.compile(r"(?:^|\n)Assistant:\s*", re.IGNORECASE)
 _REMINDER_OR_TODO_WORD = re.compile(r"\b(reminders?|todos?|tasks?|schedule)\b", re.IGNORECASE)
 
 # Bound gaps for linear "move X to tomorrow" scans (no ``.+`` ReDoS).
 _TODO_PHRASE_GAP = 80
+_USER_LABEL = "user:"
+
+
+def _first_user_line_body(text: str) -> str | None:
+    """Body of the first ``User:`` line. Linear scan — no `.+` regex."""
+    lower = text.lower()
+    start = 0
+    while True:
+        found = lower.find(_USER_LABEL, start)
+        if found == -1:
+            return None
+        if found != 0 and text[found - 1] != "\n":
+            start = found + 1
+            continue
+        body = found + len(_USER_LABEL)
+        while body < len(text) and text[body] in " \t":
+            body += 1
+        end = text.find("\n", body)
+        if end == -1:
+            end = len(text)
+        return text[body:end]
 
 
 def _find_ci(haystack: str, needle: str, start: int = 0) -> int:
@@ -153,10 +173,10 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     if _implies_move_to_tomorrow(text.lower()):
         return True
     # "Yes" / "Sure" after a reminder offer — assistant reply mentions reminder/todo.
-    user_m = _USER_LINE.search(text)
+    user_body = _first_user_line_body(text)
     asst_m = _ASSISTANT_LABEL.search(text)
-    if user_m and asst_m:
+    if user_body is not None and asst_m:
         asst_body = text[asst_m.end() :]
-        if _AFFIRMATIVE.match(user_m.group(1).strip()) and _REMINDER_OR_TODO_WORD.search(asst_body):
+        if _AFFIRMATIVE.match(user_body.strip()) and _REMINDER_OR_TODO_WORD.search(asst_body):
             return True
     return False
