@@ -97,9 +97,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
-- ✅ **Live talk (Pro)** — waveform on the composer opens a **speech-to-speech** session
-  (OpenAI GPT Audio via OpenRouter: audio in → spoken reply, **not Whisper**). Short pause
-  ends your turn; the orb never shows “Transcribing…”. Not full duplex. Free is blocked
+- ✅ **Live talk (Pro)** — waveform on the composer opens a **speech-to-speech**
+  session (OpenAI GPT Audio via OpenRouter). Short pause ends your turn;
+  the orb never shows “Transcribing…”. Not full duplex. Free is blocked
   (upgrade). Pro: **30 turns/day** (UTC). Composer mic STT remains Whisper.
   Tap the mic (next to close) to mute so Recall cannot hear you; it turns
   red. Playback is not paused. No Listening/Speaking labels. The normal
@@ -107,10 +107,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   hides mute and close so the field uses the full row; they return when
   the draft is empty. Spoken turns are saved as normal chat messages
   (what you said + the reply) so they are in the thread when you close.
-    Playback starts as the first audio clip arrives — it does not wait for
-  the full reply. Whisper for the chat bubble runs **before** GPT Audio so
-  your line appears first and the two OpenRouter jobs do not stall each
-  other. The chat header (drawer / ⋮) stays available.
+  Whisper labels the user bubble, then GPT Audio streams the spoken reply;
+  the app **plays those clips** (not on-device TTS). Device TTS is only
+  if no clip arrives. Empty Whisper still runs STS. Auto-stop without a
+  speech spike discards the clip instead of uploading silence. The chat
+  header (drawer / ⋮) stays available.
   Abort before the first audio clip refunds the turn (`POST /speech/live/refund`);
   cancel after audio still persists transcripts. Unsupported containers fail
   closed (no Whisper+TTS echo of the user as the assistant).
@@ -818,7 +819,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio; streamed clips; turns persist as chat; mic mute beside close; typing hides mute/close; not full duplex) |
+| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (GPT Audio clips; Whisper for the chat bubble; device TTS only if no clip; turns persist as chat; mic mute beside close; not full duplex) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |

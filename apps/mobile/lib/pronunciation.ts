@@ -157,6 +157,7 @@ type PlaybackStatus = {
   didJustFinish?: boolean;
   currentTime?: number;
   duration?: number;
+  playing?: boolean;
 };
 
 /** Cloud TTS clip playback (expo-audio). Never mix with expo-speech. */
@@ -166,6 +167,7 @@ type PlaybackHandle = {
   remove: () => void;
   currentTime?: number;
   duration?: number;
+  playing?: boolean;
   addListener: (
     event: "playbackStatusUpdate",
     listener: (status: PlaybackStatus) => void,
@@ -180,6 +182,7 @@ let playbackModeGeneration = -1;
 function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MAX_MS): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
+    let sawPlaying = false;
     let sub: { remove: () => void } | null = null;
     const finish = () => {
       if (settled) return;
@@ -196,13 +199,17 @@ function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MA
     };
     cloudPlaybackFinish = finish;
     sub = player.addListener("playbackStatusUpdate", (status) => {
-      if (playbackStatusFinished(status)) finish();
+      if (status.playing) sawPlaying = true;
+      if (playbackStatusFinished({ ...status, sawPlaying })) finish();
     });
     const poll = setInterval(() => {
+      if (player.playing) sawPlaying = true;
       if (
         playbackStatusFinished({
           currentTime: player.currentTime,
           duration: player.duration,
+          playing: player.playing,
+          sawPlaying,
         })
       ) {
         finish();
@@ -229,7 +236,7 @@ async function playCloudBase64(
     const path = `${cacheDirectory}recall-tts-${Date.now()}.${ext}`;
     await writeAsStringAsync(path, audioBase64, { encoding: EncodingType.Base64 });
     if (!isCurrentSpeak(generation)) return { ok: true };
-    const player = Audio.createAudioPlayer(path) as PlaybackHandle;
+    const player = Audio.createAudioPlayer(path, { updateInterval: 50 }) as PlaybackHandle;
     cloudPlayer = player;
     cloudPlayerCleanup = () => {
       cloudPlayer = null;
@@ -272,6 +279,14 @@ export function beginSpeechPlayback(): number {
   return speakGeneration;
 }
 
+/** Speak a live-talk transcript only when GPT Audio clips never arrived. */
+export function speakLiveTalkTranscript(
+  text: string,
+  generation: number,
+): Promise<SpeakResult> {
+  return beginDeviceSpeech(text, "en", generation);
+}
+
 /** Play one WAV/MP3 clip without aborting the rest of this utterance. */
 export async function playSpeechAudioClip(
   audioBase64: string,
@@ -285,7 +300,9 @@ export async function playSpeechAudioClip(
   }
   if (!isCurrentSpeak(generation)) return { ok: true };
   const durationMs = contentType.includes("wav") ? wavDurationMsFromBase64(audioBase64) : null;
-  return playCloudBase64(audioBase64, contentType, generation, playbackWaitMs(durationMs));
+  const waitMs = playbackWaitMs(durationMs);
+  logTtsLatency("clip_wait", { waitMs, durationMs: durationMs ?? 0 });
+  return playCloudBase64(audioBase64, contentType, generation, waitMs);
 }
 
 async function playRemoteAudio(url: string): Promise<SpeakResult> {
@@ -316,16 +333,18 @@ async function playRemoteAudio(url: string): Promise<SpeakResult> {
   }
 }
 
-function beginDeviceSpeech(
+async function beginDeviceSpeech(
   text: string,
   language: string,
   generation: number,
 ): Promise<SpeakResult> {
-  if (!isCurrentSpeak(generation)) return Promise.resolve({ ok: true });
+  if (!isCurrentSpeak(generation)) return { ok: true };
+  await preparePlaybackAudioMode();
+  if (!isCurrentSpeak(generation)) return { ok: true };
   const Speech = loadSpeech();
-  if (!Speech) return Promise.resolve({ ok: false, reason: "unavailable" });
+  if (!Speech) return { ok: false, reason: "unavailable" };
   const plain = text.slice(0, 8000).trim();
-  if (!plain) return Promise.resolve({ ok: false, reason: "error" });
+  if (!plain) return { ok: false, reason: "error" };
   return new Promise((resolve) => {
     try {
       Speech.speak(plain, {
