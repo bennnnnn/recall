@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live Talk said “okay” then crackled and stopped.** iOS has no AEC
+  (VoiceProcessing deadlocks Simulator). Speaker echo looked like barge-in
+  (`interrupt_response`) and cancelled the rest of the utterance. Hold the
+  mic during playback; do not interrupt from echo. Live Talk is not duplex.
 - **Live Talk connected then went silent.** `useEffect(() => close, [close])`
   re-ran whenever `close`’s identity changed (status / new chat id) and tore
   down the WebRTC peer right after `setRemoteDescription`. Unmount-only

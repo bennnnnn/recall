@@ -59,7 +59,9 @@ async def create_realtime_call(
                 "turn_detection": {
                     "type": "semantic_vad",
                     "create_response": True,
-                    "interrupt_response": True,
+                    # Half-duplex: speaker echo on iOS (no AEC) must not cancel
+                    # the in-flight utterance after the first word.
+                    "interrupt_response": False,
                 },
                 "transcription": {"model": _REALTIME_INPUT_TRANSCRIBE_MODEL},
             },
