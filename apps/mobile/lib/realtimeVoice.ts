@@ -34,6 +34,9 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
+const ICE_GATHER_TIMEOUT_MS = 2_500;
+const CONNECTION_TIMEOUT_MS = 10_000;
+
 function loadWebRtc(): NativeWebRtc | null {
   try {
     // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
@@ -88,6 +91,51 @@ function sendRealtimeEvent(channel: { readyState?: string; send?: (data: string)
   }
 }
 
+/**
+ * The Realtime calls endpoint is a one-shot SDP exchange; there is no second
+ * signalling request for trickled local ICE candidates. React Native WebRTC
+ * updates localDescription as gathering progresses, so give it a short window
+ * and send the freshest SDP rather than the original createOffer() snapshot.
+ */
+async function waitForIceGathering(pc: any): Promise<void> {
+  if (pc.iceGatheringState === "complete") return;
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        pc.removeEventListener?.("icegatheringstatechange", onStateChange);
+      } catch {
+        /* best-effort */
+      }
+      resolve();
+    };
+    const onStateChange = () => {
+      if (pc.iceGatheringState === "complete") finish();
+    };
+    const timer = setTimeout(finish, ICE_GATHER_TIMEOUT_MS);
+    pc.addEventListener?.("icegatheringstatechange", onStateChange);
+  });
+}
+
+function enableRemoteAudioTrack(track: any): void {
+  if (!track || track.kind !== "audio") return;
+  try {
+    track.enabled = true;
+  } catch {
+    /* remote audio is still auto-rendered by react-native-webrtc */
+  }
+  try {
+    // react-native-webrtc automatically renders remote audio. Explicitly
+    // restore its per-track volume in case a reused/native track starts muted.
+    if (typeof track._setVolume === "function") track._setVolume(1);
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function createRealtimeVoiceSession(options: {
   token: string;
   chatId?: string | null;
@@ -106,29 +154,74 @@ export async function createRealtimeVoiceSession(options: {
     for (const track of localStream.getTracks()) track.stop();
     throw new Error("webrtc_unavailable");
   }
-  try {
-    webrtc.RTCAudioSession?.audioSessionDidActivate();
-  } catch {
-    /* optional iOS helper */
-  }
+
   const pc = new webrtc.RTCPeerConnection({});
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }
 
   const dataChannel = pc.createDataChannel("oai-events");
+  const remoteAudioTracks = new Set<any>();
   let assistantTranscript = "";
   let closed = false;
   let callId: string | null = null;
+  let connectionSettled = false;
+  let resolveConnected: (() => void) | null = null;
+  let rejectConnected: ((error: Error) => void) | null = null;
+
+  const connectedPromise = new Promise<void>((resolve, reject) => {
+    resolveConnected = resolve;
+    rejectConnected = reject;
+  });
+
+  const settleConnected = () => {
+    if (connectionSettled) return;
+    connectionSettled = true;
+    resolveConnected?.();
+    options.onEvent({ type: "connected" });
+  };
+
+  const failConnection = (message: string) => {
+    if (connectionSettled) return;
+    connectionSettled = true;
+    rejectConnected?.(new Error(message));
+  };
 
   const emitError = (message: string) => {
     if (!closed) options.onEvent({ type: "error", message });
   };
 
-  dataChannel.onopen = () => {
-    options.onEvent({ type: "connected" });
+  pc.ontrack = (event: { track?: any; streams?: any[] }) => {
+    if (event.track?.kind === "audio") {
+      remoteAudioTracks.add(event.track);
+      enableRemoteAudioTrack(event.track);
+    }
+    for (const stream of event.streams ?? []) {
+      for (const track of stream.getAudioTracks?.() ?? []) {
+        remoteAudioTracks.add(track);
+        enableRemoteAudioTrack(track);
+      }
+    }
   };
-  dataChannel.onerror = () => emitError("Realtime voice data channel failed");
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+      failConnection("Realtime voice connection failed");
+      if (!closed) emitError("Realtime voice connection failed");
+    }
+  };
+  pc.oniceconnectionstatechange = () => {
+    if (pc.iceConnectionState === "failed") {
+      failConnection("Realtime voice ICE connection failed");
+      if (!closed) emitError("Realtime voice ICE connection failed");
+    }
+  };
+
+  dataChannel.onopen = settleConnected;
+  dataChannel.onerror = () => {
+    failConnection("Realtime voice data channel failed");
+    emitError("Realtime voice data channel failed");
+  };
   dataChannel.onmessage = (message: { data?: unknown }) => {
     const raw = liveTalkDataChannelText(message.data);
     if (raw == null) return;
@@ -202,15 +295,27 @@ export async function createRealtimeVoiceSession(options: {
     } catch {
       /* best-effort */
     }
+    for (const track of remoteAudioTracks) {
+      try {
+        track.enabled = false;
+      } catch {
+        /* best-effort */
+      }
+    }
+    remoteAudioTracks.clear();
     for (const track of localStream.getTracks()) track.stop();
     pc.close();
   };
 
   try {
+    // A local microphone track creates a sendrecv audio m-line. The explicit
+    // receive flag is kept for compatibility with react-native-webrtc.
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
-    const sdp = String(offer.sdp || pc.localDescription?.sdp || "");
+    await waitForIceGathering(pc);
+    const sdp = String(pc.localDescription?.sdp || offer.sdp || "");
     if (!sdp) throw new Error("Could not create realtime audio offer");
+
     const answer = await speechApi.exchangeRealtimeSdp(options.token, {
       sdp,
       chatId: options.chatId,
@@ -219,13 +324,34 @@ export async function createRealtimeVoiceSession(options: {
     await pc.setRemoteDescription(
       new webrtc.RTCSessionDescription({ type: "answer", sdp: answer.sdp }),
     );
+
     try {
+      // react-native-webrtc owns capture/playback while this peer is alive.
       webrtc.RTCAudioSession?.audioSessionDidActivate();
     } catch {
-      /* playback + capture after the remote track is attached */
+      /* optional iOS helper */
     }
+
+    // Do not report Live Talk as recording until OpenAI's data channel is
+    // actually usable. Previously this function returned after SDP alone, so a
+    // failed ICE handshake looked like a working session that never answered.
+    await Promise.race([
+      connectedPromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Realtime voice connection timed out")),
+          CONNECTION_TIMEOUT_MS,
+        ),
+      ),
+    ]);
   } catch (error) {
+    closed = true;
     tearDownAudio();
+    try {
+      dataChannel.close();
+    } catch {
+      /* best-effort */
+    }
     throw error;
   }
 
