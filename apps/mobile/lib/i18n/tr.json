@@ -140,6 +140,7 @@
   "chat.live_talk_transcribing": "Transcribing…",
   "chat.live_talk_unavailable_body": "Live talk needs a dev build with the microphone. It doesn't work in Expo Go.",
   "chat.live_talk_unavailable_title": "Live talk unavailable",
+  "chat.live_talk_not_configured": "Live talk isn't set up on this server yet.",
   "chat.load_earlier": "Önceki mesajları yükle",
   "chat.location_allow": "Continue",
   "chat.location_confirm_body": "Recall uses your location to find nearby places and distances.",

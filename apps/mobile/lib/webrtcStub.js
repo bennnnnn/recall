@@ -5,6 +5,7 @@ function unavailable() {
 }
 
 module.exports = {
+  __WEBRTC_STUB__: true,
   mediaDevices: { getUserMedia: unavailable },
   RTCPeerConnection: function RTCPeerConnection() {
     unavailable();

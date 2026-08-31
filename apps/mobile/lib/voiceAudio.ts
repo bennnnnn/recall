@@ -181,6 +181,31 @@ export function recordingOptionsForFormat(
   };
 }
 
+let exclusiveMicStop: (() => Promise<void>) | null = null;
+
+/** Stop dictation and put the session in record mode so WebRTC can take the mic. */
+export async function yieldMicToWebRtc(): Promise<void> {
+  const stop = exclusiveMicStop;
+  exclusiveMicStop = null;
+  if (stop) {
+    try {
+      await stop();
+    } catch {
+      /* WebRTC still needs the session */
+    }
+  }
+  const mod = loadExpoAudio();
+  if (!mod) return;
+  try {
+    await mod.setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+    });
+  } catch {
+    /* native audio may already be tearing down */
+  }
+}
+
 export async function startVoiceRecording(
   format: VoiceRecordingFormat = "aac",
 ): Promise<VoiceRecorder | null> {
@@ -210,9 +235,17 @@ export async function startVoiceRecording(
     }
   }, 60);
 
+  exclusiveMicStop = async () => {
+    clearInterval(tick);
+    if (recorder.isRecording) {
+      await recorder.stop();
+    }
+  };
+
   return {
     stop: async () => {
       clearInterval(tick);
+      if (exclusiveMicStop) exclusiveMicStop = null;
       try {
         if (recorder.isRecording) {
           await recorder.stop();

@@ -1,16 +1,23 @@
 jest.mock("react-native", () => ({
-  NativeModules: {},
-  TurboModuleRegistry: { get: () => null },
+  Platform: { OS: "ios" },
+}));
+
+jest.mock("@/lib/voiceAudio", () => ({
+  yieldMicToWebRtc: jest.fn(async () => undefined),
+}));
+
+jest.mock("react-native-webrtc", () => ({
+  __WEBRTC_STUB__: true,
 }));
 
 jest.mock("@/lib/api/speech", () => ({
   speechApi: { exchangeRealtimeSdp: jest.fn() },
 }));
 
-import { createRealtimeVoiceSession, isRealtimeVoiceAvailable } from "@/lib/realtimeVoice";
+import { createRealtimeVoiceSession, isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/realtimeVoice";
 
 describe("realtimeVoice", () => {
-  it("is unavailable when the native WebRTC module is not linked", () => {
+  it("is unavailable when Metro resolved the WebRTC stub", () => {
     expect(isRealtimeVoiceAvailable()).toBe(false);
   });
 
@@ -21,5 +28,13 @@ describe("realtimeVoice", () => {
         onEvent: () => undefined,
       }),
     ).rejects.toThrow("webrtc_unavailable");
+  });
+
+  it("disables iOS VoiceProcessing so Simulator CoreAudio does not deadlock", () => {
+    expect(webRtcMicConstraints()).toEqual({
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    });
   });
 });
