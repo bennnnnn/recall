@@ -25,6 +25,9 @@ type Options = {
   onTranscribeError?: (reason: TranscribeFail) => void;
 };
 
+const VOICE_SPEECH_LEVEL = 0.28;
+const VOICE_MIN_SPEECH_SAMPLES = 2;
+
 export function useVoiceInput({
   token,
   onTranscript,
@@ -37,6 +40,7 @@ export function useVoiceInput({
   const meterUnsubRef = useRef<(() => void) | null>(null);
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishRecordingRef = useRef<() => Promise<string | null>>(async () => null);
+  const speechSamplesRef = useRef(0);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [meterLevel, setMeterLevel] = useState(0.12);
@@ -87,9 +91,13 @@ export function useVoiceInput({
         showUnavailable();
         return false;
       }
+      speechSamplesRef.current = 0;
       recordingRef.current = next;
       meterUnsubRef.current?.();
-      meterUnsubRef.current = next.subscribeMetering((level) => setMeterLevel(level));
+      meterUnsubRef.current = next.subscribeMetering((level) => {
+        setMeterLevel(level);
+        if (level >= VOICE_SPEECH_LEVEL) speechSamplesRef.current += 1;
+      });
       setRecording(true);
       if (maxTimerRef.current != null) clearTimeout(maxTimerRef.current);
       maxTimerRef.current = setTimeout(() => {
@@ -106,8 +114,9 @@ export function useVoiceInput({
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
     setTranscribing(true);
+    const heardSpeech = speechSamplesRef.current >= VOICE_MIN_SPEECH_SAMPLES;
     const uri = await stopRecording();
-    if (!uri) {
+    if (!uri || !heardSpeech) {
       setTranscribing(false);
       onTranscribeError?.("empty");
       if (!onTranscribeError) {
