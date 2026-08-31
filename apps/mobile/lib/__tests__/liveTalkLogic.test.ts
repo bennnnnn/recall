@@ -7,6 +7,7 @@ import {
   liveTalkGate,
   liveTalkIsEmptyTranscriptError,
   liveTalkOrbAction,
+  liveTalkShouldAttachSession,
   liveTalkShouldSendRecording,
   liveTalkDiscardListenOnMute,
   liveTalkMuteA11yKey,
@@ -69,10 +70,25 @@ describe("liveTalkGate", () => {
   });
 });
 
+describe("liveTalkShouldAttachSession", () => {
+  it("drops the session when close or a newer open bumped the generation", () => {
+    expect(liveTalkShouldAttachSession(3, 3)).toBe(true);
+    expect(liveTalkShouldAttachSession(3, 4)).toBe(false);
+  });
+});
+
 describe("liveTalkErrorGate", () => {
   it("maps 403 to upgrade and 429 to limit", () => {
     expect(liveTalkErrorGate({ status: 403 })).toBe("upgrade");
     expect(liveTalkErrorGate({ status: 429 })).toBe("limit");
+  });
+
+  it("maps a missing WebRTC native module to unavailable", () => {
+    expect(liveTalkErrorGate(new Error("webrtc_unavailable"))).toBe("unavailable");
+  });
+
+  it("maps a missing Realtime server key to unconfigured", () => {
+    expect(liveTalkErrorGate({ status: 503 })).toBe("unconfigured");
   });
 });
 

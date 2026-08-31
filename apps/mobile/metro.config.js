@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const { getDefaultConfig } = require("expo/metro-config");
 
@@ -12,6 +13,8 @@ const config = getDefaultConfig(__dirname);
  */
 const dedupedModules = new Set(["react-native-svg"]);
 const appPackageJson = path.join(__dirname, "package.json");
+const webrtcInstalled = fs.existsSync(path.join(__dirname, "node_modules/react-native-webrtc"));
+const webrtcStub = path.join(__dirname, "lib/webrtcStub.js");
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const root = moduleName.split("/")[0];
@@ -21,6 +24,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       moduleName,
       platform,
     );
+  }
+  // Metro still extracts require("react-native-webrtc") from realtimeVoice.ts
+  // at bundle time. Without a fallback, a missing install red-screens the
+  // whole chat screen — not just Live Talk.
+  if (moduleName === "react-native-webrtc" && !webrtcInstalled) {
+    return { type: "sourceFile", filePath: webrtcStub };
   }
   return context.resolveRequest(context, moduleName, platform);
 };

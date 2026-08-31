@@ -1,4 +1,7 @@
+import { Platform } from "react-native";
+
 import { speechApi } from "@/lib/api/speech";
+import { yieldMicToWebRtc } from "@/lib/voiceAudio";
 
 export type RealtimeVoiceEvent =
   | { type: "connected" }
@@ -11,11 +14,16 @@ export type RealtimeVoiceEvent =
   | { type: "error"; message: string };
 
 type NativeWebRtc = {
+  __WEBRTC_STUB__?: boolean;
   mediaDevices: {
     getUserMedia: (constraints: object) => Promise<any>;
   };
   RTCPeerConnection: new (config?: object) => any;
   RTCSessionDescription: new (init: { type: string; sdp: string }) => any;
+  RTCAudioSession?: {
+    audioSessionDidActivate: () => void;
+    audioSessionDidDeactivate: () => void;
+  };
 };
 
 export type RealtimeVoiceSession = {
@@ -25,12 +33,41 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
-function loadWebRtc(): NativeWebRtc {
-  // Native module: this intentionally requires a dev-client / production build,
-  // not Expo Go. Keeping require() here avoids loading native code for users who
-  // never open Live Talk.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require("react-native-webrtc") as NativeWebRtc;
+function loadWebRtc(): NativeWebRtc | null {
+  try {
+    // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
+    // Metro still extracts this require at bundle time; metro.config.js maps
+    // a stub when the package is not installed so chat can still load.
+    // Do not gate on NativeModules.WebRTCModule first — New Arch interop can
+    // leave that key empty until the JS package loads, which falsely looked
+    // like Expo Go on a linked dev client.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const webrtc = require("react-native-webrtc") as NativeWebRtc;
+    if (webrtc.__WEBRTC_STUB__) return null;
+    return webrtc;
+  } catch {
+    return null;
+  }
+}
+
+export function isRealtimeVoiceAvailable(): boolean {
+  return loadWebRtc() !== null;
+}
+
+/**
+ * VoiceProcessing IO (AEC) deadlocks CoreAudio on the iOS Simulator when
+ * expo-audio has also touched the session — SIGABRT `AURemoteIO RPC timeout`.
+ * Keep AEC on Android; iOS uses a plain RemoteIO unit.
+ */
+export function webRtcMicConstraints(): {
+  echoCancellation: boolean;
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
+} {
+  if (Platform.OS === "ios") {
+    return { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+  }
+  return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 }
 
 function transcriptFromEvent(event: Record<string, unknown>): string {
@@ -56,14 +93,19 @@ export async function createRealtimeVoiceSession(options: {
   onEvent: (event: RealtimeVoiceEvent) => void;
 }): Promise<RealtimeVoiceSession> {
   const webrtc = loadWebRtc();
+  if (!webrtc) {
+    throw new Error("webrtc_unavailable");
+  }
+  await yieldMicToWebRtc();
   const localStream = await webrtc.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
+    audio: webRtcMicConstraints(),
     video: false,
   });
+  try {
+    webrtc.RTCAudioSession?.audioSessionDidActivate();
+  } catch {
+    /* optional iOS helper */
+  }
   const pc = new webrtc.RTCPeerConnection({});
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
@@ -148,6 +190,16 @@ export async function createRealtimeVoiceSession(options: {
     }
   };
 
+  const tearDownAudio = () => {
+    try {
+      webrtc.RTCAudioSession?.audioSessionDidDeactivate();
+    } catch {
+      /* best-effort */
+    }
+    for (const track of localStream.getTracks()) track.stop();
+    pc.close();
+  };
+
   try {
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
@@ -162,8 +214,7 @@ export async function createRealtimeVoiceSession(options: {
       new webrtc.RTCSessionDescription({ type: "answer", sdp: answer.sdp }),
     );
   } catch (error) {
-    for (const track of localStream.getTracks()) track.stop();
-    pc.close();
+    tearDownAudio();
     throw error;
   }
 
@@ -181,8 +232,7 @@ export async function createRealtimeVoiceSession(options: {
       } catch {
         /* best-effort */
       }
-      for (const track of localStream.getTracks()) track.stop();
-      pc.close();
+      tearDownAudio();
     },
   };
 }

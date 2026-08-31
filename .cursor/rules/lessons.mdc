@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live Talk connected then went silent.** `useEffect(() => close, [close])`
+  re-ran whenever `close`’s identity changed (status / new chat id) and tore
+  down the WebRTC peer right after `setRemoteDescription`. Unmount-only
+  cleanup via a `close` ref; keep the session unless open-generation changed.
 - **Live talk device TTS stole GPT Audio.** Client spoke the transcript
   with expo-speech as soon as assistant text arrived, which blocked clip
   playback (`playbackStarted`). Play GPT Audio clips as the voice; device

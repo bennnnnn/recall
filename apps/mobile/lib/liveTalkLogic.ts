@@ -1,6 +1,6 @@
 export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
-export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline";
+export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline" | "unconfigured";
 
 export type LiveTalkStatus = {
   enabled: boolean;
@@ -83,14 +83,23 @@ export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean):
   return "ok";
 }
 
+/** Keep an in-flight WebRTC session only if this open() is still the current one. */
+export function liveTalkShouldAttachSession(startedGen: number, currentGen: number): boolean {
+  return startedGen === currentGen;
+}
+
 export function liveTalkErrorGate(error: unknown): LiveTalkGate {
+  if (error instanceof Error && error.message === "webrtc_unavailable") {
+    return "unavailable";
+  }
   const status =
     error && typeof error === "object" && "status" in error
       ? (error as { status: unknown }).status
       : undefined;
   if (status === 403) return "upgrade";
   if (status === 429) return "limit";
-  if (status === 404 || status === 503) return "unavailable";
+  if (status === 503) return "unconfigured";
+  if (status === 404) return "unavailable";
   return "unavailable";
 }
 
