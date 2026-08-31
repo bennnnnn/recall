@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk “fixed” clip waits and still spoke late / not at all.** Server
+  PCM was ready in ~1s (`play()` logged at ~150ms) but expo-audio file
+  splices stayed silent on simulator; Whisper also returned empty on 6s
+  WAVs. Speak the assistant transcript with expo-speech; do not skip STS
+  when Whisper hears nothing.
 - **Live talk still spoke after ~60s though the API had PCM in ~1s.**
   Clips play strictly in series and waited up to 20s each when
   `didJustFinish` / duration never arrived. Cap each splice to the WAV

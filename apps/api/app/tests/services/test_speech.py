@@ -647,17 +647,20 @@ async def test_iter_speech_to_speech_emits_user_before_audio():
 
 
 @pytest.mark.asyncio
-async def test_iter_speech_to_speech_skips_sts_when_whisper_empty():
-    from app.services.live_talk_stream import LIVE_TALK_EMPTY_TRANSCRIPT, iter_speech_to_speech
+async def test_iter_speech_to_speech_still_runs_sts_when_whisper_empty():
+    from app.services.live_talk_stream import iter_speech_to_speech
 
     wav = pcm_to_wav((10_000).to_bytes(2, "little", signed=True) * 16)
+
+    async def fake_gateway(*_args: object, **_kwargs: object):
+        yield (10_000).to_bytes(2, "little", signed=True) * 20_000, "Hi"
+
     settings = Settings(
         mock_llm_enabled=False,
         openrouter_api_key="sk-or-test",
         speech_live_talk_enabled=True,
         speech_transcription_enabled=True,
     )
-    gateway = AsyncMock()
     with (
         patch("app.services.live_talk_stream.mock_llm.should_mock_llm", return_value=False),
         patch(
@@ -666,14 +669,13 @@ async def test_iter_speech_to_speech_skips_sts_when_whisper_empty():
         ),
         patch(
             "app.services.live_talk_stream.speech_gateway.iter_speech_to_speech_via_openrouter",
-            gateway,
+            fake_gateway,
         ),
     ):
         events = [
             event async for event in iter_speech_to_speech(settings, wav, filename="speech.wav")
         ]
-    assert [(event.kind, event.text) for event in events] == [("error", LIVE_TALK_EMPTY_TRANSCRIPT)]
-    gateway.assert_not_called()
+    assert any(event.kind == "audio" for event in events)
 
 
 @pytest.mark.asyncio

@@ -131,20 +131,16 @@ async def iter_speech_to_speech(
 
     audio_bytes = trim_wav_silence(audio_bytes)
     user_text = ""
-    whisper_failed = False
     try:
         user_text = (
             (await transcribe_audio(settings, audio_bytes, filename=filename)) or ""
         ).strip()
     except Exception:
-        whisper_failed = True
         logger.exception("Live talk user transcription failed")
-    if not user_text and not whisper_failed:
-        logger.info("Live talk skipped STS; empty transcription")
-        yield LiveTalkStreamEvent(kind="error", text=LIVE_TALK_EMPTY_TRANSCRIPT)
-        return
     if user_text:
         yield LiveTalkStreamEvent(kind="user", text=user_text)
+    elif not user_text:
+        logger.info("Live talk Whisper empty; still running STS")
 
     model = resolve_live_talk_model(settings)
     pcm_buf = bytearray()

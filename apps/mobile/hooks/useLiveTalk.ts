@@ -32,7 +32,7 @@ import {
 } from "@/lib/liveTalkEvents";
 import {
   beginSpeechPlayback,
-  playSpeechAudioClip,
+  speakLiveTalkTranscript,
   stopSpeaking,
   type SpeakResult,
 } from "@/lib/pronunciation";
@@ -250,6 +250,7 @@ export function useLiveTalk({
       let playbackGen = 0;
       let playbackStarted = false;
       let playChain: Promise<SpeakResult> = Promise.resolve({ ok: true });
+      let latestAssistant = "";
       await api.liveTalkSpeak({
         token,
         audioBase64,
@@ -263,6 +264,9 @@ export function useLiveTalk({
             event.type === "done"
           ) {
             applyChatEvent(turnId, event);
+            if (event.type === "assistant") {
+              latestAssistant = event.text;
+            }
             if (event.type === "done") {
               setStatus({
                 enabled: true,
@@ -271,21 +275,18 @@ export function useLiveTalk({
                 limit: event.limit,
               });
               onFirstReply(turnChatId);
+              const spoken =
+                (event.assistant_message?.content || latestAssistant).trim();
+              if (spoken && !playbackStarted) {
+                playbackStarted = true;
+                playbackGen = beginSpeechPlayback();
+                setPhase("speaking");
+                playChain = speakLiveTalkTranscript(spoken, playbackGen);
+              }
             }
           }
           if (sessionGen.current !== gen) return;
-          if (event.type !== "audio") return;
-          gotAudio = true;
-          if (!playbackStarted) {
-            playbackStarted = true;
-            playbackGen = beginSpeechPlayback();
-            setPhase("speaking");
-          }
-          const clip = event;
-          playChain = playChain.then(() => {
-            if (sessionGen.current !== gen) return { ok: true };
-            return playSpeechAudioClip(clip.audio_base64, clip.content_type, playbackGen);
-          });
+          if (event.type === "audio") gotAudio = true;
         },
       });
       if (sessionGen.current !== gen) {

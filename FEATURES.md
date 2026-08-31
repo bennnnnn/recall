@@ -105,16 +105,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   red. Playback is not paused. No Listening/Speaking labels. The normal
   composer stays so you can type and attach in voice mode. Typing a draft
   hides mute and close so the field uses the full row; they return when
-  the draft is empty.   Spoken turns are saved as normal chat messages
+  the draft is empty. Spoken turns are saved as normal chat messages
   (what you said + the reply) so they are in the thread when you close.
-    Playback starts as the first audio clip arrives — it does not wait for
-  the full reply. Whisper for the chat bubble runs **before** GPT Audio so
-  your line appears first and the two OpenRouter jobs do not stall each
-  other. An empty Whisper result does **not** call GPT Audio (it is treated
-  as “couldn’t hear you”). The user line is persisted as soon as Whisper
-  returns, so cancel during the spoken reply still leaves what you said in
-  the thread. Auto-stop without a speech spike discards the clip instead of
-  uploading silence. The chat header (drawer / ⋮) stays available.
+  GPT Audio still produces the reply; the phone **speaks the transcript
+  with on-device TTS** because splicing GPT Audio WAV clips stalled ~60s
+  on iOS. Whisper for the chat bubble runs **before** GPT Audio. Empty
+  Whisper still runs STS (simulator mics often look silent to Whisper).
+  The user line is persisted as soon as Whisper returns. Auto-stop without
+  a speech spike discards the clip instead of uploading silence. The chat
+  header (drawer / ⋮) stays available.
   Abort before the first audio clip refunds the turn (`POST /speech/live/refund`);
   cancel after audio still persists transcripts. Unsupported containers fail
   closed (no Whisper+TTS echo of the user as the assistant).

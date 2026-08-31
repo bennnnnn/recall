@@ -279,6 +279,14 @@ export function beginSpeechPlayback(): number {
   return speakGeneration;
 }
 
+/** Speak a live-talk reply with on-device TTS. GPT Audio file splices stall on iOS. */
+export function speakLiveTalkTranscript(
+  text: string,
+  generation: number,
+): Promise<SpeakResult> {
+  return beginDeviceSpeech(text, "en", generation);
+}
+
 /** Play one WAV/MP3 clip without aborting the rest of this utterance. */
 export async function playSpeechAudioClip(
   audioBase64: string,
