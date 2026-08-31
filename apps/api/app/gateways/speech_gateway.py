@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 _OPENROUTER_TRANSCRIBE_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
 _OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 _OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"
-_TRANSCRIBE_TIMEOUT = 60.0
+_TRANSCRIBE_TIMEOUT = 20.0
 _TTS_TIMEOUT = 60.0
 _AUDIO_CHAT_TIMEOUT = 90.0
 _LIVE_TALK_VOICE = "alloy"
@@ -148,21 +148,35 @@ def _parse_pcm_params(content_type: str) -> tuple[int, int]:
     return rate, channels
 
 
+def _stt_language_code(language: str | None) -> str | None:
+    raw = (language or "").strip().lower().replace("_", "-")
+    if not raw:
+        return None
+    primary = raw.split("-", 1)[0]
+    if len(primary) == 2 and primary.isalpha():
+        return primary
+    return None
+
+
 async def transcribe_via_openrouter(
     settings: Settings,
     audio_bytes: bytes,
     *,
     filename: str,
     model: str,
+    language: str | None = None,
 ) -> str | None:
     audio_format = openrouter_audio_format(filename)
-    payload = {
+    payload: dict[str, object] = {
         "model": model,
         "input_audio": {
             "data": base64.b64encode(audio_bytes).decode("ascii"),
             "format": audio_format,
         },
     }
+    lang = _stt_language_code(language)
+    if lang:
+        payload["language"] = lang
     try:
         client = get_pooled_client(_TRANSCRIBE_TIMEOUT)
         response = await client.post(

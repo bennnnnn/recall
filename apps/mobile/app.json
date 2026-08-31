@@ -91,6 +91,12 @@
         {
           "microphonePermission": "Recall uses the microphone so you can dictate messages."
         }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "Recall uses the microphone for instant Live Talk."
+        }
       ]
     ],
     "experiments": {

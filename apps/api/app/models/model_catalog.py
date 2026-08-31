@@ -256,7 +256,9 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="speech-stt-model",
         label="Speech transcription",
-        model="openai/whisper-1",
+        # OpenRouter STT slug. Composer dictation stays on OpenRouter;
+        # Live Talk Realtime is a separate direct-OpenAI WebRTC path.
+        model="openai/gpt-transcribe",
         provider="openai",
         selectable=False,
     ),

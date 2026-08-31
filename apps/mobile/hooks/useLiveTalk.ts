@@ -1,43 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, BackHandler } from "react-native";
+import { BackHandler } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useDrawer } from "@/contexts/DrawerContext";
-
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
-import { isSseAbortError } from "@/lib/chatSse";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/lib/liveTalkEvents";
 import {
-  LIVE_TALK_ECHO_GUARD_MS,
-  liveTalkAbortRefundNeeded,
-  liveTalkCanTakeFloor,
-  liveTalkDiscardListenOnMute,
   liveTalkErrorGate,
   liveTalkGate,
-  liveTalkIsEmptyTranscriptError,
-  liveTalkOrbAction,
-  liveTalkShouldSendRecording,
-  liveTalkSilenceDecision,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
 import {
-  applyLiveTalkChatEvent,
-  dropLiveTalkLocalTurn,
-  type LiveTalkSpeakEvent,
-} from "@/lib/liveTalkEvents";
-import {
-  beginSpeechPlayback,
-  playSpeechAudioClip,
-  speakLiveTalkTranscript,
-  stopSpeaking,
-  type SpeakResult,
-} from "@/lib/pronunciation";
-import { isVoiceInputAvailable, readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
+  createRealtimeVoiceSession,
+  type RealtimeVoiceEvent,
+  type RealtimeVoiceSession,
+} from "@/lib/realtimeVoice";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type DraftChat = {
   prepareDraftChat: (
@@ -69,6 +51,16 @@ type Options = {
   t: (key: string) => string;
 };
 
+type CompletedTurn = {
+  id: string;
+  chatId: string | null;
+  callId: string | null;
+  userText: string;
+  assistantText: string;
+};
+
+const REALTIME_TRANSCRIPT_GRACE_MS = 350;
+
 export function useLiveTalk({
   token,
   chatId,
@@ -91,62 +83,33 @@ export function useLiveTalk({
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [muted, setMuted] = useState(false);
   const [status, setStatus] = useState<LiveTalkStatus | null>(null);
-  const phaseRef = useRef(phase);
+  const sessionRef = useRef<RealtimeVoiceSession | null>(null);
+  const callIdRef = useRef<string | null>(null);
+  const turnIdRef = useRef("");
+  const turnChatIdRef = useRef<string | null>(null);
+  const assistantTextRef = useRef("");
+  const userTextRef = useRef("");
   const visibleRef = useRef(false);
-  const mutedRef = useRef(false);
-  const sessionGen = useRef(0);
-  const heardSpeechRef = useRef(false);
-  const silenceStartedAtRef = useRef<number | null>(null);
-  const recordingStartedAtRef = useRef(0);
-  const endingUtteranceRef = useRef(false);
-  const autoListenRef = useRef(false);
-  const emptyStreakRef = useRef(0);
-  const speakAbortRef = useRef<AbortController | null>(null);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  phaseRef.current = phase;
   visibleRef.current = visible;
-  mutedRef.current = muted;
 
   const alertForGate = useCallback(
-    (gate: LiveTalkGate, opts?: { overModal?: boolean }) => {
+    (gate: LiveTalkGate) => {
       if (gate === "upgrade") {
         onUpgrade();
         return;
       }
-      const overModal = opts?.overModal === true;
       const message =
         gate === "limit"
           ? t("chat.live_talk_limit_body")
           : gate === "offline"
             ? t("chat.offline_body")
             : t("chat.live_talk_unavailable_body");
-      if (overModal) {
-        const title =
-          gate === "limit"
-            ? t("chat.live_talk_limit_title")
-            : gate === "offline"
-              ? t("common.error")
-              : t("chat.live_talk_unavailable_title");
-        Alert.alert(title, message);
-        return;
-      }
       reportRecoverableError(feedback, message);
     },
     [feedback, onUpgrade, t],
   );
-
-  const voice = useVoiceInput({
-    token,
-    t,
-    recordingFormat: "wav",
-    onTranscript: () => undefined,
-    onTranscribeError: () => undefined,
-  });
-
-  const startRecordingRef = useRef(voice.startRecording);
-  const cancelRecordingRef = useRef(voice.cancelRecording);
-  startRecordingRef.current = voice.startRecording;
-  cancelRecordingRef.current = voice.cancelRecording;
 
   const ensureChatId = useCallback(async (): Promise<string | null> => {
     if (chatId) return chatId;
@@ -166,8 +129,9 @@ export function useLiveTalk({
     }
   }, [chatId, draft, router, selectedModel, setChatId, setChatTitle]);
 
-  const applyChatEvent = useCallback(
-    (turnId: string, event: LiveTalkSpeakEvent) => {
+  const applyEvent = useCallback(
+    (event: LiveTalkSpeakEvent, turnId = turnIdRef.current) => {
+      if (!turnId) return;
       setMessages((prev) => applyLiveTalkChatEvent(prev, turnId, event));
       if (event.type === "done") {
         newMessageCountRef.current += 2;
@@ -177,226 +141,175 @@ export function useLiveTalk({
     [newMessageCountRef, onScrollToLatest, setMessages],
   );
 
-  const beginListen = useCallback(async () => {
-    if (!token || isOffline || !visibleRef.current || mutedRef.current) return;
-    if (phaseRef.current === "recording" || phaseRef.current === "thinking") return;
-    heardSpeechRef.current = false;
-    silenceStartedAtRef.current = null;
-    recordingStartedAtRef.current = Date.now();
-    const started = await startRecordingRef.current();
-    if (!started) return;
-    if (!visibleRef.current || mutedRef.current) {
-      void cancelRecordingRef.current();
-      return;
-    }
-    setPhase("recording");
-  }, [token, isOffline]);
-
-  const discardQuietListen = useCallback(async () => {
-    if (endingUtteranceRef.current) return;
-    endingUtteranceRef.current = true;
-    await cancelRecordingRef.current();
-    endingUtteranceRef.current = false;
-    emptyStreakRef.current += 1;
-    autoListenRef.current = emptyStreakRef.current < 3 && !mutedRef.current;
-    setPhase("idle");
+  const captureCurrentTurn = useCallback((): CompletedTurn | null => {
+    const id = turnIdRef.current;
+    if (!id) return null;
+    const completed: CompletedTurn = {
+      id,
+      chatId: turnChatIdRef.current,
+      callId: callIdRef.current,
+      userText: userTextRef.current.trim(),
+      assistantText: assistantTextRef.current.trim(),
+    };
+    turnIdRef.current = "";
+    userTextRef.current = "";
+    assistantTextRef.current = "";
+    return completed;
   }, []);
 
-  const finishListen = useCallback(async () => {
-    if (!token || endingUtteranceRef.current) return;
-    endingUtteranceRef.current = true;
-    const gen = sessionGen.current;
-    setPhase("thinking");
-    const uri = await cancelRecordingRef.current();
-    if (sessionGen.current !== gen) {
-      endingUtteranceRef.current = false;
-      return;
-    }
-    if (!uri) {
-      endingUtteranceRef.current = false;
-      emptyStreakRef.current += 1;
-      autoListenRef.current = emptyStreakRef.current < 3;
-      setPhase("idle");
-      return;
-    }
-    const audioBase64 = await readRecordingBase64(uri);
-    if (sessionGen.current !== gen) {
-      endingUtteranceRef.current = false;
-      return;
-    }
-    if (!audioBase64) {
-      endingUtteranceRef.current = false;
-      emptyStreakRef.current += 1;
-      autoListenRef.current = emptyStreakRef.current < 3;
-      setPhase("idle");
-      return;
-    }
-    emptyStreakRef.current = 0;
-    const abort = new AbortController();
-    speakAbortRef.current = abort;
-    let gotAudio = false;
-    let turnChatId: string | null = null;
-    let turnId = "";
-    try {
-      turnChatId = await ensureChatId();
-      if (sessionGen.current !== gen) {
-        endingUtteranceRef.current = false;
-        return;
-      }
-      turnId = String(Date.now());
-      applyChatEvent(turnId, {
-        type: "user",
-        text: t("chat.live_talk_voice_placeholder"),
-      });
-      let clipGen = 0;
-      let usedClips = false;
-      let playChain: Promise<SpeakResult> = Promise.resolve({ ok: true });
-      let latestAssistant = "";
-      await api.liveTalkSpeak({
-        token,
-        audioBase64,
-        filename: speechUploadFromUri(uri).name,
-        chatId: turnChatId,
-        signal: abort.signal,
-        onEvent: (event: LiveTalkSpeakEvent) => {
-          if (
-            event.type === "user" ||
-            event.type === "assistant" ||
-            event.type === "done"
-          ) {
-            applyChatEvent(turnId, event);
-            if (event.type === "assistant") {
-              latestAssistant = event.text;
-            }
-            if (event.type === "done") {
-              setStatus({
-                enabled: true,
-                entitled: true,
-                remaining: event.remaining,
-                limit: event.limit,
-              });
-              onFirstReply(turnChatId);
-            }
-          }
-          if (sessionGen.current !== gen) return;
-          if (event.type === "audio" || event.type === "assistant") gotAudio = true;
-          if (event.type !== "audio") return;
-          usedClips = true;
-          if (!clipGen) {
-            clipGen = beginSpeechPlayback();
-            setPhase("speaking");
-          }
-          const clip = event;
-          playChain = playChain.then((prev) => {
-            if (!prev.ok || sessionGen.current !== gen) return prev.ok ? { ok: true } : prev;
-            return playSpeechAudioClip(clip.audio_base64, clip.content_type, clipGen);
+  const finishTurn = useCallback(
+    async (completed: CompletedTurn) => {
+      // Persistence, title generation, memory extraction, todo extraction, and
+      // RAG indexing stay outside the audio path. The completed turn is an
+      // immutable snapshot so a fast barge-in cannot mutate what gets saved.
+      if (token && completed.chatId && completed.callId && (completed.userText || completed.assistantText)) {
+        void api
+          .persistRealtimeLiveTalkTurn(token, {
+            chatId: completed.chatId,
+            callId: completed.callId,
+            userText: completed.userText,
+            assistantText: completed.assistantText,
+          })
+          .then(() => api.listMessages(token, completed.chatId!, { limit: 40 }))
+          .then((page) => {
+            if (page.messages.length > 0) setMessages(page.messages);
+          })
+          .catch((error: unknown) => {
+            reportRecoverableError(
+              feedback,
+              error instanceof Error ? error.message : t("chat.live_talk_failed"),
+            );
           });
-        },
-      });
-      if (sessionGen.current !== gen) {
-        endingUtteranceRef.current = false;
-        return;
       }
-      const played = await playChain;
-      if (sessionGen.current !== gen) {
-        endingUtteranceRef.current = false;
-        return;
+
+      try {
+        const next = token ? await api.liveTalkStatus(token) : status;
+        if (next) setStatus(next);
+        applyEvent(
+          {
+            type: "done",
+            remaining: next?.remaining ?? status?.remaining ?? 0,
+            limit: next?.limit ?? status?.limit ?? 0,
+            user_message: null,
+            assistant_message: null,
+          },
+          completed.id,
+        );
+        onFirstReply(completed.chatId);
+      } catch {
+        // Voice already succeeded. A status refresh failure must not make the
+        // completed turn look failed.
+        applyEvent(
+          {
+            type: "done",
+            remaining: status?.remaining ?? 0,
+            limit: status?.limit ?? 0,
+            user_message: null,
+            assistant_message: null,
+          },
+          completed.id,
+        );
       }
-      if (!usedClips && latestAssistant.trim()) {
-        clipGen = beginSpeechPlayback();
-        setPhase("speaking");
-        const fallback = await speakLiveTalkTranscript(latestAssistant, clipGen);
-        if (sessionGen.current !== gen) {
-          endingUtteranceRef.current = false;
-          return;
-        }
-        if (!fallback.ok) {
-          Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
-        }
-      } else if (usedClips && !played.ok) {
-        Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
-      }
-      if (usedClips || latestAssistant.trim()) {
-        await new Promise((resolve) => setTimeout(resolve, LIVE_TALK_ECHO_GUARD_MS));
-        if (sessionGen.current !== gen) {
-          endingUtteranceRef.current = false;
-          return;
-        }
-      }
-      autoListenRef.current = !mutedRef.current;
-      setPhase("idle");
-    } catch (error) {
-      const aborted =
-        isSseAbortError(error) ||
-        (error instanceof Error &&
-          (error.name === "AbortError" || error.name === "CanceledError"));
-      if (aborted && liveTalkAbortRefundNeeded(gotAudio)) {
-        void api.refundLiveTalkTurn(token);
-      }
-      if (liveTalkIsEmptyTranscriptError(error)) {
-        if (turnId) {
-          setMessages((prev) => dropLiveTalkLocalTurn(prev, turnId));
-        }
-        Alert.alert(t("chat.live_talk_title"), t("chat.live_talk_couldnt_hear"));
-        autoListenRef.current = !mutedRef.current;
+    },
+    [applyEvent, feedback, onFirstReply, setMessages, status, t, token],
+  );
+
+  const finalizeCurrentTurn = useCallback(() => {
+    const completed = captureCurrentTurn();
+    if (!completed) return;
+    setPhase("idle");
+    void finishTurn(completed);
+  }, [captureCurrentTurn, finishTurn]);
+
+  const flushPendingTurn = useCallback(() => {
+    if (finishTimerRef.current != null) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    }
+    if (turnIdRef.current && (userTextRef.current || assistantTextRef.current)) {
+      finalizeCurrentTurn();
+    }
+  }, [finalizeCurrentTurn]);
+
+  const handleRealtimeEvent = useCallback(
+    (event: RealtimeVoiceEvent) => {
+      if (!visibleRef.current && event.type !== "connected") return;
+      if (event.type === "connected") {
         setPhase("idle");
         return;
       }
-      if (aborted) {
-        if (turnChatId) {
-          void api
-            .listMessages(token, turnChatId, { limit: 40 })
-            .then((page) => {
-              if (page.messages.length > 0) setMessages(page.messages);
-            })
-            .catch((hydrateError: unknown) => {
-              reportRecoverableError(
-                feedback,
-                hydrateError instanceof Error ? hydrateError.message : t("chat.live_talk_failed"),
-              );
-            });
-        }
-        endingUtteranceRef.current = false;
+      if (event.type === "speech_started") {
+        // If the user barges in while the prior response is finishing, freeze
+        // that completed turn before starting a new one.
+        flushPendingTurn();
+        turnIdRef.current = String(Date.now());
+        userTextRef.current = "";
+        assistantTextRef.current = "";
+        setPhase("recording");
         return;
       }
-      if (sessionGen.current !== gen) {
-        endingUtteranceRef.current = false;
+      if (event.type === "speech_stopped") {
+        setPhase("thinking");
         return;
       }
-      alertForGate(liveTalkErrorGate(error), { overModal: true });
-      setPhase("idle");
-    } finally {
-      if (speakAbortRef.current === abort) speakAbortRef.current = null;
-      endingUtteranceRef.current = false;
-    }
-  }, [
-    token,
-    alertForGate,
-    t,
-    ensureChatId,
-    applyChatEvent,
-    onFirstReply,
-    setMessages,
-    feedback,
-  ]);
+      if (event.type === "response_started") {
+        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
+        setPhase("thinking");
+        return;
+      }
+      if (event.type === "user_transcript") {
+        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
+        userTextRef.current = event.text;
+        applyEvent({ type: "user", text: event.text });
+        return;
+      }
+      if (event.type === "assistant_transcript") {
+        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
+        assistantTextRef.current = event.text;
+        applyEvent({ type: "assistant", text: event.text });
+        setPhase("speaking");
+        return;
+      }
+      if (event.type === "response_done") {
+        if (finishTimerRef.current != null) clearTimeout(finishTimerRef.current);
+        // This grace affects only persistence/UI canonicalization, never audible
+        // audio. It allows the final input-transcription event to arrive if it
+        // trails response.done by a few network frames.
+        finishTimerRef.current = setTimeout(() => {
+          finishTimerRef.current = null;
+          finalizeCurrentTurn();
+        }, REALTIME_TRANSCRIPT_GRACE_MS);
+        return;
+      }
+      if (event.type === "error") {
+        reportRecoverableError(feedback, event.message || t("chat.live_talk_failed"));
+        setPhase("idle");
+      }
+    },
+    [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],
+  );
 
   const close = useCallback(() => {
-    sessionGen.current += 1;
-    speakAbortRef.current?.abort();
-    speakAbortRef.current = null;
-    stopSpeaking();
-    endingUtteranceRef.current = false;
-    autoListenRef.current = false;
-    void cancelRecordingRef.current();
-    setPhase("idle");
+    if (finishTimerRef.current != null) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    }
+    const completed = captureCurrentTurn();
+    if (completed && (completed.userText || completed.assistantText)) {
+      void finishTurn(completed);
+    }
+    sessionRef.current?.close();
+    sessionRef.current = null;
+    callIdRef.current = null;
     setMuted(false);
+    setPhase("idle");
     setVisible(false);
-  }, []);
+  }, [captureCurrentTurn, finishTurn]);
 
   const open = useCallback(async () => {
     if (!token) return;
-    if (!isVoiceInputAvailable() || !voice.voiceInputAvailable) {
-      reportRecoverableError(feedback, t("chat.live_talk_unavailable_body"));
+    if (isOffline) {
+      alertForGate("offline");
       return;
     }
     try {
@@ -407,106 +320,52 @@ export function useLiveTalk({
         alertForGate(gate);
         return;
       }
-      sessionGen.current += 1;
-      emptyStreakRef.current = 0;
-      autoListenRef.current = true;
+      const activeChatId = await ensureChatId();
+      turnChatIdRef.current = activeChatId;
       setMuted(false);
-      setPhase("idle");
+      setPhase("thinking");
       setVisible(true);
+      const session = await createRealtimeVoiceSession({
+        token,
+        chatId: activeChatId,
+        onEvent: handleRealtimeEvent,
+      });
+      if (!visibleRef.current) {
+        session.close();
+        return;
+      }
+      sessionRef.current = session;
+      callIdRef.current = session.callId;
+      setPhase("idle");
     } catch (error) {
+      setVisible(false);
+      setPhase("idle");
       alertForGate(liveTalkErrorGate(error));
     }
-  }, [token, isOffline, voice.voiceInputAvailable, t, alertForGate, feedback]);
-
-  const toggle = useCallback(async () => {
-    const action = liveTalkOrbAction(phase);
-    if (action === "none") return;
-    if (action === "cancelThink") {
-      sessionGen.current += 1;
-      speakAbortRef.current?.abort();
-      speakAbortRef.current = null;
-      endingUtteranceRef.current = false;
-      autoListenRef.current = !mutedRef.current;
-      setPhase("idle");
-      return;
-    }
-    if (action === "finishListen") {
-      await finishListen();
-      return;
-    }
-    await beginListen();
-  }, [phase, finishListen, beginListen]);
+  }, [token, isOffline, alertForGate, ensureChatId, handleRealtimeEvent]);
 
   const toggleMute = useCallback(() => {
-    if (mutedRef.current) {
-      mutedRef.current = false;
-      setMuted(false);
-      if (phaseRef.current === "idle" && visibleRef.current) {
-        autoListenRef.current = true;
-        void beginListen();
-      }
-      return;
-    }
-    mutedRef.current = true;
-    setMuted(true);
-    autoListenRef.current = false;
-    if (liveTalkDiscardListenOnMute(phaseRef.current)) {
-      sessionGen.current += 1;
-      endingUtteranceRef.current = false;
-      speakAbortRef.current?.abort();
-      speakAbortRef.current = null;
-      void cancelRecordingRef.current();
+    const next = !muted;
+    setMuted(next);
+    sessionRef.current?.setMuted(next);
+  }, [muted]);
+
+  // Semantic VAD owns turn boundaries. Normal interruption is simply speaking
+  // over the assistant; the Realtime session has interrupt_response enabled.
+  const toggle = useCallback(async () => {
+    if (phase === "thinking") {
+      sessionRef.current?.cancelResponse();
       setPhase("idle");
     }
-  }, [beginListen]);
-
-  const interrupt = useCallback(() => {
-    if (!liveTalkCanTakeFloor(phase)) return;
-    sessionGen.current += 1;
-    speakAbortRef.current?.abort();
-    speakAbortRef.current = null;
-    stopSpeaking();
-    autoListenRef.current = !mutedRef.current;
-    void cancelRecordingRef.current();
-    setPhase("idle");
   }, [phase]);
 
-  const yieldToComposer = useCallback(() => {
-    if (!visibleRef.current) return;
-    sessionGen.current += 1;
-    speakAbortRef.current?.abort();
-    speakAbortRef.current = null;
-    stopSpeaking();
-    endingUtteranceRef.current = false;
-    autoListenRef.current = false;
-    void cancelRecordingRef.current();
-    setPhase("idle");
+  const interrupt = useCallback(() => {
+    // Kept for the existing UI contract. Barge-in is automatic in Realtime.
   }, []);
 
-  useEffect(() => {
-    if (!visible || phase !== "idle" || !autoListenRef.current) return;
-    autoListenRef.current = false;
-    void beginListen();
-  }, [visible, phase, beginListen]);
-
-  useEffect(() => {
-    if (phase !== "recording") return;
-    const next = liveTalkSilenceDecision({
-      meter: voice.voiceMeterLevel,
-      now: Date.now(),
-      recordingStartedAt: recordingStartedAtRef.current,
-      heardSpeech: heardSpeechRef.current,
-      silenceStartedAt: silenceStartedAtRef.current,
-    });
-    heardSpeechRef.current = next.heardSpeech;
-    silenceStartedAtRef.current = next.silenceStartedAt;
-    if (!next.shouldStop) return;
-    if (liveTalkShouldSendRecording(next.heardSpeech)) {
-      void finishListen();
-      return;
-    }
-    void discardQuietListen();
-  }, [phase, voice.voiceMeterLevel, finishListen, discardQuietListen]);
+  const yieldToComposer = useCallback(() => {
+    close();
+  }, [close]);
 
   useEffect(() => {
     if (!visible) return;
@@ -518,16 +377,12 @@ export function useLiveTalk({
     return () => sub.remove();
   }, [visible, drawerOpen, close]);
 
-  useEffect(() => {
-    return () => {
-      stopSpeaking();
-    };
-  }, []);
+  useEffect(() => close, [close]);
 
   return {
     visible,
     phase,
-    meterLevel: voice.voiceMeterLevel,
+    meterLevel: phase === "recording" ? 0.8 : phase === "speaking" ? 0.55 : 0.12,
     recording: phase === "recording",
     muted,
     open,

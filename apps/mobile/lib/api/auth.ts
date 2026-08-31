@@ -1,4 +1,5 @@
 import { readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
+import i18n from "@/lib/i18n";
 
 import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
 import type { AuthResult } from "@/lib/api/types";
@@ -48,6 +49,12 @@ export async function loginWithDev(
   return response.json() as Promise<AuthResult>;
 }
 
+function speechLanguageHint(): string | undefined {
+  const language = (i18n.resolvedLanguage || i18n.language || "").trim().toLowerCase();
+  if (!language) return undefined;
+  return language.split("-")[0] || undefined;
+}
+
 export async function transcribeSpeech(token: string, fileUri: string): Promise<string> {
   const upload = speechUploadFromUri(fileUri);
   const audioBase64 = await readRecordingBase64(fileUri);
@@ -63,10 +70,11 @@ export async function transcribeSpeech(token: string, fileUri: string): Promise<
         body: JSON.stringify({
           audio_base64: audioBase64,
           filename: upload.name,
+          language: speechLanguageHint(),
         }),
       },
       true,
-      60_000,
+      25_000,
     );
     const text = (data.text ?? "").trim();
     if (!text) throw new Error("transcribe_empty");
