@@ -131,3 +131,49 @@ export function liveTalkSilenceDecision(options: {
     shouldStop: options.now - silenceStartedAt >= LIVE_TALK_SILENCE_MS,
   };
 }
+
+/** Speak a phrase before the stream ends so we do not wait for GPT Audio `done`. */
+export const LIVE_TALK_SPEAK_MIN_CHARS = 40;
+
+function isSpokenSentenceEnd(ch: string): boolean {
+  return ch === "." || ch === "!" || ch === "?" || ch === "…" || ch === "。";
+}
+
+/** Next phrase to speak from a growing assistant transcript. */
+export function nextLiveTalkSpeakChunk(
+  full: string,
+  spokenLen: number,
+): { chunk: string; consumed: number } {
+  const start = spokenLen < 0 ? 0 : spokenLen;
+  if (start >= full.length) return { chunk: "", consumed: start };
+  const rest = full.slice(start);
+  for (let i = 0; i < rest.length; i += 1) {
+    const ch = rest[i] ?? "";
+    if (!isSpokenSentenceEnd(ch)) continue;
+    const next = rest[i + 1];
+    if (next && next !== " " && next !== "\n") continue;
+    const raw = rest.slice(0, i + 1);
+    const chunk = raw.trim();
+    if (chunk) return { chunk, consumed: start + raw.length };
+  }
+  const trimmed = rest.trim();
+  if (trimmed.length >= LIVE_TALK_SPEAK_MIN_CHARS) {
+    let cut = -1;
+    const from = Math.min(rest.length - 1, 120);
+    for (let i = from; i >= 20; i -= 1) {
+      if (rest[i] === " ") {
+        cut = i;
+        break;
+      }
+    }
+    const raw = cut >= 20 ? rest.slice(0, cut) : rest.slice(0, Math.min(rest.length, 80));
+    const chunk = raw.trim();
+    if (chunk) return { chunk, consumed: start + raw.length };
+  }
+  return { chunk: "", consumed: start };
+}
+
+export function liveTalkSpeakFlush(full: string, spokenLen: number): string {
+  if (spokenLen >= full.length) return "";
+  return full.slice(Math.max(0, spokenLen)).trim();
+}

@@ -107,10 +107,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   hides mute and close so the field uses the full row; they return when
   the draft is empty. Spoken turns are saved as normal chat messages
   (what you said + the reply) so they are in the thread when you close.
-  GPT Audio still produces the reply; the phone **speaks the transcript
-  with on-device TTS** because splicing GPT Audio WAV clips stalled ~60s
-  on iOS. Whisper for the chat bubble runs **before** GPT Audio. Empty
-  Whisper still runs STS (simulator mics often look silent to Whisper).
+  GPT Audio still produces the reply. Clips start as soon as PCM
+  arrives; the phone **also speaks the transcript with on-device TTS as
+  soon as words arrive**, not after the full stream (waiting for `done`
+  was ~1–2 min of silence). Device TTS stops clip splices so a silent
+  player cannot hold the speaker. Whisper for the chat bubble
+  runs **before** GPT Audio. Empty Whisper still runs STS (simulator
+  mics often look silent to Whisper).
   The user line is persisted as soon as Whisper returns. Auto-stop without
   a speech spike discards the clip instead of uploading silence. The chat
   header (drawer / ⋮) stays available.

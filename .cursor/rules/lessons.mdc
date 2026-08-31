@@ -12,11 +12,17 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live talk device voice after ~2 min.** Client called expo-speech
+  only on SSE `done`, after the full GPT Audio stream (~90s). PCM was
+  ready in ~1s but file splices stay silent after the mic. Play clips
+  on their own chain as they arrive; speak transcript from the first
+  assistant words on a separate chain (stops the splices). Switch the
+  session out of record mode before `Speech.speak`.
 - **Live talk “fixed” clip waits and still spoke late / not at all.** Server
   PCM was ready in ~1s (`play()` logged at ~150ms) but expo-audio file
   splices stayed silent on simulator; Whisper also returned empty on 6s
-  WAVs. Speak the assistant transcript with expo-speech; do not skip STS
-  when Whisper hears nothing.
+  WAVs. Speak the assistant transcript with expo-speech when clips are
+  not the voice yet; do not skip STS when Whisper hears nothing.
 - **Live talk still spoke after ~60s though the API had PCM in ~1s.**
   Clips play strictly in series and waited up to 20s each when
   `didJustFinish` / duration never arrived. Cap each splice to the WAV

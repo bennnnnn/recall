@@ -333,16 +333,18 @@ async function playRemoteAudio(url: string): Promise<SpeakResult> {
   }
 }
 
-function beginDeviceSpeech(
+async function beginDeviceSpeech(
   text: string,
   language: string,
   generation: number,
 ): Promise<SpeakResult> {
-  if (!isCurrentSpeak(generation)) return Promise.resolve({ ok: true });
+  if (!isCurrentSpeak(generation)) return { ok: true };
+  await preparePlaybackAudioMode();
+  if (!isCurrentSpeak(generation)) return { ok: true };
   const Speech = loadSpeech();
-  if (!Speech) return Promise.resolve({ ok: false, reason: "unavailable" });
+  if (!Speech) return { ok: false, reason: "unavailable" };
   const plain = text.slice(0, 8000).trim();
-  if (!plain) return Promise.resolve({ ok: false, reason: "error" });
+  if (!plain) return { ok: false, reason: "error" };
   return new Promise((resolve) => {
     try {
       Speech.speak(plain, {

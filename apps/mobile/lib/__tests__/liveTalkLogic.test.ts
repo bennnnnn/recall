@@ -12,6 +12,8 @@ import {
   liveTalkMuteA11yKey,
   liveTalkShowsSideChrome,
   liveTalkSilenceDecision,
+  liveTalkSpeakFlush,
+  nextLiveTalkSpeakChunk,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
 
@@ -94,6 +96,29 @@ describe("liveTalkOrbAction", () => {
     expect(liveTalkCanTakeFloor("speaking")).toBe(true);
     expect(liveTalkCanTakeFloor("recording")).toBe(false);
     expect(liveTalkCanTakeFloor("thinking")).toBe(false);
+  });
+});
+
+describe("nextLiveTalkSpeakChunk", () => {
+  it("speaks a finished sentence before the stream ends", () => {
+    expect(nextLiveTalkSpeakChunk("Hello there.", 0)).toEqual({
+      chunk: "Hello there.",
+      consumed: 12,
+    });
+  });
+
+  it("waits for a short fragment, then flushes the rest", () => {
+    expect(nextLiveTalkSpeakChunk("Hi", 0).chunk).toBe("");
+    expect(liveTalkSpeakFlush("Hi there", 0)).toBe("Hi there");
+    expect(liveTalkSpeakFlush("Hello there.", 12)).toBe("");
+  });
+
+  it("speaks a long phrase with no period so the first words are not held until done", () => {
+    const full =
+      "That is a pretty long spoken reply without punctuation yet in this turn";
+    const next = nextLiveTalkSpeakChunk(full, 0);
+    expect(next.chunk.length).toBeGreaterThanOrEqual(40);
+    expect(full.startsWith(next.chunk)).toBe(true);
   });
 });
 
