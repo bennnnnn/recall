@@ -1,6 +1,7 @@
 import { readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
+import i18n from "@/lib/i18n";
 
-import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
+import { ApiRequestError, apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
 import type { AuthResult } from "@/lib/api/types";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
@@ -48,6 +49,30 @@ export async function loginWithDev(
   return response.json() as Promise<AuthResult>;
 }
 
+function speechLanguageHint(): string | undefined {
+  const language = (i18n.resolvedLanguage || i18n.language || "").trim().toLowerCase();
+  if (!language) return undefined;
+  return language.split("-")[0] || undefined;
+}
+
+async function transcribeLegacy(
+  token: string,
+  audioBase64: string,
+  filename: string,
+): Promise<string> {
+  const data = await request<{ text?: string }>(
+    "/speech/transcribe",
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ audio_base64: audioBase64, filename }),
+    },
+    true,
+    60_000,
+  );
+  return (data.text ?? "").trim();
+}
+
 export async function transcribeSpeech(token: string, fileUri: string): Promise<string> {
   const upload = speechUploadFromUri(fileUri);
   const audioBase64 = await readRecordingBase64(fileUri);
@@ -55,20 +80,31 @@ export async function transcribeSpeech(token: string, fileUri: string): Promise<
     throw new Error("recording_empty");
   }
   try {
-    const data = await request<{ text?: string }>(
-      "/speech/transcribe",
-      token,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          audio_base64: audioBase64,
-          filename: upload.name,
-        }),
-      },
-      true,
-      60_000,
-    );
-    const text = (data.text ?? "").trim();
+    let text = "";
+    try {
+      const data = await request<{ text?: string }>(
+        "/speech/transcribe/v2",
+        token,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            audio_base64: audioBase64,
+            filename: upload.name,
+            language: speechLanguageHint(),
+          }),
+        },
+        true,
+        25_000,
+      );
+      text = (data.text ?? "").trim();
+    } catch (error) {
+      // Rollback path only: old builds/environments without OPENAI_API_KEY keep
+      // dictation usable while Realtime voice is rolled out independently.
+      if (!(error instanceof ApiRequestError) || ![404, 503].includes(error.status)) {
+        throw error;
+      }
+      text = await transcribeLegacy(token, audioBase64, upload.name);
+    }
     if (!text) throw new Error("transcribe_empty");
     return text;
   } catch (error) {
