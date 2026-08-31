@@ -246,7 +246,6 @@ def turn_needs_tool_loop(
     if not text:
         return False
 
-    from app.services import calendar as calendar_service
     from app.services.image_gen_intent import extract_image_gen_prompt
     from app.services.math_tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
@@ -257,8 +256,6 @@ def turn_needs_tool_loop(
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
-        return True
-    if calendar_service.is_calendar_create_request(text):
         return True
     image_on = settings is None or settings.image_generation_enabled
     if (

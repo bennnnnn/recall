@@ -54,6 +54,7 @@ RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
 EMAIL_SUGGESTION_PUSH_LIMIT = 200
 RECEIPT_MIN_AGE_SECONDS = 15 * 60
 RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
+_MAX_EMAIL_SUGGESTION_PUSH_CHARS = 120
 
 
 @dataclass
@@ -112,6 +113,17 @@ _PUSH_STRINGS: dict[str, dict[str, str]] = {
 def _push_strings(locale: str | None) -> dict[str, str]:
     code = normalize_locale_code(locale)
     return _PUSH_STRINGS.get(code, _PUSH_STRINGS["en"])
+
+
+def _sanitize_email_suggestion_body(title: str) -> str:
+    """Collapse whitespace/control chars and cap length — never raw LLM titles."""
+    cleaned = "".join(ch if ch.isprintable() else " " for ch in title)
+    cleaned = " ".join(cleaned.split())
+    if not cleaned:
+        return "New reminder from inbox"
+    if len(cleaned) > _MAX_EMAIL_SUGGESTION_PUSH_CHARS:
+        return cleaned[: _MAX_EMAIL_SUGGESTION_PUSH_CHARS - 1].rstrip() + "…"
+    return cleaned
 
 
 def _receipt_token_key(ticket_id: str) -> str:
@@ -341,7 +353,7 @@ async def process_email_suggestions(
             count = len(reminders)
             strings = _push_strings(getattr(users[user_id], "locale", None))
             if count == 1:
-                body = reminders[0].title
+                body = _sanitize_email_suggestion_body(reminders[0].title)
             else:
                 body = strings["email_plural"].format(count=count)
             _append_outbound(
@@ -550,16 +562,18 @@ async def _finalize_push_deliveries(
             # Production collect/finalize use different sessions — mutate a
             # row loaded here or the UPDATE never flushes.
             todo_row = await session.get(TodoItem, todo_id)
-            todo_target = todo_row if todo_row is not None else todo
-            await _mark_todo_after_successful_push(session, todo_target, todo, now=now)
+            if todo_row is None:
+                continue
+            await _mark_todo_after_successful_push(session, todo_row, todo, now=now)
             todos_marked.add(todo_id)
         for suggestion in item.suggestions:
             suggestion_id = getattr(suggestion, "id", None)
             if suggestion_id is None or suggestion_id in suggestions_marked:
                 continue
             suggestion_row = await session.get(SuggestedReminder, suggestion_id)
-            suggestion_target = suggestion_row if suggestion_row is not None else suggestion
-            suggestion_target.notification_sent_at = now
+            if suggestion_row is None:
+                continue
+            suggestion_row.notification_sent_at = now
             suggestion.notification_sent_at = now
             suggestions_marked.add(suggestion_id)
 

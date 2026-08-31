@@ -526,8 +526,8 @@ were removed. Programming help lives in main chat.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
   there). Compact stats, PDF export, and delete live in Settings/Learning.
-- ✅ **Project kinds** — create only offers `en` / `es`. Legacy kinds (`trivia`,
-  `programming`, `math`, …) are rejected on create.
+- ✅ **Project kinds** — create only offers `en` / `es` (English and Spanish vocab catalogs). Legacy kinds (`trivia`,
+  `programming`, `math`, …) are rejected on create. Other languages and Anki SM-2 due-queue UI are not shipped.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
@@ -620,7 +620,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision extract → SymPy on the supported subset. Unverified fall-through is labeled in the reply (`Couldn't verify this with SymPy.`). Not every photographed problem verifies.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision extract → SymPy on the supported subset. Unverified fall-through is labeled in the reply (`Couldn't verify this with SymPy.`). Not every photographed problem verifies. Camera capture needs a **dev build** (native module; Expo Go cannot shoot).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -809,7 +809,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 
 | Capability | Status |
 |------------|--------|
-| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
+| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
 | Library (drawer grid of generated + uploaded images and files) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
@@ -820,7 +820,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
-| Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; unverified labeled) |
+| Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; unverified labeled; **dev build** for camera) |
 | Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
 | Full duplex voice mode | 🔜 Later |
 
@@ -897,7 +897,7 @@ drawer FTS search ✅.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| Language (`language`) — en/es catalog tree, teach-then-A/D lesson cards, SM-2 fields | Other target languages; trivia |
+| Language (`language`) — **en/es catalog only**, teach-then-A/D lesson cards, SM-2 fields | Other target languages; trivia; Anki-style SM-2 due-queue UI |
 | Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
 | Project-scoped chats, home highlight (Learning only) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | ~~Hidden chat `vocab_quiz` as the lesson path~~ **removed** |

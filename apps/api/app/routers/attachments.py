@@ -192,7 +192,10 @@ async def serve_attachment_file(
         return FileResponse(
             access.local_path,
             media_type=access.content_type,
-            headers={"X-Content-Type-Options": "nosniff"},
+            headers={
+                "X-Content-Type-Options": "nosniff",
+                "Cache-Control": "private, max-age=86400",
+            },
         )
     if access.redirect_url is None:
         raise RuntimeError("Attachment access result has no target")

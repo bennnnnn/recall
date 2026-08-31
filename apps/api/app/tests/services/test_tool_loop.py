@@ -376,7 +376,7 @@ async def test_tools_for_user_omits_image_gen_for_free():
         ("Explain photosynthesis in two sentences.", {"web_search": True}, True),
         ("differentiate x^2", {}, True),
         ("differentiate x^2", {"has_verified_math": True}, False),
-        ("schedule a meeting with Sam tomorrow at 3", {}, True),
+        ("schedule a meeting with Sam tomorrow at 3", {}, False),
     ],
 )
 def test_turn_needs_tool_loop_gates_ordinary_chat(text: str, kwargs: dict, expected: bool):

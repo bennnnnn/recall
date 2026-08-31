@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem, User
 from app.repositories import chats as chats_repo
-from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services.time_context import normalize_due_at
@@ -56,9 +55,7 @@ async def create_todo(
         if chat is None:
             raise TodosError("Chat not found", status_code=400)
     if project_id is not None:
-        project = await projects_repo.get_by_id(session, project_id, user.id)
-        if project is None:
-            raise TodosError("Project not found", status_code=400)
+        raise TodosError("Reminders cannot be linked to a Learning project", status_code=400)
     normalized_due = normalize_due_at(due_at, user.timezone)
     if normalized_due is not None and recurrence_rule:
         normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
@@ -98,10 +95,8 @@ async def update_todo(
     if not item:
         raise TodosError("Todo not found", status_code=404)
     patch = dict(fields)
-    if "project_id" in patch and patch["project_id"] is not None:
-        project = await projects_repo.get_by_id(session, patch["project_id"], user.id)
-        if project is None:
-            raise TodosError("Project not found", status_code=400)
+    if "project_id" in patch:
+        raise TodosError("Reminders cannot be linked to a Learning project", status_code=400)
     if "due_at" in patch:
         if patch["due_at"] is None:
             raise TodosError("due_at cannot be cleared", status_code=422)

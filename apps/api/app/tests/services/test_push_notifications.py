@@ -126,6 +126,39 @@ async def test_process_email_suggestions_batches_per_user():
 
 
 @pytest.mark.asyncio
+async def test_process_email_suggestions_sanitizes_single_title():
+    session = AsyncMock()
+    user_id = uuid4()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+    reminder = MagicMock()
+    reminder.user_id = user_id
+    reminder.title = "  Buy tickets\n\x00now  " + ("x" * 200)
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    token = MagicMock()
+    token.user_id = user_id
+    token.expo_push_token = "ExponentPushToken[abc]"
+
+    session.execute = AsyncMock(
+        return_value=MagicMock(all=MagicMock(return_value=[(reminder, user)]))
+    )
+
+    with patch.object(
+        push_service.push_repo,
+        "list_for_users",
+        AsyncMock(return_value=[token]),
+    ):
+        messages = await push_service.process_email_suggestions(session, now=now)
+
+    assert len(messages) == 1
+    body = messages[0].message["body"]
+    assert "\x00" not in body
+    assert "\n" not in body
+    assert len(body) <= 120
+    assert body.startswith("Buy tickets now")
+
+
+@pytest.mark.asyncio
 async def test_process_learning_nudges_respects_daily_dedup():
     session = AsyncMock()
     redis = AsyncMock()
@@ -647,6 +680,35 @@ async def test_finalize_marks_todo_loaded_on_finalize_session():
     assert attached.notification_sent_at == now
     assert detached.notification_sent_at == now
     finalize_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_finalize_skips_detached_write_when_session_get_misses():
+    finalize_session = AsyncMock()
+    redis = AsyncMock()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+    todo_id = uuid4()
+    detached = MagicMock()
+    detached.id = todo_id
+    detached.notification_sent_at = None
+    finalize_session.get = AsyncMock(return_value=None)
+
+    await push_service.finalize_push_deliveries(
+        finalize_session,
+        redis,
+        [
+            push_service.OutboundPush(
+                message={"to": "ExponentPushToken[abc]"},
+                todos=[detached],
+            )
+        ],
+        [True],
+        now=now,
+    )
+
+    finalize_session.get.assert_awaited_once()
+    assert detached.notification_sent_at is None
+    finalize_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

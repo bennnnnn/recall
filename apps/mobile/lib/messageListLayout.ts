@@ -1,5 +1,3 @@
-import { hasVocabCardFence } from "@/lib/parseVocabCard";
-import { hasVocabQuizFence } from "@/lib/parseVocabQuiz";
 import { hasSettingsProposalFence } from "@/lib/settingsProposal";
 
 /** Typical bubble height for FlashList layout hints (variable-height items). */
@@ -87,8 +85,6 @@ export function messageListItemType(item: {
 }): string {
   if (item.role !== "assistant") return item.role;
   const content = item.content ?? "";
-  if (hasVocabQuizFence(content)) return "assistant-quiz";
-  if (hasVocabCardFence(content)) return "assistant-vocab";
   if (CALENDAR_PROPOSAL_FENCE_RE.test(content)) return "assistant-calendar";
   if (hasSettingsProposalFence(content)) return "assistant-settings";
   return "assistant";

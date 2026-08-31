@@ -628,6 +628,7 @@ def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
 
     assert r.status_code == 200
     assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["cache-control"] == "private, max-age=86400"
 
 
 def test_serve_file_missing_local_drops_row():
@@ -1253,6 +1254,8 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
     gateway.resolve_local_path.side_effect = lambda key: (
         None if key == "user/gone" else Path("/recall-present.png")
     )
+    delete_chunks = AsyncMock(return_value=0)
+    delete_rows = AsyncMock(return_value=1)
 
     with (
         patch(
@@ -1260,6 +1263,14 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
             AsyncMock(return_value=([gone, present], False)),
         ),
         patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            delete_chunks,
+        ),
+        patch(
+            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            delete_rows,
+        ),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
@@ -1267,6 +1278,8 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
     assert r.status_code == 200
     items = r.json()["items"]
     assert [item["id"] for item in items] == [str(present.id)]
+    delete_rows.assert_awaited_once()
+    assert delete_rows.await_args.args[1] == [gone.id]
 
 
 def test_list_attachments_empty():

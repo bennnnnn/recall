@@ -211,43 +211,16 @@ def test_create_todo_with_unowned_chat_id_404s():
 def test_create_todo_with_project_id():
     from fastapi.testclient import TestClient
 
-    tid = uuid4()
     pid = uuid4()
-    now = datetime.now(UTC)
-    todo_mock = MagicMock()
-    todo_mock.id = tid
-    todo_mock.content = "Study vocab"
-    todo_mock.topic = "General"
-    todo_mock.checked = False
-    todo_mock.due_at = None
-    todo_mock.sort_order = None
-    todo_mock.chat_id = None
-    todo_mock.project_id = pid
-    todo_mock.created_at = now
-    todo_mock.updated_at = now
-
     user = _fake_user()
     app = _app_with_user(user)
-    project_mock = MagicMock()
-    project_mock.id = pid
-    project_mock.user_id = user.id
-    create_mock = AsyncMock(return_value=todo_mock)
-    with (
-        patch("app.services.todos.crud.todos_repo.create", create_mock),
-        patch(
-            "app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)
-        ),
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
-    ):
-        client = TestClient(app)
-        r = client.post(
-            "/todos",
-            headers={"Authorization": "Bearer tok"},
-            json={"content": "Study vocab", "project_id": str(pid), "due_at": _DUE_AT},
-        )
-    assert r.status_code == 201
-    assert r.json()["project_id"] == str(pid)
-    assert create_mock.await_args.kwargs["project_id"] == pid
+    client = TestClient(app)
+    r = client.post(
+        "/todos",
+        headers={"Authorization": "Bearer tok"},
+        json={"content": "Study vocab", "project_id": str(pid), "due_at": _DUE_AT},
+    )
+    assert r.status_code == 422
 
 
 def test_create_todo_with_other_users_project_id_rejected():
@@ -256,15 +229,13 @@ def test_create_todo_with_other_users_project_id_rejected():
     pid = uuid4()
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=None)):
-        client = TestClient(app)
-        r = client.post(
-            "/todos",
-            headers={"Authorization": "Bearer tok"},
-            json={"content": "x", "project_id": str(pid), "due_at": _DUE_AT},
-        )
-    assert r.status_code == 400
-    assert "Project not found" in r.json()["detail"]
+    client = TestClient(app)
+    r = client.post(
+        "/todos",
+        headers={"Authorization": "Bearer tok"},
+        json={"content": "x", "project_id": str(pid), "due_at": _DUE_AT},
+    )
+    assert r.status_code == 422
 
 
 def test_update_todo():
@@ -304,41 +275,15 @@ def test_update_todo_project_id():
 
     tid = uuid4()
     pid = uuid4()
-    now = datetime.now(UTC)
-    todo_mock = MagicMock()
-    todo_mock.id = tid
-    todo_mock.content = "Study"
-    todo_mock.topic = "General"
-    todo_mock.checked = False
-    todo_mock.due_at = None
-    todo_mock.sort_order = None
-    todo_mock.chat_id = None
-    todo_mock.project_id = pid
-    todo_mock.created_at = now
-    todo_mock.updated_at = now
-
     user = _fake_user()
     app = _app_with_user(user)
-    project_mock = MagicMock()
-    project_mock.id = pid
-    update_mock = AsyncMock(return_value=todo_mock)
-    with (
-        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.services.todos.crud.todos_repo.update", update_mock),
-        patch(
-            "app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)
-        ),
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
-    ):
-        client = TestClient(app)
-        r = client.patch(
-            f"/todos/{tid}",
-            headers={"Authorization": "Bearer tok"},
-            json={"project_id": str(pid)},
-        )
-    assert r.status_code == 200
-    assert r.json()["project_id"] == str(pid)
-    assert update_mock.await_args.kwargs["project_id"] == pid
+    client = TestClient(app)
+    r = client.patch(
+        f"/todos/{tid}",
+        headers={"Authorization": "Bearer tok"},
+        json={"project_id": str(pid)},
+    )
+    assert r.status_code == 422
 
 
 def test_update_todo_not_found():

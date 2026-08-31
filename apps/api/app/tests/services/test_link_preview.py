@@ -223,3 +223,25 @@ async def test_validate_external_url_unresolvable_hostname():
 
     with pytest.raises(ValueError, match="Cannot resolve hostname"):
         await _validate_external_url("http://thishostnamedoesnotexist.invalid/")
+
+
+def test_link_preview_router_rate_limit_fails_closed():
+    from fastapi.testclient import TestClient
+
+    from app.tests.test_routers import _app_with_user, _fake_user
+
+    user = _fake_user()
+    with (
+        patch("app.routers.link_preview.get_redis_client", return_value=MagicMock()),
+        patch(
+            "app.routers.link_preview.allow_request_fail_closed",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get(
+            "/link-preview",
+            params={"url": "https://example.com/page"},
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert r.status_code == 429

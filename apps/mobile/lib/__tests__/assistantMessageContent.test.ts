@@ -140,6 +140,33 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).not.toContain("Reply with A");
   });
 
+  it("strips leftover vocab_quiz fences without exposing A–D chips", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: [
+        "Let's check this word.",
+        "",
+        "```vocab_quiz",
+        JSON.stringify({
+          word: "hola",
+          question: "What does hola mean?",
+          correct: "A",
+          choices: [
+            { letter: "A", text: "hello" },
+            { letter: "B", text: "goodbye" },
+            { letter: "C", text: "please" },
+            { letter: "D", text: "thanks" },
+          ],
+        }),
+        "```",
+      ].join("\n"),
+    });
+
+    expect(result.interactiveQuiz).toBeNull();
+    expect(result.markdownContent).not.toContain("vocab_quiz");
+    expect(result.markdownContent).not.toContain("What does hola mean?");
+  });
+
   it("strips vocab_card fences instead of rendering a study card in chat", () => {
     const result = deriveAssistantMessageContent({
       ...base,
