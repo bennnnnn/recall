@@ -5,12 +5,10 @@ import {
   liveTalkCanTakeFloor,
   liveTalkErrorGate,
   liveTalkGate,
-  liveTalkHoldMicForAssistant,
   liveTalkIsEmptyTranscriptError,
   liveTalkOrbAction,
   liveTalkShouldAttachSession,
   liveTalkShouldSendRecording,
-  liveTalkUplinkMuted,
   liveTalkDiscardListenOnMute,
   liveTalkMuteA11yKey,
   liveTalkShowsSideChrome,
@@ -114,26 +112,6 @@ describe("liveTalkOrbAction", () => {
     expect(liveTalkCanTakeFloor("speaking")).toBe(true);
     expect(liveTalkCanTakeFloor("recording")).toBe(false);
     expect(liveTalkCanTakeFloor("thinking")).toBe(false);
-  });
-});
-
-describe("liveTalkHoldMicForAssistant", () => {
-  it("holds the uplink for playback and ignores speaker echo as speech", () => {
-    expect(liveTalkHoldMicForAssistant("response_started", false)).toEqual({
-      holding: true,
-      dropSpeechStarted: true,
-    });
-    expect(liveTalkHoldMicForAssistant("speech_started", true)).toEqual({
-      holding: true,
-      dropSpeechStarted: true,
-    });
-    expect(liveTalkHoldMicForAssistant("response_done", true)).toEqual({
-      holding: false,
-      dropSpeechStarted: false,
-    });
-    expect(liveTalkUplinkMuted(false, true)).toBe(true);
-    expect(liveTalkUplinkMuted(true, false)).toBe(true);
-    expect(liveTalkUplinkMuted(false, false)).toBe(false);
   });
 });
 

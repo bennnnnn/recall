@@ -363,8 +363,8 @@ export function useLiveTalk({
     sessionRef.current?.setMuted(next);
   }, [muted]);
 
-  // Semantic VAD owns turn boundaries. Playback holds the mic so speaker
-  // echo cannot barge in (Live Talk is not full duplex).
+  // Semantic VAD owns turn boundaries. interrupt_response is off so speaker
+  // echo cannot cancel the in-flight utterance. The mic stays open.
   const toggle = useCallback(async () => {
     if (phase === "thinking") {
       sessionRef.current?.cancelResponse();

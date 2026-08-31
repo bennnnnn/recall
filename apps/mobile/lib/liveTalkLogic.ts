@@ -15,7 +15,7 @@ export const LIVE_TALK_SILENCE_LEVEL = 0.22;
 export const LIVE_TALK_SILENCE_MS = 550;
 export const LIVE_TALK_MIN_SPEECH_MS = 400;
 /** Pause after playback before the mic opens so the speaker is not captured. */
-export const LIVE_TALK_ECHO_GUARD_MS = 700;
+export const LIVE_TALK_ECHO_GUARD_MS = 250;
 /** Hard stop so a quiet room cannot record until the 5MB upload cap. */
 export const LIVE_TALK_MAX_RECORDING_MS = 30_000;
 /** Stop if the meter never crosses speech level (covered mic, low gain). */
@@ -39,28 +39,6 @@ export function liveTalkDiscardListenOnMute(phase: LiveTalkPhase): boolean {
 /** Speak control: cut playback and take the floor. Not full duplex. */
 export function liveTalkCanTakeFloor(phase: LiveTalkPhase): boolean {
   return phase === "speaking";
-}
-
-/**
- * Hold the uplink while the assistant is talking. iOS Live Talk has no AEC
- * (VoiceProcessing deadlocks Simulator), so speaker echo would otherwise
- * look like barge-in and cut the utterance after the first word.
- */
-export function liveTalkHoldMicForAssistant(
-  event: "response_started" | "response_done" | "speech_started",
-  holding: boolean,
-): { holding: boolean; dropSpeechStarted: boolean } {
-  if (event === "response_started") {
-    return { holding: true, dropSpeechStarted: true };
-  }
-  if (event === "response_done") {
-    return { holding: false, dropSpeechStarted: false };
-  }
-  return { holding, dropSpeechStarted: holding };
-}
-
-export function liveTalkUplinkMuted(userMuted: boolean, playbackHold: boolean): boolean {
-  return userMuted || playbackHold;
 }
 
 /** Client abort before the first audio clip or spoken reply must refund. */
