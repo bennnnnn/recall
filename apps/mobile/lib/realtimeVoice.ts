@@ -35,6 +35,12 @@ const ICE_GATHER_TIMEOUT_MS = 2_500;
 const CONNECTION_TIMEOUT_MS = 10_000;
 const SDP_EXCHANGE_TIMEOUT_MS = 10_000;
 const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
+const SILENCE_HALLUCINATIONS = new Set([
+  "thank you for watching",
+  "thanks for watching",
+  "please subscribe",
+  "subscribe",
+]);
 
 function debug(stage: string, detail?: unknown): void {
   if (!__DEV__) return;
@@ -63,8 +69,9 @@ export function isRealtimeVoiceAvailable(): boolean {
 
 /**
  * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
- * expo-audio has also touched the session. Keep processing on Android; iOS
- * uses a plain RemoteIO unit and react-native-webrtc owns the audio session.
+ * expo-audio has also touched the session. Keep processing on Android; on iOS
+ * the transport runs half-duplex while assistant audio is playing, so speaker
+ * echo cannot feed back into the model even without VoiceProcessing IO.
  */
 export function webRtcMicConstraints(): {
   echoCancellation: boolean;
@@ -83,6 +90,18 @@ function transcriptFromEvent(event: Record<string, unknown>): string {
   const delta = event.delta;
   if (typeof delta === "string") return delta;
   return "";
+}
+
+function normalizeTranscript(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[.!?,;:'"()[\]{}]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isKnownSilenceHallucination(text: string): boolean {
+  return SILENCE_HALLUCINATIONS.has(normalizeTranscript(text));
 }
 
 function sendRealtimeEvent(
@@ -212,6 +231,21 @@ export async function createRealtimeVoiceSession(options: {
   let connectionSettled = false;
   let resolveConnected: (() => void) | null = null;
   let rejectConnected: ((error: Error) => void) | null = null;
+  let userMuted = false;
+  let assistantSpeaking = false;
+  let suppressCurrentInputTurn = false;
+
+  const syncLocalMicState = () => {
+    const enabled = !userMuted && !assistantSpeaking;
+    for (const track of localAudioTracks) {
+      try {
+        track.enabled = enabled;
+      } catch {
+        /* best-effort */
+      }
+    }
+    debug("microphone-gate", { enabled, userMuted, assistantSpeaking });
+  };
 
   const connectedPromise = new Promise<void>((resolve, reject) => {
     resolveConnected = resolve;
@@ -300,20 +334,39 @@ export async function createRealtimeVoiceSession(options: {
       debug("event", type);
     }
     if (type === "input_audio_buffer.speech_started") {
+      // A speech event that races with assistant playback is almost always
+      // residual speaker echo. Ignore it rather than creating a second turn.
+      suppressCurrentInputTurn = assistantSpeaking;
+      if (suppressCurrentInputTurn) {
+        debug("ignored-input-during-assistant");
+        return;
+      }
       options.onEvent({ type: "speech_started" });
       return;
     }
     if (type === "input_audio_buffer.speech_stopped") {
+      if (suppressCurrentInputTurn) return;
       options.onEvent({ type: "speech_stopped" });
       return;
     }
     if (type === "response.created") {
       assistantTranscript = "";
+      assistantSpeaking = true;
+      syncLocalMicState();
       options.onEvent({ type: "response_started" });
       return;
     }
     if (type === "conversation.item.input_audio_transcription.completed") {
       const text = transcriptFromEvent(event);
+      if (suppressCurrentInputTurn) {
+        debug("ignored-assistant-echo-transcript", text);
+        suppressCurrentInputTurn = false;
+        return;
+      }
+      if (text && isKnownSilenceHallucination(text)) {
+        debug("ignored-silence-hallucination", text);
+        return;
+      }
       if (text) options.onEvent({ type: "user_transcript", text });
       return;
     }
@@ -343,10 +396,16 @@ export async function createRealtimeVoiceSession(options: {
       return;
     }
     if (type === "response.done") {
+      assistantSpeaking = false;
+      suppressCurrentInputTurn = false;
+      syncLocalMicState();
       options.onEvent({ type: "response_done" });
       return;
     }
     if (type === "error") {
+      assistantSpeaking = false;
+      suppressCurrentInputTurn = false;
+      syncLocalMicState();
       const rawError = event.error;
       const messageText =
         rawError && typeof rawError === "object" && "message" in rawError
@@ -428,8 +487,8 @@ export async function createRealtimeVoiceSession(options: {
   return {
     callId,
     setMuted: (muted: boolean) => {
-      for (const track of localStream.getAudioTracks()) track.enabled = !muted;
-      debug("microphone-muted", muted);
+      userMuted = muted;
+      syncLocalMicState();
     },
     cancelResponse: () => sendRealtimeEvent(dataChannel, "response.cancel"),
     close: () => {
