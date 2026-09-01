@@ -21,7 +21,7 @@ _OPENAI_REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client
 _REALTIME_TIMEOUT_SECONDS = 10.0
 _REALTIME_CONNECT_RETRIES = 2
 _DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1"
-_REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-transcribe"
+_REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,12 +52,29 @@ def realtime_session_config(settings: Settings, instructions: str) -> dict[str, 
         "instructions": instructions,
         "audio": {
             "input": {
+                # Mobile speakerphone audio is a noisy input environment. Use
+                # OpenAI's close-mic denoiser plus a deliberately conservative
+                # server VAD so silence/room noise does not become a user turn.
+                "noise_reduction": {"type": "near_field"},
                 "turn_detection": {
-                    "type": "semantic_vad",
+                    "type": "server_vad",
+                    "threshold": 0.72,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 600,
                     "create_response": True,
-                    "interrupt_response": True,
+                    # Mobile temporarily runs half-duplex while the assistant is
+                    # speaking. This prevents speaker echo from repeatedly
+                    # cancelling the first words of an answer.
+                    "interrupt_response": False,
                 },
-                "transcription": {"model": _REALTIME_INPUT_TRANSCRIBE_MODEL},
+                "transcription": {
+                    "model": _REALTIME_INPUT_TRANSCRIBE_MODEL,
+                    "prompt": (
+                        "Transcribe only words actually spoken by the user. "
+                        "Do not invent speech from silence, background noise, "
+                        "music, or assistant speaker playback."
+                    ),
+                },
             },
             "output": {"voice": "marin"},
         },
