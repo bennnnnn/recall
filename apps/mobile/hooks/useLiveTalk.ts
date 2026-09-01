@@ -91,6 +91,7 @@ export function useLiveTalk({
   const assistantTextRef = useRef("");
   const userTextRef = useRef("");
   const visibleRef = useRef(false);
+  const speakingRef = useRef(false);
   const sessionGenRef = useRef(0);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -241,8 +242,12 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "speech_started") {
-        // If the user barges in while the prior response is finishing, freeze
-        // that completed turn before starting a new one.
+        // Speaker bleed (no iOS AEC) looks like the user talking. Ignore it
+        // while the assistant is still on the remote track so we do not flush
+        // the current turn into a duplicate chat row.
+        if (speakingRef.current) {
+          return;
+        }
         flushPendingTurn();
         turnIdRef.current = String(Date.now());
         userTextRef.current = "";
@@ -255,6 +260,7 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "response_started") {
+        speakingRef.current = true;
         if (!turnIdRef.current) turnIdRef.current = String(Date.now());
         setPhase("thinking");
         return;
@@ -273,6 +279,7 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "response_done") {
+        speakingRef.current = false;
         if (finishTimerRef.current != null) clearTimeout(finishTimerRef.current);
         // This grace affects only persistence/UI canonicalization, never audible
         // audio. It allows the final input-transcription event to arrive if it
@@ -294,6 +301,7 @@ export function useLiveTalk({
   const close = useCallback(() => {
     sessionGenRef.current += 1;
     visibleRef.current = false;
+    speakingRef.current = false;
     if (finishTimerRef.current != null) {
       clearTimeout(finishTimerRef.current);
       finishTimerRef.current = null;
@@ -329,6 +337,8 @@ export function useLiveTalk({
         alertForGate(gate);
         return;
       }
+      // Do not call expo-audio here. requestRecordingPermissionsAsync plus
+      // WebRTC starting the IO unit deadlocks Simulator CoreAudio (native crash).
       const activeChatId = await ensureChatId();
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       turnChatIdRef.current = activeChatId;
@@ -363,8 +373,8 @@ export function useLiveTalk({
     sessionRef.current?.setMuted(next);
   }, [muted]);
 
-  // Semantic VAD owns turn boundaries. Normal interruption is simply speaking
-  // over the assistant; the Realtime session has interrupt_response enabled.
+  // Half-duplex: the mic is ducked while the assistant speaks, and
+  // interrupt_response is off. Stop on the overlay still cancels.
   const toggle = useCallback(async () => {
     if (phase === "thinking") {
       sessionRef.current?.cancelResponse();
@@ -373,7 +383,7 @@ export function useLiveTalk({
   }, [phase]);
 
   const interrupt = useCallback(() => {
-    // Kept for the existing UI contract. Barge-in is automatic in Realtime.
+    // Kept for the existing UI contract. v1 Live Talk is half-duplex.
   }, []);
 
   const yieldToComposer = useCallback(() => {

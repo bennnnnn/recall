@@ -12,6 +12,18 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live Talk iOS Simulator: AEC / CallKit / ICE candidates crash or silence.**
+  `echoCancellation: true` uses VoiceProcessing and SIGABRTs CoreAudio
+  (`AURemoteIO RPC timeout`). `RTCAudioSession.audioSessionDidActivate`
+  without CallKit leaves `packetsSent: 0`. Waiting for ICE and putting
+  `a=candidate` in the offer crashes `setRemoteDescription`. Send the offer
+  immediately; keep iOS AEC off; do not fake-activate the audio session.
+- **Live Talk heard one word then crackled, duplicate greetings in chat.**
+  With AEC off, speaker bleed fires `speech_started` mid-reply;
+  `interrupt_response: true` cancels audio (~30ms later `output_audio.done`)
+  and each echo turn persists another assistant bubble. v1 is half-duplex:
+  mute the send track while the assistant speaks, `interrupt_response: false`,
+  ignore `speech_started` until `response.done`.
 - **Live Talk overlay up, no answer after a reload.** Fast Refresh kept
   `visible` and dropped the WebRTC peer, so the UI looked live with no mic.
   Reset the overlay on mount when there is no session. Do not let expo-audio

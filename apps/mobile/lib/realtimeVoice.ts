@@ -106,20 +106,48 @@ export async function createRealtimeVoiceSession(options: {
     for (const track of localStream.getTracks()) track.stop();
     throw new Error("webrtc_unavailable");
   }
-  try {
-    webrtc.RTCAudioSession?.audioSessionDidActivate();
-  } catch {
-    /* optional iOS helper */
-  }
+  // Do not call RTCAudioSession.audioSessionDidActivate — that API is for
+  // CallKit. Invoking it here tells WebRTC the session is already running
+  // and the capture unit never starts (packetsSent stays 0).
   const pc = new webrtc.RTCPeerConnection({});
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }
+  pc.ontrack = (ev: { track?: { enabled?: boolean } }) => {
+    if (ev.track) ev.track.enabled = true;
+  };
 
   const dataChannel = pc.createDataChannel("oai-events");
   let assistantTranscript = "";
   let closed = false;
   let callId: string | null = null;
+  // iOS getUserMedia runs without VoiceProcessing (AEC deadlocks Simulator).
+  // Speaker output therefore loops into the mic and server_vad barges in.
+  // v1 Live Talk is half-duplex: mute send while the assistant is talking.
+  let userMuted = false;
+  let playbackHold = false;
+  let playbackHoldTimer: ReturnType<typeof setTimeout> | null = null;
+  const ECHO_HOLDOFF_MS = 500;
+  const applySendMute = () => {
+    const send = !(userMuted || playbackHold);
+    for (const track of localStream.getAudioTracks()) track.enabled = send;
+  };
+  const holdMicForPlayback = () => {
+    if (playbackHoldTimer != null) {
+      clearTimeout(playbackHoldTimer);
+      playbackHoldTimer = null;
+    }
+    playbackHold = true;
+    applySendMute();
+  };
+  const releaseMicAfterPlayback = () => {
+    if (playbackHoldTimer != null) clearTimeout(playbackHoldTimer);
+    playbackHoldTimer = setTimeout(() => {
+      playbackHoldTimer = null;
+      playbackHold = false;
+      applySendMute();
+    }, ECHO_HOLDOFF_MS);
+  };
 
   const emitError = (message: string) => {
     if (!closed) options.onEvent({ type: "error", message });
@@ -127,6 +155,33 @@ export async function createRealtimeVoiceSession(options: {
 
   dataChannel.onopen = () => {
     options.onEvent({ type: "connected" });
+    // Semantic VAD on the initial /realtime/calls session never produced
+    // speech_started here; server_vad is energy-based and is what OpenAI
+    // documents as the WebRTC default.
+    try {
+      dataChannel.send(
+        JSON.stringify({
+          type: "session.update",
+          session: {
+            type: "realtime",
+            audio: {
+              input: {
+                turn_detection: {
+                  type: "server_vad",
+                  create_response: true,
+                  interrupt_response: false,
+                  threshold: 0.65,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 500,
+                },
+              },
+            },
+          },
+        }),
+      );
+    } catch {
+      /* session.update is best-effort; create_response still runs */
+    }
   };
   dataChannel.onerror = () => emitError("Realtime voice data channel failed");
   dataChannel.onmessage = (message: { data?: unknown }) => {
@@ -149,6 +204,7 @@ export async function createRealtimeVoiceSession(options: {
     }
     if (type === "response.created") {
       assistantTranscript = "";
+      holdMicForPlayback();
       options.onEvent({ type: "response_started" });
       return;
     }
@@ -183,6 +239,7 @@ export async function createRealtimeVoiceSession(options: {
       return;
     }
     if (type === "response.done") {
+      releaseMicAfterPlayback();
       options.onEvent({ type: "response_done" });
       return;
     }
@@ -197,10 +254,9 @@ export async function createRealtimeVoiceSession(options: {
   };
 
   const tearDownAudio = () => {
-    try {
-      webrtc.RTCAudioSession?.audioSessionDidDeactivate();
-    } catch {
-      /* best-effort */
+    if (playbackHoldTimer != null) {
+      clearTimeout(playbackHoldTimer);
+      playbackHoldTimer = null;
     }
     for (const track of localStream.getTracks()) track.stop();
     pc.close();
@@ -209,6 +265,8 @@ export async function createRealtimeVoiceSession(options: {
   try {
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
+    // Do not wait for ICE gathering. Embedding candidates in the offer
+    // crashes the iOS Simulator inside setRemoteDescription (AURemoteIO).
     const sdp = String(offer.sdp || pc.localDescription?.sdp || "");
     if (!sdp) throw new Error("Could not create realtime audio offer");
     const answer = await speechApi.exchangeRealtimeSdp(options.token, {
@@ -219,11 +277,6 @@ export async function createRealtimeVoiceSession(options: {
     await pc.setRemoteDescription(
       new webrtc.RTCSessionDescription({ type: "answer", sdp: answer.sdp }),
     );
-    try {
-      webrtc.RTCAudioSession?.audioSessionDidActivate();
-    } catch {
-      /* playback + capture after the remote track is attached */
-    }
   } catch (error) {
     tearDownAudio();
     throw error;
@@ -232,7 +285,8 @@ export async function createRealtimeVoiceSession(options: {
   return {
     callId,
     setMuted: (muted: boolean) => {
-      for (const track of localStream.getAudioTracks()) track.enabled = !muted;
+      userMuted = muted;
+      applySendMute();
     },
     cancelResponse: () => sendRealtimeEvent(dataChannel, "response.cancel"),
     close: () => {
