@@ -15,6 +15,7 @@ import {
   type LiveTalkPhase,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
+import { playLiveTalkCue } from "@/lib/liveTalkSfx";
 import {
   createRealtimeVoiceSession,
   type RealtimeVoiceEvent,
@@ -294,6 +295,7 @@ export function useLiveTalk({
 
   const close = useCallback(() => {
     sessionGenRef.current += 1;
+    const shouldCueEnd = visibleRef.current || sessionRef.current != null;
     visibleRef.current = false;
     if (finishTimerRef.current != null) {
       clearTimeout(finishTimerRef.current);
@@ -309,6 +311,7 @@ export function useLiveTalk({
     setMuted(false);
     setPhase("idle");
     setVisible(false);
+    if (shouldCueEnd) void playLiveTalkCue("end");
   }, [captureCurrentTurn, finishTurn]);
   const closeRef = useRef(close);
   closeRef.current = close;
@@ -337,6 +340,10 @@ export function useLiveTalk({
       setMuted(false);
       setPhase("thinking");
       setVisible(true);
+      // Finish and release the open chime before getUserMedia. A leftover
+      // expo-audio player keeps the session in playback and GPT Audio is mute.
+      await playLiveTalkCue("start");
+      if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       const session = await createRealtimeVoiceSession({
         token,
         chatId: activeChatId,

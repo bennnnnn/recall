@@ -1,7 +1,8 @@
 const mockPlay = jest.fn();
+const mockRemove = jest.fn();
 const mockCreateAudioPlayer = jest.fn(() => ({
   play: mockPlay,
-  remove: jest.fn(),
+  remove: mockRemove,
 }));
 const mockNotifySuccess = jest.fn();
 const mockTap = jest.fn();
@@ -24,7 +25,6 @@ jest.mock("@/lib/voiceAudio", () => ({
 import {
   LIVE_TALK_CUE_TONES,
   buildLiveTalkCueWavBase64,
-  liveTalkCueForVisibility,
   playLiveTalkCue,
 } from "@/lib/liveTalkSfx";
 
@@ -42,22 +42,19 @@ describe("liveTalkSfx", () => {
     expect(LIVE_TALK_CUE_TONES.end[0]?.hz).toBeGreaterThan(LIVE_TALK_CUE_TONES.end[1]?.hz ?? 0);
   });
 
-  it("maps overlay visibility to open and close cues", () => {
-    expect(liveTalkCueForVisibility(false, false)).toBeNull();
-    expect(liveTalkCueForVisibility(true, false)).toBe("start");
-    expect(liveTalkCueForVisibility(true, true)).toBeNull();
-    expect(liveTalkCueForVisibility(false, true)).toBe("end");
-  });
-
-  it("plays start with a success haptic and end with a tap, without awaiting connect", async () => {
-    playLiveTalkCue("start");
-    playLiveTalkCue("end");
+  it("plays start with a success haptic, then releases the player before returning", async () => {
+    await playLiveTalkCue("start");
     expect(mockNotifySuccess).toHaveBeenCalledTimes(1);
-    expect(mockTap).toHaveBeenCalledTimes(1);
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
     expect(mockCreateAudioPlayer).toHaveBeenCalled();
     expect(mockPlay).toHaveBeenCalled();
+    expect(mockRemove).toHaveBeenCalled();
+  });
+
+  it("plays end with a tap haptic and releases that player too", async () => {
+    await playLiveTalkCue("end");
+    expect(mockTap).toHaveBeenCalledTimes(1);
+    expect(mockCreateAudioPlayer).toHaveBeenCalled();
+    expect(mockPlay).toHaveBeenCalled();
+    expect(mockRemove).toHaveBeenCalled();
   });
 });

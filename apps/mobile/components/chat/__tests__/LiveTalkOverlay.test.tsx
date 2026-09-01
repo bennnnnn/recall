@@ -26,15 +26,6 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: View };
 });
 
-jest.mock("@/lib/liveTalkSfx", () => ({
-  playLiveTalkCue: jest.fn(),
-  liveTalkCueForVisibility: (visible: boolean, wasVisible: boolean) => {
-    if (visible && !wasVisible) return "start";
-    if (!visible && wasVisible) return "end";
-    return null;
-  },
-}));
-
 describe("LiveTalkOverlay", () => {
   const base = {
     visible: true,

@@ -5,17 +5,7 @@ import { loadExpoAudio } from "@/lib/voiceAudio";
 
 export type LiveTalkCue = "start" | "end";
 
-/** One open chime when the overlay appears; one close chime when it leaves. */
-export function liveTalkCueForVisibility(
-  visible: boolean,
-  wasVisible: boolean,
-): LiveTalkCue | null {
-  if (visible && !wasVisible) return "start";
-  if (!visible && wasVisible) return "end";
-  return null;
-}
-
-/** Rising open / falling close — short enough to overlap connect/teardown. */
+/** Rising open / falling close. Open must finish and release before WebRTC. */
 export const LIVE_TALK_CUE_TONES: Record<LiveTalkCue, readonly { hz: number; ms: number }[]> = {
   start: [
     { hz: 659, ms: 90 },
@@ -30,6 +20,14 @@ export const LIVE_TALK_CUE_TONES: Record<LiveTalkCue, readonly { hz: number; ms:
 const SAMPLE_RATE = 22_050;
 const AMPLITUDE = 0.22;
 const GAP_MS = 24;
+const CUE_RELEASE_PAD_MS = 80;
+
+export function liveTalkCueDurationMs(kind: LiveTalkCue): number {
+  const tones = LIVE_TALK_CUE_TONES[kind];
+  return tones.reduce((sum, tone) => sum + tone.ms, 0) + GAP_MS * Math.max(0, tones.length - 1);
+}
+
+let cueEpoch = 0;
 
 type CuePlayer = {
   play: () => void;
@@ -138,23 +136,30 @@ function releaseCuePlayer(): void {
 
 /**
  * ChatGPT-style open/close chime + haptic.
- * Must not call setAudioModeAsync — that silences WebRTC capture on Simulator.
+ * Never leave an expo-audio player alive into WebRTC: a leftover player
+ * keeps the session in playback and the assistant has no speaker.
+ * Do not call setAudioModeAsync.
  */
-export function playLiveTalkCue(kind: LiveTalkCue): void {
+export async function playLiveTalkCue(kind: LiveTalkCue): Promise<void> {
   if (kind === "start") notifySuccess();
   else tap();
 
   const Audio = loadExpoAudio();
   if (!Audio) return;
-  void cueFileUri(kind)
-    .then((uri) => {
-      if (!uri) return;
-      releaseCuePlayer();
-      const player = Audio.createAudioPlayer(uri) as CuePlayer;
-      cuePlayer = player;
-      player.play();
-    })
-    .catch(() => {
-      /* UI cue is best-effort; Live Talk must still connect. */
+  const epoch = ++cueEpoch;
+  try {
+    const uri = await cueFileUri(kind);
+    if (!uri || epoch !== cueEpoch) return;
+    releaseCuePlayer();
+    const player = Audio.createAudioPlayer(uri) as CuePlayer;
+    cuePlayer = player;
+    player.play();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, liveTalkCueDurationMs(kind) + CUE_RELEASE_PAD_MS);
     });
+  } catch {
+    /* UI cue is best-effort; Live Talk must still connect. */
+  } finally {
+    if (epoch === cueEpoch) releaseCuePlayer();
+  }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   runOnJS,
@@ -11,7 +11,6 @@ import { useTranslation } from "react-i18next";
 
 import { LiveTalkOrb } from "@/components/chat/LiveTalkOrb";
 import { liveTalkOrbA11yKey, liveTalkOrbAction, type LiveTalkPhase } from "@/lib/liveTalkLogic";
-import { liveTalkCueForVisibility, playLiveTalkCue } from "@/lib/liveTalkSfx";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -48,20 +47,13 @@ export function LiveTalkOverlay({
   const orbAction = liveTalkOrbAction(phase);
   const [mounted, setMounted] = useState(visible);
   const appear = useSharedValue(visible ? 1 : 0);
-  const wasVisible = useRef(false);
 
   useEffect(() => {
     if (visible) {
-      const cue = liveTalkCueForVisibility(visible, wasVisible.current);
-      if (cue) playLiveTalkCue(cue);
-      wasVisible.current = visible;
       setMounted(true);
       appear.value = reduceMotion ? 1 : withSpring(1, ENTER_SPRING);
       return;
     }
-    const cue = liveTalkCueForVisibility(visible, wasVisible.current);
-    if (cue) playLiveTalkCue(cue);
-    wasVisible.current = false;
     if (reduceMotion) {
       appear.value = 0;
       setMounted(false);
