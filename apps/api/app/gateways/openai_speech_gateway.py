@@ -50,21 +50,23 @@ def realtime_session_config(settings: Settings, instructions: str) -> dict[str, 
         "model": realtime_model(settings),
         "output_modalities": ["audio"],
         "instructions": instructions,
+        # Input transcription is our authorization boundary for a spoken turn.
+        # Ask OpenAI for confidence data when available so mobile can diagnose
+        # low-confidence / phantom turns without putting them in Recall history.
+        "include": ["item.input_audio_transcription.logprobs"],
         "audio": {
             "input": {
-                # Mobile speakerphone audio is a noisy input environment. Use
-                # OpenAI's close-mic denoiser plus a deliberately conservative
-                # server VAD so silence/room noise does not become a user turn.
                 "noise_reduction": {"type": "near_field"},
                 "turn_detection": {
                     "type": "server_vad",
                     "threshold": 0.72,
                     "prefix_padding_ms": 300,
                     "silence_duration_ms": 600,
-                    "create_response": True,
-                    # Mobile temporarily runs half-duplex while the assistant is
-                    # speaking. This prevents speaker echo from repeatedly
-                    # cancelling the first words of an answer.
+                    # Critical: VAD detects and commits turns, but it must never
+                    # create or interrupt a response by itself. Mobile validates
+                    # the committed transcript first, deletes echo/phantom items,
+                    # and sends response.create only for an accepted user turn.
+                    "create_response": False,
                     "interrupt_response": False,
                 },
                 "transcription": {
