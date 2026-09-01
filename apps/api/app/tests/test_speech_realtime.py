@@ -58,7 +58,7 @@ async def test_realtime_call_requires_manual_response_authorization():
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
     session = json.loads(call.kwargs["files"]["session"][1])
     assert session["model"] == "gpt-realtime-2.1"
-    assert session["include"] == ["item.input_audio_transcription.logprobs"]
+    assert "include" not in session
     assert session["audio"]["input"]["noise_reduction"] == {"type": "near_field"}
     assert session["audio"]["input"]["turn_detection"] == {
         "type": "server_vad",
@@ -69,7 +69,7 @@ async def test_realtime_call_requires_manual_response_authorization():
         "interrupt_response": False,
     }
     transcription = session["audio"]["input"]["transcription"]
-    assert transcription["model"] == "gpt-transcribe"
+    assert transcription["model"] == "gpt-live-transcribe"
     assert "Do not invent speech from silence" in transcription["prompt"]
 
 
@@ -104,6 +104,7 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
     assert call.kwargs["json"]["session"]["model"] == "gpt-realtime-2.1"
     assert call.kwargs["json"]["session"]["output_modalities"] == ["audio"]
+    assert "include" not in call.kwargs["json"]["session"]
     assert (
         call.kwargs["json"]["session"]["audio"]["input"]["turn_detection"]["create_response"]
         is False

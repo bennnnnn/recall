@@ -21,7 +21,7 @@ _OPENAI_REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client
 _REALTIME_TIMEOUT_SECONDS = 10.0
 _REALTIME_CONNECT_RETRIES = 2
 _DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1"
-_REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-transcribe"
+_REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,10 +50,6 @@ def realtime_session_config(settings: Settings, instructions: str) -> dict[str, 
         "model": realtime_model(settings),
         "output_modalities": ["audio"],
         "instructions": instructions,
-        # Input transcription is our authorization boundary for a spoken turn.
-        # Ask OpenAI for confidence data when available so mobile can diagnose
-        # low-confidence / phantom turns without putting them in Recall history.
-        "include": ["item.input_audio_transcription.logprobs"],
         "audio": {
             "input": {
                 "noise_reduction": {"type": "near_field"},
@@ -62,10 +58,9 @@ def realtime_session_config(settings: Settings, instructions: str) -> dict[str, 
                     "threshold": 0.72,
                     "prefix_padding_ms": 300,
                     "silence_duration_ms": 600,
-                    # Critical: VAD detects and commits turns, but it must never
-                    # create or interrupt a response by itself. Mobile validates
-                    # the committed transcript first, deletes echo/phantom items,
-                    # and sends response.create only for an accepted user turn.
+                    # VAD detects and commits turns but never creates or interrupts
+                    # a model response. Mobile authorizes one response only after
+                    # accepting the completed user transcript.
                     "create_response": False,
                     "interrupt_response": False,
                 },
