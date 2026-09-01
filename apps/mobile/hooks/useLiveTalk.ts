@@ -219,7 +219,8 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "speech_stopped") {
-        setPhase("thinking");
+        // VAD ending is not yet a trusted turn. Stay in listening state until
+        // the completed transcription passes echo/noise validation.
         return;
       }
       if (event.type === "user_transcript") {
