@@ -21,7 +21,7 @@ _OPENAI_REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client
 _REALTIME_TIMEOUT_SECONDS = 10.0
 _REALTIME_CONNECT_RETRIES = 2
 _DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1"
-_REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
+_REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-transcribe"
 
 
 @dataclass(frozen=True, slots=True)
