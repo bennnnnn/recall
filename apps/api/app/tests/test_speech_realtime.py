@@ -69,7 +69,7 @@ async def test_realtime_call_requires_manual_response_authorization():
         "interrupt_response": False,
     }
     transcription = session["audio"]["input"]["transcription"]
-    assert transcription["model"] == "gpt-live-transcribe"
+    assert transcription["model"] == "gpt-transcribe"
     assert "Do not invent speech from silence" in transcription["prompt"]
 
 
