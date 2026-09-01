@@ -29,7 +29,7 @@ def test_realtime_instructions_include_bounded_chat_history():
 
 
 @pytest.mark.asyncio
-async def test_realtime_call_requires_manual_response_authorization():
+async def test_realtime_call_uses_half_duplex_vad_and_server_key():
     response = MagicMock()
     response.status_code = 200
     response.text = "v=0\r\nanswer"
@@ -62,9 +62,9 @@ async def test_realtime_call_requires_manual_response_authorization():
     assert session["audio"]["input"]["noise_reduction"] == {"type": "near_field"}
     assert session["audio"]["input"]["turn_detection"] == {
         "type": "server_vad",
-        "threshold": 0.72,
+        "threshold": 0.5,
         "prefix_padding_ms": 300,
-        "silence_duration_ms": 600,
+        "silence_duration_ms": 500,
         "create_response": False,
         "interrupt_response": False,
     }

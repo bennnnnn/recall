@@ -16,6 +16,12 @@ export const LIVE_TALK_SILENCE_MS = 550;
 export const LIVE_TALK_MIN_SPEECH_MS = 400;
 /** Pause after playback before the mic opens so the speaker is not captured. */
 export const LIVE_TALK_ECHO_GUARD_MS = 250;
+/** Local tail after `output_audio_buffer.stopped` before the mic reopens. */
+export const LIVE_TALK_PLAYBACK_TAIL_MS = 500;
+/** Ignore connect/track-start noise before the first real user utterance. */
+export const LIVE_TALK_CONNECT_WARMUP_MS = 1_500;
+/** If session.created never arrives, start accepting user turns after this. */
+export const LIVE_TALK_SESSION_READY_FALLBACK_MS = 2_500;
 /** Hard stop so a quiet room cannot record until the 5MB upload cap. */
 export const LIVE_TALK_MAX_RECORDING_MS = 30_000;
 /** Stop if the meter never crosses speech level (covered mic, low gain). */
@@ -197,4 +203,41 @@ export function nextLiveTalkSpeakChunk(
 export function liveTalkSpeakFlush(full: string, spokenLen: number): string {
   if (spokenLen >= full.length) return "";
   return full.slice(Math.max(0, spokenLen)).trim();
+}
+
+/** Capture stays off while the assistant is playing so speaker echo cannot VAD. */
+export function liveTalkLocalMicEnabled(userMuted: boolean, assistantSpeaking: boolean): boolean {
+  return !userMuted && !assistantSpeaking;
+}
+
+/** Manual `response.create` only after an accepted user utterance. */
+export function liveTalkShouldCreateResponse(input: {
+  sessionReadyForTurns: boolean;
+  assistantSpeaking: boolean;
+  userMuted: boolean;
+  acceptedUserUtterance: boolean;
+}): boolean {
+  return (
+    input.sessionReadyForTurns &&
+    input.acceptedUserUtterance &&
+    !input.assistantSpeaking &&
+    !input.userMuted
+  );
+}
+
+export function liveTalkNormalizeTranscript(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[.!?,;:'"()[\]{}]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Speaker bleed often transcribes as a short slice of the last assistant line. */
+export function isLikelyAssistantEcho(userText: string, lastAssistantText: string): boolean {
+  const user = liveTalkNormalizeTranscript(userText);
+  const assistant = liveTalkNormalizeTranscript(lastAssistantText);
+  if (!user) return true;
+  if (!assistant) return false;
+  return assistant.includes(user);
 }

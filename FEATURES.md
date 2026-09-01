@@ -928,7 +928,7 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → OpenRouter `gpt-transcribe` → composer (app-language hint, no-speech gate) | Streaming live transcription |
-| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; semantic VAD; barge-in; persist off the audio path). Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. | Full duplex / interruptible voice beyond barge-in |
+| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, half-duplex — client `response.create`, no barge-in; persist off the audio path). Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. | Full duplex / interruptible voice |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)

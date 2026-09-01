@@ -1,6 +1,8 @@
 import {
+  LIVE_TALK_CONNECT_WARMUP_MS,
   LIVE_TALK_MAX_RECORDING_MS,
   LIVE_TALK_NO_SPEECH_MS,
+  LIVE_TALK_PLAYBACK_TAIL_MS,
   liveTalkAbortRefundNeeded,
   liveTalkCanTakeFloor,
   liveTalkErrorGate,
@@ -15,6 +17,9 @@ import {
   liveTalkShowsSideChrome,
   liveTalkSilenceDecision,
   liveTalkSpeakFlush,
+  liveTalkLocalMicEnabled,
+  liveTalkShouldCreateResponse,
+  isLikelyAssistantEcho,
   nextLiveTalkSpeakChunk,
   type LiveTalkStatus,
 } from "@/lib/liveTalkLogic";
@@ -144,6 +149,65 @@ describe("nextLiveTalkSpeakChunk", () => {
     const next = nextLiveTalkSpeakChunk(full, 0);
     expect(next.chunk.length).toBeGreaterThanOrEqual(40);
     expect(full.startsWith(next.chunk)).toBe(true);
+  });
+});
+
+describe("liveTalkLocalMicEnabled", () => {
+  it("closes capture while the assistant is playing even if the user is not muted", () => {
+    expect(liveTalkLocalMicEnabled(false, false)).toBe(true);
+    expect(liveTalkLocalMicEnabled(false, true)).toBe(false);
+    expect(liveTalkLocalMicEnabled(true, false)).toBe(false);
+  });
+});
+
+describe("liveTalkShouldCreateResponse", () => {
+  it("uses a connect warmup and a short playback tail before the mic reopens", () => {
+    expect(LIVE_TALK_CONNECT_WARMUP_MS).toBe(1_500);
+    expect(LIVE_TALK_PLAYBACK_TAIL_MS).toBe(500);
+  });
+
+  it("does not create a model turn from connect noise or assistant echo", () => {
+    expect(
+      liveTalkShouldCreateResponse({
+        sessionReadyForTurns: false,
+        assistantSpeaking: false,
+        userMuted: false,
+        acceptedUserUtterance: true,
+      }),
+    ).toBe(false);
+    expect(
+      liveTalkShouldCreateResponse({
+        sessionReadyForTurns: true,
+        assistantSpeaking: true,
+        userMuted: false,
+        acceptedUserUtterance: true,
+      }),
+    ).toBe(false);
+    expect(
+      liveTalkShouldCreateResponse({
+        sessionReadyForTurns: true,
+        assistantSpeaking: false,
+        userMuted: false,
+        acceptedUserUtterance: false,
+      }),
+    ).toBe(false);
+    expect(
+      liveTalkShouldCreateResponse({
+        sessionReadyForTurns: true,
+        assistantSpeaking: false,
+        userMuted: false,
+        acceptedUserUtterance: true,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("isLikelyAssistantEcho", () => {
+  it("drops speaker-bleed fragments of the last assistant line", () => {
+    expect(
+      isLikelyAssistantEcho("Nice", "Nice to hear from you. What's on your mind today?"),
+    ).toBe(true);
+    expect(isLikelyAssistantEcho("what's the weather", "Nice to hear from you")).toBe(false);
   });
 });
 

@@ -42,7 +42,12 @@ def _app_with_user(user: User):
 
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings()
+    # Pin live-talk caps so a local operator .env (e.g. DAILY_LIVE_TALK_PRO=200)
+    # cannot change Pro remaining/limit assertions.
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        daily_live_talk=0,
+        daily_live_talk_pro=30,
+    )
     return app
 
 
