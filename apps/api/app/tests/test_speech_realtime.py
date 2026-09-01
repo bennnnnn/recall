@@ -29,7 +29,7 @@ def test_realtime_instructions_include_bounded_chat_history():
 
 
 @pytest.mark.asyncio
-async def test_realtime_call_uses_semantic_vad_and_server_key():
+async def test_realtime_call_uses_conservative_vad_and_server_key():
     response = MagicMock()
     response.status_code = 200
     response.text = "v=0\r\nanswer"
@@ -58,12 +58,18 @@ async def test_realtime_call_uses_semantic_vad_and_server_key():
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
     session = json.loads(call.kwargs["files"]["session"][1])
     assert session["model"] == "gpt-realtime-2.1"
+    assert session["audio"]["input"]["noise_reduction"] == {"type": "near_field"}
     assert session["audio"]["input"]["turn_detection"] == {
-        "type": "semantic_vad",
+        "type": "server_vad",
+        "threshold": 0.72,
+        "prefix_padding_ms": 300,
+        "silence_duration_ms": 600,
         "create_response": True,
-        "interrupt_response": True,
+        "interrupt_response": False,
     }
-    assert session["audio"]["input"]["transcription"] == {"model": "gpt-transcribe"}
+    transcription = session["audio"]["input"]["transcription"]
+    assert transcription["model"] == "gpt-live-transcribe"
+    assert "Do not invent speech from silence" in transcription["prompt"]
 
 
 @pytest.mark.asyncio
