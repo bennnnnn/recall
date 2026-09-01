@@ -34,6 +34,7 @@ const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const CONNECTION_TIMEOUT_MS = 10_000;
 const SDP_EXCHANGE_TIMEOUT_MS = 10_000;
+const MIC_REOPEN_GUARD_MS = 450;
 const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
 const SILENCE_HALLUCINATIONS = new Set([
   "thank you for watching",
@@ -234,6 +235,13 @@ export async function createRealtimeVoiceSession(options: {
   let userMuted = false;
   let assistantSpeaking = false;
   let suppressCurrentInputTurn = false;
+  let micResumeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearMicResumeTimer = () => {
+    if (micResumeTimer == null) return;
+    clearTimeout(micResumeTimer);
+    micResumeTimer = null;
+  };
 
   const syncLocalMicState = () => {
     const enabled = !userMuted && !assistantSpeaking;
@@ -351,6 +359,7 @@ export async function createRealtimeVoiceSession(options: {
     }
     if (type === "response.created") {
       assistantTranscript = "";
+      clearMicResumeTimer();
       assistantSpeaking = true;
       syncLocalMicState();
       options.onEvent({ type: "response_started" });
@@ -396,13 +405,21 @@ export async function createRealtimeVoiceSession(options: {
       return;
     }
     if (type === "response.done") {
-      assistantSpeaking = false;
       suppressCurrentInputTurn = false;
-      syncLocalMicState();
+      clearMicResumeTimer();
+      // response.done means generation is complete, but WebRTC may still have
+      // a short tail buffered for playback. Keep the mic closed through that
+      // tail so the final words cannot become the next user turn.
+      micResumeTimer = setTimeout(() => {
+        micResumeTimer = null;
+        assistantSpeaking = false;
+        syncLocalMicState();
+      }, MIC_REOPEN_GUARD_MS);
       options.onEvent({ type: "response_done" });
       return;
     }
     if (type === "error") {
+      clearMicResumeTimer();
       assistantSpeaking = false;
       suppressCurrentInputTurn = false;
       syncLocalMicState();
@@ -416,6 +433,7 @@ export async function createRealtimeVoiceSession(options: {
   };
 
   const tearDownAudio = () => {
+    clearMicResumeTimer();
     for (const track of remoteAudioTracks) {
       try {
         track.enabled = false;
