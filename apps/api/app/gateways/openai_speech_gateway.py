@@ -52,15 +52,17 @@ def realtime_session_config(settings: Settings, instructions: str) -> dict[str, 
         "instructions": instructions,
         "audio": {
             "input": {
+                # Close-mic denoiser. Half-duplex (v1): keep server VAD for
+                # end-of-speech, but do not auto-create or auto-interrupt.
+                # Echo from speaker→mic must not start a new model turn.
+                # Client sends response.create after a real user speech_stopped.
+                # See Realtime "Keep VAD, but disable automatic responses".
                 "noise_reduction": {"type": "near_field"},
                 "turn_detection": {
                     "type": "server_vad",
-                    "threshold": 0.72,
+                    "threshold": 0.5,
                     "prefix_padding_ms": 300,
-                    "silence_duration_ms": 600,
-                    # VAD detects and commits turns but never creates or interrupts
-                    # a model response. Mobile authorizes one response only after
-                    # accepting the completed user transcript.
+                    "silence_duration_ms": 500,
                     "create_response": False,
                     "interrupt_response": False,
                 },

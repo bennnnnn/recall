@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live Talk echo loop, mid-sentence cuts, then 34s of silence.** Simulator
+  RemoteIO has no AEC, so speaker audio is VAD’d as the user; `create_response:
+  true` starts a new reply from that echo. `response.done` is not end of
+  playback. A client `session.update` of nested `audio.input` replaced the
+  input object and killed VAD. Mint `create_response`/`interrupt_response`
+  false with threshold 0.5; never `session.update` from the app; unmute on
+  `output_audio_buffer.stopped` + 500ms tail, not `response.done`.
 - **Live Talk overlay up, no answer after a reload.** Fast Refresh kept
   `visible` and dropped the WebRTC peer, so the UI looked live with no mic.
   Reset the overlay on mount when there is no session. Do not let expo-audio

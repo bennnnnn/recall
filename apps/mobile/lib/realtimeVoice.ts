@@ -1,7 +1,15 @@
 import { Platform } from "react-native";
 
 import { speechApi } from "@/lib/api/speech";
-import { liveTalkDataChannelText } from "@/lib/liveTalkLogic";
+import {
+  LIVE_TALK_CONNECT_WARMUP_MS,
+  LIVE_TALK_PLAYBACK_TAIL_MS,
+  LIVE_TALK_SESSION_READY_FALLBACK_MS,
+  isLikelyAssistantEcho,
+  liveTalkDataChannelText,
+  liveTalkLocalMicEnabled,
+  liveTalkShouldCreateResponse,
+} from "@/lib/liveTalkLogic";
 import { yieldMicToWebRtc } from "@/lib/voiceAudio";
 
 export type RealtimeVoiceEvent =
@@ -30,36 +38,15 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
-type InputTurnState = {
-  itemId: string;
-  audioStartMs: number | null;
-  audioEndMs: number | null;
-  suppressed: boolean;
-};
-
-export type RealtimeTranscriptGateInput = {
-  text: string;
-  suppressed: boolean;
-  vadDurationMs?: number | null;
-  averageLogprob?: number | null;
-  recentAssistantText?: string;
-  nearAssistantPlayback?: boolean;
-};
-
 const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const CONNECTION_TIMEOUT_MS = 10_000;
 const SDP_EXCHANGE_TIMEOUT_MS = 10_000;
-const POST_PLAYBACK_GUARD_MS = 300;
-const VAD_CONFIGURED_PADDING_MS = 900; // 300ms prefix + 600ms trailing silence.
-const MIN_EFFECTIVE_SPEECH_MS = 100;
-const VERY_LOW_TRANSCRIPT_LOGPROB = -3.5;
+const PLAYBACK_UNMUTE_FALLBACK_MS = 12_000;
 const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
 const SILENCE_HALLUCINATIONS = new Set([
   "thank you for watching",
   "thanks for watching",
-  "thank you for listening",
-  "thanks for listening",
   "please subscribe",
   "subscribe",
 ]);
@@ -91,9 +78,9 @@ export function isRealtimeVoiceAvailable(): boolean {
 
 /**
  * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
- * expo-audio has also touched the session. Keep the existing iOS-safe capture
- * constraints. Turn authorization is handled above WebRTC, so even if the iOS
- * mic hears speaker output, that echo cannot create a model response.
+ * expo-audio has also touched the session. Keep processing on Android; on iOS
+ * the transport runs half-duplex while assistant audio is playing, so speaker
+ * echo cannot feed back into the model even without VoiceProcessing IO.
  */
 export function webRtcMicConstraints(): {
   echoCancellation: boolean;
@@ -104,16 +91,6 @@ export function webRtcMicConstraints(): {
     return { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
   }
   return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-}
-
-function stringField(event: Record<string, unknown>, key: string): string {
-  const value = event[key];
-  return typeof value === "string" ? value : "";
-}
-
-function numberField(event: Record<string, unknown>, key: string): number | null {
-  const value = event[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function transcriptFromEvent(event: Record<string, unknown>): string {
@@ -132,81 +109,44 @@ function normalizeTranscript(text: string): string {
     .trim();
 }
 
-function averageTranscriptLogprob(event: Record<string, unknown>): number | null {
-  const raw = event.logprobs;
-  if (!Array.isArray(raw) || raw.length === 0) return null;
-  const values: number[] = [];
-  for (const row of raw) {
-    if (!row || typeof row !== "object" || !("logprob" in row)) continue;
-    const value = (row as { logprob?: unknown }).logprob;
-    if (typeof value === "number" && Number.isFinite(value)) values.push(value);
-  }
-  if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+function isKnownSilenceHallucination(text: string): boolean {
+  return SILENCE_HALLUCINATIONS.has(normalizeTranscript(text));
 }
 
-function likelyAssistantEcho(text: string, assistantText: string): boolean {
-  const input = normalizeTranscript(text);
-  const assistant = normalizeTranscript(assistantText);
-  if (!input || !assistant) return false;
-  if (input.length >= 2 && assistant.includes(input)) return true;
-  if (assistant.length >= 8 && input.includes(assistant)) return true;
-  return false;
-}
-
-/**
- * Returns a stable diagnostic reason when an input transcript must not become
- * a user turn. Keep this intentionally conservative so accented/short genuine
- * speech is accepted while speaker echo and obvious silence hallucinations are
- * rejected.
- */
-export function realtimeTranscriptRejectionReason(
-  input: RealtimeTranscriptGateInput,
-): string | null {
-  const normalized = normalizeTranscript(input.text);
-  if (input.suppressed) return "assistant_playback";
-  if (!normalized) return "empty";
-  if (SILENCE_HALLUCINATIONS.has(normalized)) return "known_silence_hallucination";
-
-  if (
-    input.nearAssistantPlayback &&
-    input.recentAssistantText &&
-    likelyAssistantEcho(input.text, input.recentAssistantText)
-  ) {
-    return "assistant_echo";
-  }
-
-  if (input.vadDurationMs != null) {
-    const effectiveSpeechMs = Math.max(0, input.vadDurationMs - VAD_CONFIGURED_PADDING_MS);
-    if (effectiveSpeechMs < MIN_EFFECTIVE_SPEECH_MS && normalized.length <= 12) {
-      return "vad_impulse";
-    }
-  }
-
-  if (input.averageLogprob != null && input.averageLogprob < VERY_LOW_TRANSCRIPT_LOGPROB) {
-    return "very_low_confidence";
-  }
-  return null;
-}
-
-function sendRealtimeJson(
+function sendRealtimePayload(
   channel: { readyState?: string; send?: (data: string) => void },
   payload: Record<string, unknown>,
-): boolean {
-  if (channel.readyState !== "open" || typeof channel.send !== "function") return false;
+) {
+  if (channel.readyState !== "open" || typeof channel.send !== "function") return;
   try {
     channel.send(JSON.stringify(payload));
-    return true;
   } catch {
-    return false;
+    /* best-effort */
   }
 }
 
-function sendRealtimeEvent(
-  channel: { readyState?: string; send?: (data: string) => void },
-  type: string,
-): boolean {
-  return sendRealtimeJson(channel, { type });
+function sessionTurnSnapshot(event: Record<string, unknown>): Record<string, unknown> {
+  const session = event.session;
+  if (!session || typeof session !== "object") return { hasSession: false };
+  const root = session as Record<string, unknown>;
+  const audio = root.audio;
+  let turn: Record<string, unknown> | null = null;
+  if (audio && typeof audio === "object") {
+    const input = (audio as Record<string, unknown>).input;
+    if (input && typeof input === "object") {
+      const nested = (input as Record<string, unknown>).turn_detection;
+      if (nested && typeof nested === "object") turn = nested as Record<string, unknown>;
+    }
+  }
+  if (!turn && root.turn_detection && typeof root.turn_detection === "object") {
+    turn = root.turn_detection as Record<string, unknown>;
+  }
+  return {
+    hasSession: true,
+    vad: typeof turn?.type === "string" ? turn.type : null,
+    create_response: turn?.create_response ?? null,
+    interrupt_response: turn?.interrupt_response ?? null,
+  };
 }
 
 async function waitForIceGathering(pc: any): Promise<void> {
@@ -283,7 +223,9 @@ export async function createRealtimeVoiceSession(options: {
   onEvent: (event: RealtimeVoiceEvent) => void;
 }): Promise<RealtimeVoiceSession> {
   const webrtc = loadWebRtc();
-  if (!webrtc) throw new Error("webrtc_unavailable");
+  if (!webrtc) {
+    throw new Error("webrtc_unavailable");
+  }
 
   await yieldMicToWebRtc();
   debug("requesting-microphone", { platform: Platform.OS });
@@ -302,52 +244,91 @@ export async function createRealtimeVoiceSession(options: {
     readyState: localAudioTracks.map((track: any) => track.readyState),
   });
 
+  // Mint the short-lived credential while local ICE gathering proceeds. The
+  // permanent OpenAI API key stays on Recall's server; only this ek_ token is
+  // ever exposed to the app.
   const credentialPromise = speechApi.createRealtimeSession(options.token, {
     chatId: options.chatId,
   });
 
   const pc = new webrtc.RTCPeerConnection({});
-  for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+  for (const track of localStream.getTracks()) {
+    pc.addTrack(track, localStream);
+  }
 
   const dataChannel = pc.createDataChannel("oai-events");
   const remoteAudioTracks = new Set<any>();
-  const inputTurns = new Map<string, InputTurnState>();
-  const respondedInputItems = new Set<string>();
-
   let assistantTranscript = "";
-  let lastAssistantTranscript = "";
+  let lastAssistantText = "";
   let closed = false;
   let callId: string | null = null;
   let connectionSettled = false;
   let resolveConnected: (() => void) | null = null;
   let rejectConnected: ((error: Error) => void) | null = null;
   let userMuted = false;
-  let responseRequestPending = false;
-  let responseActive = false;
-  let responseServerDone = false;
-  let responseCompletionEmitted = false;
-  let assistantPlaybackActive = false;
-  let postPlaybackGuardUntil = 0;
-  let postPlaybackTimer: ReturnType<typeof setTimeout> | null = null;
-  let cancelNextResponse = false;
+  let assistantSpeaking = false;
+  let suppressCurrentInputTurn = false;
+  let sessionReadyForTurns = false;
+  let acceptedUserUtterance = false;
+  let sawOutputAudioStopped = false;
+  let micResumeTimer: ReturnType<typeof setTimeout> | null = null;
+  let sessionReadyTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const clearPostPlaybackTimer = () => {
-    if (postPlaybackTimer == null) return;
-    clearTimeout(postPlaybackTimer);
-    postPlaybackTimer = null;
+  const clearMicResumeTimer = () => {
+    if (micResumeTimer == null) return;
+    clearTimeout(micResumeTimer);
+    micResumeTimer = null;
   };
 
-  const playbackBlocked = () =>
-    assistantPlaybackActive || Date.now() < postPlaybackGuardUntil;
+  const unmuteAfterPlayback = (delayMs: number) => {
+    clearMicResumeTimer();
+    micResumeTimer = setTimeout(() => {
+      micResumeTimer = null;
+      assistantSpeaking = false;
+      syncLocalMicState();
+    }, delayMs);
+  };
 
-  const turnBlocked = () =>
-    responseRequestPending || responseActive || playbackBlocked();
+  const dropEchoInput = (reason: string, cancelResponse: boolean) => {
+    sendRealtimePayload(dataChannel, { type: "input_audio_buffer.clear" });
+    if (cancelResponse) {
+      sendRealtimePayload(dataChannel, { type: "response.cancel" });
+    }
+    debug("dropped-echo-input", { reason, cancelResponse });
+  };
+
+  const requestAssistantTurn = (reason: string) => {
+    if (
+      !liveTalkShouldCreateResponse({
+        sessionReadyForTurns,
+        assistantSpeaking,
+        userMuted,
+        acceptedUserUtterance,
+      })
+    ) {
+      return;
+    }
+    acceptedUserUtterance = false;
+    assistantSpeaking = true;
+    syncLocalMicState();
+    sendRealtimePayload(dataChannel, { type: "response.create" });
+    debug("response-create", reason);
+  };
+
+  const markSessionReadyForTurns = (reason: string) => {
+    if (sessionReadyForTurns) return;
+    sessionReadyForTurns = true;
+    if (sessionReadyTimer != null) {
+      clearTimeout(sessionReadyTimer);
+      sessionReadyTimer = null;
+    }
+    debug("session-ready-for-turns", reason);
+  };
 
   const syncLocalMicState = () => {
-    // On Android, physically close capture while assistant audio is playing.
-    // On iOS Simulator, toggling the capture track can destabilize CoreAudio,
-    // so the track stays live and manual turn authorization drops its echo.
-    const enabled = !userMuted && (Platform.OS === "ios" || !playbackBlocked());
+    // RemoteIO (Simulator) has no AEC. Capture must stay off while the
+    // assistant plays, otherwise speaker bleed becomes a new user turn.
+    const enabled = liveTalkLocalMicEnabled(userMuted, assistantSpeaking);
     for (const track of localAudioTracks) {
       try {
         track.enabled = enabled;
@@ -355,12 +336,7 @@ export async function createRealtimeVoiceSession(options: {
         /* best-effort */
       }
     }
-    debug("microphone-gate", {
-      enabled,
-      userMuted,
-      assistantPlaybackActive,
-      turnAuthorization: "manual",
-    });
+    debug("microphone-gate", { enabled, userMuted, assistantSpeaking });
   };
 
   const connectedPromise = new Promise<void>((resolve, reject) => {
@@ -371,8 +347,18 @@ export async function createRealtimeVoiceSession(options: {
   const settleConnected = () => {
     if (connectionSettled) return;
     connectionSettled = true;
-    debug("data-channel-open", { turnAuthorization: "manual" });
+    debug("data-channel-open", {
+      ice: String(pc.iceConnectionState),
+      peer: String(pc.connectionState),
+    });
     resolveConnected?.();
+    // Session turn_detection is minted server-side. Do not session.update
+    // audio.input here — a nested replace can kill server VAD.
+    if (sessionReadyTimer != null) clearTimeout(sessionReadyTimer);
+    sessionReadyTimer = setTimeout(() => {
+      sessionReadyTimer = null;
+      markSessionReadyForTurns("fallback");
+    }, LIVE_TALK_SESSION_READY_FALLBACK_MS);
     options.onEvent({ type: "connected" });
   };
 
@@ -386,33 +372,6 @@ export async function createRealtimeVoiceSession(options: {
   const emitError = (message: string) => {
     debug("realtime-error", message);
     if (!closed) options.onEvent({ type: "error", message });
-  };
-
-  const deleteInputItem = (itemId: string, reason: string) => {
-    if (!itemId) return;
-    debug("deleting-input-item", { itemId, reason });
-    sendRealtimeJson(dataChannel, {
-      type: "conversation.item.delete",
-      item_id: itemId,
-    });
-    inputTurns.delete(itemId);
-  };
-
-  const emitResponseDoneOnce = () => {
-    if (responseCompletionEmitted) return;
-    responseCompletionEmitted = true;
-    options.onEvent({ type: "response_done" });
-  };
-
-  const beginPostPlaybackGuard = () => {
-    clearPostPlaybackTimer();
-    postPlaybackGuardUntil = Date.now() + POST_PLAYBACK_GUARD_MS;
-    syncLocalMicState();
-    postPlaybackTimer = setTimeout(() => {
-      postPlaybackTimer = null;
-      postPlaybackGuardUntil = 0;
-      syncLocalMicState();
-    }, POST_PLAYBACK_GUARD_MS);
   };
 
   pc.ontrack = (event: { track?: any; streams?: any[] }) => {
@@ -464,167 +423,68 @@ export async function createRealtimeVoiceSession(options: {
     } catch {
       return;
     }
-
-    const type = stringField(event, "type");
-    if (
-      type === "session.created" ||
-      type === "session.updated" ||
-      type === "input_audio_buffer.speech_started" ||
-      type === "input_audio_buffer.speech_stopped" ||
-      type === "input_audio_buffer.committed" ||
-      type === "conversation.item.input_audio_transcription.completed" ||
-      type === "conversation.item.input_audio_transcription.failed" ||
-      type === "response.created" ||
-      type === "response.done" ||
-      type === "output_audio_buffer.started" ||
-      type === "output_audio_buffer.stopped" ||
-      type === "output_audio_buffer.cleared" ||
-      type === "error"
-    ) {
-      debug("event", type);
+    const type = typeof event.type === "string" ? event.type : "";
+    debug("event", type);
+    if (type === "session.created") {
+      debug("session-created", sessionTurnSnapshot(event));
+      if (sessionReadyTimer != null) clearTimeout(sessionReadyTimer);
+      sessionReadyTimer = setTimeout(() => {
+        sessionReadyTimer = null;
+        markSessionReadyForTurns("session.created+warmup");
+      }, LIVE_TALK_CONNECT_WARMUP_MS);
     }
-
     if (type === "input_audio_buffer.speech_started") {
-      const itemId = stringField(event, "item_id");
-      const suppressed = turnBlocked();
-      inputTurns.set(itemId, {
-        itemId,
-        audioStartMs: numberField(event, "audio_start_ms"),
-        audioEndMs: null,
-        suppressed,
-      });
-      if (suppressed) {
-        debug("suppressed-speech-start", {
-          itemId,
-          responseRequestPending,
-          responseActive,
-          assistantPlaybackActive,
-        });
+      suppressCurrentInputTurn = assistantSpeaking || !sessionReadyForTurns;
+      if (suppressCurrentInputTurn) {
+        acceptedUserUtterance = false;
+        dropEchoInput("speech-before-user-turn", false);
         return;
       }
+      acceptedUserUtterance = true;
       options.onEvent({ type: "speech_started" });
       return;
     }
-
     if (type === "input_audio_buffer.speech_stopped") {
-      const itemId = stringField(event, "item_id");
-      const existing = inputTurns.get(itemId);
-      const state: InputTurnState = existing ?? {
-        itemId,
-        audioStartMs: null,
-        audioEndMs: null,
-        suppressed: turnBlocked(),
-      };
-      state.audioEndMs = numberField(event, "audio_end_ms");
-      state.suppressed = state.suppressed || turnBlocked();
-      inputTurns.set(itemId, state);
-      if (!state.suppressed) options.onEvent({ type: "speech_stopped" });
-      return;
-    }
-
-    if (type === "input_audio_buffer.committed") {
-      const itemId = stringField(event, "item_id");
-      if (itemId && !inputTurns.has(itemId)) {
-        inputTurns.set(itemId, {
-          itemId,
-          audioStartMs: null,
-          audioEndMs: null,
-          suppressed: turnBlocked(),
-        });
-      }
-      return;
-    }
-
-    if (type === "conversation.item.input_audio_transcription.completed") {
-      const itemId = stringField(event, "item_id");
-      const text = transcriptFromEvent(event);
-      const state = inputTurns.get(itemId);
-      const vadDurationMs =
-        state?.audioStartMs != null && state.audioEndMs != null
-          ? Math.max(0, state.audioEndMs - state.audioStartMs)
-          : null;
-      const averageLogprob = averageTranscriptLogprob(event);
-      const nearAssistantPlayback =
-        Boolean(state?.suppressed) || playbackBlocked() || responseActive || responseRequestPending;
-      const reason = realtimeTranscriptRejectionReason({
-        text,
-        suppressed: Boolean(state?.suppressed),
-        vadDurationMs,
-        averageLogprob,
-        recentAssistantText: lastAssistantTranscript || assistantTranscript,
-        nearAssistantPlayback,
-      });
-
-      if (reason) {
-        debug("rejected-user-transcript", {
-          itemId,
-          reason,
-          text,
-          vadDurationMs,
-          averageLogprob,
-        });
-        deleteInputItem(itemId, reason);
+      if (suppressCurrentInputTurn) {
+        suppressCurrentInputTurn = false;
+        acceptedUserUtterance = false;
         return;
       }
-
-      if (!itemId || respondedInputItems.has(itemId)) return;
-      if (turnBlocked()) {
-        // This can only happen if a second committed turn races the first.
-        // Do not let it silently enter model context; the user can repeat it
-        // after the current answer finishes.
-        deleteInputItem(itemId, "response_in_flight");
-        return;
-      }
-
-      respondedInputItems.add(itemId);
-      inputTurns.delete(itemId);
-      options.onEvent({ type: "user_transcript", text });
-      responseRequestPending = true;
-      responseServerDone = false;
-      responseCompletionEmitted = false;
-      cancelNextResponse = false;
-      const sent = sendRealtimeEvent(dataChannel, "response.create");
-      debug("response-requested", { itemId, sent });
-      if (!sent) {
-        responseRequestPending = false;
-        emitError("Could not request realtime voice response");
-      }
+      options.onEvent({ type: "speech_stopped" });
+      requestAssistantTurn("speech_stopped");
       return;
     }
-
-    if (type === "conversation.item.input_audio_transcription.failed") {
-      const itemId = stringField(event, "item_id");
-      deleteInputItem(itemId, "transcription_failed");
-      return;
-    }
-
     if (type === "response.created") {
-      responseRequestPending = false;
-      responseActive = true;
-      responseServerDone = false;
-      responseCompletionEmitted = false;
-      assistantTranscript = "";
-      if (cancelNextResponse) {
-        cancelNextResponse = false;
-        sendRealtimeEvent(dataChannel, "response.cancel");
-        sendRealtimeEvent(dataChannel, "output_audio_buffer.clear");
+      if (suppressCurrentInputTurn) {
+        dropEchoInput("response-before-user-turn", true);
         return;
       }
+      assistantTranscript = "";
+      clearMicResumeTimer();
+      assistantSpeaking = true;
+      acceptedUserUtterance = false;
+      sawOutputAudioStopped = false;
+      syncLocalMicState();
+      sendRealtimePayload(dataChannel, { type: "input_audio_buffer.clear" });
       options.onEvent({ type: "response_started" });
       return;
     }
-
-    if (type === "output_audio_buffer.started") {
-      assistantPlaybackActive = true;
-      postPlaybackGuardUntil = 0;
-      clearPostPlaybackTimer();
-      syncLocalMicState();
-      debug("assistant-playback-started", {
-        responseId: stringField(event, "response_id"),
-      });
+    if (type === "conversation.item.input_audio_transcription.completed") {
+      const text = transcriptFromEvent(event);
+      const echoSource = lastAssistantText || assistantTranscript;
+      if (suppressCurrentInputTurn || (text && isLikelyAssistantEcho(text, echoSource))) {
+        dropEchoInput("echo-transcript", false);
+        suppressCurrentInputTurn = false;
+        debug("ignored-assistant-echo-transcript", text);
+        return;
+      }
+      if (text && isKnownSilenceHallucination(text)) {
+        debug("ignored-silence-hallucination", text);
+        return;
+      }
+      if (text) options.onEvent({ type: "user_transcript", text });
       return;
     }
-
     if (
       type === "response.output_audio_transcript.delta" ||
       type === "response.audio_transcript.delta"
@@ -639,47 +499,39 @@ export async function createRealtimeVoiceSession(options: {
       });
       return;
     }
-
     if (
       type === "response.output_audio_transcript.done" ||
       type === "response.audio_transcript.done"
     ) {
       const finalText = transcriptFromEvent(event) || assistantTranscript;
       assistantTranscript = finalText;
-      lastAssistantTranscript = finalText.trim();
-      if (lastAssistantTranscript) {
-        options.onEvent({
-          type: "assistant_transcript",
-          text: lastAssistantTranscript,
-          final: true,
-        });
+      if (finalText.trim()) {
+        lastAssistantText = finalText.trim();
+        options.onEvent({ type: "assistant_transcript", text: lastAssistantText, final: true });
       }
       return;
     }
-
+    if (type === "output_audio_buffer.stopped" || type === "output_audio_buffer.audio_stopped") {
+      sawOutputAudioStopped = true;
+      unmuteAfterPlayback(LIVE_TALK_PLAYBACK_TAIL_MS);
+      return;
+    }
     if (type === "response.done") {
-      responseRequestPending = false;
-      responseActive = false;
-      responseServerDone = true;
-      // response.done is generation completion, not playback completion. For
-      // WebRTC, wait for output_audio_buffer.stopped before finishing the turn.
-      if (!assistantPlaybackActive) emitResponseDoneOnce();
+      suppressCurrentInputTurn = false;
+      sendRealtimePayload(dataChannel, { type: "input_audio_buffer.clear" });
+      // Generation finished; RTP/playout can continue. Do not unmute here.
+      if (assistantSpeaking && !sawOutputAudioStopped) {
+        unmuteAfterPlayback(PLAYBACK_UNMUTE_FALLBACK_MS);
+      }
+      options.onEvent({ type: "response_done" });
       return;
     }
-
-    if (type === "output_audio_buffer.stopped" || type === "output_audio_buffer.cleared") {
-      assistantPlaybackActive = false;
-      beginPostPlaybackGuard();
-      debug("assistant-playback-stopped", {
-        responseId: stringField(event, "response_id"),
-        serverDone: responseServerDone,
-      });
-      if (responseServerDone) emitResponseDoneOnce();
-      return;
-    }
-
     if (type === "error") {
-      responseRequestPending = false;
+      clearMicResumeTimer();
+      assistantSpeaking = false;
+      suppressCurrentInputTurn = false;
+      acceptedUserUtterance = false;
+      syncLocalMicState();
       const rawError = event.error;
       const messageText =
         rawError && typeof rawError === "object" && "message" in rawError
@@ -690,7 +542,11 @@ export async function createRealtimeVoiceSession(options: {
   };
 
   const tearDownAudio = () => {
-    clearPostPlaybackTimer();
+    clearMicResumeTimer();
+    if (sessionReadyTimer != null) {
+      clearTimeout(sessionReadyTimer);
+      sessionReadyTimer = null;
+    }
     for (const track of remoteAudioTracks) {
       try {
         track.enabled = false;
@@ -706,9 +562,12 @@ export async function createRealtimeVoiceSession(options: {
   try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    // iOS Simulator can crash CoreAudio when applying an offer after local ICE
-    // candidates are gathered. Keep the existing iOS trickle behavior.
-    if (Platform.OS !== "ios") await waitForIceGathering(pc);
+    // iOS Simulator SIGABRTs in AURemoteIO when setRemoteDescription is
+    // applied after ICE gathering (candidates in the offer). Trickle from
+    // the answer is enough; ICE still reaches connected without them.
+    if (Platform.OS !== "ios") {
+      await waitForIceGathering(pc);
+    }
     const offerSdp = String(offer.sdp || "");
     const localSdp = String(pc.localDescription?.sdp || "");
     const sdp = offerSdp || localSdp;
@@ -719,7 +578,6 @@ export async function createRealtimeVoiceSession(options: {
       hasData: sdp.includes("m=application"),
       hasCandidate: sdp.includes("a=candidate"),
       gathering: pc.iceGatheringState,
-      turnAuthorization: "manual",
     });
 
     const credential = await credentialPromise;
@@ -772,16 +630,7 @@ export async function createRealtimeVoiceSession(options: {
       userMuted = muted;
       syncLocalMicState();
     },
-    cancelResponse: () => {
-      if (responseRequestPending && !responseActive) {
-        cancelNextResponse = true;
-        return;
-      }
-      if (responseActive || assistantPlaybackActive) {
-        sendRealtimeEvent(dataChannel, "response.cancel");
-        sendRealtimeEvent(dataChannel, "output_audio_buffer.clear");
-      }
-    },
+    cancelResponse: () => sendRealtimePayload(dataChannel, { type: "response.cancel" }),
     close: () => {
       if (closed) return;
       closed = true;
