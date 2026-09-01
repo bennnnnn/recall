@@ -104,9 +104,10 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
     assert call.kwargs["json"]["session"]["model"] == "gpt-realtime-2.1"
     assert call.kwargs["json"]["session"]["output_modalities"] == ["audio"]
-    assert call.kwargs["json"]["session"]["audio"]["input"]["turn_detection"][
-        "create_response"
-    ] is False
+    assert (
+        call.kwargs["json"]["session"]["audio"]["input"]["turn_detection"]["create_response"]
+        is False
+    )
 
 
 def _realtime_app(user, settings: Settings):
