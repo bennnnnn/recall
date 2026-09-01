@@ -6,16 +6,20 @@ import Animated, {
   type SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
 
-import { type LiveTalkPhase } from "@/lib/liveTalkLogic";
+import { liveTalkOrbMode, type LiveTalkPhase } from "@/lib/liveTalkLogic";
 import { Motion } from "@/lib/motion";
 import { Theme } from "@/lib/theme";
 
-const ORB = 220;
+const STAGE = 236;
+const CORE = 128;
+const BAR_COUNT = 5;
+const RING_COUNT = 3;
 
 type Props = {
   theme: Theme;
@@ -25,170 +29,231 @@ type Props = {
   reduceMotion: boolean;
 };
 
-/** Fixed circle with a moving cloud inside — the rim does not scale. */
-export function LiveTalkOrb({ theme, phase, meterLevel, recording, reduceMotion }: Props) {
-  const s = useMemo(() => makeOrbStyles(), []);
-  const voice = useSharedValue(0.2);
-  const pulse = useSharedValue(0.2);
-  const listening = useSharedValue(recording ? 1 : 0);
-  const drift = useSharedValue(0);
+export function LiveTalkOrb({ theme, phase, meterLevel, reduceMotion }: Props) {
+  const s = useMemo(() => makeOrbStyles(theme), [theme]);
+  const mode = liveTalkOrbMode(phase);
+  const wave = useSharedValue(0);
+  const meter = useSharedValue(Math.max(0.12, meterLevel));
+  const corePulse = useSharedValue(1);
 
   useEffect(() => {
-    listening.value = withTiming(recording ? 1 : 0, { duration: 80 });
-  }, [listening, recording]);
-
-  useEffect(() => {
-    voice.value = withTiming(Math.max(0.2, meterLevel), { duration: 70 });
-  }, [voice, meterLevel]);
+    meter.value = withTiming(Math.max(0.12, meterLevel), { duration: 70 });
+  }, [meter, meterLevel]);
 
   useEffect(() => {
     if (reduceMotion) {
-      pulse.value = phase === "speaking" ? 0.55 : 0.22;
+      wave.value = 0.45;
+      corePulse.value = mode === "speak" ? 1.04 : 1;
       return;
     }
-    if (phase === "speaking") {
-      pulse.value = withRepeat(
+    const duration = mode === "listen" ? 900 : mode === "speak" ? 720 : 1600;
+    wave.value = 0;
+    wave.value = withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false);
+    if (mode === "speak") {
+      corePulse.value = withRepeat(
         withSequence(
-          withTiming(0.95, { duration: 320, easing: Motion.easing.inOut }),
-          withTiming(0.4, { duration: 320, easing: Motion.easing.inOut }),
+          withTiming(1.06, { duration: 360, easing: Motion.easing.inOut }),
+          withTiming(1, { duration: 360, easing: Motion.easing.inOut }),
         ),
         -1,
         false,
       );
       return;
     }
-    if (phase === "thinking") {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(0.48, { duration: Motion.duration.soft, easing: Motion.easing.inOut }),
-          withTiming(0.22, { duration: Motion.duration.soft, easing: Motion.easing.inOut }),
-        ),
-        -1,
-        false,
-      );
-      return;
-    }
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(0.3, { duration: 1400, easing: Motion.easing.inOut }),
-        withTiming(0.14, { duration: 1400, easing: Motion.easing.inOut }),
-      ),
-      -1,
-      false,
-    );
-  }, [pulse, phase, reduceMotion]);
+    corePulse.value = withTiming(1, { duration: 180 });
+  }, [corePulse, mode, reduceMotion, wave]);
 
-  useEffect(() => {
-    if (reduceMotion) {
-      drift.value = 0.35;
-      return;
-    }
-    drift.value = 0;
-    drift.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.linear }), -1, false);
-  }, [drift, reduceMotion]);
-
-  const cloudA = useBlobStyle(drift, voice, pulse, listening, 1, 22, 18);
-  const cloudB = useBlobStyle(drift, voice, pulse, listening, 1.35, -26, 20);
-  const cloudC = useBlobStyle(drift, voice, pulse, listening, 0.8, 14, -24);
+  const coreStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: corePulse.value }],
+  }));
 
   const inner = theme.isDark
     ? ([theme.primaryDark, theme.primary, theme.primaryLight] as const)
-    : ([theme.primaryLight, theme.primary, theme.primary] as const);
-  const mid = theme.isDark
-    ? ([theme.primary, theme.primaryDark, theme.bg] as const)
-    : ([theme.primaryLight, theme.primary, theme.primaryDark] as const);
-  const shine = theme.isDark
-    ? ([theme.primaryDark, theme.primaryLight] as const)
-    : ([theme.bg, theme.primaryLight] as const);
+    : ([theme.primary, theme.primaryDark] as const);
 
   return (
-    <View style={[s.orbClip, { backgroundColor: theme.primaryLight }]}>
-      <Animated.View style={[s.blob, s.blobA, cloudA]}>
-        <LinearGradient
-          colors={[...inner]}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={s.fill}
+    <View style={s.stage} testID={`live-talk-orb-${mode}`}>
+      <IntroBurst color={theme.primary} reduceMotion={reduceMotion} />
+      {Array.from({ length: RING_COUNT }, (_, index) => (
+        <PulseRing
+          key={index}
+          index={index}
+          mode={mode}
+          color={theme.primary}
+          reduceMotion={reduceMotion}
         />
-      </Animated.View>
-      <Animated.View style={[s.blob, s.blobB, cloudB]}>
-        <LinearGradient
-          colors={[...mid]}
-          start={{ x: 0.2, y: 1 }}
-          end={{ x: 0.8, y: 0 }}
-          style={s.fill}
-        />
-      </Animated.View>
-      <Animated.View style={[s.blob, s.blobC, cloudC]}>
-        <LinearGradient
-          colors={[...shine]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.fill}
-        />
+      ))}
+      <Animated.View style={[s.core, coreStyle]}>
+        <LinearGradient colors={[...inner]} start={{ x: 0.2, y: 0 }} end={{ x: 0.85, y: 1 }} style={s.fill} />
+        <View style={s.bars}>
+          {Array.from({ length: BAR_COUNT }, (_, index) => (
+            <VoiceBar
+              key={index}
+              index={index}
+              mode={mode}
+              wave={wave}
+              meter={meter}
+              color={theme.onPrimary}
+              reduceMotion={reduceMotion}
+            />
+          ))}
+        </View>
       </Animated.View>
     </View>
   );
 }
 
-function useBlobStyle(
-  drift: SharedValue<number>,
-  voice: SharedValue<number>,
-  pulse: SharedValue<number>,
-  listening: SharedValue<number>,
-  speed: number,
-  ampX: number,
-  ampY: number,
-) {
-  return useAnimatedStyle(() => {
-    const t = drift.value * Math.PI * 2 * speed;
-    const agitate =
-      0.38 + voice.value * 0.9 * listening.value + pulse.value * (1 - listening.value);
-    return {
-      transform: [
-        { translateX: Math.cos(t) * ampX * agitate },
-        { translateY: Math.sin(t * 1.2) * ampY * agitate },
-        { scale: 0.78 + agitate * 0.48 },
-      ],
-    };
-  });
+function IntroBurst({ color, reduceMotion }: { color: string; reduceMotion: boolean }) {
+  const progress = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    progress.value = 0;
+    progress.value = withTiming(1, { duration: 640, easing: Motion.easing.out });
+  }, [progress, reduceMotion]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.72 + progress.value * 0.95 }],
+    opacity: (1 - progress.value) * 0.4,
+  }));
+  if (reduceMotion) return null;
+  return <Animated.View pointerEvents="none" style={[ringBox(), { borderColor: color }, style]} />;
 }
 
-function makeOrbStyles() {
+function PulseRing({
+  index,
+  mode,
+  color,
+  reduceMotion,
+}: {
+  index: number;
+  mode: ReturnType<typeof liveTalkOrbMode>;
+  color: string;
+  reduceMotion: boolean;
+}) {
+  const progress = useSharedValue(reduceMotion ? 0.35 : 0);
+  const listen = mode === "listen";
+  const speak = mode === "speak";
+  useEffect(() => {
+    if (reduceMotion) {
+      progress.value = 0.35;
+      return;
+    }
+    progress.value = 0;
+    const duration = listen ? 1280 : speak ? 980 : 1800;
+    progress.value = withDelay(
+      index * 240,
+      withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false),
+    );
+  }, [index, listen, progress, reduceMotion, speak]);
+
+  const style = useAnimatedStyle(() => {
+    const p = progress.value;
+    if (listen) {
+      return {
+        transform: [{ scale: 1.52 - p * 0.62 }],
+        opacity: (1 - p) * 0.48,
+      };
+    }
+    if (speak) {
+      return {
+        transform: [{ scale: 1 + p * 0.58 }],
+        opacity: (1 - p) * 0.52,
+      };
+    }
+    const breathe = 1.08 + Math.sin(p * Math.PI * 2) * 0.06;
+    return {
+      transform: [{ scale: breathe }],
+      opacity: 0.14 + (1 - p) * 0.12,
+    };
+  });
+
+  return <Animated.View pointerEvents="none" style={[ringBox(), { borderColor: color }, style]} />;
+}
+
+function VoiceBar({
+  index,
+  mode,
+  wave,
+  meter,
+  color,
+  reduceMotion,
+}: {
+  index: number;
+  mode: ReturnType<typeof liveTalkOrbMode>;
+  wave: SharedValue<number>;
+  meter: SharedValue<number>;
+  color: string;
+  reduceMotion: boolean;
+}) {
+  const style = useAnimatedStyle(() => {
+    const center = (BAR_COUNT - 1) / 2;
+    const dist = Math.abs(index - center) / Math.max(center, 1);
+    const w = wave.value;
+    let level = 0.18;
+    if (mode === "listen") {
+      const jitter = Math.sin(w * Math.PI * 2 * 2.2 + index * 1.35) * 0.5 + 0.5;
+      level = 0.2 + meter.value * (0.35 + 0.65 * jitter) * (1 - dist * 0.32);
+    } else if (mode === "speak") {
+      const tone = Math.sin(w * Math.PI * 2 + index * 0.7) * 0.5 + 0.5;
+      level = 0.28 + 0.72 * tone * (1 - dist * 0.22);
+    } else if (mode === "think") {
+      const sweep = w * (BAR_COUNT + 2) - 1;
+      level = 0.12 + 0.7 * Math.max(0, 1 - Math.abs(index - sweep) / 1.5);
+    } else {
+      level = 0.16 + Math.sin(w * Math.PI * 2 + index) * 0.06;
+    }
+    if (reduceMotion) {
+      level = mode === "speak" ? 0.55 - dist * 0.18 : mode === "listen" ? 0.4 - dist * 0.12 : 0.22;
+    }
+    const height = 8 + 36 * Math.max(0.08, Math.min(1, level));
+    return { height, opacity: 0.45 + 0.55 * Math.min(1, level) };
+  });
+  return <Animated.View style={[barBox(color), style]} />;
+}
+
+function ringBox() {
+  return {
+    position: "absolute" as const,
+    width: STAGE,
+    height: STAGE,
+    borderRadius: STAGE / 2,
+    borderWidth: 2,
+  };
+}
+
+function barBox(color: string) {
+  return {
+    width: 5,
+    borderRadius: 3,
+    backgroundColor: color,
+  };
+}
+
+function makeOrbStyles(theme: Theme) {
   return StyleSheet.create({
-    orbClip: {
-      width: ORB,
-      height: ORB,
-      borderRadius: ORB / 2,
+    stage: {
+      width: STAGE,
+      height: STAGE,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    core: {
+      width: CORE,
+      height: CORE,
+      borderRadius: CORE / 2,
       overflow: "hidden",
-    },
-    blob: {
-      position: "absolute",
-      borderRadius: 999,
-    },
-    blobA: {
-      width: ORB * 0.92,
-      height: ORB * 0.92,
-      left: -ORB * 0.12,
-      top: ORB * 0.08,
-    },
-    blobB: {
-      width: ORB * 0.78,
-      height: ORB * 0.78,
-      right: -ORB * 0.18,
-      top: -ORB * 0.1,
-    },
-    blobC: {
-      width: ORB * 0.48,
-      height: ORB * 0.48,
-      left: ORB * 0.28,
-      bottom: -ORB * 0.06,
-      opacity: 0.7,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.primary,
     },
     fill: {
-      width: "100%",
-      height: "100%",
-      borderRadius: 999,
+      ...StyleSheet.absoluteFill,
+    },
+    bars: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      height: 48,
     },
   });
 }

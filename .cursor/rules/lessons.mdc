@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Live Talk UI chime silenced the mic.** `setAudioModeAsync` before WebRTC
+  `getUserMedia` leaves Simulator capture dead. Play open/close cues with
+  `createAudioPlayer` only — never change the audio session for those chimes.
 - **Live Talk echo loop, mid-sentence cuts, then 34s of silence.** Simulator
   RemoteIO has no AEC, so speaker audio is VAD’d as the user; `create_response:
   true` starts a new reply from that echo. `response.done` is not end of

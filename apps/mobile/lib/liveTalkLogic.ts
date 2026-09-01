@@ -29,6 +29,16 @@ export const LIVE_TALK_NO_SPEECH_MS = 8_000;
 
 export type LiveTalkOrbAction = "begin" | "finishListen" | "cancelThink" | "none";
 
+export type LiveTalkOrbMode = "listen" | "speak" | "think" | "idle";
+
+/** Visual language for the orb — no on-screen Listening/Speaking copy. */
+export function liveTalkOrbMode(phase: LiveTalkPhase): LiveTalkOrbMode {
+  if (phase === "recording") return "listen";
+  if (phase === "speaking") return "speak";
+  if (phase === "thinking") return "think";
+  return "idle";
+}
+
 /** Orb tap: start/stop a listen or cancel a wait. Mute is the mic control, not the orb. */
 export function liveTalkOrbAction(phase: LiveTalkPhase): LiveTalkOrbAction {
   if (phase === "thinking") return "cancelThink";
