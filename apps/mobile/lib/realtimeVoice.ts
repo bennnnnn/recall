@@ -244,7 +244,10 @@ export async function createRealtimeVoiceSession(options: {
   };
 
   const syncLocalMicState = () => {
-    const enabled = !userMuted && !assistantSpeaking;
+    // Disabling the capture track on iOS reconfigures VoiceProcessing IO while
+    // playout is starting (response.created). Simulator then goes silent.
+    // Echo is ignored in JS (assistantSpeaking) instead of muting the unit.
+    const enabled = !userMuted && (Platform.OS === "ios" || !assistantSpeaking);
     for (const track of localAudioTracks) {
       try {
         track.enabled = enabled;
@@ -449,13 +452,22 @@ export async function createRealtimeVoiceSession(options: {
   try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await waitForIceGathering(pc);
-    const sdp = String(pc.localDescription?.sdp || offer.sdp || "");
+    // iOS Simulator SIGABRTs in AURemoteIO when setRemoteDescription is
+    // applied after ICE gathering (candidates in the offer). Trickle from
+    // the answer is enough; ICE still reaches connected without them.
+    if (Platform.OS !== "ios") {
+      await waitForIceGathering(pc);
+    }
+    const offerSdp = String(offer.sdp || "");
+    const localSdp = String(pc.localDescription?.sdp || "");
+    const sdp = offerSdp || localSdp;
     if (!sdp) throw new Error("Could not create realtime audio offer");
     debug("sending-sdp", {
       transport: "direct-ephemeral",
       hasAudio: sdp.includes("m=audio"),
       hasData: sdp.includes("m=application"),
+      hasCandidate: sdp.includes("a=candidate"),
+      gathering: pc.iceGatheringState,
     });
 
     const credential = await credentialPromise;
