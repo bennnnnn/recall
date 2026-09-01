@@ -60,8 +60,6 @@ type CompletedTurn = {
   assistantText: string;
 };
 
-const REALTIME_TRANSCRIPT_GRACE_MS = 350;
-
 export function useLiveTalk({
   token,
   chatId,
@@ -92,7 +90,6 @@ export function useLiveTalk({
   const userTextRef = useRef("");
   const visibleRef = useRef(false);
   const sessionGenRef = useRef(0);
-  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const alertForGate = useCallback(
     (gate: LiveTalkGate) => {
@@ -161,10 +158,7 @@ export function useLiveTalk({
 
   const finishTurn = useCallback(
     async (completed: CompletedTurn) => {
-      // Persistence, title generation, memory extraction, todo extraction, and
-      // RAG indexing stay outside the audio path. The completed turn is an
-      // immutable snapshot so a fast barge-in cannot mutate what gets saved.
-      if (token && completed.chatId && completed.callId && (completed.userText || completed.assistantText)) {
+      if (token && completed.chatId && completed.callId && completed.userText) {
         void api
           .persistRealtimeLiveTalkTurn(token, {
             chatId: completed.chatId,
@@ -184,53 +178,33 @@ export function useLiveTalk({
           });
       }
 
-      try {
-        const next = token ? await api.liveTalkStatus(token) : status;
-        if (next) setStatus(next);
-        applyEvent(
-          {
-            type: "done",
-            remaining: next?.remaining ?? status?.remaining ?? 0,
-            limit: next?.limit ?? status?.limit ?? 0,
-            user_message: null,
-            assistant_message: null,
-          },
-          completed.id,
-        );
-        onFirstReply(completed.chatId);
-      } catch {
-        // Voice already succeeded. A status refresh failure must not make the
-        // completed turn look failed.
-        applyEvent(
-          {
-            type: "done",
-            remaining: status?.remaining ?? 0,
-            limit: status?.limit ?? 0,
-            user_message: null,
-            assistant_message: null,
-          },
-          completed.id,
-        );
-      }
+      applyEvent(
+        {
+          type: "done",
+          remaining: status?.remaining ?? 0,
+          limit: status?.limit ?? 0,
+          user_message: null,
+          assistant_message: null,
+        },
+        completed.id,
+      );
+      if (completed.userText) onFirstReply(completed.chatId);
     },
     [applyEvent, feedback, onFirstReply, setMessages, status, t, token],
   );
 
-  const finalizeCurrentTurn = useCallback(() => {
-    const completed = captureCurrentTurn();
-    if (!completed) return;
-    setPhase("idle");
-    void finishTurn(completed);
-  }, [captureCurrentTurn, finishTurn]);
+  const finalizeCurrentTurn = useCallback(
+    (nextPhase: LiveTalkPhase = "recording") => {
+      const completed = captureCurrentTurn();
+      setPhase(nextPhase);
+      if (!completed || !completed.userText) return;
+      void finishTurn(completed);
+    },
+    [captureCurrentTurn, finishTurn],
+  );
 
   const flushPendingTurn = useCallback(() => {
-    if (finishTimerRef.current != null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
-    if (turnIdRef.current && (userTextRef.current || assistantTextRef.current)) {
-      finalizeCurrentTurn();
-    }
+    if (turnIdRef.current && userTextRef.current) finalizeCurrentTurn("recording");
   }, [finalizeCurrentTurn]);
 
   const handleRealtimeEvent = useCallback(
@@ -241,51 +215,42 @@ export function useLiveTalk({
         return;
       }
       if (event.type === "speech_started") {
-        // If the user barges in while the prior response is finishing, freeze
-        // that completed turn before starting a new one.
-        flushPendingTurn();
-        turnIdRef.current = String(Date.now());
-        userTextRef.current = "";
-        assistantTextRef.current = "";
         setPhase("recording");
         return;
       }
       if (event.type === "speech_stopped") {
+        // VAD ending is not yet a trusted turn. Stay in listening state until
+        // the completed transcription passes echo/noise validation.
+        return;
+      }
+      if (event.type === "user_transcript") {
+        flushPendingTurn();
+        turnIdRef.current = String(Date.now());
+        userTextRef.current = event.text.trim();
+        assistantTextRef.current = "";
+        if (!userTextRef.current) return;
+        applyEvent({ type: "user", text: userTextRef.current });
         setPhase("thinking");
         return;
       }
       if (event.type === "response_started") {
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
-        setPhase("thinking");
-        return;
-      }
-      if (event.type === "user_transcript") {
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
-        userTextRef.current = event.text;
-        applyEvent({ type: "user", text: event.text });
+        if (turnIdRef.current && userTextRef.current) setPhase("thinking");
         return;
       }
       if (event.type === "assistant_transcript") {
-        if (!turnIdRef.current) turnIdRef.current = String(Date.now());
+        if (!turnIdRef.current || !userTextRef.current) return;
         assistantTextRef.current = event.text;
         applyEvent({ type: "assistant", text: event.text });
         setPhase("speaking");
         return;
       }
       if (event.type === "response_done") {
-        if (finishTimerRef.current != null) clearTimeout(finishTimerRef.current);
-        // This grace affects only persistence/UI canonicalization, never audible
-        // audio. It allows the final input-transcription event to arrive if it
-        // trails response.done by a few network frames.
-        finishTimerRef.current = setTimeout(() => {
-          finishTimerRef.current = null;
-          finalizeCurrentTurn();
-        }, REALTIME_TRANSCRIPT_GRACE_MS);
+        finalizeCurrentTurn("recording");
         return;
       }
       if (event.type === "error") {
         reportRecoverableError(feedback, event.message || t("chat.live_talk_failed"));
-        setPhase("idle");
+        setPhase("recording");
       }
     },
     [applyEvent, feedback, finalizeCurrentTurn, flushPendingTurn, t],
@@ -294,14 +259,8 @@ export function useLiveTalk({
   const close = useCallback(() => {
     sessionGenRef.current += 1;
     visibleRef.current = false;
-    if (finishTimerRef.current != null) {
-      clearTimeout(finishTimerRef.current);
-      finishTimerRef.current = null;
-    }
     const completed = captureCurrentTurn();
-    if (completed && (completed.userText || completed.assistantText)) {
-      void finishTurn(completed);
-    }
+    if (completed?.userText) void finishTurn(completed);
     sessionRef.current?.close();
     sessionRef.current = null;
     callIdRef.current = null;
@@ -348,6 +307,10 @@ export function useLiveTalk({
       sessionRef.current = session;
       callIdRef.current = session.callId;
       setPhase("recording");
+      void api
+        .liveTalkStatus(token)
+        .then((latest) => setStatus(latest))
+        .catch(() => undefined);
     } catch (error) {
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       visibleRef.current = false;
@@ -363,17 +326,15 @@ export function useLiveTalk({
     sessionRef.current?.setMuted(next);
   }, [muted]);
 
-  // Semantic VAD owns turn boundaries. Normal interruption is simply speaking
-  // over the assistant; the Realtime session has interrupt_response enabled.
   const toggle = useCallback(async () => {
     if (phase === "thinking") {
       sessionRef.current?.cancelResponse();
-      setPhase("idle");
+      setPhase("recording");
     }
   }, [phase]);
 
   const interrupt = useCallback(() => {
-    // Kept for the existing UI contract. Barge-in is automatic in Realtime.
+    // Reliable half-duplex mode intentionally disables barge-in.
   }, []);
 
   const yieldToComposer = useCallback(() => {
@@ -391,8 +352,6 @@ export function useLiveTalk({
   }, [visible, drawerOpen, close]);
 
   useEffect(() => {
-    // Fast Refresh preserves `visible` and drops the native peer. A leftover
-    // overlay with no session looks like Live Talk is on and hears nothing.
     if (visible && !sessionRef.current) {
       visibleRef.current = false;
       setVisible(false);

@@ -29,7 +29,7 @@ def test_realtime_instructions_include_bounded_chat_history():
 
 
 @pytest.mark.asyncio
-async def test_realtime_call_uses_conservative_vad_and_server_key():
+async def test_realtime_call_requires_manual_response_authorization():
     response = MagicMock()
     response.status_code = 200
     response.text = "v=0\r\nanswer"
@@ -58,17 +58,18 @@ async def test_realtime_call_uses_conservative_vad_and_server_key():
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
     session = json.loads(call.kwargs["files"]["session"][1])
     assert session["model"] == "gpt-realtime-2.1"
+    assert session["include"] == ["item.input_audio_transcription.logprobs"]
     assert session["audio"]["input"]["noise_reduction"] == {"type": "near_field"}
     assert session["audio"]["input"]["turn_detection"] == {
         "type": "server_vad",
         "threshold": 0.72,
         "prefix_padding_ms": 300,
         "silence_duration_ms": 600,
-        "create_response": True,
+        "create_response": False,
         "interrupt_response": False,
     }
     transcription = session["audio"]["input"]["transcription"]
-    assert transcription["model"] == "gpt-live-transcribe"
+    assert transcription["model"] == "gpt-transcribe"
     assert "Do not invent speech from silence" in transcription["prompt"]
 
 
@@ -103,6 +104,10 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
     assert call.kwargs["json"]["session"]["model"] == "gpt-realtime-2.1"
     assert call.kwargs["json"]["session"]["output_modalities"] == ["audio"]
+    assert (
+        call.kwargs["json"]["session"]["audio"]["input"]["turn_detection"]["create_response"]
+        is False
+    )
 
 
 def _realtime_app(user, settings: Settings):
@@ -133,6 +138,29 @@ def test_persist_requires_issued_realtime_session():
             },
         )
     assert r.status_code == 403
+
+
+def test_persist_ignores_assistant_only_phantom_turn():
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+    )
+    client = TestClient(_realtime_app(user, settings))
+    with patch("app.routers.speech_realtime.get_redis_client") as redis_client:
+        r = client.post(
+            "/speech/live/persist",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(uuid4()),
+                "call_id": "phantom-session",
+                "user_text": "",
+                "assistant_text": "Hi there. How can I help?",
+            },
+        )
+    assert r.status_code == 204
+    redis_client.assert_not_called()
 
 
 def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
