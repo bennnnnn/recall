@@ -187,7 +187,9 @@ async def persist_realtime_turn(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     user_text = body.user_text.strip()
     assistant_text = body.assistant_text.strip()
-    if not user_text and not assistant_text:
+    # Defense in depth: a Realtime assistant message is never a Recall turn
+    # unless the mobile client first accepted a real user transcription.
+    if not user_text:
         return
 
     redis = get_redis_client()
