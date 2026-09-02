@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Library Share threw `ERR_FILESYSTEM_CANNOT_DOWNLOAD`.** Image painted via
+  `Image` + Bearer headers, but `downloadAsync` / `createDownloadResumable`
+  cannot pull authed `/attachments/{id}/file`. Fetch bytes (`fetchAttachmentBase64`)
+  and `writeAsStringAsync` Base64 into the cache, then share the `file://` URI.
 - **Live Talk UI chime silenced the mic / GPT Audio.** `setAudioModeAsync`
   before WebRTC `getUserMedia` leaves Simulator capture dead. A leftover
   `createAudioPlayer` also keeps the session in playback, so the assistant

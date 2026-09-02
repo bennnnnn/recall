@@ -1,9 +1,7 @@
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
-  downloadAsync: jest.fn(async (_uri: string, dest: string) => ({
-    uri: dest,
-    status: 200,
-  })),
+  EncodingType: { Base64: "base64" },
+  writeAsStringAsync: jest.fn(async () => undefined),
 }));
 
 jest.mock("expo-media-library", () => ({
@@ -16,13 +14,24 @@ jest.mock("react-native", () => ({
   Share: { share: jest.fn(async () => undefined) },
 }));
 
-import { downloadAsync } from "expo-file-system/legacy";
+jest.mock("@/lib/fetchAttachmentBytes", () => ({
+  fetchAttachmentBase64: jest.fn(async () => "AAAA"),
+}));
+
+jest.mock("@/lib/exportPdf", () => ({
+  isShareCancelled: (error: unknown) =>
+    error instanceof Error && /did not share/i.test(error.message),
+}));
+
+import { writeAsStringAsync } from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import { Share } from "react-native";
 
+import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import {
   ensureLocalAttachmentFile,
   getCachedAttachmentFile,
+  resetLocalAttachmentFileCache,
   saveChatAttachmentToLibrary,
   shareChatAttachment,
 } from "@/lib/downloadChatAttachment";
@@ -30,9 +39,10 @@ import {
 describe("downloadChatAttachment", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetLocalAttachmentFileCache();
   });
 
-  it("caches a remote attachment with auth headers via downloadAsync", async () => {
+  it("caches a remote attachment via authenticated fetch, not downloadAsync", async () => {
     const uri = "http://127.0.0.1:8000/attachments/abc/file";
     const local = await ensureLocalAttachmentFile({
       uri,
@@ -40,24 +50,21 @@ describe("downloadChatAttachment", () => {
       fileName: "cat.jpg",
     });
 
-    expect(downloadAsync).toHaveBeenCalledWith(
-      uri,
+    expect(fetchAttachmentBase64).toHaveBeenCalledWith(uri, "tok");
+    expect(writeAsStringAsync).toHaveBeenCalledWith(
       expect.stringContaining("cat.jpg"),
-      { headers: { Authorization: "Bearer tok" } },
+      "AAAA",
+      { encoding: "base64" },
     );
     expect(local.startsWith("file://")).toBe(true);
     expect(getCachedAttachmentFile(uri)).toBe(local);
 
-    // Second call hits memory cache — no second download.
     await ensureLocalAttachmentFile({ uri, token: "tok", fileName: "cat.jpg" });
-    expect(downloadAsync).toHaveBeenCalledTimes(1);
+    expect(fetchAttachmentBase64).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects when downloadAsync returns a non-2xx status", async () => {
-    jest.mocked(downloadAsync).mockResolvedValueOnce({
-      uri: "file:///cache/missing.jpg",
-      status: 404,
-    } as Awaited<ReturnType<typeof downloadAsync>>);
+  it("rejects when the authenticated fetch fails", async () => {
+    jest.mocked(fetchAttachmentBase64).mockRejectedValueOnce(new Error("Could not load attachment."));
 
     await expect(
       ensureLocalAttachmentFile({
@@ -65,7 +72,7 @@ describe("downloadChatAttachment", () => {
         token: "tok",
         fileName: "missing.jpg",
       }),
-    ).rejects.toThrow("Download failed.");
+    ).rejects.toThrow("Could not load attachment.");
   });
 
   it("saves to the photo library when permission is granted", async () => {
@@ -87,5 +94,16 @@ describe("downloadChatAttachment", () => {
     expect(Share.share).toHaveBeenCalledWith(
       expect.objectContaining({ url: expect.stringContaining("file://") }),
     );
+  });
+
+  it("does not throw when the user dismisses the share sheet", async () => {
+    jest.mocked(Share.share).mockRejectedValueOnce(new Error("User did not share"));
+    await expect(
+      shareChatAttachment({
+        uri: "http://127.0.0.1:8000/attachments/abc/file",
+        token: "tok",
+        fileName: "cat.jpg",
+      }),
+    ).resolves.toBeUndefined();
   });
 });

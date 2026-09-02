@@ -78,11 +78,17 @@ export function galleryFileName(
   originalFilename?: string | null,
 ): string {
   const named = originalFilename?.trim().replace(/\\/g, "/").split("/").pop();
-  if (named) return named;
   const subtype = contentType.split("/")[1]?.split("+")[0]?.split(";")[0]?.trim();
-  if (!subtype) return "attachment";
-  const ext = subtype.includes(".") ? subtype.slice(subtype.lastIndexOf(".") + 1) : subtype;
-  return `attachment.${ext}`;
+  const ext = !subtype
+    ? null
+    : subtype.includes(".")
+      ? subtype.slice(subtype.lastIndexOf(".") + 1)
+      : subtype;
+  if (named) {
+    if (!ext || named.includes(".")) return named;
+    return `${named}.${ext}`;
+  }
+  return ext ? `attachment.${ext}` : "attachment";
 }
 
 export function galleryThumbSize(listWidth: number, columns: number, gap: number): number {
