@@ -1,5 +1,6 @@
 import io
 import zipfile
+from uuid import uuid4
 
 import pytest
 
@@ -8,6 +9,7 @@ from app.services.attachment_content import (
     ALLOWED_CONTENT_TYPES,
     extract_text_from_bytes,
     is_image_content_type,
+    strip_attachment_from_content,
 )
 
 _DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -494,3 +496,44 @@ def test_resize_image_bytes_shrinks_large_photo():
     assert len(thumb) < len(original)
     out = Image.open(io.BytesIO(thumb))
     assert max(out.size) <= 80
+
+
+def test_strip_attachment_from_content_removes_image_marker():
+    attachment_id = uuid4()
+    other = uuid4()
+    content = (
+        f"Look at this.\n"
+        f"[Image: /attachments/{attachment_id}/file]\n"
+        f"[Image: /attachments/{other}/file]"
+    )
+    stripped = strip_attachment_from_content(content, attachment_id)
+    assert str(attachment_id) not in stripped
+    assert str(other) in stripped
+    assert "Look at this." in stripped
+
+
+def test_strip_attachment_from_content_keeps_caption_before_file():
+    attachment_id = uuid4()
+    content = (
+        "Please summarize\n\n"
+        f"[File: /attachments/{attachment_id}/file]\n"
+        "[File (application/pdf)]\n"
+        "Invoice for March\n"
+        "[BEGIN UNTRUSTED CONTENT]\n"
+        "secret\n"
+    )
+    assert strip_attachment_from_content(content, attachment_id) == "Please summarize"
+
+
+def test_strip_attachment_from_content_drops_file_only_message():
+    attachment_id = uuid4()
+    content = (
+        f"[File: /attachments/{attachment_id}/file]\n[File (application/pdf)]\nInvoice for March\n"
+    )
+    assert strip_attachment_from_content(content, attachment_id) == ""
+
+
+def test_strip_attachment_from_content_empty_means_delete_message():
+    attachment_id = uuid4()
+    content = f"[Image: /attachments/{attachment_id}/file]"
+    assert strip_attachment_from_content(content, attachment_id) == ""

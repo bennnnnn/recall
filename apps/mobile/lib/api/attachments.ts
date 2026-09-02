@@ -1,5 +1,11 @@
 import { request } from "@/lib/api/client";
 
+function deleteAttachment(token: string, attachmentId: string) {
+  return request<void>(`/attachments/${attachmentId}`, token, {
+    method: "DELETE",
+  });
+}
+
 export const attachmentsApi = {
   registerPushToken: (
     token: string,
@@ -28,10 +34,9 @@ export const attachmentsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  cancelAttachment: (token: string, attachmentId: string) =>
-    request<void>(`/attachments/${attachmentId}`, token, {
-      method: "DELETE",
-    }),
+  deleteAttachment,
+  /** Composer cancel of an unlinked upload — same DELETE as Library delete. */
+  cancelAttachment: deleteAttachment,
   confirmAttachment: (token: string, attachmentId: string) =>
     request<void>(`/attachments/${attachmentId}/confirm`, token, {
       method: "POST",
@@ -79,6 +84,7 @@ export type AttachmentListItem = {
   chat_id?: string | null;
   message_id?: string | null;
   original_filename?: string | null;
+  chat_title?: string | null;
 };
 
 export type AttachmentListResponse = {

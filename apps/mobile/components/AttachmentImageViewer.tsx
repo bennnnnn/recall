@@ -33,6 +33,8 @@ type Props = {
   previewUri?: string | null;
   /** Open the originating chat (gallery). */
   onOpenChat?: () => void;
+  /** Remove this Library item (gallery). */
+  onDelete?: () => void;
 };
 
 const SHEET_RADIUS = 26;
@@ -46,6 +48,7 @@ export function AttachmentImageViewer({
   fileName = "image.jpg",
   previewUri = null,
   onOpenChat,
+  onDelete,
 }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
@@ -214,6 +217,16 @@ export function AttachmentImageViewer({
                   <Icon name="download-outline" size={24} color={C.text} />
                 )}
               </Pressable>
+              {onDelete ? (
+                <Pressable
+                  style={s.iconBtn}
+                  onPress={onDelete}
+                  hitSlop={12}
+                  accessibilityLabel={t("common.delete")}
+                >
+                  <Icon name="trash-outline" size={24} danger />
+                </Pressable>
+              ) : null}
             </View>
           </View>
 

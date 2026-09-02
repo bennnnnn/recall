@@ -58,6 +58,13 @@ describe("domain API contracts", () => {
     );
   });
 
+  it("deletes a Library attachment", async () => {
+    await attachmentsApi.deleteAttachment("token", "att-1");
+    expect(mockRequest).toHaveBeenCalledWith("/attachments/att-1", "token", {
+      method: "DELETE",
+    });
+  });
+
   it("uses PATCH for project item status updates", async () => {
     await projectsApi.updateProjectItem("token", "p1", "i1", { status: "mastered" });
     expect(mockRequest).toHaveBeenCalledWith("/projects/p1/items/i1", "token", {
