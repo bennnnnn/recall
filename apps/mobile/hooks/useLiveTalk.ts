@@ -341,7 +341,7 @@ export function useLiveTalk({
       setPhase("thinking");
       setVisible(true);
       // Finish and release the open chime before getUserMedia. A leftover
-      // expo-audio player keeps the session in playback and GPT Audio is mute.
+      // expo-audio player keeps the session in playback and WebRTC is mute.
       await playLiveTalkCue("start");
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
       const session = await createRealtimeVoiceSession({

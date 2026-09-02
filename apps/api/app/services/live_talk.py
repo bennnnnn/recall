@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -14,10 +13,8 @@ from app.core import jobs
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Message, User
-from app.models.schemas import MessageOut
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
-from app.services import quota as quota_service
 from app.services import todos as todos_service
 from app.services.chat_titles import needs_generated_title
 from app.services.speech import LIVE_TALK_ALIAS
@@ -65,12 +62,6 @@ async def load_live_talk_history(
     history = [(row.role, row.content) for row in recent if row.role in {"user", "assistant"}]
     untitled = needs_generated_title(chat.title)
     return history, untitled
-
-
-def message_out_payload(message: Message | None) -> dict[str, object] | None:
-    if message is None:
-        return None
-    return MessageOut.model_validate(message).model_dump(mode="json")
 
 
 async def persist_live_talk_turn(
@@ -217,29 +208,3 @@ async def _enqueue_live_talk_jobs(
             await jobs.enqueue(redis, name, payload, dedupe_key=dedupe_key)
     except Exception:
         logger.exception("Live talk post-turn enqueue failed chat_id=%s", chat_id)
-
-
-async def settle_live_talk_after_stream(
-    *,
-    got_audio: bool,
-    reserved: bool,
-    redis: Redis,
-    user_id: UUID,
-    persist: Callable[[], Awaitable[object]] | None = None,
-) -> None:
-    """Refund if no spoken reply (audio clip or assistant text); otherwise clear pending.
-
-    Persist runs either way so Whisper text is not dropped on cancel.
-    Must run on cancel (CancelledError / GeneratorExit) as well as success —
-    ``except Exception`` misses those.
-    """
-    if got_audio:
-        await quota_service.clear_live_talk_pending(redis, user_id)
-        if persist is not None:
-            await persist()
-        return
-    if reserved:
-        await quota_service.refund_live_talk_if_pending(redis, user_id)
-    # Abort before audio still keeps Whisper text so the thread is not empty.
-    if persist is not None:
-        await persist()

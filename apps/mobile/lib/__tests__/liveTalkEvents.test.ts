@@ -1,21 +1,7 @@
 import type { Message } from "@/lib/api/types";
-import {
-  applyLiveTalkChatEvent,
-  dropLiveTalkLocalTurn,
-  parseLiveTalkSseChunk,
-} from "@/lib/liveTalkEvents";
+import { applyLiveTalkChatEvent, dropLiveTalkLocalTurn } from "@/lib/liveTalkEvents";
 
-describe("liveTalkStream", () => {
-  it("parses user, audio, and done SSE events", () => {
-    const { events, rest } = parseLiveTalkSseChunk(
-      'data: {"type":"user","text":"Hi"}\n\n' +
-        'data: {"type":"audio","audio_base64":"AA==","content_type":"audio/wav"}\n\n' +
-        'data: {"type":"done","remaining":28,"limit":30,"user_message":null,"assistant_message":null}\n\npartial',
-    );
-    expect(events.map((event) => event.type)).toEqual(["user", "audio", "done"]);
-    expect(rest).toBe("partial");
-  });
-
+describe("liveTalkEvents", () => {
   it("upserts local bubbles then swaps in persisted messages", () => {
     const user: Message = {
       id: "u1",

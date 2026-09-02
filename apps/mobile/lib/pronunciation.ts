@@ -3,11 +3,7 @@
 import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
 import { requestRaw } from "@/lib/api/client";
-import {
-  playbackStatusFinished,
-  playbackWaitMs,
-  wavDurationMsFromBase64,
-} from "@/lib/cloudPlayback";
+import { playbackStatusFinished } from "@/lib/cloudPlayback";
 import { markdownToPlainText } from "@/lib/markdownPlain";
 import { splitTtsChunks } from "@/lib/ttsLead";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
@@ -177,7 +173,6 @@ type PlaybackHandle = {
 const CLOUD_PLAYBACK_MAX_MS = 300_000;
 let cloudPlaybackFinish: (() => void) | null = null;
 let cloudPlayer: PlaybackHandle | null = null;
-let playbackModeGeneration = -1;
 
 function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MAX_MS): Promise<void> {
   return new Promise((resolve) => {
@@ -259,50 +254,6 @@ async function playCloudBase64(
   } catch {
     return { ok: false, reason: "error" };
   }
-}
-
-/** Play a cloud WAV/MP3 (live talk speech-to-speech). */
-export async function playSpeechAudio(
-  audioBase64: string,
-  contentType: string,
-): Promise<SpeakResult> {
-  const generation = beginSpeechPlayback();
-  await preparePlaybackAudioMode();
-  if (!isCurrentSpeak(generation)) return { ok: true };
-  return playCloudBase64(audioBase64, contentType, generation);
-}
-
-/** Stop prior speech and return the generation for a clip queue. */
-export function beginSpeechPlayback(): number {
-  markTtsTap();
-  stopSpeaking();
-  return speakGeneration;
-}
-
-/** Speak a live-talk transcript only when GPT Audio clips never arrived. */
-export function speakLiveTalkTranscript(
-  text: string,
-  generation: number,
-): Promise<SpeakResult> {
-  return beginDeviceSpeech(text, "en", generation);
-}
-
-/** Play one WAV/MP3 clip without aborting the rest of this utterance. */
-export async function playSpeechAudioClip(
-  audioBase64: string,
-  contentType: string,
-  generation: number,
-): Promise<SpeakResult> {
-  if (!isCurrentSpeak(generation)) return { ok: true };
-  if (playbackModeGeneration !== generation) {
-    await preparePlaybackAudioMode();
-    playbackModeGeneration = generation;
-  }
-  if (!isCurrentSpeak(generation)) return { ok: true };
-  const durationMs = contentType.includes("wav") ? wavDurationMsFromBase64(audioBase64) : null;
-  const waitMs = playbackWaitMs(durationMs);
-  logTtsLatency("clip_wait", { waitMs, durationMs: durationMs ?? 0 });
-  return playCloudBase64(audioBase64, contentType, generation, waitMs);
 }
 
 async function playRemoteAudio(url: string): Promise<SpeakResult> {

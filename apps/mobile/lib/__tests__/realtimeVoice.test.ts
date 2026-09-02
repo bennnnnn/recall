@@ -11,7 +11,7 @@ jest.mock("react-native-webrtc", () => ({
 }));
 
 jest.mock("@/lib/api/speech", () => ({
-  speechApi: { exchangeRealtimeSdp: jest.fn(), createRealtimeSession: jest.fn() },
+  speechApi: { createRealtimeSession: jest.fn() },
 }));
 
 import { createRealtimeVoiceSession, isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/realtimeVoice";
