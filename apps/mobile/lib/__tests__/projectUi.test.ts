@@ -1,14 +1,14 @@
-import { formatProjectListTitle, projectStatsLabels } from "@/lib/projects/projectUi";
+import { learningProjectTitle } from "@/lib/projects/projectUi";
 
 const t = (key: string) => key;
 
-describe("projectUi", () => {
-  it("uses vocabulary stats for language projects", () => {
-    expect(projectStatsLabels("language", t).new).toBe("projects.stats.new");
+describe("learningProjectTitle", () => {
+  it("uses the target language label for vocabulary classes", () => {
+    expect(learningProjectTitle("language", t, "English", "en")).toBe("English");
+    expect(learningProjectTitle("language", t, "Fallback", "es")).toBe("Español");
   });
 
-  it("maps General list title for language", () => {
-    expect(formatProjectListTitle("General", "language", t)).toBe("projects.list.general");
-    expect(formatProjectListTitle("History", "language", t)).toBe("History");
+  it("treats the vocabulary write alias as a language class", () => {
+    expect(learningProjectTitle("vocabulary", t, "x", "es")).toBe("Español");
   });
 });
