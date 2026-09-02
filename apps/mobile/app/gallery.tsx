@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useNavigation } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
@@ -39,7 +38,6 @@ export default function GalleryScreen() {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const thumbSize = galleryThumbSize(width - Space.md * 2, GALLERY_GRID_COLUMNS, Space.xs);
 
@@ -57,31 +55,6 @@ export default function GalleryScreen() {
     removeItem,
   } = useGalleryData(filter, searchQuery);
   const library = useGalleryLibrary(items, removeItem);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: t("gallery.title"),
-      headerRight: () => (
-        <Pressable
-          onPress={library.toggleLayout}
-          accessibilityRole="button"
-          accessibilityLabel={
-            library.layout === "grid"
-              ? t("gallery.layout_column_a11y")
-              : t("gallery.layout_grid_a11y")
-          }
-          hitSlop={8}
-          style={{ marginRight: 4, padding: 4 }}
-          testID="gallery-layout-toggle"
-        >
-          <Icon
-            name={library.layout === "grid" ? "list-outline" : "grid-outline"}
-            size={22}
-          />
-        </Pressable>
-      ),
-    });
-  }, [navigation, t, library.layout, library.toggleLayout]);
 
   const renderItem = useCallback(
     ({ item }: { item: AttachmentListItem }) => {
@@ -141,11 +114,13 @@ export default function GalleryScreen() {
       <GalleryLibraryHeader
         filter={filter}
         searchQuery={searchQuery}
+        layout={library.layout}
         onSearchChange={setSearchQuery}
         onFilterChange={(next) => {
           library.setViewerId(null);
           setFilter(next);
         }}
+        onToggleLayout={library.toggleLayout}
       />
 
       {loading && items.length === 0 && !error ? (

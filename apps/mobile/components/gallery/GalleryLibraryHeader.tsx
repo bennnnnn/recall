@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { tap } from "@/lib/haptics";
 import { type GalleryFilter } from "@/lib/gallery";
+import { type GalleryLayout } from "@/lib/galleryLayout";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -12,15 +13,19 @@ import { Type } from "@/lib/type";
 type Props = {
   filter: GalleryFilter;
   searchQuery: string;
+  layout: GalleryLayout;
   onSearchChange: (query: string) => void;
   onFilterChange: (filter: GalleryFilter) => void;
+  onToggleLayout: () => void;
 };
 
 export function GalleryLibraryHeader({
   filter,
   searchQuery,
+  layout,
   onSearchChange,
   onFilterChange,
+  onToggleLayout,
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -76,6 +81,23 @@ export function GalleryLibraryHeader({
             </Pressable>
           );
         })}
+        <Pressable
+          onPress={onToggleLayout}
+          accessibilityRole="button"
+          accessibilityLabel={
+            layout === "grid"
+              ? t("gallery.layout_column_a11y")
+              : t("gallery.layout_grid_a11y")
+          }
+          style={s.layoutToggle}
+          testID="gallery-layout-toggle"
+        >
+          <Icon
+            name={layout === "grid" ? "list-outline" : "grid-outline"}
+            size={22}
+            color={C.textSecondary}
+          />
+        </Pressable>
       </View>
     </View>
   );
@@ -110,6 +132,7 @@ function makeStyles(C: Theme) {
     tabs: {
       flexDirection: "row",
       flexWrap: "wrap",
+      alignItems: "center",
       gap: Space.xs,
     },
     tab: {
@@ -132,6 +155,12 @@ function makeStyles(C: Theme) {
     tabTextActive: {
       color: C.text,
       fontWeight: "600",
+    },
+    layoutToggle: {
+      minHeight: 44,
+      minWidth: 44,
+      alignItems: "center",
+      justifyContent: "center",
     },
   });
 }
