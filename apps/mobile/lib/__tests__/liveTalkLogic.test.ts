@@ -9,6 +9,7 @@ import {
   liveTalkGate,
   liveTalkIsEmptyTranscriptError,
   liveTalkOrbAction,
+  liveTalkOrbMode,
   liveTalkShouldAttachSession,
   liveTalkDataChannelText,
   liveTalkShouldSendRecording,
@@ -103,6 +104,15 @@ describe("liveTalkErrorGate", () => {
 
   it("maps a missing Realtime server key to unconfigured", () => {
     expect(liveTalkErrorGate({ status: 503 })).toBe("unconfigured");
+  });
+});
+
+describe("liveTalkOrbMode", () => {
+  it("maps listen vs speak without using on-screen copy", () => {
+    expect(liveTalkOrbMode("recording")).toBe("listen");
+    expect(liveTalkOrbMode("speaking")).toBe("speak");
+    expect(liveTalkOrbMode("thinking")).toBe("think");
+    expect(liveTalkOrbMode("idle")).toBe("idle");
   });
 });
 

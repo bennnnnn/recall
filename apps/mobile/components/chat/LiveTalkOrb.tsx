@@ -4,18 +4,26 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
   type SharedValue,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
 
-import { type LiveTalkPhase } from "@/lib/liveTalkLogic";
+import { liveTalkOrbMode, type LiveTalkPhase } from "@/lib/liveTalkLogic";
 import { Motion } from "@/lib/motion";
-import { Theme } from "@/lib/theme";
+import { Theme, withAlpha } from "@/lib/theme";
 
-const ORB = 220;
+const STAGE = 236;
+const CORE = 128;
+const HALO = 148;
+/** Always white — dark `onPrimary` is near-black and would hide the eyes. */
+const EYE_COLOR = "#FFFFFF";
+const PARK_LOOK_X = 9;
+const PARK_LOOK_Y = -7;
 
 type Props = {
   theme: Theme;
@@ -25,170 +33,228 @@ type Props = {
   reduceMotion: boolean;
 };
 
-/** Fixed circle with a moving cloud inside — the rim does not scale. */
-export function LiveTalkOrb({ theme, phase, meterLevel, recording, reduceMotion }: Props) {
-  const s = useMemo(() => makeOrbStyles(), []);
-  const voice = useSharedValue(0.2);
-  const pulse = useSharedValue(0.2);
-  const listening = useSharedValue(recording ? 1 : 0);
+export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
+  const s = useMemo(() => makeOrbStyles(theme), [theme]);
+  const mode = liveTalkOrbMode(phase);
+  const lookX = useSharedValue(PARK_LOOK_X);
+  const lookY = useSharedValue(PARK_LOOK_Y);
+  const blink = useSharedValue(1);
   const drift = useSharedValue(0);
+  const scaleX = useSharedValue(1);
+  const scaleY = useSharedValue(1);
 
   useEffect(() => {
-    listening.value = withTiming(recording ? 1 : 0, { duration: 80 });
-  }, [listening, recording]);
-
-  useEffect(() => {
-    voice.value = withTiming(Math.max(0.2, meterLevel), { duration: 70 });
-  }, [voice, meterLevel]);
-
-  useEffect(() => {
+    cancelAnimation(lookX);
+    cancelAnimation(lookY);
+    cancelAnimation(blink);
+    cancelAnimation(drift);
+    cancelAnimation(scaleX);
+    cancelAnimation(scaleY);
     if (reduceMotion) {
-      pulse.value = phase === "speaking" ? 0.55 : 0.22;
+      lookX.value = PARK_LOOK_X;
+      lookY.value = PARK_LOOK_Y;
+      blink.value = 1;
+      drift.value = 0;
+      scaleX.value = 1;
+      scaleY.value = mode === "speak" ? 1.02 : 1;
       return;
     }
-    if (phase === "speaking") {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(0.95, { duration: 320, easing: Motion.easing.inOut }),
-          withTiming(0.4, { duration: 320, easing: Motion.easing.inOut }),
-        ),
-        -1,
-        false,
-      );
-      return;
-    }
-    if (phase === "thinking") {
-      pulse.value = withRepeat(
-        withSequence(
-          withTiming(0.48, { duration: Motion.duration.soft, easing: Motion.easing.inOut }),
-          withTiming(0.22, { duration: Motion.duration.soft, easing: Motion.easing.inOut }),
-        ),
-        -1,
-        false,
-      );
-      return;
-    }
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(0.3, { duration: 1400, easing: Motion.easing.inOut }),
-        withTiming(0.14, { duration: 1400, easing: Motion.easing.inOut }),
-      ),
-      -1,
-      false,
-    );
-  }, [pulse, phase, reduceMotion]);
+    const ease = Motion.easing.inOut;
+    drift.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.linear }), -1, true);
+    startGaze(mode, lookX, lookY, ease);
+    startBlink(mode, blink, ease);
+    startBody(mode, scaleX, scaleY, ease);
+  }, [blink, drift, lookX, lookY, mode, reduceMotion, scaleX, scaleY]);
 
-  useEffect(() => {
-    if (reduceMotion) {
-      drift.value = 0.35;
-      return;
-    }
-    drift.value = 0;
-    drift.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.linear }), -1, false);
-  }, [drift, reduceMotion]);
-
-  const cloudA = useBlobStyle(drift, voice, pulse, listening, 1, 22, 18);
-  const cloudB = useBlobStyle(drift, voice, pulse, listening, 1.35, -26, 20);
-  const cloudC = useBlobStyle(drift, voice, pulse, listening, 0.8, 14, -24);
+  const bodyStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: scaleX.value }, { scaleY: scaleY.value }],
+  }));
+  const gazeStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: lookX.value },
+      { translateY: lookY.value },
+      { scaleY: Math.max(0.08, blink.value) },
+    ],
+  }));
+  const rightEyeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: drift.value * 1.6 }, { translateY: drift.value * -0.8 }],
+  }));
 
   const inner = theme.isDark
     ? ([theme.primaryDark, theme.primary, theme.primaryLight] as const)
-    : ([theme.primaryLight, theme.primary, theme.primary] as const);
-  const mid = theme.isDark
-    ? ([theme.primary, theme.primaryDark, theme.bg] as const)
-    : ([theme.primaryLight, theme.primary, theme.primaryDark] as const);
-  const shine = theme.isDark
-    ? ([theme.primaryDark, theme.primaryLight] as const)
-    : ([theme.bg, theme.primaryLight] as const);
+    : ([theme.primary, theme.primaryDark] as const);
 
   return (
-    <View style={[s.orbClip, { backgroundColor: theme.primaryLight }]}>
-      <Animated.View style={[s.blob, s.blobA, cloudA]}>
-        <LinearGradient
-          colors={[...inner]}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={s.fill}
-        />
-      </Animated.View>
-      <Animated.View style={[s.blob, s.blobB, cloudB]}>
-        <LinearGradient
-          colors={[...mid]}
-          start={{ x: 0.2, y: 1 }}
-          end={{ x: 0.8, y: 0 }}
-          style={s.fill}
-        />
-      </Animated.View>
-      <Animated.View style={[s.blob, s.blobC, cloudC]}>
-        <LinearGradient
-          colors={[...shine]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.fill}
-        />
+    <View style={s.stage} testID={`live-talk-orb-${mode}`}>
+      <View
+        pointerEvents="none"
+        style={[s.halo, { backgroundColor: withAlpha(theme.primary, 0.2) }]}
+      />
+      <Animated.View style={[s.core, bodyStyle]}>
+        <LinearGradient colors={[...inner]} start={{ x: 0.22, y: 0 }} end={{ x: 0.85, y: 1 }} style={s.fill} />
+        <Animated.View style={[s.eyes, gazeStyle]} testID="live-talk-orb-eyes">
+          <View style={s.eye} />
+          <Animated.View style={[s.eye, rightEyeStyle]} />
+        </Animated.View>
       </Animated.View>
     </View>
   );
 }
 
-function useBlobStyle(
-  drift: SharedValue<number>,
-  voice: SharedValue<number>,
-  pulse: SharedValue<number>,
-  listening: SharedValue<number>,
-  speed: number,
-  ampX: number,
-  ampY: number,
-) {
-  return useAnimatedStyle(() => {
-    const t = drift.value * Math.PI * 2 * speed;
-    const agitate =
-      0.38 + voice.value * 0.9 * listening.value + pulse.value * (1 - listening.value);
-    return {
-      transform: [
-        { translateX: Math.cos(t) * ampX * agitate },
-        { translateY: Math.sin(t * 1.2) * ampY * agitate },
-        { scale: 0.78 + agitate * 0.48 },
-      ],
-    };
-  });
+function startGaze(
+  mode: ReturnType<typeof liveTalkOrbMode>,
+  lookX: SharedValue<number>,
+  lookY: SharedValue<number>,
+  ease: typeof Motion.easing.inOut,
+): void {
+  if (mode === "speak") {
+    lookX.value = withRepeat(
+      withSequence(
+        withTiming(4, { duration: 280, easing: ease }),
+        withTiming(-5, { duration: 260, easing: ease }),
+        withTiming(2, { duration: 220, easing: ease }),
+        withTiming(0, { duration: 240, easing: ease }),
+      ),
+      -1,
+      false,
+    );
+    lookY.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 240, easing: ease }),
+        withTiming(-2, { duration: 200, easing: ease }),
+        withTiming(-6, { duration: 260, easing: ease }),
+        withTiming(-3, { duration: 220, easing: ease }),
+      ),
+      -1,
+      false,
+    );
+    return;
+  }
+  const slow = mode === "think" || mode === "idle";
+  const d = slow ? 1.45 : 1;
+  lookX.value = withRepeat(
+    withSequence(
+      withTiming(10, { duration: 640 * d, easing: ease }),
+      withTiming(-8, { duration: 720 * d, easing: ease }),
+      withTiming(5, { duration: 540 * d, easing: ease }),
+      withTiming(-11, { duration: 800 * d, easing: ease }),
+      withTiming(9, { duration: 600 * d, easing: ease }),
+    ),
+    -1,
+    false,
+  );
+  lookY.value = withRepeat(
+    withSequence(
+      withTiming(-8, { duration: 700 * d, easing: ease }),
+      withTiming(5, { duration: 640 * d, easing: ease }),
+      withTiming(-4, { duration: 580 * d, easing: ease }),
+      withTiming(7, { duration: 760 * d, easing: ease }),
+      withTiming(-6, { duration: 520 * d, easing: ease }),
+    ),
+    -1,
+    false,
+  );
 }
 
-function makeOrbStyles() {
+function startBlink(
+  mode: ReturnType<typeof liveTalkOrbMode>,
+  blink: SharedValue<number>,
+  ease: typeof Motion.easing.inOut,
+): void {
+  if (mode === "speak") {
+    blink.value = withTiming(1, { duration: 80 });
+    return;
+  }
+  const gap = mode === "listen" ? 1800 : 3200;
+  const second = mode === "listen" ? 160 : 2800;
+  blink.value = 1;
+  blink.value = withRepeat(
+    withSequence(
+      withDelay(gap, withTiming(0.1, { duration: 70, easing: ease })),
+      withTiming(1, { duration: 90, easing: ease }),
+      withDelay(second, withTiming(0.1, { duration: 60, easing: ease })),
+      withTiming(1, { duration: 90, easing: ease }),
+    ),
+    -1,
+    false,
+  );
+}
+
+function startBody(
+  mode: ReturnType<typeof liveTalkOrbMode>,
+  scaleX: SharedValue<number>,
+  scaleY: SharedValue<number>,
+  ease: typeof Motion.easing.inOut,
+): void {
+  if (mode !== "speak") {
+    scaleX.value = withTiming(1, { duration: 180, easing: ease });
+    scaleY.value = withTiming(1, { duration: 180, easing: ease });
+    return;
+  }
+  // Irregular squash/stretch — speech rhythm, not a heartbeat.
+  scaleX.value = withRepeat(
+    withSequence(
+      withTiming(1.1, { duration: 130, easing: ease }),
+      withTiming(0.92, { duration: 150, easing: ease }),
+      withTiming(1.06, { duration: 100, easing: ease }),
+      withTiming(0.96, { duration: 170, easing: ease }),
+      withTiming(1.03, { duration: 120, easing: ease }),
+      withTiming(0.94, { duration: 140, easing: ease }),
+    ),
+    -1,
+    false,
+  );
+  scaleY.value = withRepeat(
+    withSequence(
+      withTiming(0.9, { duration: 130, easing: ease }),
+      withTiming(1.08, { duration: 150, easing: ease }),
+      withTiming(0.94, { duration: 100, easing: ease }),
+      withTiming(1.05, { duration: 170, easing: ease }),
+      withTiming(0.97, { duration: 120, easing: ease }),
+      withTiming(1.07, { duration: 140, easing: ease }),
+    ),
+    -1,
+    false,
+  );
+}
+
+function makeOrbStyles(theme: Theme) {
   return StyleSheet.create({
-    orbClip: {
-      width: ORB,
-      height: ORB,
-      borderRadius: ORB / 2,
-      overflow: "hidden",
+    stage: {
+      width: STAGE,
+      height: STAGE,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    blob: {
+    halo: {
       position: "absolute",
-      borderRadius: 999,
+      width: HALO,
+      height: HALO,
+      borderRadius: HALO / 2,
     },
-    blobA: {
-      width: ORB * 0.92,
-      height: ORB * 0.92,
-      left: -ORB * 0.12,
-      top: ORB * 0.08,
-    },
-    blobB: {
-      width: ORB * 0.78,
-      height: ORB * 0.78,
-      right: -ORB * 0.18,
-      top: -ORB * 0.1,
-    },
-    blobC: {
-      width: ORB * 0.48,
-      height: ORB * 0.48,
-      left: ORB * 0.28,
-      bottom: -ORB * 0.06,
-      opacity: 0.7,
+    core: {
+      width: CORE,
+      height: CORE,
+      borderRadius: CORE / 2,
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.primary,
     },
     fill: {
-      width: "100%",
-      height: "100%",
-      borderRadius: 999,
+      ...StyleSheet.absoluteFill,
+    },
+    eyes: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      marginTop: -14,
+    },
+    eye: {
+      width: 11,
+      height: 24,
+      borderRadius: 6,
+      backgroundColor: EYE_COLOR,
     },
   });
 }

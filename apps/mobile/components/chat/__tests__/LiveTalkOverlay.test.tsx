@@ -18,7 +18,7 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("@/lib/motion", () => ({
   useReduceMotion: () => true,
-  Motion: { duration: { soft: 200 }, easing: { inOut: undefined } },
+  Motion: { duration: { soft: 200, snappy: 200 }, easing: { inOut: undefined, in: undefined } },
 }));
 
 jest.mock("expo-linear-gradient", () => {
@@ -36,6 +36,10 @@ describe("LiveTalkOverlay", () => {
     onToggle: jest.fn(),
   };
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("does not pause from the orb and has no Listening/Speaking copy", async () => {
     const onToggle = jest.fn();
     const { getByTestId, queryByText } = await render(
@@ -46,6 +50,15 @@ describe("LiveTalkOverlay", () => {
     expect(queryByText("chat.live_talk_listening")).toBeNull();
     await fireEvent.press(getByTestId("live-talk-orb"));
     expect(onToggle).not.toHaveBeenCalled();
+  });
+
+  it("uses a listen visual while recording and a speak visual while the assistant talks", async () => {
+    const listen = await render(<LiveTalkOverlay {...base} phase="recording" recording />);
+    expect(listen.getByTestId("live-talk-orb-listen")).toBeTruthy();
+    expect(listen.getByTestId("live-talk-orb-eyes")).toBeTruthy();
+    const speak = await render(<LiveTalkOverlay {...base} phase="speaking" />);
+    expect(speak.getByTestId("live-talk-orb-speak")).toBeTruthy();
+    expect(speak.getByTestId("live-talk-orb-eyes")).toBeTruthy();
   });
 
   it("starts below the chat header and above the composer", async () => {

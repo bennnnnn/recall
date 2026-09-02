@@ -1,11 +1,23 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
 import { LiveTalkOrb } from "@/components/chat/LiveTalkOrb";
 import { liveTalkOrbA11yKey, liveTalkOrbAction, type LiveTalkPhase } from "@/lib/liveTalkLogic";
-import { useReduceMotion } from "@/lib/motion";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+
+const ENTER_SPRING = { damping: 16, stiffness: 210, mass: 0.78 };
+const EXIT_MS = 280;
+const EXIT_DROP_Y = 78;
+const ENTER_SCALE = 0.16;
 
 type Props = {
   visible: boolean;
@@ -33,8 +45,36 @@ export function LiveTalkOverlay({
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const orbAction = liveTalkOrbAction(phase);
+  const [mounted, setMounted] = useState(visible);
+  const appear = useSharedValue(visible ? 1 : 0);
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      appear.value = reduceMotion ? 1 : withSpring(1, ENTER_SPRING);
+      return;
+    }
+    if (reduceMotion) {
+      appear.value = 0;
+      setMounted(false);
+      return;
+    }
+    appear.value = withTiming(0, { duration: EXIT_MS, easing: Motion.easing.in }, (finished) => {
+      if (finished) runOnJS(setMounted)(false);
+    });
+  }, [appear, reduceMotion, visible]);
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: appear.value,
+  }));
+  const orbWrapStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: (1 - appear.value) * EXIT_DROP_Y },
+      { scale: ENTER_SCALE + (1 - ENTER_SCALE) * appear.value },
+    ],
+  }));
+
+  if (!mounted) return null;
 
   const orb = (
     <LiveTalkOrb
@@ -47,25 +87,28 @@ export function LiveTalkOverlay({
   );
 
   return (
-    <View
-      style={[s.overlay, { top: headerInset, bottom: composerClearance }]}
+    <Animated.View
+      style={[s.overlay, overlayStyle, { top: headerInset, bottom: composerClearance }]}
       testID="live-talk-overlay"
+      pointerEvents={visible ? "auto" : "none"}
     >
       <View style={s.body}>
-        {orbAction === "none" ? (
-          <View testID="live-talk-orb">{orb}</View>
-        ) : (
-          <Pressable
-            onPress={onToggle}
-            accessibilityRole="button"
-            accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
-            testID="live-talk-orb"
-          >
-            {orb}
-          </Pressable>
-        )}
+        <Animated.View style={orbWrapStyle}>
+          {orbAction === "none" ? (
+            <View testID="live-talk-orb">{orb}</View>
+          ) : (
+            <Pressable
+              onPress={onToggle}
+              accessibilityRole="button"
+              accessibilityLabel={t(liveTalkOrbA11yKey(phase))}
+              testID="live-talk-orb"
+            >
+              {orb}
+            </Pressable>
+          )}
+        </Animated.View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
