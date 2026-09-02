@@ -5,8 +5,6 @@ import {
   welcomeStarters,
 } from "@/lib/homeWelcome";
 
-export { instantHomePlaceholder, localGreeting, welcomeStarters } from "@/lib/homeWelcome";
-
 function looksInternal(text: string): boolean {
   const clean = text.trim();
   if (!clean) return true;

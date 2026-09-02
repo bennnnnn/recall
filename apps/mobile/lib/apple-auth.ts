@@ -2,8 +2,6 @@ import { Platform } from "react-native";
 
 import { isExpoGo } from "@/lib/expoRuntime";
 
-export { isExpoGo } from "@/lib/expoRuntime";
-
 type AppleAuthModule = typeof import("expo-apple-authentication");
 
 let appleModule: AppleAuthModule | null | undefined;
@@ -21,7 +19,7 @@ async function loadAppleAuth(): Promise<AppleAuthModule> {
 }
 
 /** Sign in with Apple is iOS-only; never shown on Android. */
-export function isAppleSignInPlatform(): boolean {
+function isAppleSignInPlatform(): boolean {
   return Platform.OS === "ios";
 }
 

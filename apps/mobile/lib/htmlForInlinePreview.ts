@@ -139,7 +139,7 @@ function extractVisibleInner(html: string): string {
  * A lone decorative glyph (icon font ligature, emoji bullet) left over after
  * stripping <style>/<script> should NOT count as "this page has content" —
  * that reads as a render, not the blank/near-blank page it actually is. Require
- * at least one real letter/digit, matching what `previewHasVisibleText` checks.
+ * at least one real letter/digit.
  */
 function hasMeaningfulVisibleText(inner: string): boolean {
   return /\p{L}|\p{N}/u.test(textWithoutTags(inner));
@@ -160,9 +160,4 @@ export function htmlForInlinePreview(html: string): string {
   }
 
   return `<div>${inner}</div>`;
-}
-
-export function previewHasVisibleText(html: string): boolean {
-  const inner = extractVisibleInner(html);
-  return hasMeaningfulVisibleText(inner) || hasImgTag(inner);
 }

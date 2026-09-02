@@ -11,11 +11,8 @@ import { speechApi } from "@/lib/api/speech";
 import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
-export type { ProductEventInput, ProductEventName } from "@/lib/api/analytics";
-export type {
-  AttachmentListItem,
-  AttachmentListResponse,
-} from "@/lib/api/attachments";
+export type { ProductEventName } from "@/lib/api/analytics";
+export type { AttachmentListItem } from "@/lib/api/attachments";
 export {
   loginWithApple,
   loginWithDev,
