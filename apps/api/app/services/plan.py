@@ -70,11 +70,6 @@ def model_pool(user: User, settings: Settings) -> list[str]:
     return list(allowed) or [model_catalog.auto_fast_alias()]
 
 
-def effective_enabled_models(user: User, settings: Settings) -> list[str]:
-    """Alias for routing pool — kept for tests and callers."""
-    return model_pool(user, settings)
-
-
 def resolve_user_model(
     user: User,
     content: str,

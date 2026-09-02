@@ -104,15 +104,6 @@ def _last_user_text(messages: list[dict[str, str]] | None) -> str:
     return ""
 
 
-def _last_assistant_text(messages: list[dict[str, str]] | None) -> str:
-    if not messages:
-        return ""
-    for msg in reversed(messages):
-        if msg.get("role") == "assistant":
-            return str(msg.get("content") or "").strip()
-    return ""
-
-
 def _quiz_attempt_number(messages: list[dict[str, str]] | None) -> int:
     """Count A-D user answers since the most recent quiz fence in the prompt history."""
     from app.models.vocab_quiz import parse_vocab_quiz, quiz_answer_letter
@@ -233,10 +224,6 @@ async def mock_memory_sections(user_message: str, existing_sections: dict[str, s
             )
         ]
     )
-
-
-async def mock_memories(user_message: str):
-    return await mock_memory_sections(user_message, {})
 
 
 async def mock_merge_memory_section(section_type: str, prior_text: str):

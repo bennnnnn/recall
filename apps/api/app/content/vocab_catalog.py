@@ -223,7 +223,3 @@ def catalog_word_count(language: str, *, include_sat: bool = False) -> int:
         else path_decks_for_language(language)
     )
     return sum(len(deck.words) for deck in decks)
-
-
-def catalog_rows() -> list[CatalogDeck]:
-    return list(all_catalog_decks())

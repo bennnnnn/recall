@@ -2,8 +2,6 @@ import asyncio
 import logging
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Chat
@@ -12,20 +10,6 @@ from app.services import chat_titles
 from app.services.chat_titles import normalize_chat_title
 
 logger = logging.getLogger(__name__)
-
-
-async def _apply_chat_title(
-    session: AsyncSession,
-    chat_id: UUID,
-    user_id: UUID,
-    title: str,
-) -> None:
-    # Scope by user_id so a job injected with a known chat_id cannot set a
-    # title on another user's chat (defense-in-depth: the worker stream is
-    # trusted, but the job payload is now user-scoped like memory/todos).
-    chat = await chats_repo.get_by_id(session, chat_id, user_id)
-    if chat and not chat.title:
-        await chats_repo.set_title(session, chat, title)
 
 
 async def generate_chat_title(
