@@ -1,10 +1,4 @@
 import { Message } from "@/lib/api";
-import { isRenderableVocabQuiz, isVocabQuizAnswer, parseVocabQuiz } from "@/lib/parseVocabQuiz";
-
-/** A user message that looks like a quiz letter answer (A–D, case-insensitive). */
-function isQuizAnswer(content: string): boolean {
-  return /^[a-dA-D]\s*[.!)]?\s*$/.test(content.trim());
-}
 
 export const SENDING_LABEL_DELAY_MS = 400;
 
@@ -30,32 +24,6 @@ export function findLastAssistantId(messages: Message[]): string | null {
 }
 
 /**
- * Most recent assistant message with a tappable A–D quiz (fence or plain markdown).
- * Chips stay on this row even after a wrong-answer hint (no choices) becomes last.
- */
-export function findActiveQuizMessageId(messages: Message[]): string | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message.role !== "assistant") continue;
-    if (isRenderableVocabQuiz(parseVocabQuiz(message.content))) {
-      // Skip re-emitted fences in hint-only replies: if the preceding user
-      // message is a quiz answer (letter A–D or matching choice text), this
-      // assistant message is a hint-only reply that re-emitted the fence —
-      // the original quiz (earlier in the list) is the one to grade against.
-      // (LANG-STATE-001)
-      if (i > 0) {
-        const prev = messages[i - 1];
-        if (prev.role === "user" && isQuizAnswer(prev.content)) {
-          continue;
-        }
-      }
-      return message.id;
-    }
-  }
-  return null;
-}
-
-/**
  * Content of the user message immediately before `messages[index]`, when that
  * item is the assistant's reply to it — otherwise null. Computed once per row
  * by the list (which already has the full array) so row components can take
@@ -68,41 +36,6 @@ export function priorUserTextFor(messages: Message[], index: number): string | n
   if (!item || item.role !== "assistant" || index <= 0) return null;
   const prior = messages[index - 1];
   return prior?.role === "user" ? prior.content : null;
-}
-
-/**
- * True when this user row is a letter reply to an in-progress quiz — the
- * previous assistant is a quiz, or a hint after a letter while chips still
- * sit on that quiz. Ordinary "c" / "a" in normal chat stays a plain bubble.
- */
-export function priorAssistantIsQuizFor(messages: Message[], index: number): boolean {
-  const item = messages[index];
-  if (!item || item.role !== "user" || !isVocabQuizAnswer(item.content)) return false;
-
-  for (let i = index - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role === "user") {
-      if (!isVocabQuizAnswer(msg.content)) return false;
-      continue;
-    }
-    if (isRenderableVocabQuiz(parseVocabQuiz(msg.content))) {
-      if (i > 0) {
-        const prev = messages[i - 1];
-        if (prev.role === "user" && isQuizAnswer(prev.content)) {
-          continue;
-        }
-      }
-      return true;
-    }
-    if (i > 0) {
-      const prev = messages[i - 1];
-      if (prev.role === "user" && isVocabQuizAnswer(prev.content)) {
-        continue;
-      }
-    }
-    return false;
-  }
-  return false;
 }
 
 /** True while tokens are streaming or the server is persisting after stream_end. */

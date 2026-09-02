@@ -135,7 +135,6 @@ describe("deriveAssistantMessageContent", () => {
       ].join("\n"),
     });
 
-    expect(result.interactiveQuiz).toBeNull();
     expect(result.markdownContent).not.toMatch(/^A\)/m);
     expect(result.markdownContent).not.toContain("Reply with A");
   });
@@ -162,7 +161,6 @@ describe("deriveAssistantMessageContent", () => {
       ].join("\n"),
     });
 
-    expect(result.interactiveQuiz).toBeNull();
     expect(result.markdownContent).not.toContain("vocab_quiz");
     expect(result.markdownContent).not.toContain("What does hola mean?");
   });
@@ -183,8 +181,6 @@ describe("deriveAssistantMessageContent", () => {
       ].join("\n"),
     });
 
-    expect(result.showVocabCard).toBe(false);
-    expect(result.vocabCard).toBeNull();
     expect(result.markdownContent).toContain("Write your own sentence");
     expect(result.markdownContent).not.toContain("vocab_card");
   });

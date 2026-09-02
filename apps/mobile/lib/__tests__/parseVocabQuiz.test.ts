@@ -1,17 +1,12 @@
 import {
   cleanQuizWord,
-  inferQuizAnswersFromMessages,
   isVocabQuizAnswer,
   parseQuizAnswerLetter,
-  userMessageIsQuizReply,
-  formatVocabQuizAsMarkdown,
-  markdownHasQuizChoices,
   parseVocabQuiz,
   hasVocabQuizFence,
   stripVocabQuizBlock,
   stripVocabQuizPrologue,
   stripVocabSessionMetadata,
-  isCompleteVocabQuiz,
 } from "@/lib/parseVocabQuiz";
 
 describe("parseVocabQuiz", () => {
@@ -78,41 +73,6 @@ describe("parseVocabQuiz", () => {
     expect(quiz?.correct).toBe("A");
   });
 
-  it("isCompleteVocabQuiz requires four choices and a correct letter", () => {
-    expect(
-      isCompleteVocabQuiz({
-        word: "cat",
-        correct: "A",
-        choices: [
-          { letter: "A", text: "a" },
-          { letter: "B", text: "b" },
-          { letter: "C", text: "c" },
-          { letter: "D", text: "d" },
-        ],
-      }),
-    ).toBe(true);
-    expect(
-      isCompleteVocabQuiz({
-        word: "cat",
-        choices: [
-          { letter: "A", text: "a" },
-          { letter: "B", text: "b" },
-          { letter: "C", text: "c" },
-          { letter: "D", text: "d" },
-        ],
-      }),
-    ).toBe(false);
-    expect(
-      isCompleteVocabQuiz({
-        word: "cat",
-        choices: [
-          { letter: "A", text: "a" },
-          { letter: "B", text: "b" },
-        ],
-      }),
-    ).toBe(false);
-  });
-
   it("rejects vocab_quiz fence without correct letter", () => {
     const content = [
       "```vocab_quiz",
@@ -142,54 +102,6 @@ describe("parseVocabQuiz", () => {
     expect(isVocabQuizAnswer("Is it a?")).toBe(true);
     expect(isVocabQuizAnswer("A bit more help")).toBe(false);
     expect(isVocabQuizAnswer("Hi")).toBe(false);
-  });
-
-  it("userMessageIsQuizReply requires a prior quiz, not just a letter", () => {
-    expect(userMessageIsQuizReply("c", "C is a programming language.")).toBe(false);
-    const quizBody = [
-      "```vocab_quiz",
-      JSON.stringify({
-        word: "apple",
-        question: "What does it mean?",
-        correct: "A",
-        choices: [
-          { letter: "A", text: "a red fruit" },
-          { letter: "B", text: "a vehicle" },
-          { letter: "C", text: "a feeling" },
-          { letter: "D", text: "a color" },
-        ],
-      }),
-      "```",
-    ].join("\n");
-    expect(userMessageIsQuizReply("C", quizBody)).toBe(true);
-    expect(userMessageIsQuizReply("c", quizBody)).toBe(true);
-    expect(userMessageIsQuizReply("Hi", quizBody)).toBe(false);
-  });
-
-  it("infers quiz answers from message pairs", () => {
-    const quizBody = [
-      "```vocab_quiz",
-      JSON.stringify({
-        word: "apple",
-        question: "What does it mean?",
-        correct: "A",
-        choices: [
-          { letter: "A", text: "a red fruit" },
-          { letter: "B", text: "a vehicle" },
-          { letter: "C", text: "a feeling" },
-          { letter: "D", text: "a color" },
-        ],
-      }),
-      "```",
-    ].join("\n");
-    const answers = inferQuizAnswersFromMessages([
-      { id: "q1", role: "assistant", content: quizBody },
-      { id: "u1", role: "user", content: "A" },
-      { id: "q2", role: "assistant", content: quizBody },
-      { id: "u2", role: "user", content: "B" },
-    ]);
-    expect(answers.q1).toBe("A");
-    expect(answers.q2).toBe("B");
   });
 
   it("strips a partial vocab_quiz fence while streaming", () => {
@@ -313,36 +225,6 @@ describe("parseVocabQuiz", () => {
       "🥳 **Congratulations, Dev!** You've mastered all 5 words today.",
     );
     expect(stripVocabQuizBlock(content)).not.toContain("session_complete");
-  });
-
-  it("formatVocabQuizAsMarkdown renders fence-only bonus quiz", () => {
-    const content = [
-      "Here's your first quiz:",
-      "",
-      "```vocab_quiz",
-      JSON.stringify({
-        word: "shoe",
-        question: 'What does "shoe" mean?',
-        correct: "B",
-        choices: [
-          { letter: "A", text: "a hat" },
-          { letter: "B", text: "a covering for the foot" },
-          { letter: "C", text: "a fruit" },
-          { letter: "D", text: "a verb" },
-        ],
-      }),
-      "```",
-    ].join("\n");
-
-    const quiz = parseVocabQuiz(content);
-    expect(quiz).not.toBeNull();
-    const intro = stripVocabQuizBlock(content);
-    expect(markdownHasQuizChoices(intro, quiz!)).toBe(false);
-    const body = formatVocabQuizAsMarkdown(quiz!);
-    expect(body).toContain("**shoe**");
-    expect(body).toContain("**B)** a covering for the foot");
-    expect(body).toContain("Reply with **A**");
-    expect(`${intro.trim()}\n\n${body}`).toContain("Here's your first quiz:");
   });
 
   it("stripVocabQuizPrologue removes duplicate definition before rendered A-D", () => {

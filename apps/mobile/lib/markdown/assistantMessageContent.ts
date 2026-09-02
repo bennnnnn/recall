@@ -13,11 +13,7 @@ import {
   stripVocabSessionMetadata,
   type ParsedVocabQuiz,
 } from "@/lib/parseVocabQuiz";
-import {
-  hasVocabCardFence,
-  stripVocabCardBlock,
-  type ParsedVocabCard,
-} from "@/lib/parseVocabCard";
+import { hasVocabCardFence, stripVocabCardBlock } from "@/lib/parseVocabCard";
 import {
   hasLearningLaunchFence,
   parseLearningLaunch,
@@ -56,8 +52,6 @@ export type AssistantMessageContent = {
   showActionSlot: boolean;
   actionsReady: boolean;
   quizForStrip: ParsedVocabQuiz | null;
-  vocabCard: ParsedVocabCard | null;
-  showVocabCard: boolean;
   showLiveClock: boolean;
   clockTimezone: string;
   searchSources: SearchSource[];
@@ -74,7 +68,6 @@ export type AssistantMessageContent = {
   showSearchSources: boolean;
   markdownStreamMode: boolean;
   markdownResetKey: string;
-  interactiveQuiz: ParsedVocabQuiz | null;
   learningLaunch: ParsedLearningLaunch | null;
 };
 
@@ -154,8 +147,6 @@ export function deriveAssistantMessageContent(
           return isRenderableVocabQuiz(quiz) ? quiz : null;
         })();
 
-  const vocabCard: ParsedVocabCard | null = null;
-  const showVocabCard = false;
   const hideQuizFenceInMarkdown = hasVocabQuizFence(content) || Boolean(quizForStrip);
   const hideCardFenceInMarkdown = hideQuizFenceInMarkdown || hasVocabCardFence(content);
 
@@ -206,11 +197,9 @@ export function deriveAssistantMessageContent(
     !layoutFrozen &&
     !showLiveClock &&
     !hideQuizFenceInMarkdown &&
-    !showVocabCard &&
     !showCalendarProposals &&
     !(priorUserText != null && isLocationQuestion(priorUserText));
 
-  const interactiveQuiz = null; // Chat A–D chips are banned; lesson uses LessonQuizCards.
   const learningLaunch =
     !isUser && !layoutFrozen && hasLearningLaunchFence(content)
       ? parseLearningLaunch(content)
@@ -222,8 +211,6 @@ export function deriveAssistantMessageContent(
     showActionSlot,
     actionsReady,
     quizForStrip,
-    vocabCard,
-    showVocabCard,
     showLiveClock,
     clockTimezone,
     searchSources,
@@ -240,7 +227,6 @@ export function deriveAssistantMessageContent(
     showSearchSources,
     markdownStreamMode: layoutFrozen || Boolean(wasStreamed),
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
-    interactiveQuiz,
     learningLaunch,
   };
 }
