@@ -1,5 +1,8 @@
 import { config } from "@/lib/config";
-import { readServerAuthCode } from "@/lib/google-integration-auth-code";
+import {
+  isConsentCancelled,
+  readServerAuthCode,
+} from "@/lib/google-integration-auth-code";
 
 /**
  * OAuth for integrations (Gmail, Calendar) — separate from Recall sign-in.
@@ -20,27 +23,32 @@ export async function requestGoogleIntegrationAuthCode(
     webClientId: config.googleWebClientId,
     iosClientId: config.googleIosClientId,
     offlineAccess: true,
+    // Android only. Without this, a second Google product (or write upgrade)
+    // often reuses a consumed auth code and Google omits refresh_token.
+    forceCodeForRefreshToken: true,
     scopes,
   });
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     const signedIn = await GoogleSignin.getCurrentUser();
-    let serverAuthCode: string | null | undefined;
-
     if (signedIn) {
       const added = await GoogleSignin.addScopes({ scopes });
-      serverAuthCode =
-        readServerAuthCode(added) ?? signedIn.serverAuthCode ?? null;
-      if (!serverAuthCode) {
-        const refreshed = await GoogleSignin.signInSilently();
-        serverAuthCode = readServerAuthCode(refreshed);
+      if (isConsentCancelled(added)) {
+        throw new Error(options?.cancelledMessage ?? "Connect cancelled");
       }
-    } else {
-      const response = await GoogleSignin.signIn();
-      serverAuthCode = readServerAuthCode(response);
+      const fromConsent = readServerAuthCode(added);
+      if (fromConsent) {
+        return fromConsent;
+      }
+      // Do not use getCurrentUser().serverAuthCode — that is leftover from
+      // Recall sign-in (already exchanged, or never issued).
     }
-
+    const response = await GoogleSignin.signIn();
+    if (isConsentCancelled(response)) {
+      throw new Error(options?.cancelledMessage ?? "Connect cancelled");
+    }
+    const serverAuthCode = readServerAuthCode(response);
     if (!serverAuthCode) {
       throw new Error(
         "Google did not return an authorization code. Disconnect the integration, " +

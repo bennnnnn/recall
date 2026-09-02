@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Second Google product connect failed (“no refresh token”).** Google omits
+  `refresh_token` on incremental grants; `getCurrentUser().serverAuthCode` is
+  leftover from identity sign-in (already exchanged). `forceCodeForRefreshToken`
+  (Android) + never reuse cached codes; reuse sibling ciphertext only when Google
+  emails match. Disconnect of one product revokes the shared grant — refresh both
+  Settings panels.
 - **Library Share threw `ERR_FILESYSTEM_CANNOT_DOWNLOAD`.** Image painted via
   `Image` + Bearer headers, but `downloadAsync` / `createDownloadResumable`
   cannot pull authed `/attachments/{id}/file`. Fetch bytes (`fetchAttachmentBase64`)

@@ -207,6 +207,10 @@ async def test_connect_calendar_rejects_missing_calendar_readonly_scope():
             AsyncMock(return_value=None),
         ),
         patch(
+            "app.services.google_integrations.gmail_repo.get_for_user",
+            AsyncMock(return_value=None),
+        ),
+        patch(
             "app.services.google_integrations._resolve_stored_refresh_token",
             return_value="enc-rt",
         ),
@@ -254,6 +258,10 @@ async def test_connect_calendar_accepts_calendar_readonly_scope():
         ),
         patch(
             "app.services.google_integrations.calendar_repo.get_for_user",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.google_integrations.gmail_repo.get_for_user",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -392,3 +400,194 @@ async def test_disconnect_gmail_deletes_row_when_revoke_decrypt_fails():
         await google_integrations_service.disconnect_gmail(session, redis, settings, user_id)
 
     delete_mock.assert_awaited_once_with(session, user_id)
+
+
+def test_resolve_refresh_token_reuses_sibling_when_emails_match():
+    settings = Settings()
+    stored = google_integrations_service._resolve_stored_refresh_token(
+        settings,
+        "",
+        None,
+        sibling_encrypted="enc-gmail",
+        sibling_google_email="user@example.com",
+        connect_google_email="User@example.com",
+    )
+    assert stored == "enc-gmail"
+
+
+def test_resolve_refresh_token_rejects_sibling_when_emails_differ():
+    settings = Settings()
+    with pytest.raises(google_integrations_service.GoogleConnectError, match="refresh token"):
+        google_integrations_service._resolve_stored_refresh_token(
+            settings,
+            "",
+            None,
+            sibling_encrypted="enc-gmail",
+            sibling_google_email="calendar@example.com",
+            connect_google_email="gmail@example.com",
+        )
+
+
+def test_resolve_refresh_token_skips_sibling_without_verified_email():
+    settings = Settings()
+    with pytest.raises(google_integrations_service.GoogleConnectError, match="refresh token"):
+        google_integrations_service._resolve_stored_refresh_token(
+            settings,
+            "",
+            None,
+            sibling_encrypted="enc-gmail",
+            sibling_google_email="user@example.com",
+            connect_google_email=None,
+        )
+
+
+def test_resolve_refresh_token_prefers_existing_row_over_sibling():
+    settings = Settings()
+    stored = google_integrations_service._resolve_stored_refresh_token(
+        settings,
+        "",
+        "enc-existing",
+        sibling_encrypted="enc-gmail",
+        sibling_google_email="user@example.com",
+        connect_google_email="user@example.com",
+    )
+    assert stored == "enc-existing"
+
+
+@pytest.mark.asyncio
+async def test_connect_gmail_reuses_calendar_refresh_when_google_omits_token():
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "user@example.com"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+    calendar = MagicMock(
+        refresh_token="enc-cal",
+        google_email="user@example.com",
+        scopes="https://www.googleapis.com/auth/calendar.readonly",
+        calendar_id="primary",
+    )
+    token_data = {
+        "refresh_token": "",
+        "access_token": "at-gmail",
+        "scope": "https://www.googleapis.com/auth/gmail.readonly",
+    }
+
+    with (
+        patch(
+            "app.services.google_integrations.exchange_gmail_auth_code",
+            AsyncMock(return_value=token_data),
+        ),
+        patch(
+            "app.services.google_integrations.gmail_repo.get_for_user",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.get_for_user",
+            AsyncMock(return_value=calendar),
+        ),
+        patch(
+            "app.services.google_integrations.google_oauth.fetch_google_email",
+            AsyncMock(return_value="user@example.com"),
+        ),
+        patch(
+            "app.services.google_integrations.gmail_repo.upsert",
+            AsyncMock(),
+        ) as gmail_upsert,
+        patch(
+            "app.services.google_integrations.calendar_repo.upsert",
+            AsyncMock(),
+        ) as cal_upsert,
+        patch(
+            "app.services.google_integrations.email_service.clear_gmail_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.jobs.enqueue",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await google_integrations_service.connect_gmail(
+            session, redis, settings, user, "server-auth-code"
+        )
+
+    gmail_upsert.assert_awaited_once()
+    assert gmail_upsert.await_args.kwargs["refresh_token"] == "enc-cal"
+    cal_upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_connect_gmail_copies_new_refresh_token_onto_calendar_sibling():
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "user@example.com"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+    calendar = MagicMock(
+        refresh_token="enc-old-cal",
+        google_email="user@example.com",
+        scopes="https://www.googleapis.com/auth/calendar.readonly",
+        calendar_id="primary",
+    )
+    token_data = {
+        "refresh_token": "rt-new",
+        "access_token": "at-gmail",
+        "scope": "https://www.googleapis.com/auth/gmail.readonly",
+    }
+
+    with (
+        patch(
+            "app.services.google_integrations.exchange_gmail_auth_code",
+            AsyncMock(return_value=token_data),
+        ),
+        patch(
+            "app.services.google_integrations.gmail_repo.get_for_user",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.get_for_user",
+            AsyncMock(return_value=calendar),
+        ),
+        patch(
+            "app.services.google_integrations.google_oauth.fetch_google_email",
+            AsyncMock(return_value="user@example.com"),
+        ),
+        patch(
+            "app.services.google_integrations.gmail_repo.upsert",
+            AsyncMock(),
+        ) as gmail_upsert,
+        patch(
+            "app.services.google_integrations.calendar_repo.upsert",
+            AsyncMock(),
+        ) as cal_upsert,
+        patch(
+            "app.services.google_integrations.email_service.clear_gmail_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.jobs.enqueue",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await google_integrations_service.connect_gmail(
+            session, redis, settings, user, "server-auth-code"
+        )
+
+    cal_upsert.assert_awaited_once()
+    issued = gmail_upsert.await_args.kwargs["refresh_token"]
+    assert issued != "enc-old-cal"
+    assert cal_upsert.await_args.kwargs["refresh_token"] == issued
+    assert (
+        cal_upsert.await_args.kwargs["scopes"]
+        == "https://www.googleapis.com/auth/calendar.readonly"
+    )

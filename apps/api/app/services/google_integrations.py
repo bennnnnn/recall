@@ -63,10 +63,20 @@ def _decrypt_token(settings: Settings, stored: str) -> str:
         raise GoogleConnectError(str(exc)) from exc
 
 
+def _google_emails_match(left: str | None, right: str | None) -> bool:
+    a = (left or "").strip().lower()
+    b = (right or "").strip().lower()
+    return bool(a and a == b)
+
+
 def _resolve_stored_refresh_token(
     settings: Settings,
     refresh_token_raw: str,
     existing_encrypted: str | None,
+    *,
+    sibling_encrypted: str | None = None,
+    sibling_google_email: str | None = None,
+    connect_google_email: str | None = None,
 ) -> str:
     cleaned = refresh_token_raw.strip()
     if cleaned:
@@ -75,6 +85,10 @@ def _resolve_stored_refresh_token(
         # Reuse the already-encrypted stored token (e.g. re-grant without a
         # new refresh token). Don't re-encrypt — it's already ciphertext.
         return existing_encrypted
+    # Incremental Google grants often omit refresh_token. The sibling
+    # product's token is the same grant when both rows are the same account.
+    if sibling_encrypted and _google_emails_match(sibling_google_email, connect_google_email):
+        return sibling_encrypted
     raise GoogleConnectError(_MISSING_REFRESH)
 
 
@@ -163,11 +177,7 @@ async def connect_calendar(
     refresh_token_raw = str(token_data.get("refresh_token") or "").strip()
     access_token = str(token_data.get("access_token") or "").strip()
     existing = await calendar_repo.get_for_user(session, user.id)
-    refresh_token = _resolve_stored_refresh_token(
-        settings,
-        refresh_token_raw,
-        existing.refresh_token if existing else None,
-    )
+    gmail = await gmail_repo.get_for_user(session, user.id)
 
     email = await google_oauth.fetch_google_email(access_token) if access_token else None
     google_email = email or user.email
@@ -184,6 +194,17 @@ async def connect_calendar(
             "revoke Recall in your Google account, then connect again."
         )
 
+    refresh_token = _resolve_stored_refresh_token(
+        settings,
+        refresh_token_raw,
+        existing.refresh_token if existing else None,
+        sibling_encrypted=gmail.refresh_token if gmail else None,
+        sibling_google_email=gmail.google_email if gmail else None,
+        # Verified Google email only — never fall back to user.email for
+        # sibling reuse (Apple/private-relay accounts can disagree).
+        connect_google_email=email,
+    )
+
     await calendar_repo.upsert(
         session,
         user_id=user.id,
@@ -191,6 +212,14 @@ async def connect_calendar(
         refresh_token=refresh_token,
         scopes=scopes,
     )
+    if refresh_token_raw and gmail is not None and _google_emails_match(email, gmail.google_email):
+        await gmail_repo.upsert(
+            session,
+            user_id=user.id,
+            google_email=gmail.google_email,
+            refresh_token=refresh_token,
+            scopes=gmail.scopes,
+        )
     await calendar_service.clear_events_cache(redis, user.id)
     await home_service.invalidate_home_cache(user.id)
     return CalendarConnectResult(email=google_email, scopes=scopes)
@@ -238,11 +267,7 @@ async def connect_gmail(
     refresh_token_raw = str(token_data.get("refresh_token") or "").strip()
     access_token = str(token_data.get("access_token") or "").strip()
     existing = await gmail_repo.get_for_user(session, user.id)
-    refresh_token = _resolve_stored_refresh_token(
-        settings,
-        refresh_token_raw,
-        existing.refresh_token if existing else None,
-    )
+    calendar = await calendar_repo.get_for_user(session, user.id)
 
     email = await google_oauth.fetch_google_email(access_token) if access_token else None
     if not email:
@@ -257,6 +282,15 @@ async def connect_gmail(
             "revoke Recall in your Google account, then connect again."
         )
 
+    refresh_token = _resolve_stored_refresh_token(
+        settings,
+        refresh_token_raw,
+        existing.refresh_token if existing else None,
+        sibling_encrypted=calendar.refresh_token if calendar else None,
+        sibling_google_email=calendar.google_email if calendar else None,
+        connect_google_email=email,
+    )
+
     await gmail_repo.upsert(
         session,
         user_id=user.id,
@@ -264,6 +298,19 @@ async def connect_gmail(
         refresh_token=refresh_token,
         scopes=scopes or "gmail.readonly",
     )
+    if (
+        refresh_token_raw
+        and calendar is not None
+        and _google_emails_match(email, calendar.google_email)
+    ):
+        await calendar_repo.upsert(
+            session,
+            user_id=user.id,
+            google_email=calendar.google_email,
+            refresh_token=refresh_token,
+            scopes=calendar.scopes,
+            calendar_id=calendar.calendar_id,
+        )
     await email_service.clear_gmail_cache(redis, user.id)
     try:
         await jobs.enqueue(redis, "gmail_sync", {"user_id": str(user.id)})
