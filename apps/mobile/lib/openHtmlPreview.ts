@@ -50,9 +50,6 @@ ${html}
 </html>`;
 }
 
-/** HTML body suitable for react-native-render-html (no document shell). */
-export { htmlForInlinePreview, previewHasVisibleText } from "@/lib/htmlForInlinePreview";
-
 export function looksLikeInteractiveHtml(html: string): boolean {
   return /<\s*script\b/i.test(html);
 }
