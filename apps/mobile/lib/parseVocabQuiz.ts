@@ -51,27 +51,6 @@ export function formatVocabQuizAsMarkdown(quiz: ParsedVocabQuiz): string {
   return lines.join("\n");
 }
 
-/** Question header without choice list — used when tap-to-answer chips are shown. */
-export function formatVocabQuizPromptOnly(quiz: ParsedVocabQuiz): string {
-  const word = cleanQuizWord(quiz.word);
-  const isTrivia = quiz.quizType === "trivia";
-  const header = `**${word}**`;
-  const question =
-    quiz.question?.trim() || (isTrivia ? "" : "Choose the meaning that fits the sentence.");
-  const lines: string[] = [];
-  if (quiz.dailyProgress) {
-    lines.push(
-      `**${quiz.dailyProgress.done} / ${quiz.dailyProgress.goal} today**`,
-      "",
-    );
-  }
-  lines.push(header);
-  if (question) {
-    lines.push("", question);
-  }
-  return lines.join("\n");
-}
-
 export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
   return (
     isRenderableVocabQuiz(quiz) &&

@@ -26,7 +26,6 @@ import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
 import type { FenceId } from "@/lib/fenceRegistry";
-import { fenceIdForLang } from "@/lib/fenceRegistry";
 import {
   isMessageLang,
   parseCalloutKind,
@@ -121,17 +120,6 @@ export function renderRichFenceById(
     default:
       return null;
   }
-}
-
-export function renderRichFence(
-  lang: string,
-  content: string,
-  key: string,
-  tokenIndex?: number,
-): ReactNode | null {
-  const id = fenceIdForLang(lang);
-  if (!id) return null;
-  return renderRichFenceById(id, lang, content, key, tokenIndex);
 }
 
 export function renderCopyStyleBlock(

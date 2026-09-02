@@ -3,5 +3,4 @@ export {
   buildModelPreferences,
   defaultModelPreferences,
   useModelsContext as useModels,
-  useModelsOptional,
 } from "@/contexts/ModelsContext";

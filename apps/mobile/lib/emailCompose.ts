@@ -31,13 +31,3 @@ export function buildGmailAppComposeUrl(draft: EmailDraft): string {
 export function gmailComposeCandidates(draft: EmailDraft): string[] {
   return [buildGmailAppComposeUrl(draft), buildGmailComposeUrl(draft)];
 }
-
-export function buildMailtoUrl(draft: EmailDraft): string {
-  const params = new URLSearchParams();
-  if (draft.subject?.trim()) params.set("subject", draft.subject.trim());
-  if (draft.body.trim()) params.set("body", draft.body.trim());
-  const to = draft.to?.trim() ?? "";
-  const qs = params.toString();
-  if (to) return qs ? `mailto:${to}?${qs}` : `mailto:${to}`;
-  return qs ? `mailto:?${qs}` : "mailto:";
-}

@@ -53,9 +53,6 @@ export default function IntegrationsSettingsScreen() {
           title={t("settings.calendar_title")}
           subtitle={t("settings.calendar_desc")}
           showDivider={false}
-          collapsible={false}
-          expanded
-          onToggle={() => undefined}
           summary={
             calendarStatus?.connected && calendarStatus.email
               ? t("settings.calendar_connected", { email: calendarStatus.email })
@@ -90,9 +87,6 @@ export default function IntegrationsSettingsScreen() {
           title={t("settings.gmail_title")}
           subtitle={t("settings.gmail_desc")}
           showDivider={false}
-          collapsible={false}
-          expanded
-          onToggle={() => undefined}
           summary={
             gmailStatus?.connected && gmailStatus.email
               ? t("settings.gmail_connected", { email: gmailStatus.email })

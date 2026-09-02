@@ -498,34 +498,3 @@ export function stopSpeaking(): void {
   stopCloudPlayer();
   stopDeviceSpeech();
 }
-
-/** Pause the current cloud clip without ending the utterance. */
-export function pauseSpeaking(): boolean {
-  if (!cloudPlayer) return false;
-  try {
-    cloudPlayer.pause();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Resume a clip paused with `pauseSpeaking`. */
-export function resumeSpeaking(): boolean {
-  if (!cloudPlayer) return false;
-  try {
-    cloudPlayer.play();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Placeholder for future Whisper-based pronunciation check. */
-export async function scorePronunciation(_audioUri: string, _expectedWord: string): Promise<null> {
-  return null;
-}
-
-export function isSpeechAvailable(): boolean {
-  return loadSpeech() !== null || loadExpoAudio() !== null;
-}

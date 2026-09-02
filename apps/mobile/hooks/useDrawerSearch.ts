@@ -7,7 +7,6 @@ import {
   isAbortError,
   shouldApplyDrawerSearchResult,
 } from "@/lib/drawerSearchLogic";
-import { registerDrawerSearch } from "@/lib/drawer";
 
 type Options = {
   token: string | null;
@@ -58,11 +57,6 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
     setSearchOpen(true);
     requestAnimationFrame(() => searchInputRef.current?.focus());
   }, []);
-
-  useEffect(() => {
-    registerDrawerSearch(openSearch);
-    return () => registerDrawerSearch(null);
-  }, [openSearch]);
 
   const doSearch = useCallback(
     async (q: string, generation: number) => {

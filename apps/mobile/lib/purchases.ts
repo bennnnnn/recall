@@ -96,17 +96,6 @@ export async function restorePurchases(): Promise<boolean> {
   return info.entitlements.active[ENTITLEMENT_ID] != null;
 }
 
-export async function hasActiveProEntitlement(): Promise<boolean> {
-  const mod = await loadPurchases();
-  if (!mod) return false;
-  try {
-    const info = await mod.default.getCustomerInfo();
-    return info.entitlements.active[ENTITLEMENT_ID] != null;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * L4: log out RevenueCat so the next user doesn't inherit the prior user's
  * entitlements / customer info. No-op when Purchases isn't configured.

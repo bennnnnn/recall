@@ -3,12 +3,10 @@ jest.mock("@/lib/api", () => ({ api: {} }));
 import * as canonicalChats from "@/lib/cache/chatListCache";
 import * as canonicalIntegrations from "@/lib/cache/integrationStatusCache";
 import * as canonicalMemories from "@/lib/cache/memoryListCache";
-import * as canonicalProjects from "@/lib/cache/projectDetailCache";
 import * as canonicalReminders from "@/lib/cache/suggestedRemindersCache";
 import * as legacyChats from "@/lib/chatListCache";
 import * as legacyIntegrations from "@/lib/integrationStatusCache";
 import * as legacyMemories from "@/lib/memoryListCache";
-import * as legacyProjects from "@/lib/projectDetailCache";
 import * as legacyReminders from "@/lib/suggestedRemindersCache";
 
 describe("stateful cache compatibility seams", () => {
@@ -20,11 +18,6 @@ describe("stateful cache compatibility seams", () => {
       canonicalIntegrations.setIntegrationStatusCache,
     ],
     ["memory list", legacyMemories.setMemoriesCache, canonicalMemories.setMemoriesCache],
-    [
-      "project detail",
-      legacyProjects.setProjectDetailCache,
-      canonicalProjects.setProjectDetailCache,
-    ],
     [
       "suggested reminders",
       legacyReminders.setSuggestedRemindersCache,

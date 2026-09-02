@@ -114,7 +114,3 @@ export function useProjects() {
   }
   return ctx;
 }
-
-export function useProjectsOptional() {
-  return useContext(ProjectsContext);
-}
