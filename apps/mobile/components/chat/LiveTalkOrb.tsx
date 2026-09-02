@@ -73,7 +73,6 @@ export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
     transform: [
       { translateX: lookX.value },
       { translateY: lookY.value },
-      { rotate: "14deg" },
       { scaleY: Math.max(0.08, blink.value) },
     ],
   }));
