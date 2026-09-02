@@ -112,11 +112,6 @@ export function normalizeChartSpec(spec: Record<string, unknown>): void {
   }
 }
 
-/** @deprecated use normalizeChartSpec — kept for existing tests. */
-export function preserveChartCategoryOrder(spec: Record<string, unknown>): void {
-  normalizeChartSpec(spec);
-}
-
 function specPayloadForEmbed(raw: string): string {
   try {
     const parsed: unknown = JSON.parse(raw);

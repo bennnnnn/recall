@@ -157,8 +157,3 @@ export async function shareHtmlPreview(html: string): Promise<boolean> {
 
   return false;
 }
-
-/** @deprecated use openHtmlInBrowser */
-export async function openHtmlPreview(html: string): Promise<boolean> {
-  return openHtmlInBrowser(html);
-}

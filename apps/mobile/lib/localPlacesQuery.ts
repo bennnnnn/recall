@@ -125,9 +125,6 @@ export function isPlacesListQuery(text: string): boolean {
   return isProximityQuery(text);
 }
 
-/** @deprecated Use isGeoQuery — kept for call-site clarity. */
-export const isLocalPlacesQuery = isGeoQuery;
-
 export function isAmbiguousLocalPlacesQuery(text: string): boolean {
   const cleaned = text.trim();
   if (!isProximityQuery(cleaned)) return false;
