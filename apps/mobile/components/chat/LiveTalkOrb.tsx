@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
   type SharedValue,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -14,12 +15,15 @@ import Animated, {
 
 import { liveTalkOrbMode, type LiveTalkPhase } from "@/lib/liveTalkLogic";
 import { Motion } from "@/lib/motion";
-import { Theme } from "@/lib/theme";
+import { Theme, withAlpha } from "@/lib/theme";
 
 const STAGE = 236;
 const CORE = 128;
-const BAR_COUNT = 5;
-const RING_COUNT = 3;
+const HALO = 148;
+/** Always white — dark `onPrimary` is near-black and would hide the eyes. */
+const EYE_COLOR = "#FFFFFF";
+const PARK_LOOK_X = 9;
+const PARK_LOOK_Y = -7;
 
 type Props = {
   theme: Theme;
@@ -29,42 +33,52 @@ type Props = {
   reduceMotion: boolean;
 };
 
-export function LiveTalkOrb({ theme, phase, meterLevel, reduceMotion }: Props) {
+export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
   const s = useMemo(() => makeOrbStyles(theme), [theme]);
   const mode = liveTalkOrbMode(phase);
-  const wave = useSharedValue(0);
-  const meter = useSharedValue(Math.max(0.12, meterLevel));
-  const corePulse = useSharedValue(1);
+  const lookX = useSharedValue(PARK_LOOK_X);
+  const lookY = useSharedValue(PARK_LOOK_Y);
+  const blink = useSharedValue(1);
+  const drift = useSharedValue(0);
+  const scaleX = useSharedValue(1);
+  const scaleY = useSharedValue(1);
 
   useEffect(() => {
-    meter.value = withTiming(Math.max(0.12, meterLevel), { duration: 70 });
-  }, [meter, meterLevel]);
-
-  useEffect(() => {
+    cancelAnimation(lookX);
+    cancelAnimation(lookY);
+    cancelAnimation(blink);
+    cancelAnimation(drift);
+    cancelAnimation(scaleX);
+    cancelAnimation(scaleY);
     if (reduceMotion) {
-      wave.value = 0.45;
-      corePulse.value = mode === "speak" ? 1.04 : 1;
+      lookX.value = PARK_LOOK_X;
+      lookY.value = PARK_LOOK_Y;
+      blink.value = 1;
+      drift.value = 0;
+      scaleX.value = 1;
+      scaleY.value = mode === "speak" ? 1.02 : 1;
       return;
     }
-    const duration = mode === "listen" ? 900 : mode === "speak" ? 720 : 1600;
-    wave.value = 0;
-    wave.value = withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false);
-    if (mode === "speak") {
-      corePulse.value = withRepeat(
-        withSequence(
-          withTiming(1.06, { duration: 360, easing: Motion.easing.inOut }),
-          withTiming(1, { duration: 360, easing: Motion.easing.inOut }),
-        ),
-        -1,
-        false,
-      );
-      return;
-    }
-    corePulse.value = withTiming(1, { duration: 180 });
-  }, [corePulse, mode, reduceMotion, wave]);
+    const ease = Motion.easing.inOut;
+    drift.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.linear }), -1, true);
+    startGaze(mode, lookX, lookY, ease);
+    startBlink(mode, blink, ease);
+    startBody(mode, scaleX, scaleY, ease);
+  }, [blink, drift, lookX, lookY, mode, reduceMotion, scaleX, scaleY]);
 
-  const coreStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: corePulse.value }],
+  const bodyStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: scaleX.value }, { scaleY: scaleY.value }],
+  }));
+  const gazeStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: lookX.value },
+      { translateY: lookY.value },
+      { rotate: "14deg" },
+      { scaleY: Math.max(0.08, blink.value) },
+    ],
+  }));
+  const rightEyeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: drift.value * 1.6 }, { translateY: drift.value * -0.8 }],
   }));
 
   const inner = theme.isDark
@@ -73,159 +87,136 @@ export function LiveTalkOrb({ theme, phase, meterLevel, reduceMotion }: Props) {
 
   return (
     <View style={s.stage} testID={`live-talk-orb-${mode}`}>
-      <IntroBurst color={theme.primary} reduceMotion={reduceMotion} />
-      {Array.from({ length: RING_COUNT }, (_, index) => (
-        <PulseRing
-          key={index}
-          index={index}
-          mode={mode}
-          color={theme.primary}
-          reduceMotion={reduceMotion}
-        />
-      ))}
-      <Animated.View style={[s.core, coreStyle]}>
-        <LinearGradient colors={[...inner]} start={{ x: 0.2, y: 0 }} end={{ x: 0.85, y: 1 }} style={s.fill} />
-        <View style={s.bars}>
-          {Array.from({ length: BAR_COUNT }, (_, index) => (
-            <VoiceBar
-              key={index}
-              index={index}
-              mode={mode}
-              wave={wave}
-              meter={meter}
-              color={theme.onPrimary}
-              reduceMotion={reduceMotion}
-            />
-          ))}
-        </View>
+      <View
+        pointerEvents="none"
+        style={[s.halo, { backgroundColor: withAlpha(theme.primary, 0.2) }]}
+      />
+      <Animated.View style={[s.core, bodyStyle]}>
+        <LinearGradient colors={[...inner]} start={{ x: 0.22, y: 0 }} end={{ x: 0.85, y: 1 }} style={s.fill} />
+        <Animated.View style={[s.eyes, gazeStyle]} testID="live-talk-orb-eyes">
+          <View style={s.eye} />
+          <Animated.View style={[s.eye, rightEyeStyle]} />
+        </Animated.View>
       </Animated.View>
     </View>
   );
 }
 
-function IntroBurst({ color, reduceMotion }: { color: string; reduceMotion: boolean }) {
-  const progress = useSharedValue(reduceMotion ? 1 : 0);
-  useEffect(() => {
-    if (reduceMotion) return;
-    progress.value = 0;
-    progress.value = withTiming(1, { duration: 640, easing: Motion.easing.out });
-  }, [progress, reduceMotion]);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.72 + progress.value * 0.95 }],
-    opacity: (1 - progress.value) * 0.4,
-  }));
-  if (reduceMotion) return null;
-  return <Animated.View pointerEvents="none" style={[ringBox(), { borderColor: color }, style]} />;
-}
-
-function PulseRing({
-  index,
-  mode,
-  color,
-  reduceMotion,
-}: {
-  index: number;
-  mode: ReturnType<typeof liveTalkOrbMode>;
-  color: string;
-  reduceMotion: boolean;
-}) {
-  const progress = useSharedValue(reduceMotion ? 0.35 : 0);
-  const listen = mode === "listen";
-  const speak = mode === "speak";
-  useEffect(() => {
-    if (reduceMotion) {
-      progress.value = 0.35;
-      return;
-    }
-    progress.value = 0;
-    const duration = listen ? 1280 : speak ? 980 : 1800;
-    progress.value = withDelay(
-      index * 240,
-      withRepeat(withTiming(1, { duration, easing: Easing.linear }), -1, false),
+function startGaze(
+  mode: ReturnType<typeof liveTalkOrbMode>,
+  lookX: SharedValue<number>,
+  lookY: SharedValue<number>,
+  ease: typeof Motion.easing.inOut,
+): void {
+  if (mode === "speak") {
+    lookX.value = withRepeat(
+      withSequence(
+        withTiming(4, { duration: 280, easing: ease }),
+        withTiming(-5, { duration: 260, easing: ease }),
+        withTiming(2, { duration: 220, easing: ease }),
+        withTiming(0, { duration: 240, easing: ease }),
+      ),
+      -1,
+      false,
     );
-  }, [index, listen, progress, reduceMotion, speak]);
-
-  const style = useAnimatedStyle(() => {
-    const p = progress.value;
-    if (listen) {
-      return {
-        transform: [{ scale: 1.52 - p * 0.62 }],
-        opacity: (1 - p) * 0.48,
-      };
-    }
-    if (speak) {
-      return {
-        transform: [{ scale: 1 + p * 0.58 }],
-        opacity: (1 - p) * 0.52,
-      };
-    }
-    const breathe = 1.08 + Math.sin(p * Math.PI * 2) * 0.06;
-    return {
-      transform: [{ scale: breathe }],
-      opacity: 0.14 + (1 - p) * 0.12,
-    };
-  });
-
-  return <Animated.View pointerEvents="none" style={[ringBox(), { borderColor: color }, style]} />;
+    lookY.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 240, easing: ease }),
+        withTiming(-2, { duration: 200, easing: ease }),
+        withTiming(-6, { duration: 260, easing: ease }),
+        withTiming(-3, { duration: 220, easing: ease }),
+      ),
+      -1,
+      false,
+    );
+    return;
+  }
+  const slow = mode === "think" || mode === "idle";
+  const d = slow ? 1.45 : 1;
+  lookX.value = withRepeat(
+    withSequence(
+      withTiming(10, { duration: 640 * d, easing: ease }),
+      withTiming(-8, { duration: 720 * d, easing: ease }),
+      withTiming(5, { duration: 540 * d, easing: ease }),
+      withTiming(-11, { duration: 800 * d, easing: ease }),
+      withTiming(9, { duration: 600 * d, easing: ease }),
+    ),
+    -1,
+    false,
+  );
+  lookY.value = withRepeat(
+    withSequence(
+      withTiming(-8, { duration: 700 * d, easing: ease }),
+      withTiming(5, { duration: 640 * d, easing: ease }),
+      withTiming(-4, { duration: 580 * d, easing: ease }),
+      withTiming(7, { duration: 760 * d, easing: ease }),
+      withTiming(-6, { duration: 520 * d, easing: ease }),
+    ),
+    -1,
+    false,
+  );
 }
 
-function VoiceBar({
-  index,
-  mode,
-  wave,
-  meter,
-  color,
-  reduceMotion,
-}: {
-  index: number;
-  mode: ReturnType<typeof liveTalkOrbMode>;
-  wave: SharedValue<number>;
-  meter: SharedValue<number>;
-  color: string;
-  reduceMotion: boolean;
-}) {
-  const style = useAnimatedStyle(() => {
-    const center = (BAR_COUNT - 1) / 2;
-    const dist = Math.abs(index - center) / Math.max(center, 1);
-    const w = wave.value;
-    let level = 0.18;
-    if (mode === "listen") {
-      const jitter = Math.sin(w * Math.PI * 2 * 2.2 + index * 1.35) * 0.5 + 0.5;
-      level = 0.2 + meter.value * (0.35 + 0.65 * jitter) * (1 - dist * 0.32);
-    } else if (mode === "speak") {
-      const tone = Math.sin(w * Math.PI * 2 + index * 0.7) * 0.5 + 0.5;
-      level = 0.28 + 0.72 * tone * (1 - dist * 0.22);
-    } else if (mode === "think") {
-      const sweep = w * (BAR_COUNT + 2) - 1;
-      level = 0.12 + 0.7 * Math.max(0, 1 - Math.abs(index - sweep) / 1.5);
-    } else {
-      level = 0.16 + Math.sin(w * Math.PI * 2 + index) * 0.06;
-    }
-    if (reduceMotion) {
-      level = mode === "speak" ? 0.55 - dist * 0.18 : mode === "listen" ? 0.4 - dist * 0.12 : 0.22;
-    }
-    const height = 8 + 36 * Math.max(0.08, Math.min(1, level));
-    return { height, opacity: 0.45 + 0.55 * Math.min(1, level) };
-  });
-  return <Animated.View style={[barBox(color), style]} />;
+function startBlink(
+  mode: ReturnType<typeof liveTalkOrbMode>,
+  blink: SharedValue<number>,
+  ease: typeof Motion.easing.inOut,
+): void {
+  if (mode === "speak") {
+    blink.value = withTiming(1, { duration: 80 });
+    return;
+  }
+  const gap = mode === "listen" ? 1800 : 3200;
+  const second = mode === "listen" ? 160 : 2800;
+  blink.value = 1;
+  blink.value = withRepeat(
+    withSequence(
+      withDelay(gap, withTiming(0.1, { duration: 70, easing: ease })),
+      withTiming(1, { duration: 90, easing: ease }),
+      withDelay(second, withTiming(0.1, { duration: 60, easing: ease })),
+      withTiming(1, { duration: 90, easing: ease }),
+    ),
+    -1,
+    false,
+  );
 }
 
-function ringBox() {
-  return {
-    position: "absolute" as const,
-    width: STAGE,
-    height: STAGE,
-    borderRadius: STAGE / 2,
-    borderWidth: 2,
-  };
-}
-
-function barBox(color: string) {
-  return {
-    width: 5,
-    borderRadius: 3,
-    backgroundColor: color,
-  };
+function startBody(
+  mode: ReturnType<typeof liveTalkOrbMode>,
+  scaleX: SharedValue<number>,
+  scaleY: SharedValue<number>,
+  ease: typeof Motion.easing.inOut,
+): void {
+  if (mode !== "speak") {
+    scaleX.value = withTiming(1, { duration: 180, easing: ease });
+    scaleY.value = withTiming(1, { duration: 180, easing: ease });
+    return;
+  }
+  // Irregular squash/stretch — speech rhythm, not a heartbeat.
+  scaleX.value = withRepeat(
+    withSequence(
+      withTiming(1.1, { duration: 130, easing: ease }),
+      withTiming(0.92, { duration: 150, easing: ease }),
+      withTiming(1.06, { duration: 100, easing: ease }),
+      withTiming(0.96, { duration: 170, easing: ease }),
+      withTiming(1.03, { duration: 120, easing: ease }),
+      withTiming(0.94, { duration: 140, easing: ease }),
+    ),
+    -1,
+    false,
+  );
+  scaleY.value = withRepeat(
+    withSequence(
+      withTiming(0.9, { duration: 130, easing: ease }),
+      withTiming(1.08, { duration: 150, easing: ease }),
+      withTiming(0.94, { duration: 100, easing: ease }),
+      withTiming(1.05, { duration: 170, easing: ease }),
+      withTiming(0.97, { duration: 120, easing: ease }),
+      withTiming(1.07, { duration: 140, easing: ease }),
+    ),
+    -1,
+    false,
+  );
 }
 
 function makeOrbStyles(theme: Theme) {
@@ -235,6 +226,12 @@ function makeOrbStyles(theme: Theme) {
       height: STAGE,
       alignItems: "center",
       justifyContent: "center",
+    },
+    halo: {
+      position: "absolute",
+      width: HALO,
+      height: HALO,
+      borderRadius: HALO / 2,
     },
     core: {
       width: CORE,
@@ -248,12 +245,17 @@ function makeOrbStyles(theme: Theme) {
     fill: {
       ...StyleSheet.absoluteFill,
     },
-    bars: {
+    eyes: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      height: 48,
+      gap: 9,
+      marginTop: -14,
+    },
+    eye: {
+      width: 11,
+      height: 24,
+      borderRadius: 6,
+      backgroundColor: EYE_COLOR,
     },
   });
 }

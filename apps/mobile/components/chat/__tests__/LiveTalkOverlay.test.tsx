@@ -55,8 +55,10 @@ describe("LiveTalkOverlay", () => {
   it("uses a listen visual while recording and a speak visual while the assistant talks", async () => {
     const listen = await render(<LiveTalkOverlay {...base} phase="recording" recording />);
     expect(listen.getByTestId("live-talk-orb-listen")).toBeTruthy();
+    expect(listen.getByTestId("live-talk-orb-eyes")).toBeTruthy();
     const speak = await render(<LiveTalkOverlay {...base} phase="speaking" />);
     expect(speak.getByTestId("live-talk-orb-speak")).toBeTruthy();
+    expect(speak.getByTestId("live-talk-orb-eyes")).toBeTruthy();
   });
 
   it("starts below the chat header and above the composer", async () => {
