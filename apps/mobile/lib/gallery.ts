@@ -3,6 +3,8 @@ import { isContextFresh } from "@/lib/cache/contextRefresh";
 
 export const GALLERY_SEARCH_DEBOUNCE_MS = 300;
 export const GALLERY_PAGE_SIZE = 30;
+export const GALLERY_GRID_COLUMNS = 3;
+export const COLUMN_THUMB_SIZE = 64;
 
 export type GalleryFilter = "all" | "generated" | "uploaded" | "files";
 
@@ -15,8 +17,24 @@ export function isGalleryImage(contentType: string): boolean {
   return contentType.startsWith("image/");
 }
 
-export function galleryPressAction(contentType: string): "view-image" | "share-file" {
-  return isGalleryImage(contentType) ? "view-image" : "share-file";
+export function galleryPressAction(contentType: string): "view-image" | "file-actions" {
+  return isGalleryImage(contentType) ? "view-image" : "file-actions";
+}
+
+export function libraryOpenChatHref(
+  item: Pick<AttachmentListItem, "chat_id" | "message_id">,
+): {
+  pathname: "/open-chat";
+  params: { chatId: string; highlightMessage?: string };
+} | null {
+  if (!item.chat_id) return null;
+  return {
+    pathname: "/open-chat",
+    params: {
+      chatId: item.chat_id,
+      ...(item.message_id ? { highlightMessage: item.message_id } : {}),
+    },
+  };
 }
 
 export function galleryEmptyKey(
@@ -60,11 +78,17 @@ export function galleryFileName(
   originalFilename?: string | null,
 ): string {
   const named = originalFilename?.trim().replace(/\\/g, "/").split("/").pop();
-  if (named) return named;
   const subtype = contentType.split("/")[1]?.split("+")[0]?.split(";")[0]?.trim();
-  if (!subtype) return "attachment";
-  const ext = subtype.includes(".") ? subtype.slice(subtype.lastIndexOf(".") + 1) : subtype;
-  return `attachment.${ext}`;
+  const ext = !subtype
+    ? null
+    : subtype.includes(".")
+      ? subtype.slice(subtype.lastIndexOf(".") + 1)
+      : subtype;
+  if (named) {
+    if (!ext || named.includes(".")) return named;
+    return `${named}.${ext}`;
+  }
+  return ext ? `attachment.${ext}` : "attachment";
 }
 
 export function galleryThumbSize(listWidth: number, columns: number, gap: number): number {

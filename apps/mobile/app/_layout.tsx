@@ -95,8 +95,13 @@ function RootNavigator() {
             headerShown: true,
             title: t("gallery.title"),
             headerBackVisible: false,
+            headerRight: undefined,
             headerLeft: () => <StackBackButton />,
           }}
+        />
+        <Stack.Screen
+          name="open-chat"
+          options={{ headerShown: false }}
         />
       </Stack>
     </>

@@ -1,59 +1,48 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
+import { GalleryColumnRow } from "@/components/gallery/GalleryColumnRow";
+import { GalleryItemActionsSheet } from "@/components/gallery/GalleryItemActionsSheet";
+import { GalleryLibraryHeader } from "@/components/gallery/GalleryLibraryHeader";
 import { GalleryThumbnail } from "@/components/GalleryThumbnail";
 import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
-import { useAuthToken } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useGalleryData } from "@/hooks/useGalleryData";
+import { useGalleryLibrary } from "@/hooks/useGalleryLibrary";
 import { type AttachmentListItem } from "@/lib/api";
-import { resolveAttachmentUri } from "@/lib/attachmentUri";
-import { shareChatAttachment } from "@/lib/downloadChatAttachment";
 import {
+  GALLERY_GRID_COLUMNS,
   galleryEmptyKey,
   galleryFileName,
   galleryPressAction,
   galleryThumbSize,
   type GalleryFilter,
 } from "@/lib/gallery";
-import { useGalleryData } from "@/hooks/useGalleryData";
-import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
-
-const NUM_COLUMNS = 3;
 
 export default function GalleryScreen() {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const navigation = useNavigation();
-  const router = useRouter();
-  const token = useAuthToken();
-  const feedback = useActionFeedbackOptional();
   const { width } = useWindowDimensions();
-  const thumbSize = galleryThumbSize(width - Space.md * 2, NUM_COLUMNS, Space.xs);
+  const thumbSize = galleryThumbSize(width - Space.md * 2, GALLERY_GRID_COLUMNS, Space.xs);
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewerId, setViewerId] = useState<string | null>(null);
-  const sharingRef = useRef(false);
   const {
     items,
     loading,
@@ -65,72 +54,28 @@ export default function GalleryScreen() {
     retry,
     removeItem,
   } = useGalleryData(filter, searchQuery);
-
-  useFocusEffect(
-    useCallback(() => {
-      navigation.setOptions({ title: "" });
-    }, [navigation]),
-  );
-
-  const filters: { key: GalleryFilter; label: string }[] = [
-    { key: "all", label: t("gallery.filter.all") },
-    { key: "generated", label: t("gallery.filter.generated") },
-    { key: "uploaded", label: t("gallery.filter.uploaded") },
-    { key: "files", label: t("gallery.filter.files") },
-  ];
-
-  const viewerItem = viewerId ? items.find((item) => item.id === viewerId) ?? null : null;
-
-  const shareFile = useCallback(
-    async (item: AttachmentListItem) => {
-      if (sharingRef.current) return;
-      const uri = resolveAttachmentUri({
-        attachmentId: item.id,
-        path: item.download_url,
-      });
-      if (!uri) return;
-      sharingRef.current = true;
-      try {
-        await shareChatAttachment({
-          uri,
-          token,
-          fileName: galleryFileName(item.content_type, item.original_filename),
-        });
-      } catch (shareError) {
-        reportRecoverableError(
-          feedback,
-          shareError instanceof Error ? shareError.message : t("common.error"),
-        );
-      } finally {
-        sharingRef.current = false;
-      }
-    },
-    [t, token, feedback],
-  );
-
-  const openChat = useCallback(() => {
-    if (!viewerItem?.chat_id) return;
-    router.replace({
-      pathname: "/",
-      params: {
-        chatId: viewerItem.chat_id,
-        ...(viewerItem.message_id
-          ? { highlightMessage: viewerItem.message_id }
-          : {}),
-      },
-    });
-  }, [router, viewerItem]);
+  const library = useGalleryLibrary(items, removeItem);
 
   const renderItem = useCallback(
     ({ item }: { item: AttachmentListItem }) => {
-      const action = galleryPressAction(item.content_type);
-      if (action === "view-image") {
+      const fileName = galleryFileName(item.content_type, item.original_filename);
+      const isImage = galleryPressAction(item.content_type) === "view-image";
+      if (library.layout === "column") {
+        return (
+          <GalleryColumnRow
+            item={item}
+            fileName={fileName}
+            onPress={() => (isImage ? library.openImage(item) : library.openActions(item))}
+            onLongPress={() => library.openActions(item)}
+            onMissing={removeItem}
+          />
+        );
+      }
+      if (isImage) {
         return (
           <Pressable
-            onPress={() => {
-              tap();
-              setViewerId(item.id);
-            }}
+            onPress={() => library.openImage(item)}
+            onLongPress={() => library.openActions(item)}
             accessibilityRole="button"
             accessibilityLabel={t("chat.image_view_a11y")}
           >
@@ -145,77 +90,38 @@ export default function GalleryScreen() {
       }
       return (
         <Pressable
-          onPress={() => {
-            tap();
-            void shareFile(item);
-          }}
+          onPress={() => library.openActions(item)}
+          onLongPress={() => library.openActions(item)}
           accessibilityRole="button"
-          accessibilityLabel={t("gallery.share_file_a11y")}
+          accessibilityLabel={t("gallery.file_actions_a11y")}
         >
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
             <Icon name="document-outline" size={32} color={C.textTertiary} />
             <Text style={s.fileLabel} numberOfLines={1}>
-              {item.original_filename?.trim() ||
-                item.content_type.split("/").pop() ||
-                "file"}
+              {fileName}
             </Text>
           </View>
         </Pressable>
       );
     },
-    [t, s, C, thumbSize, shareFile, removeItem],
+    [t, s, C, thumbSize, library, removeItem],
   );
+
+  const viewerItem = library.viewerItem;
 
   return (
     <View style={s.root}>
-      <View style={s.header}>
-        <View style={s.searchBar}>
-          <Icon name="search-outline" size={16} color={C.textTertiary} />
-          <TextInput
-            style={s.searchInput}
-            placeholder={t("gallery.search_placeholder")}
-            placeholderTextColor={C.textDisabled}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 ? (
-            <Pressable
-              onPress={() => setSearchQuery("")}
-              accessibilityRole="button"
-              accessibilityLabel={t("gallery.search_clear_a11y")}
-              testID="gallery-search-clear"
-              hitSlop={8}
-            >
-              <Icon name="close-circle-outline" size={18} color={C.textTertiary} />
-            </Pressable>
-          ) : null}
-        </View>
-        <View style={s.tabs}>
-          {filters.map((tab) => {
-            const active = tab.key === filter;
-            return (
-              <Pressable
-                key={tab.key}
-                style={[s.tab, active && s.tabActive]}
-                onPress={() => {
-                  tap();
-                  setViewerId(null);
-                  setFilter(tab.key);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={tab.label}
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[s.tabText, active && s.tabTextActive]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      <GalleryLibraryHeader
+        filter={filter}
+        searchQuery={searchQuery}
+        layout={library.layout}
+        onSearchChange={setSearchQuery}
+        onFilterChange={(next) => {
+          library.setViewerId(null);
+          setFilter(next);
+        }}
+        onToggleLayout={library.toggleLayout}
+      />
 
       {loading && items.length === 0 && !error ? (
         <SkeletonList />
@@ -228,11 +134,14 @@ export default function GalleryScreen() {
         />
       ) : (
         <FlashList
+          key={library.layout}
           data={items}
           keyExtractor={(item) => item.id}
-          numColumns={NUM_COLUMNS}
+          numColumns={library.layout === "grid" ? GALLERY_GRID_COLUMNS : 1}
           contentContainerStyle={s.content}
-          ItemSeparatorComponent={() => <View style={s.gridGap} />}
+          ItemSeparatorComponent={
+            library.layout === "grid" ? () => <View style={s.gridGap} /> : undefined
+          }
           refreshControl={
             <RefreshControl
               refreshing={pullRefreshing}
@@ -262,10 +171,37 @@ export default function GalleryScreen() {
 
       <AttachmentImageViewer
         visible={viewerItem != null && galleryPressAction(viewerItem.content_type) === "view-image"}
-        onClose={() => setViewerId(null)}
+        onClose={() => library.setViewerId(null)}
         attachmentId={viewerItem?.id}
         path={viewerItem?.download_url ?? null}
-        onOpenChat={viewerItem?.chat_id ? openChat : undefined}
+        fileName={
+          viewerItem
+            ? galleryFileName(viewerItem.content_type, viewerItem.original_filename)
+            : undefined
+        }
+        onOpenChat={viewerItem?.chat_id ? () => library.openChat(viewerItem) : undefined}
+        onDelete={viewerItem ? () => library.confirmDelete(viewerItem) : undefined}
+      />
+
+      <GalleryItemActionsSheet
+        visible={library.actionItem != null}
+        canOpenChat={Boolean(library.actionItem?.chat_id)}
+        onClose={() => library.setActionItem(null)}
+        onOpenChat={() => {
+          const item = library.actionItem;
+          library.setActionItem(null);
+          if (item) library.openChat(item);
+        }}
+        onShare={() => {
+          const item = library.actionItem;
+          if (!item) return;
+          void library.shareFile(item).then(() => library.setActionItem(null));
+        }}
+        onDelete={() => {
+          const item = library.actionItem;
+          if (!item) return;
+          library.confirmDelete(item);
+        }}
       />
     </View>
   );
@@ -274,56 +210,6 @@ export default function GalleryScreen() {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    header: {
-      paddingHorizontal: Space.md,
-      paddingTop: Space.sm,
-      paddingBottom: Space.sm,
-    },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      minHeight: 44,
-      paddingHorizontal: 14,
-      borderRadius: 20,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      backgroundColor: C.surfaceAlt,
-      marginBottom: Space.sm,
-    },
-    searchInput: {
-      flex: 1,
-      ...Type.body,
-      fontSize: 15,
-      padding: 0,
-      color: C.text,
-    },
-    tabs: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: Space.xs,
-    },
-    tab: {
-      minHeight: 44,
-      justifyContent: "center",
-      paddingVertical: Space.xs,
-      paddingHorizontal: 12,
-      borderRadius: 20,
-      flexGrow: 0,
-      flexShrink: 0,
-    },
-    tabActive: {
-      backgroundColor: C.surfaceAlt,
-    },
-    tabText: {
-      ...Type.label,
-      color: C.textSecondary,
-      fontWeight: "500",
-    },
-    tabTextActive: {
-      color: C.text,
-      fontWeight: "600",
-    },
     content: {
       paddingHorizontal: Space.md,
       paddingBottom: 96,

@@ -16,9 +16,6 @@ from app.models.schemas import (
 )
 from app.services import attachment_workflow
 from app.services.attachment_upload import AttachmentUploadError, create_presigned_upload
-from app.services.attachment_upload import (
-    cancel_pending_upload as cancel_pending_upload_service,
-)
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
@@ -120,22 +117,22 @@ async def upload_attachment_bytes(
 
 
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def cancel_pending_upload(
+async def delete_attachment(
     attachment_id: UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    """Cancel a pending upload and refund the daily image slot if one was reserved."""
+    """Cancel a pending upload, or delete a Library attachment and its chat marker."""
     try:
-        await cancel_pending_upload_service(
+        await attachment_workflow.delete_attachment(
             session,
             settings,
-            user=user,
-            attachment_id=attachment_id,
+            user,
+            attachment_id,
         )
-    except AttachmentUploadError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except attachment_workflow.AttachmentWorkflowError as exc:
+        raise _workflow_http_error(exc) from exc
 
 
 @router.post(

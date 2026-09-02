@@ -1,9 +1,13 @@
 import {
   cacheDirectory,
-  downloadAsync,
+  EncodingType,
+  writeAsStringAsync,
 } from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import { Platform, Share } from "react-native";
+
+import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
+import { isShareCancelled } from "@/lib/exportPdf";
 
 function safeFileName(name: string, fallback: string): string {
   const cleaned = name.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "");
@@ -21,10 +25,17 @@ export function getCachedAttachmentFile(uri: string): string | null {
   return localFileCache.get(uri) ?? null;
 }
 
+/** Test helper — drop in-memory cache between cases. */
+export function resetLocalAttachmentFileCache(): void {
+  localFileCache.clear();
+}
+
 /**
  * Resolve a chat attachment to a local file:// URI.
- * Prefers ``downloadAsync`` (with auth headers) over ``createDownloadResumable``,
- * which throws ERR_FILESYSTEM_CANNOT_DOWNLOAD on authenticated attachment URLs.
+ *
+ * Do not use expo-file-system ``downloadAsync`` / ``createDownloadResumable``
+ * for ``/attachments/.../file`` — both throw ERR_FILESYSTEM_CANNOT_DOWNLOAD
+ * on Bearer URLs. Fetch the bytes (same auth as Image) and write the cache.
  */
 export async function ensureLocalAttachmentFile(options: {
   uri: string;
@@ -49,21 +60,10 @@ export async function ensureLocalAttachmentFile(options: {
     return uri;
   }
 
-  const headers =
-    token && uri.includes("/attachments/")
-      ? { Authorization: `Bearer ${token}` }
-      : undefined;
-
-  const result = await downloadAsync(uri, dest, { headers });
-  if (!result?.uri) throw new Error("Download failed.");
-  if (
-    typeof result.status === "number" &&
-    (result.status < 200 || result.status >= 300)
-  ) {
-    throw new Error("Download failed.");
-  }
-  localFileCache.set(uri, result.uri);
-  return result.uri;
+  const base64 = await fetchAttachmentBase64(uri, token);
+  await writeAsStringAsync(dest, base64, { encoding: EncodingType.Base64 });
+  localFileCache.set(uri, dest);
+  return dest;
 }
 
 /** Open the system share sheet for a local or remote attachment. */
@@ -76,11 +76,16 @@ export async function shareChatAttachment(options: {
   const safeName = safeFileName(fileName, `recall-${Date.now()}.jpg`);
   const localUri = await ensureLocalAttachmentFile({ uri, token, fileName: safeName });
 
-  await Share.share(
-    Platform.OS === "ios"
-      ? { url: localUri, title: safeName }
-      : { message: localUri, title: safeName, url: localUri },
-  );
+  try {
+    await Share.share(
+      Platform.OS === "ios"
+        ? { url: localUri, title: safeName }
+        : { message: localUri, title: safeName, url: localUri },
+    );
+  } catch (error) {
+    if (isShareCancelled(error)) return;
+    throw error;
+  }
 }
 
 /**

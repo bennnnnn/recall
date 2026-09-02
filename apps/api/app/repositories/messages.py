@@ -267,6 +267,13 @@ async def get_by_id(session: AsyncSession, message_id: UUID, chat_id: UUID) -> M
     return result.scalar_one_or_none()
 
 
+async def get_for_user(session: AsyncSession, message_id: UUID, user_id: UUID) -> Message | None:
+    result = await session.execute(
+        select(Message).where(Message.id == message_id, Message.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
 async def ids_from_chat_at_or_after(
     session: AsyncSession,
     chat_id: UUID,

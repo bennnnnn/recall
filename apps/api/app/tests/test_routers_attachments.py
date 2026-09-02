@@ -278,6 +278,10 @@ def test_cancel_pending_upload_refunds_image_quota():
 
     with (
         patch(
+            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
             "app.services.attachment_upload.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
@@ -1037,6 +1041,10 @@ def test_cancel_still_allowed_when_attachments_disabled():
 
     with (
         patch(
+            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
             "app.services.attachment_upload.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
@@ -1130,8 +1138,8 @@ def test_list_attachments_includes_chat_id():
             AsyncMock(return_value=([row], False)),
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.chat_ids_for_message_ids",
-            AsyncMock(return_value={message_id: chat_id}),
+            "app.services.attachment_workflow.attachments_repo.chat_meta_for_message_ids",
+            AsyncMock(return_value={message_id: (chat_id, "Trip")}),
         ),
         patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
     ):
@@ -1142,6 +1150,7 @@ def test_list_attachments_includes_chat_id():
     item = r.json()["items"][0]
     assert item["chat_id"] == str(chat_id)
     assert item["message_id"] == str(message_id)
+    assert item["chat_title"] == "Trip"
 
 
 def test_list_attachments_source_filter():

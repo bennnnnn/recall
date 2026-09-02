@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { usePathname, useRouter } from "expo-router";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -50,6 +51,9 @@ export const ChatHeader = memo(function ChatHeader({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const pathname = usePathname();
+  const router = useRouter();
+  const fromLibrary = pathname === "/open-chat";
 
   return (
     <View
@@ -77,12 +81,23 @@ export const ChatHeader = memo(function ChatHeader({
             menuOverlayOpen && s.headerBtnMuted,
             pressed && !menuOverlayOpen && s.headerBtnPressed,
           ]}
-          onPress={onOpenDrawer}
+          onPress={() => {
+            if (fromLibrary) {
+              if (router.canGoBack()) router.back();
+              else router.replace("/");
+              return;
+            }
+            onOpenDrawer();
+          }}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel={t("chat.open_drawer_a11y")}
+          accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
         >
-          <HamburgerIcon size={22} color={theme.text} />
+          {fromLibrary ? (
+            <Icon name="chevron-back" size={22} color={theme.text} />
+          ) : (
+            <HamburgerIcon size={22} color={theme.text} />
+          )}
         </Pressable>
         {headerTitleLabel ? (
           <View style={s.headerCenter} pointerEvents="none">

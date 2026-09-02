@@ -7,7 +7,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.models.orm import Attachment, Message
+from app.models.orm import Attachment, Chat, Message
 
 
 def _contains(column: Any, query: str) -> Any:
@@ -203,17 +203,28 @@ async def list_for_gallery(
     return rows[:page_size], has_more
 
 
+async def chat_meta_for_message_ids(
+    session: AsyncSession,
+    message_ids: list[UUID],
+) -> dict[UUID, tuple[UUID, str | None]]:
+    """Map message id → (chat id, chat title) for gallery rows."""
+    if not message_ids:
+        return {}
+    result = await session.execute(
+        select(Message.id, Message.chat_id, Chat.title)
+        .join(Chat, Chat.id == Message.chat_id)
+        .where(Message.id.in_(message_ids))
+    )
+    return {row[0]: (row[1], row[2]) for row in result.all()}
+
+
 async def chat_ids_for_message_ids(
     session: AsyncSession,
     message_ids: list[UUID],
 ) -> dict[UUID, UUID]:
     """Map message id → chat id for gallery 'open chat'. Empty input skips IO."""
-    if not message_ids:
-        return {}
-    result = await session.execute(
-        select(Message.id, Message.chat_id).where(Message.id.in_(message_ids))
-    )
-    return {row[0]: row[1] for row in result.all()}
+    meta = await chat_meta_for_message_ids(session, message_ids)
+    return {message_id: chat_id for message_id, (chat_id, _title) in meta.items()}
 
 
 async def list_orphans(

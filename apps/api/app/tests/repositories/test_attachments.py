@@ -222,13 +222,28 @@ async def test_chat_ids_for_message_ids_maps_rows(fake_session):
     message_id = uuid4()
     chat_id = uuid4()
     fake_session.execute.return_value = MagicMock(
-        all=MagicMock(return_value=[(message_id, chat_id)])
+        all=MagicMock(return_value=[(message_id, chat_id, "Trip")])
     )
 
     result = await chat_ids_for_message_ids(fake_session, [message_id])
 
     assert result == {message_id: chat_id}
     fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_meta_for_message_ids_maps_title(fake_session):
+    from app.repositories.attachments import chat_meta_for_message_ids
+
+    message_id = uuid4()
+    chat_id = uuid4()
+    fake_session.execute.return_value = MagicMock(
+        all=MagicMock(return_value=[(message_id, chat_id, "Trip")])
+    )
+
+    result = await chat_meta_for_message_ids(fake_session, [message_id])
+
+    assert result == {message_id: (chat_id, "Trip")}
 
 
 def test_sanitize_original_filename():

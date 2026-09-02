@@ -448,6 +448,33 @@ def _is_image_marker_line(line: str) -> bool:
     return s.startswith("[Image:") and s.endswith("]") and len(s) > len("[Image:]")
 
 
+def _is_file_ref_line(line: str) -> bool:
+    s = line.strip()
+    return s.startswith("[File:") and s.endswith("]") and len(s) > len("[File:]")
+
+
+def strip_attachment_from_content(content: str, attachment_id: UUID) -> str:
+    """Remove this attachment's markers (and a following file excerpt) from a message.
+
+    Linear scan — no regex. Empty result means the caller should delete the row.
+    """
+    needle = str(attachment_id)
+    kept: list[str] = []
+    skipping_file_block = False
+    for line in content.split("\n"):
+        stripped = line.strip()
+        if skipping_file_block:
+            if _is_image_marker_line(stripped) or _is_file_ref_line(stripped):
+                skipping_file_block = False
+            else:
+                continue
+        if needle in stripped and (_is_image_marker_line(stripped) or _is_file_ref_line(stripped)):
+            skipping_file_block = _is_file_ref_line(stripped)
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()
+
+
 def _strip_image_markers(text: str) -> str:
     lines = [line for line in text.splitlines() if not _is_image_marker_line(line)]
     return "\n".join(lines).strip()

@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
-from app.models.orm import User
+from app.models.orm import Attachment, User
 from app.models.schemas import AttachmentListItemOut, AttachmentListOut, AttachmentOut
 from app.repositories import attachment_chunks as chunks_repo
 from app.repositories import attachments as attachments_repo
+from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
 from app.services.attachment_content import (
     GALLERY_THUMB_MAX_EDGE,
@@ -25,7 +26,10 @@ from app.services.attachment_content import (
     is_image_content_type,
     purge_invalid_upload,
     resize_image_bytes,
+    strip_attachment_from_content,
 )
+from app.services.attachment_lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
+from app.services.attachment_upload import AttachmentUploadError, cancel_pending_upload
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +103,7 @@ async def list_attachments(
         offset=offset,
     )
     message_ids = [row.message_id for row in rows if row.message_id is not None]
-    chat_by_message = await attachments_repo.chat_ids_for_message_ids(session, message_ids)
+    chat_meta = await attachments_repo.chat_meta_for_message_ids(session, message_ids)
     gateway = get_storage_gateway(settings)
     items: list[AttachmentListItemOut] = []
     for row in rows:
@@ -111,6 +115,9 @@ async def list_attachments(
             await _drop_row_for_missing_file(session, row.id)
             continue
         url = f"/attachments/{row.id}/file"
+        chat_id, chat_title = (
+            chat_meta.get(row.message_id, (None, None)) if row.message_id else (None, None)
+        )
         items.append(
             AttachmentListItemOut(
                 id=row.id,
@@ -119,12 +126,55 @@ async def list_attachments(
                 download_url=url,
                 source=row.source,
                 created_at=row.created_at,
-                chat_id=chat_by_message.get(row.message_id) if row.message_id else None,
+                chat_id=chat_id,
                 message_id=row.message_id,
                 original_filename=row.original_filename,
+                chat_title=chat_title,
             )
         )
     return AttachmentListOut(items=items, has_more=has_more)
+
+
+async def delete_attachment(
+    session: AsyncSession,
+    settings: Settings,
+    user: User,
+    attachment_id: UUID,
+) -> None:
+    """Cancel a pending upload or remove a Library item (bytes, row, chat marker)."""
+    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    if row is None:
+        raise AttachmentWorkflowError(404, "Not found")
+    if row.message_id is None:
+        try:
+            await cancel_pending_upload(session, settings, user=user, attachment_id=attachment_id)
+        except AttachmentUploadError as exc:
+            raise AttachmentWorkflowError(exc.status_code, exc.detail) from exc
+        return
+    await _delete_library_attachment(session, settings, user, row)
+
+
+async def _delete_library_attachment(
+    session: AsyncSession,
+    settings: Settings,
+    user: User,
+    row: Attachment,
+) -> None:
+    message_id = row.message_id
+    storage_key = row.storage_key
+    if message_id is not None:
+        message = await messages_repo.get_for_user(session, message_id, user.id)
+        if message is not None:
+            next_content = strip_attachment_from_content(message.content, row.id)
+            if next_content:
+                message.content = next_content
+            else:
+                await session.delete(message)
+    await chunks_repo.delete_for_attachment_ids(session, [row.id], commit=False)
+    await attachments_repo.delete_rows(session, [row.id], commit=False)
+    await session.commit()
+    failed = await delete_storage_keys(settings, [storage_key] if storage_key else [])
+    await enqueue_failed_storage_deletes(failed)
 
 
 class _UploadTooLarge(Exception):

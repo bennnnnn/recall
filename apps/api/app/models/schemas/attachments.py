@@ -37,6 +37,7 @@ class AttachmentListItemOut(BaseModel):
     chat_id: UUID | None = None
     message_id: UUID | None = None
     original_filename: str | None = None
+    chat_title: str | None = None
 
 
 class AttachmentListOut(BaseModel):
