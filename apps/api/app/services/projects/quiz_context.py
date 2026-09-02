@@ -89,11 +89,6 @@ def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) ->
     return lines
 
 
-# Fetch cap for the exclusion query. The prompt block is then trimmed by
-# Settings.quiz_exclusion_max_chars — an item count does not bound tokens.
-_COVERED_QUIZ_LIMIT = 200
-
-
 def _format_covered_quiz_lines(
     contents: list[str],
     *,
@@ -147,31 +142,6 @@ def _format_covered_quiz_lines(
             "still do not repeat any previously saved word/question."
         )
     return lines
-
-
-async def _covered_quiz_prompt_lines(
-    session: AsyncSession,
-    user_id: UUID,
-    project_id: UUID,
-    *,
-    include_learning: bool,
-    just_answered: str | None = None,
-    max_chars: int,
-    fetch_limit: int = _COVERED_QUIZ_LIMIT,
-) -> list[str]:
-    """Load exclusion texts from the DB and format them for the quiz prompt."""
-    contents = await project_items_repo.list_quiz_exclusion_contents(
-        session,
-        user_id,
-        project_id,
-        include_learning=include_learning,
-        limit=fetch_limit,
-    )
-    return _format_covered_quiz_lines(
-        contents,
-        just_answered=just_answered,
-        max_chars=max_chars,
-    )
 
 
 async def load_project_quiz_context(

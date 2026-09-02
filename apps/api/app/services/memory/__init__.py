@@ -93,10 +93,6 @@ def _seams():
     return sys.modules[__name__]
 
 
-def _memory_query_cache_key(user_id: UUID, generation: bytes | str | None, query_text: str) -> str:
-    return _cache.memory_query_cache_key(user_id, generation, query_text)
-
-
 def _memory_query_scoped_key(
     user_id: UUID,
     generation: bytes | str | None,
@@ -222,10 +218,6 @@ async def get_memory_block(
         chat_project_id=chat_project_id,
         exclude_sensitive=exclude_sensitive,
     )
-
-
-def _memory_write_lock_key(user_id: UUID) -> str:
-    return _locks.memory_write_lock_key(user_id)
 
 
 async def acquire_memory_write_lock(user_id: UUID) -> str | None:

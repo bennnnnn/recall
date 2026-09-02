@@ -234,10 +234,6 @@ def _append_outbound(
         )
 
 
-async def _tokens_for_user(session: AsyncSession, user_id: UUID) -> list[PushToken]:
-    return await push_repo.list_for_user(session, user_id)
-
-
 async def process_todo_reminders(
     session: AsyncSession,
     *,

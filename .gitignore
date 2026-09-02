@@ -44,3 +44,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 tmp/
+
+# Accidental Simulator dumps at repo root
+/simulator_screenshot_*.png

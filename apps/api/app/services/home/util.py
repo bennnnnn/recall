@@ -79,10 +79,6 @@ def rotate_list(items: list[T], seed: int) -> list[T]:
     return rotated
 
 
-def local_hour(user: User, tz: ZoneInfo | None = None) -> int:
-    return local_hour_for_tz(tz or time_context_service.resolve_timezone(user.timezone))
-
-
 def looks_internal(text: str) -> bool:
     clean = text.strip()
     if not clean:

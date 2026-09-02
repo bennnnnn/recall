@@ -22,10 +22,6 @@ logger = logging.getLogger(__name__)
 # says otherwise ("on the moon", "g = 1.6").
 _G_DEFAULT = 9.81
 
-# Regex helpers --------------------------------------------------------------
-# A number with optional decimal, possibly negative.
-_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
-
 # A number followed by an optional unit word. Captures the numeric value and
 # the trailing unit (m, cm, km, ft, mi, m/s, m/s^2, kg, g, N, J, W, ...).
 # The unit is matched loosely — we validate via Pint in the solver.
@@ -114,11 +110,6 @@ def _find_value_with_specific_unit(
             match = min(matches, key=distance_to_keyword)
 
     return float(match.group(1)), match.group(2)
-
-
-def _find_all_numbers(text: str) -> list[float]:
-    """All numbers in the text (in order). Used when keyword search fails."""
-    return [float(m.group(0)) for m in _NUM_RE.finditer(text)]
 
 
 def _detect_gravity(text: str) -> float:

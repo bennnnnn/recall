@@ -40,10 +40,6 @@ def realtime_model(settings: Settings) -> str:
     return settings.openai_realtime_model.strip() or _DEFAULT_REALTIME_MODEL
 
 
-def realtime_configured(settings: Settings) -> bool:
-    return bool(settings.openai_api_key.strip()) and settings.speech_realtime_voice_enabled
-
-
 def realtime_session_config(settings: Settings, instructions: str) -> dict[str, object]:
     return {
         "type": "realtime",

@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import MessageChunk
@@ -106,20 +104,3 @@ async def search_semantic(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
-
-
-async def delete_for_message_ids(
-    session: AsyncSession,
-    message_ids: list[UUID],
-    *,
-    commit: bool = True,
-) -> int:
-    if not message_ids:
-        return 0
-    result = cast(
-        CursorResult[Any],
-        await session.execute(delete(MessageChunk).where(MessageChunk.message_id.in_(message_ids))),
-    )
-    if commit:
-        await session.commit()
-    return int(result.rowcount or 0)
