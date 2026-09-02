@@ -16,7 +16,7 @@ import { Linking } from "react-native";
  * intents) but strict on *which* schemes — anything that can execute script
  * or read local files is rejected.
  *
- * HTML Run preview (`openHtmlPreview`) intentionally opens `data:` / `file:`
+ * HTML Run preview (`openHtmlInBrowser`) intentionally opens `data:` / `file:`
  * and must not go through `openAllowedUrl`.
  */
 const ALLOWED_LINK_SCHEMES = new Set([

@@ -149,11 +149,6 @@ export function weekdayHeaders(): ReadonlyArray<{ id: string; label: string }> {
   return WEEKDAYS;
 }
 
-/** @deprecated Use weekdayHeaders() — narrow locale labels duplicate (T, S). */
-export function weekdayLabels(): string[] {
-  return WEEKDAYS.map((day) => day.label);
-}
-
 export function formatDayHeading(dayKey: string, now = new Date()): string {
   const date = parseDateKey(dayKey);
   const todayKey = localDateKey(now);

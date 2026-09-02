@@ -111,9 +111,6 @@ export function DrawerSearchLoadMore({ loadingMore, onLoadMore }: LoadMoreProps)
   );
 }
 
-/** @deprecated Use DrawerSearchResultsChrome — kept as alias for imports. */
-export const DrawerSearchResults = DrawerSearchResultsChrome;
-
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     section: { marginBottom: 8 },

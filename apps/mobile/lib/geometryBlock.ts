@@ -894,6 +894,3 @@ export function parallelogramLayout(
   const ty = offsetY;
   return { b, h, s, shear, offsetX, offsetY, svgW, svgH, bx0, bx1, by, tx0, tx1, ty };
 }
-
-/** @deprecated use scaleToFit */
-export const scaleRectangle = scaleToFit;
