@@ -3,15 +3,13 @@ import type { Message } from "@/lib/api/types";
 export type LiveTalkSpeakEvent =
   | { type: "user"; text: string }
   | { type: "assistant"; text: string }
-  | { type: "audio"; audio_base64: string; content_type: string }
   | {
       type: "done";
       remaining: number;
       limit: number;
       user_message: Message | null;
       assistant_message: Message | null;
-    }
-  | { type: "error"; detail: string };
+    };
 
 export function liveTalkLocalIds(turnId: string): { user: string; assistant: string } {
   return {
@@ -82,39 +80,4 @@ export function applyLiveTalkChatEvent(
     if (local) next.push(local);
   }
   return next;
-}
-
-export function parseLiveTalkSpeakEvent(raw: string): LiveTalkSpeakEvent | null {
-  try {
-    const data = JSON.parse(raw) as { type?: string };
-    if (
-      data.type === "user" ||
-      data.type === "assistant" ||
-      data.type === "audio" ||
-      data.type === "done" ||
-      data.type === "error"
-    ) {
-      return data as LiveTalkSpeakEvent;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-export function parseLiveTalkSseChunk(buffer: string): {
-  events: LiveTalkSpeakEvent[];
-  rest: string;
-} {
-  const events: LiveTalkSpeakEvent[] = [];
-  const parts = buffer.split("\n\n");
-  const rest = parts.pop() ?? "";
-  for (const part of parts) {
-    for (const line of part.split("\n")) {
-      if (!line.startsWith("data: ")) continue;
-      const parsed = parseLiveTalkSpeakEvent(line.slice(6));
-      if (parsed) events.push(parsed);
-    }
-  }
-  return { events, rest };
 }

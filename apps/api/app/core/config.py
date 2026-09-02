@@ -183,9 +183,6 @@ class Settings(BaseSettings):
     # Turn-taking live voice: WebRTC + OpenAI gpt-realtime (not OpenRouter).
     # Free limit 0 = Pro-only; Pro still has a daily turn cap.
     speech_live_talk_enabled: bool = True
-    # Operator override (raw OpenRouter slug). Empty → catalog `live-talk-model`.
-    # Legacy batch `/speech/live/speak` only; WebRTC uses openai_realtime_model.
-    speech_live_talk_model: str = ""
     openai_realtime_model: str = "gpt-realtime-2.1"
     speech_realtime_voice_enabled: bool = True
     daily_live_talk: int = 0

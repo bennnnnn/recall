@@ -5,15 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.live_talk import (
-    message_out_payload,
-    persist_live_talk_turn,
-    settle_live_talk_after_stream,
-)
-
-
-def test_message_out_payload_none():
-    assert message_out_payload(None) is None
+from app.services.live_talk import persist_live_talk_turn
 
 
 @pytest.mark.asyncio
@@ -94,46 +86,6 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
     topic = next(call for call in enqueue.await_args_list if call.args[1] == "topic")
     assert topic.args[2]["user_message"] == "Remind me to pack"
     assert topic.args[2]["assistant_message"] == "Remind me to pack"
-
-
-@pytest.mark.asyncio
-async def test_settle_live_talk_after_stream_refunds_before_audio():
-    persist = AsyncMock()
-    user_id = uuid4()
-    redis = AsyncMock()
-    with patch("app.services.live_talk.quota_service") as qs:
-        qs.refund_live_talk_if_pending = AsyncMock()
-        qs.clear_live_talk_pending = AsyncMock()
-        await settle_live_talk_after_stream(
-            got_audio=False,
-            reserved=True,
-            redis=redis,
-            user_id=user_id,
-            persist=persist,
-        )
-    qs.refund_live_talk_if_pending.assert_awaited_once_with(redis, user_id)
-    qs.clear_live_talk_pending.assert_not_called()
-    persist.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_settle_live_talk_after_stream_persists_after_audio():
-    persist = AsyncMock()
-    user_id = uuid4()
-    redis = AsyncMock()
-    with patch("app.services.live_talk.quota_service") as qs:
-        qs.refund_live_talk_if_pending = AsyncMock()
-        qs.clear_live_talk_pending = AsyncMock()
-        await settle_live_talk_after_stream(
-            got_audio=True,
-            reserved=True,
-            redis=redis,
-            user_id=user_id,
-            persist=persist,
-        )
-    qs.clear_live_talk_pending.assert_awaited_once_with(redis, user_id)
-    persist.assert_awaited_once()
-    qs.refund_live_talk_if_pending.assert_not_called()
 
 
 @pytest.mark.asyncio
