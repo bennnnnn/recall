@@ -2,7 +2,6 @@ import { render } from "@testing-library/react-native";
 
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
-  Chip,
   makeSettingsStyles,
   SettingsInlinePicker,
   SettingsSwitchRow,
@@ -56,15 +55,6 @@ describe("settings action feedback", () => {
     expect(sw).toBe(getByLabelText("Memory"));
     expect(sw.props.accessibilityState).toEqual(
       expect.objectContaining({ checked: true, disabled: false }),
-    );
-  });
-
-  it("marks an active chip as selected", async () => {
-    const { getByRole } = await render(
-      <Chip label="Casual" active onPress={jest.fn()} styles={styles} />,
-    );
-    expect(getByRole("button").props.accessibilityState).toEqual(
-      expect.objectContaining({ selected: true }),
     );
   });
 

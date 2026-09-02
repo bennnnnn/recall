@@ -25,16 +25,6 @@ export function isAppleSignInPlatform(): boolean {
   return Platform.OS === "ios";
 }
 
-export async function isAppleSignInAvailable(): Promise<boolean> {
-  if (!isAppleSignInPlatform()) return false;
-  try {
-    const mod = await loadAppleAuth();
-    return await mod.isAvailableAsync();
-  } catch {
-    return false;
-  }
-}
-
 /** Always show the Apple button on iOS; check availability when the user taps. */
 export function shouldShowAppleSignInButton(): boolean {
   return isAppleSignInPlatform();

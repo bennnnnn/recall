@@ -12,14 +12,6 @@ export const chatsApi = {
       method: "POST",
       body: JSON.stringify({ model }),
     }),
-  getChat: (token: string, chatId: string) => request<Chat>(`/chats/${chatId}`, token),
-  renameChat: (token: string, chatId: string, title: string) =>
-    request<Chat>(`/chats/${chatId}`, token, {
-      method: "PATCH",
-      body: JSON.stringify({ title }),
-    }),
-  deleteChat: (token: string, chatId: string) =>
-    request<void>(`/chats/${chatId}`, token, { method: "DELETE" }),
   listChats: (token: string) => request<ChatList>("/chats", token),
   listMessages: async (
     token: string,

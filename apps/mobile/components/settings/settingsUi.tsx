@@ -309,277 +309,44 @@ export function SettingsSwitchRow({
   );
 }
 
-export function Section({
-  label,
-  hint,
-  children,
-  styles,
-}: {
-  label?: string;
-  hint?: string;
-  children: ReactNode;
-  styles: SettingsStyles;
-}) {
-  return (
-    <View style={styles.section}>
-      {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
-      {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
-      <View style={styles.group}>{children}</View>
-    </View>
-  );
-}
-
-export function InfoRow({
-  icon,
-  title,
-  value,
-  compact,
-  styles,
-  theme,
-}: {
-  icon: IoniconName;
-  title: string;
-  value: string;
-  compact?: boolean;
-  styles: SettingsStyles;
-  theme: Theme;
-}) {
-  return (
-    <View style={compact ? styles.menuRow : styles.row}>
-      <Icon name={icon} />
-      <View style={styles.rowBody}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.meta}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-
-export function Chip({
-  label,
-  active,
-  disabled,
-  onPress,
-  styles,
-}: {
-  label: string;
-  active: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-  styles: SettingsStyles;
-}) {
-  return (
-    <Pressable
-      disabled={disabled}
-      style={[styles.chip, active && styles.chipActive]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active, disabled: Boolean(disabled) }}
-    >
-      <Text style={active ? styles.chipTextActive : styles.chipText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export function IntegrationPanel({
   icon,
   title,
   subtitle,
   summary,
-  expanded,
   busy,
-  onToggle,
   children,
   styles,
   theme,
   showDivider = true,
-  /** When false, body is always visible (no accordion chrome). */
-  collapsible = true,
 }: {
   icon: IoniconName;
   title: string;
   subtitle?: string;
   summary: string;
-  expanded: boolean;
   busy: boolean;
-  onToggle: () => void;
   children: ReactNode;
   styles: SettingsStyles;
   theme: Theme;
   showDivider?: boolean;
-  collapsible?: boolean;
 }) {
-  const showBody = !collapsible || expanded;
-  const header = (
-    <>
-      <Icon name={icon} />
-      <View style={styles.rowBody}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
-      </View>
-      <View style={styles.linkTrailing}>
-        <Text style={styles.linkValue} numberOfLines={1}>
-          {summary}
-        </Text>
-        {busy ? (
-          <ActivityIndicator color={theme.primary} />
-        ) : collapsible ? (
-          <Icon
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={18}
-            color={theme.textTertiary}
-          />
-        ) : null}
-      </View>
-    </>
-  );
   return (
     <View style={showDivider ? styles.integrationPanel : styles.integrationPanelFirst}>
-      {collapsible ? (
-        <Pressable
-          style={({ pressed }) => [styles.integrationHeader, pressed && styles.rowPressed]}
-          onPress={onToggle}
-          accessibilityRole="button"
-        >
-          {header}
-        </Pressable>
-      ) : (
-        <View style={styles.integrationHeader}>{header}</View>
-      )}
-      {showBody ? <View style={styles.integrationBody}>{children}</View> : null}
-    </View>
-  );
-}
-
-export function AccordionSection({
-  label,
-  icon,
-  count,
-  expanded,
-  onToggle,
-  emptyText,
-  viewAllLabel,
-  onViewAll,
-  children,
-  styles,
-  theme,
-}: {
-  label: string;
-  icon: IoniconName;
-  count: number;
-  expanded: boolean;
-  onToggle: () => void;
-  emptyText: string;
-  viewAllLabel: string;
-  onViewAll: () => void;
-  children: ReactNode;
-  styles: SettingsStyles;
-  theme: Theme;
-}) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionLabel}>{label}</Text>
-      <View style={styles.group}>
-        <Pressable style={styles.accordionHeader} onPress={onToggle}>
-          <Icon name={icon} />
-          <View style={styles.rowBody}>
-            <Text style={styles.meta}>
-              {count > 0 ? String(count) : emptyText}
-            </Text>
-          </View>
-          <Icon
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={18}
-            color={theme.textTertiary}
-          />
-        </Pressable>
-
-        {expanded ? (
-          <View style={styles.accordionBody}>
-            {count === 0 ? (
-              <Text style={styles.accordionEmpty}>{emptyText}</Text>
-            ) : (
-              children
-            )}
-            <Pressable style={styles.viewAllRow} onPress={onViewAll}>
-              <Text style={styles.viewAllText}>{viewAllLabel}</Text>
-              <Icon name="chevron-forward" size={16} color={theme.textTertiary} />
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-export function ItemRow({
-  title,
-  meta,
-  onPress,
-  styles,
-  theme,
-}: {
-  title: string;
-  meta?: string;
-  onPress: () => void;
-  styles: SettingsStyles;
-  theme: Theme;
-}) {
-  return (
-    <Pressable style={styles.itemRow} onPress={onPress}>
-      <View style={styles.rowBody}>
-        <Text style={styles.itemTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        {meta ? (
-          <Text style={styles.meta} numberOfLines={1}>
-            {meta}
+      <View style={styles.integrationHeader}>
+        <Icon name={icon} />
+        <View style={styles.rowBody}>
+          <Text style={styles.rowTitle}>{title}</Text>
+          {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
+        </View>
+        <View style={styles.linkTrailing}>
+          <Text style={styles.linkValue} numberOfLines={1}>
+            {summary}
           </Text>
-        ) : null}
+          {busy ? <ActivityIndicator color={theme.primary} /> : null}
+        </View>
       </View>
-      <Icon name="chevron-forward" size={16} color={theme.textTertiary} />
-    </Pressable>
-  );
-}
-
-export function NavRow({
-  icon,
-  title,
-  meta,
-  onPress,
-  danger,
-  compact,
-  styles,
-  theme,
-}: {
-  icon: IoniconName;
-  title: string;
-  meta?: string;
-  onPress: () => void;
-  danger?: boolean;
-  /** Tighter padding for footer menu rows. */
-  compact?: boolean;
-  styles: SettingsStyles;
-  theme: Theme;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        compact ? styles.menuRow : styles.row,
-        pressed && styles.rowPressed,
-      ]}
-      onPress={onPress}
-      accessibilityRole="button"
-    >
-      <Icon name={icon} danger={danger} />
-      <View style={styles.rowBody}>
-        <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
-        {meta ? <Text style={styles.meta}>{meta}</Text> : null}
-      </View>
-      {!danger ? (
-        <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
-      ) : null}
-    </Pressable>
+      <View style={styles.integrationBody}>{children}</View>
+    </View>
   );
 }
 
@@ -686,20 +453,6 @@ export function makeSettingsStyles(t: Theme) {
     },
 
     subLabel: { ...Type.caption, fontWeight: "400", color: t.textSecondary, marginTop: Space.xs },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
-    chip: {
-      borderRadius: Radius.full,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      paddingHorizontal: 14,
-      paddingVertical: Space.xs,
-      minHeight: 44,
-      justifyContent: "center",
-      backgroundColor: t.bg,
-    },
-    chipActive: { backgroundColor: t.primary, borderColor: t.primary },
-    chipText: { ...Type.caption, fontWeight: "400", color: t.text, textTransform: "capitalize" },
-    chipTextActive: { ...Type.caption, color: t.onPrimary, textTransform: "capitalize" },
 
     dropdown: {
       flexDirection: "row",
@@ -773,7 +526,6 @@ export function makeSettingsStyles(t: Theme) {
     pickerOptionDisabled: { opacity: 0.45 },
     pickerSheetScroll: { maxHeight: "70%" },
 
-    row: { flexDirection: "row", alignItems: "center", gap: Space.sm, minHeight: Space.xl },
     menuRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -796,7 +548,6 @@ export function makeSettingsStyles(t: Theme) {
     },
     rowBody: { flex: 1 },
     rowTitle: { ...Type.secondary, fontWeight: "600", color: t.text },
-    menuRowTitle: { flex: 1 },
     meta: {
       ...Type.caption,
       fontWeight: "400",
@@ -813,32 +564,6 @@ export function makeSettingsStyles(t: Theme) {
     linkBtnText: { ...Type.secondary, fontWeight: "600", color: t.primary },
     linkBtnDanger: { ...Type.secondary, fontWeight: "600", color: t.danger },
 
-    accordionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: 44,
-    },
-    accordionBody: {
-      marginTop: Space.xs,
-      paddingTop: Space.xs,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: t.border,
-      gap: 2,
-    },
-    accordionEmpty: {
-      ...Type.label,
-      fontWeight: "400",
-      color: t.textSecondary,
-      paddingVertical: 6,
-    },
-    accordionHint: {
-      ...Type.caption,
-      fontWeight: "400",
-      color: t.textSecondary,
-      lineHeight: 18,
-      marginBottom: Space.xxs,
-    },
     integrationPanel: {
       paddingTop: 10,
       marginTop: 6,
@@ -868,27 +593,6 @@ export function makeSettingsStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "flex-end",
     },
-    itemRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      paddingVertical: Space.xs,
-      paddingHorizontal: 2,
-    },
-    itemTitle: { ...Type.secondary, fontWeight: "500", color: t.text },
-    viewAllRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingTop: Space.xs,
-      marginTop: Space.xxs,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: t.border,
-    },
-    viewAllText: { ...Type.label, color: t.primary },
-
-    bar: { height: 6, borderRadius: 3, backgroundColor: t.bg, overflow: "hidden" },
-    barFill: { height: 6, borderRadius: 3, backgroundColor: t.primary },
 
     signOut: {
       marginTop: Space.lg,

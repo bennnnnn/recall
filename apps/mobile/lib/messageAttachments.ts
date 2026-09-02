@@ -135,11 +135,6 @@ export function parseMessageImages(content: string): {
   return { images, textWithoutImages: kept.join("\n").trim() };
 }
 
-export function userMessageHasImage(content: string, localImageUri?: string | null): boolean {
-  if (localImageUri) return true;
-  return parseUserMessageContent(content).images.length > 0;
-}
-
 export function isPdfContentType(contentType: string | null | undefined): boolean {
   return (contentType ?? "").split(";")[0].trim().toLowerCase() === "application/pdf";
 }

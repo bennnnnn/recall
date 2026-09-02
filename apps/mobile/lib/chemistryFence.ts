@@ -102,11 +102,6 @@ export function normalizeMoleculeFormulaToSmiles(raw: string): string | null {
   return normalizeSmilesLine(s);
 }
 
-/** True when fence/math body should render as a Molecule card, not KaTeX. */
-export function looksLikeMoleculeStructureFormula(raw: string): boolean {
-  return normalizeMoleculeFormulaToSmiles(raw) != null;
-}
-
 /**
  * Retag molecule-like ```math / bare fences and whole-line `$...$` / `$$...$$`
  * into ```smiles so O₂ and N₂ share the same Molecule card style.

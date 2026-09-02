@@ -165,7 +165,3 @@ export function useModelsContext() {
   }
   return ctx;
 }
-
-export function useModelsOptional() {
-  return useContext(ModelsContext);
-}
