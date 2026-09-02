@@ -553,7 +553,7 @@ were removed. Programming help lives in main chat.
   (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
   There is no due-queue of old mastered words across groups. Reopening a
   **completed** group on the map is a same-group review pass, not SM-2.
-  Settings has PDF export, not a deck browser. `buildProjectReviewPrompt` is unused.
+  Settings has PDF export, not a deck browser.
 - ❌ **Class CEFR level** — unused. Vocab is the full catalog for everyone;
   Settings has daily goal + PDF + delete only. Chat extract `set_level` is a no-op.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
