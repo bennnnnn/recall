@@ -217,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
       try {
-        const { invalidateMemoriesCache } = await import("@/lib/memoryListCache");
+        const { invalidateMemoriesCache } = await import("@/lib/cache/memoryListCache");
         invalidateMemoriesCache();
       } catch {
         /* best-effort */
@@ -230,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       try {
         const { invalidateIntegrationStatusCache } = await import(
-          "@/lib/integrationStatusCache"
+          "@/lib/cache/integrationStatusCache"
         );
         invalidateIntegrationStatusCache();
       } catch {
@@ -238,14 +238,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       try {
         const { invalidateSuggestedRemindersCache } = await import(
-          "@/lib/suggestedRemindersCache"
+          "@/lib/cache/suggestedRemindersCache"
         );
         invalidateSuggestedRemindersCache();
       } catch {
         /* best-effort */
       }
       try {
-        const { invalidateChatListCache } = await import("@/lib/chatListCache");
+        const { invalidateChatListCache } = await import("@/lib/cache/chatListCache");
         invalidateChatListCache();
       } catch {
         /* best-effort */
