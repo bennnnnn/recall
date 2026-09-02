@@ -1,10 +1,8 @@
 import {
-  findActiveQuizMessageId,
   findLastAssistantId,
   findLastLocalUserMessageId,
   isChatStreamActive,
   isLocalPendingMessageId,
-  priorAssistantIsQuizFor,
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
@@ -22,80 +20,6 @@ describe("chatMessageLogic", () => {
     expect(findLastAssistantId(messages)).toBe("4");
     expect(findLastAssistantId([])).toBeNull();
     expect(findLastAssistantId([{ id: "1", role: "user", content: "x" } as Message])).toBeNull();
-  });
-
-  it("findActiveQuizMessageId keeps the prior quiz after a hint-only wrong reply", () => {
-    const quiz = [
-      "**History**",
-      "",
-      "Which war?",
-      "",
-      "```vocab_quiz",
-      JSON.stringify({
-        quiz_type: "trivia",
-        word: "History",
-        question: "Which war?",
-        correct: "A",
-        choices: [
-          { letter: "A", text: "Thirty Years' War" },
-          { letter: "B", text: "English Civil War" },
-          { letter: "C", text: "Franco-Dutch War" },
-          { letter: "D", text: "War of the Spanish Succession" },
-        ],
-      }),
-      "```",
-    ].join("\n");
-    const messages = [
-      { id: "q1", role: "assistant", content: quiz },
-      { id: "u1", role: "user", content: "D" },
-      { id: "h1", role: "assistant", content: "You were wrong — hint: began in 1618." },
-    ] as Message[];
-
-    expect(findLastAssistantId(messages)).toBe("h1");
-    expect(findActiveQuizMessageId(messages)).toBe("q1");
-  });
-
-  it("findActiveQuizMessageId skips re-emitted fence in hint-only reply (LANG-STATE-001)", () => {
-    const quiz = [
-      "```vocab_quiz",
-      JSON.stringify({
-        quiz_type: "vocab",
-        word: "serendipity",
-        question: "What word means a happy coincidence?",
-        correct: "A",
-        choices: [
-          { letter: "A", text: "serendipity" },
-          { letter: "B", text: "ephemeral" },
-          { letter: "C", text: "ubiquitous" },
-          { letter: "D", text: "candid" },
-        ],
-      }),
-      "```",
-    ].join("\n");
-    // Model re-emits the same fence despite "do NOT redisplay" instruction
-    const messages = [
-      { id: "q1", role: "assistant", content: quiz },
-      { id: "u1", role: "user", content: "B" },
-      { id: "h1", role: "assistant", content: quiz }, // re-emitted fence
-    ] as Message[];
-
-    expect(findActiveQuizMessageId(messages)).toBe("q1");
-  });
-
-  it("findActiveQuizMessageId accepts markdown A–D without a fence", () => {
-    const markdownQuiz = [
-      "**ephemeral**",
-      "",
-      "What does it mean?",
-      "",
-      "A) lasting forever",
-      "B) very loud",
-      "C) related to water",
-      "D) lasting a short time",
-    ].join("\n");
-    const messages = [{ id: "m1", role: "assistant", content: markdownQuiz }] as Message[];
-
-    expect(findActiveQuizMessageId(messages)).toBe("m1");
   });
 
   it("findLastLocalUserMessageId returns the latest optimistic user message", () => {
@@ -163,64 +87,6 @@ describe("chatMessageLogic", () => {
 
     it("returns null for an out-of-range index", () => {
       expect(priorUserTextFor(messages, 99)).toBeNull();
-    });
-  });
-
-  describe("priorAssistantIsQuizFor", () => {
-    const quiz = [
-      "```vocab_quiz",
-      JSON.stringify({
-        quiz_type: "vocab",
-        word: "serendipity",
-        question: "What word means a happy coincidence?",
-        correct: "A",
-        choices: [
-          { letter: "A", text: "serendipity" },
-          { letter: "B", text: "ephemeral" },
-          { letter: "C", text: "ubiquitous" },
-          { letter: "D", text: "candid" },
-        ],
-      }),
-      "```",
-    ].join("\n");
-
-    it("is false for a letter after a normal assistant reply", () => {
-      const messages = [
-        { id: "u1", role: "user", content: "Hi" },
-        { id: "a1", role: "assistant", content: "Hello!" },
-        { id: "u2", role: "user", content: "c" },
-      ] as Message[];
-      expect(priorAssistantIsQuizFor(messages, 2)).toBe(false);
-    });
-
-    it("is true for a letter immediately after a quiz fence", () => {
-      const messages = [
-        { id: "q1", role: "assistant", content: quiz },
-        { id: "u1", role: "user", content: "C" },
-      ] as Message[];
-      expect(priorAssistantIsQuizFor(messages, 1)).toBe(true);
-    });
-
-    it("is true for a letter after a wrong-answer hint", () => {
-      const messages = [
-        { id: "q1", role: "assistant", content: quiz },
-        { id: "u1", role: "user", content: "D" },
-        { id: "h1", role: "assistant", content: "Not quite — think coincidence." },
-        { id: "u2", role: "user", content: "A" },
-      ] as Message[];
-      expect(priorAssistantIsQuizFor(messages, 3)).toBe(true);
-    });
-
-    it("is false for a later letter once the chat has moved on", () => {
-      const messages = [
-        { id: "q1", role: "assistant", content: quiz },
-        { id: "u1", role: "user", content: "A" },
-        { id: "a1", role: "assistant", content: "Nice — that's it." },
-        { id: "u2", role: "user", content: "thanks" },
-        { id: "a2", role: "assistant", content: "Anytime." },
-        { id: "u3", role: "user", content: "c" },
-      ] as Message[];
-      expect(priorAssistantIsQuizFor(messages, 5)).toBe(false);
     });
   });
 });

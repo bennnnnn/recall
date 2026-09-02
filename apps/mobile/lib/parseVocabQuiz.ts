@@ -23,54 +23,9 @@ export function isRenderableVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is Par
   return Boolean(quiz.word.trim());
 }
 
-export function markdownHasQuizChoices(text: string, quiz: ParsedVocabQuiz): boolean {
-  const body = text.trim();
-  if (!body) return false;
-  return quiz.choices.every((c) => c.text.trim() && body.includes(c.text.trim()));
-}
-
-/** Readable A–D list when the model only emits a ```vocab_quiz fence (no card UI). */
-export function formatVocabQuizAsMarkdown(quiz: ParsedVocabQuiz): string {
-  const word = cleanQuizWord(quiz.word);
-  const isTrivia = quiz.quizType === "trivia";
-  const header = `**${word}**`;
-  const question =
-    quiz.question?.trim() || (isTrivia ? "" : "Choose the meaning that fits the sentence.");
-  const lines: string[] = [];
-  if (quiz.dailyProgress) {
-    lines.push(
-      `**${quiz.dailyProgress.done} / ${quiz.dailyProgress.goal} today**`,
-      "",
-    );
-  }
-  lines.push(header);
-  if (question) {
-    lines.push("", question);
-  }
-  lines.push("", ...quiz.choices.map((c) => `**${c.letter})** ${c.text}`), "", "Reply with **A**, **B**, **C**, or **D**.");
-  return lines.join("\n");
-}
-
-export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
-  return (
-    isRenderableVocabQuiz(quiz) &&
-    quiz.correct != null &&
-    /^[A-D]$/.test(quiz.correct)
-  );
-}
-
 /** Single-letter reply sent when the user taps a quiz choice. */
 export function isVocabQuizAnswer(content: string): boolean {
   return parseQuizAnswerLetter(content) != null;
-}
-
-/** True only when a letter-shaped user message is actually answering a quiz. */
-export function userMessageIsQuizReply(
-  content: string,
-  priorAssistantContent: string | null | undefined,
-): boolean {
-  if (!priorAssistantContent || !isVocabQuizAnswer(content)) return false;
-  return isRenderableVocabQuiz(parseVocabQuiz(priorAssistantContent));
 }
 
 export function parseQuizAnswerLetter(
@@ -84,28 +39,6 @@ export function parseQuizAnswerLetter(
     /^(?:is\s+it\s+|option\s+|answer\s*(?:is\s+)?|i\s+(?:think|say|choose|pick)\s+)?([A-D])\.?[?!.]*$/i,
   );
   return loose ? (loose[1].toUpperCase() as QuizChoice["letter"]) : null;
-}
-
-export function quizIdentity(quiz: ParsedVocabQuiz): string {
-  return `${quiz.quizType ?? "vocab"}:${quiz.word}:${quiz.question ?? ""}`;
-}
-
-/** Map assistant quiz message ids → the user's chosen letter (from chat history). */
-export function inferQuizAnswersFromMessages(
-  messages: Array<{ id: string; role: string; content: string }>,
-): Partial<Record<string, QuizChoice["letter"]>> {
-  const answers: Partial<Record<string, QuizChoice["letter"]>> = {};
-  for (let i = 0; i < messages.length - 1; i++) {
-    const msg = messages[i];
-    if (msg.role !== "assistant" || !isRenderableVocabQuiz(parseVocabQuiz(msg.content))) {
-      continue;
-    }
-    const next = messages[i + 1];
-    if (next.role !== "user") continue;
-    const letter = parseQuizAnswerLetter(next.content);
-    if (letter) answers[msg.id] = letter;
-  }
-  return answers;
 }
 
 const CHOICE_LINE = /^(?:\*\*)?([A-D])[\).:](?:\*\*)?\s*(.+)$/i;
@@ -414,15 +347,6 @@ export function stripVocabQuizPrologue(content: string, quiz: ParsedVocabQuiz): 
     return true;
   });
   return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-/** Remove quiz question/choices/prompts already shown in the quiz card. */
-export function stripQuizMarkdownDuplicates(
-  content: string,
-  quiz: ParsedVocabQuiz,
-): string {
-  const lines = content.split("\n");
-  return stripQuizIntroLines(lines, quiz).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function isVocabSessionMetadata(data: unknown): boolean {
