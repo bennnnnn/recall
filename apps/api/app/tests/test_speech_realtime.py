@@ -1,4 +1,3 @@
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -26,51 +25,6 @@ def test_realtime_instructions_include_bounded_chat_history():
     assert "user: earlier question" in prompt
     assert "assistant: earlier answer" in prompt
     assert "Recent conversation context:" in prompt
-
-
-@pytest.mark.asyncio
-async def test_realtime_call_uses_half_duplex_vad_and_server_key():
-    response = MagicMock()
-    response.status_code = 200
-    response.text = "v=0\r\nanswer"
-    response.headers = {"location": "/v1/realtime/calls/call_123"}
-    response.raise_for_status = MagicMock()
-    client = MagicMock()
-    client.post = AsyncMock(return_value=response)
-    settings = Settings(
-        openai_api_key="sk-test",
-        speech_realtime_voice_enabled=True,
-        openai_realtime_model="gpt-realtime-2.1",
-    )
-
-    with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client):
-        result = await openai_speech_gateway.create_realtime_call(
-            settings,
-            offer_sdp="v=0\r\noffer",
-            instructions="be concise",
-            safety_identifier="user-hash",
-        )
-
-    assert result is not None
-    assert result.answer_sdp == "v=0\r\nanswer"
-    call = client.post.call_args
-    assert call.kwargs["headers"]["Authorization"] == "Bearer sk-test"
-    assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
-    session = json.loads(call.kwargs["files"]["session"][1])
-    assert session["model"] == "gpt-realtime-2.1"
-    assert "include" not in session
-    assert session["audio"]["input"]["noise_reduction"] == {"type": "near_field"}
-    assert session["audio"]["input"]["turn_detection"] == {
-        "type": "server_vad",
-        "threshold": 0.5,
-        "prefix_padding_ms": 300,
-        "silence_duration_ms": 500,
-        "create_response": False,
-        "interrupt_response": False,
-    }
-    transcription = session["audio"]["input"]["transcription"]
-    assert transcription["model"] == "gpt-live-transcribe"
-    assert "Do not invent speech from silence" in transcription["prompt"]
 
 
 @pytest.mark.asyncio
@@ -102,13 +56,22 @@ async def test_realtime_client_secret_binds_session_config_and_retries_connects(
     call = client.post.call_args
     assert call.kwargs["headers"]["Authorization"] == "Bearer sk-test"
     assert call.kwargs["headers"]["OpenAI-Safety-Identifier"] == "user-hash"
-    assert call.kwargs["json"]["session"]["model"] == "gpt-realtime-2.1"
-    assert call.kwargs["json"]["session"]["output_modalities"] == ["audio"]
-    assert "include" not in call.kwargs["json"]["session"]
-    assert (
-        call.kwargs["json"]["session"]["audio"]["input"]["turn_detection"]["create_response"]
-        is False
-    )
+    session = call.kwargs["json"]["session"]
+    assert session["model"] == "gpt-realtime-2.1"
+    assert session["output_modalities"] == ["audio"]
+    assert "include" not in session
+    assert session["audio"]["input"]["noise_reduction"] == {"type": "near_field"}
+    assert session["audio"]["input"]["turn_detection"] == {
+        "type": "server_vad",
+        "threshold": 0.5,
+        "prefix_padding_ms": 300,
+        "silence_duration_ms": 500,
+        "create_response": False,
+        "interrupt_response": False,
+    }
+    transcription = session["audio"]["input"]["transcription"]
+    assert transcription["model"] == "gpt-live-transcribe"
+    assert "Do not invent speech from silence" in transcription["prompt"]
 
 
 def _realtime_app(user, settings: Settings):
