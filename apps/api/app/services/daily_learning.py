@@ -22,9 +22,6 @@ from app.services.learning.daily import (
     HomeDailyCue as HomeDailyCue,
 )
 from app.services.learning.daily import (
-    HomeVocabCue as HomeVocabCue,
-)
-from app.services.learning.daily import (
     Literal as Literal,
 )
 from app.services.learning.daily import (
@@ -50,9 +47,6 @@ from app.services.learning.daily import (
 )
 from app.services.learning.daily import (
     daily_home_cue as daily_home_cue,
-)
-from app.services.learning.daily import (
-    daily_vocab_home_cue as daily_vocab_home_cue,
 )
 from app.services.learning.daily import (
     date as date,
@@ -92,9 +86,6 @@ from app.services.learning.daily import (
 )
 from app.services.learning.daily import (
     resolve_daily_goal as resolve_daily_goal,
-)
-from app.services.learning.daily import (
-    resolve_daily_vocab_goal as resolve_daily_vocab_goal,
 )
 from app.services.learning.daily import (
     start_of_today_utc as start_of_today_utc,

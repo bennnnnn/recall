@@ -1139,21 +1139,6 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
     assert "exam (legacy)" not in block.lower()
 
 
-def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
-    project = _project("English")
-    stats = MagicMock()
-    stats.total = 5
-    stats.mastered_count = 1
-    stats.new_count = 2
-    stats.learning_count = 2
-    stats.due_for_review = 1
-
-    prompt = projects_service.build_language_quiz_prompt(project, stats)
-    assert "do not quiz in this chat" in prompt.lower()
-    assert "failed recently" in prompt.lower()
-    assert "Daily Quiz panel" not in prompt
-
-
 def test_looks_like_vocab_question():
     teach = "**Ephemeral**\nlasting for a very short time.\nWhat does **ephemeral** mean?"
     assert projects_service.looks_like_vocab_question(teach) is True
@@ -1499,13 +1484,6 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     assert prompt_stats["due_for_review"] == repo_stats["due_for_review"]
     # Sanity: the API counts only the learning item with a past due_at.
     assert repo_stats["due_for_review"] == 1
-
-
-def test_build_language_quiz_prompt_empty_progress():
-    project = _project("English")
-    stats = projects_service.build_stats([])
-    prompt = projects_service.build_language_quiz_prompt(project, stats)
-    assert "no words yet" in prompt.lower()
 
 
 @pytest.mark.asyncio
@@ -2237,12 +2215,9 @@ def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():
     """When the daily goal is already met, chat must not quiz — congratulate
     and hand off to the lesson if they want more practice."""
-    from app.services.projects import (
-        DAILY_GOAL_COMPLETE_BEHAVIOR,
-        LANGUAGE_CHAT_TUTOR_HINT,
-    )
+    from app.services.projects import DAILY_GOAL_COMPLETE_BEHAVIOR, language_tutor_hint
 
-    assert DAILY_GOAL_COMPLETE_BEHAVIOR in LANGUAGE_CHAT_TUTOR_HINT
+    assert DAILY_GOAL_COMPLETE_BEHAVIOR in language_tutor_hint("en")
     # The behaviour must explicitly handle the "let's continue" case.
     assert "let's continue" in DAILY_GOAL_COMPLETE_BEHAVIOR.lower()
     assert "raise their daily goal" in DAILY_GOAL_COMPLETE_BEHAVIOR.lower()
