@@ -72,9 +72,6 @@ type Options = {
   /** Current transcript — used to treat short follow-ups after image replies as revisions. */
   messages: Message[];
   selectedModel: string;
-  pendingLaunch: string | null;
-  setPendingLaunch: React.Dispatch<React.SetStateAction<string | null>>;
-  pendingLaunchRef: React.MutableRefObject<string | null>;
   user: import("@/lib/api").User | null;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
   t: (key: string) => string;
@@ -103,9 +100,6 @@ export function useChatSend({
   setMessages,
   messages,
   selectedModel,
-  pendingLaunch,
-  setPendingLaunch,
-  pendingLaunchRef,
   updateUser,
   t,
   onStreamBusy,
@@ -384,15 +378,6 @@ export function useChatSend({
       setChatTitle,
     ],
   );
-
-  useEffect(() => {
-    if (!pendingLaunch || chatId || streaming || creatingRef.current) return;
-    const text = pendingLaunchRef.current ?? pendingLaunch;
-    pendingLaunchRef.current = null;
-    setPendingLaunch(null);
-    void handleSend(text);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingLaunch, chatId, streaming]);
 
   const handlePickAttachment = useCallback(() => {
     if (!token || attachBusy || streaming) return;
