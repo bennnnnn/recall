@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.models.orm import Project
-from app.models.schemas import ProjectStats
 from app.services.projects.common import language_display_name
 
 CHAT_LEARNING_HANDOFF_HINT = (
@@ -117,42 +115,6 @@ def language_tutor_hint(target_language: str | None = "en") -> str:
     )
 
 
-LANGUAGE_BONUS_QUIZ_RULES = (
-    "**Bonus practice (after today's goal):** When the user explicitly asks for more "
-    "practice beyond today's goal, emit ```learning_launch so they can open the lesson. "
-    "Do NOT quiz in this chat."
-)
-
-
-LANGUAGE_CHAT_TUTOR_HINT = language_tutor_hint("en")
-
-
-# Default — chat-based daily sessions (LLM picks format each turn).
-LANGUAGE_TUTOR_HINT = LANGUAGE_CHAT_TUTOR_HINT
-
-
-TRIVIA_QUIZ_FENCE_EXAMPLE = (
-    "```vocab_quiz\n"
-    '{"quiz_type":"trivia","word":"History",'
-    '"question":"Which ancient wonder was a giant statue at the harbor of Rhodes?",'
-    '"correct":"A",'
-    '"choices":[{"letter":"A","text":"Colossus of Rhodes"},'
-    '{"letter":"B","text":"Great Pyramid of Giza"},'
-    '{"letter":"C","text":"Hanging Gardens of Babylon"},'
-    '{"letter":"D","text":"Lighthouse of Alexandria"}]}\n'
-    "```"
-)
-
-
-TRIVIA_QUIZ_FORMAT_BLOCK = (
-    "Use this EXACT format for each bonus question:\n"
-    f"{TRIVIA_QUIZ_FENCE_EXAMPLE}\n"
-    "One question per message. word = topic label (History, Science, …). "
-    "Do NOT use spoiler syntax (>! !<), bullet lists of multiple Q&As, or plain-text quizzes. "
-    "Wait for the user's A–D before revealing the answer."
-)
-
-
 def _language_tutor_hint(
     _quiz_mode: str | None = None, *, target_language: str | None = "en"
 ) -> str:
@@ -164,27 +126,4 @@ def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None)
     return (
         "**Presentation mode: chat.** Do not run the vocabulary lesson in this chat. "
         "If they want to practice, emit ```learning_launch. Study happens in the lesson screen."
-    )
-
-
-def _language_progress_line(stats: ProjectStats) -> str:
-    if stats.total == 0:
-        return "I have no words yet — help me add some first."
-    return (
-        f"{stats.mastered_count} mastered, {stats.new_count} new, "
-        f"{stats.learning_count} learning, {stats.due_for_review} due for review."
-    )
-
-
-def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
-    title = project.title.strip()
-    desc = (project.description or "").strip()
-    name = language_display_name(getattr(project, "target_language", None))
-    goal_line = f"{desc}.\n" if desc else ""
-    return (
-        f'Start today\'s vocabulary session for my "{title}" {name} project.\n'
-        f"{goal_line}"
-        f"{_language_progress_line(stats)}\n\n"
-        "Open the lesson to practice — do not quiz in this chat. "
-        "Start with words I failed recently, then new ones."
     )

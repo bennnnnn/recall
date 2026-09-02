@@ -32,9 +32,6 @@ HomeDailyCue = Literal[
 
 DailyHistoryStatus = Literal["complete", "partial", "skipped", "today", "inactive"]
 
-# Backward-compatible alias for older imports/tests.
-HomeVocabCue = HomeDailyCue
-
 
 def start_of_today_utc(timezone_name: str) -> datetime:
     """Compatibility wrapper that keeps the service clock patchable in tests."""
@@ -91,10 +88,6 @@ def count_today_vocab_stats(
 def completed_today_count(mastered_today: int, missed_today: int) -> int:
     """Questions finished toward the daily goal (correct + open misses)."""
     return max(0, int(mastered_today) + int(missed_today))
-
-
-def resolve_daily_vocab_goal(project: object) -> int:
-    return resolve_daily_goal(project)
 
 
 STANDARD_DAILY_GOALS: tuple[int, ...] = (5, 10, 15)
@@ -303,10 +296,6 @@ def daily_home_cue(
         if last_day <= today - timedelta(days=2):
             return "missed_yesterday"
     return "not_started_today"
-
-
-def daily_vocab_home_cue(**kwargs: object) -> HomeDailyCue | None:
-    return daily_home_cue(**kwargs)  # type: ignore[arg-type]
 
 
 def _mastered_local_date(item: object, tz: ZoneInfo) -> date | None:
