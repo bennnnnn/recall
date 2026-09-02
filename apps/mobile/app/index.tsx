@@ -34,7 +34,7 @@ import { useChatMessageList } from "@/hooks/useChatMessageList";
 import { useChatSuggestions } from "@/hooks/useChatSuggestions";
 import { useChatQuizContext } from "@/hooks/useChatQuizContext";
 import { useChatRegenerate } from "@/hooks/useChatRegenerate";
-import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
+import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -63,13 +63,12 @@ function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const drawerOpen = useDrawer().isOpen;
-  const { chatId: routeChatId, prompt: routePrompt, launchId: routeLaunchId, highlightMessage: routeHighlightMessage } =
-    useLocalSearchParams<{ chatId?: string; prompt?: string; launchId?: string; highlightMessage?: string }>();
+  const { chatId: routeChatId, highlightMessage: routeHighlightMessage } =
+    useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
 
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
   const {
-    setQuizLanguage,
     setQuizVariant,
     resolveQuizVariant,
     resolveQuizProjectId,
@@ -155,8 +154,6 @@ function ChatScreen() {
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     routeHighlightMessage:
       typeof routeHighlightMessage === "string" ? routeHighlightMessage : undefined,
-    routePrompt: typeof routePrompt === "string" ? routePrompt : undefined,
-    routeLaunchId: typeof routeLaunchId === "string" ? routeLaunchId : undefined,
     router,
     draft,
     chatId,
@@ -166,7 +163,6 @@ function ChatScreen() {
     streaming: llmBusy,
     imageGeneratingRef,
     stopGeneration: stopTurn,
-    setQuizLanguage,
     setQuizVariant,
     resolveQuizVariant,
     setInputRef,
@@ -176,7 +172,6 @@ function ChatScreen() {
   });
 
   onFirstReplyRef.current = routeLoader.handleFirstReply;
-  useQueuedChatLaunch(token, routeLoader.beginChatLaunch);
 
   const {
     chatTitle,
@@ -192,9 +187,6 @@ function ChatScreen() {
     loadOlderMessages,
     highlightedMessageId,
     startNewChat,
-    pendingLaunch,
-    setPendingLaunch,
-    pendingLaunchRef,
   } = routeLoader;
 
   const chatActions = useChatActions({
@@ -295,9 +287,6 @@ function ChatScreen() {
     setMessages,
     messages,
     selectedModel,
-    pendingLaunch,
-    setPendingLaunch,
-    pendingLaunchRef,
     user,
     updateUser,
     t,
