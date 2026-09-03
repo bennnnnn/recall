@@ -45,7 +45,7 @@ _DAY_REFLECTION = re.compile(
 
 
 def is_day_reflection_question(text: str) -> bool:
-    """End-of-day reflection — todos/calendar only; skip inbox fetch."""
+    """End-of-day reflection — Schedule/calendar only; skip inbox fetch."""
     cleaned = text.strip()
     if not cleaned:
         return False

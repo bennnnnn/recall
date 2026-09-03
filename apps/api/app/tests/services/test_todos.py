@@ -630,6 +630,22 @@ def test_transcript_implies_todo_sync_reminder_confirm():
     )
 
 
+def test_transcript_implies_todo_sync_ignores_schedule_listings():
+    """Day-plan / status reads list due times — that is not a Schedule write."""
+    assert not todos_service.transcript_implies_todo_sync(
+        "User: What's still open for me to finish tonight?\n"
+        "Assistant: You have **Ggg** due at 7:00 PM. Today's Spanish lesson "
+        "is still open.\n\n*Google Calendar is not connected — connect it in "
+        "Settings → Google Calendar.*"
+    )
+    assert not todos_service.transcript_implies_todo_sync(
+        "User: Anything left tonight?\nAssistant: Reminder for Ggg at 7:00 PM. Spanish still open."
+    )
+    assert not todos_service.transcript_implies_todo_sync(
+        "User: How's my day?\nAssistant: Nothing overdue. Ggg is due today at 7:00 PM."
+    )
+
+
 @pytest.mark.asyncio
 async def test_apply_todo_actions_reminder_without_topic():
     """Dated reminder adds work even when the extractor omits a list title."""

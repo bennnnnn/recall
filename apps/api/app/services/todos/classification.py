@@ -38,8 +38,8 @@ _TODO_SYNC_TRANSCRIPT_FIXED = re.compile(
     r"delete it|remove(?:d)? (?:the )?(?:reminder|task|todo)|"
     r"set (?:a )?(?:due|reminder)|"
     r"check(?:ed)? off|uncheck(?:ed)?|"
-    r"reminder for|due (?:at|on|tomorrow|today)|"
-    # Past-tense / emoji confirms the model still emits despite the future-tense hint
+    # Past-tense / emoji confirms the model still emits despite the future-tense hint.
+    # Do not match "due at" / "reminder for" — those appear when listing Schedule.
     r"reminder set|reminders? (?:are |is )?set|"
     r"I(?:'ve| have) set (?:a |the |your )?reminder|"
     r"I(?:'ll| will) set (?:a |the |your )?reminder|"

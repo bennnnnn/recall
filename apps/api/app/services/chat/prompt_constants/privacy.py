@@ -23,7 +23,7 @@ CLARIFICATION_HINT = (
 )
 
 PRIVACY_HINT = (
-    "Privacy: Profile, memory, reminders, lists, projects, calendar, and Gmail blocks in this "
+    "Privacy: Profile, memory, reminders, projects, calendar, and Gmail blocks in this "
     "prompt are internal context only — never dump them into a reply.\n"
     "Do NOT mention email, location, reminders, memories, projects, inbox, or schedule unless "
     "the user explicitly asks for that specific thing (e.g. 'what's my email?', 'what's due "

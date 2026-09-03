@@ -290,7 +290,7 @@ export function useChat(
         }
         if (payload.todos_sync === "1") {
           onTodosSyncRef.current?.();
-          // Background list extract can lag; refresh again so Lists/Reminders catch up.
+          // Background Schedule extract can lag; refresh again so Schedule catches up.
           // Tracked so they're cancelled on chat switch / unmount (no firing on the
           // wrong chat after navigating away).
           clearTodoSyncTimers();
