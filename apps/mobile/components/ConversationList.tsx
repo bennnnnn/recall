@@ -203,7 +203,7 @@ export function ConversationList(_props: unknown) {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the logo / search row is fixed; Learning/Lists/Reminders scroll with titles.
+  // Only the logo / search row is fixed; Learning/Schedule scroll with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;

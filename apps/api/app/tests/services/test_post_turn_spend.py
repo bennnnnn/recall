@@ -136,6 +136,30 @@ async def test_suggestions_job_has_user_dedupe_key():
 
 
 @pytest.mark.asyncio
+async def test_day_planning_snapshot_skips_learning_extract():
+    """Home 'anything left tonight' lists quiz progress — that is not a write."""
+    ctx = _ctx(prior_count=0, run_title=True)
+    ctx.user_message_content = "What's still open for me to finish tonight?"
+    assistant = (
+        "Here's what's still open for tonight:\n\n"
+        "**Reminders**\n- Ggg at 7:00 PM (due today, repeats weekdays)\n\n"
+        "**Learning**\n- English vocabulary quiz: 0/10 done"
+    )
+    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(history_compression_enabled=False, chat_history_rag_enabled=False),
+            ctx,
+            assistant,
+        )
+    job_types = [c.args[1] for c in enqueue.call_args_list]
+    assert "projects" not in job_types
+    assert "todos" not in job_types
+    assert "topic" in job_types
+    assert "memory" in job_types
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_path_skips_when_spend_capped():
     from app.services.chat.stream import _run_tool_loop_path
 

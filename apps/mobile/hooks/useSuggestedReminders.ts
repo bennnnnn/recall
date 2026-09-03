@@ -19,7 +19,7 @@ export function useSuggestedReminders(
   callbacks?: {
     onAdded?: () => void;
     onDismiss?: (id: string) => void;
-    /** Lists/Reminders refetch. Chat composer paints cache only. */
+    /** Schedule refetch. Chat composer paints cache only. */
     refreshOnFocus?: boolean;
   },
 ) {

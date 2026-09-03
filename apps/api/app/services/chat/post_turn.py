@@ -20,6 +20,7 @@ from app.services import todos as todos_service
 from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
+from app.services.day_planning import is_day_planning_question
 from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
 from app.services.quota import utc_today
 from app.services.text_normalize import cap_text_head_tail
@@ -345,9 +346,13 @@ async def enqueue_post_turn_jobs(
                 f"todosync:{ctx.chat_id}:{turn_key}",
             ),
         )
+    # Day-plan snapshots *list* Learning progress (e.g. "vocabulary quiz 0/10").
+    # That must not enqueue a Learning extract job — this turn is a read of
+    # Schedule + Learning, not a write.
     if (
         not spend_capped
         and not ctx.skip_memory_jobs
+        and not is_day_planning_question(ctx.user_message_content)
         and projects_service.transcript_implies_project_sync(
             transcript,
             chat_project_id=ctx.chat_project_id,
