@@ -24,12 +24,12 @@ export function useSettingsIntegrations() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     const [calendarR, gmailR] = await Promise.allSettled([
       api.googleCalendarStatus(token),
       api.googleGmailStatus(token),
@@ -44,7 +44,7 @@ export function useSettingsIntegrations() {
       });
     }
     setLoadError(calendarR.status === "rejected" || gmailR.status === "rejected");
-    setLoading(false);
+    if (!opts?.silent) setLoading(false);
   }, [token]);
 
   useFocusEffect(
@@ -82,7 +82,7 @@ export function useSettingsIntegrations() {
 
   const disconnectCalendar = () => {
     if (!token || calendarBusy || !calendarStatus?.connected) return;
-    Alert.alert(t("settings.calendar_title"), t("settings.calendar_disconnect"), [
+    Alert.alert(t("settings.calendar_title"), t("settings.calendar_disconnect_confirm"), [
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("settings.calendar_disconnect"),
@@ -91,8 +91,8 @@ export function useSettingsIntegrations() {
           setCalendarBusy(true);
           try {
             await api.disconnectGoogleCalendar(token);
-            setCalendarStatus({ connected: false, configured: calendarStatus?.configured ?? true });
-            patchIntegrationStatusCache({ calendarConnected: false });
+            invalidateSuggestedRemindersCache();
+            await refresh({ silent: true });
           } catch {
             if (feedback) feedback.error(t("settings.calendar_connect_failed"));
             else Alert.alert(t("settings.calendar_title"), t("settings.calendar_connect_failed"));
@@ -174,9 +174,7 @@ export function useSettingsIntegrations() {
           try {
             await api.disconnectGoogleGmail(token);
             invalidateSuggestedRemindersCache();
-            const status = await api.googleGmailStatus(token);
-            setGmailStatus(status);
-            patchIntegrationStatusCache({ gmailConnected: status.connected });
+            await refresh({ silent: true });
           } catch {
             if (feedback) feedback.error(t("settings.gmail_connect_failed"));
             else Alert.alert(t("settings.gmail_title"), t("settings.gmail_connect_failed"));
