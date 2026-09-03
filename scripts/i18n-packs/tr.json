@@ -30,8 +30,6 @@
   "chat.deleted_toast": "Sohbet silindi",
   "chat.edit_no_attachments": "Düzenlemeler şimdilik yalnızca metin.",
   "chat.editing_message": "Mesaj düzenleniyor — buradan yeniden çalıştırmak için gönder",
-  "chat.email_suggestions": "{{count}} e-posta önerisi",
-  "chat.email_suggestions_view_all": "Hatırlatmalarda tümünü gör",
   "chat.empty_hint": "Aklında ne var?",
   "chat.empty_title": "Nasıl yardımcı olabilirim?",
   "chat.error_title": "Yanıt alınamadı",

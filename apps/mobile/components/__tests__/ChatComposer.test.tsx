@@ -34,10 +34,6 @@ jest.mock("expo-haptics", () => ({
   NotificationFeedbackType: { Success: "success", Warning: "warning" },
 }));
 
-jest.mock("@/components/SuggestedRemindersNudge", () => ({
-  SuggestedRemindersNudge: () => null,
-}));
-
 jest.mock("@/components/chat/VoiceComposerWaveform", () => ({
   VoiceComposerWaveform: () => null,
 }));

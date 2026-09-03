@@ -50,8 +50,6 @@
   "chat.email_card_title": "Email",
   "chat.email_card_to": "To",
   "chat.email_card_to_placeholder": "Recipient email",
-  "chat.email_suggestions": "{{count}} email suggestion(s)",
-  "chat.email_suggestions_view_all": "View all in Schedule",
   "chat.empty_hint": "What's on your mind?",
   "chat.empty_title": "How can I help?",
   "chat.error_connection_lost": "Connection lost before the reply arrived. Try again.",

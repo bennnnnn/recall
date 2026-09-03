@@ -25,7 +25,6 @@ import {
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
-import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
 import {
   useComposerDraftApiOptional,
   useComposerDraftValueOptional,
@@ -208,7 +207,6 @@ export const ChatComposer = memo(function ChatComposer({
   return (
     <Animated.View style={containerStyle}>
       <View style={s.composerAnchor}>
-        <SuggestedRemindersNudge token={token} />
         {editingMessageId ? (
           <View style={s.editBanner}>
             <Text style={s.editBannerText}>{t("chat.editing_message")}</Text>

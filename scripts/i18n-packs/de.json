@@ -30,8 +30,6 @@
   "chat.deleted_toast": "Chat gelöscht",
   "chat.edit_no_attachments": "Bearbeitungen sind vorerst nur Text.",
   "chat.editing_message": "Nachricht bearbeiten — senden, um ab hier neu auszuführen",
-  "chat.email_suggestions": "{{count}} E-Mail-Vorschlag/Vorschläge",
-  "chat.email_suggestions_view_all": "Alle in Erinnerungen anzeigen",
   "chat.empty_hint": "Was beschäftigt dich?",
   "chat.empty_title": "Wie kann ich helfen?",
   "chat.error_title": "Keine Antwort erhalten",

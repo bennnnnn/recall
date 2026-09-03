@@ -50,8 +50,6 @@
   "chat.email_card_title": "Email",
   "chat.email_card_to": "To",
   "chat.email_card_to_placeholder": "Recipient email",
-  "chat.email_suggestions": "{{count}} suggestion(s) d'e-mail",
-  "chat.email_suggestions_view_all": "Tout voir dans Planning",
   "chat.empty_hint": "Qu'avez-vous en tête ?",
   "chat.empty_title": "Comment puis-je vous aider ?",
   "chat.error_connection_lost": "La connexion a été perdue avant l'arrivée de la réponse. Réessayez.",

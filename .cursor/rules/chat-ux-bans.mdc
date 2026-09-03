@@ -56,4 +56,9 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - **Schedule** (dated reminders) stays. Learning chapter `lists` are vocab word groups,
   not this feature.
 
+## 9. No Gmail chips or reminder bell on chat
+- Do **not** show Gmail suggested-reminder chips in the composer (`SuggestedRemindersNudge`).
+- Do **not** show a reminder bell on `ChatHeader`.
+- Schedule keeps `SuggestedReminderRow` / From email. The drawer Schedule badge stays.
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

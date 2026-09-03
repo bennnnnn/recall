@@ -433,8 +433,8 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   validation before DB writes.
 - ✅ **Suggested reminders API** — list / dismiss / confirm → create an in-app **dated**
   reminder (`due_at` required; undated extracts default to 18:00 local or now + 1 hour).
-- ✅ **Suggested reminders UI** — Reminders screen "From email" section + chat nudge chip;
-  confirm before add (no silent auto-add).
+- ✅ **Suggested reminders UI** — Schedule "From email" section; confirm before add
+  (no silent auto-add). Gmail chips do not appear in chat.
 - ✅ **Background sync** — periodic Gmail sync job enqueued after connect.
 - ✅ **ICS invite parsing** — folded lines, `TZID` / all-day `VALUE=DATE`, location/description
   notes, cancelled events skipped (LLM fallback when no `.ics`).
@@ -442,8 +442,8 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   USPS / DHL / OpenTable / Resy / Tock / Calendly) extract without the LLM when
   the subject looks like a delivery, reservation, or appointment. Suggestions
   store `source_sender`. Pending items inject into regular chat turns (not only
-  inbox questions) and the composer chip refreshes on focus. Confirming from the
-  chip syncs local due notifications. Flights stay a later item.
+  inbox questions). Confirming from Schedule syncs local due notifications.
+  Flights stay a later item.
 - 🔜 **Flight confirmations** — extract airline + flight number + departure into the
   suggested reminder (not a free-text “flight” title only). Live delay/cancel status is
   a later flight-API step, not inbox guessing.

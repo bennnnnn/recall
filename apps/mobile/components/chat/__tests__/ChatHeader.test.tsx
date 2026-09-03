@@ -52,11 +52,8 @@ const props = {
   headerTitleLabel: "Trip",
   titleGenerating: false,
   chatTitle: "Trip",
-  showIndicator: false,
-  unseenCount: 0,
   hasMessages: true,
   onOpenDrawer: jest.fn(),
-  onOpenReminders: jest.fn(),
   onNewChat: jest.fn(),
   onOpenMenu: jest.fn(),
 };
@@ -76,6 +73,11 @@ describe("ChatHeader", () => {
     await fireEvent.press(getByLabelText("chat.open_drawer_a11y"));
     expect(onOpenDrawer).toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it("does not show a reminder bell", async () => {
+    const { queryByLabelText } = await render(<ChatHeader {...props} />);
+    expect(queryByLabelText("reminders.badge_accessibility")).toBeNull();
   });
 
   it("goes back to Library from /open-chat", async () => {

@@ -58,8 +58,6 @@ export type UseChatScreenBodyPropsParams = {
     headerTitleLabel: string | null;
     titleGenerating: boolean;
     chatTitle: string | null;
-    showIndicator: boolean;
-    unseenCount: number;
     startNewChat: (opts?: { force?: boolean }) => void;
     setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
     menuOverlayOpen: boolean;
@@ -146,8 +144,6 @@ export function useChatScreenBodyProps({
     headerTitleLabel,
     titleGenerating,
     chatTitle,
-    showIndicator,
-    unseenCount,
     startNewChat,
     setMenuVisible,
     menuOverlayOpen,
@@ -283,15 +279,10 @@ export function useChatScreenBodyProps({
           headerTitleLabel={headerTitleLabel}
           titleGenerating={titleGenerating}
           chatTitle={chatTitle}
-          showIndicator={showIndicator}
-          unseenCount={unseenCount}
           // Prefer routeChatId so actions don't flash off if messages briefly
           // clear during a chat load/refetch; home (no route, no turns) stays clean.
           hasMessages={messages.length > 0 || Boolean(routeChatId)}
           onOpenDrawer={openDrawer}
-          onOpenReminders={() =>
-            router.push({ pathname: "/todos", params: { focus: "reminders" } })
-          }
           onNewChat={startNewChat}
           onOpenMenu={() => setMenuVisible((v) => !v)}
         />
@@ -304,13 +295,10 @@ export function useChatScreenBodyProps({
       headerTitleLabel,
       titleGenerating,
       chatTitle,
-      showIndicator,
-      unseenCount,
       messages.length,
       routeChatId,
       startNewChat,
       setMenuVisible,
-      router,
     ],
   );
 
