@@ -9,6 +9,8 @@ from app.services.memory import (
     consolidation_rewrite_preserves_facts,
     exclude_sensitive_for_query,
     extract_consolidation_anchors,
+    is_diet_health_memory_text,
+    is_food_or_diet_query,
     is_sensitive_memory_text,
     normalize_memory_text,
     section_needs_consolidation,
@@ -77,6 +79,38 @@ def test_exclude_sensitive_for_query_injects_only_on_matching_asks():
     assert exclude_sensitive_for_query("what's the weather") is True
     assert exclude_sensitive_for_query("I have a peanut allergy, what can I eat?") is False
     assert exclude_sensitive_for_query("help with my credit card debt") is False
+    assert exclude_sensitive_for_query("what should I eat tonight") is True
+    assert is_food_or_diet_query("what should I eat tonight") is True
+    assert is_food_or_diet_query("what's the weather") is False
+    assert is_diet_health_memory_text("Peanut allergy") is True
+    assert is_diet_health_memory_text("Paying off a mortgage") is False
+
+
+def test_filter_surface_memories_keeps_allergy_on_food_query():
+    from app.services.memory.retrieval import filter_surface_memories
+
+    seams = MagicMock()
+    seams.is_sensitive_memory_text.side_effect = is_sensitive_memory_text
+    seams.is_food_or_diet_query.side_effect = is_food_or_diet_query
+    seams.is_diet_health_memory_text.side_effect = is_diet_health_memory_text
+    allergy = _memory("preference", "Peanut allergy", 0.9)
+    salary = _memory("fact", "Salary is $200k", 0.9)
+    kept = filter_surface_memories(
+        seams,
+        [allergy, salary],
+        exclude_sensitive=True,
+        query_text="what should I eat tonight",
+    )
+    assert allergy in kept
+    assert salary not in kept
+    weather = filter_surface_memories(
+        seams,
+        [allergy, salary],
+        exclude_sensitive=True,
+        query_text="what's the weather",
+    )
+    assert allergy not in weather
+    assert salary not in weather
 
 
 def test_section_needs_consolidation_detects_repetition():

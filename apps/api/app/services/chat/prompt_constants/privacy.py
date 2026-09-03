@@ -63,6 +63,12 @@ DAY_PLANNING_ANSWER_HINT = (
     "This overrides the general privacy rule against mentioning schedule/inbox for this turn."
 )
 
+ADVICE_PERSONALIZE_HINT = (
+    "The user is asking for a personal recommendation. Use injected preferences "
+    "(diet, likes, constraints) to choose. Do not mention memory, that you looked "
+    "something up, or quote the known-facts block."
+)
+
 BROAD_SELF_ANSWER_HINT = (
     "The user asked a general 'who am I' question. Reply with their first name (from profile) "
     "and ONE short friendly sentence — keep your configured tone. Do NOT mention location, email, "

@@ -70,6 +70,12 @@ from app.services.memory.text import (
     exclude_sensitive_for_query as exclude_sensitive_for_query,
 )
 from app.services.memory.text import (
+    is_diet_health_memory_text as is_diet_health_memory_text,
+)
+from app.services.memory.text import (
+    is_food_or_diet_query as is_food_or_diet_query,
+)
+from app.services.memory.text import (
     is_sensitive_memory_text as is_sensitive_memory_text,
 )
 from app.services.memory.text import (
@@ -172,6 +178,7 @@ async def _semantic_block_from_vec(
     *,
     omit_project_memory: bool,
     exclude_sensitive: bool,
+    query_text: str | None = None,
 ) -> str:
     return await _retrieval.semantic_block_from_vec(
         _seams(),
@@ -181,6 +188,7 @@ async def _semantic_block_from_vec(
         query_vec,
         omit_project_memory=omit_project_memory,
         exclude_sensitive=exclude_sensitive,
+        query_text=query_text,
     )
 
 

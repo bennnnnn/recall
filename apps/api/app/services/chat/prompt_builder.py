@@ -28,6 +28,7 @@ from app.services import time_context as time_context_service
 from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import (
+    ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
     CALLOUT_FORMAT_HINT,
     CHART_FORMAT_HINT,
@@ -82,6 +83,14 @@ from app.services.prompt_safety import (
 from app.services.vocab_quiz import QuizAnswerGrade
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
+_ADVICE_MEMORY_MAX_CHARS = 1000
+
+
+def _cap_advice_memory_block(block: str) -> str:
+    if len(block) <= _ADVICE_MEMORY_MAX_CHARS:
+        return block
+    cut = max(1, _ADVICE_MEMORY_MAX_CHARS - 1)
+    return f"{block[:cut].rstrip()}…"
 
 
 def _strip_prompt_owned_fences(content: str) -> str:
@@ -359,6 +368,7 @@ async def _load_context_blocks(
     slim_context: bool,
     client_timezone: str | None,
     out: dict[str, object] | None,
+    load_memory: bool = False,
     history_rag: bool = False,
     recent_messages: list[Any] | None = None,
 ) -> _PromptContextBlocks:
@@ -385,7 +395,7 @@ async def _load_context_blocks(
         async with SessionLocal() as s:
             return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
 
-    if slim_context:
+    if slim_context and not load_memory:
         if history_rag:
             recent_all, history_rag_query_vec = await asyncio.gather(
                 _fetch_recent(),
@@ -428,6 +438,21 @@ async def _load_context_blocks(
                 chat_project_id=chat.project_id if chat is not None else None,
                 exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
             )
+
+    if slim_context and load_memory:
+        recent_all, memory_block = await asyncio.gather(_fetch_recent(), _memory_block())
+        if out is not None:
+            out["recalled"] = 0
+            out["memory_hints"] = []
+        return _PromptContextBlocks(
+            memory_block=_cap_advice_memory_block(memory_block),
+            todos_section=None,
+            projects_block="",
+            recent_all=recent_all,
+            attachment_rag_block="",
+            chat=chat,
+            history_rag_query_vec=None,
+        )
 
     async def _todos_section() -> str | None:
         async with db_slots, SessionLocal() as s:
@@ -721,6 +746,7 @@ async def build_prompt_messages(
     minimal_vocab_answer_context: bool = False,
     lightweight: bool = False,
     rich_context: bool = True,
+    advice_memory: bool = False,
     quiz_grade: QuizAnswerGrade | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
@@ -754,6 +780,13 @@ async def build_prompt_messages(
                 rich_context = await chunks_repo.has_chunks_for_chat(s, user.id, chat_id)
         except Exception:
             logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
+    load_memory = (
+        (rich_context or advice_memory)
+        and not lightweight
+        and not minimal_personal_context
+        and not minimal_quiz_context
+        and not minimal_vocab_answer_context
+    )
     slim_context = (
         minimal_personal_context
         or minimal_quiz_context
@@ -781,6 +814,7 @@ async def build_prompt_messages(
         recent_limit=recent_limit,
         is_day_plan=is_day_plan,
         slim_context=slim_context,
+        load_memory=load_memory,
         client_timezone=client_timezone,
         out=out,
         history_rag=history_rag,
@@ -893,6 +927,11 @@ async def build_prompt_messages(
                 chat_history_rag_block=chat_history_rag_block,
             )
         )
+    elif load_memory:
+        if blocks.memory_block:
+            system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
+        if advice_memory:
+            system_parts.append(ADVICE_PERSONALIZE_HINT)
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
     for msg in recent:
