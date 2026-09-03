@@ -260,6 +260,7 @@ def test_format_search_block_includes_links():
 def test_format_search_empty_block_forbids_roleplay():
     block = format_search_empty_block(["top news today"])
     assert "returned no usable results" in block
+    assert "could not verify that live" in block
     assert "Do NOT invent tournament schedules" in block
 
 

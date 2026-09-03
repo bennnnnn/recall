@@ -194,6 +194,7 @@
   "chat.sending": "Sending",
   "chat.share": "አጋራ",
   "chat.share_failed": "ይህን ውይይት ማጋራት አልተቻለም።",
+  "chat.sources_count": "{{count}} ምንጮች",
   "chat.status.calculating": "Crunching the numbers…",
   "chat.status.calculating_1": "Working through the math…",
   "chat.status.calculating_2": "Solving equations…",

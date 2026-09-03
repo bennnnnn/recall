@@ -4,7 +4,8 @@ import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, opts?: { count?: number }) =>
+      key === "chat.sources_count" ? `${opts?.count} sources` : key,
   }),
 }));
 
@@ -34,7 +35,7 @@ describe("SearchSourcesStack", () => {
       />,
     );
 
-    await fireEvent.press(getByText("Sources"));
+    await fireEvent.press(getByText("1 sources"));
 
     expect(getByTestId("app-sheet-handle")).toBeTruthy();
     expect(getByTestId("app-sheet-dialog")).toBeTruthy();

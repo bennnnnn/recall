@@ -194,6 +194,7 @@
   "chat.sending": "Sending",
   "chat.share": "Share",
   "chat.share_failed": "Could not share this chat.",
+  "chat.sources_count": "{{count}} sources",
   "chat.status.calculating": "Crunching the numbers…",
   "chat.status.calculating_1": "Working through the math…",
   "chat.status.calculating_2": "Solving equations…",
