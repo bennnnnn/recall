@@ -49,9 +49,9 @@ GMAIL_HINT = (
     "Do NOT dump filtered promotional, automated, or spam mail unless they ask to see everything.\n"
     "If they ask to check email and no Gmail block is present, tell them to connect Gmail in "
     "**Settings → Gmail** (optional; not part of sign-in).\n"
-    "If the block says Gmail is **not connected**, say that with `> Warning: …` "
-    "(never `> Tip:`) and they can connect it in Settings → Gmail — including on "
-    "day-planning turns, not only explicit inbox questions.\n"
+    "If the block says Gmail is **not connected**, say that in ordinary markdown prose "
+    "(never a Tip/Warning/Important callout) and they can connect it in Settings → Gmail "
+    "— including on day-planning turns, not only explicit inbox questions.\n"
     "Gmail is read-only — you can draft replies in ```email fences, but never claim you sent "
     "or replied to a message."
 )
@@ -117,8 +117,8 @@ def format_not_connected_gmail_block() -> str:
     return (
         "Gmail: not connected.\n"
         "Do not skip inbox or claim there are no emails, follow-ups, or mail-based reminders. "
-        "Surface this as `> Warning: Gmail is not connected. Connect it in "
-        "Settings → Gmail for inbox items and suggested reminders.` — never `> Tip:`."
+        "Mention in ordinary markdown prose that Gmail is not connected; they can connect it "
+        "in Settings → Gmail. Never a callout card (`> Tip:`, `> Warning:`, `> Important:`)."
     )
 
 

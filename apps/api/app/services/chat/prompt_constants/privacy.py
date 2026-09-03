@@ -49,12 +49,12 @@ DAY_PLANNING_ANSWER_HINT = (
     "4) **Today's learning progress** — incomplete daily vocabulary or general-knowledge goals\n"
     "5) Memory — only if still relevant; do not let stale learning drown out calendar, reminders, "
     "or inbox\n"
-    "Always mention both Calendar and Gmail. If a block says **not connected**, put ONE "
-    "markdown blockquote `> Warning: …` (plain `>`, never `> Tip:`, never a heading). "
-    "Name the disconnected product(s) and Settings → Google Calendar / Settings → Gmail. "
-    "Combine into a single Warning if both are disconnected. Do not offer a setup "
-    "walkthrough. Never claim the day is empty, clear, or a clean slate for meetings "
-    "or mail.\n"
+    "Always mention both Calendar and Gmail. If a block says **not connected**, say so in "
+    "ordinary markdown prose (one short sentence or italic line). Never a callout card — "
+    "no `> Tip:`, `> Warning:`, `> Important:`, `> Note:`, and no ```tip / ```warning fences. "
+    "Name Settings → Google Calendar / Settings → Gmail. Combine into one sentence if both "
+    "are disconnected. Do not offer a setup walkthrough. Never claim the day is empty, "
+    "clear, or a clean slate for meetings or mail.\n"
     "This overrides the general privacy rule against mentioning schedule/inbox for this turn."
 )
 
