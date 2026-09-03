@@ -211,4 +211,24 @@ describe("markdown render rules", () => {
     );
     expect(queryByText(/^:$/)).toBeNull();
   });
+
+  it("numbers nested bullets under a parent bullet so they scan as children", async () => {
+    const md = `- **Powers**
+  - eight squared is 64
+  - eight cubed is 512`;
+    const { getByText, queryByText } = await render(<MarkdownContent content={md} />);
+    expect(getByText("1.")).toBeOnTheScreen();
+    expect(getByText("2.")).toBeOnTheScreen();
+    expect(getByText(/eight squared is 64/)).toBeOnTheScreen();
+    expect(queryByText("3.")).toBeNull();
+  });
+
+  it("does not number a flat top-level bullet list", async () => {
+    const md = `- Even number
+- Composite number`;
+    const { queryByText, getByText } = await render(<MarkdownContent content={md} />);
+    expect(getByText(/Even number/)).toBeOnTheScreen();
+    expect(queryByText("1.")).toBeNull();
+    expect(queryByText("2.")).toBeNull();
+  });
 });

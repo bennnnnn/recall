@@ -18,6 +18,36 @@ export function parentHasType(parent: unknown, type: string): boolean {
   return Array.isArray(parent) && parent.some((node) => node?.type === type);
 }
 
+export function immediateAncestorType(parent: unknown): string | undefined {
+  if (!Array.isArray(parent) || parent.length === 0) return undefined;
+  const first = parent[0] as { type?: string } | undefined;
+  return typeof first?.type === "string" ? first.type : undefined;
+}
+
+export function ancestorTypeCount(parent: unknown, type: string): number {
+  if (!Array.isArray(parent)) return 0;
+  let n = 0;
+  for (const node of parent) {
+    if (node && (node as { type?: string }).type === type) n += 1;
+  }
+  return n;
+}
+
+/** Nested `-` lists and real `1.` lists both get numeric markers so children scan. */
+export function shouldNumberListItem(parent: unknown): boolean {
+  const immediate = immediateAncestorType(parent);
+  if (immediate === "ordered_list") return true;
+  return immediate === "bullet_list" && ancestorTypeCount(parent, "bullet_list") >= 2;
+}
+
+export function listItemDisplayNumber(parent: unknown, index: number): number {
+  if (!Array.isArray(parent) || parent.length === 0) return index + 1;
+  const list = parent[0] as { attributes?: { start?: number } };
+  const start = list.attributes?.start;
+  if (typeof start === "number") return start + index;
+  return index + 1;
+}
+
 export function inTableCell(parent: unknown): boolean {
   return parentHasType(parent, "td") || parentHasType(parent, "th");
 }

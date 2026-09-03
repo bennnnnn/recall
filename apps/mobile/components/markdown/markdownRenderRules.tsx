@@ -22,7 +22,10 @@ import {
   inTableCell,
   inTableHeader,
   inHeading,
+  immediateAncestorType,
+  listItemDisplayNumber,
   parentHasType,
+  shouldNumberListItem,
   taskChecked,
 } from "@/components/markdown/markdownAstHelpers";
 import {
@@ -327,53 +330,52 @@ function makeSharedRules(
       styles: StyleMap,
     ) => {
       const task = taskChecked(node);
-      if (parentHasType(parent, "bullet_list")) {
-        if (task !== null) {
-          if (task) {
-            return (
-              <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-                <View style={mdMath.listBullet} accessible={false} />
-                <View style={verifyCheckStyles.verifyRow}>
-                  <View style={verifyCheckStyles.verifyContent}>{children}</View>
-                  <VerifyCheckmark />
-                </View>
-              </View>
-            );
-          }
+      if (parentHasType(parent, "bullet_list") && task !== null) {
+        if (task) {
           return (
             <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-              <Icon
-                name="square-outline"
-                size={18}
-                color={t.textTertiary}
-                style={{ marginTop: 2 }}
-              />
-              <View style={styles._VIEW_SAFE_bullet_list_content as object}>
-                {children}
+              <View style={mdMath.listBullet} accessible={false} />
+              <View style={verifyCheckStyles.verifyRow}>
+                <View style={verifyCheckStyles.verifyContent}>{children}</View>
+                <VerifyCheckmark />
               </View>
             </View>
           );
         }
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-            <View style={mdMath.listBullet} accessible={false} />
-            <View style={[styles._VIEW_SAFE_bullet_list_content as object, mdMath.listContent]}>
+            <Icon
+              name="square-outline"
+              size={18}
+              color={t.textTertiary}
+              style={{ marginTop: 2 }}
+            />
+            <View style={styles._VIEW_SAFE_bullet_list_content as object}>
               {children}
             </View>
           </View>
         );
       }
-      if (parentHasType(parent, "ordered_list")) {
-        const orderedList = parent.find((el) => el.type === "ordered_list");
-        const start = orderedList?.attributes?.start;
-        const listItemNumber = start != null ? start + node.index : node.index + 1;
+      if (shouldNumberListItem(parent)) {
+        const markup =
+          immediateAncestorType(parent) === "ordered_list" ? (node.markup ?? ".") : ".";
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
             <Text style={styles.ordered_list_icon as object}>
-              {listItemNumber}
-              {node.markup}
+              {listItemDisplayNumber(parent, node.index)}
+              {markup}
             </Text>
             <View style={[styles._VIEW_SAFE_ordered_list_content as object, mdMath.listContent]}>
+              {children}
+            </View>
+          </View>
+        );
+      }
+      if (immediateAncestorType(parent) === "bullet_list") {
+        return (
+          <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+            <View style={mdMath.listBullet} accessible={false} />
+            <View style={[styles._VIEW_SAFE_bullet_list_content as object, mdMath.listContent]}>
               {children}
             </View>
           </View>

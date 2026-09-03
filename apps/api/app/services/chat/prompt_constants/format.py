@@ -260,7 +260,8 @@ FORMAT_CONTRACT = (
     "  - Numbered list or bullets. This is the right format for rankings "
     '("top N …"), tips, roadmaps, troubleshooting, and general Q&A.\n'
     '  - For a single topic ("tell me about X"), use 2-3 short headings with '
-    "bullets — not a wall of text and not a table.\n"
+    "flat bullets — not a parent bullet whose children are more bullets, and "
+    "not a wall of text or a table.\n"
     "  - Nested facts under a bullet use a numbered list (`1.` `2.`), not more "
     "bullets — mixed markers are easier to scan. Do not use a/b or roman "
     "numerals; markdown will not render those as lists. Two short sibling "
