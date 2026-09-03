@@ -101,10 +101,12 @@ def test_every_time_starter_prompt_is_classified():
 
 
 def test_day_planning_answer_hint_uses_plain_markdown_not_callout_cards():
-    assert "Always mention both Calendar and Gmail" in DAY_PLANNING_ANSWER_HINT
+    assert "Always mention both Calendar and Gmail" not in DAY_PLANNING_ANSWER_HINT
+    assert "Skip a product with no block" in DAY_PLANNING_ANSWER_HINT
+    assert "Only mention Calendar or Gmail" in DAY_PLANNING_ANSWER_HINT
     assert "ordinary markdown prose" in DAY_PLANNING_ANSWER_HINT
     assert "Never a callout card" in DAY_PLANNING_ANSWER_HINT
-    assert "Combine into one sentence" in DAY_PLANNING_ANSWER_HINT
+    assert "both disconnected blocks are present" in DAY_PLANNING_ANSWER_HINT
     assert "Do not offer a setup walkthrough" in DAY_PLANNING_ANSWER_HINT
     assert "Settings → Google Calendar" in DAY_PLANNING_ANSWER_HINT
     assert "Settings → Gmail" in DAY_PLANNING_ANSWER_HINT
@@ -128,6 +130,20 @@ def test_day_plan_style_hints_include_snapshot_and_override_format_contract_call
     joined = "\n".join(parts)
     assert "Callouts: a blockquote starting with Tip:" in joined
     assert "Never a callout card" in joined
+    assert "Skip a product with no block" in joined
+
+
+def test_reflection_style_hints_do_not_require_mentioning_gmail():
+    parts = _style_format_hints(
+        query_text="How did my day go? Help me reflect and wrap up loose ends.",
+        style="balanced",
+        is_day_plan=True,
+        minimal_personal_context=False,
+    )
+    joined = "\n".join(parts)
+    assert "Always mention both Calendar and Gmail" not in joined
+    assert "Skip a product with no block" in joined
+    assert "end-of-day reflection" in joined
 
 
 def test_calendar_and_gmail_hints_ban_callout_cards_for_not_connected():
@@ -135,6 +151,7 @@ def test_calendar_and_gmail_hints_ban_callout_cards_for_not_connected():
     assert "Tip/Warning/Important callout" in CALENDAR_HINT
     assert "Settings → Google Calendar" in CALENDAR_HINT
     assert "ordinary markdown prose" in GMAIL_HINT
+    assert "when a Gmail block is present" in GMAIL_HINT
     assert "Tip/Warning/Important callout" in GMAIL_HINT
     assert "Settings → Gmail" in GMAIL_HINT
     assert "Surface this as `> Warning:" not in CALENDAR_HINT
