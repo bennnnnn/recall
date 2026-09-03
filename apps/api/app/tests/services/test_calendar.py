@@ -293,6 +293,8 @@ async def test_load_calendar_for_prompt_not_connected_is_explicit():
     assert block is not None
     assert "not connected" in block.lower()
     assert "do not say the calendar is empty" in block.lower()
+    assert "Surface this as `> Warning:" in block
+    assert "Surface this as `> Tip:" not in block
     assert "No upcoming events" not in block
 
 

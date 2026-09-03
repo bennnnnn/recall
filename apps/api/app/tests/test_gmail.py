@@ -226,6 +226,8 @@ def test_format_not_connected_gmail_block_tells_model_to_suggest_connect():
     assert "Gmail: not connected" in block
     assert "Settings → Gmail" in block
     assert "do not skip inbox" in block.lower()
+    assert "Surface this as `> Warning:" in block
+    assert "Surface this as `> Tip:" not in block
 
 
 def test_format_pending_suggestions_nudge_includes_sender():
@@ -470,6 +472,8 @@ async def test_load_gmail_for_prompt_not_connected_is_explicit():
     assert "not connected" in block.lower()
     assert "Settings → Gmail" in block
     assert "do not skip inbox" in block.lower()
+    assert "Surface this as `> Warning:" in block
+    assert "Surface this as `> Tip:" not in block
 
 
 @pytest.mark.asyncio
