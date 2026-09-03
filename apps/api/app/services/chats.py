@@ -118,27 +118,15 @@ async def delete_chat(
     *,
     settings: Settings,
 ) -> None:
+    """Remove the conversation. Library attachments stay (message_id SET NULL)."""
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise ChatsError("Chat not found", status_code=404)
-
-    # Purge attachment rows + storage bytes before the chat cascade removes the
-    # message rows (attachments.message_id FK is SET NULL, so without this the
-    # rows + R2 bytes survive and linger in the gallery until the orphan reaper).
-    from app.repositories import messages as messages_repo
-    from app.services import attachment_lifecycle as attachment_lc
-
-    message_ids = await messages_repo.list_ids_for_chat(session, chat_id)
-    storage_keys: list[str] = []
-    if message_ids:
-        storage_keys = await attachment_lc.detach_attachments_for_messages(
-            session, message_ids, commit=False
-        )
+    # Do not detach rows or delete bytes — explicit Library delete owns that.
+    # attachments.message_id SET NULLs when messages cascade.
+    _ = settings
     await session.delete(chat)
     await session.commit()
-    if storage_keys:
-        failed = await attachment_lc.delete_storage_keys(settings, storage_keys)
-        await attachment_lc.enqueue_failed_storage_deletes(failed)
 
 
 async def today_usage(

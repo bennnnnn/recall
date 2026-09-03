@@ -32,7 +32,7 @@
   "chat.busy": "Ainda gerando — aguarde ou toque em parar e tente de novo.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Excluir conversa",
-  "chat.delete_confirm_body": "Esta conversa será removida permanentemente.",
+  "chat.delete_confirm_body": "Esta conversa será removida permanentemente. Os arquivos da Biblioteca são mantidos.",
   "chat.delete_confirm_title": "Excluir conversa",
   "chat.delete_failed": "Não foi possível excluir esta conversa.",
   "chat.deleted_toast": "Conversa excluída",

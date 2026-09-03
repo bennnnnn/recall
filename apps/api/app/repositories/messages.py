@@ -167,7 +167,7 @@ async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
 
 
 async def list_ids_for_chat(session: AsyncSession, chat_id: UUID) -> list[UUID]:
-    """All message IDs for a chat — used to purge attachments before chat delete."""
+    """All message IDs for a chat (edit-from-here storage detach, etc.)."""
     result = await session.execute(select(Message.id).where(Message.chat_id == chat_id))
     return list(result.scalars().all())
 

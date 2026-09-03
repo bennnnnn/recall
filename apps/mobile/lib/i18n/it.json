@@ -32,7 +32,7 @@
   "chat.busy": "Generazione in corso — attendi o tocca stop, poi riprova.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Elimina chat",
-  "chat.delete_confirm_body": "Questa conversazione verrà eliminata definitivamente.",
+  "chat.delete_confirm_body": "Questa conversazione verrà eliminata definitivamente. I file della libreria restano.",
   "chat.delete_confirm_title": "Elimina chat",
   "chat.delete_failed": "Impossibile eliminare questa chat.",
   "chat.deleted_toast": "Chat eliminata",

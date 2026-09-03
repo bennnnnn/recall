@@ -32,7 +32,7 @@
   "chat.busy": "Ответ ещё генерируется — подождите или нажмите «Стоп» и попробуйте снова.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Удалить чат",
-  "chat.delete_confirm_body": "Этот разговор будет удалён безвозвратно.",
+  "chat.delete_confirm_body": "Этот разговор будет удалён безвозвратно. Файлы в библиотеке сохранятся.",
   "chat.delete_confirm_title": "Удалить чат",
   "chat.delete_failed": "Не удалось удалить этот чат.",
   "chat.deleted_toast": "Чат удалён",
