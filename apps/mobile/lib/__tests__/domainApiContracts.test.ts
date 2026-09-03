@@ -5,7 +5,7 @@ jest.mock("@/lib/api/client", () => ({
   request: jest.fn(),
 }));
 
-import { attachmentsApi } from "@/lib/api/attachments";
+import { attachmentRecordExists, attachmentsApi } from "@/lib/api/attachments";
 import { request } from "@/lib/api/client";
 import { projectsApi } from "@/lib/api/projects";
 
@@ -63,6 +63,18 @@ describe("domain API contracts", () => {
     expect(mockRequest).toHaveBeenCalledWith("/attachments/att-1", "token", {
       method: "DELETE",
     });
+  });
+
+  it("probes GET /url to see if a Library record still exists", async () => {
+    mockRequest.mockResolvedValue({ id: "a" });
+    await expect(attachmentRecordExists("token", "a")).resolves.toBe(true);
+    expect(mockRequest).toHaveBeenCalledWith("/attachments/a/url", "token");
+
+    mockRequest.mockRejectedValue(Object.assign(new Error("gone"), { status: 404 }));
+    await expect(attachmentRecordExists("token", "gone")).resolves.toBe(false);
+
+    mockRequest.mockRejectedValue(new Error("offline"));
+    await expect(attachmentRecordExists("token", "a")).resolves.toBeNull();
   });
 
   it("uses PATCH for project item status updates", async () => {

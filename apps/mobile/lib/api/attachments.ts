@@ -74,6 +74,27 @@ export const attachmentsApi = {
   },
 };
 
+/** True if the Library row exists, false on 404, null if the probe itself failed. */
+export async function attachmentRecordExists(
+  token: string,
+  attachmentId: string,
+): Promise<boolean | null> {
+  try {
+    await request(`/attachments/${attachmentId}/url`, token);
+    return true;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      error.status === 404
+    ) {
+      return false;
+    }
+    return null;
+  }
+}
+
 export type AttachmentListItem = {
   id: string;
   content_type: string;

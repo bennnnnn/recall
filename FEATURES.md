@@ -54,8 +54,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
   still linked and **Use in chat** to attach it to the composer; tap a file
   to share (no in-library preview). The attach sheet also opens Library. Deleting a chat removes
-  its attachments from Library (unlinked leftovers are hidden; missing files drop
-  the row instead of showing a blank 404 tile). Opening Library warms the All page
+  its attachments from Library (unlinked leftovers are hidden). A failed thumbnail stays with
+  Retry; the row is dropped only after the server confirms the file is gone. Opening Library warms the All page
   from the drawer tap (20s cache, same window as Memory); tab snapshots avoid a
   wrong-grid flash. Logout, chat delete, upload, and image-gen invalidate it.
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
