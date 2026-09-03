@@ -434,6 +434,9 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "quoted italic paragraph" in FORMAT_CONTRACT
     assert "```email" in FORMAT_CONTRACT
     assert "```python" in FORMAT_CONTRACT
+    assert "numbered list (`1.` `2.`)" in FORMAT_CONTRACT
+    assert "not more bullets" in FORMAT_CONTRACT
+    assert "Do not use a/b or roman" in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS
     assert "```chemistry" not in VISUALIZATION_HINTS
     from app.services.chat.prompt_constants import CHEMISTRY_FENCE_HINT, MATH_SOLVER_HINT
