@@ -506,16 +506,15 @@ def test_find_item_requires_exact_normalized_match():
     assert _find_item([near], "Groceries", "buy organic milk") is None
 
 
-def test_todo_hint_does_not_promise_pre_reply_application():
-    """The todo sync runs as a post-reply background job, so the prompt must
-    not tell the model changes apply 'before your reply' (it would then phrase
-    completed actions as already done, which is misleading). Guard against
-    regressing back to the old pre-reply copy."""
+def test_todo_hint_does_not_promise_unapplied_changes():
+    """Fence apply happens before persist; the prompt must not tell the model
+    to confirm or to say 'I'll delete' as if that were the saved result."""
     hint = todos_service.TODO_HINT
     assert "before your reply" not in hint
     assert "pre-reply sync" not in hint
-    # The honest phrasing must be present.
-    assert "right after" in hint
+    assert "I'll delete" not in hint
+    assert "I'll set" not in hint
+    assert "appends the saved result" in hint
     assert "shopping-list" in hint or "checklist" in hint
     assert "whole-list delete" not in hint
 
@@ -720,6 +719,8 @@ async def test_materialize_reminder_fences_creates_todo():
     assert created == 1
     assert "```reminder" not in updated
     assert "Reminder set" in updated
+    assert "Set: 2026 FIFA World Cup Final —" in updated
+    assert "3:00 PM" in updated
     create_mock.assert_awaited_once()
     kwargs = create_mock.await_args.kwargs
     assert kwargs["topic"] == todos_service.REMINDER_TOPIC
@@ -807,10 +808,93 @@ async def test_materialize_reminder_fences_caps_creates_per_reply():
     assert "```reminder" not in updated
 
 
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_deletes_and_confirms():
+    session = AsyncMock()
+    existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
+    text = '```reminder\n{"action":"delete","title":"Walk"}\n```'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "delete_by_id", AsyncMock(return_value=True)) as delete_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert applied == 1
+    assert "```reminder" not in updated
+    assert updated.strip() == "Deleted: Walk."
+    delete_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_delete_miss_says_so():
+    session = AsyncMock()
+    text = '```reminder\n{"action":"delete","title":"Walk"}\n```'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "delete_by_id", AsyncMock()) as delete_mock,
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert applied == 0
+    assert "Could not delete Walk." in updated
+    delete_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_set_due_confirms():
+    session = AsyncMock()
+    existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
+    existing.due_at = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    text = (
+        '```reminder\n{"action":"set_due","title":"Walk","due_at":"2026-07-20T15:00:00-04:00"}\n```'
+    )
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)),
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+        )
+    assert applied == 1
+    assert "Moved: Walk — Monday, Jul 20, 3:00 PM." in updated
+
+
+def test_format_schedule_result_set_line():
+    from app.services.todos.reminder_fences import format_schedule_result
+
+    due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    line = format_schedule_result(
+        action="add",
+        title="Call Mom",
+        due_at=due,
+        repeat="weekly",
+        user_timezone="America/New_York",
+        ok=True,
+    )
+    assert line == "Set: Call Mom — Sunday, Jul 19, 3:00 PM · weekly."
+
+
 def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
     assert "```reminder" in hint
-    assert "Only say a reminder is set if you emitted that fence" in hint
+    assert '"action":"delete"' in hint
+    assert "Do not say the change is done" in hint
     assert "do not ask" in hint and "flight number" in hint
 
 
