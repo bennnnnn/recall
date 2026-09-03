@@ -89,7 +89,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
   DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
   vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips
-  `web_search` on a turn that still needs live results, the backend searches once. One Tavily
+  `web_search` on a turn that still needs live results (heuristic **or** classifier), the backend
+  searches once. Empty hits inject a no-results instruction so the reply cannot look live from
+  training data. One Tavily
   reservation per turn. A Redis reserve failure (or a missing user) fails closed to **DuckDuckGo
   only** — DDG is uncapped (latency only). Search cache keys include `user_id`. When the sync
   search heuristic is weak, the tool-loop gate consults the LLM classifier (`should_web_search`)

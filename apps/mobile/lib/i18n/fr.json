@@ -194,6 +194,7 @@
   "chat.sending": "Sending",
   "chat.share": "Partager",
   "chat.share_failed": "Impossible de partager ce chat.",
+  "chat.sources_count": "{{count}} sources",
   "chat.status.calculating": "Calcul en cours…",
   "chat.status.calculating_1": "Je résous les équations…",
   "chat.status.calculating_2": "Travail sur les maths…",

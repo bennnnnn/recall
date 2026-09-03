@@ -48,8 +48,8 @@ WEB_SEARCH_HINT = (
     "The app renders places blocks natively — do NOT also hand-format a markdown list. "
     "If you must use markdown links instead, use [Name](https://url) with parentheses "
     "around the URL — never $url$ delimiters."
-    "When search returned no hits, say so in one sentence — do NOT guess why or fill in "
-    "from training data. "
+    "When search returned no hits, say you could not verify that live right now — "
+    "do NOT guess why or fill in from training data. "
     "Do NOT add a separate Sources section — the app renders source cards. "
     "Never role-play searching. "
     "If no **Web search results** block is in this prompt, do not claim you searched the "
@@ -326,7 +326,7 @@ def format_search_empty_block(queries: list[str], *, local_places: bool = False)
         )
     return (
         f"Web search was run ({tried}) but returned no usable results.\n"
-        "Tell the user live search found nothing useful — one short sentence only. "
+        "Reply in one sentence that you could not verify that live right now. "
         "Do NOT invent tournament schedules, Matchday guesses, off-season explanations, "
-        "or scores from memory. Ask for a specific league, team, or date to retry."
+        "or scores from memory. Do not fill in from training data."
     )

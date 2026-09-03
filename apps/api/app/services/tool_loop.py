@@ -136,9 +136,15 @@ async def _force_web_search_if_needed(
     redis: Redis | None,
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
+    search_required: bool = False,
 ) -> tuple[list[dict[str, Any]], list[WebSearchHit]]:
-    """If the model skipped web_search on a turn that needs live results, search once."""
-    if search_hits or _web_search_was_called(messages):
+    """If the model skipped web_search on a turn that needs live results, search once.
+
+    ``search_required`` preserves a classifier-yes decision. The sync heuristic
+    alone would otherwise drop that turn (silent answer from training data).
+    Empty hits still inject a no-results block so the model cannot look current.
+    """
+    if search_hits:
         return messages, search_hits
     if should_cancel and should_cancel():
         return messages, search_hits
@@ -150,23 +156,29 @@ async def _force_web_search_if_needed(
     from app.services.prompt_inject import inject_before_last_user
     from app.services.prompt_safety import wrap_untrusted
     from app.services.web_search.detection import needs_web_search
-    from app.services.web_search.formatting import format_search_block
+    from app.services.web_search.formatting import format_search_block, format_search_empty_block
     from app.services.web_search.search_cache import run_cached_search
 
-    if not needs_web_search(user_text):
+    already_searched = _web_search_was_called(messages)
+    if not search_required and not already_searched and not needs_web_search(user_text):
         return messages, search_hits
-    if on_status is not None:
-        await on_status("searching", clip_status_detail(user_text))
-    hits, _tried = await run_cached_search(
-        settings,
-        [user_text],
-        user=user,
-        redis=redis,
-    )
-    if not hits:
-        return messages, search_hits
-    block = wrap_untrusted("web search", format_search_block(hits))
-    return inject_before_last_user(messages, block), hits
+
+    tried = [user_text]
+    if not already_searched:
+        if on_status is not None:
+            await on_status("searching", clip_status_detail(user_text))
+        hits, tried = await run_cached_search(
+            settings,
+            [user_text],
+            user=user,
+            redis=redis,
+        )
+        if hits:
+            block = wrap_untrusted("web search", format_search_block(hits))
+            return inject_before_last_user(messages, block), hits
+
+    empty = format_search_empty_block(tried or [user_text])
+    return inject_before_last_user(messages, empty), search_hits
 
 
 def _terminal_image_from_tool_result(result: Any) -> TerminalImageResult | None:
@@ -287,6 +299,7 @@ async def run_tool_rounds(
     user: User | None = None,
     redis: Redis | None = None,
     chat_id: UUID | None = None,
+    web_search: bool | None = None,
 ) -> tuple[
     list[dict[str, Any]],
     VerifiedMathBlock | None,
@@ -328,6 +341,7 @@ async def run_tool_rounds(
             redis=redis,
             on_status=on_status,
             should_cancel=should_cancel,
+            search_required=web_search is True,
         )
         return working, verified, terminal, hits
 

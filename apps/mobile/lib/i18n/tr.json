@@ -194,6 +194,7 @@
   "chat.sending": "Sending",
   "chat.share": "Paylaş",
   "chat.share_failed": "Bu sohbet paylaşılamadı.",
+  "chat.sources_count": "{{count}} kaynak",
   "chat.status.calculating": "Hesaplanıyor…",
   "chat.status.calculating_1": "Denklemler çözülüyor…",
   "chat.status.calculating_2": "Matematik üzerinde çalışılıyor…",

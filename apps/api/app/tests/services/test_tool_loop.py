@@ -492,6 +492,128 @@ async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_re
 
 
 @pytest.mark.asyncio
+async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no(
+    web_search_registered,
+):
+    from app.services.web_search.detection import needs_web_search
+
+    query = "Who is the CEO of Anthropic?"
+    assert needs_web_search(query) is False
+    messages = [{"role": "user", "content": query}]
+    hit = WebSearchHit(title="CEO", url="https://example.com/ceo", snippet="Dario Amodei")
+    complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
+    forced = AsyncMock(return_value=([hit], [query]))
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.web_search.search_cache.run_cached_search", forced),
+    ):
+        out, verified, terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+            web_search=True,
+        )
+    complete.assert_awaited_once()
+    forced.assert_awaited_once()
+    assert hits == [hit]
+    assert any(
+        m.get("role") == "system"
+        and "BEGIN UNTRUSTED CONTENT — web search" in str(m.get("content"))
+        for m in out
+    )
+    assert verified is None
+    assert terminal is None
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
+    web_search_registered,
+):
+    from app.services.web_search.detection import needs_web_search
+
+    query = "Who is the CEO of Anthropic?"
+    assert needs_web_search(query) is False
+    messages = [{"role": "user", "content": query}]
+    complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
+    forced = AsyncMock(return_value=([], [query]))
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.web_search.search_cache.run_cached_search", forced),
+    ):
+        out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+    forced.assert_not_awaited()
+    assert hits == []
+    assert all("returned no usable results" not in str(m.get("content")) for m in out)
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_injects_empty_search_when_force_finds_nothing(web_search_registered):
+    messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
+    complete = AsyncMock(return_value={"content": "I already know.", "tool_calls": []})
+    forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.web_search.search_cache.run_cached_search", forced),
+    ):
+        out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+    forced.assert_awaited_once()
+    assert hits == []
+    assert any(
+        m.get("role") == "system" and "could not verify that live" in str(m.get("content"))
+        for m in out
+    )
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_registered):
+    messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
+    complete = AsyncMock(
+        return_value={
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": '{"query": "SpaceX"}'},
+                }
+            ],
+        }
+    )
+    invoke = AsyncMock(
+        return_value=ToolResult(name="web_search", content="(no results)", data={"hits": []})
+    )
+    forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.services.web_search.search_cache.run_cached_search", forced),
+    ):
+        out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+    forced.assert_not_awaited()
+    assert hits == []
+    assert any(
+        m.get("role") == "system" and "could not verify that live" in str(m.get("content"))
+        for m in out
+    )
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_path_copies_tool_hits_onto_context():
     from uuid import uuid4
 
@@ -565,6 +687,7 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
         )
     classify.assert_awaited_once()
     run.assert_awaited_once()
+    assert run.await_args.kwargs["web_search"] is True
 
 
 @pytest.mark.asyncio

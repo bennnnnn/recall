@@ -2,6 +2,7 @@ import {
   faviconUrl,
   hostnameFromUrl,
   parseSearchSources,
+  preferDistinctHostSources,
   stripSearchSourcesFromContent,
 } from "@/lib/searchSources";
 
@@ -78,6 +79,16 @@ describe("searchSources", () => {
 
   it("extracts hostname", () => {
     expect(hostnameFromUrl("https://www.bbc.com/news")).toBe("bbc.com");
+  });
+
+  it("lists distinct hosts first", () => {
+    expect(
+      preferDistinctHostSources([
+        { title: "A1", url: "https://espn.com/a" },
+        { title: "A2", url: "https://espn.com/b" },
+        { title: "B", url: "https://bbc.com/c" },
+      ]).map((s) => s.title),
+    ).toEqual(["A1", "B", "A2"]);
   });
 
   it("builds favicon url from host", () => {

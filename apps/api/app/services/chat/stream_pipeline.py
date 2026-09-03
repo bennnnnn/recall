@@ -58,6 +58,7 @@ async def run_tool_loop_path(
     has_instant = ctx.instant_reply is not None
     has_verified = ctx.verified_math is not None
     has_sources = bool(sources)
+    web_search_flag: bool | None = None
     # Sync heuristic first (math / news / calendar). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
     if not tool_loop_service.turn_needs_tool_loop(
@@ -69,7 +70,6 @@ async def run_tool_loop_path(
         settings=settings,
         user=ctx.user,
     ):
-        web_search_flag: bool | None = None
         if settings.web_search_enabled and not sources:
             from app.services.web_search.detection import should_web_search
 
@@ -107,6 +107,7 @@ async def run_tool_loop_path(
         user=ctx.user,
         redis=redis,
         chat_id=ctx.chat_id,
+        web_search=web_search_flag,
     )
     if tool_verified is not None:
         ctx.verified_math = tool_verified

@@ -79,6 +79,23 @@ export function hostnameFromUrl(url: string): string {
   }
 }
 
+/** First hit per host, then remaining duplicates — compact chips, full sheet. */
+export function preferDistinctHostSources(sources: SearchSource[]): SearchSource[] {
+  const seen = new Set<string>();
+  const unique: SearchSource[] = [];
+  const rest: SearchSource[] = [];
+  for (const source of sources) {
+    const host = hostnameFromUrl(source.url).toLowerCase();
+    if (!host || seen.has(host)) {
+      rest.push(source);
+      continue;
+    }
+    seen.add(host);
+    unique.push(source);
+  }
+  return [...unique, ...rest];
+}
+
 export function faviconHost(url: string): string {
   const host = hostnameFromUrl(url);
   return host || "web";

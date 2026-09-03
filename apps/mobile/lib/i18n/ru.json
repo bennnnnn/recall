@@ -194,6 +194,7 @@
   "chat.sending": "Sending",
   "chat.share": "Поделиться",
   "chat.share_failed": "Не удалось поделиться этим чатом.",
+  "chat.sources_count": "{{count}} источников",
   "chat.status.calculating": "Считаю…",
   "chat.status.calculating_1": "Решаю уравнения…",
   "chat.status.calculating_2": "Работаю над математикой…",

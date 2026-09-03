@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
@@ -9,6 +10,7 @@ import {
   faviconHost,
   faviconUrl,
   hostnameFromUrl,
+  preferDistinctHostSources,
 } from "@/lib/searchSources";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -20,13 +22,16 @@ type Props = {
 };
 
 export function SearchSourcesStack({ sources }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   if (sources.length === 0) return null;
 
-  const preview = sources.slice(0, MAX_CHIP_ICONS);
+  const ordered = preferDistinctHostSources(sources);
+  const preview = ordered.slice(0, MAX_CHIP_ICONS);
+  const label = t("chat.sources_count", { count: sources.length });
 
   return (
     <>
@@ -34,9 +39,9 @@ export function SearchSourcesStack({ sources }: Props) {
         style={s.chip}
         onPress={() => setSheetOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`Sources, ${sources.length} links`}
+        accessibilityLabel={label}
       >
-        <Text style={s.chipLabel}>Sources</Text>
+        <Text style={s.chipLabel}>{label}</Text>
         <View style={s.iconCluster}>
           {preview.map((source, index) => (
             <View
@@ -51,7 +56,7 @@ export function SearchSourcesStack({ sources }: Props) {
 
       <SearchSourcesSheet
         visible={sheetOpen}
-        sources={sources}
+        sources={ordered}
         onClose={() => setSheetOpen(false)}
       />
     </>
