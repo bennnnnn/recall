@@ -3,16 +3,12 @@ import type { TFunction } from "i18next";
 import type { Todo } from "@/lib/api";
 import {
   DEFAULT_HOME_URGENT_LEAD,
+  firstOverdueHomeTodo,
   homeUrgentPrompt,
-  homeUrgentSubtitle,
   listHomeUrgentTodos,
-  partitionHomeUrgentTodos,
 } from "@/lib/homeUrgentTodos";
 
 const mockT = ((key: string, opts?: Record<string, unknown>) => {
-  if (key === "chat.home.urgent_subtitle_overdue_many") {
-    return `${opts?.count} reminders overdue.`;
-  }
   if (key === "chat.home.urgent_prompt_overdue") {
     return `overdue: ${opts?.content}`;
   }
@@ -49,7 +45,7 @@ describe("listHomeUrgentTodos", () => {
     expect(urgent[0].minutes_until).toBeLessThan(0);
   });
 
-  it("partitions overdue and upcoming", () => {
+  it("returns the first overdue reminder and ignores due-soon", () => {
     const overdue = todo({
       id: "1",
       content: "Late",
@@ -60,11 +56,13 @@ describe("listHomeUrgentTodos", () => {
       content: "Soon",
       due_at: "2026-06-27T12:30:00.000Z",
     });
-    const { overdue: o, dueSoon: s } = partitionHomeUrgentTodos(
-      listHomeUrgentTodos([overdue, dueSoon], now, lead),
-    );
-    expect(o.map((item) => item.id)).toEqual(["1"]);
-    expect(s.map((item) => item.id)).toEqual(["2"]);
+    expect(
+      firstOverdueHomeTodo(listHomeUrgentTodos([overdue, dueSoon], now, lead))
+        ?.id,
+    ).toBe("1");
+    expect(
+      firstOverdueHomeTodo(listHomeUrgentTodos([dueSoon], now, lead)),
+    ).toBeUndefined();
   });
 
   it("includes reminders due within the lead window", () => {
@@ -123,35 +121,7 @@ describe("listHomeUrgentTodos", () => {
   });
 });
 
-describe("homeUrgentSubtitle", () => {
-  it("returns null when empty", () => {
-    expect(homeUrgentSubtitle([], mockT)).toBeNull();
-  });
-
-  it("describes multiple overdue reminders", () => {
-    expect(
-      homeUrgentSubtitle(
-        [
-          {
-            id: "1",
-            content: "A",
-            topic: "General",
-            due_at: "2026-06-26T12:00:00.000Z",
-            minutes_until: -60,
-          },
-          {
-            id: "2",
-            content: "B",
-            topic: "General",
-            due_at: "2026-06-26T11:00:00.000Z",
-            minutes_until: -120,
-          },
-        ],
-        mockT,
-      ),
-    ).toBe("2 reminders overdue.");
-  });
-
+describe("homeUrgentPrompt", () => {
   it("uses overdue prompt text", () => {
     expect(
       homeUrgentPrompt(

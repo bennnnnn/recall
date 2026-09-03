@@ -597,7 +597,8 @@ were removed. Programming help lives in main chat.
 - ❌ **Link todos to Learning** — optional `project_id` may exist on todo rows in the API.
   Mobile must not show it (no “Linked to …”, no filter chips, no folder control). Schedule
   and Learning stay separate.
-- ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
+- ✅ **Home starters** — greeting + two local chips; at most one dismissible overdue
+  reminder. No Learning progress bar, due-soon stack, or personalized “For you” chips.
 
 ### Phase 4 — More project types
 - ❌ **General knowledge (trivia)** — removed. Learning is language vocabulary only.
