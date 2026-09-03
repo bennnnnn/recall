@@ -95,30 +95,102 @@ def test_exclude_sensitive_for_query_injects_only_on_matching_asks():
 
 
 def test_filter_surface_memories_keeps_allergy_on_food_query():
+    from app.services import memory as memory_service
     from app.services.memory.retrieval import filter_surface_memories
 
-    seams = MagicMock()
-    seams.is_sensitive_memory_text.side_effect = is_sensitive_memory_text
-    seams.is_food_or_diet_query.side_effect = is_food_or_diet_query
-    seams.is_diet_health_memory_text.side_effect = is_diet_health_memory_text
     allergy = _memory("preference", "Peanut allergy", 0.9)
     salary = _memory("fact", "Salary is $200k", 0.9)
     kept = filter_surface_memories(
-        seams,
+        memory_service,
         [allergy, salary],
         exclude_sensitive=True,
         query_text="what should I eat tonight",
     )
-    assert allergy in kept
-    assert salary not in kept
+    texts = " ".join(item.text for item in kept)
+    assert "Peanut allergy" in texts
+    assert "Salary" not in texts
     weather = filter_surface_memories(
-        seams,
+        memory_service,
         [allergy, salary],
         exclude_sensitive=True,
         query_text="what's the weather",
     )
-    assert allergy not in weather
-    assert salary not in weather
+    weather_text = " ".join(item.text for item in weather)
+    assert "allergy" not in weather_text.lower()
+    assert "Salary" not in weather_text
+
+
+def test_filter_surface_memories_splits_mixed_preference_paragraph():
+    from app.services import memory as memory_service
+    from app.services.memory.retrieval import filter_surface_memories
+
+    mixed = _memory(
+        "preference",
+        "Likes Italian cooking. Has a peanut allergy.",
+        0.9,
+    )
+    food = filter_surface_memories(
+        memory_service,
+        [mixed],
+        exclude_sensitive=True,
+        query_text="what should I eat tonight",
+    )
+    assert len(food) == 1
+    assert "Italian" in food[0].text
+    assert "allergy" in food[0].text.lower()
+
+    weather = filter_surface_memories(
+        memory_service,
+        [mixed],
+        exclude_sensitive=True,
+        query_text="what's the weather",
+    )
+    assert weather == []
+
+
+def test_select_facts_for_prompt_keeps_matching_project_fact_only():
+    from app.services.memory import select_facts_for_prompt
+
+    project = _memory(
+        "project",
+        "Building a rocket hobby app. Also plays jazz piano.",
+        1.0,
+    )
+    facts = select_facts_for_prompt(
+        project,
+        query_text="help with the rocket",
+        exclude_sensitive=False,
+    )
+    joined = " ".join(facts).lower()
+    assert "rocket" in joined
+    assert "jazz" not in joined
+
+
+def test_drop_sensitive_memory_facts_keeps_unrelated_sentence():
+    from app.services.memory import drop_sensitive_memory_facts
+
+    mixed = "As of 2026-07-20: Likes Italian cooking. Has a peanut allergy."
+    kept = drop_sensitive_memory_facts(mixed)
+    assert "Italian" in kept
+    assert "allergy" not in kept.lower()
+    assert drop_sensitive_memory_facts("Has a peanut allergy.") == ""
+
+
+def test_accept_memory_section_rewrite_allows_explicit_forget():
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    forgotten = "Bini is a developer. User's name is Bini."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary=forgotten,
+            confidence=0.9,
+            min_confidence=0.4,
+            enforce_length_floor=False,
+            preserve_prior_facts=False,
+        )
+        == "Bini is a developer. User's name is Bini"
+    )
 
 
 def test_section_needs_consolidation_detects_repetition():

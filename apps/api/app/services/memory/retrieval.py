@@ -74,18 +74,17 @@ def filter_surface_memories(
     *,
     exclude_sensitive: bool,
     query_text: str | None = None,
-) -> list[Memory]:
-    if not exclude_sensitive:
-        return memories
-    keep_diet = bool(query_text) and seams.is_food_or_diet_query(query_text)
-    kept: list[Memory] = []
-    for memory in memories:
-        if not seams.is_sensitive_memory_text(memory.text):
-            kept.append(memory)
-            continue
-        if keep_diet and seams.is_diet_health_memory_text(memory.text):
-            kept.append(memory)
-    return kept
+) -> list[Any]:
+    """Keep individual facts, not whole sections.
+
+    A peanut allergy in the same paragraph as a cooking preference must not
+    hide the preference, and must not leak into a weather question.
+    """
+    return seams.prompt_memories_from_facts(
+        memories,
+        query_text=query_text,
+        exclude_sensitive=exclude_sensitive,
+    )
 
 
 async def semantic_block_from_vec(

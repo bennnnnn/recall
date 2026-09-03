@@ -151,3 +151,99 @@ def join_memory_facts(facts: list[str]) -> str:
     if merged and not merged.endswith("."):
         merged += "."
     return merged
+
+
+# Tiny words that should not make two unrelated facts look related.
+_FACT_TOKEN_STOP = frozenset(
+    {
+        "the",
+        "and",
+        "for",
+        "you",
+        "your",
+        "that",
+        "this",
+        "with",
+        "what",
+        "should",
+        "about",
+        "have",
+        "from",
+        "are",
+        "was",
+        "can",
+        "how",
+        "does",
+        "did",
+        "not",
+        "but",
+        "they",
+        "them",
+        "his",
+        "her",
+        "its",
+        "our",
+        "who",
+        "why",
+        "when",
+        "will",
+        "just",
+        "been",
+        "had",
+        "user",
+        "likes",
+        "like",
+        "also",
+        "very",
+        "into",
+        "onto",
+    }
+)
+
+
+def memory_fact_tokens(text: str) -> set[str]:
+    """Lowercase tokens of length ≥3, scanned linearly (no regex)."""
+    tokens: set[str] = set()
+    buf: list[str] = []
+    for ch in (text or "").lower():
+        if ch.isalnum():
+            buf.append(ch)
+            continue
+        if len(buf) >= 3:
+            word = "".join(buf)
+            if word not in _FACT_TOKEN_STOP:
+                tokens.add(word)
+        buf = []
+    if len(buf) >= 3:
+        word = "".join(buf)
+        if word not in _FACT_TOKEN_STOP:
+            tokens.add(word)
+    return tokens
+
+
+def fact_query_overlap(fact: str, query: str) -> int:
+    """Count of shared content tokens between a stored fact and the user ask."""
+    if not fact or not query:
+        return 0
+    return len(memory_fact_tokens(fact) & memory_fact_tokens(query))
+
+
+def memory_fact_matches_query(fact: str, query: str) -> bool:
+    """True when this fact is about the current ask (tokens or food/diet)."""
+    cleaned = (query or "").strip()
+    if not cleaned:
+        return True
+    if fact_query_overlap(fact, cleaned) > 0:
+        return True
+    return is_food_or_diet_query(cleaned) and (
+        is_diet_health_memory_text(fact) or is_food_or_diet_query(fact)
+    )
+
+
+def drop_sensitive_memory_facts(text: str) -> str:
+    """Keep only non-sensitive sentences. Empty if nothing remains."""
+    body = strip_memory_as_of(text)
+    if not body:
+        return ""
+    kept = [fact for fact in split_memory_facts(body) if not is_sensitive_memory_text(fact)]
+    return join_memory_facts(kept)

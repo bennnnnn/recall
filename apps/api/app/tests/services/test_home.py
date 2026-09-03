@@ -661,6 +661,16 @@ def test_pick_home_memory_skips_sensitive_sections():
     assert picked is project
 
 
+def test_memory_starter_keeps_non_sensitive_sentence_from_mixed_section():
+    memory = MagicMock()
+    memory.type = "preference"
+    memory.text = "Likes Italian cooking. Has a peanut allergy."
+    starter = home_service._memory_starter(memory)
+    assert starter is not None
+    assert "italian" in starter.prompt.lower()
+    assert "allergy" not in starter.prompt.lower()
+
+
 def test_memory_starter_english_learning_uses_specific_label():
     memory = MagicMock()
     memory.type = "focus"

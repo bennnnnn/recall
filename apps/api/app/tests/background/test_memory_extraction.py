@@ -434,3 +434,135 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
     # lock held and skipped entirely, rather than both silently overwriting
     # each other's section text.
     assert upsert.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_extract_does_not_auto_save_sensitive_health_fact():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(
+                type="fact",
+                summary="Has a peanut allergy.",
+                confidence=0.95,
+            )
+        ]
+    )
+    upsert = AsyncMock()
+    _, session_locals = _extraction_sessions()
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="I'm allergic to peanuts",
+        )
+
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extract_saves_sensitive_fact_when_user_asks_to_remember():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(
+                type="fact",
+                summary="Has a peanut allergy.",
+                confidence=0.95,
+            )
+        ]
+    )
+    upsert = AsyncMock()
+    _, session_locals = _extraction_sessions(count=2)
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(side_effect=[[], []]),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="Remember this: I am allergic to peanuts",
+        )
+
+    upsert.assert_awaited_once()
+    items = upsert.call_args.kwargs["items"]
+    assert "allergy" in items[0][1].lower()
+
+
+@pytest.mark.asyncio
+async def test_extract_keeps_non_sensitive_sentence_from_mixed_section():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(
+                type="preference",
+                summary="Likes Italian cooking. Has a peanut allergy.",
+                confidence=0.95,
+            )
+        ]
+    )
+    upsert = AsyncMock()
+    _, session_locals = _extraction_sessions(count=2)
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(side_effect=[[], []]),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="I like Italian cooking and I'm allergic to peanuts",
+        )
+
+    upsert.assert_awaited_once()
+    items = upsert.call_args.kwargs["items"]
+    assert "Italian" in items[0][1]
+    assert "allergy" not in items[0][1].lower()

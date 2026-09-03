@@ -20,7 +20,7 @@ from app.services.home.util import (
     short_phrase,
     texts_overlap,
 )
-from app.services.memory import is_sensitive_memory_text, strip_memory_as_of
+from app.services.memory import drop_sensitive_memory_facts, strip_memory_as_of
 
 
 def memory_display_text(text: str) -> str:
@@ -29,22 +29,26 @@ def memory_display_text(text: str) -> str:
     return cleaned or clean
 
 
+def _public_memory_text(text: str) -> str:
+    """Home chips must not echo a sensitive sentence from a mixed section."""
+    public = drop_sensitive_memory_facts(text)
+    return public or ""
+
+
 def pick_home_memory(
     memories: list[Memory],
     *,
     has_language_project: bool = True,
 ) -> Memory | None:
     for memory in memories:
-        if looks_internal(memory.text):
+        public = _public_memory_text(memory.text)
+        if not public or looks_internal(public):
             continue
-        if is_sensitive_memory_text(memory.text):
-            continue
-        # Stale English memories must not surface after the vocab class is deleted.
-        if looks_like_language_learning(memory.text) and not has_language_project:
+        if looks_like_language_learning(public) and not has_language_project:
             continue
         if memory.type in _HOME_MEMORY_TYPES:
             return memory
-        if memory.type in ("profile", "fact") and looks_like_language_learning(memory.text):
+        if memory.type in ("profile", "fact") and looks_like_language_learning(public):
             return memory
     return None
 
@@ -64,21 +68,21 @@ def memory_chip_label(memory: Memory, display: str) -> str:
 
 
 def memory_starter(memory: Memory) -> HomeStarter | None:
-    text = memory.text.strip()
-    if not text or looks_internal(text) or is_sensitive_memory_text(text):
+    public = _public_memory_text(memory.text)
+    if not public or looks_internal(public):
         return None
-    display = memory_display_text(text)
+    display = memory_display_text(public)
     label = memory_chip_label(memory, display)
     if memory.type == "project":
         prompt = f"Let's pick up my project again: {display}"
     elif memory.type == "preference":
         prompt = f"Suggest something I'd enjoy — keeping in mind that {display.lower()}"
     elif memory.type == "focus":
-        if looks_like_language_learning(text):
+        if looks_like_language_learning(public):
             prompt = f"Help me with my English learning. Context: {display}"
         else:
             prompt = f"Help me make progress on: {display}"
-    elif memory.type in ("profile", "fact") and looks_like_language_learning(text):
+    elif memory.type in ("profile", "fact") and looks_like_language_learning(public):
         prompt = f"Help me with my English learning. Context: {display}"
     else:
         return None
@@ -86,11 +90,11 @@ def memory_starter(memory: Memory) -> HomeStarter | None:
 
 
 def memory_subtitle(memory: Memory) -> str | None:
-    text = memory.text.strip()
-    if not text or looks_internal(text):
+    public = _public_memory_text(memory.text)
+    if not public or looks_internal(public):
         return None
-    display = memory_display_text(text)
-    if looks_like_language_learning(text):
+    display = memory_display_text(public)
+    if looks_like_language_learning(public):
         return "Ready for some English practice?"
     if memory.type == "project":
         return f"Want to keep going on {short_phrase(display, limit=42)}?"

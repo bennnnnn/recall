@@ -55,6 +55,12 @@ from app.services.memory.selection import (
     format_memory_block as format_memory_block,
 )
 from app.services.memory.selection import (
+    prompt_memories_from_facts as prompt_memories_from_facts,
+)
+from app.services.memory.selection import (
+    select_facts_for_prompt as select_facts_for_prompt,
+)
+from app.services.memory.selection import (
     select_memories_for_prompt as select_memories_for_prompt,
 )
 from app.services.memory.selection import (
@@ -62,6 +68,9 @@ from app.services.memory.selection import (
 )
 from app.services.memory.text import (
     _split_sentences as _split_sentences,
+)
+from app.services.memory.text import (
+    drop_sensitive_memory_facts as drop_sensitive_memory_facts,
 )
 from app.services.memory.text import (
     embedding_text_hash as embedding_text_hash,
@@ -83,6 +92,9 @@ from app.services.memory.text import (
 )
 from app.services.memory.text import (
     join_memory_facts as join_memory_facts,
+)
+from app.services.memory.text import (
+    memory_fact_matches_query as memory_fact_matches_query,
 )
 from app.services.memory.text import (
     normalize_memory_text as normalize_memory_text,

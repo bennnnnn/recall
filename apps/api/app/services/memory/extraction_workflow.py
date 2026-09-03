@@ -14,6 +14,8 @@ from app.services import memory_llm
 from app.services.memory import (
     accept_memory_section_rewrite,
     acquire_memory_write_lock,
+    drop_sensitive_memory_facts,
+    is_explicit_memory_command,
     release_memory_write_lock,
     stamp_memory_as_of,
 )
@@ -86,14 +88,22 @@ async def extract_and_store_memories(
                     await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 return None
 
+            explicit = is_explicit_memory_command(expanded)
             rows: list[tuple[str, str, float, UUID | None]] = []
             for section in result.sections:
+                prior = snapshot.existing_sections.get(section.type, "")
+                summary = section.summary
+                if not explicit:
+                    summary = drop_sensitive_memory_facts(summary)
+                    prior = drop_sensitive_memory_facts(prior)
                 accepted = accept_memory_section_rewrite(
                     section_type=section.type,
-                    prior=snapshot.existing_sections.get(section.type, ""),
-                    summary=section.summary,
+                    prior=prior,
+                    summary=summary,
                     confidence=section.confidence,
                     min_confidence=settings.memory_min_confidence,
+                    enforce_length_floor=not explicit,
+                    preserve_prior_facts=not explicit,
                 )
                 if accepted is not None:
                     rows.append(

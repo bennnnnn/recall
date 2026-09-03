@@ -200,7 +200,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   always on turn 1). Ops can raise N to skip intermediate LLM cost. Each pass includes
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
   on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
-  still extract when N>1. No remember/forget chip or confirmation sheet.
+  still extract when N>1. Health, financial, legal, and relationship details are not stored
+  unless the user explicitly asks to remember them. No remember/forget chip or confirmation sheet.
 - ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript is the **user
   line only** (assistant restatements dropped), capped ~4k (head+tail); attachment OCR /
   untrusted blocks stripped before extract; memory wrapped as first-party notes (fence kept);
@@ -208,10 +209,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (captures things
   like interests, what they're working on, name, job, country when mentioned).
 - ✅ **Quality controls** — confidence threshold, de-duplication, priority ordering, capped count.
-- ✅ **Prompt injection** — profile/preference always; fact/focus/project only when
-  similarity clears `memory_min_similarity` (default 0.35), with a char budget.
-  Health / legal / finance memories stay **stripped on casual turns** and inject only when
-  the user's ask itself looks like those topics (`exclude_sensitive_for_query`).
+- ✅ **Prompt injection** — profile identity always (fact-level, ~600-char cap);
+  preference / project / fact / focus inject **matching sentences**, not the whole
+  paragraph. Health / legal / finance / relationship facts are **not auto-saved**
+  unless the user explicitly asks to remember them; on inject they stay stripped
+  on casual turns and only the relevant allowed fact is added when the ask is
+  about that topic (`exclude_sensitive_for_query`).
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).

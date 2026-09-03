@@ -49,7 +49,9 @@ async def revise_memory_sections(
                 "- If the User line explicitly asks to remember a fact, include it.\n"
                 "- If the User line explicitly asks to forget a fact, drop that fact from "
                 "the section (empty the section if nothing remains). Do not wait for a "
-                "later pass."
+                "later pass.\n"
+                "- Do not save health, financial, legal, or relationship details unless "
+                "the User line explicitly asks to remember them."
             ),
         },
         {

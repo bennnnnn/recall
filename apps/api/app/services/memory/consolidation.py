@@ -104,12 +104,14 @@ def accept_memory_section_rewrite(
     confidence: float,
     min_confidence: float,
     enforce_length_floor: bool = True,
+    preserve_prior_facts: bool = True,
 ) -> str | None:
     """Validate a whole-section rewrite before upsert (extraction + consolidation).
 
     Rejects low confidence, empty text, catastrophic shortening, and rewrites
     that drop too many prior fact anchors — so a flaky LLM pass cannot silently
-    erase stable facts (name, employer, allergy, …).
+    erase stable facts (name, employer, allergy, …). Explicit remember/forget
+    skips the length and anchor gates so a correction can land immediately.
     """
     if confidence < min_confidence:
         return None
@@ -123,7 +125,7 @@ def accept_memory_section_rewrite(
             section_type,
         )
         return None
-    if prior and not consolidation_rewrite_preserves_facts(prior, clean):
+    if preserve_prior_facts and prior and not consolidation_rewrite_preserves_facts(prior, clean):
         logger.warning(
             "Skipping memory rewrite for %s: rewrite dropped prior fact anchors",
             section_type,
