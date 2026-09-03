@@ -48,6 +48,36 @@ def is_sensitive_memory_text(text: str) -> bool:
     return bool(_SENSITIVE_MEMORY_RE.search(strip_memory_as_of(text)))
 
 
+_DIET_HEALTH_MEMORY_RE = re.compile(
+    r"\b("
+    r"allerg(?:y|ies|ic)|peanut|gluten|vegan|vegetarian|kosher|halal|"
+    r"lactose|shellfish|nut-free|diabetes|intoleran"
+    r")\b",
+    re.IGNORECASE,
+)
+_FOOD_QUERY_RE = re.compile(
+    r"\b("
+    r"eat|eating|eaten|ate|cook|cooking|dinner|lunch|breakfast|brunch|"
+    r"food|restaurant|recipe|meal|hungry|starving|snack|diet|"
+    r"allerg(?:y|ies|ic)|peanut|gluten|vegan|vegetarian"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_diet_health_memory_text(text: str) -> bool:
+    """Allergy / diet constraints that food advice should still see."""
+    return bool(_DIET_HEALTH_MEMORY_RE.search(strip_memory_as_of(text)))
+
+
+def is_food_or_diet_query(text: str) -> bool:
+    """True when the ask is about eating, cooking, or diet."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return False
+    return bool(_FOOD_QUERY_RE.search(cleaned))
+
+
 def exclude_sensitive_for_query(query_text: str | None) -> bool:
     """Omit health/legal/finance memories unless this ask is about those topics."""
     text = (query_text or "").strip()

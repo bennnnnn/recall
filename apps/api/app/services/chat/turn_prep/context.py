@@ -403,6 +403,7 @@ async def build_stream_prompt_context(
             minimal_vocab_answer_context=mode.minimal_vocab_answer,
             lightweight=mode.lightweight,
             rich_context=mode.rich_context,
+            advice_memory=mode.advice_memory,
             quiz_grade=quiz_grade,
             client_timezone=client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,

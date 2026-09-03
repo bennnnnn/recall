@@ -15,6 +15,7 @@ from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
+    is_personal_advice_question,
     needs_rich_context,
 )
 
@@ -120,6 +121,7 @@ class _TurnMode:
     day_planning: bool
     day_reflection: bool
     quiz_assistant: Message | None = None
+    advice_memory: bool = False
 
 
 def _turn_needs_rich_context(
@@ -174,6 +176,12 @@ async def _classify_turn_mode(
         day_planning=day_planning,
         day_reflection=day_reflection,
     )
+    advice_memory = (
+        is_personal_advice_question(content)
+        and not day_planning
+        and not day_reflection
+        and not lightweight
+    )
     return _TurnMode(
         lightweight=lightweight,
         rich_context=rich_context,
@@ -184,6 +192,7 @@ async def _classify_turn_mode(
         day_planning=day_planning,
         day_reflection=day_reflection,
         quiz_assistant=None,
+        advice_memory=advice_memory,
     )
 
 

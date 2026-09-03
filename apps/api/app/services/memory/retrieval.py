@@ -73,10 +73,19 @@ def filter_surface_memories(
     memories: list[Memory],
     *,
     exclude_sensitive: bool,
+    query_text: str | None = None,
 ) -> list[Memory]:
     if not exclude_sensitive:
         return memories
-    return [memory for memory in memories if not seams.is_sensitive_memory_text(memory.text)]
+    keep_diet = bool(query_text) and seams.is_food_or_diet_query(query_text)
+    kept: list[Memory] = []
+    for memory in memories:
+        if not seams.is_sensitive_memory_text(memory.text):
+            kept.append(memory)
+            continue
+        if keep_diet and seams.is_diet_health_memory_text(memory.text):
+            kept.append(memory)
+    return kept
 
 
 async def semantic_block_from_vec(
@@ -88,6 +97,7 @@ async def semantic_block_from_vec(
     *,
     omit_project_memory: bool,
     exclude_sensitive: bool,
+    query_text: str | None = None,
 ) -> str:
     memories = await seams.load_relevant_memories(
         session,
@@ -96,7 +106,12 @@ async def semantic_block_from_vec(
         query_vec=query_vec,
         omit_project_memory=omit_project_memory,
     )
-    memories = filter_surface_memories(seams, memories, exclude_sensitive=exclude_sensitive)
+    memories = filter_surface_memories(
+        seams,
+        memories,
+        exclude_sensitive=exclude_sensitive,
+        query_text=query_text,
+    )
     return seams.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
 
 
@@ -203,6 +218,7 @@ async def get_memory_block(
                 query_vec,
                 omit_project_memory=omit_project_memory,
                 exclude_sensitive=exclude_sensitive,
+                query_text=q,
             )
             await seams._write_query_block_cache(query_key, block, settings)
             return block
@@ -213,7 +229,12 @@ async def get_memory_block(
             settings,
             omit_project_memory=omit_project_memory,
         )
-        memories = filter_surface_memories(seams, memories, exclude_sensitive=exclude_sensitive)
+        memories = filter_surface_memories(
+            seams,
+            memories,
+            exclude_sensitive=exclude_sensitive,
+            query_text=q,
+        )
         block = seams.format_memory_block(memories, max_chars=max_chars)
         await seams._write_query_block_cache(query_key, block, settings)
         warm_task = seams.create_background_task(

@@ -40,6 +40,7 @@ from app.services.chat.prompt_constants.math import (
     SHORT_MATH_SAFETY_HINT,
 )
 from app.services.chat.prompt_constants.privacy import (
+    ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
     CLARIFICATION_HINT,
     DAY_PLANNING_ANSWER_HINT,
@@ -50,6 +51,7 @@ from app.services.chat.prompt_constants.routing import (
     is_broad_self_question,
     is_learning_progress_question,
     is_lightweight_chat_turn,
+    is_personal_advice_question,
     is_writing_deliverable_request,
     needs_rich_context,
 )
@@ -67,6 +69,7 @@ from app.services.chat.prompt_constants.writing import (
 )
 
 __all__ = [
+    "ADVICE_PERSONALIZE_HINT",
     "BROAD_SELF_ANSWER_HINT",
     "CALLOUT_FORMAT_HINT",
     "CHART_FORMAT_HINT",
@@ -111,6 +114,7 @@ __all__ = [
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",
+    "is_personal_advice_question",
     "is_quote_question",
     "is_writing_deliverable_request",
     "needs_rich_context",

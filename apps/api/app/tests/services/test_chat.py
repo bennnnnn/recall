@@ -15,6 +15,7 @@ from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_learning_progress_question,
     is_lightweight_chat_turn,
+    is_personal_advice_question,
     is_writing_deliverable_request,
     needs_rich_context,
 )
@@ -949,10 +950,38 @@ def test_is_lightweight_skipped_during_vocab_answer():
         ("escribeme un correo", True),
         ("የእኔ ፕሮጀክቶች ምንድን ናቸው", True),
         ("explain how transformers work", False),
+        ("what should I eat tonight", False),
     ],
 )
 def test_needs_rich_context(text, expected):
     assert needs_rich_context(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("what should I eat tonight", True),
+        ("What's for dinner?", True),
+        ("recommend a movie", True),
+        ("what should I wear", True),
+        ("gift ideas for a birthday", True),
+        ("I'm hungry", True),
+        ("qué debería comer", True),
+        ("was soll ich essen", True),
+        ("hi", False),
+        ("thanks", False),
+        ("How is ur day", False),
+        ("plan my day", False),
+        ("what should I focus on today", False),
+        ("anything left tonight", False),
+        ("what should I return", False),
+        ("recommend a library", False),
+        ("what should I do", False),
+        ("explain photosynthesis", False),
+    ],
+)
+def test_is_personal_advice_question(text, expected):
+    assert is_personal_advice_question(text) is expected
 
 
 @pytest.mark.parametrize(
@@ -1110,6 +1139,63 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
     assert "[BEGIN USER PREFERENCES]" in system
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_advice_loads_memory_not_integrations():
+    """Dinner recs retrieve memory without Calendar/Gmail/Schedule/Learning."""
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = "San Francisco, CA"
+    user.location_enabled = True
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = None
+    chat = MagicMock()
+    chat.project_id = None
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value="Prefers vegetarian food. Peanut allergy."),
+        ) as memory_mock,
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
+        ) as todos_mock,
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value="PROJECTS SHOULD NOT LOAD"),
+        ) as projects_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False, web_search_enabled=False),
+            query_text="what should I eat tonight",
+            lightweight=False,
+            rich_context=False,
+            advice_memory=True,
+            chat=chat,
+        )
+
+    memory_mock.assert_awaited()
+    assert memory_mock.await_args.kwargs["exclude_sensitive"] is True
+    todos_mock.assert_not_awaited()
+    projects_mock.assert_not_awaited()
+    system = messages[0]["content"]
+    assert "Prefers vegetarian food" in system
+    assert "[BEGIN UNTRUSTED CONTENT — memory]" in system
+    assert "personal recommendation" in system
+    assert "TODOS SHOULD NOT LOAD" not in system
+    assert "PROJECTS SHOULD NOT LOAD" not in system
+    assert "The user may have Google Calendar connected" not in system
+    assert "The user may have Gmail" not in system
 
 
 class _FakeSessionCM:
@@ -1770,6 +1856,39 @@ async def test_classify_turn_mode_hi_is_lightweight():
 
     assert mode.lightweight is True
     assert mode.rich_context is False
+    assert mode.advice_memory is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_eat_tonight_is_advice_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
+
+    assert mode.lightweight is False
+    assert mode.rich_context is False
+    assert mode.advice_memory is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_day_plan_skips_advice_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "anything left tonight")
+
+    assert mode.day_planning is True
+    assert mode.rich_context is True
+    assert mode.advice_memory is False
 
 
 def test_instant_reply_needs_db_only_for_calendar_and_email():
@@ -1869,6 +1988,24 @@ def test_should_fetch_integrations_skips_slim_without_calendar_or_gmail():
     assert _should_fetch_integrations(**{**kwargs, "rich_context": True}) is True
     assert _should_fetch_integrations(**{**kwargs, "load_calendar": True}) is True
     assert _should_fetch_integrations(**{**kwargs, "load_gmail": True}) is True
+
+
+def test_should_fetch_integrations_false_on_advice_only():
+    from app.services.chat.turn_prep.mode import _should_fetch_integrations
+
+    assert (
+        _should_fetch_integrations(
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            active_vocab_turn=False,
+            rich_context=False,
+            load_calendar=False,
+            load_gmail=False,
+        )
+        is False
+    )
 
 
 @pytest.mark.asyncio

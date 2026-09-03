@@ -139,6 +139,68 @@ def needs_rich_context(
     return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 
 
+# Advice / recommendation — load memory only (not Calendar/Gmail/Learning).
+# Require a life-domain word so "what should I return" / "recommend a library"
+# stay slim. Day-planning is classified separately and supersedes this path.
+_ADVICE_INTENT = re.compile(
+    r"\b("
+    r"recommend(?:ation)?s?|suggest(?:ion)?s?|"
+    r"any ideas|ideas for|help me (?:choose|pick|decide)|"
+    r"what should i|where should i|what(?:'s| is) for|"
+    r"what to (?:eat|cook|wear|watch|get|buy|order|drink)|"
+    r"pick (?:a |an )|"
+    r"i(?:'m| am) (?:hungry|starving)"
+    r")\b",
+    re.IGNORECASE,
+)
+_ADVICE_DOMAIN = re.compile(
+    r"\b("
+    r"eat|eating|cook|cooking|dinner|lunch|breakfast|brunch|"
+    r"food|restaurant|recipe|meal|hungry|starving|snack|"
+    r"wear|outfit|clothes|clothing|"
+    r"movie|film|show|series|watch|"
+    r"listen|playlist|song|music|"
+    r"workout|exercise|gym|"
+    r"gift|present"
+    r")\b",
+    re.IGNORECASE,
+)
+_ADVICE_STANDALONE = re.compile(
+    r"\b("
+    r"what(?:'s| is) for (?:dinner|lunch|breakfast|brunch)|"
+    r"(?:dinner|lunch|breakfast) ideas|"
+    r"i(?:'m| am) (?:hungry|starving)"
+    r")\b",
+    re.IGNORECASE,
+)
+_ADVICE_PROGRAMMING = re.compile(
+    r"("
+    r"\brecommend (?:a |an )?(?:\w+ )?library\b|"
+    r"\bwhat should i return\b|"
+    r"\b(function|typescript|javascript|codebase|npm |pip install|"
+    r"api endpoint|react native)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_personal_advice_question(text: str) -> bool:
+    """True for recommendation / 'what should I eat' turns — not greetings or code.
+
+    Does not imply full rich context. Callers load memory only.
+    """
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    if _ADVICE_PROGRAMMING.search(cleaned):
+        return False
+    if has_locale_cue(cleaned, "advice"):
+        return True
+    if _ADVICE_STANDALONE.search(cleaned):
+        return True
+    return bool(_ADVICE_INTENT.search(cleaned) and _ADVICE_DOMAIN.search(cleaned))
+
+
 LIGHTWEIGHT_REPLY_HINT = (
     "This is a short social turn (greeting / ack). Reply in one brief sentence. "
     "Do not dig into memory, lists, calendar, or projects unless the user asked."

@@ -20,6 +20,7 @@ CueGroup = Literal[
     "memory",
     "learning",
     "writing",
+    "advice",
 ]
 
 # Phrases are stored casefolded. Keep them specific enough to avoid matching
@@ -177,6 +178,29 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "bir email yaz",
         "ኢሜይል ጻፍ",
         "ደብዳቤ ጻፍ",
+    ),
+    "advice": (
+        "qué debería comer",
+        "que deberia comer",
+        "qué como hoy",
+        "que como hoy",
+        "qué me recomiendas para cenar",
+        "que me recomiendas para cenar",
+        "que dois-je manger",
+        "quoi manger ce soir",
+        "was soll ich essen",
+        "was soll ich anziehen",
+        "cosa dovrei mangiare",
+        "cosa mangiare stasera",
+        "o que eu deveria comer",
+        "o que deveria comer",
+        "o que comer hoje",
+        "что поесть",
+        "что приготовить",
+        "ne yesem",
+        "ne yemeliyim",
+        "ምን ልብላ",
+        "ምን ልልበስ",
     ),
 }
 
