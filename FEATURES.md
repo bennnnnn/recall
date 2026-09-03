@@ -365,15 +365,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (notification bar), not email. After a successful server todo push, a recurring
   item advances `due_at` and clears `notification_sent_at` so the next occurrence
   can fire. Chat can set `repeat` on the ` ```reminder `
-  fence. Route `focus=reminders` still works; `focus=schedule` is an alias.
+  fence (create, complete, uncheck, delete, set_due). After the fence applies, the
+  reply appends the saved result (`Set: Call Mom — Friday, Jul 19, 3:00 PM · weekly.`)
+  or a failure line — it does not promise a change that has not happened. Route
+  `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.
-- ✅ **LLM todo sync** — background job extracts add / complete / uncheck / delete /
-  set_due from chat (dated items only); injects Schedule + overdue summary into the
-  system prompt. “What time is my flight / meeting / …” loads Schedule (and Calendar) on
-  the first turn.
+- ✅ **LLM todo sync** — ` ```reminder ` fences apply on persist (create + mutations);
+  a background job still recovers missed writes from chat (dated items only). Injects
+  Schedule + overdue summary into the system prompt. “What time is my flight / meeting /
+  …” loads Schedule (and Calendar) on the first turn.
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
