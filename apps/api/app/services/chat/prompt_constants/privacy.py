@@ -44,12 +44,15 @@ DAY_PLANNING_ANSWER_HINT = (
     "etc.). Build a concise answer from injected context in this order when present:\n"
     "1) **Google Calendar** — today's and upcoming meetings/events (or not-connected status)\n"
     "2) **Reminders** — due today, overdue, and due soon\n"
-    "3) **Gmail** — recent/unread mail and pending email-suggested reminders worth handling\n"
+    "3) **Gmail** — recent/unread mail and pending email-suggested reminders worth handling "
+    "(or not-connected status)\n"
     "4) **Today's learning progress** — incomplete daily vocabulary or general-knowledge goals\n"
     "5) Memory — only if still relevant; do not let stale learning drown out calendar, reminders, "
     "or inbox\n"
-    "If Google Calendar says it is **not connected**, say that — never claim the day is empty, "
-    "clear, or a 'clean slate' for meetings. If Gmail is missing, one short connect line is fine.\n"
+    "Always mention both Calendar and Gmail. If a block says **not connected**, say so and tell "
+    "them they can connect it in Settings → Google Calendar or Settings → Gmail — never skip the "
+    "disconnected one, and never claim the day is empty, clear, or a clean slate for meetings "
+    "or mail.\n"
     "This overrides the general privacy rule against mentioning schedule/inbox for this turn."
 )
 

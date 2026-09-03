@@ -49,6 +49,8 @@ GMAIL_HINT = (
     "Do NOT dump filtered promotional, automated, or spam mail unless they ask to see everything.\n"
     "If they ask to check email and no Gmail block is present, tell them to connect Gmail in "
     "**Settings → Gmail** (optional; not part of sign-in).\n"
+    "If the block says Gmail is **not connected**, say that and tell them they can connect it in "
+    "Settings → Gmail — including on day-planning turns, not only explicit inbox questions.\n"
     "Gmail is read-only — you can draft replies in ```email fences, but never claim you sent "
     "or replied to a message."
 )
@@ -106,6 +108,16 @@ def format_not_connected_answer() -> str:
         "actionable items and shows **suggested reminders** on the Reminders screen — "
         "you confirm before anything is added.\n\n"
         "After connecting, ask again and I can summarize recent mail."
+    )
+
+
+def format_not_connected_gmail_block() -> str:
+    """Prompt block when Gmail is on but the user has no connection."""
+    return (
+        "Gmail: not connected.\n"
+        "Do not skip inbox or claim there are no emails, follow-ups, or mail-based reminders. "
+        "State that Gmail is not connected; they can connect it in "
+        "Settings → Gmail if they want inbox items and suggested reminders from email."
     )
 
 
@@ -260,6 +272,10 @@ async def load_gmail_for_prompt(
 ) -> str | None:
     ctx = await load_gmail_context(session, redis, user, settings)
     if ctx is None:
+        if gmail_gateway.is_configured(settings):
+            # Same explicit status calendar uses so day-planning cannot skip
+            # inbox or invent an empty mailbox.
+            return format_not_connected_gmail_block()
         return None
     google_email, messages, pending, fetch_error = ctx
     return format_gmail_block(
