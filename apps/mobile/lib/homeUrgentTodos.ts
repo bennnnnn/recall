@@ -1,7 +1,6 @@
 import type { TFunction } from "i18next";
 
 import type { HomeUrgentTodo, Todo } from "@/lib/api";
-import { describeDueAt } from "@/lib/todos/dueDate";
 
 /**
  * Default urgent window when no user lead preference is supplied. Mirrors the
@@ -45,17 +44,10 @@ export function listHomeUrgentTodos(
     });
 }
 
-export function partitionHomeUrgentTodos(urgent: HomeUrgentTodo[]): {
-  overdue: HomeUrgentTodo[];
-  dueSoon: HomeUrgentTodo[];
-} {
-  const overdue: HomeUrgentTodo[] = [];
-  const dueSoon: HomeUrgentTodo[] = [];
-  for (const item of urgent) {
-    if (item.minutes_until < 0) overdue.push(item);
-    else dueSoon.push(item);
-  }
-  return { overdue, dueSoon };
+export function firstOverdueHomeTodo(
+  urgent: HomeUrgentTodo[],
+): HomeUrgentTodo | undefined {
+  return urgent.find((item) => item.minutes_until < 0);
 }
 
 export function homeUrgentPrompt(todo: HomeUrgentTodo, t: TFunction): string {
@@ -63,25 +55,4 @@ export function homeUrgentPrompt(todo: HomeUrgentTodo, t: TFunction): string {
     return t("chat.home.urgent_prompt_overdue", { content: todo.content });
   }
   return t("chat.home.urgent_prompt_soon", { content: todo.content });
-}
-
-export function homeUrgentSubtitle(urgent: HomeUrgentTodo[], t: TFunction): string | null {
-  if (!urgent.length) return null;
-  const { overdue, dueSoon } = partitionHomeUrgentTodos(urgent);
-  if (urgent.length > 1) {
-    if (overdue.length === urgent.length) {
-      return t("chat.home.urgent_subtitle_overdue_many", { count: urgent.length });
-    }
-    if (dueSoon.length === urgent.length) {
-      return t("chat.home.urgent_subtitle_soon_many", { count: urgent.length });
-    }
-    return t("chat.home.urgent_subtitle_mixed_many", { count: urgent.length });
-  }
-  const first = urgent[0];
-  if (first.minutes_until < 0) {
-    return t("chat.home.urgent_subtitle_one_overdue", { content: first.content });
-  }
-  const due = describeDueAt(first.due_at);
-  if (due) return t("chat.home.urgent_subtitle_one_soon", { content: first.content, due: due.label });
-  return t("chat.home.urgent_subtitle_one_soon_short", { content: first.content });
 }

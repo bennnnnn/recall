@@ -34,8 +34,6 @@
   "chat.empty_title": "Чем могу помочь?",
   "chat.error_title": "Не удалось получить ответ",
   "chat.home.dismiss_reminder": "Скрыть напоминание",
-  "chat.home.due_soon": "Скоро срок",
-  "chat.home.for_you": "Для вас",
   "chat.home.overdue": "Просрочено",
   "chat.load_earlier": "Загрузить ранние сообщения",
   "chat.menu": "Параметры чата",

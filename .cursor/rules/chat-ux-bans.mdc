@@ -61,4 +61,9 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Do **not** show a reminder bell on `ChatHeader`.
 - Schedule keeps `SuggestedReminderRow` / From email. The drawer Schedule badge stays.
 
+## 10. No Home dashboard chrome
+- Home is **greeting + two local starters + at most one dismissible overdue row**.
+- Do **not** show a Learning progress bar, due-soon stack, or “For you” personalized chips.
+- Starters stay `welcomeStarters()` — ignore API `starters` / `project_highlight` on this surface.
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

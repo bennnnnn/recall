@@ -15,7 +15,6 @@ import { api, type HomeScreen } from "@/lib/api";
 import { StaleResourceCache } from "@/lib/cache/staleResource";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
-import { loadHomeFallback } from "@/lib/homeFallback";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
 
 type HomeContextValue = {
@@ -70,7 +69,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
           // Keep a good screen on silent refresh failure — only fall back when
           // we have nothing to show yet.
               if (screenRef.current) throw new Error("Home refresh failed");
-              return loadHomeFallback(token);
+              return instantHomePlaceholder();
             }
           },
           opts,

@@ -34,8 +34,6 @@
   "chat.empty_title": "¿En qué puedo ayudarte?",
   "chat.error_title": "No se pudo obtener respuesta",
   "chat.home.dismiss_reminder": "Descartar recordatorio",
-  "chat.home.due_soon": "Próximo a vencer",
-  "chat.home.for_you": "Para ti",
   "chat.home.overdue": "Vencido",
   "chat.load_earlier": "Cargar mensajes anteriores",
   "chat.menu": "Opciones del chat",
