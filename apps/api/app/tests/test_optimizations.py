@@ -157,8 +157,8 @@ def test_router_delete_chat_404():
 
 
 @pytest.mark.asyncio
-async def test_delete_chat_purges_attachments_before_delete():
-    """H1: chat delete must purge attachment rows + storage, not just cascade messages."""
+async def test_delete_chat_keeps_library_attachments():
+    """Chat delete must not purge Library files — only the conversation."""
     from app.models.orm import User
     from app.services import chats as chats_service
 
@@ -168,14 +168,9 @@ async def test_delete_chat_purges_attachments_before_delete():
     chat.id = uuid4()
     session = AsyncMock()
     settings = Settings()
-    msg_ids = [uuid4(), uuid4()]
 
     with (
         patch.object(chats_service.chats_repo, "get_by_id", AsyncMock(return_value=chat)),
-        patch(
-            "app.repositories.messages.list_ids_for_chat",
-            AsyncMock(return_value=msg_ids),
-        ) as list_ids_mock,
         patch(
             "app.services.attachment_lifecycle.detach_attachments_for_messages",
             AsyncMock(return_value=["user/file"]),
@@ -191,13 +186,11 @@ async def test_delete_chat_purges_attachments_before_delete():
     ):
         await chats_service.delete_chat(session, user, chat.id, settings=settings)
 
-    list_ids_mock.assert_awaited_once_with(session, chat.id)
-    detach_mock.assert_awaited_once()
-    assert detach_mock.await_args.kwargs["commit"] is False
+    detach_mock.assert_not_awaited()
     session.delete.assert_called_once_with(chat)
     session.commit.assert_awaited_once()
-    delete_keys.assert_awaited_once()
-    enqueue.assert_awaited_once_with([])
+    delete_keys.assert_not_awaited()
+    enqueue.assert_not_awaited()
 
 
 # ── messages.count_for_chat — SQL scalar path ─────────────────────────────────

@@ -32,7 +32,7 @@
   "chat.busy": "Hâlâ oluşturuluyor — bekleyin veya durdurup tekrar deneyin.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Sohbeti sil",
-  "chat.delete_confirm_body": "Bu konuşma kalıcı olarak silinecek.",
+  "chat.delete_confirm_body": "Bu konuşma kalıcı olarak silinecek. Kütüphanedeki dosyalar kalır.",
   "chat.delete_confirm_title": "Sohbeti sil",
   "chat.delete_failed": "Bu sohbet silinemedi.",
   "chat.deleted_toast": "Sohbet silindi",
