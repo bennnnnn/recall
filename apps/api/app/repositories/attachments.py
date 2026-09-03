@@ -150,20 +150,16 @@ async def list_for_gallery(
     * ``None``     — all attachments
 
     Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
-    Unlinked leftovers (``message_id IS NULL`` after a chat/message delete)
-    are excluded — their bytes are often already gone, which 404s as blank
-    gallery tiles. Optional ``q`` matches original filename, content type,
-    the linked message body, or the previous user message in that chat (the
-    draw prompt for generated images, which are linked to the assistant
-    ``[Image: …]`` marker rather than the user prompt).
+    Verified items stay listed after their chat is deleted (``message_id``
+    SET NULL); Open chat is omitted when no chat remains. Optional ``q``
+    matches original filename, content type, the linked message body, or
+    the previous user message in that chat (the draw prompt for generated
+    images, which are linked to the assistant ``[Image: …]`` marker rather
+    than the user prompt).
     """
     stmt = select(Attachment).where(
         Attachment.user_id == user_id,
         Attachment.verified_at.is_not(None),
-        # Message delete SET NULLs this FK. Unlinked rows linger until the
-        # orphan reaper; their bytes are often already gone (chat purge), so
-        # the gallery would show blank tiles that 404 on /file.
-        Attachment.message_id.is_not(None),
     )
     if category == "images":
         stmt = stmt.where(Attachment.content_type.like("image/%"))
@@ -233,9 +229,10 @@ async def list_orphans(
     older_than_hours: int,
     limit: int = 100,
 ) -> list[Attachment]:
-    """Attachments never linked to a message (message_id IS NULL) past the grace
-    window — candidates for the reaper. Pending uploads that were never sent and
-    attachments unlinked by a message delete (FK SET NULL) both land here.
+    """Pending uploads never linked to a message, past the grace window.
+
+    Verified Library items that lost their chat (``message_id`` SET NULL)
+    are not orphans — they stay until the user deletes them from Library.
 
     Bounded so one reap cannot load every orphan in the system; the scheduler
     re-runs and drains remaining rows over time.
@@ -245,6 +242,7 @@ async def list_orphans(
         select(Attachment)
         .where(
             Attachment.message_id.is_(None),
+            Attachment.verified_at.is_(None),
             Attachment.created_at < cutoff,
         )
         .order_by(Attachment.created_at.asc(), Attachment.id.asc())

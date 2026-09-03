@@ -183,8 +183,8 @@ async def test_list_for_gallery_excludes_unverified(fake_session):
     compiled = captured["stmt"].compile(dialect=postgresql.dialect())
     sql = str(compiled)
     assert "verified_at" in sql
-    assert "message_id" in sql
     assert "IS NOT NULL" in sql.upper() or "is not" in sql.lower()
+    assert "message_id is not null" not in sql.lower()
 
 
 @pytest.mark.asyncio

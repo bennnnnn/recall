@@ -41,3 +41,25 @@ async def test_list_orphans_returns_unlinked_old_rows():
 
     assert orphans == [row]
     session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_orphans_sql_skips_verified_library_rows():
+    from sqlalchemy.dialects import postgresql
+
+    session = AsyncMock()
+    captured: dict = {}
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        result = MagicMock()
+        result.scalars.return_value = MagicMock(all=MagicMock(return_value=[]))
+        return result
+
+    session.execute = _capture
+    await attachments_repo.list_orphans(session, older_than_hours=24, limit=50)
+
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    sql = str(compiled).lower()
+    assert "verified_at" in sql
+    assert "is null" in sql

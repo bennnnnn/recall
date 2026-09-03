@@ -52,9 +52,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
   `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
-  still linked; tap a file to share (no in-library preview). Deleting a chat removes
-  its attachments from Library (unlinked leftovers are hidden; missing files drop
-  the row instead of showing a blank 404 tile). Opening Library warms the All page
+  still linked; tap a file to share (no in-library preview). Deleting a chat leaves
+  its files in Library (Open chat hides when the thread is gone). Explicit Library
+  delete removes the file. Missing blobs on disk drop the row instead of a blank
+  404 tile. Opening Library warms the All page
   from the drawer tap (20s cache, same window as Memory); tab snapshots avoid a
   wrong-grid flash. Logout, chat delete, upload, and image-gen invalidate it.
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate

@@ -31,7 +31,7 @@
   "chat.busy": "Still generating — wait or tap stop, then try again.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Delete chat",
-  "chat.delete_confirm_body": "This conversation will be permanently removed.",
+  "chat.delete_confirm_body": "This conversation will be permanently removed. Files in Library are kept.",
   "chat.delete_confirm_title": "Delete chat",
   "chat.delete_failed": "Could not delete this chat.",
   "chat.deleted_toast": "Chat deleted",

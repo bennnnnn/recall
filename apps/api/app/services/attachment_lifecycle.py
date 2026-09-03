@@ -145,13 +145,15 @@ async def purge_attachments_for_user(
 
 
 async def reap_orphan_attachments(settings: Settings) -> int:
-    """Delete bytes + rows for attachments never linked to a message past the grace window.
+    """Delete bytes + rows for *unverified* attachments never linked to a message.
 
     Uses a DB-first-then-storage order: the DB unlink check
     (``delete_unlinked_returning``) runs BEFORE storage deletion, so an
     attachment linked between list and delete time is NOT reaped (its row
     survives, its bytes are not touched). Previously storage was deleted
     first, which could leave a linked attachment with missing file content.
+
+    Verified Library items that outlive their chat are not listed.
 
     Image uploads that are reaped also get their daily image-upload slot
     refunded — without this, an abandoned presign (never sent/confirmed)

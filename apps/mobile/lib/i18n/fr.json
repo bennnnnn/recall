@@ -31,7 +31,7 @@
   "chat.busy": "Génération en cours — attendez ou appuyez sur arrêter, puis réessayez.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Supprimer le chat",
-  "chat.delete_confirm_body": "Cette conversation sera définitivement supprimée.",
+  "chat.delete_confirm_body": "Cette conversation sera définitivement supprimée. Les fichiers de la bibliothèque sont conservés.",
   "chat.delete_confirm_title": "Supprimer le chat",
   "chat.delete_failed": "Impossible de supprimer ce chat.",
   "chat.deleted_toast": "Chat supprimé",

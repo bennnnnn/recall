@@ -31,7 +31,7 @@
   "chat.busy": "Antwort wird noch generiert — warten oder stoppen, dann erneut versuchen.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Chat löschen",
-  "chat.delete_confirm_body": "Diese Unterhaltung wird dauerhaft entfernt.",
+  "chat.delete_confirm_body": "Diese Unterhaltung wird dauerhaft entfernt. Dateien in der Bibliothek bleiben erhalten.",
   "chat.delete_confirm_title": "Chat löschen",
   "chat.delete_failed": "Chat konnte nicht gelöscht werden.",
   "chat.deleted_toast": "Chat gelöscht",
