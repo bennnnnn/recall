@@ -42,6 +42,31 @@ async def create_pending(
     return row
 
 
+async def insert_verified_clone(
+    session: AsyncSession,
+    *,
+    src: Attachment,
+    new_id: UUID,
+    storage_key: str,
+) -> Attachment:
+    """Unlinked copy of a Library item for a new chat send. Hidden from gallery."""
+    row = Attachment(
+        id=new_id,
+        user_id=src.user_id,
+        storage_key=storage_key,
+        content_type=src.content_type,
+        size_bytes=src.size_bytes,
+        source=src.source,
+        original_filename=src.original_filename,
+        verified_at=src.verified_at or datetime.now(UTC),
+        library_visible=False,
+        message_id=None,
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
 async def get_by_id(session: AsyncSession, attachment_id: UUID, user_id: UUID) -> Attachment | None:
     result = await session.execute(
         select(Attachment).where(Attachment.id == attachment_id, Attachment.user_id == user_id)
@@ -160,6 +185,7 @@ async def list_for_gallery(
     stmt = select(Attachment).where(
         Attachment.user_id == user_id,
         Attachment.verified_at.is_not(None),
+        Attachment.library_visible.is_(True),
     )
     if category == "images":
         stmt = stmt.where(Attachment.content_type.like("image/%"))
@@ -229,10 +255,12 @@ async def list_orphans(
     older_than_hours: int,
     limit: int = 100,
 ) -> list[Attachment]:
-    """Pending uploads never linked to a message, past the grace window.
+    """Pending uploads and hidden send-clones never linked to a message.
 
-    Verified Library items that lost their chat (``message_id`` SET NULL)
-    are not orphans — they stay until the user deletes them from Library.
+    Verified Library items that lost their chat (``message_id`` SET NULL,
+    ``library_visible`` still true) are not orphans — they stay until the
+    user deletes them from Library. Hidden copies created for a later chat
+    are reaped once that chat is gone.
 
     Bounded so one reap cannot load every orphan in the system; the scheduler
     re-runs and drains remaining rows over time.
@@ -242,8 +270,11 @@ async def list_orphans(
         select(Attachment)
         .where(
             Attachment.message_id.is_(None),
-            Attachment.verified_at.is_(None),
             Attachment.created_at < cutoff,
+            or_(
+                Attachment.verified_at.is_(None),
+                Attachment.library_visible.is_(False),
+            ),
         )
         .order_by(Attachment.created_at.asc(), Attachment.id.asc())
         .limit(limit)

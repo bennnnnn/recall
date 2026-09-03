@@ -22,6 +22,7 @@ jest.mock("react-native-safe-area-context", () => ({
 
 describe("GalleryItemActionsSheet", () => {
   it("offers open chat, share, and delete when the item is linked", async () => {
+    const onUseInChat = jest.fn();
     const onOpenChat = jest.fn();
     const onShare = jest.fn();
     const onDelete = jest.fn();
@@ -30,6 +31,7 @@ describe("GalleryItemActionsSheet", () => {
         visible
         canOpenChat
         onClose={jest.fn()}
+        onUseInChat={onUseInChat}
         onOpenChat={onOpenChat}
         onShare={onShare}
         onDelete={onDelete}
@@ -37,9 +39,12 @@ describe("GalleryItemActionsSheet", () => {
     );
 
     expect(getByText("gallery.open_chat")).toBeTruthy();
+    expect(getByText("gallery.use_in_chat")).toBeTruthy();
     expect(getByText("gallery.share")).toBeTruthy();
     expect(getByText("common.delete")).toBeTruthy();
 
+    await fireEvent.press(getByText("gallery.use_in_chat"));
+    expect(onUseInChat).toHaveBeenCalled();
     await fireEvent.press(getByText("gallery.open_chat"));
     expect(onOpenChat).toHaveBeenCalled();
   });
@@ -50,6 +55,7 @@ describe("GalleryItemActionsSheet", () => {
         visible
         canOpenChat={false}
         onClose={jest.fn()}
+        onUseInChat={jest.fn()}
         onOpenChat={jest.fn()}
         onShare={jest.fn()}
         onDelete={jest.fn()}

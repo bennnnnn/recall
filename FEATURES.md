@@ -52,7 +52,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
   `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
-  still linked; tap a file to share (no in-library preview). Deleting a chat leaves
+  still linked and **Use in chat** to attach it to the composer; tap a file
+  to share (no in-library preview). The attach sheet also opens Library. Deleting a chat leaves
   its files in Library (Open chat hides when the thread is gone). Explicit Library
   delete removes the file. Missing blobs on disk drop the row instead of a blank
   404 tile. Opening Library warms the All page

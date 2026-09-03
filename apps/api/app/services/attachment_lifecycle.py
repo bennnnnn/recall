@@ -145,7 +145,7 @@ async def purge_attachments_for_user(
 
 
 async def reap_orphan_attachments(settings: Settings) -> int:
-    """Delete bytes + rows for *unverified* attachments never linked to a message.
+    """Delete bytes + rows for unlinked pending uploads and hidden send-clones.
 
     Uses a DB-first-then-storage order: the DB unlink check
     (``delete_unlinked_returning``) runs BEFORE storage deletion, so an

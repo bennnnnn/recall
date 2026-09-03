@@ -37,6 +37,10 @@ import {
   defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
+import {
+  subscribeComposerAttachmentQueue,
+  takeQueuedComposerAttachment,
+} from "@/lib/pendingComposerAttachment";
 
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
@@ -144,6 +148,14 @@ export function useChatSend({
 
   const attachPickInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
+  useEffect(() => {
+    const applyQueued = () => {
+      const next = takeQueuedComposerAttachment();
+      if (next) setPendingAttachment(next);
+    };
+    applyQueued();
+    return subscribeComposerAttachmentQueue(applyQueued);
+  }, []);
   useEffect(() => {
     if (chatId && pendingSend) {
       const {
@@ -408,6 +420,10 @@ export function useChatSend({
           setMathScannerOpen(true);
           return;
         }
+        if (source === "library") {
+          router.push({ pathname: "/gallery", params: { pick: "1" } });
+          return;
+        }
         const picked =
           source === "camera"
             ? await pickFromCamera()
@@ -430,7 +446,7 @@ export function useChatSend({
         setAttachPicking(false);
       }
     },
-    [attachBusy, feedback, streaming, t, token, waitForPickerUi],
+    [attachBusy, feedback, router, streaming, t, token, waitForPickerUi],
   );
 
   const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {

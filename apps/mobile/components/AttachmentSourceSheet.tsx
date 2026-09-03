@@ -6,7 +6,12 @@ import { AppSheet } from "@/components/AppSheet";
 import { selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
-export type AttachmentSource = "camera" | "photo" | "file" | "solve_math_camera";
+export type AttachmentSource =
+  | "camera"
+  | "photo"
+  | "file"
+  | "solve_math_camera"
+  | "library";
 
 type Props = {
   visible: boolean;
@@ -52,6 +57,12 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
         icon="image-outline"
         label={t("chat.attach_photo")}
         onPress={() => pick("photo")}
+        theme={theme}
+      />
+      <ActionSheetRow
+        icon="library-outline"
+        label={t("chat.attach_library")}
+        onPress={() => pick("library")}
         theme={theme}
       />
       <ActionSheetRow

@@ -62,4 +62,5 @@ async def test_list_orphans_sql_skips_verified_library_rows():
     compiled = captured["stmt"].compile(dialect=postgresql.dialect())
     sql = str(compiled).lower()
     assert "verified_at" in sql
+    assert "library_visible" in sql
     assert "is null" in sql

@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -43,6 +44,14 @@ class Attachment(Base):
     # Set once bytes have been verified against the declared type/size.
     # Subsequent /file and /url reads skip the full-object download.
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # False for send-clones of a Library item (same file, new chat). Gallery
+    # lists only the original so reuse does not duplicate the archive.
+    library_visible: Mapped[bool] = mapped_column(
+        Boolean(),
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

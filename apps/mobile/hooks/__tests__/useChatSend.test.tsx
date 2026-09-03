@@ -40,6 +40,10 @@ jest.mock("@/lib/resolveClientGeoForQuery", () => ({
 jest.mock("@/lib/scheduleIdle", () => ({
   scheduleIdlePromise: (callback: () => unknown) => Promise.resolve(callback()),
 }));
+jest.mock("@/lib/pendingComposerAttachment", () => ({
+  subscribeComposerAttachmentQueue: () => () => undefined,
+  takeQueuedComposerAttachment: () => null,
+}));
 
 let current: ReturnType<typeof useChatSend>;
 const onOfflineBlocked = jest.fn();
