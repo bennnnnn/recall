@@ -33,6 +33,8 @@ type Props = {
   previewUri?: string | null;
   /** Open the originating chat (gallery). */
   onOpenChat?: () => void;
+  /** Attach this Library item to the composer. */
+  onUseInChat?: () => void;
   /** Remove this Library item (gallery). */
   onDelete?: () => void;
 };
@@ -48,6 +50,7 @@ export function AttachmentImageViewer({
   fileName = "image.jpg",
   previewUri = null,
   onOpenChat,
+  onUseInChat,
   onDelete,
 }: Props) {
   const C = useTheme();
@@ -181,6 +184,16 @@ export function AttachmentImageViewer({
             </Pressable>
 
             <View style={s.headerActions}>
+              {onUseInChat ? (
+                <Pressable
+                  style={s.iconBtn}
+                  onPress={onUseInChat}
+                  hitSlop={12}
+                  accessibilityLabel={t("gallery.use_in_chat")}
+                >
+                  <Icon name="attach-outline" size={24} color={C.text} />
+                </Pressable>
+              ) : null}
               {onOpenChat ? (
                 <Pressable
                   style={s.iconBtn}

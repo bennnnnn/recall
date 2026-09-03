@@ -17,6 +17,8 @@ import {
   type GalleryLayout,
 } from "@/lib/galleryLayout";
 import { selection, tap } from "@/lib/haptics";
+import { queueComposerAttachment } from "@/lib/pendingComposerAttachment";
+import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 export function useGalleryLibrary(
@@ -31,6 +33,7 @@ export function useGalleryLibrary(
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [actionItem, setActionItem] = useState<AttachmentListItem | null>(null);
   const sharingRef = useRef(false);
+  const attachingRef = useRef(false);
 
   useEffect(() => {
     void getGalleryLayout().then(setLayoutState);
@@ -82,6 +85,29 @@ export function useGalleryLibrary(
       router.push(href);
     },
     [router],
+  );
+
+  const attachToComposer = useCallback(
+    async (item: AttachmentListItem) => {
+      if (attachingRef.current) return;
+      attachingRef.current = true;
+      try {
+        const pending = await pendingFromLibraryItem(item, token);
+        queueComposerAttachment(pending);
+        setActionItem(null);
+        setViewerId(null);
+        if (router.canGoBack()) router.back();
+        else router.replace("/");
+      } catch (attachError) {
+        reportRecoverableError(
+          feedback,
+          attachError instanceof Error ? attachError.message : t("chat.attach_failed"),
+        );
+      } finally {
+        attachingRef.current = false;
+      }
+    },
+    [feedback, router, t, token],
   );
 
   const deleteItem = useCallback(
@@ -136,6 +162,7 @@ export function useGalleryLibrary(
     setActionItem,
     shareFile,
     openChat,
+    attachToComposer,
     confirmDelete,
     openActions,
     openImage,

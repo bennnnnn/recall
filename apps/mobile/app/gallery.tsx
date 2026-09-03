@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
@@ -40,6 +41,8 @@ export default function GalleryScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const { width } = useWindowDimensions();
   const thumbSize = galleryThumbSize(width - Space.md * 2, GALLERY_GRID_COLUMNS, Space.xs);
+  const pickParam = useLocalSearchParams<{ pick?: string | string[] }>().pick;
+  const pickMode = (Array.isArray(pickParam) ? pickParam[0] : pickParam) === "1";
 
   const [filter, setFilter] = useState<GalleryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,13 +63,23 @@ export default function GalleryScreen() {
     ({ item }: { item: AttachmentListItem }) => {
       const fileName = galleryFileName(item.content_type, item.original_filename);
       const isImage = galleryPressAction(item.content_type) === "view-image";
+      const onPress = () => {
+        if (pickMode) {
+          void library.attachToComposer(item);
+          return;
+        }
+        if (isImage) library.openImage(item);
+        else library.openActions(item);
+      };
       if (library.layout === "column") {
         return (
           <GalleryColumnRow
             item={item}
             fileName={fileName}
-            onPress={() => (isImage ? library.openImage(item) : library.openActions(item))}
-            onLongPress={() => library.openActions(item)}
+            onPress={onPress}
+            onLongPress={() => {
+              if (!pickMode) library.openActions(item);
+            }}
             onMissing={removeItem}
           />
         );
@@ -74,10 +87,14 @@ export default function GalleryScreen() {
       if (isImage) {
         return (
           <Pressable
-            onPress={() => library.openImage(item)}
-            onLongPress={() => library.openActions(item)}
+            onPress={onPress}
+            onLongPress={() => {
+              if (!pickMode) library.openActions(item);
+            }}
             accessibilityRole="button"
-            accessibilityLabel={t("chat.image_view_a11y")}
+            accessibilityLabel={
+              pickMode ? t("gallery.use_in_chat") : t("chat.image_view_a11y")
+            }
           >
             <GalleryThumbnail
               attachmentId={item.id}
@@ -90,10 +107,14 @@ export default function GalleryScreen() {
       }
       return (
         <Pressable
-          onPress={() => library.openActions(item)}
-          onLongPress={() => library.openActions(item)}
+          onPress={onPress}
+          onLongPress={() => {
+            if (!pickMode) library.openActions(item);
+          }}
           accessibilityRole="button"
-          accessibilityLabel={t("gallery.file_actions_a11y")}
+          accessibilityLabel={
+            pickMode ? t("gallery.use_in_chat") : t("gallery.file_actions_a11y")
+          }
         >
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
             <Icon name="document-outline" size={32} color={C.textTertiary} />
@@ -104,7 +125,7 @@ export default function GalleryScreen() {
         </Pressable>
       );
     },
-    [t, s, C, thumbSize, library, removeItem],
+    [t, s, C, thumbSize, library, pickMode, removeItem],
   );
 
   const viewerItem = library.viewerItem;
@@ -180,13 +201,18 @@ export default function GalleryScreen() {
             : undefined
         }
         onOpenChat={viewerItem?.chat_id ? () => library.openChat(viewerItem) : undefined}
+        onUseInChat={viewerItem ? () => void library.attachToComposer(viewerItem) : undefined}
         onDelete={viewerItem ? () => library.confirmDelete(viewerItem) : undefined}
       />
 
       <GalleryItemActionsSheet
-        visible={library.actionItem != null}
+        visible={!pickMode && library.actionItem != null}
         canOpenChat={Boolean(library.actionItem?.chat_id)}
         onClose={() => library.setActionItem(null)}
+        onUseInChat={() => {
+          const item = library.actionItem;
+          if (item) void library.attachToComposer(item);
+        }}
         onOpenChat={() => {
           const item = library.actionItem;
           library.setActionItem(null);

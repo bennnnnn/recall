@@ -47,6 +47,8 @@ class _AttachmentProcessResult:
     gateway: Any | None
     # storage_key → bytes loaded once during verify (or first read this turn)
     bytes_by_key: dict[str, bytes]
+    # Ids to persist/link. None = caller keeps the request list (no attachments).
+    resolved_attachment_ids: list[UUID] | None = None
 
 
 async def _process_attachments(
@@ -65,6 +67,8 @@ async def _process_attachments(
     has_image_attachment = False
     image_attachments: list[tuple[str, str]] = []
     image_math_extract: MathImageExtract | None = None
+    attachment_rows: list[Attachment] = []
+    resolved_ids: list[UUID] = []
 
     if not (attachment_ids and settings.attachments_enabled):
         return _AttachmentProcessResult(
@@ -90,11 +94,17 @@ async def _process_attachments(
             row.id: row
             for row in await attachments_repo.get_by_ids(session, attachment_ids, user.id)
         }
-        attachment_rows: list[Attachment] = [
+        attachment_rows = [
             rows_by_id[attachment_id]
             for attachment_id in attachment_ids
             if attachment_id in rows_by_id
         ]
+        if attachment_rows:
+            from app.services.attachment_reuse import ensure_unlinked_copies
+
+            attachment_rows = await ensure_unlinked_copies(session, settings, attachment_rows)
+            await session.commit()
+        resolved_ids = [row.id for row in attachment_rows]
 
     if not attachment_rows:
         return _AttachmentProcessResult(
@@ -107,6 +117,7 @@ async def _process_attachments(
             image_math_extract=None,
             gateway=None,
             bytes_by_key={},
+            resolved_attachment_ids=[],
         )
 
     from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
@@ -241,4 +252,5 @@ async def _process_attachments(
         image_math_extract=image_math_extract,
         gateway=gateway,
         bytes_by_key=bytes_by_key,
+        resolved_attachment_ids=resolved_ids,
     )

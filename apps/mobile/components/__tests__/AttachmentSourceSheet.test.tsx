@@ -33,8 +33,11 @@ describe("AttachmentSourceSheet", () => {
     );
 
     expect(queryByText("chat.attach_generate_image")).toBeNull();
+    expect(getByText("chat.attach_library")).toBeTruthy();
     expect(getByText("chat.attach_solve_math_camera")).toBeTruthy();
 
+    await fireEvent.press(getByText("chat.attach_library"));
+    expect(onSelect).toHaveBeenCalledWith("library");
     await fireEvent.press(getByText("chat.attach_camera"));
     expect(onSelect).toHaveBeenCalledWith("camera");
   });

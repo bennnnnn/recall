@@ -14,6 +14,8 @@ export type PendingAttachment = {
   contentType: string;
   fileName: string;
   kind: AttachmentKind;
+  /** Library item already on the server — skip re-upload; the API clones if linked. */
+  existingAttachmentId?: string;
 };
 
 const DOCUMENT_MIME_TYPES = [
@@ -222,6 +224,10 @@ export async function uploadChatAttachment(
   token: string,
   pending: PendingAttachment,
 ): Promise<string> {
+  if (pending.existingAttachmentId) {
+    return pending.existingAttachmentId;
+  }
+
   const info = await getInfoAsync(pending.localUri);
   if (!info.exists) throw new Error("Could not read the selected file.");
 

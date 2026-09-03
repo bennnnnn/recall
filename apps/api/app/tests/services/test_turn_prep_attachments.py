@@ -41,6 +41,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
     user = MagicMock()
     user.id = user_id
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
@@ -123,6 +124,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
     chat.quiz_mode = None
 
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
@@ -257,6 +259,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
     chat.quiz_mode = None
 
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
@@ -393,6 +396,7 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     user = MagicMock()
     user.id = user_id
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "text/plain"
     row.storage_key = "user/doc.txt"
@@ -460,6 +464,7 @@ async def test_process_attachments_skips_verify_when_already_verified():
     user = MagicMock()
     user.id = user_id
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "text/plain"
     row.storage_key = "user/doc.txt"
@@ -526,6 +531,7 @@ async def test_process_attachments_image_only_does_not_flag_document():
     user = MagicMock()
     user.id = user_id
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/photo.png"
@@ -565,6 +571,7 @@ async def test_process_attachments_image_only_does_not_flag_document():
 
     assert result.has_image_attachment is True
     assert result.has_document_attachment is False
+    assert result.resolved_attachment_ids == [attachment_id]
 
 
 @pytest.mark.asyncio
@@ -580,6 +587,7 @@ async def test_process_attachments_document_flags_document():
     user = MagicMock()
     user.id = user_id
     row = MagicMock()
+    row.message_id = None
     row.id = attachment_id
     row.content_type = "text/plain"
     row.storage_key = "user/notes.txt"
