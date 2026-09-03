@@ -30,8 +30,6 @@
   "chat.deleted_toast": "Чат удалён",
   "chat.edit_no_attachments": "Редактирование пока только текста.",
   "chat.editing_message": "Редактирование сообщения — отправьте, чтобы перезапустить отсюда",
-  "chat.email_suggestions": "{{count}} предложений из почты",
-  "chat.email_suggestions_view_all": "Смотреть все в Напоминаниях",
   "chat.empty_hint": "О чём хотите поговорить?",
   "chat.empty_title": "Чем могу помочь?",
   "chat.error_title": "Не удалось получить ответ",

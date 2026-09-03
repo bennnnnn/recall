@@ -7,13 +7,11 @@ import { useTranslation } from "react-i18next";
 
 import { HamburgerIcon } from "@/components/HamburgerIcon";
 import { NewChatIcon } from "@/components/NewChatIcon";
-import { ReminderBadge } from "@/components/ReminderBadge";
 import {
   CHROME_FADE_EXTRA,
   TOP_CHROME_FADE_LOCATIONS,
   topChromeFadeColors,
 } from "@/lib/chromeFade";
-import { tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -23,12 +21,9 @@ type Props = {
   headerTitleLabel: string | null;
   titleGenerating: boolean;
   chatTitle: string | null;
-  showIndicator: boolean;
-  unseenCount: number;
   /** False on the empty home screen (no turns yet). Hides new-chat + ⋮. */
   hasMessages: boolean;
   onOpenDrawer: () => void;
-  onOpenReminders: () => void;
   onNewChat: () => void;
   onOpenMenu: () => void;
 };
@@ -40,11 +35,8 @@ export const ChatHeader = memo(function ChatHeader({
   headerTitleLabel,
   titleGenerating,
   chatTitle,
-  showIndicator,
-  unseenCount,
   hasMessages,
   onOpenDrawer,
-  onOpenReminders,
   onNewChat,
   onOpenMenu,
 }: Props) {
@@ -115,25 +107,6 @@ export const ChatHeader = memo(function ChatHeader({
           <View style={s.headerSpacer} />
         )}
         <View style={s.headerRight}>
-          {showIndicator ? (
-            <Pressable
-              style={s.headerBtn}
-              onPress={() => {
-                tap();
-                onOpenReminders();
-              }}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={t("reminders.badge_accessibility", {
-                count: unseenCount,
-              })}
-            >
-              <View style={s.headerIconWrap}>
-                <Icon name="notifications-outline" size={22} color={theme.text} />
-                <ReminderBadge count={unseenCount} style={s.headerBadge} />
-              </View>
-            </Pressable>
-          ) : null}
           {/* Home (no turns): drawer only. New-chat + ⋮ only once there are messages. */}
           {hasMessages ? (
             <View style={s.actionGroup}>
@@ -242,13 +215,6 @@ function makeStyles(theme: Theme) {
       fontStyle: "italic",
       fontWeight: "600",
     },
-    headerIconWrap: {
-      width: 24,
-      height: 24,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    headerBadge: { position: "absolute", top: -4, right: -8 },
     headerSpacer: { flex: 1, pointerEvents: "none" as const },
   });
 }

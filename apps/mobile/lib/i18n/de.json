@@ -50,8 +50,6 @@
   "chat.email_card_title": "Email",
   "chat.email_card_to": "To",
   "chat.email_card_to_placeholder": "Recipient email",
-  "chat.email_suggestions": "{{count}} E-Mail-Vorschlag/Vorschläge",
-  "chat.email_suggestions_view_all": "Alles im Zeitplan ansehen",
   "chat.empty_hint": "Was beschäftigt dich?",
   "chat.empty_title": "Wie kann ich helfen?",
   "chat.error_connection_lost": "Die Verbindung wurde unterbrochen, bevor die Antwort ankam. Bitte erneut versuchen.",

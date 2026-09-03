@@ -44,7 +44,6 @@ import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
-import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
@@ -77,7 +76,6 @@ function ChatScreen() {
     draftProjectIdRef: draft.draftProjectIdRef,
   });
   const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome, hasFetched: hasFetchedHome } = useHome();
   useFocusEffect(
     useCallback(() => {
@@ -513,8 +511,6 @@ function ChatScreen() {
       headerTitleLabel,
       titleGenerating,
       chatTitle,
-      showIndicator,
-      unseenCount,
       startNewChat,
       setMenuVisible,
       menuOverlayOpen,

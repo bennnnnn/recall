@@ -30,8 +30,6 @@
   "chat.deleted_toast": "Chat supprimé",
   "chat.edit_no_attachments": "Les modifications sont textuelles pour l'instant.",
   "chat.editing_message": "Modification du message — envoyez pour relancer à partir d'ici",
-  "chat.email_suggestions": "{{count}} suggestion(s) d'e-mail",
-  "chat.email_suggestions_view_all": "Tout voir dans Rappels",
   "chat.empty_hint": "Qu'avez-vous en tête ?",
   "chat.empty_title": "Comment puis-je vous aider ?",
   "chat.error_title": "Impossible d'obtenir une réponse",
