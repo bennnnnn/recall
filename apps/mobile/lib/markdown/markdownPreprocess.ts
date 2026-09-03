@@ -5,6 +5,7 @@ import {
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
 } from "@/lib/math/mathFenceRetag";
+import { flattenIntegrationConnectNotes } from "@/lib/markdown/flattenIntegrationConnectNotes";
 import { stripNumericAnswerAfterChart } from "@/lib/markdown/stripChartAnswerCrumb";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
@@ -1240,6 +1241,7 @@ export function preprocessMarkdown(
   // the text, no late fence pop-in).
   out = out.replace(/`(\$[^`\n]+?\$)`/g, "$1");
 
+  out = flattenIntegrationConnectNotes(out);
   out = promoteCalloutBlockquotes(out);
   out = promoteQuotedAttributions(out);
   out = splitBlockquoteInlineAttribution(out);
@@ -1257,6 +1259,7 @@ export function preprocessMarkdown(
       return `\n\`\`\`callout-${k}\n${merged}\n\`\`\`\n`;
     },
   );
+  out = flattenIntegrationConnectNotes(out);
 
   out = out.replace(DETAILS_HTML_RE, (_m, title: string, body: string) => {
     return `\n\`\`\`details ${title.trim()}\n${body.trim()}\n\`\`\`\n`;
