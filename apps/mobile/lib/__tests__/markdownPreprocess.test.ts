@@ -74,6 +74,15 @@ describe("preprocessMarkdown", () => {
     expect(out).toContain("Gmail is not connected");
   });
 
+  it("does not turn a quoted Calendar/Gmail connect sentence into a quote card", () => {
+    const src =
+      "> Google Calendar and Gmail are not connected — you can link them in Settings → Google Calendar and Settings → Gmail if you'd like to see events or emails.";
+    const out = preprocessMarkdown(src);
+    expect(out.trim().startsWith(">")).toBe(false);
+    expect(out).not.toContain("```callout");
+    expect(out).toContain("Google Calendar and Gmail are not connected");
+  });
+
   it("does not turn italic connect copy into a callout card", () => {
     const src =
       "*Google Calendar and Gmail are not connected. Connect them in Settings → Google Calendar / Settings → Gmail.*";

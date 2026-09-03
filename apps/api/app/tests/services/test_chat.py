@@ -1372,7 +1372,8 @@ async def test_build_prompt_day_planning_injects_daily_learning():
     assert "Skip a product with no block" in system
     assert "Only mention Calendar or Gmail" in system
     assert "ordinary markdown prose" in system
-    assert "Never a callout card" in system
+    assert "Never a card" in system
+    assert "quote card" in system
     assert "Settings → Google Calendar" in system
     assert "Settings → Gmail" in system
 

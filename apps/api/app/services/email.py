@@ -51,8 +51,8 @@ GMAIL_HINT = (
     "If they ask to check email and no Gmail block is present, tell them to connect Gmail in "
     "**Settings → Gmail** (optional; not part of sign-in).\n"
     "If the block says Gmail is **not connected**, say that in ordinary markdown prose "
-    "(never a Tip/Warning/Important callout) and they can connect it in Settings → Gmail "
-    "— including on day-planning turns, not only explicit inbox questions.\n"
+    "(never a blockquote (`>`), Tip, Note, or Warning card) and they can connect it in "
+    "Settings → Gmail — including on day-planning turns, not only explicit inbox questions.\n"
     "Gmail is read-only — you can draft replies in ```email fences, but never claim you sent "
     "or replied to a message."
 )
