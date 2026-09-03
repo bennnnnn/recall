@@ -2,7 +2,9 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
 
 import { Icon } from "@/components/Icon";
+import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
+import { attachmentRecordExists } from "@/lib/api";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -13,11 +15,12 @@ type Props = {
   downloadUrl?: string | null;
   /** Square thumbnail size in px. */
   size?: number;
-  /** Called once when the thumb 404s or never loads — drop the gallery row. */
+  /** Called once when the server confirms the record is gone (GET /url 404). */
   onMissing?: (attachmentId: string) => void;
 };
 
 const LOAD_TIMEOUT_MS = 20_000;
+const RETRY_LABEL_MIN_SIZE = 80;
 
 export { LOAD_TIMEOUT_MS };
 
@@ -32,8 +35,10 @@ function GalleryThumbnailBase({
   const token = useAuthToken();
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const missingNotifiedRef = useRef(false);
+  const probeGenRef = useRef(0);
 
   const uri = resolveAttachmentUri({
     attachmentId,
@@ -49,9 +54,12 @@ function GalleryThumbnailBase({
     : { uri };
 
   const dimension = { width: size, height: size };
+  const compact = size < RETRY_LABEL_MIN_SIZE;
 
   const onMissingRef = useRef(onMissing);
   onMissingRef.current = onMissing;
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
   const clearLoadTimer = () => {
     if (timerRef.current) {
@@ -66,27 +74,40 @@ function GalleryThumbnailBase({
     onMissingRef.current?.(attachmentId);
   };
 
+  const dropIfGone = async () => {
+    const auth = tokenRef.current;
+    if (!auth) return;
+    const gen = ++probeGenRef.current;
+    const exists = await attachmentRecordExists(auth, attachmentId);
+    if (gen !== probeGenRef.current) return;
+    if (exists === false) reportMissing();
+  };
+
   // Fallback: if onLoad doesn't fire within the timeout, mark as failed.
   // React Native's Image doesn't always call onError for corrupt/missing data.
   useEffect(() => {
     setFailed(false);
     setLoaded(false);
     missingNotifiedRef.current = false;
+    probeGenRef.current += 1;
     clearLoadTimer();
     timerRef.current = setTimeout(() => {
       setFailed(true);
-      if (missingNotifiedRef.current) return;
-      missingNotifiedRef.current = true;
-      onMissingRef.current?.(attachmentId);
     }, LOAD_TIMEOUT_MS);
     return clearLoadTimer;
-  }, [attachmentId, uri]);
+  }, [attachmentId, uri, attempt]);
 
   return (
     <View style={[s.wrap, dimension]}>
       {failed ? (
         <View style={[s.fallback, dimension]}>
-          <Icon name="image-outline" size={24} color={C.textTertiary} />
+          {compact ? null : (
+            <Icon name="image-outline" size={24} color={C.textTertiary} />
+          )}
+          <MediaLoadRetry
+            compact={compact}
+            onRetry={() => setAttempt((n) => n + 1)}
+          />
         </View>
       ) : (
         <>
@@ -96,7 +117,7 @@ function GalleryThumbnailBase({
             </View>
           ) : null}
           <Image
-            key={uri}
+            key={`${uri}:${attempt}`}
             testID="gallery-thumb-image"
             source={source}
             style={[dimension, s.image]}
@@ -108,7 +129,7 @@ function GalleryThumbnailBase({
             onError={() => {
               clearLoadTimer();
               setFailed(true);
-              reportMissing();
+              void dropIfGone();
             }}
           />
         </>

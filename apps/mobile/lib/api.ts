@@ -12,7 +12,10 @@ import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
-export type { AttachmentListItem } from "@/lib/api/attachments";
+export {
+  attachmentRecordExists,
+  type AttachmentListItem,
+} from "@/lib/api/attachments";
 export {
   loginWithApple,
   loginWithDev,

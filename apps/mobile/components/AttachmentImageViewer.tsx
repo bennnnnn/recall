@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
 import {
   ensureLocalAttachmentFile,
@@ -59,6 +60,7 @@ export function AttachmentImageViewer({
   const token = useAuthToken();
   const insets = useSafeAreaInsets();
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
   const [cachedUri, setCachedUri] = useState<string | null>(null);
 
@@ -78,6 +80,10 @@ export function AttachmentImageViewer({
   useEffect(() => {
     if (!visible) return;
     setFailed(false);
+    if (!remoteUri && !localUri && !previewUri) {
+      setFailed(true);
+      return;
+    }
     if (!remoteUri) return;
 
     const existing = getCachedAttachmentFile(remoteUri) || localUri;
@@ -101,7 +107,7 @@ export function AttachmentImageViewer({
     return () => {
       cancelled = true;
     };
-  }, [visible, remoteUri, localUri, token, fileName]);
+  }, [visible, remoteUri, localUri, previewUri, token, fileName, attempt]);
 
   const source = useMemo(() => {
     if (!displayUri) return null;
@@ -244,15 +250,24 @@ export function AttachmentImageViewer({
           </View>
 
           <View style={s.stage}>
-            {!source || failed ? (
-              <ActivityIndicator color={C.textTertiary} size="large" />
-            ) : (
+            {failed ? (
+              <MediaLoadRetry
+                onRetry={() => {
+                  setCachedUri(null);
+                  setAttempt((n) => n + 1);
+                }}
+              />
+            ) : source ? (
               <Image
+                key={`${displayUri}:${attempt}`}
+                testID="attachment-viewer-image"
                 source={source}
                 style={s.image}
                 resizeMode="contain"
                 onError={() => setFailed(true)}
               />
+            ) : (
+              <ActivityIndicator color={C.textTertiary} size="large" />
             )}
           </View>
         </View>
