@@ -1,4 +1,4 @@
-import { joinMemoryFacts, splitMemoryFacts } from "@/lib/memoryFacts";
+import { joinMemoryFacts, splitMemoryFacts, stripMemoryAsOf } from "@/lib/memoryFacts";
 
 describe("memoryFacts", () => {
   it("splits on sentence boundaries", () => {
@@ -13,5 +13,10 @@ describe("memoryFacts", () => {
     const afterDelete = splitMemoryFacts("Alpha. Gamma.");
     afterDelete.splice(1, 1);
     expect(joinMemoryFacts(afterDelete)).toBe("Alpha.");
+  });
+
+  it("strips a leading As of stamp", () => {
+    expect(stripMemoryAsOf("As of 2026-07-20: Name is Sam")).toBe("Name is Sam");
+    expect(stripMemoryAsOf("Likes tea.")).toBe("Likes tea.");
   });
 });

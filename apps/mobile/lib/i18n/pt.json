@@ -369,7 +369,6 @@
   "login.sign_in_failed": "Falha no login",
   "login.tagline": "Sua IA que lembra de você.",
   "login.terms": "Termos",
-  "memory.confidence": "{{percent}}% confident",
   "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
   "memory.delete_confirm_title": "Delete memory section?",
   "memory.delete_fact_a11y": "Delete this memory",
@@ -725,5 +724,8 @@
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
   "upgrade.subscription_terms": "A assinatura é renovada automaticamente todos os meses, a menos que seja cancelada na sua conta da App Store ou do Google Play.",
-  "upgrade.title": "Assinar o Pro"
+  "upgrade.title": "Assinar o Pro",
+  "memory.edit_fact_a11y": "Editar esta memória",
+  "memory.from_chat": "De {{title}}",
+  "memory.updated": "Atualizado em {{date}}"
 }

@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.schemas.common import MemoryType
 
@@ -15,6 +15,28 @@ class MemoryOut(BaseModel):
     confidence: float | None
     created_at: datetime
     updated_at: datetime
+    source_chat_id: UUID | None = None
+    source_chat_title: str | None = None
+
+    @field_validator("source_chat_id", mode="before")
+    @classmethod
+    def _coerce_source_chat_id(cls, value: object) -> UUID | None:
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return value
+        try:
+            return UUID(str(value))
+        except (TypeError, ValueError):
+            return None
+
+    @field_validator("source_chat_title", mode="before")
+    @classmethod
+    def _coerce_source_chat_title(cls, value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
 
 class MemoryUpdate(BaseModel):

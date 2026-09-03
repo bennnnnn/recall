@@ -74,6 +74,8 @@ export type Memory = {
   confidence: number | null;
   created_at: string;
   updated_at: string;
+  source_chat_id?: string | null;
+  source_chat_title?: string | null;
 };
 
 export type RecurrenceRule = "daily" | "weekdays" | "weekly" | "monthly";

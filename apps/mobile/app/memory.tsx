@@ -23,7 +23,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useMemoryActions } from "@/hooks/useMemoryActions";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
-import { splitMemoryFacts } from "@/lib/memoryFacts";
+import { splitMemoryFacts, stripMemoryAsOf } from "@/lib/memoryFacts";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -32,6 +32,16 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
 const COLLAPSED_LINES = 3;
+
+function formatMemoryDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 function memoryTypeLabel(type: string, t: (key: string) => string): string {
   const key = `memory.type.${type}`;
@@ -50,6 +60,7 @@ type MemorySectionCardProps = {
   onEditSection: () => void;
   onDeleteSection: () => void;
   onDeleteFact: (factIndex: number, factText: string) => void;
+  onEditFact: (factIndex: number, factText: string) => void;
 };
 
 function MemorySectionCard({
@@ -59,6 +70,7 @@ function MemorySectionCard({
   onEditSection,
   onDeleteSection,
   onDeleteFact,
+  onEditFact,
   styles: s,
   theme,
 }: MemorySectionCardProps & {
@@ -70,6 +82,16 @@ function MemorySectionCard({
   const showFacts = facts.length > 1;
   const collapsible = !showFacts && sectionNeedsCollapse(section.text);
   const visibleFacts = expanded || !collapsible ? facts : facts.slice(0, COLLAPSED_LINES);
+  const provenance = [
+    section.updated_at
+      ? t("memory.updated", { date: formatMemoryDate(section.updated_at) })
+      : "",
+    section.source_chat_title
+      ? t("memory.from_chat", { title: section.source_chat_title })
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View style={s.group}>
@@ -111,7 +133,15 @@ function MemorySectionCard({
         {showFacts ? (
           visibleFacts.map((fact, index) => (
             <View key={`${section.id}-${index}`} style={s.factRow}>
-              <Text style={s.factText}>{fact}</Text>
+              <Text style={s.factText}>{stripMemoryAsOf(fact)}</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={() => onEditFact(index, fact)}
+                accessibilityRole="button"
+                accessibilityLabel={t("memory.edit_fact_a11y")}
+              >
+                <Icon name="create-outline" size={16} color={theme.textTertiary} />
+              </Pressable>
               <Pressable
                 hitSlop={8}
                 onPress={() => onDeleteFact(index, fact)}
@@ -131,7 +161,7 @@ function MemorySectionCard({
               style={s.cardText}
               numberOfLines={collapsible && !expanded ? COLLAPSED_LINES : undefined}
             >
-              {section.text}
+              {stripMemoryAsOf(section.text)}
             </Text>
           </Pressable>
         )}
@@ -148,13 +178,7 @@ function MemorySectionCard({
             </Text>
           </Pressable>
         ) : null}
-        {section.confidence != null ? (
-          <Text style={s.conf}>
-            {t("memory.confidence", {
-              percent: Math.round(section.confidence * 100),
-            })}
-          </Text>
-        ) : null}
+        {provenance ? <Text style={s.conf}>{provenance}</Text> : null}
       </View>
     </View>
   );
@@ -177,10 +201,12 @@ export default function MemoryScreen() {
     deleteSection,
     deleteFact,
     updateMemoryText,
+    updateFact,
   } = useMemoryActions(token);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Memory | null>(null);
+  const [editingFactIndex, setEditingFactIndex] = useState<number | null>(null);
   const [draftText, setDraftText] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -213,6 +239,7 @@ export default function MemoryScreen() {
   const closeEdit = useCallback(() => {
     if (savingEdit) return;
     setEditing(null);
+    setEditingFactIndex(null);
     setDraftText("");
   }, [savingEdit]);
 
@@ -224,15 +251,19 @@ export default function MemoryScreen() {
       return;
     }
     setSavingEdit(true);
-    const ok = await updateMemoryText(editing.id, nextText);
+    const ok =
+      editingFactIndex != null
+        ? await updateFact(editing, editingFactIndex, nextText)
+        : await updateMemoryText(editing.id, nextText);
     setSavingEdit(false);
     if (ok) {
       setEditing(null);
+      setEditingFactIndex(null);
       setDraftText("");
     } else {
       Alert.alert(t("common.error"), t("memory.edit_failed"));
     }
-  }, [editing, draftText, updateMemoryText, t]);
+  }, [editing, editingFactIndex, draftText, updateMemoryText, updateFact, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -296,7 +327,8 @@ export default function MemoryScreen() {
             theme={theme}
             onEditSection={() => {
               setEditing(section);
-              setDraftText(section.text);
+              setEditingFactIndex(null);
+              setDraftText(stripMemoryAsOf(section.text));
             }}
             onDeleteSection={() => {
               if (!token) return;
@@ -341,6 +373,11 @@ export default function MemoryScreen() {
                 ],
               );
             }}
+            onEditFact={(factIndex, factText) => {
+              setEditing(section);
+              setEditingFactIndex(factIndex);
+              setDraftText(stripMemoryAsOf(factText));
+            }}
           />
         ))}
       </ScrollView>
@@ -355,7 +392,9 @@ export default function MemoryScreen() {
         contentContainerStyle={s.editSheet}
       >
         <SheetFormHeader
-          title={t("memory.edit_title")}
+          title={
+            editingFactIndex != null ? t("memory.edit_fact_a11y") : t("memory.edit_title")
+          }
           onCancel={closeEdit}
           onSave={() => void saveEdit()}
           cancelLabel={t("common.cancel")}

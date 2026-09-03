@@ -369,7 +369,6 @@
   "login.sign_in_failed": "Giriş başarısız",
   "login.tagline": "Seni hatırlayan yapay zekân.",
   "login.terms": "Koşullar",
-  "memory.confidence": "{{percent}}% confident",
   "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
   "memory.delete_confirm_title": "Delete memory section?",
   "memory.delete_fact_a11y": "Delete this memory",
@@ -725,5 +724,8 @@
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
   "upgrade.subscription_terms": "Abonelik, App Store veya Google Play hesabınızdan iptal edilmediği sürece her ay otomatik olarak yenilenir.",
-  "upgrade.title": "Pro'ya yükselt"
+  "upgrade.title": "Pro'ya yükselt",
+  "memory.edit_fact_a11y": "Bu anıyı düzenle",
+  "memory.from_chat": "{{title}} sohbetinden",
+  "memory.updated": "{{date}} tarihinde güncellendi"
 }

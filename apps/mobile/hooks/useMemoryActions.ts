@@ -123,6 +123,16 @@ export function useMemoryActions(token: string | null) {
     [token, memories, applyMemories],
   );
 
+  const updateFact = useCallback(
+    async (section: Memory, factIndex: number, nextFact: string): Promise<boolean> => {
+      const facts = splitMemoryFacts(section.text);
+      if (factIndex < 0 || factIndex >= facts.length) return false;
+      facts[factIndex] = nextFact;
+      return updateMemoryText(section.id, joinMemoryFacts(facts));
+    },
+    [updateMemoryText],
+  );
+
   return {
     memories,
     loading,
@@ -133,5 +143,6 @@ export function useMemoryActions(token: string | null) {
     deleteSection,
     deleteFact,
     updateMemoryText,
+    updateFact,
   };
 }

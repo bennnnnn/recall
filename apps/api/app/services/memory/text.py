@@ -45,6 +45,15 @@ _MEMORY_COMMAND_MARKERS = (
     "stop remembering",
     "don't remember",
     "do not remember",
+    "i changed jobs",
+    "i changed my job",
+    "i switched jobs",
+    "i switched my job",
+    "i got a new job",
+    "i moved to",
+    "i no longer work",
+    "i don't work at",
+    "i do not work at",
 )
 
 
@@ -246,4 +255,50 @@ def drop_sensitive_memory_facts(text: str) -> str:
     if not body:
         return ""
     kept = [fact for fact in split_memory_facts(body) if not is_sensitive_memory_text(fact)]
+    return join_memory_facts(kept)
+
+
+_NAME_FACT_MARKERS = ("name is", "named ", "user's name")
+_AGE_FACT_MARKERS = (" years old", "age is")
+_JOB_FACT_MARKERS = ("works at", "works as", "job is", "employed at")
+_PLACE_FACT_MARKERS = ("lives in", "based in", "located in", "country is")
+
+
+def _fact_has_marker(fact: str, markers: tuple[str, ...]) -> bool:
+    lowered = fact.lower()
+    return any(marker in lowered for marker in markers)
+
+
+def drop_duplicate_account_profile_facts(
+    text: str,
+    *,
+    name: str | None,
+    age: int | None,
+    country: str | None,
+    job: str | None,
+    location: str | None,
+) -> str:
+    """Drop identity sentences the structured account profile already owns.
+
+    Account name/age/job/country/location are injected separately. Leaving the
+    same claims in the memory profile lets a stale job survive a Settings edit.
+    """
+    body = strip_memory_as_of(text)
+    if not body:
+        return ""
+    drop_name = bool((name or "").strip())
+    drop_age = age is not None
+    drop_job = bool((job or "").strip())
+    drop_place = bool((country or "").strip()) or bool((location or "").strip())
+    kept: list[str] = []
+    for fact in split_memory_facts(body):
+        if drop_name and _fact_has_marker(fact, _NAME_FACT_MARKERS):
+            continue
+        if drop_age and _fact_has_marker(fact, _AGE_FACT_MARKERS):
+            continue
+        if drop_job and _fact_has_marker(fact, _JOB_FACT_MARKERS):
+            continue
+        if drop_place and _fact_has_marker(fact, _PLACE_FACT_MARKERS):
+            continue
+        kept.append(fact)
     return join_memory_facts(kept)

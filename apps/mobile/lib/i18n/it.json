@@ -369,7 +369,6 @@
   "login.sign_in_failed": "Accesso non riuscito",
   "login.tagline": "La tua IA che si ricorda di te.",
   "login.terms": "Termini",
-  "memory.confidence": "{{percent}}% confident",
   "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
   "memory.delete_confirm_title": "Delete memory section?",
   "memory.delete_fact_a11y": "Delete this memory",
@@ -725,5 +724,8 @@
   "upgrade.restore_empty": "Nessun abbonamento attivo per questo account.",
   "upgrade.subscribe": "Passa a Pro — {{price}}/mese",
   "upgrade.subscription_terms": "L'abbonamento si rinnova automaticamente ogni mese, salvo annullamento nell'account App Store o Google Play.",
-  "upgrade.title": "Passa a Pro"
+  "upgrade.title": "Passa a Pro",
+  "memory.edit_fact_a11y": "Modifica questo ricordo",
+  "memory.from_chat": "Da {{title}}",
+  "memory.updated": "Aggiornato il {{date}}"
 }

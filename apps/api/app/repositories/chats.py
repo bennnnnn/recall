@@ -52,6 +52,26 @@ async def list_for_user(
     return list(result.scalars().all())
 
 
+async def titles_for_ids(
+    session: AsyncSession,
+    user_id: UUID,
+    chat_ids: list[UUID],
+) -> dict[UUID, str]:
+    """One round-trip for Memory-screen provenance titles."""
+    ids = [chat_id for chat_id in chat_ids if chat_id is not None]
+    if not ids:
+        return {}
+    result = await session.execute(
+        select(Chat.id, Chat.title).where(Chat.user_id == user_id, Chat.id.in_(ids))
+    )
+    titles: dict[UUID, str] = {}
+    for chat_id, title in result.all():
+        cleaned = (title or "").strip()
+        if cleaned:
+            titles[chat_id] = cleaned
+    return titles
+
+
 async def list_archived_for_user(
     session: AsyncSession, user_id: UUID, limit: int = 100
 ) -> list[Chat]:

@@ -70,6 +70,9 @@ from app.services.memory.text import (
     _split_sentences as _split_sentences,
 )
 from app.services.memory.text import (
+    drop_duplicate_account_profile_facts as drop_duplicate_account_profile_facts,
+)
+from app.services.memory.text import (
     drop_sensitive_memory_facts as drop_sensitive_memory_facts,
 )
 from app.services.memory.text import (

@@ -369,7 +369,6 @@
   "login.sign_in_failed": "Anmeldung fehlgeschlagen",
   "login.tagline": "Deine KI, die sich an dich erinnert.",
   "login.terms": "Nutzungsbedingungen",
-  "memory.confidence": "{{percent}}% confident",
   "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
   "memory.delete_confirm_title": "Delete memory section?",
   "memory.delete_fact_a11y": "Delete this memory",
@@ -725,5 +724,8 @@
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
   "upgrade.subscription_terms": "Das Abo verlängert sich jeden Monat automatisch, sofern es nicht im App-Store- oder Google-Play-Konto gekündigt wird.",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "memory.edit_fact_a11y": "Diese Erinnerung bearbeiten",
+  "memory.from_chat": "Aus „{{title}}“",
+  "memory.updated": "Aktualisiert {{date}}"
 }

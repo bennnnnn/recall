@@ -218,13 +218,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).
-- ✅ **Memory screen** — view memories grouped by type, with confidence, and **edit / delete**
-  them. Storage is one consolidated row per type (`profile` / `preference` / …); deleting a
-  single fact rewrites that section rather than removing a separate row per bullet.
-  `PATCH /memories/{id}` updates text, re-embeds, and invalidates caches.
+- ✅ **Memory screen** — view memories grouped by type, with last-updated date and
+  originating chat (not a confidence %). **Edit / delete** a section or a single fact.
+  Storage is one consolidated row per type (`profile` / `preference` / …); editing or
+  deleting a fact rewrites that section. `PATCH /memories/{id}` updates text, re-embeds,
+  and invalidates caches.
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
-  (editable in Settings → Profile) and injected into the chat system profile block.
+  (editable in Settings → Profile) and injected into the chat system profile block. Matching
+  identity sentences in the memory profile paragraph are dropped on inject so a stale job
+  cannot contradict Settings.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
   into the system prompt on **later turns in the same chat** (`chat_id` on chunks — **not**
   a user-wide file library). Prepare uses the **text layer only**; scanned-PDF vision OCR

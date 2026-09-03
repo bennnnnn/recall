@@ -369,7 +369,6 @@
   "login.sign_in_failed": "መግባት አልተሳካም",
   "login.tagline": "ይማሩ፣ ያደራጁ እና ይወያዩ — እርስዎን የሚذكر AI ጋር።",
   "login.terms": "ውሎች",
-  "memory.confidence": "{{percent}}% confident",
   "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
   "memory.delete_confirm_title": "Delete memory section?",
   "memory.delete_fact_a11y": "Delete this memory",
@@ -725,5 +724,8 @@
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
   "upgrade.subscription_terms": "የደንበኝነት ምዝገባው በApp Store ወይም Google Play መለያዎ ውስጥ ካልተሰረዘ በየወሩ በራሱ ይታደሳል።",
-  "upgrade.title": "ወደ Pro ይሂዱ"
+  "upgrade.title": "ወደ Pro ይሂዱ",
+  "memory.edit_fact_a11y": "ይህን ማህደረ ትውስታ አርትዕ",
+  "memory.from_chat": "ከ {{title}}",
+  "memory.updated": "የተዘመነው {{date}}"
 }

@@ -230,3 +230,16 @@ def test_group_by_recency_uses_user_timezone():
     assert utc_groups["yesterday"] == []
     assert len(la_groups["yesterday"]) == 1
     assert la_groups["today"] == []
+
+
+@pytest.mark.asyncio
+async def test_titles_for_ids_returns_nonempty_titles(fake_session):
+    from app.repositories.chats import titles_for_ids
+
+    chat_id = uuid4()
+    mock_result = MagicMock()
+    mock_result.all.return_value = [(chat_id, "  Spanish plan  ")]
+    fake_session.execute.return_value = mock_result
+
+    titles = await titles_for_ids(fake_session, uuid4(), [chat_id])
+    assert titles == {chat_id: "Spanish plan"}

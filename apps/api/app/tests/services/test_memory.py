@@ -71,6 +71,8 @@ def test_stamp_memory_as_of_prefixes_and_replaces():
 def test_is_explicit_memory_command_detects_remember_and_forget():
     assert is_explicit_memory_command("Remember this: I am allergic to peanuts") is True
     assert is_explicit_memory_command("Please forget that I live in Boston") is True
+    assert is_explicit_memory_command("Actually, I changed jobs") is True
+    assert is_explicit_memory_command("I moved to Denver last month") is True
     assert is_explicit_memory_command("I remember when we first met") is False
     assert is_explicit_memory_command("I'm allergic to peanuts") is False
 
@@ -174,6 +176,42 @@ def test_drop_sensitive_memory_facts_keeps_unrelated_sentence():
     assert "Italian" in kept
     assert "allergy" not in kept.lower()
     assert drop_sensitive_memory_facts("Has a peanut allergy.") == ""
+
+
+def test_drop_duplicate_account_profile_facts_defers_to_settings():
+    from app.services.memory import drop_duplicate_account_profile_facts
+
+    kept = drop_duplicate_account_profile_facts(
+        "Name is Sam. Works at Hooh. Prefers dark mode.",
+        name="Sam Wilson",
+        age=None,
+        country=None,
+        job="Engineer",
+        location=None,
+    )
+    assert "Name" not in kept
+    assert "Hooh" not in kept
+    assert "dark mode" in kept
+
+
+def test_apply_account_profile_override_drops_stale_job_from_prompt():
+    from app.services import memory as memory_service
+    from app.services.memory.retrieval import apply_account_profile_override
+
+    user = MagicMock()
+    user.name = "Sam"
+    user.age = None
+    user.country = None
+    user.job = "Engineer"
+    user.location_enabled = False
+    user.location = None
+    profile = _memory("profile", "Name is Sam. Works at the old bakery. Prefers dark mode.", 0.9)
+    pref = _memory("preference", "Likes Italian cooking", 0.9)
+    kept = apply_account_profile_override(memory_service, [profile, pref], user)
+    texts = " ".join(item.text for item in kept)
+    assert "dark mode" in texts
+    assert "bakery" not in texts
+    assert "Italian" in texts
 
 
 def test_accept_memory_section_rewrite_allows_explicit_forget():

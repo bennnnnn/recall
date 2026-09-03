@@ -9,6 +9,7 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import MemoryOut, MemoryType, MemoryUpdate
+from app.repositories import chats as chats_repo
 from app.services import memory as memory_service
 from app.services.memory import enqueue_policy
 
@@ -25,7 +26,18 @@ async def list_memories(
         get_redis_client(),
         user,
     )
-    return [MemoryOut.model_validate(m) for m in memories]
+    chat_ids: list[UUID] = []
+    for memory in memories:
+        source = getattr(memory, "source_chat_id", None)
+        if isinstance(source, UUID):
+            chat_ids.append(source)
+    titles = await chats_repo.titles_for_ids(session, user.id, chat_ids)
+    out: list[MemoryOut] = []
+    for memory in memories:
+        item = MemoryOut.model_validate(memory)
+        title = titles.get(item.source_chat_id) if item.source_chat_id else None
+        out.append(item.model_copy(update={"source_chat_title": title}))
+    return out
 
 
 @router.post("/consolidate", status_code=status.HTTP_202_ACCEPTED)

@@ -87,6 +87,57 @@ def filter_surface_memories(
     )
 
 
+def apply_account_profile_override(seams: Any, memories: list[Any], user: User) -> list[Any]:
+    """Account profile fields win over duplicate memory-profile sentences."""
+    from types import SimpleNamespace
+
+    from app.services import profile as profile_service
+
+    location = profile_service.user_location_label(user)
+    out: list[Any] = []
+    for memory in memories:
+        if getattr(memory, "type", None) != "profile":
+            out.append(memory)
+            continue
+        text = seams.drop_duplicate_account_profile_facts(
+            getattr(memory, "text", "") or "",
+            name=getattr(user, "name", None),
+            age=getattr(user, "age", None),
+            country=getattr(user, "country", None),
+            job=getattr(user, "job", None),
+            location=location,
+        )
+        if not text:
+            continue
+        out.append(
+            SimpleNamespace(
+                type="profile",
+                text=text,
+                confidence=getattr(memory, "confidence", None),
+            )
+        )
+    return out
+
+
+def format_prompt_memories(
+    seams: Any,
+    memories: list[Memory],
+    user: User,
+    *,
+    exclude_sensitive: bool,
+    query_text: str | None,
+    max_chars: int,
+) -> str:
+    picked = filter_surface_memories(
+        seams,
+        memories,
+        exclude_sensitive=exclude_sensitive,
+        query_text=query_text,
+    )
+    picked = apply_account_profile_override(seams, picked, user)
+    return seams.format_memory_block(picked, max_chars=max_chars)
+
+
 async def semantic_block_from_vec(
     seams: Any,
     session: AsyncSession,
@@ -105,13 +156,14 @@ async def semantic_block_from_vec(
         query_vec=query_vec,
         omit_project_memory=omit_project_memory,
     )
-    memories = filter_surface_memories(
+    return format_prompt_memories(
         seams,
         memories,
+        user,
         exclude_sensitive=exclude_sensitive,
         query_text=query_text,
+        max_chars=settings.memory_inject_max_chars,
     )
-    return seams.format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
 
 
 async def warm_semantic_memory_cache(
@@ -228,13 +280,14 @@ async def get_memory_block(
             settings,
             omit_project_memory=omit_project_memory,
         )
-        memories = filter_surface_memories(
+        block = format_prompt_memories(
             seams,
             memories,
+            user,
             exclude_sensitive=exclude_sensitive,
             query_text=q,
+            max_chars=max_chars,
         )
-        block = seams.format_memory_block(memories, max_chars=max_chars)
         await seams._write_query_block_cache(query_key, block, settings)
         warm_task = seams.create_background_task(
             seams._warm_semantic_memory_cache(
@@ -272,8 +325,14 @@ async def get_memory_block(
         settings,
         omit_project_memory=omit_project_memory,
     )
-    memories = filter_surface_memories(seams, memories, exclude_sensitive=exclude_sensitive)
-    block = seams.format_memory_block(memories, max_chars=max_chars)
+    block = format_prompt_memories(
+        seams,
+        memories,
+        user,
+        exclude_sensitive=exclude_sensitive,
+        query_text=None,
+        max_chars=max_chars,
+    )
     try:
         await redis.set(cache_key, block, ex=settings.memory_cache_ttl)
     except Exception:

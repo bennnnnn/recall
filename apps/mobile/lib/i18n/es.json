@@ -369,7 +369,6 @@
   "login.sign_in_failed": "Error al iniciar sesión",
   "login.tagline": "Tu IA que te recuerda.",
   "login.terms": "Términos",
-  "memory.confidence": "{{percent}}% confident",
   "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
   "memory.delete_confirm_title": "Delete memory section?",
   "memory.delete_fact_a11y": "Delete this memory",
@@ -725,5 +724,8 @@
   "upgrade.restore_empty": "No se encontró suscripción activa para esta cuenta.",
   "upgrade.subscribe": "Hazte Pro — {{price}}/mes",
   "upgrade.subscription_terms": "La suscripción se renueva automáticamente cada mes, salvo que la canceles en tu cuenta de App Store o Google Play.",
-  "upgrade.title": "Pásate a Pro"
+  "upgrade.title": "Pásate a Pro",
+  "memory.edit_fact_a11y": "Editar este recuerdo",
+  "memory.from_chat": "De {{title}}",
+  "memory.updated": "Actualizado el {{date}}"
 }

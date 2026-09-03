@@ -128,6 +128,22 @@ describe("useMemoryActions", () => {
     expect(current.memories[0].text).toBe("stamped by server");
   });
 
+  it("replaces one fact then saves the joined section", async () => {
+    mockApi.updateMemory.mockResolvedValue({
+      ...SECTION,
+      text: "Likes tea. Likes espresso.",
+    });
+    await mount();
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await current.updateFact(SECTION, 1, "Likes espresso");
+    });
+
+    expect(ok).toBe(true);
+    expect(mockApi.updateMemory).toHaveBeenCalledWith("tok", "m1", "Likes tea. Likes espresso.");
+  });
+
   it("rolls an edit back when the update fails", async () => {
     mockApi.updateMemory.mockRejectedValue(new Error("boom"));
     await mount();
