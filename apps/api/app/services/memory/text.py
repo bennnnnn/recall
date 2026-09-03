@@ -9,6 +9,8 @@ import hashlib
 import re
 from datetime import UTC, date, datetime
 
+from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
+
 _AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)
 
 
@@ -22,6 +24,36 @@ _SENSITIVE_MEMORY_RE = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+
+
+def memory_extract_user_text(content: str) -> str:
+    """User prose only — drop attachment OCR/excerpts so they cannot become memories."""
+    return text_before_attachment_markers(strip_untrusted_blocks(content or "")).strip()
+
+
+# Explicit remember/forget — scanned as literals, not a regex (CodeQL ReDoS).
+_MEMORY_COMMAND_MARKERS = (
+    "remember this",
+    "remember that",
+    "please remember",
+    "don't forget",
+    "do not forget",
+    "forget that",
+    "forget this",
+    "forget i ",
+    "forget i'",
+    "stop remembering",
+    "don't remember",
+    "do not remember",
+)
+
+
+def is_explicit_memory_command(text: str) -> bool:
+    """True when the user asked to remember or forget a fact in this turn."""
+    lowered = (text or "").lower()
+    if not lowered:
+        return False
+    return any(marker in lowered for marker in _MEMORY_COMMAND_MARKERS)
 
 
 def normalize_memory_text(text: str) -> str:

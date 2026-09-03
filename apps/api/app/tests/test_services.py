@@ -41,6 +41,14 @@ def _memory_write_lock_always_free():
             AsyncMock(return_value=True),
         ),
         patch("app.background.memory_extraction.release_memory_write_lock", AsyncMock()),
+        patch(
+            "app.services.memory.extract_backlog.messages_repo.list_user_contents_since",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.memory.extract_backlog.get_redis_client",
+            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+        ),
     ):
         yield
 
@@ -202,6 +210,8 @@ async def test_revise_memory_sections_prompt_user_stated_only():
     assert "explicitly stated or confirmed by the User line" in system
     assert "never from assistant inferences" in system
     assert "Merge new user-stated facts into the existing section" in system
+    assert "explicitly asks to remember a fact" in system
+    assert "explicitly asks to forget a fact" in system
     assert "Rewrite the full section when updating" not in system
     user = captured["messages"][1]["content"]  # type: ignore[index]
     assert "[BEGIN UNTRUSTED CONTENT — conversation transcript]" in user

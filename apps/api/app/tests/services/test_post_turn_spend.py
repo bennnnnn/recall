@@ -28,7 +28,7 @@ def _ctx(*, prior_count: int, run_title: bool = True) -> StreamContext:
 
 
 @pytest.mark.asyncio
-async def test_default_memory_interval_skips_turn_two():
+async def test_default_memory_interval_runs_turn_two():
     ctx = _ctx(prior_count=2)  # turn_number = 2
     with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
         await enqueue_post_turn_jobs(
@@ -37,7 +37,8 @@ async def test_default_memory_interval_skips_turn_two():
             ctx,
             "ok",
         )
-    assert [c.args[1] for c in enqueue.call_args_list] == ["topic"]
+    job_types = [c.args[1] for c in enqueue.call_args_list]
+    assert "memory" in job_types
 
 
 @pytest.mark.asyncio
@@ -79,6 +80,25 @@ async def test_memory_job_strips_attachments_and_drops_assistant():
     assert "Assistant" not in transcript
     assert "lisinopril" not in transcript
     assert "[Image:" not in transcript
+
+
+@pytest.mark.asyncio
+async def test_throttled_interval_still_extracts_remember_this():
+    ctx = _ctx(prior_count=2)  # turn_number = 2
+    ctx.user_message_content = "Remember this: I am allergic to peanuts."
+    with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:
+        await enqueue_post_turn_jobs(
+            AsyncMock(),
+            Settings(
+                history_compression_enabled=False,
+                chat_history_rag_enabled=False,
+                memory_extract_every_n_turns=3,
+            ),
+            ctx,
+            "ok",
+        )
+    job_types = [c.args[1] for c in enqueue.call_args_list]
+    assert "memory" in job_types
 
 
 @pytest.mark.asyncio

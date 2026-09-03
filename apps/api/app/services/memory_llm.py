@@ -45,7 +45,11 @@ async def revise_memory_sections(
                 "facts unless the user clearly replaced them. Deduplicate near-copies.\n"
                 "- On conflicting facts (e.g. moved cities), keep the newest statement and "
                 "drop the older one.\n"
-                "- Skip small talk. Return empty sections array if nothing changed."
+                "- Skip small talk. Return empty sections array if nothing changed.\n"
+                "- If the User line explicitly asks to remember a fact, include it.\n"
+                "- If the User line explicitly asks to forget a fact, drop that fact from "
+                "the section (empty the section if nothing remains). Do not wait for a "
+                "later pass."
             ),
         },
         {

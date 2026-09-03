@@ -250,9 +250,12 @@ class Settings(BaseSettings):
     quiz_exclusion_max_chars: int = 4000
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
-    # Run memory extraction every N completed assistant turns (always runs on turn 1).
-    # Default 3 — every-turn extraction doubled background LLM spend.
-    memory_extract_every_n_turns: int = 3
+    # Run memory extraction every N completed assistant turns (always on turn 1,
+    # and always on an explicit remember/forget). Default 1 so a fact stated on
+    # turn 2 is not dropped if the chat ends there. Ops can raise this to skip
+    # intermediate LLM cost; skipped lines still land on the next pass via the
+    # extract cursor.
+    memory_extract_every_n_turns: int = 1
     memory_query_embed_cache_ttl: int = 3600
     # Chat-path live embed budget. Background jobs use background_llm_timeout_seconds.
     memory_query_embed_timeout_seconds: float = 2.0

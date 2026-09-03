@@ -102,3 +102,27 @@ async def test_set_feedback(fake_session):
     assert result is mock_message
     assert mock_message.feedback == "like"
     fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_user_contents_since_sql_is_user_only():
+    from sqlalchemy.dialects import postgresql
+
+    from app.repositories.messages import list_user_contents_since
+
+    session = AsyncMock()
+    captured: dict = {}
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        result = MagicMock()
+        result.scalars.return_value = MagicMock(all=MagicMock(return_value=[]))
+        return result
+
+    session.execute = _capture
+    await list_user_contents_since(session, uuid4(), limit=12)
+
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    sql = str(compiled).lower()
+    assert "role" in sql
+    assert "user" in sql

@@ -196,8 +196,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
-- ✅ **Automatic extraction** — durable facts are extracted in the background every N
-  turns (`memory_extract_every_n_turns=3` by default; always on turn 1).
+- ✅ **Automatic extraction** — every user turn by default (`memory_extract_every_n_turns=1`;
+  always on turn 1). Ops can raise N to skip intermediate LLM cost. Each pass includes
+  user messages not processed by the previous pass (per-chat extract cursor), so a fact
+  on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
+  still extract when N>1. No remember/forget chip or confirmation sheet.
 - ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript is the **user
   line only** (assistant restatements dropped), capped ~4k (head+tail); attachment OCR /
   untrusted blocks stripped before extract; memory wrapped as first-party notes (fence kept);
