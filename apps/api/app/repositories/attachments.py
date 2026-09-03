@@ -42,6 +42,31 @@ async def create_pending(
     return row
 
 
+async def insert_verified_clone(
+    session: AsyncSession,
+    *,
+    src: Attachment,
+    new_id: UUID,
+    storage_key: str,
+) -> Attachment:
+    """Unlinked copy of a Library item for a new chat send. Hidden from gallery."""
+    row = Attachment(
+        id=new_id,
+        user_id=src.user_id,
+        storage_key=storage_key,
+        content_type=src.content_type,
+        size_bytes=src.size_bytes,
+        source=src.source,
+        original_filename=src.original_filename,
+        verified_at=src.verified_at or datetime.now(UTC),
+        library_visible=False,
+        message_id=None,
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
 async def get_by_id(session: AsyncSession, attachment_id: UUID, user_id: UUID) -> Attachment | None:
     result = await session.execute(
         select(Attachment).where(Attachment.id == attachment_id, Attachment.user_id == user_id)
@@ -160,6 +185,7 @@ async def list_for_gallery(
     stmt = select(Attachment).where(
         Attachment.user_id == user_id,
         Attachment.verified_at.is_not(None),
+        Attachment.library_visible.is_(True),
         # Message delete SET NULLs this FK. Unlinked rows linger until the
         # orphan reaper; their bytes are often already gone (chat purge), so
         # the gallery would show blank tiles that 404 on /file.

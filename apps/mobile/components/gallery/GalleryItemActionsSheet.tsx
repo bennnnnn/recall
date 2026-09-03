@@ -9,6 +9,7 @@ type Props = {
   visible: boolean;
   canOpenChat: boolean;
   onClose: () => void;
+  onUseInChat: () => void;
   onOpenChat: () => void;
   onShare: () => void;
   onDelete: () => void;
@@ -18,6 +19,7 @@ export function GalleryItemActionsSheet({
   visible,
   canOpenChat,
   onClose,
+  onUseInChat,
   onOpenChat,
   onShare,
   onDelete,
@@ -37,6 +39,12 @@ export function GalleryItemActionsSheet({
       minBottomPadding={12}
       contentContainerStyle={panelStyle}
     >
+      <ActionSheetRow
+        icon="attach-outline"
+        label={t("gallery.use_in_chat")}
+        onPress={onUseInChat}
+        theme={theme}
+      />
       {canOpenChat ? (
         <ActionSheetRow
           icon="chatbubble-outline"

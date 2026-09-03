@@ -31,6 +31,37 @@ async def test_create_pending_attachment(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_insert_verified_clone_hides_from_library(fake_session):
+    from datetime import UTC, datetime
+
+    from app.repositories.attachments import insert_verified_clone
+
+    src = MagicMock()
+    src.user_id = uuid4()
+    src.content_type = "image/png"
+    src.size_bytes = 12
+    src.source = "generated"
+    src.original_filename = "cat.png"
+    src.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
+    new_id = uuid4()
+
+    row = await insert_verified_clone(
+        fake_session,
+        src=src,
+        new_id=new_id,
+        storage_key="user/clone",
+    )
+
+    fake_session.add.assert_called_once()
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_called()
+    assert row.id == new_id
+    assert row.library_visible is False
+    assert row.message_id is None
+    assert row.storage_key == "user/clone"
+
+
+@pytest.mark.asyncio
 async def test_get_by_id_returns_attachment(fake_session):
     from app.repositories.attachments import get_by_id
 
@@ -183,6 +214,7 @@ async def test_list_for_gallery_excludes_unverified(fake_session):
     compiled = captured["stmt"].compile(dialect=postgresql.dialect())
     sql = str(compiled)
     assert "verified_at" in sql
+    assert "library_visible" in sql
     assert "message_id" in sql
     assert "IS NOT NULL" in sql.upper() or "is not" in sql.lower()
 

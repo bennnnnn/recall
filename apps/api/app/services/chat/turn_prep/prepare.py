@@ -96,6 +96,8 @@ async def prepare_chat_turn(
         redis=redis,
         on_status=on_status,
     )
+    if attachments.resolved_attachment_ids is not None:
+        attachment_ids = attachments.resolved_attachment_ids
     user = attachments.user
     user_content = attachments.user_content
     content = attachments.content
