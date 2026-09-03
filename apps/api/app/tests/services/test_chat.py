@@ -1364,6 +1364,13 @@ async def test_build_prompt_day_planning_injects_daily_learning():
     assert "vocabulary quiz" in system
     assert "Never reuse yesterday's scores from memory" in system
     assert "SHOULD NOT USE" not in system
+    assert "Always mention both Calendar and Gmail" not in system
+    assert "Skip a product with no block" in system
+    assert "Only mention Calendar or Gmail" in system
+    assert "ordinary markdown prose" in system
+    assert "Never a callout card" in system
+    assert "Settings → Google Calendar" in system
+    assert "Settings → Gmail" in system
 
 
 @pytest.mark.asyncio

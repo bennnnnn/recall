@@ -131,3 +131,52 @@ async def test_skips_email_nudge_when_include_flag_false():
         )
     load_nudge.assert_not_awaited()
     assert "should not appear" not in out[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_day_planning_injects_calendar_and_gmail_not_connected_blocks():
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings(gmail_enabled=True, google_calendar_enabled=True)
+    with (
+        patch(
+            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            return_value=True,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            return_value=True,
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_calendar_prompt_block",
+            AsyncMock(return_value="Google Calendar: not connected."),
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_gmail_prompt_block",
+            AsyncMock(return_value="Gmail: not connected.\nSettings → Gmail"),
+        ),
+        patch(
+            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            AsyncMock(return_value="- should not appear"),
+        ),
+    ):
+        out = await _inject_integration_blocks(
+            [{"role": "system", "content": "base"}],
+            "What's still open for me to finish tonight?",
+            user,
+            MagicMock(),
+            settings,
+            instant_reply=None,
+            lightweight=False,
+            minimal_personal=False,
+            minimal_quiz=False,
+            day_reflection=False,
+            has_calendar_write=False,
+            gmail_context=None,
+            on_status=None,
+        )
+    content = out[0]["content"]
+    assert "Google Calendar: not connected" in content
+    assert "Gmail: not connected" in content
+    assert "Settings → Gmail" in content
+    assert "should not appear" not in content

@@ -46,6 +46,9 @@ def test_format_not_connected_mentions_settings():
             True,
         ),
         ("Help me plan my day based on what you know about me.", True),
+        ("What's still open for me to finish tonight?", True),
+        ("What's still open for me to finish today?", True),
+        ("I have a quick thought I want to talk through.", False),
         ("What time is my flight", True),
         ("do I have free time tomorrow", True),
         ("solve for the hypotenuse", False),
@@ -293,6 +296,8 @@ async def test_load_calendar_for_prompt_not_connected_is_explicit():
     assert block is not None
     assert "not connected" in block.lower()
     assert "do not say the calendar is empty" in block.lower()
+    assert "ordinary markdown prose" in block
+    assert "Never a callout card" in block
     assert "No upcoming events" not in block
 
 

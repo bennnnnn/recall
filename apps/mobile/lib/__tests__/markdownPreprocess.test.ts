@@ -62,6 +62,25 @@ describe("preprocessMarkdown", () => {
     expect(out).toContain("hot surface");
   });
 
+  it("does not turn a plain Calendar/Gmail connect sentence into a callout card", () => {
+    const src =
+      "Google Calendar is not connected. Connect it in Settings → Google Calendar to see meetings.\n\n" +
+      "Gmail is not connected. Connect it in Settings → Gmail for inbox items.";
+    const out = preprocessMarkdown(src);
+    expect(out).not.toContain("```callout-tip");
+    expect(out).not.toContain("```callout-warning");
+    expect(out).not.toContain("```callout-important");
+    expect(out).toContain("Google Calendar is not connected");
+    expect(out).toContain("Gmail is not connected");
+  });
+
+  it("does not turn italic connect copy into a callout card", () => {
+    const src =
+      "*Google Calendar and Gmail are not connected. Connect them in Settings → Google Calendar / Settings → Gmail.*";
+    const out = preprocessMarkdown(src);
+    expect(out).not.toContain("```callout");
+  });
+
   it("promotes a quoted paragraph with attribution into a blockquote", () => {
     const src =
       '"Courage is the most important of all the virtues because without courage, you can\'t practice any other virtue consistently." - Maya Angelou';

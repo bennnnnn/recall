@@ -42,8 +42,10 @@ CALENDAR_HINT = (
     "mention both when relevant. "
     "For day-planning questions (how's my day, plan my day, what to prioritize), lead with today's "
     "calendar when a connected events block is present. "
-    "If the block says Google Calendar is **not connected**, say that — do not claim the calendar "
-    "is empty, clear, or a clean slate. "
+    "If the block says Google Calendar is **not connected**, say that in ordinary "
+    "markdown prose (never a Tip/Warning/Important callout) and they can connect it in "
+    "Settings → Google Calendar. "
+    "Do not claim the calendar is empty, clear, or a clean slate. "
     "When they ask to check their calendar and no Google Calendar block is present, tell them "
     "it is not connected and they can connect it in Settings → Google Calendar."
 )
@@ -143,8 +145,9 @@ def format_not_connected_calendar_block() -> str:
     return (
         "Google Calendar: not connected.\n"
         "Do not say the calendar is empty, clear, or a clean slate. "
-        "State that Google Calendar is not connected; they can connect it in "
-        "Settings → Google Calendar if they want meetings surfaced."
+        "Mention in ordinary markdown prose that Google Calendar is not connected; they "
+        "can connect it in Settings → Google Calendar. Never a callout card "
+        "(`> Tip:`, `> Warning:`, `> Important:`)."
     )
 
 

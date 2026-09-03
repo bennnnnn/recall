@@ -29,8 +29,16 @@ def test_should_inject_gmail_block_for_inbox_and_day_planning():
     assert email_service.should_inject_gmail_block(
         "How's my day looking so far — anything you think I should prioritize?"
     )
+    assert email_service.should_inject_gmail_block("What's still open for me to finish tonight?")
+    assert email_service.should_inject_gmail_block(
+        "Help me plan my day based on what you know about me."
+    )
+    assert email_service.should_inject_gmail_block("What's still open for me to finish today?")
     assert not email_service.should_inject_gmail_block(
         "How did my day go? Help me reflect and wrap up loose ends."
+    )
+    assert not email_service.should_inject_gmail_block(
+        "I'm still up — what should I tackle or wind down?"
     )
     assert not email_service.should_inject_gmail_block("solve x^2 = 4")
     assert not email_service.should_inject_gmail_block("best restaurants near me")
@@ -216,6 +224,17 @@ def test_format_not_connected_answer_mentions_settings():
     answer = email_service.format_not_connected_answer()
     assert "Settings" in answer
     assert "Gmail" in answer
+
+
+def test_format_not_connected_gmail_block_tells_model_to_suggest_connect():
+    from app.services import email as email_service
+
+    block = email_service.format_not_connected_gmail_block()
+    assert "Gmail: not connected" in block
+    assert "Settings → Gmail" in block
+    assert "do not skip inbox" in block.lower()
+    assert "ordinary markdown prose" in block
+    assert "Never a callout card" in block
 
 
 def test_format_pending_suggestions_nudge_includes_sender():
@@ -438,6 +457,49 @@ async def test_load_gmail_for_prompt_returns_block():
 
     assert block is not None
     assert "me@example.com" in block
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_for_prompt_not_connected_is_explicit():
+    from app.services import email as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings(gmail_enabled=True, google_client_id="x", google_client_secret="y")
+
+    with patch(
+        "app.services.email.load_gmail_context",
+        AsyncMock(return_value=None),
+    ):
+        block = await email_service.load_gmail_for_prompt(session, redis, user, settings)
+
+    assert block is not None
+    assert "not connected" in block.lower()
+    assert "Settings → Gmail" in block
+    assert "do not skip inbox" in block.lower()
+    assert "ordinary markdown prose" in block
+    assert "Never a callout card" in block
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_for_prompt_not_configured_is_silent():
+    from app.services import email as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings(gmail_enabled=False)
+
+    with patch(
+        "app.services.email.load_gmail_context",
+        AsyncMock(return_value=None),
+    ):
+        block = await email_service.load_gmail_for_prompt(session, redis, user, settings)
+
+    assert block is None
 
 
 def test_format_gmail_block_fetch_error():
