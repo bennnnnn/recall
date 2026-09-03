@@ -21,7 +21,10 @@ from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
 from app.services.day_planning import is_day_planning_question
-from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
+from app.services.memory.text import (
+    is_explicit_memory_command,
+    memory_extract_user_text,
+)
 from app.services.quota import utc_today
 from app.services.text_normalize import cap_text_head_tail
 
@@ -29,11 +32,6 @@ logger = logging.getLogger(__name__)
 
 # Memory extraction only needs recent head+tail; keep the job payload bounded.
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
-
-
-def memory_extract_user_text(content: str) -> str:
-    """User prose only — drop attachment OCR/excerpts so they cannot become memories."""
-    return text_before_attachment_markers(strip_untrusted_blocks(content or "")).strip()
 
 
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
@@ -292,9 +290,13 @@ async def enqueue_post_turn_jobs(
             ctx.user_id,
             ctx.chat_id,
         )
-    should_extract_memory = turn_number == 1 or (
-        settings.memory_extract_every_n_turns > 0
-        and turn_number % settings.memory_extract_every_n_turns == 0
+    should_extract_memory = (
+        turn_number == 1
+        or (
+            settings.memory_extract_every_n_turns > 0
+            and turn_number % settings.memory_extract_every_n_turns == 0
+        )
+        or is_explicit_memory_command(memory_user_text)
     )
     if (
         not spend_capped

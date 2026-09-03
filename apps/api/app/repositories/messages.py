@@ -60,6 +60,49 @@ async def list_recent(
     return messages
 
 
+async def list_user_contents_since(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    after_created_at: datetime | None = None,
+    after_id: UUID | None = None,
+    limit: int = 20,
+) -> list[Message]:
+    """User messages in a chat after an extract cursor, oldest first.
+
+    With no cursor, returns the most recent ``limit`` user lines (still oldest
+    first) so a first pass or Redis miss still covers skipped turns.
+    """
+    page_size = max(limit, 1)
+    if after_created_at is not None and after_id is not None:
+        result = await session.execute(
+            select(Message)
+            .where(
+                Message.chat_id == chat_id,
+                Message.role == "user",
+                or_(
+                    Message.created_at > after_created_at,
+                    and_(
+                        Message.created_at == after_created_at,
+                        Message.id > after_id,
+                    ),
+                ),
+            )
+            .order_by(Message.created_at.asc(), Message.id.asc())
+            .limit(page_size)
+        )
+        return list(result.scalars().all())
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id, Message.role == "user")
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(page_size)
+    )
+    rows = list(result.scalars().all())
+    rows.reverse()
+    return rows
+
+
 async def list_all(
     session: AsyncSession,
     chat_id: UUID,

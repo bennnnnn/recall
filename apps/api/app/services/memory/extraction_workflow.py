@@ -18,6 +18,10 @@ from app.services.memory import (
     stamp_memory_as_of,
 )
 from app.services.memory.apply import apply_memory_section_rows
+from app.services.memory.extract_backlog import (
+    expand_memory_extract_transcript,
+    stamp_extract_cursor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +65,25 @@ async def extract_and_store_memories(
         try:
             async with SessionLocal() as session:
                 snapshot = await _load_memory_extraction_snapshot(session, user_id)
-            if not snapshot.memory_enabled:
+                if not snapshot.memory_enabled:
+                    return None
+                expanded, newest_cursor = await expand_memory_extract_transcript(
+                    session,
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    fallback_transcript=transcript,
+                )
+            if not expanded.strip():
                 return None
 
             result = await memory_llm.revise_memory_sections(
                 settings,
-                transcript,
+                expanded,
                 existing_sections=snapshot.existing_sections,
             )
             if not result or not result.sections:
+                if newest_cursor:
+                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 return None
 
             rows: list[tuple[str, str, float, UUID | None]] = []
@@ -98,6 +112,8 @@ async def extract_and_store_memories(
                     session_factory=SessionLocal,
                     memories=memories_repo,
                 )
+            if newest_cursor:
+                await stamp_extract_cursor(user_id, chat_id, newest_cursor)
         finally:
             await release_memory_write_lock(user_id, lock_token)
         return None

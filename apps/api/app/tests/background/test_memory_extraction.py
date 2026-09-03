@@ -39,6 +39,21 @@ def _real_memory_lock():
 
 
 @pytest.fixture(autouse=True)
+def _memory_extract_backlog_noop():
+    with (
+        patch(
+            "app.services.memory.extract_backlog.messages_repo.list_user_contents_since",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.memory.extract_backlog.get_redis_client",
+            MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
+        ),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _memory_write_lock_always_free(request: pytest.FixtureRequest):
     """extract_and_store_memories now acquires memwrite:{user_id} before its
     read-modify-write section (guards against a concurrent consolidation

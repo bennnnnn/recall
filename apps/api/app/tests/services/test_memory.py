@@ -10,6 +10,7 @@ from app.services.memory import (
     exclude_sensitive_for_query,
     extract_consolidation_anchors,
     is_diet_health_memory_text,
+    is_explicit_memory_command,
     is_food_or_diet_query,
     is_sensitive_memory_text,
     normalize_memory_text,
@@ -65,6 +66,13 @@ def test_stamp_memory_as_of_prefixes_and_replaces():
     restamped = stamp_memory_as_of(stamped, as_of=date(2026, 8, 1))
     assert restamped == "As of 2026-08-01: Name is Sam"
     assert strip_memory_as_of(restamped) == "Name is Sam"
+
+
+def test_is_explicit_memory_command_detects_remember_and_forget():
+    assert is_explicit_memory_command("Remember this: I am allergic to peanuts") is True
+    assert is_explicit_memory_command("Please forget that I live in Boston") is True
+    assert is_explicit_memory_command("I remember when we first met") is False
+    assert is_explicit_memory_command("I'm allergic to peanuts") is False
 
 
 def test_is_sensitive_memory_text_flags_health_and_finance():
