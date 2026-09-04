@@ -38,3 +38,27 @@ export function adoptNewComposerThread(
   drafts.set(toKey, currentText);
   return toKey;
 }
+
+/**
+ * A failed send may restore into the composer only when it is empty or still
+ * holds the sent text (setInput("") may not have flushed). Newer text wins.
+ */
+export function shouldRestoreFailedSend(
+  currentText: string,
+  failedText: string,
+): boolean {
+  const current = currentText.trim();
+  return current.length === 0 || current === failedText.trim();
+}
+
+/** Stash a failed send onto another thread unless that slot already has newer text. */
+export function stashFailedSendDraft(
+  drafts: Map<string, string>,
+  key: string,
+  failedText: string,
+): void {
+  const stored = drafts.get(key) ?? "";
+  if (shouldRestoreFailedSend(stored, failedText)) {
+    drafts.set(key, failedText);
+  }
+}

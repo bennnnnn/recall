@@ -81,6 +81,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment, edit, and in-progress
   dictation so they cannot send into the wrong conversation.
+- ✅ **Send stays busy until accepted** — after Send, the composer clears so the next
+  draft can be typed, but Send and Attach stay disabled until upload/create finishes.
+  A failed turn restores into an empty composer and does not overwrite a newer draft.
 - ✅ **Regenerate** — re-run the last assistant reply.
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do

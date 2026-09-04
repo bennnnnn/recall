@@ -20,7 +20,7 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chat/chatSendLogic";
-import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
+import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
 import {
   extractImageGenPrompt,
   extractImageRevisionPrompt,
@@ -132,7 +132,7 @@ export function useChatSend({
     inputRef,
     switchThread,
     adoptComposerThread,
-    saveDraftForThread,
+    stashFailedDraftForThread,
     getThreadKey,
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
@@ -271,12 +271,12 @@ export function useChatSend({
       const attached = pendingAttachment;
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
-      // Clear the composer immediately — including the attachment chip.
-      // Upload continues in the background; keeping the chip + attachBusy
-      // showed a second spinner next to the optimistic bubble.
+      // Clear the composer immediately so the next draft can be typed.
+      // Keep Send/Attach busy until the turn is accepted — an idle button
+      // with sendInFlightRef set looked finished and ate the next tap.
       setInput("");
       setPendingAttachment(null);
-      setSendPhase("idle");
+      setSendPhase(attached ? "uploading" : "preparing");
       Keyboard.dismiss();
 
       const isEdit = Boolean(editingMessageId && chatId);
@@ -305,10 +305,12 @@ export function useChatSend({
           newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
         }
         if (getThreadKey() === sendThreadKey) {
-          setInput(text);
-          setPendingAttachment(attached);
+          if (shouldRestoreFailedSend(inputRef.current, text)) {
+            setInput(text);
+            setPendingAttachment(attached);
+          }
         } else {
-          saveDraftForThread(sendThreadKey, text);
+          stashFailedDraftForThread(sendThreadKey, text);
         }
         sendInFlightRef.current = false;
         setSendPhase("idle");
@@ -419,13 +421,13 @@ export function useChatSend({
       setChatId,
       setChatTitle,
       getThreadKey,
-      saveDraftForThread,
+      stashFailedDraftForThread,
       adoptComposerThread,
     ],
   );
 
   const handlePickAttachment = useCallback(() => {
-    if (!token || attachBusy || streaming) return;
+    if (!token || attachBusy || streaming || sendInFlightRef.current) return;
     Keyboard.dismiss();
     // Let the keyboard finish dismissing before presenting the Modal so the
     // first tap isn't swallowed on Android.
@@ -436,13 +438,20 @@ export function useChatSend({
 
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
-      if (attachPickInFlightRef.current || !token || attachBusy || streaming) return;
+      if (
+        attachPickInFlightRef.current ||
+        !token ||
+        attachBusy ||
+        streaming ||
+        sendInFlightRef.current
+      )
+        return;
       attachPickInFlightRef.current = true;
       setAttachPicking(true);
       setAttachSheetOpen(false);
       await waitForPickerUi();
 
-      if (!token || attachBusy || streaming) {
+      if (!token || attachBusy || streaming || sendInFlightRef.current) {
         attachPickInFlightRef.current = false;
         setAttachPicking(false);
         return;
