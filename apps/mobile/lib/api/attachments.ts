@@ -1,9 +1,17 @@
-import { request } from "@/lib/api/client";
+import { request, requestRaw } from "@/lib/api/client";
+import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 
-function deleteAttachment(token: string, attachmentId: string) {
-  return request<void>(`/attachments/${attachmentId}`, token, {
+async function deleteAttachment(token: string, attachmentId: string): Promise<void> {
+  const generation = getSessionGeneration();
+  await request<void>(`/attachments/${attachmentId}`, token, {
     method: "DELETE",
   });
+  try {
+    const { removeCachedAttachmentFiles } = await import("@/lib/downloadChatAttachment");
+    if (generation === getSessionGeneration()) await removeCachedAttachmentFiles(attachmentId);
+  } catch {
+    // Remote deletion already succeeded; a device cache failure must not undo it.
+  }
 }
 
 export const attachmentsApi = {
@@ -112,3 +120,38 @@ export type AttachmentListResponse = {
   items: AttachmentListItem[];
   has_more: boolean;
 };
+
+
+const ATTACHMENT_UPLOAD_TIMEOUT_MS = 120_000;
+
+/** API uploads share refresh/retry; presigned storage requests never receive Recall credentials. */
+export async function uploadAttachmentBytes(
+  token: string,
+  target: { attachment_id: string; upload_url: string; api_upload: boolean; headers?: Record<string, string> },
+  contentType: string,
+  bytes: ArrayBuffer,
+): Promise<void> {
+  requireTokenSession(token);
+  const generation = getSessionGeneration();
+  const headers = { "Content-Type": contentType, ...target.headers };
+  let response: Response;
+  if (target.api_upload) {
+    response = await requestRaw(`/attachments/${target.attachment_id}/upload`, token, {
+      method: "PUT", headers, body: bytes,
+    }, true, ATTACHMENT_UPLOAD_TIMEOUT_MS);
+  } else {
+    const url = new URL(target.upload_url);
+    if (url.protocol !== "https:" || url.username || url.password) {
+      throw new Error("Recall returned an invalid upload URL.");
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ATTACHMENT_UPLOAD_TIMEOUT_MS);
+    try {
+      response = await fetch(url.toString(), { method: "PUT", headers, body: bytes, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  if (generation !== getSessionGeneration()) throw new SessionChangedError();
+  if (!response.ok) throw new Error("Upload failed. Please try again.");
+}

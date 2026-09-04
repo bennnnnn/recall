@@ -1,9 +1,12 @@
+import { getSessionGeneration } from "@/lib/auth";
 import {
   queueComposerAttachment,
   resetComposerAttachmentQueue,
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
 } from "@/lib/pendingComposerAttachment";
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
+beforeEach(() => { (getSessionGeneration as jest.Mock).mockReturnValue(0); });
 
 describe("pendingComposerAttachment", () => {
   afterEach(() => {
@@ -26,4 +29,17 @@ describe("pendingComposerAttachment", () => {
     expect(takeQueuedComposerAttachment()).toBeNull();
     stop();
   });
+});
+
+it("does not consume an attachment intended for a different composer", () => {
+  const pending = { localUri: "file://a.pdf", contentType: "application/pdf", fileName: "a.pdf", kind: "file" as const };
+  queueComposerAttachment(pending, "chat-a");
+  expect(takeQueuedComposerAttachment("chat-b")).toBeNull();
+  expect(takeQueuedComposerAttachment("chat-a")).toEqual(pending);
+});
+
+it("discards an unconsumed attachment when the account session changes", () => {
+  queueComposerAttachment({ localUri: "file://private.pdf", contentType: "application/pdf", fileName: "private.pdf", kind: "file" });
+  (getSessionGeneration as jest.Mock).mockReturnValue(1);
+  expect(takeQueuedComposerAttachment()).toBeNull();
 });

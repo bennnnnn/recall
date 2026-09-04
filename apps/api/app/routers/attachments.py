@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.gateways.storage_gateway import StorageUnavailableError
 from app.models.orm import User
 from app.models.schemas import (
     AttachmentListOut,
@@ -35,6 +36,14 @@ async def require_attachments_enabled(
 
 def _workflow_http_error(exc: attachment_workflow.AttachmentWorkflowError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=exc.detail)
+
+
+def _storage_http_error() -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail="Attachment storage is temporarily unavailable. Please try again.",
+        headers={"Retry-After": "5"},
+    )
 
 
 @router.get("", response_model=AttachmentListOut)
@@ -90,6 +99,8 @@ async def presign_upload(
         )
     except AttachmentUploadError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc
 
 
 @router.put(
@@ -114,6 +125,8 @@ async def upload_attachment_bytes(
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc
 
 
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -133,6 +146,8 @@ async def delete_attachment(
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc
 
 
 @router.post(
@@ -156,6 +171,8 @@ async def confirm_upload(
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc
 
 
 @router.get("/{attachment_id}/file", response_model=None)
@@ -176,6 +193,8 @@ async def serve_attachment_file(
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc
     if access.body is not None:
         return Response(
             content=access.body,
@@ -219,3 +238,5 @@ async def download_url(
         )
     except attachment_workflow.AttachmentWorkflowError as exc:
         raise _workflow_http_error(exc) from exc
+    except StorageUnavailableError as exc:
+        raise _storage_http_error() from exc

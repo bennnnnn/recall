@@ -511,4 +511,109 @@ describe("useChat transport lifecycle", () => {
     expect(current.messages.filter((message) => message.content === "retry not dispatched")).toHaveLength(1);
   });
 
+  it.each(["ws", "sse"])("recovers a definitely unsaved attachment rejection over %s without resending its invalid id", async (transport) => {
+    const originalDraft = { text: "  My exact question\n", attachment: {
+      kind: "file" as const, localUri: "file:///original.pdf", fileName: "original.pdf",
+      contentType: "application/pdf", existingAttachmentId: "rejected-id",
+    } };
+    const error = { type: "error", code: "attachment_rejected", message: "File unavailable" };
+    (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+      onEvent({ type: "start" }); onEvent(error);
+    });
+    await render(<Probe chatId="a" />);
+    const socket = transport === "ws" ? await openSocket() : null;
+    await act(async () => {
+      const sending = current.sendMessage("My exact question", {
+        attachmentIds: ["rejected-id"], composerDraft: originalDraft,
+      });
+      if (socket) { await sending; socket.emit({ type: "start" }); socket.emit(error); }
+      else { FakeSocket.instances[0].onerror(); await sending; }
+    });
+    expect(current.messages).toEqual([]);
+    expect(onError).toHaveBeenLastCalledWith("File unavailable", "attachment_rejected");
+    expect(current.rejectedSend?.reason).toBe("attachment_rejected");
+    originalDraft.text = "mutated later";
+    originalDraft.attachment.localUri = "file:///replacement.pdf";
+    await act(async () => { expect(await current.retryRejectedSend()).toBe(false); });
+    const restore = jest.fn(() => false);
+    await act(async () => { expect(current.restoreRejectedAttachmentDraft(restore)).toBe(false); });
+    expect(current.rejectedSend).not.toBeNull();
+    expect(restore).toHaveBeenLastCalledWith({ text: "  My exact question\n", attachment: {
+      kind: "file", localUri: "file:///original.pdf", fileName: "original.pdf", contentType: "application/pdf",
+    } });
+    restore.mockReturnValue(true);
+    await act(async () => { expect(current.restoreRejectedAttachmentDraft(restore)).toBe(true); });
+    expect(current.rejectedSend).toBeNull();
+    await act(async () => { expect(current.restoreRejectedAttachmentDraft(restore)).toBe(false); });
+    expect(restore).toHaveBeenCalledTimes(2);
+    if (socket) expect(socket.send.mock.calls.map(([data]) => JSON.parse(data).type)).toEqual([undefined, "message"]);
+    else expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains rejected attachment recovery for its chat and refuses stale or cross-account callbacks", async () => {
+    const view = await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("unsaved file", { attachmentIds: ["bad-id"] });
+      socket.emit({ type: "error", code: "attachment_rejected" });
+    });
+    const oldRestore = current.restoreRejectedAttachmentDraft;
+    const restore = jest.fn(() => true);
+    await view.rerender(<Probe chatId="b" />);
+    await act(async () => { expect(oldRestore(restore)).toBe(false); });
+    expect(current.rejectedSend).toBeNull();
+    await view.rerender(<Probe chatId="a" />);
+    expect(current.rejectedSend?.reason).toBe("attachment_rejected");
+    await act(async () => { expect(oldRestore(restore)).toBe(false); });
+    const beforeSignout = current.restoreRejectedAttachmentDraft;
+    mockSessionGeneration++;
+    await act(async () => { expect(beforeSignout(restore)).toBe(false); });
+    await view.rerender(<Probe chatId="a" token="other-account" />);
+    await act(async () => { expect(current.restoreRejectedAttachmentDraft(restore)).toBe(false); });
+    expect(current.rejectedSend).toBeNull();
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it.each(["token", "stream_end", "done"])("never restores an accepted attachment turn after %s", async (type) => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const restore = jest.fn(() => true);
+    await act(async () => {
+      await current.sendMessage("already saved", { attachmentIds: ["saved-id"] });
+      socket.emit({ type: "start" });
+      socket.emit({ type, content: "answer", message_id: "saved", final_content: "answer" });
+      socket.emit({ type: "error", code: "attachment_rejected" });
+      expect(await current.retryRejectedSend()).toBe(false);
+      expect(current.restoreRejectedAttachmentDraft(restore)).toBe(false);
+    });
+    expect(current.rejectedSend).toBeNull();
+    expect(current.messages.some((message) => message.content === "already saved")).toBe(true);
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it("keeps the visible recovery action aligned with mixed rejection reasons in FIFO order", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("busy first");
+      socket.emit({ type: "error", code: "busy" });
+      await current.sendMessage("attachment second", { attachmentIds: ["bad-id"] });
+      socket.emit({ type: "error", code: "attachment_rejected" });
+    });
+    expect(onError).toHaveBeenLastCalledWith("chat.error_generic", "send_rejected");
+    const restore = jest.fn(() => true);
+    await act(async () => {
+      expect(current.restoreRejectedAttachmentDraft(restore)).toBe(false);
+      await current.retryRejectedSend();
+      socket.emit({ type: "done", message_id: "first-saved", final_content: "answer" });
+    });
+    expect(current.rejectedSend?.reason).toBe("attachment_rejected");
+    await act(async () => {
+      expect(await current.retryRejectedSend()).toBe(false);
+      expect(current.restoreRejectedAttachmentDraft(restore)).toBe(true);
+    });
+    expect(restore).toHaveBeenCalledWith({ text: "attachment second", attachment: null });
+    expect(current.rejectedSend).toBeNull();
+  });
+
 });

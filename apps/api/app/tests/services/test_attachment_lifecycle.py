@@ -1,5 +1,6 @@
 """Attachment lifecycle service tests."""
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -42,7 +43,7 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
         patch(
             "app.repositories.attachment_chunks.delete_for_attachment_ids",
             AsyncMock(),
-        ),
+        ) as chunks,
         patch(
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
@@ -53,6 +54,7 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
         )
 
     assert deleted == 1
+    chunks.assert_not_awaited()
     assert order == ["rows", "bytes:user/file"]
 
 
@@ -88,7 +90,7 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
         patch(
             "app.repositories.attachment_chunks.delete_for_attachment_ids",
             AsyncMock(),
-        ),
+        ) as chunks,
         patch(
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
@@ -97,6 +99,7 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
     assert deleted == 1
+    chunks.assert_not_awaited()
     assert order == [f"bytes:{row.storage_key}", f"rows:{row.id}"]
 
 
@@ -153,7 +156,7 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
         patch(
             "app.repositories.attachment_chunks.delete_for_attachment_ids",
             AsyncMock(),
-        ),
+        ) as chunks,
         patch(
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
@@ -166,6 +169,7 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
     assert deleted == 1
+    chunks.assert_not_awaited()
     assert deleted_keys == ["user/ok"]
     delete_rows.assert_awaited_once()
     assert delete_rows.await_args.args[1] == [ok.id]
@@ -228,7 +232,8 @@ async def test_reap_orphan_attachments_deletes_db_rows_before_bytes():
     async def _delete_bytes(key):
         call_order.append("bytes")
 
-    async def _delete_unlinked(session, ids):
+    async def _delete_unlinked(session, ids, *, orphan_only):
+        assert orphan_only
         call_order.append("db")
         return [orphan.storage_key]
 
@@ -300,6 +305,9 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     orphan.content_type = "image/png"
     orphan.storage_key = "user/img"
     orphan.source = "upload"
+    orphan.library_visible = True
+    orphan.verified_at = None
+    orphan.created_at = datetime.now(UTC)
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
@@ -340,7 +348,7 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
 
 
 @pytest.mark.asyncio
-async def test_reap_orphan_attachments_refunds_image_generation_quota():
+async def test_reap_orphan_attachments_does_not_refund_generated_reuse_clones():
     """Reaping a generated-image orphan must refund imggen, not imgup."""
     settings = Settings()
     user_id = uuid4()
@@ -385,7 +393,7 @@ async def test_reap_orphan_attachments_refunds_image_generation_quota():
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     assert deleted == 1
-    refund_gen.assert_awaited_once_with(fake_redis, user_id)
+    refund_gen.assert_not_awaited()
     refund_upload.assert_not_awaited()
 
 
@@ -480,7 +488,7 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
 async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
     """DB-first: a failed storage delete (for a row already removed from DB)
     is logged and skipped — it does not abort the batch. The DB row is already
-    gone; the orphaned R2 object is covered by the bucket lifecycle policy."""
+    gone; failed objects must remain queued for the next cleanup pass."""
     settings = Settings()
     ok = MagicMock()
     ok.id = uuid4()
@@ -498,7 +506,8 @@ async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
     gateway = MagicMock()
     gateway.delete_bytes = delete_bytes
 
-    async def delete_unlinked(_session, ids):
+    async def delete_unlinked(_session, ids, *, orphan_only):
+        assert orphan_only
         # Both rows confirmed still unlinked at delete time.
         return ["user/ok", "user/bad"]
 
@@ -515,11 +524,15 @@ async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
             "app.services.attachment_lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
+        patch(
+            "app.services.attachment_lifecycle.enqueue_failed_storage_deletes", AsyncMock()
+        ) as enqueue,
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     # Both rows were removed from the DB; the bad storage delete is best-effort.
     assert deleted == 2
+    enqueue.assert_awaited_once_with(["user/bad"])
 
 
 @pytest.mark.asyncio

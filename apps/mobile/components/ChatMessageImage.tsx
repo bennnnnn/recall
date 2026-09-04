@@ -13,7 +13,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { Icon } from "@/components/Icon";
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { resolveAttachmentUri } from "@/lib/attachmentUri";
+import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
 import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
@@ -132,7 +132,7 @@ export function ChatMessageImage({
 
   useEffect(() => {
     setFailed(false);
-  }, [remoteUri]);
+  }, [remoteUri, token]);
 
   // Warm a local file:// copy so fullscreen opens instantly and download/share
   // don't hit createDownloadResumable (auth URLs fail there).
@@ -153,10 +153,8 @@ export function ChatMessageImage({
 
   if (!remoteUri) return null;
 
-  const source =
-    token && attachmentId && !localUri
-      ? { uri: remoteUri, headers: { Authorization: `Bearer ${token}` } }
-      : { uri: remoteUri };
+  const headers = attachmentRequestHeaders(remoteUri, token);
+  const source = Object.keys(headers).length ? { uri: remoteUri, headers } : { uri: remoteUri };
 
   // Local file:// previews (and user attach thumbs) stay sharp — no blur
   // "develop" reveal that restarts when a silent refetch swaps the URI.

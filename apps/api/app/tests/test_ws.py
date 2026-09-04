@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.core.access_tokens import create_access_token
 from app.core.config import Settings
-from app.exceptions import ChatNotFoundError, QuotaExceededError
+from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
 from app.main import create_app
 from app.services.quota import QUOTA_EXCEEDED_MESSAGE
 
@@ -677,13 +677,20 @@ def test_ws_invalid_message_payload():
             assert err["type"] == "error"
 
 
-def test_ws_quota_error_frame():
+@pytest.mark.parametrize(
+    "error,code",
+    [
+        (QuotaExceededError(QUOTA_EXCEEDED_MESSAGE), "quota_exceeded"),
+        (AttachmentValidationError("Attach the file again."), "attachment_rejected"),
+    ],
+)
+def test_ws_rejected_send_error_frame(error, code):
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
 
     async def quota_fail(*args, **kwargs):
-        raise QuotaExceededError(QUOTA_EXCEEDED_MESSAGE)
+        raise error
         yield  # pragma: no cover
 
     app = _app(user)
@@ -702,8 +709,8 @@ def test_ws_quota_error_frame():
             assert ws.receive_json()["type"] == "start"
             err = ws.receive_json()
             assert err["type"] == "error"
-            assert err["code"] == "quota_exceeded"
-            assert "limit" in err["message"].lower()
+            assert err["code"] == code
+            assert err["message"] == error.message
 
 
 # ── user not found ─────────────────────────────────────────────────────────────

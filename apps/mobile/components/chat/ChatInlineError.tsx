@@ -77,6 +77,17 @@ export function ChatInlineError({
           <Text style={s.ctaText}>{t("common.retry")}</Text>
         </Pressable>
       ) : null}
+      {error.kind === "attachment_rejected" && onRetry ? (
+        <Pressable
+          style={s.cta}
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.restore_draft")}
+          testID="chat-error-restore"
+        >
+          <Text style={s.ctaText}>{t("chat.restore_draft")}</Text>
+        </Pressable>
+      ) : null}
       {error.kind === "model_unavailable" && onChangeModel ? (
         <Pressable
           style={s.cta}

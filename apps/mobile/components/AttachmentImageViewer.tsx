@@ -17,10 +17,12 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import {
   ensureLocalAttachmentFile,
   getCachedAttachmentFile,
+  invalidateCachedAttachmentFile,
   saveChatAttachmentToLibrary,
   shareChatAttachment,
 } from "@/lib/downloadChatAttachment";
-import { resolveAttachmentUri } from "@/lib/attachmentUri";
+import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
+import { getSessionGeneration } from "@/lib/auth";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -62,11 +64,15 @@ export function AttachmentImageViewer({
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
-  const [cachedUri, setCachedUri] = useState<string | null>(null);
+  const [cachedFile, setCachedFile] = useState<{ key: object; uri: string } | null>(null);
 
   const remoteUri = useMemo(() => {
     return resolveAttachmentUri({ attachmentId, localUri, path });
   }, [attachmentId, localUri, path]);
+
+  const sessionGeneration = getSessionGeneration();
+  const fileKey = useMemo(() => ({ remoteUri, sessionGeneration }), [remoteUri, sessionGeneration]);
+  const cachedUri = cachedFile?.key === fileKey ? cachedFile.uri : null;
 
   // Prefer local file / in-memory cache / thumbnail URI so the large view
   // paints immediately instead of waiting on a second authenticated fetch.
@@ -86,12 +92,6 @@ export function AttachmentImageViewer({
     }
     if (!remoteUri) return;
 
-    const existing = getCachedAttachmentFile(remoteUri) || localUri;
-    if (existing) {
-      setCachedUri(existing);
-      return;
-    }
-
     let cancelled = false;
     void ensureLocalAttachmentFile({
       uri: remoteUri,
@@ -99,7 +99,7 @@ export function AttachmentImageViewer({
       fileName,
     })
       .then((uri) => {
-        if (!cancelled) setCachedUri(uri);
+        if (!cancelled) setCachedFile({ key: fileKey, uri });
       })
       .catch(() => {
         // Keep showing previewUri / remote; download/share will surface errors.
@@ -107,21 +107,13 @@ export function AttachmentImageViewer({
     return () => {
       cancelled = true;
     };
-  }, [visible, remoteUri, localUri, previewUri, token, fileName, attempt]);
+  }, [visible, remoteUri, localUri, previewUri, token, fileName, attempt, fileKey]);
 
   const source = useMemo(() => {
     if (!displayUri) return null;
-    if (
-      token &&
-      attachmentId &&
-      !localUri &&
-      !cachedUri &&
-      displayUri.startsWith("http")
-    ) {
-      return { uri: displayUri, headers: { Authorization: `Bearer ${token}` } };
-    }
-    return { uri: displayUri };
-  }, [displayUri, token, attachmentId, localUri, cachedUri]);
+    const headers = attachmentRequestHeaders(displayUri, token);
+    return Object.keys(headers).length ? { uri: displayUri, headers } : { uri: displayUri };
+  }, [displayUri, token]);
 
   const handleDownload = async () => {
     if (!remoteUri || busy) return;
@@ -253,7 +245,9 @@ export function AttachmentImageViewer({
             {failed ? (
               <MediaLoadRetry
                 onRetry={() => {
-                  setCachedUri(null);
+                  if (remoteUri) invalidateCachedAttachmentFile(remoteUri);
+                  setCachedFile(null);
+                  setFailed(false);
                   setAttempt((n) => n + 1);
                 }}
               />

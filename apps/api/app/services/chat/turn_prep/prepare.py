@@ -9,7 +9,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.ids import uuid7
-from app.exceptions import ChatNotFoundError
+from app.exceptions import ChatBusyError, ChatNotFoundError
 from app.models.orm import Chat, Message, User
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -191,12 +191,18 @@ async def prepare_chat_turn(
                 from app.repositories import attachments as attachments_repo
                 from app.services import attachment_rag as attachment_rag_service
 
-                await attachments_repo.link_to_message(
+                linked = await attachments_repo.link_to_message(
                     session,
                     user_id=user.id,
                     attachment_ids=attachment_ids,
                     message_id=user_message.id,
+                    commit=False,
                 )
+                if linked != len(set(attachment_ids)):
+                    await session.rollback()
+                    raise ChatBusyError(
+                        "An attached file changed while sending. Please retry shortly."
+                    )
                 if settings.attachment_rag_enabled:
                     indexable_rows = await attachments_repo.get_by_ids(
                         session, attachment_ids, user.id

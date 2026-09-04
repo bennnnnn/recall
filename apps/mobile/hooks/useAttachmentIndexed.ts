@@ -9,11 +9,11 @@ const INDEX_POLL_MAX_MS = 60_000;
 /** True once attachment RAG chunks exist (or indexing does not apply). */
 export function useAttachmentIndexed(attachmentId: string | null | undefined): boolean {
   const token = useAuthToken();
-  const [indexed, setIndexed] = useState(!attachmentId);
+  const [result, setResult] = useState({ attachmentId, token, indexed: !attachmentId });
 
   useEffect(() => {
     if (!attachmentId || !token) {
-      setIndexed(!attachmentId);
+      setResult({ attachmentId, token, indexed: !attachmentId });
       return;
     }
     let cancelled = false;
@@ -25,13 +25,13 @@ export function useAttachmentIndexed(attachmentId: string | null | undefined): b
         const row = await api.getAttachmentUrl(token, attachmentId);
         if (cancelled) return;
         if (row.indexed !== false) {
-          setIndexed(true);
+          setResult({ attachmentId, token, indexed: true });
           return;
         }
-        setIndexed(false);
+        setResult({ attachmentId, token, indexed: false });
       } catch {
         if (cancelled) return;
-        setIndexed(false);
+        setResult({ attachmentId, token, indexed: false });
       }
       if (Date.now() - started >= INDEX_POLL_MAX_MS) return;
       timer = setTimeout(() => {
@@ -45,5 +45,5 @@ export function useAttachmentIndexed(attachmentId: string | null | undefined): b
     };
   }, [attachmentId, token]);
 
-  return indexed;
+  return !attachmentId || (result.attachmentId === attachmentId && result.token === token && result.indexed);
 }

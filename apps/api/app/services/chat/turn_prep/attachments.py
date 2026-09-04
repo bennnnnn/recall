@@ -8,10 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.exceptions import ChatNotFoundError
+from app.exceptions import AttachmentValidationError, ChatBusyError, ChatNotFoundError
+from app.gateways.storage_gateway import StorageUnavailableError
 from app.models.math_schemas import MathImageExtract
 from app.models.orm import Attachment, User
 from app.repositories import users as users_repo
+from app.services.attachment_quota import has_current_upload_reservation
 from app.services.chat.stream_status import StreamStatusFn
 
 
@@ -61,6 +63,33 @@ async def _process_attachments(
     redis: Redis,
     on_status: StreamStatusFn | None,
 ) -> _AttachmentProcessResult:
+    """Storage outages here are safe to retry: no user message has been saved yet."""
+    try:
+        return await _process_attachment_inputs(
+            user_id=user_id,
+            user=user,
+            content=content,
+            attachment_ids=attachment_ids,
+            settings=settings,
+            redis=redis,
+            on_status=on_status,
+        )
+    except StorageUnavailableError as exc:
+        raise ChatBusyError(
+            "Attachment storage is temporarily unavailable. Please retry shortly."
+        ) from exc
+
+
+async def _process_attachment_inputs(
+    *,
+    user_id: UUID,
+    user: User | None,
+    content: str,
+    attachment_ids: list[UUID] | None,
+    settings: Settings,
+    redis: Redis,
+    on_status: StreamStatusFn | None,
+) -> _AttachmentProcessResult:
     """Verify/format attachments and optionally vision-extract a camera math equation."""
     user_content = content
     gateway = None
@@ -70,6 +99,8 @@ async def _process_attachments(
     attachment_rows: list[Attachment] = []
     resolved_ids: list[UUID] = []
 
+    if attachment_ids and not settings.attachments_enabled:
+        raise AttachmentValidationError("Attachments are temporarily unavailable.")
     if not (attachment_ids and settings.attachments_enabled):
         return _AttachmentProcessResult(
             user=user,
@@ -83,6 +114,7 @@ async def _process_attachments(
             bytes_by_key={},
         )
 
+    attachment_ids = list(dict.fromkeys(attachment_ids))
     async with SessionLocal() as session:
         if user is None:
             user = await users_repo.get_by_id(session, user_id)
@@ -94,6 +126,10 @@ async def _process_attachments(
             row.id: row
             for row in await attachments_repo.get_by_ids(session, attachment_ids, user.id)
         }
+        if any(attachment_id not in rows_by_id for attachment_id in attachment_ids):
+            raise AttachmentValidationError(
+                "An attached file is no longer available. Attach it again."
+            )
         attachment_rows = [
             rows_by_id[attachment_id]
             for attachment_id in attachment_ids
@@ -103,7 +139,6 @@ async def _process_attachments(
             from app.services.attachment_reuse import ensure_unlinked_copies
 
             attachment_rows = await ensure_unlinked_copies(session, settings, attachment_rows)
-            await session.commit()
         resolved_ids = [row.id for row in attachment_rows]
 
     if not attachment_rows:
@@ -120,7 +155,7 @@ async def _process_attachments(
             resolved_attachment_ids=[],
         )
 
-    from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
+    from app.gateways.storage_gateway import get_storage_gateway
     from app.services import attachment_content as attachment_content_service
 
     if on_status is not None:
@@ -129,9 +164,7 @@ async def _process_attachments(
     gateway = get_storage_gateway(settings)
     # One download per storage_key this turn — reuse for format / OCR / vision.
     bytes_by_key: dict[str, bytes] = {}
-    if not isinstance(gateway, LocalStorageGateway):
-        from app.exceptions import AttachmentValidationError
-
+    if attachment_rows:
         unverified = [row for row in attachment_rows if row.verified_at is None]
         if unverified:
             verified = await asyncio.gather(
@@ -147,20 +180,26 @@ async def _process_attachments(
             )
             for row, (data, error) in zip(unverified, verified, strict=True):
                 if error:
-                    if attachment_content_service.is_image_content_type(row.content_type):
-                        from app.services import quota as quota_service
-
-                        await quota_service.refund_image_upload(redis, user_id)
                     async with SessionLocal() as purge_session:
-                        await attachment_content_service.purge_invalid_upload(
+                        removed = await attachment_content_service.purge_invalid_upload(
                             gateway,
                             purge_session,
                             attachment_id=row.id,
                             storage_key=row.storage_key,
                         )
+                    if (
+                        removed
+                        and attachment_content_service.is_image_content_type(row.content_type)
+                        and has_current_upload_reservation(row)
+                    ):
+                        from app.services import quota as quota_service
+
+                        await quota_service.refund_image_upload(redis, user_id)
                     raise AttachmentValidationError(error)
                 if data:
                     bytes_by_key[row.storage_key] = data
+                    async with SessionLocal() as verify_session:
+                        await attachments_repo.mark_verified(verify_session, row.id)
     attachment_lines: list[str] = []
     formatted = await asyncio.gather(
         *(
