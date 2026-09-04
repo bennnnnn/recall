@@ -78,6 +78,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   is kept. Hard WS/SSE disconnect with tokens already streamed also finalizes (same as soft stop).
   **New chat / leave does not abort SSE** (Stop still does); leftover events are ignored for the
   next thread. `GET /messages` waits for the in-flight SSE producer the same way it waits on WS.
+- ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
+  Opening another thread restores that draft and clears attachment, edit, and in-progress
+  dictation so they cannot send into the wrong conversation.
 - ✅ **Regenerate** — re-run the last assistant reply.
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do

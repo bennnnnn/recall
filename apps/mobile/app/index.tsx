@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
@@ -25,6 +25,7 @@ import { useProjects } from "@/contexts/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/contexts/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
+import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
 import { useChat } from "@/hooks/useChat";
 import { useChatActions } from "@/hooks/useChatActions";
 import { useChatComposerState } from "@/hooks/useChatComposerState";
@@ -97,7 +98,6 @@ function ChatScreen() {
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
-  const setInputRef = useRef<(value: string) => void>(() => {});
   const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
     (message: string, icon?: IoniconName) => void
@@ -163,7 +163,6 @@ function ChatScreen() {
     stopGeneration: stopTurn,
     setQuizVariant,
     resolveQuizVariant,
-    setInputRef,
     listRef: scroll.listRef,
     showActionBanner: (message, icon) => showActionBannerRef.current(message, icon),
     t,
@@ -274,6 +273,7 @@ function ChatScreen() {
   const send = useChatSend({
     token,
     chatId,
+    routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     setChatId,
     setChatTitle,
     router,
@@ -321,19 +321,39 @@ function ChatScreen() {
 
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
 
+  const composerThread = composerThreadKey(
+    typeof routeChatId === "string" ? routeChatId : undefined,
+  );
+  const composerThreadRef = useRef(composerThread);
+  composerThreadRef.current = composerThread;
+  const voiceCaptureThreadRef = useRef(composerThread);
+
   const {
     voiceInputAvailable,
     voiceRecording,
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
+    cancelRecording,
   } = useVoiceInput({
     token,
     onTranscript: (text) => {
+      if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
       setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
     },
     t,
   });
+
+  useLayoutEffect(() => {
+    void cancelRecording();
+  }, [routeChatId, cancelRecording]);
+
+  const handleToggleVoiceInput = useCallback(() => {
+    if (!voiceRecording && !voiceTranscribing) {
+      voiceCaptureThreadRef.current = composerThreadRef.current;
+    }
+    void toggleVoiceInput();
+  }, [toggleVoiceInput, voiceRecording, voiceTranscribing]);
 
   const liveTalk = useLiveTalk({
     token,
@@ -363,8 +383,6 @@ function ChatScreen() {
   const closeMathScanner = useCallback(() => {
     setMathScannerOpen(false);
   }, [setMathScannerOpen]);
-
-  setInputRef.current = setInput;
 
   useEffect(() => {
     setActiveChatIdGlobal(chatId);
@@ -562,7 +580,7 @@ function ChatScreen() {
       voiceRecording,
       voiceTranscribing,
       voiceMeterLevel,
-      toggleVoiceInput,
+      toggleVoiceInput: handleToggleVoiceInput,
       onLiveTalkPress: liveTalk.open,
     },
     liveTalkSession: liveTalk.visible
