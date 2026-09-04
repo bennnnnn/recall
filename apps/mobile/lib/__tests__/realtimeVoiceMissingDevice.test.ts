@@ -1,9 +1,9 @@
 jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
 }));
-jest.mock("expo-device", () => {
-  throw new Error("Cannot find native module 'ExpoDevice'");
-});
+jest.mock("expo-modules-core", () => ({
+  requireOptionalNativeModule: () => null,
+}));
 jest.mock("@/lib/voiceAudio", () => ({
   yieldMicToWebRtc: jest.fn(async () => undefined),
 }));
@@ -21,11 +21,11 @@ describe("realtimeVoice without ExpoDevice", () => {
     expect(isRealtimeVoiceAvailable()).toBe(false);
   });
 
-  it("keeps AEC when this binary was built before expo-device", () => {
+  it("uses the Simulator mic path when this binary was built before expo-device", () => {
     expect(webRtcMicConstraints()).toEqual({
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
     });
   });
 });

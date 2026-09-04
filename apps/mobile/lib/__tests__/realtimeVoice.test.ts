@@ -1,7 +1,9 @@
 jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
 }));
-jest.mock("expo-device", () => ({ isDevice: false }));
+jest.mock("expo-modules-core", () => ({
+  requireOptionalNativeModule: () => ({ isDevice: false }),
+}));
 
 jest.mock("@/lib/voiceAudio", () => ({
   yieldMicToWebRtc: jest.fn(async () => undefined),

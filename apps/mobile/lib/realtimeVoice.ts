@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from "expo-modules-core";
 import { Platform } from "react-native";
 
 import { speechApi } from "@/lib/api/speech";
@@ -80,35 +81,30 @@ export function isRealtimeVoiceAvailable(): boolean {
   return loadWebRtc() !== null;
 }
 
-type ExpoDeviceModule = { isDevice?: boolean };
-
-/** undefined = not loaded yet; null = native module missing from this binary. */
-let deviceModule: ExpoDeviceModule | null | undefined;
-
-/** Same guard as expo-audio: a stale/Expo Go binary must not crash chat on import. */
-function loadExpoDevice(): ExpoDeviceModule | null {
-  if (deviceModule === null) return null;
-  if (deviceModule) return deviceModule;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    deviceModule = require("expo-device") as ExpoDeviceModule;
-    return deviceModule;
-  } catch {
-    deviceModule = null;
-    return null;
-  }
-}
-
+/**
+ * Never import expo-device: its JS calls requireNativeModule('ExpoDevice')
+ * and Metro reports that as a fatal even inside try/catch. Probe the native
+ * registry instead; null means this binary was built before expo-device.
+ */
 function isIosSimulator(): boolean {
   if (Platform.OS !== "ios") return false;
-  return loadExpoDevice()?.isDevice === false;
+  try {
+    const device = requireOptionalNativeModule<{ isDevice?: boolean }>("ExpoDevice");
+    if (device && typeof device.isDevice === "boolean") {
+      return device.isDevice === false;
+    }
+  } catch {
+    // Missing ExpoDevice must not take down Live Talk.
+  }
+  return true;
 }
 
 /**
  * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
  * expo-audio has also touched the session. Only the Simulator uses the
  * half-duplex workaround; physical iOS/Android devices need AEC for barge-in.
- * If ExpoDevice is not in this binary, keep AEC on (phone barge-in) until rebuild.
+ * If ExpoDevice is not in this binary, use the Simulator path so Live Talk
+ * can start until the next native rebuild.
  */
 export function webRtcMicConstraints(): {
   echoCancellation: boolean;
