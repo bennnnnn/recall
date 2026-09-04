@@ -89,8 +89,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
-- ✅ **Edit & resend** — edit a user message (pencil under the bubble); truncates forward from that
-  turn, rewrites the message, and re-runs.
+- ✅ **Edit & resend** — edit the **latest** user turn (pencil under that bubble).
+  Older user messages are not editable: editing still truncates everything after
+  the turn, and Recall does not keep alternate continuations.
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
   DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
   vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips

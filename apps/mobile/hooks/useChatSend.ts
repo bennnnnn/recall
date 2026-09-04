@@ -21,6 +21,7 @@ import {
   shouldBlockSend,
 } from "@/lib/chat/chatSendLogic";
 import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
+import { findLastUserMessageId, isLocalPendingMessageId } from "@/lib/chatMessageLogic";
 import {
   extractImageGenPrompt,
   extractImageRevisionPrompt,
@@ -491,12 +492,14 @@ export function useChatSend({
   const handleEditMessage = useCallback(
     (message: Message) => {
       if (streaming) return;
+      if (findLastUserMessageId(messages) !== message.id) return;
+      if (isLocalPendingMessageId(message.id)) return;
       const parsed = parseUserMessageContent(message.content);
       setInput(parsed.caption || message.content);
       setEditingMessageId(message.id);
       setPendingAttachment(null);
     },
-    [streaming],
+    [streaming, messages],
   );
 
   return {

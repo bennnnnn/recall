@@ -7,6 +7,7 @@ import { SuggestionChips } from "@/components/SuggestionChips";
 import type { Message, Suggestion } from "@/lib/api";
 import {
   findLastAssistantId,
+  findLastUserMessageId,
   isChatStreamActive,
   priorUserTextFor,
   streamVisualActiveForRow,
@@ -66,6 +67,10 @@ export function useChatMessageList({
     () => findLastAssistantId(messages),
     [messages],
   );
+  const lastUserMessageId = useMemo(
+    () => findLastUserMessageId(messages),
+    [messages],
+  );
 
   const headerTitleLabel = null;
 
@@ -95,6 +100,7 @@ export function useChatMessageList({
       selectedModel,
       highlightedMessageId,
       sendingMessageId,
+      lastUserMessageId,
       onRegenerate: regenerateResponse,
       regenerating,
       onEdit: handleEditMessage,
@@ -108,6 +114,7 @@ export function useChatMessageList({
       selectedModel,
       highlightedMessageId,
       sendingMessageId,
+      lastUserMessageId,
       regenerateResponse,
       regenerating,
       handleEditMessage,

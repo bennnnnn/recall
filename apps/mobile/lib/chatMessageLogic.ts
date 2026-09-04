@@ -23,6 +23,13 @@ export function findLastAssistantId(messages: Message[]): string | null {
   return null;
 }
 
+export function findLastUserMessageId(messages: Message[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].id;
+  }
+  return null;
+}
+
 /**
  * Content of the user message immediately before `messages[index]`, when that
  * item is the assistant's reply to it — otherwise null. Computed once per row

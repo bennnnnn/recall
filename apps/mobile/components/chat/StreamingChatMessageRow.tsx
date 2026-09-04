@@ -2,6 +2,7 @@ import React, { memo } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
+import { canEditUserMessage } from "@/lib/chatEditLogic";
 import { useThrottledStreamText } from "@/hooks/useThrottledStreamText";
 import type { Message } from "@/lib/api";
 
@@ -17,6 +18,7 @@ type Props = {
   selectedModel: string;
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
+  lastUserMessageId: string | null;
   onRegenerate: (model: string) => void;
   regenerating?: boolean;
   onEdit: (message: Message) => void;
@@ -35,6 +37,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   selectedModel,
   highlightedMessageId,
   sendingMessageId,
+  lastUserMessageId,
   onRegenerate,
   regenerating = false,
   onEdit,
@@ -71,7 +74,12 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       regenerating={isLastAssistant && regenerating}
       onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
       onEdit={onEdit}
-      canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
+      canEdit={canEditUserMessage({
+        role: item.role,
+        messageId: item.id,
+        lastUserMessageId,
+        streamVisualActive,
+      })}
       onFeedback={onFeedback}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}

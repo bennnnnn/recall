@@ -3,6 +3,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/hooks/useChatSend";
+import type { Message } from "@/lib/api";
 import { uploadChatAttachment } from "@/lib/attachments";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 
@@ -67,6 +68,7 @@ function Probe({
   sendMessage = jest.fn(),
   prepareDraftChat = jest.fn(),
   setMessages = jest.fn(),
+  messages = [],
 }: {
   offline?: boolean;
   chatId?: string | null;
@@ -74,6 +76,7 @@ function Probe({
   sendMessage?: jest.Mock;
   prepareDraftChat?: jest.Mock;
   setMessages?: jest.Mock;
+  messages?: Message[];
 }) {
   current = useChatSend({
     token: "token",
@@ -94,7 +97,7 @@ function Probe({
     sendMessage,
     editMessage: jest.fn(),
     setMessages,
-    messages: [],
+    messages,
     selectedModel: "free-chat",
     user: null,
     updateUser: jest.fn(),
@@ -332,5 +335,44 @@ describe("useChatSend", () => {
       await current.handleSend();
     });
     expect(mockAdoptComposerThread).toHaveBeenCalledWith("created-1");
+  });
+
+  it("starts edit only for the latest user turn", async () => {
+    const older: Message = {
+      id: "u1",
+      role: "user",
+      content: "first",
+      model: null,
+      created_at: "t",
+    };
+    const assistant: Message = {
+      id: "a1",
+      role: "assistant",
+      content: "reply",
+      model: null,
+      created_at: "t",
+    };
+    const latest: Message = {
+      id: "u2",
+      role: "user",
+      content: "second",
+      model: null,
+      created_at: "t",
+    };
+    await act(async () => {
+      render(<Probe chatId="chat-1" messages={[older, assistant, latest]} />);
+    });
+
+    await act(async () => {
+      current.handleEditMessage(older);
+    });
+    expect(current.editingMessageId).toBeNull();
+    expect(mockSetInput).not.toHaveBeenCalled();
+
+    await act(async () => {
+      current.handleEditMessage(latest);
+    });
+    expect(current.editingMessageId).toBe("u2");
+    expect(mockSetInput).toHaveBeenCalled();
   });
 });

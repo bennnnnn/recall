@@ -1,4 +1,22 @@
 import type { Message } from "@/lib/api";
+import {
+  findLastUserMessageId,
+  isLocalPendingMessageId,
+} from "@/lib/chatMessageLogic";
+
+export function canEditUserMessage(options: {
+  role: Message["role"];
+  messageId: string;
+  lastUserMessageId: string | null;
+  streamVisualActive: boolean;
+}): boolean {
+  return (
+    options.role === "user" &&
+    !options.streamVisualActive &&
+    options.messageId === options.lastUserMessageId &&
+    !isLocalPendingMessageId(options.messageId)
+  );
+}
 
 /** Truncate the thread at *messageId* and replace that turn with the edited text. */
 export function applyOptimisticEdit(
@@ -7,6 +25,9 @@ export function applyOptimisticEdit(
   content: string,
   localId: string,
 ): { snapshot: Message[]; messages: Message[] } {
+  if (findLastUserMessageId(messages) !== messageId) {
+    return { snapshot: messages, messages };
+  }
   const index = messages.findIndex((m) => m.id === messageId);
   if (index < 0) {
     return { snapshot: messages, messages };

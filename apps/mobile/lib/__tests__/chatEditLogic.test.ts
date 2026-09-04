@@ -1,4 +1,8 @@
-import { applyOptimisticEdit, shouldRestoreEditOnError } from "@/lib/chatEditLogic";
+import {
+  applyOptimisticEdit,
+  canEditUserMessage,
+  shouldRestoreEditOnError,
+} from "@/lib/chatEditLogic";
 import type { Message } from "@/lib/api";
 
 const user1: Message = {
@@ -47,6 +51,53 @@ describe("chatEditLogic", () => {
       role: "user",
       content: "edited second",
     });
+  });
+
+  it("applyOptimisticEdit is a no-op for an older user turn", () => {
+    const thread = [user1, a1, user2, a2];
+    const { snapshot, messages } = applyOptimisticEdit(
+      thread,
+      "u1",
+      "edited first",
+      "local-edit-1",
+    );
+    expect(snapshot).toBe(thread);
+    expect(messages).toBe(thread);
+  });
+
+  it("canEditUserMessage is true only for the latest persisted user turn", () => {
+    expect(
+      canEditUserMessage({
+        role: "user",
+        messageId: "u2",
+        lastUserMessageId: "u2",
+        streamVisualActive: false,
+      }),
+    ).toBe(true);
+    expect(
+      canEditUserMessage({
+        role: "user",
+        messageId: "u1",
+        lastUserMessageId: "u2",
+        streamVisualActive: false,
+      }),
+    ).toBe(false);
+    expect(
+      canEditUserMessage({
+        role: "user",
+        messageId: "local-1",
+        lastUserMessageId: "local-1",
+        streamVisualActive: false,
+      }),
+    ).toBe(false);
+    expect(
+      canEditUserMessage({
+        role: "user",
+        messageId: "u2",
+        lastUserMessageId: "u2",
+        streamVisualActive: true,
+      }),
+    ).toBe(false);
   });
 
   it("applyOptimisticEdit is a no-op for unknown message ids", () => {

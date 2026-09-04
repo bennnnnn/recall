@@ -1,6 +1,7 @@
 import {
   findLastAssistantId,
   findLastLocalUserMessageId,
+  findLastUserMessageId,
   isChatStreamActive,
   isLocalPendingMessageId,
   priorUserTextFor,
@@ -20,6 +21,21 @@ describe("chatMessageLogic", () => {
     expect(findLastAssistantId(messages)).toBe("4");
     expect(findLastAssistantId([])).toBeNull();
     expect(findLastAssistantId([{ id: "1", role: "user", content: "x" } as Message])).toBeNull();
+  });
+
+  it("findLastUserMessageId returns the latest user message", () => {
+    const messages = [
+      { id: "1", role: "user", content: "hi" },
+      { id: "2", role: "assistant", content: "hello" },
+      { id: "3", role: "user", content: "again" },
+      { id: "4", role: "assistant", content: "sure" },
+    ] as Message[];
+
+    expect(findLastUserMessageId(messages)).toBe("3");
+    expect(findLastUserMessageId([])).toBeNull();
+    expect(
+      findLastUserMessageId([{ id: "a", role: "assistant", content: "x" } as Message]),
+    ).toBeNull();
   });
 
   it("findLastLocalUserMessageId returns the latest optimistic user message", () => {
