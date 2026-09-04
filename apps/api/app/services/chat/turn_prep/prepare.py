@@ -28,7 +28,7 @@ from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
 from app.services.projects.common import _invalidate_home_for_user
 from app.services.prompt_safety import messages_have_attachment_marker
-from app.services.routing import last_user_content
+from app.services.routing import last_user_turn
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
@@ -155,12 +155,14 @@ async def prepare_chat_turn(
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
             if model is None:
+                prior_user, prior_model = last_user_turn(recent_messages)
                 model = plan_service.resolve_user_model_override(
                     user,
                     model_alias,
                     content,
                     settings,
-                    prior_user=last_user_content(recent_messages),
+                    prior_user=prior_user,
+                    prior_model=prior_model,
                 )
             if _should_use_vision_chat(
                 settings=settings,
@@ -217,17 +219,18 @@ async def prepare_chat_turn(
         and prior_count is not None
         and recent_messages is not None
     ):
-        overlap_model: str = (
-            model
-            if model is not None
-            else plan_service.resolve_user_model_override(
+        if model is not None:
+            overlap_model = model
+        else:
+            prior_user, prior_model = last_user_turn(recent_messages)
+            overlap_model = plan_service.resolve_user_model_override(
                 user,
                 model_alias,
                 content,
                 settings,
-                prior_user=last_user_content(recent_messages),
+                prior_user=prior_user,
+                prior_model=prior_model,
             )
-        )
         if _should_use_vision_chat(
             settings=settings,
             has_image_attachment=has_image_attachment,

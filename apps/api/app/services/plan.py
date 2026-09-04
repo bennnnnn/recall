@@ -76,12 +76,18 @@ def resolve_user_model(
     settings: Settings,
     *,
     prior_user: str | None = None,
+    prior_model: str | None = None,
 ) -> str:
     """Pick a concrete model from the user's Settings preferences."""
     pool = model_pool(user, settings)
     if is_auto_enabled(user):
         return routing.resolve_alias_in_pool(
-            AUTO_ALIAS, content, pool, settings, prior_user=prior_user
+            AUTO_ALIAS,
+            content,
+            pool,
+            settings,
+            prior_user=prior_user,
+            prior_model=prior_model,
         )
     if len(pool) == 1:
         return pool[0]
@@ -107,6 +113,7 @@ def resolve_user_model_override(
     settings: Settings,
     *,
     prior_user: str | None = None,
+    prior_model: str | None = None,
 ) -> str:
     """Pick a concrete model, honoring a per-message override when allowed.
 
@@ -119,7 +126,9 @@ def resolve_user_model_override(
         if model_alias not in _override_pool(user, settings):
             raise UnknownModelOverrideError(model_alias)
         return model_alias
-    return resolve_user_model(user, content, settings, prior_user=prior_user)
+    return resolve_user_model(
+        user, content, settings, prior_user=prior_user, prior_model=prior_model
+    )
 
 
 def resolve_regenerate_model(

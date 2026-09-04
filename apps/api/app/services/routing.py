@@ -111,6 +111,36 @@ _FOLLOWUP_LEAD_VERBS = frozenset(
         "continue",
     }
 )
+# Leading verb alone is not enough ("fix dinner", "add milk"). The rest of
+# the line must refer to the prior task.
+_FOLLOWUP_OBJECT_TOKENS = frozenset(
+    {
+        "it",
+        "that",
+        "this",
+        "them",
+        "these",
+        "those",
+        "tests",
+        "test",
+        "error",
+        "errors",
+        "bug",
+        "bugs",
+        "traceback",
+        "types",
+        "type",
+        "handling",
+        "handler",
+        "patch",
+        "retry",
+        "retries",
+        "function",
+        "functions",
+        "code",
+        "timeout",
+    }
+)
 
 _LONG_MESSAGE_CHARS = 800
 # BUG FIX: this used to only match a fixed language allowlist
@@ -149,29 +179,65 @@ def _looks_like_physics_homework(content: str) -> bool:
     return any(cue in lower for cue in _PHYSICS_FORMULA_CUES)
 
 
-def last_user_content(messages: list[Any] | None) -> str | None:
-    """Last user line already in the recent window (oldest-first).
+def last_user_turn(messages: list[Any] | None) -> tuple[str | None, str | None]:
+    """Last user line and the model stored on that row (oldest-first window).
 
-    The current turn is not persisted yet, so this is the prior user message.
+    The current turn is not persisted yet. ``model`` is the alias resolved for
+    that prior user turn — used so a chain of short follow-ups can keep Pro
+    without re-scoring ``add tests`` in isolation.
     """
     if not messages:
-        return None
+        return None, None
     for msg in reversed(messages):
         if getattr(msg, "role", None) != "user":
             continue
         text = getattr(msg, "content", None)
-        if isinstance(text, str) and text.strip():
-            return text
-    return None
+        if not isinstance(text, str) or not text.strip():
+            continue
+        raw_model = getattr(msg, "model", None)
+        model = raw_model.strip() if isinstance(raw_model, str) and raw_model.strip() else None
+        return text, model
+    return None, None
+
+
+def last_user_content(messages: list[Any] | None) -> str | None:
+    """Last user line already in the recent window (oldest-first)."""
+    content, _ = last_user_turn(messages)
+    return content
+
+
+def _strip_followup_token(token: str) -> str:
+    while token and token[0] in ".,!?;:'\"":
+        token = token[1:]
+    while token and token[-1] in ".,!?;:'\"":
+        token = token[:-1]
+    return token
+
+
+def _alias_is_smart_tier(alias: str | None) -> bool:
+    if not alias or alias not in model_catalog.known_ids():
+        return False
+    return model_catalog.get(alias).tier in {"smart", "max"}
+
+
+def _prior_was_smart(prior_user: str, prior_model: str | None) -> bool:
+    if _route_current_line(prior_user) == model_catalog.auto_smart_alias():
+        return True
+    return _alias_is_smart_tier(prior_model)
 
 
 def _leading_followup_verb(lowered: str) -> bool:
-    if not lowered:
+    if not lowered or " " not in lowered:
         return False
-    first = lowered.split(" ", 1)[0]
+    first, rest = lowered.split(" ", 1)
     while first and first[-1] in ".,!?;:":
         first = first[:-1]
-    return first in _FOLLOWUP_LEAD_VERBS
+    if first not in _FOLLOWUP_LEAD_VERBS:
+        return False
+    for raw in rest.split():
+        if _strip_followup_token(raw) in _FOLLOWUP_OBJECT_TOKENS:
+            return True
+    return False
 
 
 def _looks_like_smart_continuation(content: str) -> bool:
@@ -205,9 +271,13 @@ def _looks_like_smart_continuation(content: str) -> bool:
     return _leading_followup_verb(lowered)
 
 
-def _should_inherit_smart(content: str, prior_user: str) -> bool:
-    """Inherit Pro only when the last user line itself scored smart."""
-    if _route_current_line(prior_user) != model_catalog.auto_smart_alias():
+def _should_inherit_smart(
+    content: str,
+    prior_user: str,
+    prior_model: str | None = None,
+) -> bool:
+    """Inherit Pro when the last user turn was (or stayed) on the smart tier."""
+    if not _prior_was_smart(prior_user, prior_model):
         return False
     return _looks_like_smart_continuation(content)
 
@@ -238,7 +308,12 @@ def _route_current_line(content: str) -> str:
     return fast
 
 
-def route_chat_model(content: str, *, prior_user: str | None = None) -> str:
+def route_chat_model(
+    content: str,
+    *,
+    prior_user: str | None = None,
+    prior_model: str | None = None,
+) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
     Scores the current line first. A short continuation of a prior smart user
@@ -248,7 +323,11 @@ def route_chat_model(content: str, *, prior_user: str | None = None) -> str:
     preferred = _route_current_line(content)
     if preferred == smart:
         return smart
-    if prior_user and prior_user.strip() and _should_inherit_smart(content, prior_user):
+    if (
+        prior_user
+        and prior_user.strip()
+        and _should_inherit_smart(content, prior_user, prior_model)
+    ):
         return smart
     return preferred
 
@@ -283,10 +362,13 @@ def resolve_alias(
     content: str,
     *,
     prior_user: str | None = None,
+    prior_model: str | None = None,
 ) -> str:
     """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
     all_ids = [m.id for m in model_catalog.selectable_models()]
-    return resolve_alias_in_pool(alias, content, all_ids, prior_user=prior_user)
+    return resolve_alias_in_pool(
+        alias, content, all_ids, prior_user=prior_user, prior_model=prior_model
+    )
 
 
 def resolve_alias_in_pool(
@@ -296,13 +378,14 @@ def resolve_alias_in_pool(
     settings: Settings | None = None,
     *,
     prior_user: str | None = None,
+    prior_model: str | None = None,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool."""
     if not pool:
         return model_catalog.auto_fast_alias()
 
     if alias == "auto":
-        preferred = route_chat_model(content, prior_user=prior_user)
+        preferred = route_chat_model(content, prior_user=prior_user, prior_model=prior_model)
         return _pick_preferred_tier(preferred, pool)
 
     if alias == "fast":
