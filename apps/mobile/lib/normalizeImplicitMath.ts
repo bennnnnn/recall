@@ -1,4 +1,5 @@
-/** Turn model output like `( x^2 = 6 )` or `x2+2=6` into renderable LaTeX. */
+/** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
+ * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
@@ -35,24 +36,30 @@ const INLINE_LATEX_CMD_RE = /\\[a-zA-Z]+/g;
 // rejected separately in isMathLike).
 const BARE_EQUATION_RE = /^[0-9a-zA-Z+\-*/^=±√\\_.{}[\]()!\s]+$/i;
 
+/**
+ * Display-path cleanup only: unicode ± → `\pm`, collapse runs of spaces.
+ * Does **not** invent exponents. Adjacent digits (`12+3`) and letter+digit
+ * identifiers (`x2`) stay as written — `x^2` is already typesettable.
+ * Composer keypad OCR (`x2` → `x^2`) lives in `applyImplicitPowerNotation`.
+ */
 export function fixImplicitExponents(expr: string): string {
   let s = expr.trim();
   if (!s) return s;
-
-  // BUG FIX: the letter this rule looks at must be a bare variable (OCR's
-  // "x2" for "x²"), not the tail of a backslash command name — without the
-  // lookbehind, "\pm2" (a command with no space before its argument, e.g.
-  // "x = \pm2") matched on "m2" and became "\pm^2", which later renders as
-  // "±" with a superscript 2 ("±²") instead of "± 2" — silently changing
-  // what the answer says. Same risk for any command ending in a letter
-  // immediately followed by digits ("\log2", "\sin2", ...).
-  s = s.replace(/(?<!\\[a-zA-Z]*)([a-zA-Z])([0-9]+)(?=[+\-=)\]|,\s]|$)/g, "$1^$2");
-  s = s.replace(/^(\d)(\d)(?=[+\-*=])/, "$1^$2");
-  s = s.replace(/(\s)(\d)(\d)(?=[+\-*=])/g, "$1$2^$3");
   if (s.includes("±") && !s.includes("\\pm")) {
     s = s.replace(/±\s*/g, "\\pm ");
   }
   return s.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Keypad-only OCR shorthand: a bare variable + digits → exponent (`x2` → `x^2`).
+ * Not used on model replies or MathText — `x2` is an identifier there.
+ * The lookbehind skips command tails (`\pm2` must not become `\pm^2`).
+ */
+export function applyImplicitPowerNotation(expr: string): string {
+  const s = expr.trim();
+  if (!s) return s;
+  return s.replace(/(?<!\\[a-zA-Z]*)([a-zA-Z])([0-9]+)(?=[+\-=)\]|,\s]|$)/g, "$1^$2");
 }
 
 /** True when a parenthetical looks like English prose, not `(2x-1)` / `(x+3)`. */
