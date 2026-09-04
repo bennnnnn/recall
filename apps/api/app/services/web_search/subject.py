@@ -23,6 +23,15 @@ def _prior_user_messages(
     return [msg for msg in user_msgs if msg.strip()]
 
 
+def last_assistant_content(prompt_messages: list[dict[str, str]]) -> str | None:
+    """Most recent assistant body in the prompt window, if any."""
+    for msg in reversed(prompt_messages):
+        if msg.get("role") == "assistant":
+            text = str(msg.get("content") or "").strip()
+            return text or None
+    return None
+
+
 def _prior_searchable_topic(prior_user_messages: list[str] | None) -> str | None:
     if not prior_user_messages:
         return None

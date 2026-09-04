@@ -198,6 +198,83 @@ def test_mermaid_query_gets_flowchart_fence_layout():
     assert MERMAID_FORMAT_HINT in rich
 
 
+def test_one_sentence_skips_chart_and_compare_layout():
+    from app.services.chat.prompt_constants import (
+        BREVITY_REQUEST_HINT,
+        CHART_FORMAT_HINT,
+        COMPACT_RESPONSE_FORMAT_HINT,
+        COMPARISON_FORMAT_HINT,
+        is_brevity_request,
+    )
+
+    query = "In one sentence, make a bar chart of monthly rainfall"
+    assert is_brevity_request(query)
+    slim = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CHART_FORMAT_HINT not in slim
+    assert COMPARISON_FORMAT_HINT not in slim
+    assert BREVITY_REQUEST_HINT in slim
+    assert COMPACT_RESPONSE_FORMAT_HINT in slim
+
+    compare = _style_format_hints(
+        query_text="tea versus coffee in one sentence",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert COMPARISON_FORMAT_HINT not in compare
+    assert BREVITY_REQUEST_HINT in compare
+
+
+def test_sequence_diagram_uses_sequence_hint_not_flowchart():
+    from app.services.chat.prompt_constants import (
+        MERMAID_FORMAT_HINT,
+        SEQUENCE_FORMAT_HINT,
+        is_sequence_diagram_question,
+    )
+
+    query = "sequence diagram of HTTP request"
+    assert is_sequence_diagram_question(query)
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert SEQUENCE_FORMAT_HINT in parts
+    assert MERMAID_FORMAT_HINT not in parts
+    assert "sequenceDiagram" in SEQUENCE_FORMAT_HINT
+    joined = "\n".join(parts)
+    assert "This turn is a flowchart" not in joined
+
+
+def test_casual_tea_vs_coffee_skips_code_card_compare():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        COMPARISON_FORMAT_HINT,
+        is_structured_comparison_question,
+    )
+
+    query = "tea versus coffee"
+    assert is_structured_comparison_question(query) is False
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert COMPARISON_FORMAT_HINT not in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT in parts
+
+
 def test_bare_rainfall_chart_still_gets_chart_hint():
     from app.services.chat.prompt_constants import CHART_FORMAT_HINT
 
@@ -209,11 +286,15 @@ def test_bare_rainfall_chart_still_gets_chart_hint():
         compact=True,
     )
     assert CHART_FORMAT_HINT in parts
-    assert "do not interview for months or values" in CHART_FORMAT_HINT
+    assert "sample data" in CHART_FORMAT_HINT
+    assert "ask ONE question for the values" in CHART_FORMAT_HINT
 
 
-def test_bare_email_gets_email_draft_hint():
-    from app.services.chat.prompt_constants import EMAIL_DRAFT_HINT
+def test_bare_email_asks_purpose_instead_of_inventing_a_draft():
+    from app.services.chat.prompt_constants import (
+        EMAIL_ASK_PURPOSE_HINT,
+        EMAIL_DRAFT_HINT,
+    )
 
     parts = _style_format_hints(
         query_text="escribeme un correo",
@@ -222,9 +303,26 @@ def test_bare_email_gets_email_draft_hint():
         minimal_personal_context=False,
         compact=True,
     )
+    assert EMAIL_ASK_PURPOSE_HINT in parts
+    assert EMAIL_DRAFT_HINT not in parts
+    assert "escribeme un correo" in EMAIL_ASK_PURPOSE_HINT
+
+
+def test_specified_email_still_drafts_now():
+    from app.services.chat.prompt_constants import (
+        EMAIL_ASK_PURPOSE_HINT,
+        EMAIL_DRAFT_HINT,
+    )
+
+    parts = _style_format_hints(
+        query_text="email my boss about PTO",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
     assert EMAIL_DRAFT_HINT in parts
-    assert "named a recipient" not in EMAIL_DRAFT_HINT
-    assert "escribeme un correo" in EMAIL_DRAFT_HINT
+    assert EMAIL_ASK_PURPOSE_HINT not in parts
 
 
 def test_flowchart_of_making_coffee_gets_mermaid_hint():

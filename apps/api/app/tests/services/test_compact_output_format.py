@@ -64,10 +64,10 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
     assert "you CAN draw this chart" in joined
     assert "NEVER substitute a markdown table" in joined
     assert "horizontal bars" in joined
-    assert "no leftover numbers" in joined
+    assert "no leftover" in joined.lower() or "leftover bare numbers" in joined
     assert "no ```answer" in joined
-    assert "do not interview for months or values" in joined
     assert "sample data" in joined
+    assert "ask ONE question for the values" in joined
     assert "No ## headings" not in joined
 
 
@@ -177,16 +177,40 @@ def test_fragment_gets_writing_line_hint():
     assert "Do not say you are an AI" in WRITING_LINE_HINT
 
 
-def test_clarification_hint_skips_interview_for_chart_email_flowchart():
-    from app.services.chat.prompt_constants import CLARIFICATION_HINT, EMAIL_DRAFT_HINT
+def test_yes_follow_through_hint_is_not_a_greeting():
+    from app.services.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
+
+    parts = _style_format_hints(
+        query_text="yes",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CONFIRM_FOLLOW_THROUGH_HINT in parts
+    assert "Carry out that offer" in CONFIRM_FOLLOW_THROUGH_HINT
+
+
+def test_clarification_hint_asks_once_when_purpose_or_data_missing():
+    from app.services.chat.prompt_constants import (
+        CLARIFICATION_HINT,
+        EMAIL_ASK_PURPOSE_HINT,
+        EMAIL_DRAFT_HINT,
+        is_underspecified_writing_request,
+    )
 
     assert "escribeme un correo" in CLARIFICATION_HINT
     assert "LinkedIn" in CLARIFICATION_HINT
     assert "caption" in CLARIFICATION_HINT
-    assert "Do NOT interview for recipient" in CLARIFICATION_HINT
-    assert "Do not ask for months or values" in CLARIFICATION_HINT
+    assert "ask ONE question for that purpose" in CLARIFICATION_HINT
+    assert "ask ONE question for the values" in CLARIFICATION_HINT
     assert "Do not interview for steps" in CLARIFICATION_HINT
+    assert is_underspecified_writing_request("write me an email")
+    assert is_underspecified_writing_request("escribeme un correo")
+    assert not is_underspecified_writing_request("email my boss about PTO")
+    assert not is_underspecified_writing_request("write an email saying I will be late")
     assert "named a recipient" not in EMAIL_DRAFT_HINT
+    assert "escribeme un correo" in EMAIL_ASK_PURPOSE_HINT
 
 
 def test_universal_baseline_bans_invented_tables_and_hooks():
@@ -195,6 +219,8 @@ def test_universal_baseline_bans_invented_tables_and_hooks():
     assert "Ah, the eternal question" in UNIVERSAL_FORMAT_BASELINE
     assert "word choice only" in TONE_FORMAT_GUARD
     assert "quotation ask" in TONE_FORMAT_GUARD
+    assert "one sentence" in TONE_FORMAT_GUARD
+    assert "casual preference" in TONE_FORMAT_GUARD
 
 
 def test_compact_quote_turn_uses_blockquote_not_plain_prose():

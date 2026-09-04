@@ -5,6 +5,7 @@ same way as the old ``prompt_constants`` module.
 """
 
 from app.services.chat.prompt_constants.format import (
+    BREVITY_REQUEST_HINT,
     CALLOUT_FORMAT_HINT,
     CHART_FORMAT_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -15,16 +16,20 @@ from app.services.chat.prompt_constants.format import (
     MERMAID_FORMAT_HINT,
     QUOTE_FORMAT_HINT,
     RESPONSE_FORMAT_HINT,
+    SEQUENCE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
+    is_brevity_request,
     is_callout_question,
     is_chart_question,
     is_comparison_question,
     is_howto_question,
     is_mermaid_question,
     is_quote_question,
+    is_sequence_diagram_question,
+    is_structured_comparison_question,
 )
 from app.services.chat.prompt_constants.learning import (
     DAY_LEARNING_SNAPSHOT_HINT,
@@ -47,13 +52,17 @@ from app.services.chat.prompt_constants.privacy import (
     PRIVACY_HINT,
 )
 from app.services.chat.prompt_constants.routing import (
+    CONFIRM_FOLLOW_THROUGH_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     is_broad_self_question,
     is_learning_progress_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
+    is_short_confirmation,
+    is_underspecified_writing_request,
     is_writing_deliverable_request,
     needs_rich_context,
+    prior_looks_like_offer,
 )
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
@@ -63,6 +72,7 @@ from app.services.chat.prompt_constants.visuals import (
 )
 from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
+    EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
     WRITING_LINE_HINT,
     is_bare_writing_line,
@@ -70,6 +80,7 @@ from app.services.chat.prompt_constants.writing import (
 
 __all__ = [
     "ADVICE_PERSONALIZE_HINT",
+    "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",
     "CALLOUT_FORMAT_HINT",
     "CHART_FORMAT_HINT",
@@ -77,9 +88,11 @@ __all__ = [
     "CLARIFICATION_HINT",
     "COMPACT_RESPONSE_FORMAT_HINT",
     "COMPARISON_FORMAT_HINT",
+    "CONFIRM_FOLLOW_THROUGH_HINT",
     "COPY_DELIVERABLE_HINT",
     "DAY_LEARNING_SNAPSHOT_HINT",
     "DAY_PLANNING_ANSWER_HINT",
+    "EMAIL_ASK_PURPOSE_HINT",
     "EMAIL_DRAFT_HINT",
     "FORMAT_CONTRACT",
     "HOWTO_FORMAT_HINT",
@@ -94,6 +107,7 @@ __all__ = [
     "QUIZ_RECENT_MESSAGE_LIMIT",
     "QUOTE_FORMAT_HINT",
     "RESPONSE_FORMAT_HINT",
+    "SEQUENCE_FORMAT_HINT",
     "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
     "STYLE_HINTS",
@@ -105,6 +119,7 @@ __all__ = [
     "attach_chemistry_fence_hint",
     "format_quiz_grading_hint",
     "is_bare_writing_line",
+    "is_brevity_request",
     "is_broad_self_question",
     "is_callout_question",
     "is_chart_question",
@@ -116,6 +131,11 @@ __all__ = [
     "is_mermaid_question",
     "is_personal_advice_question",
     "is_quote_question",
+    "is_sequence_diagram_question",
+    "is_short_confirmation",
+    "is_structured_comparison_question",
+    "is_underspecified_writing_request",
     "is_writing_deliverable_request",
     "needs_rich_context",
+    "prior_looks_like_offer",
 ]

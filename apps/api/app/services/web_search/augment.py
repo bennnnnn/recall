@@ -28,7 +28,11 @@ from app.services.web_search.query_builders import (
     build_search_queries,
 )
 from app.services.web_search.search_cache import _run_search
-from app.services.web_search.subject import _prior_user_messages, resolve_search_subject
+from app.services.web_search.subject import (
+    _prior_user_messages,
+    last_assistant_content,
+    resolve_search_subject,
+)
 
 
 async def build_search_augmentation(
@@ -61,7 +65,10 @@ async def build_search_augmentation(
     prior_user = prior_user_messages
     if prior_user is None:
         prior_user = _prior_user_messages(messages or [], user_content)
-    if web_search_skip(user_content, prior_user_messages=prior_user):
+    prior_assistant = last_assistant_content(messages or [])
+    if web_search_skip(
+        user_content, prior_user_messages=prior_user, prior_assistant=prior_assistant
+    ):
         return None, []
 
     if web_search_fast_yes(user_content, prior_user_messages=prior_user):

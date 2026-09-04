@@ -42,23 +42,91 @@ _LIGHTWEIGHT_TURN = re.compile(
     re.IGNORECASE,
 )
 
+# Accepting an offer — not a greeting. "no" / "thanks" / "hi" stay off this list.
+_SHORT_CONFIRMATION = re.compile(
+    r"^(?:"
+    r"yes|yep|yeah|yup|yea|y|"
+    r"sure(?: thing)?|"
+    r"ok(?:ay)?|k|"
+    r"go(?: ahead)?|"
+    r"do it|please|proceed|"
+    r"yes please|ok go"
+    r")[!?.… ]*$",
+    re.IGNORECASE,
+)
 
-def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> bool:
+# Phrase scan on the prior assistant tail (no regex over the body).
+_OFFER_PHRASES = (
+    "want me to",
+    "shall i",
+    "should i",
+    "i can check",
+    "i can look",
+    "i can search",
+    "i can draft",
+    "i can write",
+    "i can make",
+    "i can draw",
+    "i can show",
+    "i can send",
+    "i can find",
+    "i can help",
+    "i can do that",
+    "i could",
+    "happy to",
+    "let me know",
+    "if you'd like",
+    "if you would like",
+    "if you want",
+)
+
+
+def is_short_confirmation(text: str) -> bool:
+    """True for yes / go / sure — not hi, thanks, or no."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    return bool(_SHORT_CONFIRMATION.match(cleaned))
+
+
+def prior_looks_like_offer(prior_assistant: str | None) -> bool:
+    """True when the last assistant turn offered to do something."""
+    if not prior_assistant:
+        return False
+    cleaned = collapse_ws(prior_assistant)
+    if not cleaned:
+        return False
+    tail = cleaned[-400:].lower()
+    if any(phrase in tail for phrase in _OFFER_PHRASES):
+        return True
+    return "?" in cleaned[-200:]
+
+
+def is_lightweight_chat_turn(
+    text: str,
+    *,
+    active_vocab_turn: bool = False,
+    prior_assistant: str | None = None,
+) -> bool:
     """Ultra-brief social turns (hi / thanks / ok) — short reply style only.
 
     Memory / status theater is gated separately by ``needs_rich_context`` so we
     do not grow this allowlist for every casual phrase ("how is ur day", etc.).
+    A short yes/go after an offer is follow-through, not a greeting.
     """
     if active_vocab_turn:
         return False
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
-    if len(cleaned) <= 2 and cleaned.isalpha():
-        return True
-    if len(cleaned) <= 24 and _LIGHTWEIGHT_TURN.match(cleaned):
-        return True
-    return False
+    looks_light = (len(cleaned) <= 2 and cleaned.isalpha()) or (
+        len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
+    )
+    if not looks_light:
+        return False
+    if is_short_confirmation(cleaned) and prior_looks_like_offer(prior_assistant):
+        return False
+    return True
 
 
 # Opt-in cues for loading memory / todos / projects.
@@ -206,6 +274,11 @@ LIGHTWEIGHT_REPLY_HINT = (
     "Do not dig into memory, lists, calendar, or projects unless the user asked."
 )
 
+CONFIRM_FOLLOW_THROUGH_HINT = (
+    "The user accepted your last offer with a short yes/go/sure. "
+    "Carry out that offer now. Do not treat this as a greeting or a one-word ack."
+)
+
 _WRITING_DELIVERABLE = re.compile(
     r"\b("
     r"send (?:me )?(?:an? )?email|"
@@ -226,3 +299,37 @@ def is_writing_deliverable_request(text: str) -> bool:
     if not cleaned:
         return False
     return bool(_WRITING_DELIVERABLE.search(cleaned)) or has_locale_cue(cleaned, "writing")
+
+
+_WRITING_PURPOSE_MARKERS = (
+    " about ",
+    " regarding ",
+    " saying ",
+    " that says ",
+    " to say ",
+    " letting ",
+    " because ",
+    " asking ",
+    " subject",
+    " i will ",
+    " i'll ",
+    " i'm ",
+    " i am ",
+    " pto",
+    " running late",
+    " be late",
+    " follow-up",
+    " follow up",
+    " apology",
+    " thank",
+)
+
+
+def is_underspecified_writing_request(text: str) -> bool:
+    """True for 'write me an email' with no purpose — not 'saying I will be late'."""
+    if not is_writing_deliverable_request(text):
+        return False
+    cleaned = f" {collapse_ws(text).lower()} "
+    if '"' in cleaned or "\u201c" in cleaned:
+        return False
+    return not any(marker in cleaned for marker in _WRITING_PURPOSE_MARKERS)

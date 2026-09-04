@@ -81,6 +81,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment, edit, and in-progress
   dictation so they cannot send into the wrong conversation.
+- ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
+  not a greeting. “One sentence” / briefly beats chart, compare, and how-to
+  layout. Sequence diagrams use `sequenceDiagram`, not a flowchart. Bare
+  “write me an email” asks one purpose question; a named purpose still drafts
+  now. Real/my chart data without numbers asks once instead of inventing a
+  sample as the answer.
 - ✅ **Regenerate** — re-run the last assistant reply.
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do
@@ -998,6 +1004,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
    RAG. No second pipeline.
 3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
    start excluding the recent window. Golden Rule 3: never dump the full transcript.
+4. ✅ **Reply-quality Lane 2** — “yes/go” follows the prior offer; requested length
+   and type beat keyword templates; one question when an email has no purpose or
+   a real-data chart has no numbers.
 
 ### Future (not implementing now)
 
@@ -1012,6 +1021,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
 - Locale prose + legal page bodies.
 - Public share URLs only if we explicitly want unauthenticated read links.
 - Folders, family plans, response-cache / prompt-budget UI, user-tunable routing.
+- **Reply-quality Lane 3** — mark interrupted/incomplete streams; disclose file
+  excerpt limits; rehydrate image follow-ups; keep table rows aligned; preserve
+  chart grouping. No new cards, chips, or surfaces.
 
 ### Not doing
 

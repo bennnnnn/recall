@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat, Message
+from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
 from app.services import email as email_service
@@ -16,6 +17,7 @@ from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
+    is_short_confirmation,
     needs_rich_context,
 )
 
@@ -164,12 +166,21 @@ async def _classify_turn_mode(
     Study checks live on the lesson screen. Chat never grades A-D or continues
     an in-chat vocab quiz, so this skips the assistant quiz lookback even when
     a Learning project is linked.
+
+    Short yes/go confirmations load the last assistant only when needed so
+    ``hi`` / ``thanks`` never pay that round trip.
     """
-    _ = (session, chat)
     minimal_personal = is_broad_self_question(content)
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
-    lightweight = is_lightweight_chat_turn(content, active_vocab_turn=False)
+    prior_assistant: str | None = None
+    if is_short_confirmation(content):
+        prior = await messages_repo.get_last_assistant(session, chat.id)
+        if prior is not None:
+            prior_assistant = prior.content
+    lightweight = is_lightweight_chat_turn(
+        content, active_vocab_turn=False, prior_assistant=prior_assistant
+    )
     rich_context = _turn_needs_rich_context(
         content,
         active_vocab_turn=False,
