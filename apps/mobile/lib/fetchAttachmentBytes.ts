@@ -1,33 +1,28 @@
-import { notifyUnauthorized, refreshAccessToken } from "@/lib/api/client";
+import { apiUrl, requestRaw } from "@/lib/api/client";
 import { arrayBufferToBase64 } from "@/lib/base64";
 
-function attachmentAuthHeaders(
-  uri: string,
-  token: string | null,
-): Record<string, string> {
-  if (token && uri.includes("/attachments/")) {
-    return { Authorization: `Bearer ${token}` };
+function recallAttachmentPath(uri: string): string | null {
+  try {
+    const base = new URL(apiUrl("/"));
+    const url = new URL(uri);
+    const basePath = base.pathname.replace(/\/$/, "");
+    if (url.origin !== base.origin || url.username || url.password ||
+      !url.pathname.startsWith(`${basePath}/attachments/`)) return null;
+    return `${url.pathname.slice(basePath.length)}${url.search}`;
+  } catch {
+    return null;
   }
-  return {};
 }
 
 export async function fetchAttachmentBytes(
   uri: string,
   token: string | null,
 ): Promise<ArrayBuffer> {
-  const response = await fetch(uri, { headers: attachmentAuthHeaders(uri, token) });
-  if (response.status === 401 && token && uri.includes("/attachments/")) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      const retry = await fetch(uri, { headers: attachmentAuthHeaders(uri, refreshed) });
-      if (retry.ok) return retry.arrayBuffer();
-    } else {
-      notifyUnauthorized();
-    }
-  }
-  if (!response.ok) {
-    throw new Error("Could not load attachment.");
-  }
+  const path = recallAttachmentPath(uri);
+  // External and local file URLs never receive Recall credentials. API
+  // downloads share the same session fences and refresh policy as JSON/SSE.
+  const response = path ? await requestRaw(path, token) : await fetch(uri);
+  if (!response.ok) throw new Error("Could not load attachment.");
   return response.arrayBuffer();
 }
 

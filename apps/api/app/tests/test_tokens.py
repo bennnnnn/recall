@@ -190,13 +190,16 @@ async def test_purge_user_sessions_kills_all_refresh_tokens(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_purge_user_sessions_raises_on_redis_failure():
+async def test_purge_user_sessions_raises_on_redis_failure(fake_redis):
     """M1: Redis outage during account delete must fail (503), not silently
     succeed — otherwise live sessions can call the API until JWT expiry."""
     settings = Settings(jwt_secret="x" * 32)
     user_id = uuid4()
-    redis = AsyncMock()
-    redis.smembers = AsyncMock(side_effect=RuntimeError("redis down"))
-
-    with pytest.raises(RuntimeError, match="redis down"):
-        await tokens_service.purge_user_sessions(redis, user_id, settings)
+    with (
+        patch(
+            "redis.asyncio.client.Pipeline.smembers",
+            AsyncMock(side_effect=RuntimeError("redis down")),
+        ),
+        pytest.raises(RuntimeError, match="redis down"),
+    ):
+        await tokens_service.purge_user_sessions(fake_redis, user_id, settings)

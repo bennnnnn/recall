@@ -8,6 +8,15 @@ import {
 
 import type { User } from "@/lib/api/types";
 
+// A previous user's started write must finish before signout clears it or a
+// new account replaces it. Readers also wait to avoid observing partial files.
+let pendingCacheWrite: Promise<void> = Promise.resolve();
+function updateCache(write: () => Promise<void>): Promise<void> {
+  const result = pendingCacheWrite.then(write).catch(() => {});
+  pendingCacheWrite = result;
+  return result;
+}
+
 const CACHED_USER_PATH = `${cacheDirectory ?? ""}cached-user.json`;
 
 /**
@@ -24,6 +33,23 @@ const CACHED_USER_PATH = `${cacheDirectory ?? ""}cached-user.json`;
  * from the API on launch.
  */
 export type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
+
+/** Decode only to select cached display fields, never to authenticate or grant
+ * access. A cache from a previous account can survive a failed file deletion. */
+export function cachedUserMatchesToken(cached: CachedUser, token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3 || parts.some((part) => !part)) return false;
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const claims: unknown = JSON.parse(atob(padded));
+    return typeof claims === "object" && claims !== null &&
+      "sub" in claims && typeof claims.sub === "string" && claims.sub === cached.id;
+  } catch {
+    return false;
+  }
+}
+
 
 /** Default values for the fields NOT in ``CachedUser`` — used to construct a
  * full ``User`` from a cached subset so the in-memory state stays typed as
@@ -68,6 +94,7 @@ export function mergeCachedUser(cached: CachedUser): User {
  * which case cold start just falls back to the normal loading state. */
 export async function readCachedUser(): Promise<CachedUser | null> {
   if (!cacheDirectory) return null;
+  await pendingCacheWrite;
   try {
     const info = await getInfoAsync(CACHED_USER_PATH);
     if (!info.exists) return null;
@@ -101,7 +128,7 @@ export async function writeCachedUser(user: User): Promise<void> {
       avatar_url: user.avatar_url,
       plan: user.plan,
     };
-    await writeAsStringAsync(CACHED_USER_PATH, JSON.stringify(cached));
+    await updateCache(() => writeAsStringAsync(CACHED_USER_PATH, JSON.stringify(cached)));
   } catch {
     /* best-effort */
   }
@@ -110,7 +137,7 @@ export async function writeCachedUser(user: User): Promise<void> {
 export async function clearCachedUser(): Promise<void> {
   if (!cacheDirectory) return;
   try {
-    await deleteAsync(CACHED_USER_PATH, { idempotent: true });
+    await updateCache(() => deleteAsync(CACHED_USER_PATH, { idempotent: true }));
   } catch {
     /* ignore */
   }

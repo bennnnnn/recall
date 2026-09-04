@@ -7,8 +7,8 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type SetStateAction,
 } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import {
   api,
@@ -19,22 +19,26 @@ import {
   setTokenRefreshHandler,
   setUnauthorizedHandler,
   type User,
+  type AuthResult,
 } from "@/lib/api";
 import { signInWithAppleCredentials } from "@/lib/apple-auth";
-import { signInWithGoogleIdToken, signOutGoogle } from "@/lib/google-auth";
+import { signInWithGoogleIdToken } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
 import {
   clearOnboarded,
   clearToken,
   getOnboarded,
   getRefreshToken,
+  getSessionGeneration,
+  invalidateSession,
   getToken,
   setOnboarded,
   setTokenPair,
 } from "@/lib/auth";
-import { clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
-import { useTheme } from "@/lib/theme";
+import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
 type AuthContextValue = {
   user: User | null;
@@ -59,314 +63,226 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 type AuthTokenBag = { token: string | null };
 const AuthTokenContext = createContext<AuthTokenBag | null>(null);
 
-function AuthLoadingShell() {
-  const theme = useTheme();
-  const s = useMemo(
-    () =>
-      StyleSheet.create({
-        shell: {
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: theme.bg,
-        },
-      }),
-    [theme],
-  );
-  return (
-    <View style={s.shell}>
-      <ActivityIndicator size="large" color={theme.primary} />
-    </View>
-  );
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [startupFailed, setStartupFailed] = useState(false);
+  const [hydrationAttempt, setHydrationAttempt] = useState(0);
   const [onboarded, setOnboardedState] = useState(false);
-  const signOutInFlightRef = useRef(false);
+  const [profileValidated, setProfileValidated] = useState(false);
+  const userRef = useRef<User | null>(null);
+  const tokenRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
+  const localCleanupRef = useRef<Promise<void>>(Promise.resolve());
   const ignoreUnauthorizedRef = useRef(false);
+  const updateUserGenRef = useRef(0);
+
+  // Keep event-time identity current even before React paints a signout.
+  const setCurrentUser = useCallback((value: SetStateAction<User | null>) => {
+    const next = typeof value === "function" ? value(userRef.current) : value;
+    userRef.current = next;
+    setUser(next);
+  }, []);
+  const setCurrentToken = useCallback((value: string | null) => {
+    tokenRef.current = value;
+    setTokenState(value);
+  }, []);
+  const isCurrent = useCallback((generation: number) =>
+    mountedRef.current && generation === getSessionGeneration(), []);
 
   const setIgnoreUnauthorized = useCallback((value: boolean) => {
     ignoreUnauthorizedRef.current = value;
   }, []);
 
-  const hydrate = useCallback(async () => {
-    const [stored, onb, cachedUser] = await Promise.all([
-      getToken(),
-      getOnboarded(),
-      readCachedUser(),
-    ]);
-    setOnboardedState(onb);
-    if (!stored) {
-      setLoading(false);
-      return;
-    }
-
-    if (cachedUser) {
-      // Paint the app immediately with the last-known user display fields
-      // (name, avatar, plan) instead of holding the whole navigator behind
-      // this round trip, then validate in the background. The cached blob
-      // is a PII-stripped subset (see cachedUser.ts); mergeCachedUser fills
-      // the re-fetched fields with safe defaults so the in-memory state
-      // stays typed as a full User. A real 401 is handled by the global
-      // onUnauthorized -> signOut() handler (wired below), which already
-      // fires from inside api.me() before this catch runs — so a stale or
-      // revoked token still signs the user out, just without blocking
-      // first paint on the network first. A transient failure (offline,
-      // slow cold-start network) just leaves the cached user in place.
-      setTokenState(stored);
-      setUser(mergeCachedUser(cachedUser));
-      setLoading(false);
-      try {
-        const me = await api.me(stored);
-        setUser(me);
-        void writeCachedUser(me);
-      } catch {
-        /* best-effort background refresh */
-      }
-      return;
-    }
-
-    try {
-      const me = await api.me(stored);
-      setTokenState(stored);
-      setUser(me);
-      void writeCachedUser(me);
-    } catch {
-      // 401 already triggers onUnauthorized → signOut before this catch.
-      // M2: transient failures (offline, 5xx) must not set token without a
-      // user — settings/profile/bootstrap break when user is null but token
-      // is set. Keep loading so the app stays on the splash screen until
-      // /auth/me succeeds or the user retries. A cached user (if any) was
-      // already handled by the early-return path above.
-      setLoading(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    hydrate();
-  }, [hydrate]);
+    mountedRef.current = true;
+    const generation = getSessionGeneration();
+    let cancelled = false;
+    const current = () => !cancelled && isCurrent(generation);
+    let hasCachedAccount = false;
+    void (async () => {
+      try {
+        const [stored, onb, cachedUser] = await Promise.all([
+          getToken(), getOnboarded(), readCachedUser(),
+        ]);
+        if (!current()) return;
+        setOnboardedState(onb);
+        if (!stored) return;
+        if (cachedUser && cachedUserMatchesToken(cachedUser, stored)) {
+          hasCachedAccount = true;
+          setCurrentToken(stored);
+          setCurrentUser(mergeCachedUser(cachedUser));
+          setLoading(false);
+        }
+        const revision = updateUserGenRef.current;
+        const me = await api.me(stored);
+        // /me may have rotated credentials. Never put the startup token back.
+        const currentToken = await getToken();
+        if (!current() || !currentToken) return;
+        setCurrentToken(currentToken);
+        setProfileValidated(true);
+        if (revision === updateUserGenRef.current) {
+          setCurrentUser(me);
+          void writeCachedUser(me);
+        }
+      } catch {
+        // Offline launches retain a cached account. Without one, keep a
+        // recoverable startup screen: read/network failures are not logout.
+        if (current() && !hasCachedAccount) setStartupFailed(true);
+      } finally {
+        if (current()) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; mountedRef.current = false; };
+  }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser]);
 
-  const signInWithGoogle = useCallback(async () => {
+  const retryStartup = useCallback(() => {
+    setStartupFailed(false);
+    setLoading(true);
+    setHydrationAttempt((attempt) => attempt + 1);
+  }, []);
+
+  const signIn = useCallback(async (login: (current: () => boolean) => Promise<AuthResult | null>) => {
+    const generation = invalidateSession();
+    ignoreUnauthorizedRef.current = false;
+    await localCleanupRef.current.catch(() => {});
+    if (!isCurrent(generation)) return;
+    const result = await login(() => isCurrent(generation));
+    if (!result || !isCurrent(generation)) return;
+    // A crash between the credential write and cache write must not pair a
+    // newly signed-in account's token with the previous account's display.
+    await clearCachedUser();
+    if (!isCurrent(generation)) return;
+    const saved = await setTokenPair(result.access_token, result.refresh_token, generation);
+    if (!saved || !isCurrent(generation)) return;
+    setCurrentToken(result.access_token);
+    setCurrentUser(result.user);
+    setProfileValidated(true);
+    setLoading(false);
+    void writeCachedUser(result.user);
+  }, [isCurrent, setCurrentToken, setCurrentUser]);
+
+  const signInWithGoogle = useCallback(() => signIn(async (current) => {
     const idToken = await signInWithGoogleIdToken();
-    const result = await loginWithGoogle(idToken);
-    await setTokenPair(result.access_token, result.refresh_token);
-    setTokenState(result.access_token);
-    setUser(result.user);
-    void writeCachedUser(result.user);
-  }, []);
-
-  const signInWithApple = useCallback(async () => {
+    return current() ? loginWithGoogle(idToken) : null;
+  }), [signIn]);
+  const signInWithApple = useCallback(() => signIn(async (current) => {
     const { idToken, name } = await signInWithAppleCredentials();
-    const result = await loginWithApple(idToken, name);
-    await setTokenPair(result.access_token, result.refresh_token);
-    setTokenState(result.access_token);
-    setUser(result.user);
-    void writeCachedUser(result.user);
-  }, []);
+    return current() ? loginWithApple(idToken, name) : null;
+  }), [signIn]);
+  const signInWithDev = useCallback(() => signIn(() => loginWithDev()), [signIn]);
 
-  const signInWithDev = useCallback(async () => {
-    const result = await loginWithDev();
-    await setTokenPair(result.access_token, result.refresh_token);
-    setTokenState(result.access_token);
-    setUser(result.user);
-    void writeCachedUser(result.user);
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (signOutInFlightRef.current) return;
-    signOutInFlightRef.current = true;
-    const userId = user?.id;
-    const accessToken = token;
-    const refreshToken = await getRefreshToken();
-    try {
-      try {
-        const { cancelAllTodoReminders } = await import("@/lib/todos/todoReminders");
-        await cancelAllTodoReminders();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { clearReminderLeadPrefs } = await import("@/lib/reminderPrefs");
-        await clearReminderLeadPrefs();
-      } catch {
-        /* best-effort */
-      }
-      if (userId) {
-        try {
-          const { clearSeenReminderIds } = await import("@/lib/reminderSeen");
-          await clearSeenReminderIds(userId);
-        } catch {
-          /* best-effort */
-        }
-        try {
-          const { clearHomeNudgeState } = await import("@/lib/homeReminderNudges");
-          await clearHomeNudgeState(userId);
-        } catch {
-          /* best-effort */
-        }
-      }
-      try {
-        const { clearAllCachedChatMessages } = await import("@/lib/chatMessageCache");
-        await clearAllCachedChatMessages();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { invalidateMemoriesCache } = await import("@/lib/cache/memoryListCache");
-        invalidateMemoriesCache();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { invalidateGalleryCache } = await import("@/lib/cache/galleryListCache");
-        invalidateGalleryCache();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { invalidateIntegrationStatusCache } = await import(
-          "@/lib/cache/integrationStatusCache"
-        );
-        invalidateIntegrationStatusCache();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { invalidateSuggestedRemindersCache } = await import(
-          "@/lib/cache/suggestedRemindersCache"
-        );
-        invalidateSuggestedRemindersCache();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { invalidateChatListCache } = await import("@/lib/cache/chatListCache");
-        invalidateChatListCache();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        const { invalidateUsageCache } = await import("@/lib/cache/usageCache");
-        invalidateUsageCache();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        await clearCachedUser();
-      } catch {
-        /* best-effort */
-      }
-      try {
-        await signOutGoogle();
-      } catch {
-        // best-effort — clearing the local token is what matters
-      }
-      // L4: log out RevenueCat so the next user doesn't inherit the prior
-      // user's entitlements / customer info.
-      try {
-        const { signOutRevenueCat } = await import("@/lib/purchases");
-        await signOutRevenueCat();
-      } catch {
-        /* best-effort */
-      }
-      // L3: reset onboarding so a different user signing in on this device
-      // still sees the intro.
-      try {
-        await clearOnboarded();
-        setOnboardedState(false);
-      } catch {
-        /* best-effort */
-      }
-      if (accessToken) {
-        await logoutSession(accessToken, refreshToken);
-      }
-      // Server-side integrations (Gmail, Calendar) stay connected until explicitly disconnected.
-      await clearToken();
-      setTokenState(null);
-      setUser(null);
-    } finally {
-      signOutInFlightRef.current = false;
+  const signOut = useCallback(() => {
+    const userId = userRef.current?.id;
+    const accessToken = tokenRef.current;
+    const refreshToken = getRefreshToken().catch(() => null);
+    // clearToken invalidates the shared session synchronously before its disk
+    // write, fencing refreshes, startup requests and pending login attempts.
+    const clearCredentials = clearToken();
+    setCurrentToken(null);
+    setCurrentUser(null);
+    setProfileValidated(false);
+    setOnboardedState(false);
+    setLoading(false);
+    setStartupFailed(false);
+    ignoreUnauthorizedRef.current = false;
+    const cleanup = Promise.allSettled([
+      clearCredentials,
+      clearCachedUser(),
+      clearOnboarded(),
+      localCleanupRef.current.catch(() => {}),
+      clearSignedOutAccount(userId),
+    ]).then((results) => {
+      // Even a credential-store failure must wait for every local cleanup;
+      // otherwise a new login can race a still-running old-account deletion.
+      const credentials = results[0];
+      if (credentials.status === "rejected") throw credentials.reason;
+    });
+    localCleanupRef.current = cleanup;
+    if (accessToken) {
+      void refreshToken.then((refresh) => logoutSession(accessToken, refresh)).catch(() => {});
     }
-  }, [user?.id, token]);
+    return cleanup;
+  }, [setCurrentToken, setCurrentUser]);
 
-  // Sign out automatically when any authenticated request returns 401.
   useEffect(() => {
     setUnauthorizedHandler(() => {
       if (ignoreUnauthorizedRef.current) return;
-      void signOut();
+      void signOut().catch(() => {
+        console.warn("[auth] could not clear saved credentials");
+      });
     });
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
 
-  // Keep in-memory token in sync when api.ts silently refreshes after a 401.
   useEffect(() => {
     setTokenRefreshHandler((accessToken, refreshedUser) => {
-      setTokenState(accessToken);
-      // L2: merge the refreshed user so plan/profile changes (e.g. webhook
-      // downgrade) appear without waiting for the next /auth/me.
+      if (!mountedRef.current) return;
+      // The transport only emits after a current-generation secure write.
+      // Ignore an impossible identity mismatch rather than merge accounts.
+      if (userRef.current && refreshedUser && userRef.current.id !== refreshedUser.id) return;
+      setCurrentToken(accessToken);
       if (refreshedUser) {
-        setUser((prev) => (prev ? { ...prev, ...refreshedUser } : refreshedUser));
+        setProfileValidated(true);
+        setCurrentUser((previous) => previous ? { ...previous, ...refreshedUser } : refreshedUser);
       }
     });
     return () => setTokenRefreshHandler(null);
-  }, []);
+  }, [setCurrentToken, setCurrentUser]);
 
-  // Sync i18n language with user preference (including optimistic locale patches).
   useEffect(() => {
-    if (user?.locale) {
-      void ensureLocale(user.locale);
-    }
+    if (user?.locale) void ensureLocale(user.locale);
   }, [user?.locale]);
 
-  useBootstrapSync({ token, user, setUser });
+  // Cached display fields intentionally omit preferences. Running bootstrap
+  // on those defaults would unregister push and overwrite local reminders.
+  useBootstrapSync({
+    token: profileValidated ? token : null,
+    user: profileValidated ? user : null,
+    setUser: setCurrentUser,
+  });
 
+  // Capturing the render's generation also fences callbacks retained by a
+  // dismissed screen, including a fast account A → B → A transition.
+  const sessionGeneration = getSessionGeneration();
   const refreshUser = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isCurrent(sessionGeneration)) return;
+    const revision = updateUserGenRef.current;
     const me = await api.me(token);
-    setUser(me);
+    if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
+    setCurrentUser(me);
     void writeCachedUser(me);
-  }, [token]);
+  }, [token, sessionGeneration, isCurrent, setCurrentUser]);
 
   const completeOnboarding = useCallback(async () => {
+    if (!isCurrent(sessionGeneration)) return;
     await setOnboarded();
-    setOnboardedState(true);
-  }, []);
+    if (isCurrent(sessionGeneration)) setOnboardedState(true);
+  }, [sessionGeneration, isCurrent]);
 
-  const updateUserGenRef = useRef(0);
-
-  const updateUser = useCallback(
-    async (patch: Partial<User>) => {
-      if (!token) return;
-      const gen = ++updateUserGenRef.current;
-      let snapshot: User | null = null;
-      setUser((current) => {
-        snapshot = current;
-        return current ? { ...current, ...patch } : current;
-      });
-      try {
-        const updated = await api.updateMe(token, patch);
-        // Ignore stale responses when a newer patch already left the station —
-        // otherwise a slow toggle can briefly snap back to an older value.
-        if (gen !== updateUserGenRef.current) return;
-        setUser(updated);
-        void writeCachedUser(updated);
-      } catch {
-        if (gen !== updateUserGenRef.current) return;
-        setUser(snapshot);
-        throw new Error("update failed");
-      }
-    },
-    [token],
-  );
+  const updateUser = useCallback(async (patch: Partial<User>) => {
+    if (!token || !isCurrent(sessionGeneration)) return;
+    const revision = ++updateUserGenRef.current;
+    const snapshot = userRef.current;
+    setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
+    try {
+      const updated = await api.updateMe(token, patch);
+      if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
+      setCurrentUser(updated);
+      void writeCachedUser(updated);
+    } catch {
+      if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
+      setCurrentUser(snapshot);
+      throw new Error("update failed");
+    }
+  }, [token, sessionGeneration, isCurrent, setCurrentUser]);
 
   const mergeUser = useCallback((patch: Partial<User>) => {
-    setUser((current) => (current ? { ...current, ...patch } : current));
-  }, []);
+    if (!isCurrent(sessionGeneration)) return;
+    ++updateUserGenRef.current;
+    setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
+  }, [sessionGeneration, isCurrent, setCurrentUser]);
 
   const value = useMemo(
     () => ({
@@ -406,7 +322,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthTokenContext.Provider value={tokenBag}>
       <AuthContext.Provider value={value}>
-        {loading ? <AuthLoadingShell /> : children}
+        {loading || startupFailed
+          ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} />
+          : children}
       </AuthContext.Provider>
     </AuthTokenContext.Provider>
   );

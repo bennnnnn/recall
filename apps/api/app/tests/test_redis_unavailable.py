@@ -40,7 +40,7 @@ async def test_verify_access_token_raises_when_redis_down():
 async def test_refresh_token_pair_raises_when_redis_down():
     settings = Settings(jwt_secret="x" * 32)
     redis = AsyncMock()
-    redis.getdel = AsyncMock(side_effect=RedisConnectionError("down"))
+    redis.get = AsyncMock(side_effect=RedisConnectionError("down"))
     with pytest.raises(RedisUnavailableError):
         await tokens_service.refresh_token_pair(redis, "rtok", AsyncMock(), settings)
 

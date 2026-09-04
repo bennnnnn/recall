@@ -49,6 +49,8 @@ async def login_with_google(
     if user is None and email:
         existing = await users_repo.get_by_email(session, email)
         if existing is not None:
+            if existing.google_sub and existing.google_sub != google_sub:
+                raise GoogleAuthError("This email is already linked to a different Google account")
             user = await users_repo.update(session, existing, google_sub=google_sub)
             is_new_user = False
 
@@ -113,6 +115,8 @@ async def login_with_apple(
     if user is None and email:
         existing = await users_repo.get_by_email(session, email)
         if existing is not None:
+            if existing.apple_sub and existing.apple_sub != apple_sub:
+                raise GoogleAuthError("This email is already linked to a different Apple account")
             user = await users_repo.update(session, existing, apple_sub=apple_sub)
             is_new_user = False
 

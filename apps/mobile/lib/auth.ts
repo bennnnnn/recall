@@ -1,92 +1,151 @@
 import * as SecureStore from "expo-secure-store";
 
-const TOKEN_KEY = "recall_access_token";
-const REFRESH_TOKEN_KEY = "recall_refresh_token";
+export { clearOnboarded, getOnboarded, setOnboarded } from "@/lib/onboarding";
 
-// In-memory fallback when SecureStore native module isn't available (Expo Go)
-let _memAccess: string | null = null;
-let _memRefresh: string | null = null;
+const SESSION_KEY = "recall_session_v1";
+const LEGACY_ACCESS_KEY = "recall_access_token";
+const LEGACY_REFRESH_KEY = "recall_refresh_token";
 
-export async function getToken(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(TOKEN_KEY);
-  } catch {
-    return _memAccess;
+type TokenPair = { accessToken: string; refreshToken: string | null };
+
+export class AuthStorageError extends Error {
+  constructor() {
+    super("Recall could not access secure sign-in storage on this device. Please restart the app and try again.");
+    this.name = "AuthStorageError";
   }
 }
 
-export async function getRefreshToken(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-  } catch {
-    return _memRefresh;
+export class SessionChangedError extends Error {
+  constructor() {
+    super("Your sign-in changed. Please try again.");
+    this.name = "SessionChangedError";
   }
 }
 
-export async function setToken(token: string): Promise<void> {
-  _memAccess = token;
-  try {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
-  } catch {
-    // persisted in _mem only
-  }
+let sessionGeneration = 0;
+const sessionAccessTokens = new Set<string>();
+let storageQueue: Promise<void> = Promise.resolve();
+
+export function getSessionGeneration(): number {
+  return sessionGeneration;
 }
 
-export async function setRefreshToken(token: string): Promise<void> {
-  _memRefresh = token;
-  try {
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
-  } catch {
-    // persisted in _mem only
-  }
+/** Fence pending account operations immediately, before any asynchronous cleanup. */
+export function invalidateSession(): number {
+  sessionAccessTokens.clear();
+  return ++sessionGeneration;
 }
 
-export async function setTokenPair(accessToken: string, refreshToken: string): Promise<void> {
-  await Promise.all([setToken(accessToken), setRefreshToken(refreshToken)]);
+/** Accept refresh-era tokens only while their original account session remains active. */
+export function requireTokenSession(token: string): void {
+  if (!sessionAccessTokens.has(token)) throw new SessionChangedError();
 }
 
-export async function clearToken(): Promise<void> {
-  _memAccess = null;
-  _memRefresh = null;
-  try {
-    await Promise.all([
-      SecureStore.deleteItemAsync(TOKEN_KEY),
-      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
-    ]);
-  } catch {
-    // nothing to clear in native store
-  }
+function withStorage<T>(operation: () => Promise<T>): Promise<T> {
+  const pending = storageQueue.then(async () => {
+    try {
+      return await operation();
+    } catch (error) {
+      if (error instanceof AuthStorageError) throw error;
+      throw new AuthStorageError();
+    }
+  });
+  // A rejected operation belongs to its caller, but must not wedge later reads/clears.
+  storageQueue = pending.then(() => undefined, () => undefined);
+  return pending;
 }
 
-const ONBOARDED_KEY = "recall_onboarded";
-let _memOnboarded = false;
-
-export async function getOnboarded(): Promise<boolean> {
-  if (_memOnboarded) return true;
-  try {
-    return (await SecureStore.getItemAsync(ONBOARDED_KEY)) === "1";
-  } catch {
-    return _memOnboarded;
-  }
+async function deleteLegacyTokens(): Promise<void> {
+  await Promise.all([
+    SecureStore.deleteItemAsync(LEGACY_ACCESS_KEY),
+    SecureStore.deleteItemAsync(LEGACY_REFRESH_KEY),
+  ]);
 }
 
-export async function setOnboarded(): Promise<void> {
-  _memOnboarded = true;
-  try {
-    await SecureStore.setItemAsync(ONBOARDED_KEY, "1");
-  } catch {
-    // persisted in memory only
+function parseTokenPair(value: string): TokenPair | null {
+  const pair: unknown = JSON.parse(value);
+  if (pair === null) return null;
+  if (
+    typeof pair !== "object" ||
+    !("accessToken" in pair) ||
+    typeof pair.accessToken !== "string" ||
+    !pair.accessToken ||
+    !("refreshToken" in pair) ||
+    !(pair.refreshToken === null || (typeof pair.refreshToken === "string" && pair.refreshToken))
+  ) {
+    throw new AuthStorageError();
   }
+  return { accessToken: pair.accessToken, refreshToken: pair.refreshToken };
 }
 
-/** L3: reset the onboarding flag so a different user signing in on the same
- * device still sees the intro. Onboarding is device-local by design; clearing
- * on signOut keeps it per-account in effect. */
-export async function clearOnboarded(): Promise<void> {
-  _memOnboarded = false;
-  try {
-    await SecureStore.deleteItemAsync(ONBOARDED_KEY);
-  } catch {
-    // best-effort
+async function readTokenPair(generation: number): Promise<TokenPair | null> {
+  const stored = await SecureStore.getItemAsync(SESSION_KEY);
+  // A JSON null record is an authoritative sign-out, including when removal
+  // of an older build's separate token records was interrupted.
+  if (stored !== null) {
+    const pair = parseTokenPair(stored);
+    if (pair && generation === sessionGeneration) sessionAccessTokens.add(pair.accessToken);
+    return pair;
   }
+  const [accessToken, refreshToken] = await Promise.all([
+    SecureStore.getItemAsync(LEGACY_ACCESS_KEY),
+    SecureStore.getItemAsync(LEGACY_REFRESH_KEY),
+  ]);
+  if (!accessToken) return null;
+  const pair = { accessToken, refreshToken };
+  if (generation === sessionGeneration) {
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(pair));
+    await deleteLegacyTokens();
+    if (generation === sessionGeneration) sessionAccessTokens.add(accessToken);
+  }
+  return pair;
+}
+
+export function getToken(): Promise<string | null> {
+  const generation = sessionGeneration;
+  return withStorage(async () => (await readTokenPair(generation))?.accessToken ?? null);
+}
+
+export function getRefreshToken(): Promise<string | null> {
+  const generation = sessionGeneration;
+  return withStorage(async () => (await readTokenPair(generation))?.refreshToken ?? null);
+}
+
+/** One secure write preserves the access/refresh pair across partial failures. */
+export function setTokenPair(
+  accessToken: string,
+  refreshToken: string,
+  expectedGeneration = sessionGeneration,
+): Promise<boolean> {
+  return withStorage(async () => {
+    if (expectedGeneration !== sessionGeneration) return false;
+    if (!accessToken || !refreshToken) throw new AuthStorageError();
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify({ accessToken, refreshToken }));
+    if (expectedGeneration !== sessionGeneration) {
+      // A superseded native write may already have reached disk. Remove it
+      // inside this queue slot before any newer session write can begin.
+      await SecureStore.setItemAsync(SESSION_KEY, "null");
+      return false;
+    }
+    sessionAccessTokens.add(accessToken);
+    return true;
+  });
+}
+
+export function clearToken(): Promise<void> {
+  invalidateSession();
+  return withStorage(async () => {
+    try {
+      await SecureStore.setItemAsync(SESSION_KEY, "null");
+    } catch {
+      // Deletion can still work when a write is unavailable (for example a
+      // full store). Only report success when all credential records are gone.
+      await Promise.all([
+        SecureStore.deleteItemAsync(SESSION_KEY),
+        deleteLegacyTokens(),
+      ]);
+      return;
+    }
+    await deleteLegacyTokens();
+  });
 }
