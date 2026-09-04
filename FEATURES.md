@@ -24,6 +24,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Sign out** — revokes server tokens, clears local storage, and signs out of Google.
 - ✅ **Sign in with Apple** — iOS only (hidden on Android); requires Apple capability on App ID.
 - 🔜 Email/password, magic links, multi-device session management.
+- 🔜 **Native startup follow-up (2026-09-04)** — investigate the iOS simulator's
+  `expo-notifications` registration/keychain warning and the development session returning
+  to sign-in after a JavaScript reload. Reproduce in a native build before judging release
+  session persistence; deferred from the text-chat reliability review.
 
 ## 2. Conversations (chats)
 - ✅ **New chat** — from the header `＋` and the drawer; created **lazily** on the first message

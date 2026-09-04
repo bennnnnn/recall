@@ -6,9 +6,6 @@ const TIME_QUESTION =
 const REMOTE_TIME_QUESTION =
   /^\s*(?:what(?:'s| is) the time(?:\s+now)?\s+in\b.+|what time is it(?:\s+now)?\s+in\b.+|what time(?:\s+now)?\s+in\b.+|current time\s+in\b.+|time(?:\s+please)?\s+in\b.+)\s*[.!?]*\s*$/i;
 
-const TIME_FOLLOWUP =
-  /^\s*(?:again|one more time|tell me again|refresh|update(?:\s+it)?)\s*[.!?]*\s*$/i;
-
 const SCHEDULED_EVENT =
   /\b(meeting|appointment|flight|event|class|call|interview|game|train|bus)\b/i;
 
@@ -25,7 +22,7 @@ export function isTimeQuestion(text: string): boolean {
   const cleaned = text.trim();
   if (!cleaned) return false;
   if (isRemoteTimeQuestion(cleaned)) return false;
-  if (TIME_QUESTION.test(cleaned) || TIME_FOLLOWUP.test(cleaned)) {
+  if (TIME_QUESTION.test(cleaned)) {
     return !SCHEDULED_EVENT.test(cleaned);
   }
   return false;
