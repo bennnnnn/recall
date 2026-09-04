@@ -288,7 +288,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   const b = useMemo(() => makeStyles(theme), [theme]);
   const [showSendingLabel, setShowSendingLabel] = useState(false);
   const [showUserActions, setShowUserActions] = useState(false);
-  const [wasStreamed, setWasStreamed] = useState(false);
   const isUser = message.role === "user";
   const holdStreamLayout = useStreamLayoutHold({
     isGenerating,
@@ -298,9 +297,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   const isStreaming = isGenerating;
   const layoutFrozen = isStreaming || holdStreamLayout;
 
-  useEffect(() => {
-    if (isGenerating) setWasStreamed(true);
-  }, [isGenerating]);
   const userCopyText = isUser ? userMessageCopyText(message.content) : "";
   const canRevealUserActions = isUser && userCopyText.length > 0;
 
@@ -325,7 +321,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     layoutFrozen,
     isGenerating,
     isUser,
-    wasStreamed,
   });
   const {
     hasContent,

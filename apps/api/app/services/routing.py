@@ -109,6 +109,11 @@ _FOLLOWUP_LEAD_VERBS = frozenset(
         "patch",
         "update",
         "continue",
+        "check",
+        "verify",
+        "handle",
+        "review",
+        "test",
     }
 )
 # Leading verb alone is not enough ("fix dinner", "add milk"). The rest of
@@ -139,6 +144,8 @@ _FOLLOWUP_OBJECT_TOKENS = frozenset(
         "functions",
         "code",
         "timeout",
+        "edge",
+        "cases",
     }
 )
 
@@ -266,6 +273,10 @@ def _looks_like_smart_continuation(content: str) -> bool:
     if is_lightweight_chat_turn(content):
         return False
     lowered = cleaned.lower()
+    # Politeness should not change whether a task continuation inherits its tier.
+    for prefix in ("please ", "can you ", "could you ", "would you "):
+        if lowered.startswith(prefix):
+            lowered = lowered[len(prefix) :]
     if any(cue in lowered for cue in _FOLLOWUP_CUES):
         return True
     return _leading_followup_verb(lowered)

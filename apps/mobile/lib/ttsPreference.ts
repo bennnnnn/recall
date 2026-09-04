@@ -16,9 +16,8 @@ const FILE_NAME = "recall.tts-model.txt";
 let cachedPreference: TtsModelAlias | null = null;
 
 export function normalizeTtsModel(raw: string | null | undefined): TtsModelAlias {
-  if (raw === TTS_FAST_MODEL) return TTS_FAST_MODEL;
-  if (raw === TTS_QUALITY_MODEL) return TTS_QUALITY_MODEL;
-  return TTS_DEVICE_MODEL;
+  if (raw === TTS_DEVICE_MODEL) return TTS_DEVICE_MODEL;
+  return TTS_QUALITY_MODEL;
 }
 
 export async function getTtsModel(): Promise<TtsModelAlias> {

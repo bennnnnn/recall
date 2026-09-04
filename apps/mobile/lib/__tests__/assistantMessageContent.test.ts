@@ -10,6 +10,15 @@ describe("deriveAssistantMessageContent", () => {
     isGenerating: false,
   };
 
+  it("leaves streaming mode after the settle hold, including a final line without newline", () => {
+    for (const content of ["> Tip: Save a copy.", "12+3=15"]) {
+      expect(deriveAssistantMessageContent({ ...base, content, isGenerating: true }).markdownStreamMode).toBe(true);
+      const finished = deriveAssistantMessageContent({ ...base, content });
+      expect(finished.markdownStreamMode).toBe(false);
+      expect(finished).toEqual(deriveAssistantMessageContent({ ...base, content }));
+    }
+  });
+
   it("returns empty markdown flags for user rows", () => {
     const result = deriveAssistantMessageContent({
       ...base,

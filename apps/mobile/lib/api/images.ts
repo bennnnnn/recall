@@ -14,6 +14,7 @@ export const imagesApi = {
       prompt: string;
       user_message?: string | null;
       aspect_ratio?: string | null;
+      reference_attachment_ids?: string[];
     },
     init?: RequestInit,
   ) =>

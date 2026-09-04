@@ -9,6 +9,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
 from app.models.orm import User
+from app.services.attachment_content import strip_attachment_from_content
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
@@ -49,6 +50,7 @@ async def try_image_gen_for_turn(
     if not seams.plan_service.is_pro(user):
         return False
     image_prompt = seams.extract_image_gen_prompt(content)
+    reference_ids = None
     if not image_prompt:
         trimmed = content.strip()
         if not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8:
@@ -66,6 +68,11 @@ async def try_image_gen_for_turn(
             last_assistant_is_image_only=last_image_only,
             previous_subject=previous_subject,
         )
+        if image_prompt and create_user_message:
+            for row in reversed(recent):
+                if row.role == "assistant":
+                    reference_ids = seams.image_generation_service.image_reference_ids(row.content)
+                    break
     if not image_prompt:
         return False
     try:
@@ -76,6 +83,7 @@ async def try_image_gen_for_turn(
             prompt=image_prompt,
             user_message_content=(content.strip() if create_user_message else None),
             create_user_message=create_user_message,
+            reference_attachment_ids=reference_ids,
         )
     except seams.image_generation_service.ImageGenerationError as exc:
         if exc.status_code == 429:
@@ -327,11 +335,21 @@ async def stream_regenerate_response(
                 omit_message_ids = {last.id}
             turn_mode = await _classify_turn_mode(session, chat, user_message_content)
 
+        image_regenerate_content = user_message_content
+        if regenerate_backup is not None and regenerate_backup.model == "image-gen-model":
+            # Regenerate the recorded input, not the latest generated output.
+            # Edit wording need not contain "image" or satisfy short-revision
+            # heuristics. The persisted assistant model establishes intent.
+            for ref_id in seams.image_generation_service.image_reference_ids(user_message_content):
+                image_regenerate_content = strip_attachment_from_content(
+                    image_regenerate_content, ref_id
+                )
+            image_regenerate_content = f"Generate image: {image_regenerate_content}"
         if await seams._try_image_gen_for_turn(
             settings,
             user=user,
             chat_id=chat_id,
-            content=user_message_content,
+            content=image_regenerate_content,
             result=result,
             create_user_message=False,
             replace_assistant_id=(

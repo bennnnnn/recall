@@ -1,8 +1,7 @@
-"""OpenRouter speech STT/TTS HTTP calls (provider boundary)."""
+"""Direct OpenAI dictation and read-aloud HTTP calls (provider boundary)."""
 
 from __future__ import annotations
 
-import base64
 import io
 import logging
 import wave
@@ -14,15 +13,15 @@ from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
-_OPENROUTER_TRANSCRIBE_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
-_OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
+_OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions"
+_OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech"
 _TRANSCRIBE_TIMEOUT = 20.0
 _TTS_TIMEOUT = 60.0
 _DEFAULT_PCM_RATE = 24000
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
 
-_OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
+_AUDIO_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".m4a": "m4a",
     ".mp3": "mp3",
     ".mp4": "m4a",
@@ -34,16 +33,9 @@ _OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
 }
 
 
-def openrouter_audio_format(filename: str) -> str:
+def audio_format_from_filename(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
-    return _OPENROUTER_FORMAT_BY_SUFFIX.get(suffix, suffix.lstrip(".") or "m4a")
-
-
-def tts_response_format(model: str) -> str:
-    slug = model.lower()
-    if slug.startswith("google/") or "gemini" in slug:
-        return "pcm"
-    return "mp3"
+    return _AUDIO_FORMAT_BY_SUFFIX.get(suffix, suffix.lstrip(".") or "m4a")
 
 
 def pcm_to_wav(
@@ -86,7 +78,7 @@ def _stt_language_code(language: str | None) -> str | None:
     return None
 
 
-async def transcribe_via_openrouter(
+async def transcribe_via_openai(
     settings: Settings,
     audio_bytes: bytes,
     *,
@@ -94,13 +86,10 @@ async def transcribe_via_openrouter(
     model: str,
     language: str | None = None,
 ) -> str | None:
-    audio_format = openrouter_audio_format(filename)
-    payload: dict[str, object] = {
-        "model": model,
-        "input_audio": {
-            "data": base64.b64encode(audio_bytes).decode("ascii"),
-            "format": audio_format,
-        },
+    audio_format = audio_format_from_filename(filename)
+    payload: dict[str, str] = {
+        "model": model.removeprefix("openai/"),
+        "response_format": "json",
     }
     lang = _stt_language_code(language)
     if lang:
@@ -108,16 +97,16 @@ async def transcribe_via_openrouter(
     try:
         client = get_pooled_client(_TRANSCRIBE_TIMEOUT)
         response = await client.post(
-            _OPENROUTER_TRANSCRIBE_URL,
+            _OPENAI_TRANSCRIBE_URL,
             headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.openai_api_key}",
             },
-            json=payload,
+            data=payload,
+            files={"file": (Path(filename).name, audio_bytes)},
         )
         if response.status_code >= 400:
             logger.warning(
-                "OpenRouter transcription failed model=%s format=%s size=%s status=%s body=%s",
+                "OpenAI transcription failed model=%s format=%s size=%s status=%s body=%s",
                 model,
                 audio_format,
                 len(audio_bytes),
@@ -129,7 +118,7 @@ async def transcribe_via_openrouter(
         text = str(data.get("text") or "").strip()
         if not text:
             logger.info(
-                "OpenRouter transcription heard no speech model=%s format=%s size=%s",
+                "OpenAI transcription heard no speech model=%s format=%s size=%s",
                 model,
                 audio_format,
                 len(audio_bytes),
@@ -156,17 +145,12 @@ def _tts_request_payload(
     language: str | None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
-        "model": model,
+        "model": model.removeprefix("openai/"),
         "input": text,
         "voice": voice,
         "response_format": response_format,
     }
-    if model.startswith("openai/"):
-        payload["provider"] = {
-            "options": {
-                "openai": {"instructions": _openai_tts_instructions(language)},
-            }
-        }
+    payload["instructions"] = _openai_tts_instructions(language)
     return payload
 
 
@@ -178,7 +162,7 @@ def _openai_tts_instructions(language: str | None) -> str:
     return f"{base} Use a natural voice appropriate for locale {locale}."
 
 
-async def synthesize_via_openrouter(
+async def synthesize_via_openai(
     settings: Settings,
     text: str,
     *,
@@ -186,10 +170,8 @@ async def synthesize_via_openrouter(
     voice: str,
     language: str | None = None,
 ) -> tuple[bytes, str] | None:
-    # OpenRouter /audio/speech is OpenAI-compatible: model, input, voice,
-    # response_format. A `language` field 400s and the app falls back to
-    # on-device speech — pass locale only as OpenAI voice instructions.
-    response_format = tts_response_format(model)
+    # Locale is a voice instruction, not an unsupported `language` field.
+    response_format = "mp3"
     payload = _tts_request_payload(
         model=model,
         text=text,
@@ -200,16 +182,16 @@ async def synthesize_via_openrouter(
     try:
         client = get_pooled_client(_TTS_TIMEOUT)
         response = await client.post(
-            _OPENROUTER_SPEECH_URL,
+            _OPENAI_SPEECH_URL,
             headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Authorization": f"Bearer {settings.openai_api_key}",
                 "Content-Type": "application/json",
             },
             json=payload,
         )
         if response.status_code >= 400:
             logger.warning(
-                "OpenRouter TTS failed model=%s status=%s body=%s",
+                "OpenAI TTS failed model=%s status=%s body=%s",
                 model,
                 response.status_code,
                 response.text[:500],
@@ -217,7 +199,7 @@ async def synthesize_via_openrouter(
         response.raise_for_status()
         audio = response.content
         if not audio:
-            logger.warning("OpenRouter TTS returned empty audio model=%s", model)
+            logger.warning("OpenAI TTS returned empty audio model=%s", model)
             return None
         header_type = (response.headers.get("content-type") or "").lower()
         content_type = header_type.split(";")[0].strip()
@@ -236,7 +218,7 @@ async def synthesize_via_openrouter(
         return None
 
 
-async def stream_pcm_via_openrouter(
+async def stream_pcm_via_openai(
     settings: Settings,
     text: str,
     *,
@@ -244,7 +226,7 @@ async def stream_pcm_via_openrouter(
     voice: str,
     language: str | None = None,
 ) -> AsyncIterator[bytes]:
-    """Yield PCM (or raw audio) as OpenRouter produces it — do not buffer the clip."""
+    """Yield PCM (or raw audio) as OpenAI produces it — do not buffer the clip."""
     payload = _tts_request_payload(
         model=model,
         text=text,
@@ -256,9 +238,9 @@ async def stream_pcm_via_openrouter(
         client = get_pooled_client(_TTS_TIMEOUT)
         async with client.stream(
             "POST",
-            _OPENROUTER_SPEECH_URL,
+            _OPENAI_SPEECH_URL,
             headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Authorization": f"Bearer {settings.openai_api_key}",
                 "Content-Type": "application/json",
             },
             json=payload,
@@ -266,7 +248,7 @@ async def stream_pcm_via_openrouter(
             if response.status_code >= 400:
                 error_body = (await response.aread())[:500].decode("utf-8", errors="replace")
                 logger.warning(
-                    "OpenRouter TTS stream failed model=%s status=%s body=%s",
+                    "OpenAI TTS stream failed model=%s status=%s body=%s",
                     model,
                     response.status_code,
                     error_body,

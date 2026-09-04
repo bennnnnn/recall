@@ -24,7 +24,7 @@ import {
 } from "@/lib/quota";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
-import { TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
+import { TTS_DEVICE_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -245,23 +245,11 @@ export default function ModelsSettingsScreen() {
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsSwitchRow
             icon="volume-high-outline"
-            title={t("settings.tts_gemini")}
-            subtitle={t("settings.tts_gemini_meta")}
+            title="OpenAI"
+            subtitle={t("settings.tts_openai_meta")}
             value={ttsModel === TTS_QUALITY_MODEL}
             onValueChange={(enabled) => {
               if (enabled) selectTtsModel(TTS_QUALITY_MODEL);
-            }}
-            styles={s}
-            theme={theme}
-          />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsSwitchRow
-            icon="volume-medium-outline"
-            title={t("settings.tts_kokoro")}
-            subtitle={t("settings.tts_kokoro_meta")}
-            value={ttsModel === TTS_FAST_MODEL}
-            onValueChange={(enabled) => {
-              if (enabled) selectTtsModel(TTS_FAST_MODEL);
             }}
             styles={s}
             theme={theme}

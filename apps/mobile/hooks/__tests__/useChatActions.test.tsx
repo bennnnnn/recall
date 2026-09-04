@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
@@ -57,7 +57,7 @@ const setChatTitle = jest.fn();
 let actions: ReturnType<typeof useChatActions>;
 
 function Probe() {
-  actions = useChatActions({
+  const result = useChatActions({
     token: "tok",
     chatId: "chat-1",
     chatTitle: "Old title",
@@ -71,6 +71,7 @@ function Probe() {
     router: { canGoBack: () => false, back: jest.fn(), replace: jest.fn() } as never,
     t: (key) => key,
   });
+  useLayoutEffect(() => { actions = result; });
   return <Text>chat actions</Text>;
 }
 
@@ -181,6 +182,40 @@ const EMAIL_MESSAGE_ID = "11111111-1111-1111-1111-111111111111";
 const EMAIL_CONTENT = "Here.\n```email\nTo: a@b.com\nSubject: Hi\n\nHello\n```\n";
 
 describe("useChatActions email draft", () => {
+  it("saves with a queued state updater and serializes overlapping writes", async () => {
+    const updaters: React.SetStateAction<Message[]>[] = [];
+    const original = { id: EMAIL_MESSAGE_ID, role: "assistant", content: EMAIL_CONTENT } as Message;
+    const resolvers: ((message: Message) => void)[] = [];
+    (api.updateMessageEmail as jest.Mock).mockReset().mockImplementation(
+      () => new Promise<Message>((resolve) => resolvers.push(resolve)),
+    );
+    function DeferredProbe() {
+      const result = useChatActions({
+        token: "tok", chatId: "chat-1", chatTitle: "Draft", messages: [original],
+        pinned: false, setPinned: jest.fn(), archived: false, setArchived: jest.fn(),
+        setChatTitle: jest.fn(), setMessages: (update) => { updaters.push(update); },
+        router: {} as never, t: (key) => key,
+      });
+      useLayoutEffect(() => { actions = result; });
+      return <Text>deferred</Text>;
+    }
+    await render(<DeferredProbe />);
+    const first = actions.handleSaveEmailDraft(EMAIL_MESSAGE_ID, { subject: "First", body: "One" });
+    const second = actions.handleSaveEmailDraft(EMAIL_MESSAGE_ID, { subject: "Second", body: "Two" });
+    await act(async () => { await Promise.resolve(); });
+    expect(api.updateMessageEmail).toHaveBeenCalledTimes(1);
+    expect(updaters).toHaveLength(0);
+    resolvers[0]({ ...original, content: "First saved" });
+    expect(await first).toBe(true);
+    await act(async () => { await Promise.resolve(); });
+    expect(api.updateMessageEmail).toHaveBeenCalledTimes(2);
+    resolvers[1]({ ...original, content: "Second saved" });
+    expect(await second).toBe(true);
+    let state = [original];
+    for (const update of updaters) state = typeof update === "function" ? update(state) : update;
+    expect(state[0].content).toBe("Second saved");
+  });
+
   it("rewrites the stored email fence and PATCHes it", async () => {
     let messagesState: Message[] = [
       {
@@ -204,7 +239,7 @@ describe("useChatActions email draft", () => {
     });
 
     function EmailProbe() {
-      actions = useChatActions({
+      const result = useChatActions({
         token: "tok",
         chatId: "chat-1",
         chatTitle: "Old title",
@@ -218,6 +253,7 @@ describe("useChatActions email draft", () => {
         router: { canGoBack: () => false, back: jest.fn(), replace: jest.fn() } as never,
         t: (key) => key,
       });
+      useLayoutEffect(() => { actions = result; });
       return <Text>email actions</Text>;
     }
 

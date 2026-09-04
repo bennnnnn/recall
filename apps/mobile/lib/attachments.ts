@@ -25,6 +25,8 @@ const DOCUMENT_MIME_TYPES = [
   "text/csv",
   "application/json",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
 let nativePickerActive = false;
@@ -69,6 +71,14 @@ function normalizeContentType(mimeType: string | null | undefined, uri: string):
     return base;
   }
   const ext = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
+  const documentTypes: Record<string, string> = {
+    pdf: "application/pdf", txt: "text/plain", md: "text/markdown",
+    csv: "text/csv", json: "application/json",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  };
+  if (ext && documentTypes[ext]) return documentTypes[ext];
   if (ext === "heic") return "image/heic";
   if (ext === "heif") return "image/heif";
   if (ext === "png") return "image/png";
@@ -104,7 +114,7 @@ async function assetToPending(
   contentType: string,
   fileName: string,
 ): Promise<PendingAttachment> {
-  const normalizedType = normalizeContentType(contentType, uri);
+  const normalizedType = normalizeContentType(contentType, fileName || uri);
   if (isHeicContentType(normalizedType)) {
     // Auto-convert HEIC/HEIF to JPEG — most iPhone photos are HEIC by default,
     // and rejecting them created a poor UX. expo-image-manipulator is already

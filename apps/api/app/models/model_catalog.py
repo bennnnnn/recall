@@ -1,11 +1,11 @@
 """Catalog of chat models — the single source of truth for routing, pricing,
 provider, and availability. Adding a provider/model is one entry here.
 
-All models route through **OpenRouter** (one API key). LiteLLM talks to
-``https://openrouter.ai/api/v1`` using ``OPENROUTER_API_KEY``.
+Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
+Voice uses OpenAI directly with ``OPENAI_API_KEY``.
 
 Prices are USD per 1M tokens (approximate OpenRouter rates — update as needed).
-A model is "available" when ``openrouter_api_key`` is set (or mock mode is on).
+A model is "available" when its configured key is set (or mock mode is on).
 
 Product code uses ``id`` aliases only — never raw provider model strings outside
 this file and ``litellm_gateway``.
@@ -253,40 +253,38 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openrouter",
         selectable=False,
     ),
-    _or(
+    ChatModel(
         id="speech-stt-model",
         label="Speech transcription",
-        # OpenRouter STT slug. Composer dictation stays on OpenRouter;
-        # Live Talk Realtime is a separate direct-OpenAI WebRTC path.
-        model="openai/gpt-transcribe",
+        model="openai/gpt-4o-mini-transcribe",
         provider="openai",
+        api_key_field="openai_api_key",
         selectable=False,
     ),
-    _or(
+    ChatModel(
         id="speech-tts-model",
-        label="Gemini TTS",
-        # Default read-aloud. OpenRouter has no OpenAI GPT TTS.
-        model="google/gemini-3.1-flash-tts-preview",
-        provider="google",
+        label="OpenAI TTS",
+        model="openai/gpt-4o-mini-tts",
+        provider="openai",
+        api_key_field="openai_api_key",
         selectable=False,
-        description="Higher-quality read-aloud (Gemini 3.1 Flash TTS).",
+        description="OpenAI read-aloud.",
     ),
-    _or(
+    ChatModel(
         id="speech-tts-fast-model",
-        label="Kokoro TTS",
-        # Cheap OpenRouter TTS (~$0.62/1M chars). MiniMax Speech is costlier;
-        # there is no GLM TTS on OpenRouter.
-        model="hexgrad/kokoro-82m",
-        provider="hexgrad",
+        label="OpenAI TTS",
+        model="openai/gpt-4o-mini-tts",
+        provider="openai",
+        api_key_field="openai_api_key",
         selectable=False,
-        description="Lower-cost read-aloud.",
+        description="Legacy alias for OpenAI read-aloud.",
     ),
-    _or(
+    ChatModel(
         id="live-talk-model",
         label="Live talk",
-        # OpenAI speech-to-speech (audio in → audio out). Not Whisper STT.
-        model="openai/gpt-audio-mini",
+        model="openai/gpt-realtime-2.1",
         provider="openai",
+        api_key_field="openai_api_key",
         selectable=False,
         description="Speech-to-speech for live talk.",
     ),

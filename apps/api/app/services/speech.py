@@ -21,15 +21,23 @@ _STT_ALIAS = "speech-stt-model"
 TTS_QUALITY_ALIAS = "speech-tts-model"
 TTS_FAST_ALIAS = "speech-tts-fast-model"
 LIVE_TALK_ALIAS = "live-talk-model"
-# OpenAI GPT TTS is not listed on OpenRouter anymore (400 "does not exist").
-_RETIRED_TTS_SLUGS = frozenset(
+_OPENAI_TTS_VOICES = frozenset(
     {
-        "openai/gpt-4o-mini-tts",
-        "gpt-4o-mini-tts",
-        "openai/gpt-4o-mini-tts-2025-12-15",
+        "alloy",
+        "echo",
+        "fable",
+        "onyx",
+        "nova",
+        "shimmer",
+        "ash",
+        "ballad",
+        "coral",
+        "sage",
+        "verse",
+        "marin",
+        "cedar",
     }
 )
-_OPENAI_TTS_VOICES = frozenset({"alloy", "echo", "fable", "onyx", "nova", "shimmer"})
 _TTS_LEAD_MIN_CHARS = 120
 _TTS_LEAD_MAX_CHARS = 160
 _TTS_SENTENCE_ENDS = frozenset(".!?")
@@ -71,42 +79,21 @@ def normalize_tts_alias(raw: str | None) -> str:
     return TTS_QUALITY_ALIAS
 
 
-def default_voice_for_slug(model: str) -> str:
-    slug = model.lower()
-    if slug.startswith("google/") or "gemini" in slug:
-        return "Kore"
-    if "kokoro" in slug:
-        return "af_alloy"
-    if slug.startswith("openai/"):
-        return "alloy"
-    return "Kore"
-
-
 def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
-    """OpenRouter TTS slug for a product alias (Gemini default, Kokoro fast)."""
+    """Both read-aloud aliases use OpenAI; ignore stale non-OpenAI overrides."""
     chosen = normalize_tts_alias(alias)
     if chosen == TTS_FAST_ALIAS:
         return openrouter_slug(TTS_FAST_ALIAS)
     raw = (settings.speech_tts_model or openrouter_slug(TTS_QUALITY_ALIAS)).strip()
-    if raw in _RETIRED_TTS_SLUGS:
-        return openrouter_slug(TTS_QUALITY_ALIAS)
-    return raw
+    if raw.removeprefix("openai/").startswith("gpt-4o-mini-tts"):
+        return raw
+    return openrouter_slug(TTS_QUALITY_ALIAS)
 
 
 def resolve_tts_voice(settings: Settings, model: str) -> str:
-    """Voice id valid for the resolved OpenRouter TTS slug."""
-    default = default_voice_for_slug(model)
-    voice = (settings.speech_tts_voice or "").strip()
-    if not voice:
-        return default
-    leftover = voice.lower() in _OPENAI_TTS_VOICES or voice.lower() == "kore"
-    if leftover:
-        if model.startswith("openai/") and voice.lower() in _OPENAI_TTS_VOICES:
-            return voice
-        if voice.lower() == "kore" and (model.startswith("google/") or "gemini" in model.lower()):
-            return voice
-        return default
-    return voice
+    """Reject voices left over from Gemini/Kokoro configuration."""
+    voice = (settings.speech_tts_voice or "").strip().lower()
+    return voice if voice in _OPENAI_TTS_VOICES else "alloy"
 
 
 async def transcribe_audio(
@@ -126,11 +113,13 @@ async def transcribe_audio(
         return None
     if mock_llm.should_mock_llm(settings):
         return "This is a mock transcription."
-    if not settings.openrouter_api_key:
+    if not settings.openai_api_key:
         return None
 
     model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
-    text = await speech_gateway.transcribe_via_openrouter(
+    if model.removeprefix("openai/") not in {"gpt-4o-mini-transcribe", "gpt-4o-transcribe"}:
+        model = openrouter_slug(_STT_ALIAS)
+    text = await speech_gateway.transcribe_via_openai(
         settings,
         audio_bytes,
         filename=filename,
@@ -149,7 +138,7 @@ async def synthesize_speech(
     language: str | None = None,
     model_alias: str | None = None,
 ) -> tuple[bytes, str] | None:
-    """Return (audio_bytes, content_type) for Gemini or Kokoro TTS."""
+    """Return (audio_bytes, content_type) for OpenAI TTS."""
     if not settings.speech_tts_enabled:
         return None
     plain = " ".join((text or "").split()).strip()
@@ -159,14 +148,14 @@ async def synthesize_speech(
         plain = plain[:_MAX_TTS_CHARS]
     # Mock chat must not fake TTS when a key is present: a stub MP3 fails
     # playback and the app falls back to on-device speech.
-    if mock_llm.should_mock_llm(settings) and not settings.openrouter_api_key:
+    if mock_llm.should_mock_llm(settings) and not settings.openai_api_key:
         return _MOCK_MP3_BYTES, "audio/mpeg"
-    if not settings.openrouter_api_key:
+    if not settings.openai_api_key:
         return None
 
     model = resolve_tts_model(settings, alias=model_alias)
     voice = resolve_tts_voice(settings, model)
-    return await speech_gateway.synthesize_via_openrouter(
+    return await speech_gateway.synthesize_via_openai(
         settings,
         plain,
         model=model,
@@ -184,7 +173,7 @@ async def _collect_pcm(
     language: str | None,
 ) -> list[bytes]:
     chunks: list[bytes] = []
-    async for chunk in speech_gateway.stream_pcm_via_openrouter(
+    async for chunk in speech_gateway.stream_pcm_via_openai(
         settings,
         text,
         model=model,
@@ -212,12 +201,12 @@ async def iter_tts_pcm(
     if len(plain) > _MAX_TTS_CHARS:
         plain = plain[:_MAX_TTS_CHARS]
     lead, rest = split_tts_lead(plain)
-    if mock_llm.should_mock_llm(settings) and not settings.openrouter_api_key:
+    if mock_llm.should_mock_llm(settings) and not settings.openai_api_key:
         yield b"\x00\x00" * 1200
         if rest:
             yield b"\x00\x00" * 400
         return
-    if not settings.openrouter_api_key:
+    if not settings.openai_api_key:
         return
 
     model = resolve_tts_model(settings, alias=model_alias)
@@ -234,7 +223,7 @@ async def iter_tts_pcm(
             )
         )
     try:
-        async for chunk in speech_gateway.stream_pcm_via_openrouter(
+        async for chunk in speech_gateway.stream_pcm_via_openai(
             settings,
             lead,
             model=model,

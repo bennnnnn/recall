@@ -587,6 +587,6 @@ def image_gen_revision_context(
                 break
             continue
         if last_assistant_is_image_only and role == "user":
-            previous_subject = subject_from_image_gen_user_message(content)
+            previous_subject = subject_from_image_gen_user_message(content) or "the provided image"
             break
     return last_assistant_is_image_only, previous_subject

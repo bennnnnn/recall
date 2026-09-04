@@ -114,30 +114,33 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   search heuristic is weak, the tool-loop gate consults the LLM classifier (`should_web_search`)
   so factual lookups still get a tool round.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
-  transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
+  transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
 - ✅ **Live talk (Pro)** — waveform on the composer opens a **WebRTC**
   speech-to-speech session (OpenAI Realtime `gpt-realtime-2.1`). Server VAD
-  ends your turn; the orb never shows “Transcribing…”. Not full duplex (no
-  barge-in). Free is blocked (upgrade). Pro: **30 turns/day** (UTC). Composer
-  mic STT remains Whisper. Tap the mic (next to close) to mute so Recall
+  ends your turn; the orb never shows “Transcribing…”. Physical devices enable
+  echo cancellation and barge-in; iOS Simulator retains half-duplex. Free is blocked
+  (upgrade). Pro: **30 turns/day** (UTC). Tap the mic (next to close) to mute so Recall
   cannot hear you; it turns red. Playback is not paused. No Listening/Speaking
   labels. The normal composer stays so you can type and attach in voice mode.
   Typing a draft hides mute and close so the field uses the full row; they
   return when the draft is empty. Spoken turns are saved as normal chat
   messages (what you said + the reply) so they are in the thread when you
   close. Spoken sessions get the same stored-memory snapshot as text chat
-  (not Calendar, Gmail, or tools). The chat header (drawer / ⋮) stays
+  plus bounded read-only memory lookup and web search (not Calendar/Gmail actions).
+  Search sources use the existing reply chips. The chat header (drawer / ⋮) stays
   available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. Stale
   clients that still call `POST /speech/live/speak` get **410**.
-- ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
+- ✅ **Read aloud (TTS)** — defaults to OpenAI **gpt-4o-mini-tts** PCM
   (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
-  another utterance's unbilled quota) and starts playback on the first sentence; **Kokoro 82M**
-  is the cheap alternative (`speech-tts-fast-model`). Mic permission is not required.
+  another utterance's unbilled quota) and starts playback on the first sentence.
+  The legacy fast alias maps to the same OpenAI model; an explicit phone-voice choice
+  is preserved. Settings disclose AI-generated audio. Mic permission is not required.
   Cloud 502 falls back to on-device `expo-speech` (a speech 502 is not an API outage).
   Cloud clip playback needs a **dev build** (`expo-audio`); Expo Go still reads aloud via
   device TTS. JSON `POST /speech/tts` remains for non-streaming clients.
-- 🔜 Full duplex live voice (talk over playback without tapping) later.
+- 🔎 Physical-device barge-in and live provider verification remain release gates;
+  offline tests cannot establish echo quality or interruption timing.
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
@@ -196,6 +199,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   sandboxed WebView, dev build); tap opens full viewer with share/export. Inline extract
   is the first 25 pages / ~12k characters; the model is told when later pages were
   unread. A RAG miss is not treated as “not in the file.”
+- ✅ **Deeper file retrieval** — indexing reads up to 500 text-layer PDF pages / 200k
+  characters (256 chunks by default), independently of the small inline excerpt.
+  Existing indexes require re-upload/reindex to gain the expanded coverage.
+- ✅ **Office text** — XLSX cells/formula text and PPTX text/tables/speaker notes.
+  No formula execution, macros, embedded chart/image understanding, or external-link loading.
+- ✅ **Image edits** — owned reference bytes reach the image provider; hidden copies
+  preserve edit inputs. Regeneration replaces the assistant using the original input.
 - 🔜 **Collaborative cursors / shared docs** — multi-user editing not in scope for v1 personal app.
 
 ## 5. Models & routing
@@ -854,13 +864,13 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ Shipped (WebRTC + OpenAI Realtime; turns persist as chat; mic mute beside close; half-duplex, not barge-in) |
+| Live talk (speech-to-speech, Pro + daily cap) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
 | Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; unverified labeled; **dev build** for camera) |
 | Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
-| Full duplex voice mode | 🔜 Later |
+| Full duplex voice mode | 🔎 Physical-device implementation; release validation pending |
 
 Notes: multimodal routes through whichever catalog model supports the modality (vision/image-gen
 aliases on OpenRouter). Multimodal calls cost more than text — gated by plan + daily caps
@@ -962,8 +972,8 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → OpenRouter `gpt-transcribe` → composer (app-language hint, no-speech gate) | Streaming live transcription |
-| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, half-duplex — client `response.create`, no barge-in; persist off the audio path). Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. | Full duplex / interruptible voice |
+| Record → OpenAI `gpt-4o-mini-transcribe` → composer (app-language hint, no-speech gate) | Live provider verification |
+| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, physical-device barge-in, bounded read-only tools; persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)

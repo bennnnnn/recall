@@ -19,6 +19,7 @@ import {
 } from "@/lib/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { uploadChatAttachment, type PendingAttachment } from "@/lib/attachments";
 
 type DraftChat = {
   prepareDraftChat: (
@@ -56,6 +57,8 @@ export type ImageGenSubmit = {
   prompt: string;
   userMessage: string;
   aspectRatio?: string | null;
+  referenceAttachmentIds?: string[];
+  referenceAttachment?: PendingAttachment;
 };
 
 /** Pro image generation from composer text — no confirmation sheet. */
@@ -92,23 +95,24 @@ export function useImageGeneration({
   streamingRef.current = streaming;
   tokenRef.current = token;
 
+  const { creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId } = draft;
   const ensureChatId = useCallback(async (): Promise<string | null> => {
     if (chatId) return chatId;
-    draft.creatingRef.current = true;
+    creatingRef.current = true;
     try {
-      const id = await draft.prepareDraftChat(undefined, selectedModel);
+      const id = await prepareDraftChat(undefined, selectedModel);
       if (!id) throw new Error("Could not create chat");
-      draft.skipLoadForChatIdRef.current = id;
+      skipLoadForChatIdRef.current = id;
       setChatTitle(null);
       setChatId(id);
-      draft.draftChatIdRef.current = null;
-      draft.setDraftChatId(null);
+      draftChatIdRef.current = null;
+      setDraftChatId(null);
       router.setParams({ chatId: id });
       return id;
     } finally {
-      draft.creatingRef.current = false;
+      creatingRef.current = false;
     }
-  }, [chatId, draft, router, selectedModel, setChatId, setChatTitle]);
+  }, [chatId, creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId, router, selectedModel, setChatId, setChatTitle]);
 
   const submitPrompt = useCallback(
     async (input: ImageGenSubmit) => {
@@ -131,7 +135,7 @@ export function useImageGeneration({
       const userContent = imageGenUserBubble(input.userMessage, prompt);
       if (!prompt || !userContent) return;
 
-      lastSubmitRef.current = { prompt, userMessage: userContent, aspectRatio: input.aspectRatio };
+      lastSubmitRef.current = { ...input, prompt, userMessage: userContent };
       generatingRef.current = true;
       setGenerating(true);
       const abort = new AbortController();
@@ -139,9 +143,12 @@ export function useImageGeneration({
       userCancelRef.current = false;
 
       const createdAt = new Date().toISOString();
-      let addedOptimistic = false;
+      // React may defer/replay functional updates. Establish request identity
+      // before scheduling the render, never from inside its updater.
+      const priorUserId = optimisticUserIdRef.current;
+      const optimisticUserId = priorUserId ?? `local-img-${Date.now()}`;
+      optimisticUserIdRef.current = optimisticUserId;
       setMessages((prev) => {
-        const priorUserId = optimisticUserIdRef.current;
         const retrySameTurn =
           hasImageGenFailedAssistant(prev) &&
           Boolean(priorUserId) &&
@@ -155,9 +162,6 @@ export function useImageGeneration({
             row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID &&
             row.id !== priorUserId,
         );
-        const optimisticUserId = `local-img-${Date.now()}`;
-        optimisticUserIdRef.current = optimisticUserId;
-        addedOptimistic = true;
         return [
           ...without,
           {
@@ -176,12 +180,10 @@ export function useImageGeneration({
           },
         ];
       });
-      if (addedOptimistic) {
+      if (!priorUserId) {
         newMessageCountRef.current += 2;
       }
       onScrollToLatest();
-
-      const optimisticUserId = optimisticUserIdRef.current;
 
       try {
         const activeChatId = await ensureChatId();
@@ -189,6 +191,12 @@ export function useImageGeneration({
           setMessages((prev) => applyImageGenFailure(prev, "failed", t("chat.error_generic")));
           return;
         }
+        const referenceIds = input.referenceAttachment
+          ? [await uploadChatAttachment(authToken, input.referenceAttachment)]
+          : input.referenceAttachmentIds;
+        // Retry the same upload/reference, not whatever image is newest later.
+        lastSubmitRef.current = { ...input, referenceAttachment: undefined, referenceAttachmentIds: referenceIds };
+        if (abort.signal.aborted) throw new Error("Image request cancelled");
         const result = await api.generateImage(
           authToken,
           {
@@ -196,9 +204,11 @@ export function useImageGeneration({
             prompt,
             user_message: userContent,
             aspect_ratio: input.aspectRatio ?? null,
+            reference_attachment_ids: referenceIds,
           },
           { signal: abort.signal },
         );
+        if (abort.signal.aborted) throw new Error("Image request cancelled");
         setMessages((prev) => {
           const without = prev.filter(
             (m) => m.id !== optimisticUserId && m.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,

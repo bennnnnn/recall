@@ -90,7 +90,7 @@ async def test_retrieve_for_prompt_includes_filename_and_page():
 
     assert "(notes.pdf)" in block
     assert "[page 3] hello from notes" in block
-    assert "first 25 PDF pages" in block
+    assert "first 500 PDF pages" in block
 
 
 @pytest.mark.asyncio

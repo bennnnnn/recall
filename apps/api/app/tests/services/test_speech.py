@@ -6,9 +6,9 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.speech_gateway import (
-    openrouter_audio_format,
+    audio_format_from_filename,
     pcm_to_wav,
-    stream_pcm_via_openrouter,
+    stream_pcm_via_openai,
 )
 from app.services.speech import (
     SPEECH_MAX_AUDIO_BYTES,
@@ -28,7 +28,7 @@ from app.services.speech import (
 async def test_transcribe_returns_mock_when_mock_llm_enabled():
     settings = Settings(
         mock_llm_enabled=True,
-        openrouter_api_key="",
+        openai_api_key="",
         speech_transcription_enabled=True,
     )
     with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
@@ -54,17 +54,17 @@ async def test_transcribe_rejects_over_shared_byte_cap():
     assert await transcribe_audio(settings, b"x" * (SPEECH_MAX_AUDIO_BYTES + 1)) is None
 
 
-def test_openrouter_audio_format_from_filename():
-    assert openrouter_audio_format("speech.m4a") == "m4a"
-    assert openrouter_audio_format("clip.wav") == "wav"
-    assert openrouter_audio_format("clip.mp4") == "m4a"
+def test_audio_format_from_filename_from_filename():
+    assert audio_format_from_filename("speech.m4a") == "m4a"
+    assert audio_format_from_filename("clip.wav") == "wav"
+    assert audio_format_from_filename("clip.mp4") == "m4a"
 
 
 @pytest.mark.asyncio
-async def test_transcribe_openrouter_json_api():
+async def test_transcribe_openai_multipart_api():
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_transcription_enabled=True,
         speech_transcription_model="openai/gpt-4o-mini-transcribe",
     )
@@ -83,18 +83,19 @@ async def test_transcribe_openrouter_json_api():
 
     assert text == "hello there"
     call = client.post.call_args
-    assert call.args[0] == "https://openrouter.ai/api/v1/audio/transcriptions"
-    body = call.kwargs["json"]
-    assert body["model"] == "openai/gpt-4o-mini-transcribe"
-    assert body["input_audio"]["format"] == "m4a"
+    assert call.args[0] == "https://api.openai.com/v1/audio/transcriptions"
+    body = call.kwargs["data"]
+    assert body["model"] == "gpt-4o-mini-transcribe"
+    assert call.kwargs["files"] == {"file": ("speech.m4a", b"audio-bytes")}
+    assert call.kwargs["headers"] == {"Authorization": "Bearer sk-test"}
     assert "language" not in body
 
 
 @pytest.mark.asyncio
-async def test_transcribe_openrouter_sends_language_hint():
+async def test_transcribe_openai_sends_language_hint():
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_transcription_enabled=True,
         speech_transcription_model="openai/gpt-transcribe",
     )
@@ -115,8 +116,8 @@ async def test_transcribe_openrouter_sends_language_hint():
         )
 
     assert text == "hello there"
-    body = client.post.call_args.kwargs["json"]
-    assert body["model"] == "openai/gpt-transcribe"
+    body = client.post.call_args.kwargs["data"]
+    assert body["model"] == "gpt-4o-mini-transcribe"
     assert body["language"] == "en"
 
 
@@ -124,7 +125,7 @@ async def test_transcribe_openrouter_sends_language_hint():
 async def test_transcribe_drops_watching_hallucination_on_tiny_clip():
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_transcription_enabled=True,
         speech_transcription_model="openai/gpt-transcribe",
     )
@@ -143,11 +144,11 @@ async def test_transcribe_drops_watching_hallucination_on_tiny_clip():
 
 
 @pytest.mark.asyncio
-async def test_transcribe_openrouter_empty_text_is_success():
+async def test_transcribe_openai_empty_text_is_success():
     """Silence is a valid STT result — not a provider failure."""
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_transcription_enabled=True,
         speech_transcription_model="openai/gpt-transcribe",
     )
@@ -166,10 +167,10 @@ async def test_transcribe_openrouter_empty_text_is_success():
 
 
 @pytest.mark.asyncio
-async def test_transcribe_openrouter_http_error_is_none():
+async def test_transcribe_openai_http_error_is_none():
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_transcription_enabled=True,
     )
     response = MagicMock()
@@ -190,7 +191,7 @@ async def test_transcribe_openrouter_http_error_is_none():
 async def test_synthesize_returns_mock_when_mock_llm_enabled():
     settings = Settings(
         mock_llm_enabled=True,
-        openrouter_api_key="",
+        openai_api_key="",
         speech_tts_enabled=True,
     )
     with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
@@ -214,27 +215,29 @@ async def test_synthesize_empty_returns_none():
         assert await synthesize_speech(settings, "   ") is None
 
 
-def test_resolve_tts_model_replaces_retired_openai_slug():
+def test_resolve_tts_model_uses_openai_for_both_aliases_and_stale_overrides():
     settings = Settings(speech_tts_model="openai/gpt-4o-mini-tts")
-    assert resolve_tts_model(settings) == "google/gemini-3.1-flash-tts-preview"
-    assert resolve_tts_model(Settings(speech_tts_model="")) == (
-        "google/gemini-3.1-flash-tts-preview"
-    )
+    assert resolve_tts_model(settings) == "openai/gpt-4o-mini-tts"
+    assert resolve_tts_model(Settings(speech_tts_model="")) == ("openai/gpt-4o-mini-tts")
     assert (
         resolve_tts_model(Settings(speech_tts_model="openai/gpt-4o-mini-tts-2025-12-15"))
-        == "google/gemini-3.1-flash-tts-preview"
+        == "openai/gpt-4o-mini-tts-2025-12-15"
     )
-    assert resolve_tts_model(Settings(), alias=TTS_FAST_ALIAS) == "hexgrad/kokoro-82m"
+    assert resolve_tts_model(Settings(), alias=TTS_FAST_ALIAS) == "openai/gpt-4o-mini-tts"
+    for stale in ("google/gemini-3.1-flash-tts-preview", "hexgrad/kokoro-82m"):
+        assert resolve_tts_model(Settings(speech_tts_model=stale)) == "openai/gpt-4o-mini-tts"
     assert normalize_tts_alias(None) == TTS_QUALITY_ALIAS
     assert normalize_tts_alias("speech-tts-fast-model") == TTS_FAST_ALIAS
 
 
-def test_resolve_tts_voice_maps_openai_voices_off_openai_models():
-    settings = Settings(speech_tts_voice="alloy")
-    assert resolve_tts_voice(settings, "google/gemini-3.1-flash-tts-preview") == "Kore"
-    assert resolve_tts_voice(settings, "openai/gpt-4o-mini-tts") == "alloy"
-    assert resolve_tts_voice(settings, "hexgrad/kokoro-82m") == "af_alloy"
-    assert resolve_tts_voice(Settings(speech_tts_voice=""), "hexgrad/kokoro-82m") == ("af_alloy")
+def test_resolve_tts_voice_migrates_non_openai_voices():
+    for stale in ("Kore", "af_alloy", ""):
+        assert (
+            resolve_tts_voice(Settings(speech_tts_voice=stale), "openai/gpt-4o-mini-tts") == "alloy"
+        )
+    assert (
+        resolve_tts_voice(Settings(speech_tts_voice="marin"), "openai/gpt-4o-mini-tts") == "marin"
+    )
 
 
 def test_pcm_to_wav_writes_riff_header():
@@ -244,10 +247,10 @@ def test_pcm_to_wav_writes_riff_header():
 
 
 @pytest.mark.asyncio
-async def test_synthesize_openrouter_omits_language_field():
+async def test_synthesize_openai_omits_language_field():
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_tts_enabled=True,
         speech_tts_model="",
         speech_tts_voice="alloy",
@@ -273,19 +276,21 @@ async def test_synthesize_openrouter_omits_language_field():
     assert content_type == "audio/wav"
     assert audio[:4] == b"RIFF"
     body = client.post.call_args.kwargs["json"]
-    assert client.post.call_args.args[0] == "https://openrouter.ai/api/v1/audio/speech"
-    assert body["model"] == "google/gemini-3.1-flash-tts-preview"
-    assert body["voice"] == "Kore"
-    assert body["response_format"] == "pcm"
+    assert client.post.call_args.args[0] == "https://api.openai.com/v1/audio/speech"
+    assert client.post.call_args.kwargs["headers"]["Authorization"] == "Bearer sk-test"
+    assert body["model"] == "gpt-4o-mini-tts"
+    assert body["voice"] == "alloy"
+    assert body["response_format"] == "mp3"
+    assert "en-US" in body["instructions"]
     assert "language" not in body
     assert "provider" not in body
 
 
 @pytest.mark.asyncio
-async def test_synthesize_kokoro_requests_mp3():
+async def test_synthesize_legacy_fast_alias_requests_openai_mp3():
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_tts_enabled=True,
     )
     response = MagicMock()
@@ -305,16 +310,16 @@ async def test_synthesize_kokoro_requests_mp3():
 
     assert result == (b"ID3kokoro", "audio/mpeg")
     body = client.post.call_args.kwargs["json"]
-    assert body["model"] == "hexgrad/kokoro-82m"
-    assert body["voice"] == "af_alloy"
+    assert body["model"] == "gpt-4o-mini-tts"
+    assert body["voice"] == "alloy"
     assert body["response_format"] == "mp3"
 
 
 @pytest.mark.asyncio
-async def test_synthesize_uses_openrouter_when_mock_llm_but_key_present():
+async def test_synthesize_uses_openai_when_mock_llm_but_key_present():
     settings = Settings(
         mock_llm_enabled=True,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_tts_enabled=True,
     )
     response = MagicMock()
@@ -353,27 +358,43 @@ async def test_stream_pcm_yields_chunks_without_buffering():
 
     client = MagicMock()
     client.stream.return_value = _Resp()
-    settings = Settings(openrouter_api_key="sk-or-test")
+    settings = Settings(openai_api_key="sk-test")
     chunks: list[bytes] = []
     with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
-        async for chunk in stream_pcm_via_openrouter(
+        async for chunk in stream_pcm_via_openai(
             settings,
             "Hello",
-            model="google/gemini-3.1-flash-tts-preview",
-            voice="Kore",
+            model="openai/gpt-4o-mini-tts",
+            voice="alloy",
         ):
             chunks.append(chunk)
     assert chunks == [b"aa", b"bb"]
     body = client.stream.call_args.kwargs["json"]
     assert body["response_format"] == "pcm"
     assert body["input"] == "Hello"
+    assert body["model"] == "gpt-4o-mini-tts"
+    assert client.stream.call_args.args == ("POST", "https://api.openai.com/v1/audio/speech")
+    assert client.stream.call_args.kwargs["headers"]["Authorization"] == "Bearer sk-test"
+
+
+@pytest.mark.asyncio
+async def test_voice_never_uses_openrouter_key_as_fallback():
+    settings = Settings(mock_llm_enabled=False, openai_api_key="", openrouter_api_key="router-only")
+    with (
+        patch("app.services.speech.mock_llm.should_mock_llm", return_value=False),
+        patch("app.gateways.speech_gateway.get_pooled_client") as client,
+    ):
+        assert await transcribe_audio(settings, b"audio") is None
+        assert await synthesize_speech(settings, "Hello") is None
+        assert [chunk async for chunk in iter_tts_pcm(settings, "Hello")] == []
+        client.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_iter_tts_pcm_mock_without_key():
     settings = Settings(
         mock_llm_enabled=True,
-        openrouter_api_key="",
+        openai_api_key="",
         speech_tts_enabled=True,
     )
     with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
@@ -423,7 +444,7 @@ async def test_iter_tts_pcm_yields_lead_before_rest_finishes():
 
     settings = Settings(
         mock_llm_enabled=False,
-        openrouter_api_key="sk-or-test",
+        openai_api_key="sk-test",
         speech_tts_enabled=True,
     )
     with (
@@ -433,7 +454,7 @@ async def test_iter_tts_pcm_yields_lead_before_rest_finishes():
             return_value=("Lead sentence.", "Rest of the message."),
         ),
         patch(
-            "app.services.speech.speech_gateway.stream_pcm_via_openrouter",
+            "app.services.speech.speech_gateway.stream_pcm_via_openai",
             fake_stream,
         ),
     ):

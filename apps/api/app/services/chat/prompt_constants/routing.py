@@ -217,6 +217,7 @@ _ADVICE_INTENT = re.compile(
     r"recommend(?:ation)?s?|suggest(?:ion)?s?|"
     r"any ideas|ideas for|help me (?:choose|pick|decide)|"
     r"what should i|where should i|what(?:'s| is) for|"
+    r"(?:can|could|should|may) i (?:eat|drink|wear|try|do|have)|"
     r"what to (?:eat|cook|wear|watch|get|buy|order|drink)|"
     r"pick (?:a |an )|"
     r"i(?:'m| am) (?:hungry|starving)"
@@ -225,6 +226,7 @@ _ADVICE_INTENT = re.compile(
 )
 _ADVICE_DOMAIN = re.compile(
     r"\b("
+    r"drink|coffee|tea|"
     r"eat|eating|cook|cooking|dinner|lunch|breakfast|brunch|"
     r"food|restaurant|recipe|meal|hungry|starving|snack|"
     r"wear|outfit|clothes|clothing|"
@@ -263,6 +265,7 @@ _ADVICE_NEED_PLAN = re.compile(
     r"want (?:a |an )|"
     r"plan (?:a |an |my )|"
     r"help me plan|"
+    r"(?:make|create|build|design) (?:me |my )|"
     r"quick dinner|easy dinner|"
     r"dinner tonight|lunch tonight|breakfast tonight"
     r")\b",

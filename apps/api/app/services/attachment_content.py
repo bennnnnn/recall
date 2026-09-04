@@ -25,10 +25,10 @@ MAX_EXTRACT_CHARS = 12_000
 # Indexing cap — the background indexing path chunks the whole document for
 # pgvector RAG, so it can extract far more than the inline excerpt. Capped to
 # avoid runaway memory on adversarially large text payloads.
-MAX_INDEX_EXTRACT_CHARS = 50_000
-# PDF text-layer extract reads this many pages on both the inline excerpt
-# and the index/RAG path. Later pages are unread — disclose that to the model.
+MAX_INDEX_EXTRACT_CHARS = 200_000
+# Inline excerpts stay small; background indexing can read later PDF pages.
 PDF_EXTRACT_MAX_PAGES = 25
+PDF_INDEX_MAX_PAGES = 500
 VISION_REHYDRATE_LIMIT = 2
 
 _IMAGE_UNAVAILABLE_NOTE = (
@@ -80,6 +80,8 @@ DOCUMENT_CONTENT_TYPES = frozenset(
         # parser can read it, so uploads succeed but RAG silently fails. Reject
         # at presign with a clear error so users convert to .docx instead.
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     }
 )
 
@@ -100,6 +102,28 @@ _UNVERIFIABLE_TYPES: frozenset[str] = frozenset()
 
 _DOCX_MARKER_ENTRY = "word/document.xml"
 _MAX_DOCX_TOTAL_UNCOMPRESSED = 32 * 1024 * 1024
+_OFFICE_MARKERS = {
+    _DOCX_MARKER_ENTRY: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xl/workbook.xml": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ppt/presentation.xml": (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ),
+}
+
+
+def _office_content_type(data: bytes) -> str | None:
+    try:
+        if _docx_zip_bomb(data):
+            return None
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            names = archive.namelist()
+            # Reject ambiguous containers and macro-bearing files even if renamed.
+            if any(name.lower().endswith("vbaproject.bin") for name in names):
+                return None
+            matches = [mime for marker, mime in _OFFICE_MARKERS.items() if marker in names]
+            return matches[0] if len(matches) == 1 else None
+    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError):
+        return None
 
 
 def _docx_zip_bomb(data: bytes) -> bool:
@@ -111,6 +135,8 @@ def _docx_zip_bomb(data: bytes) -> bool:
     """
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            if len(archive.infolist()) > 4096:
+                return True
             total = 0
             for info in archive.infolist():
                 if info.file_size > MAX_ATTACHMENT_SIZE:
@@ -159,8 +185,8 @@ def _sniff_signature(data: bytes) -> str | None:
         return "image/gif"
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
-    if len(data) >= 4 and data[:4] == b"PK\x03\x04" and _is_docx_zip(data):
-        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if len(data) >= 4 and data[:4] == b"PK\x03\x04":
+        return _office_content_type(data)
     if len(data) >= 8 and data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
         return "application/msword"
     return None
@@ -222,7 +248,7 @@ _DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessi
 # genuinely unsupported type (e.g. legacy .doc, which has no good pure-Python
 # parser) apart from a supported type that just yielded no text (e.g. a
 # scanned image-only PDF) — the two deserve different user-facing messages.
-EXTRACTABLE_CONTENT_TYPES = _TEXTISH_TYPES | {"application/pdf", _DOCX_CONTENT_TYPE}
+EXTRACTABLE_CONTENT_TYPES = _TEXTISH_TYPES | {"application/pdf", *_OFFICE_MARKERS.values()}
 
 
 @dataclass(frozen=True)
@@ -295,18 +321,27 @@ def extract_text_details(
             from pypdf import PdfReader
 
             reader = PdfReader(io.BytesIO(data))
-            page_capped = len(reader.pages) > PDF_EXTRACT_MAX_PAGES
+            page_limit = (
+                PDF_INDEX_MAX_PAGES if max_chars > MAX_EXTRACT_CHARS else PDF_EXTRACT_MAX_PAGES
+            )
+            page_capped = len(reader.pages) > page_limit
             parts: list[str] = []
-            for index, page in enumerate(reader.pages[:PDF_EXTRACT_MAX_PAGES], start=1):
+            size = 0
+            char_capped = False
+            for index, page in enumerate(reader.pages[:page_limit], start=1):
                 page_text = page.extract_text()
                 if page_text:
                     parts.append(f"[page {index}] {page_text.strip()}")
+                    size += len(parts[-1]) + 2
+                    if size > max_chars:
+                        char_capped = True
+                        break
             joined = "\n\n".join(parts).strip()
             if not joined:
                 return None
             return ExtractedText(
                 text=joined[:max_chars],
-                char_capped=len(joined) > max_chars,
+                char_capped=char_capped or len(joined) > max_chars,
                 page_capped=page_capped,
             )
         except Exception:
@@ -329,6 +364,17 @@ def extract_text_details(
         except Exception:
             logger.debug("DOCX text extraction failed", exc_info=True)
             return None
+
+    if content_type in _OFFICE_MARKERS.values() and content_type != _DOCX_CONTENT_TYPE:
+        if _office_content_type(data) != content_type:
+            return None
+        from app.services.office_text import extract_office_text
+
+        office_text = extract_office_text(content_type, data, max_chars=max_chars + 1)
+        if office_text:
+            return ExtractedText(
+                text=office_text[:max_chars], char_capped=len(office_text) > max_chars
+            )
 
     # Legacy .doc (application/msword) and anything else: no parser. Handled
     # explicitly (not silently) by format_attachment_lines via

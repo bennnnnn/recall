@@ -24,6 +24,7 @@ async def generate_via_openrouter(
     prompt: str,
     model: str,
     aspect_ratio: str | None = None,
+    reference_images: list[tuple[bytes, str]] | None = None,
 ) -> tuple[bytes, str] | None:
     payload: dict[str, object] = {
         "model": model,
@@ -33,6 +34,14 @@ async def generate_via_openrouter(
     }
     if aspect_ratio:
         payload["aspect_ratio"] = aspect_ratio
+    if reference_images:
+        payload["input_references"] = [
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"},
+            }
+            for raw, mime in reference_images
+        ]
 
     try:
         async with httpx.AsyncClient(timeout=_GENERATE_TIMEOUT) as client:
@@ -80,7 +89,8 @@ async def generate_via_openrouter(
                         len(raw),
                     )
                     return None
-                return raw, "image/png"
+                media_type = first.get("media_type")
+                return raw, media_type if isinstance(media_type, str) else "image/png"
         url = first.get("url")
         if isinstance(url, str) and url.startswith(("http://", "https://")):
             async with httpx.AsyncClient(

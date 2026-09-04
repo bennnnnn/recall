@@ -23,6 +23,7 @@ import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerT
 import { flushEmailDrafts } from "@/lib/emailDraftFlush";
 import {
   extractImageGenPrompt,
+  extractAttachedImageEditPrompt,
   extractImageRevisionPrompt,
   imageGenRevisionContext,
 } from "@/lib/imageGenIntent";
@@ -88,7 +89,7 @@ type Options = {
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
-  onGenerateImage?: (prompt: string, userMessage: string) => void;
+  onGenerateImage?: (prompt: string, userMessage: string, reference?: { attachment?: PendingAttachment; ids?: string[] }) => void;
   imageGenerating?: boolean;
 };
 
@@ -244,15 +245,28 @@ export function useChatSend({
       // Do not gate on client isPro — plan can be stale while the API still knows Pro;
       // submitPrompt / the API open upgrade or generate. Never let the model invent
       // "the app will attach an image shortly" without calling generate.
-      if (onGenerateImage && !pendingAttachment) {
-        const imagePrompt =
-          extractImageGenPrompt(text) ??
-          extractImageRevisionPrompt(text, imageGenRevisionContext(messages));
+      if (onGenerateImage && (!pendingAttachment || pendingAttachment.kind === "image")) {
+        const revisionContext = imageGenRevisionContext(messages);
+        const revision = pendingAttachment?.kind === "image"
+          ? extractAttachedImageEditPrompt(text)
+          : extractImageRevisionPrompt(text, revisionContext);
+        const imagePrompt = extractImageGenPrompt(text) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
+          sendInFlightRef.current = true;
+          setSendPhase("preparing");
+          const draftsSaved = await flushEmailDrafts();
+          sendInFlightRef.current = false;
+          setSendPhase("idle");
+          if (!draftsSaved) return;
           setInput("");
+          setPendingAttachment(null);
           Keyboard.dismiss();
-          onGenerateImage(imagePrompt, text);
+          const reference = pendingAttachment ? { attachment: pendingAttachment }
+            : revision && revisionContext.referenceAttachmentId
+              ? { ids: [revisionContext.referenceAttachmentId] } : undefined;
+          if (reference) onGenerateImage(imagePrompt, text, reference);
+          else onGenerateImage(imagePrompt, text);
           return;
         }
       }
@@ -264,7 +278,11 @@ export function useChatSend({
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
       setSendPhase(attached ? "uploading" : "preparing");
-      await flushEmailDrafts();
+      if (!await flushEmailDrafts()) {
+        sendInFlightRef.current = false;
+        setSendPhase("idle");
+        return;
+      }
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
       // with sendInFlightRef set looked finished and ate the next tap.

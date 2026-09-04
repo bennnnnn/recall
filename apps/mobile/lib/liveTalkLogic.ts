@@ -96,8 +96,8 @@ export function liveTalkErrorGate(error: unknown): LiveTalkGate {
 }
 
 /** Capture stays off while the assistant is playing so speaker echo cannot VAD. */
-export function liveTalkLocalMicEnabled(userMuted: boolean, assistantSpeaking: boolean): boolean {
-  return !userMuted && !assistantSpeaking;
+export function liveTalkLocalMicEnabled(userMuted: boolean, assistantSpeaking: boolean, bargeIn = false): boolean {
+  return !userMuted && (bargeIn || !assistantSpeaking);
 }
 
 /** Manual `response.create` only after an accepted user utterance. */

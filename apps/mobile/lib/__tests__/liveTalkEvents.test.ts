@@ -2,6 +2,23 @@ import type { Message } from "@/lib/api/types";
 import { applyLiveTalkChatEvent, dropLiveTalkLocalTurn } from "@/lib/liveTalkEvents";
 
 describe("liveTalkEvents", () => {
+  it("reconciles an old turn without moving it below the next utterance", () => {
+    let rows: Message[] = [];
+    for (const id of ["old", "new"]) {
+      rows = applyLiveTalkChatEvent(rows, id, { type: "user", text: id });
+      rows = applyLiveTalkChatEvent(rows, id, { type: "assistant", text: `${id} reply` });
+    }
+    const next = applyLiveTalkChatEvent(rows, "old", {
+      type: "done", remaining: 0, limit: 0,
+      user_message: { ...rows[0], id: "saved-user" },
+      assistant_message: { ...rows[1], id: "saved-assistant" },
+    });
+    expect(next.map((row) => row.id)).toEqual([
+      "saved-user", "saved-assistant", "local-live-user-new", "local-live-assistant-new",
+    ]);
+    expect(applyLiveTalkChatEvent([], "old", { type: "done", remaining: 0, limit: 0,
+      user_message: next[0], assistant_message: next[1] })).toEqual([]);
+  });
   it("upserts local bubbles then swaps in persisted messages", () => {
     const user: Message = {
       id: "u1",

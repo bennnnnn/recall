@@ -51,7 +51,6 @@ import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/c
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
-import { subjectFromImageGenUserMessage } from "@/lib/imageGenIntent";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -294,8 +293,9 @@ function ChatScreen() {
     isOffline,
     resolveQuizProjectId,
     imageGenerating: imageGen.generating,
-    onGenerateImage: (prompt, userMessage) => {
-      void imageGen.submitPrompt({ prompt, userMessage, aspectRatio: null });
+    onGenerateImage: (prompt, userMessage, reference) => {
+      void imageGen.submitPrompt({ prompt, userMessage, aspectRatio: null,
+        referenceAttachment: reference?.attachment, referenceAttachmentIds: reference?.ids });
     },
   });
 
@@ -423,18 +423,6 @@ function ChatScreen() {
     regenerateResponse,
     beginRegenerateUi,
     cancelRegenerateUi,
-    regenerateImage: useCallback(
-      (lastUserContent: string) => {
-        const prompt = subjectFromImageGenUserMessage(lastUserContent);
-        if (!prompt) return;
-        void imageGen.submitPrompt({
-          prompt,
-          userMessage: lastUserContent,
-          aspectRatio: null,
-        });
-      },
-      [imageGen],
-    ),
   });
   const retryChatError = useCallback(() => {
     if (streaming || finalizing || regenerating) return;

@@ -24,6 +24,7 @@ async def generate_image(
             prompt=body.prompt,
             aspect_ratio=body.aspect_ratio,
             user_message_content=original,
+            reference_attachment_ids=body.reference_attachment_ids,
         )
     except image_generation_service.ImageGenerationError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

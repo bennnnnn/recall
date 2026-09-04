@@ -1,4 +1,4 @@
-type Flusher = () => Promise<void>;
+type Flusher = () => Promise<boolean>;
 
 const flushers = new Set<Flusher>();
 
@@ -10,12 +10,11 @@ export function registerEmailDraftFlusher(flush: Flusher): () => void {
   };
 }
 
-export async function flushEmailDrafts(): Promise<void> {
-  await Promise.all(
+export async function flushEmailDrafts(): Promise<boolean> {
+  const results = await Promise.all(
     [...flushers].map((flush) =>
-      flush().catch(() => {
-        /* persist surfaces its own error */
-      }),
+      flush().catch(() => false),
     ),
   );
+  return results.every(Boolean);
 }
