@@ -14,8 +14,13 @@ const BEST_NEAR = /\bbest\b.+\b(?:in|near|around|by)\b/i;
 const IMPLICIT_LOCAL =
   /\b(where\s+(?:should|can|do)\s+(?:I|we)\s+(?:eat|get|find|go|stay|park)|where\s+to\s+(?:eat|go|get|stay|park)|what(?:'s| is)\s+(?:good|open)\s+(?:around|near|nearby))\b/i;
 
+/** Keep in sync with apps/api/app/services/web_search/patterns.py `_DISTANCE_INTENT`. */
 const DISTANCE_INTENT =
-  /\b(how\s+far|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)|how\s+long\s+(?:to\s+get|does\s+it\s+take|is\s+the\s+(?:drive|trip|walk))|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))|directions?\s+to)\b/i;
+  /\b(how\s+far|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)|is\s+the\s+(?:drive|trip|walk))|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))|directions?\s+to)\b/i;
+
+/** Keep in sync with apps/api/app/services/web_search/patterns.py `_MOTION_HOMEWORK`. */
+const MOTION_HOMEWORK =
+  /\b(?:accelerat(?:e|es|ed|ing|ion)|decelerat(?:e|es|ed|ing|ion)|from\s+rest|kinematics|projectile|free\s*falls?|constant\s+(?:rate|acceleration|speed|velocity)|m\s*\/\s*s|metres?\s+per\s+second|meters?\s+per\s+second)\b/i;
 
 const FROM_USER =
   /\b(?:from\s+(?:me|here|my\s+(?:location|place))|to\s+me|where\s+i\s+am)\b/i;
@@ -110,6 +115,7 @@ export function isProximityQuery(text: string): boolean {
 export function isDistanceQuery(text: string): boolean {
   const cleaned = text.trim();
   if (!cleaned || !DISTANCE_INTENT.test(cleaned)) return false;
+  if (MOTION_HOMEWORK.test(cleaned)) return false;
   if (DISTANCE_BETWEEN.test(cleaned) && !FROM_USER.test(cleaned)) return false;
   return true;
 }
