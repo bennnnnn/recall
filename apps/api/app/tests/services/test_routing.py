@@ -87,6 +87,55 @@ def test_route_chat_model(content: str, expected: str) -> None:
     assert route_chat_model(content) == expected
 
 
+@pytest.mark.parametrize(
+    "content,prior_user,expected",
+    [
+        ("Now fix it", None, "free-chat"),
+        ("Now fix it", "debug this algorithm", "smart-chat"),
+        ("add tests", "debug this algorithm", "smart-chat"),
+        ("thanks", "debug this algorithm", "free-chat"),
+        ("what's for dinner tonight", "debug this algorithm", "free-chat"),
+        ("explain photosynthesis", "debug this algorithm", "free-chat"),
+        ("fix dinner", "debug this algorithm", "free-chat"),
+        ("add milk to my grocery list", "debug this algorithm", "free-chat"),
+    ],
+)
+def test_route_chat_model_inherits_smart_on_short_followup(
+    content: str, prior_user: str | None, expected: str
+) -> None:
+    assert route_chat_model(content, prior_user=prior_user) == expected
+
+
+def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
+    """A follow-up of a follow-up must keep Pro when the last user row stored it.
+
+    Re-scoring ``add tests`` in isolation is Flash, so the next ``fix it``
+    would drop off the strong tier without the persisted model.
+    """
+    assert (
+        route_chat_model("fix it", prior_user="add tests", prior_model="smart-chat") == "smart-chat"
+    )
+    assert route_chat_model("fix it", prior_user="add tests") == "free-chat"
+
+
+def test_last_user_content_returns_newest_user_line() -> None:
+    from types import SimpleNamespace
+
+    from app.services.routing import last_user_content, last_user_turn
+
+    recent = [
+        SimpleNamespace(role="user", content="debug this algorithm", model="smart-chat"),
+        SimpleNamespace(role="assistant", content="here's a patch"),
+        SimpleNamespace(role="user", content=""),
+        SimpleNamespace(role="assistant", content="ok"),
+    ]
+    assert last_user_content(recent) == "debug this algorithm"
+    assert last_user_turn(recent) == ("debug this algorithm", "smart-chat")
+    assert last_user_content([]) is None
+    assert last_user_content(None) is None
+    assert last_user_turn([]) == (None, None)
+
+
 def test_code_fence_detection_is_linear_time_not_quadratic():
     """SECURITY FIX (CodeQL: polynomial regex on uncontrolled data). The
     first version's fence pattern used `\\s*` for leading whitespace, which

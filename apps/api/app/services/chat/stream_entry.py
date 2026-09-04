@@ -13,6 +13,7 @@ from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_timing import TurnTimingTracker
+from app.services.routing import last_user_turn
 
 logger = logging.getLogger(__name__)
 
@@ -169,8 +170,14 @@ async def stream_chat_response(
                 )
                 turn_mode = await _classify_turn_mode(session, chat, content)
                 limit = seams.quota_service.daily_limit_for_user(loaded, settings)
+                prior_user, prior_model = last_user_turn(recent)
                 resolved = seams.plan_service.resolve_user_model_override(
-                    loaded, model_alias, content, settings
+                    loaded,
+                    model_alias,
+                    content,
+                    settings,
+                    prior_user=prior_user,
+                    prior_model=prior_model,
                 )
             return loaded, limit, resolved, prior_count, chat, recent, turn_mode
 
