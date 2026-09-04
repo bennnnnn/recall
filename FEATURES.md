@@ -234,6 +234,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   similarity clears `memory_min_similarity` (default 0.35), with a char budget.
   Health / legal / finance memories stay **stripped on casual turns** and inject only when
   the user's ask itself looks like those topics (`exclude_sensitive_for_query`).
+  Life-domain advice ("what should I eat", "I need dinner", "plan a workout")
+  injects **memory only** — not Calendar/Gmail. Ordinary need/plan phrasing
+  counts, not just "recommend" / "what should I".
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).
@@ -1029,6 +1032,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
 6. ✅ **EmailCard one draft** — edits on Done (and a debounce / send flush) rewrite
    the first ` ```email ` fence on that assistant message. Card Copy, whole-reply
    Copy, “make that shorter”, and reopen agree. Not user-message edit.
+7. ✅ **Advice memory on ordinary phrasing** — “I need a quick dinner tonight”
+   and “plan a workout for me” load the same memory-only path as
+   “what should I eat” / “recommend a workout”. Still not Calendar/Gmail.
 
 ### Future (not implementing now)
 
