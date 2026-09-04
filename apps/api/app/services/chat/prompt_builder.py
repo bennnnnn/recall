@@ -29,15 +29,18 @@ from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
+    BREVITY_REQUEST_HINT,
     BROAD_SELF_ANSWER_HINT,
     CALLOUT_FORMAT_HINT,
     CHART_FORMAT_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
+    CONFIRM_FOLLOW_THROUGH_HINT,
     COPY_DELIVERABLE_HINT,
     DAY_LEARNING_SNAPSHOT_HINT,
     DAY_PLANNING_ANSWER_HINT,
+    EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
@@ -49,6 +52,7 @@ from app.services.chat.prompt_constants import (
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
     QUOTE_FORMAT_HINT,
+    SEQUENCE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
@@ -59,13 +63,17 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     format_quiz_grading_hint,
     is_bare_writing_line,
+    is_brevity_request,
     is_callout_question,
     is_chart_question,
-    is_comparison_question,
     is_howto_question,
     is_learning_progress_question,
     is_mermaid_question,
     is_quote_question,
+    is_sequence_diagram_question,
+    is_short_confirmation,
+    is_structured_comparison_question,
+    is_underspecified_writing_request,
     is_writing_deliverable_request,
 )
 from app.services.chat.prompt_constants.visuals import is_html_ui_question
@@ -602,11 +610,15 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     """Turn-specific layout that must win over compact prose."""
     if not query_text:
         return None
+    if is_brevity_request(query_text):
+        return None
     if is_chart_question(query_text):
         return CHART_FORMAT_HINT
+    if is_sequence_diagram_question(query_text):
+        return SEQUENCE_FORMAT_HINT
     if is_mermaid_question(query_text):
         return MERMAID_FORMAT_HINT
-    if is_comparison_question(query_text):
+    if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     if is_quote_question(query_text):
         return QUOTE_FORMAT_HINT
@@ -632,6 +644,8 @@ def _style_format_hints(
     packs are intent-gated so general knowledge does not pay ~3k tokens.
     """
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
+    if query_text and is_short_confirmation(query_text):
+        parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
         parts.append(DAY_PLANNING_ANSWER_HINT)
         parts.append(DAY_LEARNING_SNAPSHOT_HINT)
@@ -675,9 +689,14 @@ def _style_format_hints(
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
+    if query_text and is_brevity_request(query_text):
+        parts.append(BREVITY_REQUEST_HINT)
     parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
-        parts.append(EMAIL_DRAFT_HINT)
+        if is_underspecified_writing_request(query_text):
+            parts.append(EMAIL_ASK_PURPOSE_HINT)
+        else:
+            parts.append(EMAIL_DRAFT_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
     return parts
@@ -869,6 +888,8 @@ async def build_prompt_messages(
     )
     system_parts.extend(quiz_parts)
     compact_format = bool(query_text and is_bare_writing_line(query_text))
+    if query_text and is_short_confirmation(query_text) and not lightweight:
+        compact_format = True
     if lightweight:
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)
         system_parts.append(SHORT_RESPONSE_FORMAT_HINT)

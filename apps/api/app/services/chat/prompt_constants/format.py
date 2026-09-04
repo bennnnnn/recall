@@ -39,9 +39,91 @@ def is_comparison_question(text: str) -> bool:
     return bool(_COMPARISON_TURN.search(cleaned))
 
 
+_TECHNICAL_COMPARE_WORDS = (
+    "python",
+    "java",
+    "javascript",
+    "typescript",
+    "rust",
+    "kotlin",
+    "swift",
+    "react",
+    "vue",
+    "angular",
+    "django",
+    "flask",
+    "postgres",
+    "mysql",
+    "mongodb",
+    "redis",
+    "linux",
+    "windows",
+    "android",
+    "typing",
+    "syntax",
+    "compiler",
+)
+
+
+def _has_whole_word(haystack: str, word: str) -> bool:
+    """Linear whole-word scan — avoid regex over the user turn."""
+    lower = haystack.lower()
+    start = 0
+    n = len(word)
+    while True:
+        idx = lower.find(word, start)
+        if idx < 0:
+            return False
+        before = lower[idx - 1] if idx > 0 else " "
+        after = lower[idx + n] if idx + n < len(lower) else " "
+        if not before.isalnum() and not after.isalnum():
+            return True
+        start = idx + n
+
+
+def is_structured_comparison_question(text: str) -> bool:
+    """Table + code-card compare: languages/tools/features, not tea vs coffee."""
+    if not is_comparison_question(text):
+        return False
+    lower = text.strip().lower()
+    if "side by side" in lower or "side-by-side" in lower:
+        return True
+    if "feature" in lower:
+        return True
+    return any(_has_whole_word(lower, word) for word in _TECHNICAL_COMPARE_WORDS)
+
+
+_BREVITY_MARKERS = (
+    "in one sentence",
+    "one sentence",
+    "in a word",
+    "in one word",
+    "in a single word",
+    "briefly",
+    "keep it short",
+    "keep it brief",
+    "tldr",
+    "tl;dr",
+)
+
+BREVITY_REQUEST_HINT = (
+    "The user asked for a one-sentence, one-word, or brief answer. "
+    "Ignore table/heading/fence layout for this turn. Match the length they asked."
+)
+
+
+def is_brevity_request(text: str) -> bool:
+    """True when the user capped length (one sentence / briefly), not Short style."""
+    cleaned = text.strip().lower()
+    if not cleaned:
+        return False
+    return any(marker in cleaned for marker in _BREVITY_MARKERS)
+
+
 _CHART_TURN = re.compile(
     r"(?:"
-    r"\b(?:bar|line|pie|area|scatter|donut)\s+charts?\b|"
+    r"\b(?:bar|line|pie|area|scatter|donut)\s+charts?\s+(?:of|for|with|from|using)\b|"
+    r"\bcharts?\s+(?:of|for|my)\b|"
     r"\bhistograms?\b|"
     r"\bvega(?:-lite)?\b|"
     r"```(?:chart|vega|vega-lite|plot)\b|"
@@ -55,13 +137,16 @@ CHART_FORMAT_HINT = (
     "This turn is a numeric chart. Recall renders Vega-Lite in the bubble — "
     "you CAN draw this chart. NEVER say you cannot draw / cannot literally "
     "draw a chart. NEVER substitute a markdown table, mermaid, or ASCII bars.\n"
-    "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence, "
-    "then the fence. No joke setup. After the fence, stop — no mean/stats recap, "
-    "no leftover numbers, and no ```answer / ```result fence.\n"
-    "If they gave numbers, use those as data.values in that order. If they gave "
-    "none, do not interview for months or values — use a short labelled sample "
-    "series (the example below is fine) and say it is sample data in that one "
-    "sentence. Never ask them to provide the rainfall amounts first.\n"
+    "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence "
+    "before the fence. No joke setup. No leftover bare numbers and no "
+    "```answer / ```result fence.\n"
+    "If they gave numbers, use those as data.values in that order. "
+    "If they asked for an example or a generic chart with no series, a short "
+    "labelled sample is fine — say it is sample data in that one sentence. "
+    "If they asked to chart their real/my data and gave no numbers, ask ONE "
+    "question for the values. Do not invent a sample and treat that as the answer.\n"
+    "If they also asked for a statistic or explanation, put that after the fence. "
+    "Do not stop immediately after the chart unless they only asked for the drawing.\n"
     'First key must be "$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
     "Prefer mark bar/line as asked. Named categories (months, items) go on y "
     'with "sort": null (horizontal bars) so labels stay visible — never '
@@ -78,19 +163,52 @@ CHART_FORMAT_HINT = (
 
 
 def is_chart_question(text: str) -> bool:
-    """True when the user asked for a numeric chart (Vega), not a flowchart."""
+    """True when the user asked to draw a numeric chart (Vega), not define one."""
     cleaned = text.strip()
     if not cleaned:
+        return False
+    if _is_chart_definition(cleaned) or _chart_request_negated(cleaned):
         return False
     return bool(_CHART_TURN.search(cleaned))
 
 
+_CHART_KINDS = ("bar", "line", "pie", "area", "scatter", "donut")
+
+
+def _is_chart_definition(cleaned: str) -> bool:
+    lower = cleaned.lower()
+    if "what is a chart" in lower or "what's a chart" in lower:
+        return True
+    for kind in _CHART_KINDS:
+        if f"what is a {kind} chart" in lower or f"what's a {kind} chart" in lower:
+            return True
+        if f"what are {kind} charts" in lower:
+            return True
+    return False
+
+
+def _chart_request_negated(cleaned: str) -> bool:
+    lower = cleaned.lower()
+    if "chart" not in lower:
+        return False
+    for neg in ("do not", "don't", "dont", "never", "without"):
+        start = 0
+        while True:
+            idx = lower.find(neg, start)
+            if idx < 0:
+                break
+            window = lower[idx : idx + 80]
+            if "chart" in window and any(
+                verb in window for verb in ("make", "draw", "create", "render", "plot")
+            ):
+                return True
+            start = idx + len(neg)
+    return False
+
+
+_SEQUENCE_CUE = re.compile(r"\bsequence\s+diagram\b", re.IGNORECASE)
 _FLOWCHART_CUE = re.compile(
-    r"(?:"
-    r"\bflow[\s-]?chart\b|"
-    r"\bsequence\s+diagram\b|"
-    r"```mermaid\b"
-    r")",
+    r"(?:\bflow[\s-]?chart\b|```mermaid\b)",
     re.IGNORECASE,
 )
 _MERMAID_WORD = re.compile(r"\bmermaid\b", re.IGNORECASE)
@@ -117,12 +235,35 @@ MERMAID_FORMAT_HINT = (
     "```"
 )
 
+SEQUENCE_FORMAT_HINT = (
+    "This turn is a sequence diagram, not a flowchart. Lead with a ```mermaid "
+    "fence using sequenceDiagram — not flowchart TD, not a numbered list, and "
+    "not a joke setup. At most one short sentence, then the fence.\n"
+    "Participants and messages they named; do not invent a 2-box story.\n"
+    "Example shape only:\n"
+    "```mermaid\n"
+    "sequenceDiagram\n"
+    "    participant Client\n"
+    "    participant Server\n"
+    "    Client->>Server: request\n"
+    "    Server-->>Client: response\n"
+    "```"
+)
+
+
+def is_sequence_diagram_question(text: str) -> bool:
+    """True when the user asked for a sequence diagram specifically."""
+    cleaned = text.strip()
+    return bool(cleaned and _SEQUENCE_CUE.search(cleaned))
+
 
 def is_mermaid_question(text: str) -> bool:
-    """True when the user asked for a Mermaid/flowchart diagram, not a vs-compare."""
+    """True when the user asked for a Mermaid/flowchart/sequence diagram."""
     cleaned = text.strip()
     if not cleaned:
         return False
+    if is_sequence_diagram_question(cleaned):
+        return True
     if _FLOWCHART_CUE.search(cleaned):
         return True
     return bool(_MERMAID_WORD.search(cleaned) and _MERMAID_RENDER_CUE.search(cleaned))
@@ -172,15 +313,13 @@ _HOWTO_TURN = re.compile(
     r"\broadmap(?:\s+to\s+learn)?\b|"
     r"\b(?:learning|study)\s+plan\b|"
     r"\bplan\s+to\s+learn\b|"
-    r"^\s*(?:please\s+)?how\s+(?:do\s+i|to)\b|"
+    r"\bfrom scratch\b|"
+    r"\bhow (?:do i|to) (?:set up|setup|install|configure|build)\b|"
     r"\bstep[\s-]?by[\s-]?step\b|"
     r"\bplan\s+de\s+\d+[\s-]?(?:semana|semanas|semaine|semaines)\b|"
     r"\b\d+[\s-]?wochen[\s-]?plan\b|"
-    r"\bc[oó]mo\s+(?:hago|puedo|hacer)\b|"
     r"\bpaso\s+a\s+paso\b|"
-    r"\bcomment\s+(?:faire|je)\b|"
     r"\b(?:etape|étape)\s+par\s+(?:etape|étape)\b|"
-    r"\bwie\s+(?:mache|kann)\s+ich\b|"
     r"\bschritt[\s-]?f[uü]r[\s-]?schritt\b"
     r")",
     re.IGNORECASE,
@@ -259,9 +398,9 @@ FORMAT_CONTRACT = (
     "Default (facts, lists, rankings, lookups, recommendations, tips, how-tos):\n"
     "  - Numbered list or bullets. This is the right format for rankings "
     '("top N …"), tips, roadmaps, troubleshooting, and general Q&A.\n'
-    '  - For a single topic ("tell me about X"), use 2-3 short headings with '
-    "flat bullets — not a parent bullet whose children are more bullets, and "
-    "not a wall of text or a table.\n"
+    '  - For a single topic ("tell me about X"), a short paragraph or flat bullets '
+    "is enough. Use 2-3 short headings only when they group real sections — not a "
+    "parent bullet whose children are more bullets, and not a wall of text or a table.\n"
     "  - Nested facts under a bullet use a numbered list (`1.` `2.`), not more "
     "bullets — mixed markers are easier to scan. Do not use a/b or roman "
     "numerals; markdown will not render those as lists. Two short sibling "
@@ -277,9 +416,10 @@ FORMAT_CONTRACT = (
     "line as `— Name`. Not a ```quote fence and not a quoted italic paragraph.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
-    "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
-    "```copy. At most ONE such fence per response. For email/message/LinkedIn/caption "
-    "to a named person, draft immediately — do not ask what to write.\n"
+    "  - If they named what the email/message should say, put the send-ready text "
+    "inside ```email, ```message, ```sms, or ```copy now. At most ONE such fence.\n"
+    "  - If they only asked to write an email with no purpose, ask one question "
+    "first — do not invent a generic letter or placeholders.\n"
     "\n"
     "Coding:\n"
     "  - Brief approach sentence, then a tagged code fence (```python, "
@@ -288,7 +428,10 @@ FORMAT_CONTRACT = (
     "\n"
     "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
     "feature comparison — not for tips, roadmaps, or how-tos):\n"
-    "  - Lead with a **markdown pipe table** (Feature | A | B). One attribute "
+    "  - Casual preference (tea vs coffee): a short paragraph is enough — no table "
+    "required.\n"
+    "  - Feature, product, or language compare: lead with a **markdown pipe table** "
+    "(Feature | A | B). One attribute "
     "per row. Cells are one short phrase.\n"
     "  - NEVER put source code, ``` fences, <br>, or HTML in a cell — that "
     "shatters the grid. Code samples go AFTER the table under ### headings "
@@ -362,8 +505,11 @@ COMPACT_RESPONSE_FORMAT_HINT = (
 TONE_FORMAT_GUARD = (
     "Configured tone is word choice only. Do not add a joke setup or recap "
     "before the answer. Funny never means a bit about the question. "
-    "Do not invent a decorative table before the answer — an X vs Y compare "
-    "still leads with the pipe table; a numeric chart leads with ```chart, "
+    "If they asked for one sentence, one word, or briefly, skip tables, headings, "
+    "and fences. "
+    "Do not invent a decorative table before the answer — a feature or language "
+    "compare leads with the pipe table; a casual preference can be a short "
+    "paragraph; a numeric chart leads with ```chart, "
     "never a substitute table; a flowchart leads with ```mermaid; "
     "a tips/warning ask leads with `> Tip:` / `> Warning:`, never a joke essay; "
     "a learning plan / how-to leads with ## headings and lists, never a "

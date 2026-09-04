@@ -6,7 +6,11 @@ from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
 from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
-from app.services.chat.prompt_constants import is_lightweight_chat_turn
+from app.services.chat.prompt_constants import (
+    is_lightweight_chat_turn,
+    is_short_confirmation,
+    prior_looks_like_offer,
+)
 from app.services.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
 from app.services.web_search.patterns import (
     _CLARIFICATION,
@@ -36,13 +40,17 @@ def web_search_skip(
     text: str,
     *,
     prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
 ) -> bool:
     """Hard no — never run web search or the classifier."""
-    del prior_user_messages  # reserved for future context-aware skips
     cleaned = collapse_ws(text)
-    if not cleaned or len(cleaned) < 4:
+    if not cleaned:
         return True
-    if is_lightweight_chat_turn(cleaned):
+    follow_up = bool(prior_user_messages) or prior_looks_like_offer(prior_assistant)
+    if len(cleaned) < 4 and not (is_short_confirmation(cleaned) and follow_up):
+        return True
+    confirming = is_short_confirmation(cleaned) and follow_up
+    if not confirming and is_lightweight_chat_turn(cleaned, prior_assistant=prior_assistant):
         return True
     if is_vocab_quiz_answer(cleaned):
         return True
@@ -115,9 +123,12 @@ def needs_web_search(
     text: str,
     *,
     prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
 ) -> bool:
     """Sync gate: skip + fast-path + heuristic (tests and legacy callers)."""
-    if web_search_skip(text, prior_user_messages=prior_user_messages):
+    if web_search_skip(
+        text, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
+    ):
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
@@ -147,11 +158,14 @@ async def should_web_search(
     settings: Settings,
     *,
     prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
 ) -> bool:
     """Async gate: regex fast paths, then LLM classifier for everything else."""
     if not settings.web_search_enabled:
         return False
-    if web_search_skip(text, prior_user_messages=prior_user_messages):
+    if web_search_skip(
+        text, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
+    ):
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True

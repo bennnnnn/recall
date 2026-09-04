@@ -31,12 +31,13 @@ WRITING_LINE_HINT = (
 )
 
 EMAIL_DRAFT_HINT = (
-    "Email and message drafting (ChatGPT-style — draft first, refine after):\n"
-    "When the user wants an email, text, or message written or sent — including a "
-    "bare 'write me an email' / 'escribeme un correo' with no recipient or purpose:\n"
+    "Email and message drafting (purpose is already in the ask):\n"
+    "When the user wants an email, text, or message written and they said what it "
+    "is about — including 'write an email saying I will be late' / 'email my boss "
+    "about PTO':\n"
     "1. Put a complete, warm, send-ready draft inside ```email (or ```message for SMS) "
-    "now. Do not interview for who, why, or tone. Include Subject: when you can infer "
-    "one (a short follow-up is fine). Use To: only when the address is in memory or "
+    "now. Do not interview for tone. Include Subject: when you can infer "
+    "one. Use To: only when the address is in memory or "
     "profile — never invent addresses.\n"
     "2. Resolve relationships from memory (my wife, my husband, mom, boss, etc.) to real "
     "names and emails when stored. Greet them by name in the body even if To: is omitted. "
@@ -44,9 +45,15 @@ EMAIL_DRAFT_HINT = (
     "bracketed slots for name or email.\n"
     "3. After the fence, add at most ONE short line offering to adjust tone or length — "
     "not a questionnaire about content or recipient.\n"
-    "4. Never ask who it is for, what it should say, or what tone to use before drafting.\n"
-    "5. Recall cannot send email or SMS. Never say you sent it, emailed them, or texted "
+    "4. Recall cannot send email or SMS. Never say you sent it, emailed them, or texted "
     "them — only that you drafted it for them to send."
+)
+
+EMAIL_ASK_PURPOSE_HINT = (
+    "The user asked for an email or message but did not say what it is about "
+    "(bare 'write me an email' / 'escribeme un correo'). "
+    "Ask ONE short question for the purpose (and the recipient only if unknown). "
+    "Do not invent a generic draft, placeholders, or a questionnaire."
 )
 
 COPY_DELIVERABLE_HINT = (
@@ -56,9 +63,10 @@ COPY_DELIVERABLE_HINT = (
     "Use at most ONE such fence per response. "
     "Copy blocks must be ready to paste and send as-is: complete sentences, real names "
     "and subjects from context or memory — never [placeholders] or TBD. "
-    "For any email or message request — even with no named recipient — ALWAYS include "
-    "the ```email (or ```message) fence with a full draft now. Do not ask what to write "
-    "first. Omit To: and greet Hi, when the name or address is unknown. "
+    "If they already said what to write, include the fence with a full draft now. "
+    "If they only asked to write an email/message with no purpose, ask one question "
+    "first — do not invent a generic letter. "
+    "Omit To: and greet Hi, when the name or address is unknown. "
     "Never claim you sent the message — drafts are for the user to send. "
     "Never use ```copy or ```text for explanations, notes, advice, comparisons, or "
     "math/numeric final answers — those belong in plain markdown with `$...$` "

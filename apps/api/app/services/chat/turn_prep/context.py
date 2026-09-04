@@ -30,10 +30,7 @@ from app.services.chat.prompt_builder import (
     fetch_web_and_tools,
     inject_web_and_tools,
 )
-from app.services.chat.prompt_constants import (
-    attach_chemistry_fence_hint,
-    is_lightweight_chat_turn,
-)
+from app.services.chat.prompt_constants import attach_chemistry_fence_hint
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.integrations import (
     _load_has_calendar_write,
@@ -53,6 +50,10 @@ from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.math_tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
 from app.services.vocab_quiz import QuizAnswerGrade
+from app.services.web_search.subject import (
+    _prior_user_messages as _prompt_prior_user_messages,
+)
+from app.services.web_search.subject import last_assistant_content
 
 logger = logging.getLogger(__name__)
 
@@ -199,11 +200,9 @@ def stream_context_from_bundle(
         verified_math=bundle.verified_math,
         math_unverified=getattr(bundle, "math_unverified", False) is True,
         timing=timing,
-        lightweight_turn=bundle.lightweight
-        or bundle.active_vocab_turn
-        or is_lightweight_chat_turn(
-            user_message_content, active_vocab_turn=bundle.active_vocab_turn
-        ),
+        # Trust turn-mode: re-running is_lightweight_chat_turn without the
+        # prior assistant would mark "yes"/"go" as greetings again.
+        lightweight_turn=bundle.lightweight or bundle.active_vocab_turn,
         rich_context_turn=bundle.rich_context,
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
@@ -428,7 +427,11 @@ async def build_stream_prompt_context(
         needs_symbolic_math(content, has_image_attachment=has_image_attachment)
         or image_math_extract is not None
     )
-    needs_search = web_search_service.needs_web_search(content)
+    needs_search = web_search_service.needs_web_search(
+        content,
+        prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
+        prior_assistant=last_assistant_content(prompt_messages),
+    )
     needs_chem = chemistry_context_service.is_chemistry_question(content)
     augment = _should_augment_web_and_tools(
         instant_reply=instant_reply,

@@ -196,6 +196,16 @@ def test_needs_web_search_skips_vocab_quiz(text):
 def test_needs_web_search_skips_lightweight_greeting():
     assert needs_web_search("thanks!") is False
     assert needs_web_search("hi") is False
+    assert needs_web_search("yes") is False
+
+
+def test_needs_web_search_yes_after_search_offer():
+    prior = ["Show me yesterdays game"]
+    offer = "Want me to check the current result?"
+    assert needs_web_search("yes", prior_user_messages=prior, prior_assistant=offer) is True
+    assert needs_web_search("go", prior_user_messages=prior, prior_assistant=offer) is True
+    assert needs_web_search("thanks", prior_user_messages=prior, prior_assistant=offer) is False
+    assert needs_web_search("yes", prior_user_messages=prior) is True
 
 
 def test_build_search_query_clarification_world_cup():

@@ -72,8 +72,18 @@ async def run_tool_loop_path(
     ):
         if settings.web_search_enabled and not sources:
             from app.services.web_search.detection import should_web_search
+            from app.services.web_search.subject import (
+                _prior_user_messages,
+                last_assistant_content,
+            )
 
-            web_search_flag = await should_web_search(content, settings)
+            prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+            web_search_flag = await should_web_search(
+                content,
+                settings,
+                prior_user_messages=_prior_user_messages(prompt, content) or None,
+                prior_assistant=last_assistant_content(prompt),
+            )
         if not tool_loop_service.turn_needs_tool_loop(
             content,
             lightweight=lightweight,

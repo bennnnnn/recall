@@ -110,12 +110,12 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             user,
             uuid4(),
             Settings(attachment_rag_enabled=False),
-            query_text="Send an email to my wife",
+            query_text="Send an email to my wife about PTO",
         )
 
     system = messages[0]["content"]
     assert "Email and message drafting" in system
-    assert "draft immediately" in system.lower()
+    assert "send-ready draft" in system.lower()
     assert "cannot send email or SMS" in system.lower() or "Never say you sent" in system
     assert "do not invent bracketed slots" in system.lower()
 
@@ -299,6 +299,8 @@ def test_is_comparison_question(text, expected):
         ("Make a flowchart of user login", False),
         ("Compare Python vs Java", False),
         ("tell me about rainfall in Seattle", False),
+        ("What is a bar chart?", False),
+        ("Do not make a bar chart; explain the numbers.", False),
         ("", False),
     ],
 )
@@ -372,6 +374,7 @@ def test_is_callout_question(text, expected):
         ("Give me 3 tips for staying focused while studying.", False),
         ("Compare Python vs Java", False),
         ("Make a bar chart of rainfall", False),
+        ("How do I say hello in Spanish?", False),
         ("", False),
     ],
 )
@@ -389,9 +392,8 @@ def test_format_hints_discourage_tables_for_how_tos():
     assert "NEVER" in blob or "Never" in blob
     assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
     assert "week-by-week" in blob.lower()
-    assert "LinkedIn" in blob
-    assert "caption" in blob.lower()
-    assert "draft immediately" in blob
+    assert "ask one question" in blob.lower()
+    assert "invent a generic letter" in blob.lower()
 
 
 def test_universal_format_baseline_pins_answer_first_and_no_decoration():
@@ -918,6 +920,9 @@ def test_is_broad_self_question(text, expected):
         ("Hello there", False),
         ("What's on my calendar today?", False),
         ("add eggs to groceries", False),
+        ("yes", True),
+        ("go", True),
+        ("sure", True),
     ],
 )
 def test_is_lightweight_chat_turn(text, expected):
@@ -927,6 +932,31 @@ def test_is_lightweight_chat_turn(text, expected):
 def test_is_lightweight_skipped_during_vocab_answer():
     assert is_lightweight_chat_turn("k", active_vocab_turn=True) is False
     assert is_lightweight_chat_turn("ok", active_vocab_turn=True) is False
+
+
+def test_short_confirmation_after_offer_is_not_lightweight():
+    from app.services.chat.prompt_constants import (
+        is_short_confirmation,
+        prior_looks_like_offer,
+    )
+
+    offer = "Want me to check the current result?"
+    assert is_short_confirmation("yes")
+    assert is_short_confirmation("go")
+    assert is_short_confirmation("sure")
+    assert not is_short_confirmation("hi")
+    assert not is_short_confirmation("thanks")
+    assert not is_short_confirmation("no")
+    assert prior_looks_like_offer(offer)
+    assert not prior_looks_like_offer("The capital of France is Paris.")
+    assert is_lightweight_chat_turn("yes", prior_assistant=offer) is False
+    assert is_lightweight_chat_turn("go", prior_assistant=offer) is False
+    assert is_lightweight_chat_turn("sure", prior_assistant=offer) is False
+    assert is_lightweight_chat_turn("thanks", prior_assistant=offer) is True
+    assert is_lightweight_chat_turn("no", prior_assistant=offer) is True
+    assert is_lightweight_chat_turn("hi", prior_assistant=offer) is True
+    assert is_lightweight_chat_turn("yes") is True
+    assert is_lightweight_chat_turn("yes", prior_assistant="The score is 2-1.") is True
 
 
 @pytest.mark.parametrize(
@@ -1857,6 +1887,42 @@ async def test_classify_turn_mode_hi_is_lightweight():
     assert mode.lightweight is True
     assert mode.rich_context is False
     assert mode.advice_memory is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+    prior = MagicMock()
+    prior.content = "Want me to check the current result?"
+    get_last = AsyncMock(return_value=prior)
+
+    with patch("app.services.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "yes")
+
+    get_last.assert_awaited_once()
+    assert mode.lightweight is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_hi_does_not_load_last_assistant():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+    get_last = AsyncMock(return_value=MagicMock())
+
+    with patch("app.services.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
+
+    get_last.assert_not_awaited()
+    assert mode.lightweight is True
 
 
 @pytest.mark.asyncio
