@@ -1,5 +1,4 @@
 import { Platform } from "react-native";
-import * as Device from "expo-device";
 
 import { speechApi } from "@/lib/api/speech";
 import {
@@ -81,17 +80,42 @@ export function isRealtimeVoiceAvailable(): boolean {
   return loadWebRtc() !== null;
 }
 
+type ExpoDeviceModule = { isDevice?: boolean };
+
+/** undefined = not loaded yet; null = native module missing from this binary. */
+let deviceModule: ExpoDeviceModule | null | undefined;
+
+/** Same guard as expo-audio: a stale/Expo Go binary must not crash chat on import. */
+function loadExpoDevice(): ExpoDeviceModule | null {
+  if (deviceModule === null) return null;
+  if (deviceModule) return deviceModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    deviceModule = require("expo-device") as ExpoDeviceModule;
+    return deviceModule;
+  } catch {
+    deviceModule = null;
+    return null;
+  }
+}
+
+function isIosSimulator(): boolean {
+  if (Platform.OS !== "ios") return false;
+  return loadExpoDevice()?.isDevice === false;
+}
+
 /**
  * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
  * expo-audio has also touched the session. Only the Simulator uses the
  * half-duplex workaround; physical iOS/Android devices need AEC for barge-in.
+ * If ExpoDevice is not in this binary, keep AEC on (phone barge-in) until rebuild.
  */
 export function webRtcMicConstraints(): {
   echoCancellation: boolean;
   noiseSuppression: boolean;
   autoGainControl: boolean;
 } {
-  if (Platform.OS === "ios" && !Device.isDevice) {
+  if (isIosSimulator()) {
     return { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
   }
   return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
