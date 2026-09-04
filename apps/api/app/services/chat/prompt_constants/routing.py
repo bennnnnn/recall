@@ -7,6 +7,7 @@ from app.services.chat.prompt_constants.locale_cues import (
     has_any_personal_locale_cue,
     has_locale_cue,
     is_bare_locale_cue,
+    starts_with_locale_cue,
 )
 from app.services.text_normalize import collapse_ws
 
@@ -404,10 +405,16 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"(?:一下)?(?:这句话|這句話|这个句子|這個句子|这段文字|這段文字|"
     r"这篇文章|這篇文章|这封邮件|這封郵件|以下内容|以下內容|下面内容|下面內容|"
     r"上述内容|上述內容)(?=$|[.!?\u3002\uFF01\uFF1F]|"
-    r"(?:成|为|為)(?!(?:什么|什麼|何|啥))|"
+    r"(?:成|为|為)(?:英文|英语|英語|中文|汉语|漢語|日文|日语|日語|韩文|韓文|"
+    r"韩语|韓語|法文|法语|法語|德文|德语|德語|西班牙文|西班牙语|西班牙語|"
+    r"俄文|俄语|俄語|阿拉伯文|阿拉伯语|阿拉伯語)"
+    r"(?=$|[.!?\u3002\uFF01\uFF1F])|"
     r"[:\uFF1A\"'“\u2018「『])|"
     r"一下(?=$|[.!?\u3002\uFF01\uFF1F])|"
-    r"(?:成|为|為)(?!(?:什么|什麼|何|啥))\S+|"
+    r"(?:成|为|為)(?:英文|英语|英語|中文|汉语|漢語|日文|日语|日語|韩文|韓文|"
+    r"韩语|韓語|法文|法语|法語|德文|德语|德語|西班牙文|西班牙语|西班牙語|"
+    r"俄文|俄语|俄語|阿拉伯文|阿拉伯语|阿拉伯語)"
+    r"(?=$|[.!?\u3002\uFF01\uFF1F])|"
     r"[:\uFF1A\"'“\u2018「『]|\s+(?=[\"'“\u2018「『A-Za-z0-9])|(?=[A-Za-z0-9]))|"
     r"(?:翻訳してください|訳してください)(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:翻訳して|訳して)\s+ください(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
@@ -442,6 +449,13 @@ _EDIT_WRITING = re.compile(
 
 _WRITING_SEQUENCE_PREFIX = re.compile(r"^(?:then|now|also|next)[,\s]+", re.IGNORECASE)
 
+_QUOTE_FOLLOWING_CONNECTOR = re.compile(
+    r"^\s+(?:and|or|but|if|when|while|because|as|in|on|at|to|for|from|with|"
+    r"without|before|after|than|that|which|who|where|is|are|was|were|has|have|"
+    r"had|can|could|would|should|will|may|might|must|do|does|did)\b",
+    re.IGNORECASE,
+)
+
 _DIRECT_REQUEST_PREFIX = re.compile(r"^" + _DIRECT_REQUEST_INTRO, re.IGNORECASE)
 
 _WRITING_HOWTO = re.compile(
@@ -460,7 +474,7 @@ def _starts_direct_writing_request(text: str) -> bool:
         _TRANSLATION_WRITING.search(candidate)
         or _UNSPACED_TRANSLATION_COMMAND.search(candidate)
         or _EDIT_WRITING.search(candidate)
-        or has_locale_cue(candidate, "writing")
+        or starts_with_locale_cue(candidate, "writing")
     ):
         return True
     prefix = _DIRECT_REQUEST_PREFIX.match(candidate)
@@ -519,6 +533,7 @@ def _next_sentence_tail(text: str) -> str | None:
                         text[index - 1].lower() == "s"
                         and text[index + 1].isspace()
                         and _has_later_closing_single_quote(text, index, closing_quote)
+                        and not _QUOTE_FOLLOWING_CONNECTOR.match(text[index + 1 :])
                     ):
                         continue
                 closing_quote = None
@@ -547,11 +562,16 @@ def _next_sentence_tail(text: str) -> str | None:
             continue
         if char == ".":
             prefix = text[:next_index].lower()
-            if re.search(
+            abbreviation = re.search(
                 r"(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc)\.|(?:\b[a-z]\.){2,})$",
                 prefix,
-            ) and not _starts_direct_writing_request(text[next_index:]):
-                continue
+            )
+            if abbreviation:
+                is_etc_sequence = prefix.endswith("etc.") and _WRITING_SEQUENCE_PREFIX.match(
+                    text[next_index:].lstrip()
+                )
+                if not is_etc_sequence:
+                    continue
         boundary_end = next_index
         break
     if boundary_end is None:

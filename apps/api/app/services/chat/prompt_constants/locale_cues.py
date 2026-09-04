@@ -223,6 +223,18 @@ def has_locale_cue(text: str, group: CueGroup) -> bool:
     return any(cue in folded for cue in _CUES[group])
 
 
+def starts_with_locale_cue(text: str, group: CueGroup) -> bool:
+    """True when a localized cue starts the request, not quoted later content."""
+    folded = text.casefold().lstrip()
+    if not folded:
+        return False
+    return any(
+        folded == cue
+        or (folded.startswith(cue) and folded[len(cue) : len(cue) + 1] in " \t,.:;!?¿¡")
+        for cue in _CUES[group]
+    )
+
+
 def is_bare_locale_cue(text: str, group: CueGroup) -> bool:
     """True when a localized cue is the whole request, aside from punctuation.
 
