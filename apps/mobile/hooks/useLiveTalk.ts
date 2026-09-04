@@ -90,6 +90,7 @@ export function useLiveTalk({
   const turnIdRef = useRef("");
   const turnChatIdRef = useRef<string | null>(null);
   const assistantTextRef = useRef("");
+  const sourcesRef = useRef<Message["search_sources"]>([]);
   const userTextRef = useRef("");
   const visibleRef = useRef(false);
   const sessionGenRef = useRef(0);
@@ -114,34 +115,31 @@ export function useLiveTalk({
     [feedback, onUpgrade, t],
   );
 
+  const { creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId } = draft;
   const ensureChatId = useCallback(async (): Promise<string | null> => {
     if (chatId) return chatId;
-    draft.creatingRef.current = true;
+    creatingRef.current = true;
     try {
-      const id = await draft.prepareDraftChat(undefined, selectedModel);
+      const id = await prepareDraftChat(undefined, selectedModel);
       if (!id) return null;
-      draft.skipLoadForChatIdRef.current = id;
+      skipLoadForChatIdRef.current = id;
       setChatTitle(null);
       setChatId(id);
-      draft.draftChatIdRef.current = null;
-      draft.setDraftChatId(null);
+      draftChatIdRef.current = null;
+      setDraftChatId(null);
       router.setParams({ chatId: id });
       return id;
     } finally {
-      draft.creatingRef.current = false;
+      creatingRef.current = false;
     }
-  }, [chatId, draft, router, selectedModel, setChatId, setChatTitle]);
+  }, [chatId, creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId, router, selectedModel, setChatId, setChatTitle]);
 
   const applyEvent = useCallback(
     (event: LiveTalkSpeakEvent, turnId = turnIdRef.current) => {
       if (!turnId) return;
       setMessages((prev) => applyLiveTalkChatEvent(prev, turnId, event));
-      if (event.type === "done") {
-        newMessageCountRef.current += 2;
-        onScrollToLatest();
-      }
     },
-    [newMessageCountRef, onScrollToLatest, setMessages],
+    [setMessages],
   );
 
   const captureCurrentTurn = useCallback((): CompletedTurn | null => {
@@ -162,6 +160,8 @@ export function useLiveTalk({
 
   const finishTurn = useCallback(
     async (completed: CompletedTurn) => {
+      newMessageCountRef.current += Number(Boolean(completed.userText)) + Number(Boolean(completed.assistantText));
+      onScrollToLatest();
       // Persistence, title generation, memory extraction, todo extraction, and
       // RAG indexing stay outside the audio path. Snapshot the completed turn
       // so a later utterance cannot mutate what gets saved.
@@ -172,10 +172,13 @@ export function useLiveTalk({
             callId: completed.callId,
             userText: completed.userText,
             assistantText: completed.assistantText,
+            turnId: completed.id,
           })
-          .then(() => api.listMessages(token, completed.chatId!, { limit: 40 }))
-          .then((page) => {
-            if (page.messages.length > 0) setMessages(page.messages);
+          .then((saved) => {
+            // Reconcile this turn in place, never replace the whole thread
+            // with a delayed list fetch while the next utterance is streaming.
+            if (saved) applyEvent({ type: "done", remaining: 0, limit: 0,
+              user_message: saved.user_message, assistant_message: saved.assistant_message }, completed.id);
           })
           .catch((error: unknown) => {
             reportRecoverableError(
@@ -214,7 +217,7 @@ export function useLiveTalk({
         );
       }
     },
-    [applyEvent, feedback, onFirstReply, setMessages, status, t, token],
+    [applyEvent, feedback, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
   );
 
   const finalizeCurrentTurn = useCallback(() => {
@@ -244,12 +247,28 @@ export function useLiveTalk({
       }
       if (event.type === "speech_started") {
         // A new accepted utterance while the prior turn is still flushing:
-        // persist that snapshot before starting a new one. Not barge-in.
+        // persist that snapshot before starting a new one.
         flushPendingTurn();
-        turnIdRef.current = String(Date.now());
+        turnIdRef.current = event.turnId ?? String(Date.now());
         userTextRef.current = "";
         assistantTextRef.current = "";
+        sourcesRef.current = [];
         setPhase("recording");
+        return;
+      }
+      if (event.type === "response_interrupted") {
+        // Realtime transcripts can run ahead of audio playback. There is no
+        // reliable client word-to-audio alignment; don't save unspoken text
+        // as if it was delivered. OpenAI truncates its own conversation buffer.
+        assistantTextRef.current = t("chat.generation_stopped");
+        applyEvent({ type: "assistant", text: assistantTextRef.current });
+        flushPendingTurn();
+        setPhase("recording");
+        return;
+      }
+      if (event.type === "search_sources") {
+        sourcesRef.current = event.sources;
+        if (assistantTextRef.current) applyEvent({ type: "assistant", text: assistantTextRef.current, sources: event.sources });
         return;
       }
       if (event.type === "speech_stopped") {
@@ -270,7 +289,7 @@ export function useLiveTalk({
       if (event.type === "assistant_transcript") {
         if (!turnIdRef.current) turnIdRef.current = String(Date.now());
         assistantTextRef.current = event.text;
-        applyEvent({ type: "assistant", text: event.text });
+        applyEvent({ type: "assistant", text: event.text, sources: sourcesRef.current });
         setPhase("speaking");
         return;
       }

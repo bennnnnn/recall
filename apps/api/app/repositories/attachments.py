@@ -26,6 +26,7 @@ async def create_pending(
     size_bytes: int,
     source: str = "upload",
     original_filename: str | None = None,
+    commit: bool = True,
 ) -> Attachment:
     row = Attachment(
         id=attachment_id,
@@ -37,8 +38,11 @@ async def create_pending(
         original_filename=original_filename,
     )
     session.add(row)
-    await session.commit()
-    await session.refresh(row)
+    if commit:
+        await session.commit()
+        await session.refresh(row)
+    else:
+        await session.flush()
     return row
 
 
@@ -103,6 +107,7 @@ async def link_to_message(
     user_id: UUID,
     attachment_ids: list[UUID],
     message_id: UUID,
+    commit: bool = True,
 ) -> int:
     """Bulk-link a set of attachments to the message just created.
 
@@ -127,7 +132,8 @@ async def link_to_message(
             .values(message_id=message_id)
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
     return result.rowcount or 0
 
 
@@ -282,7 +288,7 @@ async def list_orphans(
     return list(result.scalars().all())
 
 
-async def mark_verified(session: AsyncSession, attachment_id: UUID) -> None:
+async def mark_verified(session: AsyncSession, attachment_id: UUID, *, commit: bool = True) -> None:
     """Record that stored bytes matched the declared type/size."""
     from sqlalchemy import update as sql_update
 
@@ -291,7 +297,8 @@ async def mark_verified(session: AsyncSession, attachment_id: UUID) -> None:
         .where(Attachment.id == attachment_id)
         .values(verified_at=datetime.now(UTC))
     )
-    await session.commit()
+    if commit:
+        await session.commit()
 
 
 async def delete_rows(

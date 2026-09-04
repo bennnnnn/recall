@@ -100,9 +100,10 @@ export function extractImageRevisionPrompt(
 /** Walk newest→oldest for image-gen context used by revision intercept. */
 export function imageGenRevisionContext(
   messages: ReadonlyArray<{ id: string; role: string; content: string }>,
-): { lastAssistantIsImageOnly: boolean; previousSubject: string | null } {
+): { lastAssistantIsImageOnly: boolean; previousSubject: string | null; referenceAttachmentId?: string } {
   let lastAssistantIsImageOnly = false;
   let previousSubject: string | null = null;
+  let referenceAttachmentId: string | undefined;
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const row = messages[i];
     if (
@@ -115,6 +116,7 @@ export function imageGenRevisionContext(
     }
     if (!lastAssistantIsImageOnly && row.role === "assistant") {
       lastAssistantIsImageOnly = isImageOnlyAssistantContent(row.content);
+      referenceAttachmentId = parseMessageImages(row.content).images[0]?.attachmentId ?? undefined;
       if (!lastAssistantIsImageOnly) {
         // Latest assistant isn't an image — don't treat follow-ups as revisions.
         break;
@@ -122,11 +124,19 @@ export function imageGenRevisionContext(
       continue;
     }
     if (lastAssistantIsImageOnly && row.role === "user") {
-      previousSubject = subjectFromImageGenUserMessage(row.content);
+      previousSubject = subjectFromImageGenUserMessage(row.content) ?? "the provided image";
       break;
     }
   }
-  return { lastAssistantIsImageOnly, previousSubject };
+  return { lastAssistantIsImageOnly, previousSubject,
+    ...(referenceAttachmentId ? { referenceAttachmentId } : {}) };
+}
+
+/** Only explicit transformations of an attached image, not questions about it. */
+export function extractAttachedImageEditPrompt(text: string): string | null {
+  const cleaned = text.trim();
+  return /^(?:please\s+)?(?:(?:can|could) you\s+)?(?:edit|change|remove|replace|recolor|crop|transform|turn|make)\b/i.test(cleaned)
+    && cleaned.length <= 2000 ? cleaned : null;
 }
 
 const IMAGE_NOUN =

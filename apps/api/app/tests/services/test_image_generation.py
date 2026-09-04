@@ -81,6 +81,46 @@ def _mock_http_client(**kwargs):
 
 
 @pytest.mark.asyncio
+async def test_edit_sends_real_reference_bytes():
+    import base64
+
+    png = b"\x89PNG\r\n\x1a\n"
+    response = MagicMock(status_code=200)
+    response.json.return_value = {"data": [{"b64_json": base64.b64encode(png).decode()}]}
+    client = _mock_http_client(post=AsyncMock(return_value=response))
+    with (
+        patch("app.services.image_generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=client),
+    ):
+        result = await generate_image(
+            Settings(openrouter_api_key="test-key"),
+            prompt="make it blue",
+            reference_images=[(png, "image/png")],
+        )
+    assert result == (png, "image/png")
+    reference = client.post.await_args.kwargs["json"]["input_references"][0]
+    assert reference == {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64," + base64.b64encode(png).decode()},
+    }
+
+
+@pytest.mark.asyncio
+async def test_reference_lookup_rejects_another_users_image_before_reading_storage():
+    from uuid import uuid4
+
+    from app.services.image_generation import ImageGenerationError, load_reference_images
+
+    gateway = AsyncMock()
+    with patch(
+        "app.services.image_generation.attachments_repo.get_by_ids", AsyncMock(return_value=[])
+    ):
+        with pytest.raises(ImageGenerationError, match="Reference image not found"):
+            await load_reference_images(gateway, user_id=uuid4(), attachment_ids=[uuid4()])
+    gateway.read_bytes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
     """When OpenRouter returns a `url` instead of b64_json, the image bytes must be
     fetched through the shared SSRF-safe helper (DNS-pinned), not a plain GET."""

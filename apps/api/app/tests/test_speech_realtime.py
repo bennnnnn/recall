@@ -51,6 +51,14 @@ def test_realtime_instructions_include_custom_instructions():
     assert "Keep answers short." in prompt
 
 
+def test_physical_phone_session_supports_barge_in_and_only_read_only_tools():
+    config = openai_speech_gateway.realtime_session_config(
+        Settings(), "Recall", barge_in=True, tools_enabled=True
+    )
+    assert config["audio"]["input"]["turn_detection"]["interrupt_response"] is True
+    assert {tool["name"] for tool in config["tools"]} == {"memory_lookup", "web_search"}
+
+
 @pytest.mark.asyncio
 async def test_realtime_client_secret_binds_session_config_and_retries_connects():
     response = MagicMock()
@@ -180,6 +188,46 @@ def test_persist_ignores_assistant_only_phantom_turn():
     redis_client.assert_not_called()
 
 
+def test_voice_sources_persist_in_the_canonical_chat_fence():
+    import json
+
+    user = _fake_user(plan="pro")
+    client = TestClient(_realtime_app(user, Settings()))
+    sources = [{"title": "Official score", "url": "https://example.com/score"}]
+    persist = AsyncMock(return_value=(None, None))
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.routers.speech_realtime.live_talk_service.realtime_session_is_active",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.speech_realtime.live_talk_service.load_live_talk_history",
+            AsyncMock(return_value=([], False)),
+        ),
+        patch(
+            "app.services.live_talk_tools.search_sources_for_turn", AsyncMock(return_value=sources)
+        ),
+        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+    ):
+        response = client.post(
+            "/speech/live/persist",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(uuid4()),
+                "call_id": "issued-session",
+                "turn_id": "utterance-1",
+                "user_text": "Who won?",
+                "assistant_text": "Team A won.",
+            },
+        )
+    assert response.status_code == 204
+    assert (
+        persist.await_args.kwargs["assistant_text"]
+        == "Team A won.\n\n```sources\n" + json.dumps(sources) + "\n```"
+    )
+
+
 def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
     user = _fake_user(plan="pro")
     settings = Settings(
@@ -267,3 +315,50 @@ def test_legacy_webrtc_endpoint_requires_current_mobile_bundle():
     )
     assert r.status_code == 426
     assert "Legacy Live Talk client detected" in r.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "case,expected",
+    [
+        ("valid", 200),
+        ("wrong_chat", 403),
+        ("missing_chat", 404),
+        ("free", 403),
+        ("write_tool", 422),
+    ],
+)
+def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case, expected):
+    chat_id = uuid4()
+    user = _fake_user(plan="free" if case == "free" else "pro")
+    client = TestClient(
+        _realtime_app(
+            user, Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
+        )
+    )
+    redis = AsyncMock()
+    redis.get.return_value = str(uuid4() if case == "wrong_chat" else chat_id)
+    invoke = AsyncMock(return_value={"content": "verified"})
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=redis),
+        patch(
+            "app.routers.speech_realtime.allow_request_fail_closed", AsyncMock(return_value=True)
+        ),
+        patch(
+            "app.repositories.chats.get_by_id",
+            AsyncMock(return_value=None if case == "missing_chat" else MagicMock()),
+        ),
+        patch("app.services.live_talk_tools.execute_tool", invoke),
+    ):
+        response = client.post(
+            "/speech/live/tool",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(chat_id),
+                "call_id": "issued-session",
+                "turn_id": "utterance-1",
+                "name": "send_email" if case == "write_tool" else "web_search",
+                "query": "latest score",
+            },
+        )
+    assert response.status_code == expected
+    assert invoke.await_count == int(expected == 200)

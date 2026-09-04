@@ -55,7 +55,8 @@ class ImageGenAdapter:
 
     def describe(self) -> str:
         return (
-            "Generate a new picture for the user and attach it to this chat. "
+            "Generate or edit a picture for the user and attach it to this chat. "
+            "For edits, pass reference_attachment_ids from the user's images; never invent IDs. "
             "Call ONLY when they clearly want a visual image/illustration/photo "
             "(e.g. draw a cat, create a sunset pic). "
             "Do NOT use for math examples, equations, quizzes, code, todos, "
@@ -105,6 +106,11 @@ class ImageGenAdapter:
                 prompt=prompt,
                 aspect_ratio=aspect_ratio,
                 create_user_message=False,
+                reference_attachment_ids=(
+                    [UUID(str(value)) for value in args["reference_attachment_ids"]]
+                    if args.get("reference_attachment_ids")
+                    else None
+                ),
             )
         except image_generation_service.ImageGenerationError as exc:
             return ToolResult(

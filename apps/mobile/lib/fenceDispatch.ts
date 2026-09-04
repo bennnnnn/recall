@@ -112,6 +112,9 @@ export type OpenFencePreviewKind = "answer" | "math" | "diagram" | "code" | "hid
 /** Same classifier as settled `renderFence` — preview kinds are a subset. */
 export function classifyOpenFencePreview(lang: string, body: string): OpenFencePreviewKind {
   const decision = classifyFence(lang, body);
+  if (decision.kind === "hide") return "hide";
+  // Draft text can stream as prose; it must never flash a programming block.
+  if (decision.id === "email") return "answer";
   if (decision.kind === "answer") return "answer";
   if (decision.kind === "math") return "math";
   // Server already appended 3D after SMILES; the model's extra open

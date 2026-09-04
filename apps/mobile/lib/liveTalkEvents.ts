@@ -2,7 +2,7 @@ import type { Message } from "@/lib/api/types";
 
 export type LiveTalkSpeakEvent =
   | { type: "user"; text: string }
-  | { type: "assistant"; text: string }
+  | { type: "assistant"; text: string; sources?: Message["search_sources"] }
   | {
       type: "done";
       remaining: number;
@@ -64,20 +64,17 @@ export function applyLiveTalkChatEvent(
       "assistant",
       event.text,
       "live-talk-model",
-    );
+    ).map((row) => row.id === ids.assistant && event.sources ? { ...row, search_sources: event.sources } : row);
   }
   if (event.type !== "done") return messages;
-  const without = messages.filter((row) => row.id !== ids.user && row.id !== ids.assistant);
-  const next = [...without];
-  if (event.user_message) next.push(event.user_message);
-  else {
-    const local = messages.find((row) => row.id === ids.user);
-    if (local) next.push(local);
+  // A late persistence response must replace its placeholders where they
+  // already are, not move an old turn below the next live utterance.
+  if (event.user_message || event.assistant_message) {
+    return messages.flatMap((row) => {
+      if (row.id === ids.user) return event.user_message ? [event.user_message] : [row];
+      if (row.id === ids.assistant) return event.assistant_message ? [event.assistant_message] : [row];
+      return [row];
+    });
   }
-  if (event.assistant_message) next.push(event.assistant_message);
-  else {
-    const local = messages.find((row) => row.id === ids.assistant);
-    if (local) next.push(local);
-  }
-  return next;
+  return messages;
 }

@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 _RAG_COVERAGE_PREFIX = (
     f"Indexed file text covers at most the first "
-    f"{attachment_content_service.PDF_EXTRACT_MAX_PAGES} PDF pages and the first "
+    f"{attachment_content_service.PDF_INDEX_MAX_PAGES} PDF pages and the first "
     f"{attachment_content_service.MAX_INDEX_EXTRACT_CHARS} characters. "
+    "The configured chunk budget can reduce coverage further. "
     "A retrieval miss is not proof the answer is absent from unread pages. "
     "Do not invent from outside these excerpts.\n\n"
 )

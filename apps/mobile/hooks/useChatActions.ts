@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -9,7 +9,7 @@ type Router = ReturnType<typeof useRouter>;
 import { insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 import { api, type Chat, type Message } from "@/lib/api";
 import { FREE_CHAT_MODEL_ID } from "@/lib/modelCatalogFallback";
-import { clearCachedChatMessages, patchCachedChatMessage, writeCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages, patchCachedChatMessage } from "@/lib/chatMessageCache";
 import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
@@ -50,11 +50,13 @@ export function useChatActions({
   setArchived,
   setChatTitle,
   setMessages,
-  hasMoreOlder = false,
   router,
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
@@ -99,36 +101,21 @@ export function useChatActions({
   );
 
   const handleSaveEmailDraft = useCallback(
-    async (messageId: string, draft: EmailDraft): Promise<boolean> => {
-      if (!token || !chatId || !isServerMessageId(messageId)) return false;
+    (messageId: string, draft: EmailDraft): Promise<boolean> => {
+      if (!token || !chatId || !isServerMessageId(messageId)) return Promise.resolve(false);
       const fenceBody = fullEmailText(draft);
-      let previous: string | null = null;
-      let nextMessages: Message[] | null = null;
-      setMessages((prev) => {
-        let changed = false;
-        const next = prev.map((mm) => {
-          if (mm.id !== messageId) return mm;
-          previous = mm.content;
-          const rewritten = replaceFirstClosedFenceBody(mm.content, "email", fenceBody);
-          if (rewritten == null || rewritten === mm.content) return mm;
-          changed = true;
-          return { ...mm, content: rewritten };
-        });
-        if (!changed) return prev;
-        nextMessages = next;
-        return next;
-      });
-      if (previous != null) {
-        const rewritten = replaceFirstClosedFenceBody(previous, "email", fenceBody);
-        if (rewritten == null) return false;
-        if (rewritten === previous) return true;
-      } else {
-        return false;
+      const message = messagesRef.current.find((m) => m.id === messageId);
+      if (!message || message.role !== "assistant" ||
+          replaceFirstClosedFenceBody(message.content, "email", fenceBody) == null) {
+        return Promise.resolve(false);
       }
-      if (nextMessages) {
-        await writeCachedChatMessages(chatId, nextMessages, hasMoreOlder);
-      }
-      try {
+      // The card owns its unsaved fields. Never infer success from a React
+      // state updater (which can run later or twice), or cache an unsaved edit.
+      // Serialize writes so a slow earlier request cannot win on the server.
+      const key = `${chatId}:${messageId}`;
+      const pending = emailSavesRef.current.get(key) ?? Promise.resolve(true);
+      const saving = pending.then(async () => {
+        try {
         const updated = await api.updateMessageEmail(token, chatId, messageId, {
           to: draft.to,
           subject: draft.subject,
@@ -142,19 +129,17 @@ export function useChatActions({
         void patchCachedChatMessage(chatId, messageId, { content: updated.content });
         return true;
       } catch {
-        setMessages((prev) =>
-          prev.map((mm) =>
-            mm.id === messageId && previous != null ? { ...mm, content: previous } : mm,
-          ),
-        );
-        if (previous != null) {
-          void patchCachedChatMessage(chatId, messageId, { content: previous });
-        }
         reportRecoverableError(feedback, t("chat.email_card_save_failed"));
         return false;
       }
+      });
+      emailSavesRef.current.set(key, saving);
+      void saving.then(() => {
+        if (emailSavesRef.current.get(key) === saving) emailSavesRef.current.delete(key);
+      });
+      return saving;
     },
-    [token, chatId, hasMoreOlder, setMessages, feedback, t],
+    [token, chatId, setMessages, feedback, t],
   );
 
   const loadTranscriptMessages = useCallback(async () => {

@@ -158,7 +158,7 @@ describe("image revision follow-ups", () => {
           content: "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
         },
       ]),
-    ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "black cat" });
+    ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "black cat", referenceAttachmentId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" });
   });
 
   it("imageGenRevisionContext finds the subject from original wording", () => {
@@ -175,6 +175,6 @@ describe("image revision follow-ups", () => {
           content: "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
         },
       ]),
-    ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "cat" });
+    ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "cat", referenceAttachmentId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" });
   });
 });

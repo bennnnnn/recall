@@ -36,17 +36,18 @@ describe("ttsPreference", () => {
     writeAsStringAsync.mockReset();
   });
 
-  it("defaults unknown values to on-device speech", () => {
-    expect(normalizeTtsModel(null)).toBe(TTS_DEVICE_MODEL);
-    expect(normalizeTtsModel("nope")).toBe(TTS_DEVICE_MODEL);
-    expect(normalizeTtsModel(TTS_FAST_MODEL)).toBe(TTS_FAST_MODEL);
+  it("defaults to OpenAI and preserves an explicit on-device choice", () => {
+    expect(normalizeTtsModel(null)).toBe(TTS_QUALITY_MODEL);
+    expect(normalizeTtsModel("nope")).toBe(TTS_QUALITY_MODEL);
+    expect(normalizeTtsModel(TTS_DEVICE_MODEL)).toBe(TTS_DEVICE_MODEL);
+    expect(normalizeTtsModel(TTS_FAST_MODEL)).toBe(TTS_QUALITY_MODEL);
     expect(normalizeTtsModel(TTS_QUALITY_MODEL)).toBe(TTS_QUALITY_MODEL);
   });
 
-  it("reads Kokoro from the pref file", async () => {
+  it("migrates the legacy Kokoro alias to OpenAI", async () => {
     getInfoAsync.mockResolvedValue({ exists: true });
     readAsStringAsync.mockResolvedValue(TTS_FAST_MODEL);
-    await expect(getTtsModel()).resolves.toBe(TTS_FAST_MODEL);
+    await expect(getTtsModel()).resolves.toBe(TTS_QUALITY_MODEL);
   });
 
   it("writes the selected alias", async () => {

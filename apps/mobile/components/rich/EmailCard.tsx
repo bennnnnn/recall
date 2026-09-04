@@ -44,6 +44,9 @@ export function EmailCard({ draft }: Props) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [gmailOpening, setGmailOpening] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
   const [fields, setFields] = useState(() => draftFields(draft));
   const fieldsRef = useRef(fields);
   fieldsRef.current = fields;
@@ -53,9 +56,9 @@ export function EmailCard({ draft }: Props) {
   const draftBody = draft.body;
 
   useEffect(() => {
-    if (editing) return;
+    if (editingRef.current) return;
     setFields(draftFields({ to: draftTo, subject: draftSubject, body: draftBody }));
-  }, [draftTo, draftSubject, draftBody, editing]);
+  }, [draftTo, draftSubject, draftBody]);
 
   const currentDraft = useMemo(() => toDraft(fields), [fields]);
   const persistNow = useEmailCardPersist(currentDraft, editing);
@@ -77,7 +80,8 @@ export function EmailCard({ draft }: Props) {
     }
   };
 
-  const toggleEditing = () => {
+  const toggleEditing = async () => {
+    if (saving) return;
     tap();
     if (editing) {
       const prev = fieldsRef.current;
@@ -88,8 +92,12 @@ export function EmailCard({ draft }: Props) {
       };
       fieldsRef.current = next;
       setFields(next);
-      setEditing(false);
-      void persistNow(toDraft(next));
+      setSaving(true);
+      try {
+        if (await persistNow(toDraft(next))) setEditing(false);
+      } finally {
+        setSaving(false);
+      }
       return;
     }
     setEditing(true);
@@ -104,7 +112,9 @@ export function EmailCard({ draft }: Props) {
         <>
           <Pressable
             style={[s.iconBtn, editing && s.iconBtnActive]}
-            onPress={toggleEditing}
+            onPress={() => { void toggleEditing(); }}
+            disabled={saving}
+            accessibilityState={{ busy: saving, disabled: saving }}
             hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={

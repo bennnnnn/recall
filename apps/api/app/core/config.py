@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     attachment_rag_min_similarity: float = 0.25
     attachment_rag_chunk_chars: int = 900
     attachment_rag_chunk_overlap: int = 120
-    attachment_rag_max_chunks_per_file: int = 40
+    attachment_rag_max_chunks_per_file: int = 256
 
     # Chat-history semantic RAG (pgvector over past turns; top-k at turn start).
     # Never dumps the full transcript — Golden Rule 3. Recent-window ids are
@@ -167,13 +167,12 @@ class Settings(BaseSettings):
     # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).
     worker_health_port: int = 8001
     speech_transcription_enabled: bool = True
-    # Operator override (raw OpenRouter slug). Empty → catalog alias
-    # `speech-stt-model` (`openai/gpt-transcribe`) is the source of truth.
+    # Direct OpenAI voice. Empty overrides use the speech catalog aliases.
     speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
     daily_speech_transcriptions: int = 30
     daily_speech_transcriptions_pro: int = 200
-    # Cloud TTS (read-aloud). Operator override (raw OpenRouter slug); empty →
+    # Cloud TTS (read-aloud). Operator override (OpenAI model); empty →
     # catalog alias `speech-tts-model`.
     speech_tts_enabled: bool = True
     speech_tts_model: str = ""
