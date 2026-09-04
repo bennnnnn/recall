@@ -403,7 +403,8 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"(?:请|請)?(?:翻译|翻譯)(?:"
     r"(?:一下)?(?:这句话|這句話|这个句子|這個句子|这段文字|這段文字|"
     r"这篇文章|這篇文章|这封邮件|這封郵件|以下内容|以下內容|下面内容|下面內容|"
-    r"上述内容|上述內容)(?=$|[.!?\u3002\uFF01\uFF1F]|(?:成|为|為))|"
+    r"上述内容|上述內容)(?=$|[.!?\u3002\uFF01\uFF1F]|(?:成|为|為)|"
+    r"[:\uFF1A\"'“\u2018「『])|"
     r"一下(?=$|[.!?\u3002\uFF01\uFF1F])|"
     r"(?:成|为|為)(?!(?:什么|什麼|何|啥))\S+|"
     r"[:\uFF1A\"'“\u2018「『]|\s+(?=[\"'“\u2018「『A-Za-z0-9])|(?=[A-Za-z0-9]))|"
@@ -493,6 +494,7 @@ def _next_sentence_tail(text: str) -> str | None:
         "『": "』",
     }
     closing_quote: str | None = None
+    delimiter_stack: list[str] = []
     boundary_end: int | None = None
     for index, char in enumerate(text):
         if closing_quote is not None:
@@ -522,6 +524,14 @@ def _next_sentence_tail(text: str) -> str | None:
             if char == "'" and index > 0 and text[index - 1].isalnum():
                 continue
             closing_quote = quote_closers[char]
+            continue
+        if char in "([{":
+            delimiter_stack.append({"(": ")", "[": "]", "{": "}"}[char])
+            continue
+        if delimiter_stack and char == delimiter_stack[-1]:
+            delimiter_stack.pop()
+            continue
+        if delimiter_stack:
             continue
         if char not in ".!?":
             continue
