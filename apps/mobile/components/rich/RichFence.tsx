@@ -53,7 +53,8 @@ export function renderRichFenceById(
   switch (id) {
     case "email": {
       const draft = parseEmailDraft(content) ?? { body: content };
-      return <EmailCard key={key} draft={draft} />;
+      const emailKey = tokenIndex != null ? `email:${tokenIndex}` : key;
+      return <EmailCard key={emailKey} draft={draft} />;
     }
     case "quote": {
       const { quote, author } = parseQuoteAttribution(content);
@@ -126,11 +127,13 @@ export function renderCopyStyleBlock(
   lang: string,
   content: string,
   key: string,
+  tokenIndex?: number,
 ): ReactNode | null {
   const l = lang.trim().toLowerCase();
+  const emailKey = tokenIndex != null ? `email:${tokenIndex}` : key;
   if (l === "email") {
     const draft = parseEmailDraft(content);
-    if (draft) return <EmailCard key={key} draft={draft} />;
+    if (draft) return <EmailCard key={emailKey} draft={draft} />;
   }
   if (isMessageLang(l)) {
     return (
@@ -147,7 +150,7 @@ export function renderCopyStyleBlock(
   }
   const draft = parseEmailDraft(content);
   if (draft) {
-    return <EmailCard key={key} draft={draft} />;
+    return <EmailCard key={emailKey} draft={draft} />;
   }
   return null;
 }

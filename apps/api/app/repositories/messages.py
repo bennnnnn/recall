@@ -376,6 +376,33 @@ async def count_for_chat(session: AsyncSession, chat_id: UUID) -> int:
     return result.scalar_one()
 
 
+async def get_in_chat(
+    session: AsyncSession,
+    message_id: UUID,
+    chat_id: UUID,
+) -> Message | None:
+    result = await session.execute(
+        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_content(
+    session: AsyncSession,
+    message: Message,
+    content: str,
+    *,
+    commit: bool = True,
+) -> Message:
+    message.content = content
+    if commit:
+        await session.commit()
+        await session.refresh(message)
+    else:
+        await session.flush()
+    return message
+
+
 async def set_feedback(
     session: AsyncSession,
     message_id: UUID,

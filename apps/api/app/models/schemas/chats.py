@@ -36,6 +36,22 @@ class FeedbackUpdate(BaseModel):
     feedback: MessageFeedback | None = None
 
 
+class EmailDraftUpdate(BaseModel):
+    """Structured EmailCard fields — rewritten into the first ```email fence only."""
+
+    to: str | None = Field(default=None, max_length=320)
+    subject: str | None = Field(default=None, max_length=300)
+    body: str = Field(default="", max_length=20_000)
+
+    @field_validator("to", "subject", mode="before")
+    @classmethod
+    def blank_header_to_none(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return value
+
+
 class ChatOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

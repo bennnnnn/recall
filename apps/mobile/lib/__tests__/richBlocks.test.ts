@@ -5,6 +5,7 @@ import {
   parseQuoteAttribution,
   parseSteps,
 } from "@/lib/richBlocks";
+import { fullEmailText } from "@/lib/emailCompose";
 import { stripDraftFormSlots } from "@/lib/emailDraftSanitize";
 
 describe("detectJsonRichFenceKind", () => {
@@ -99,6 +100,15 @@ describe("parseEmailDraft", () => {
     });
     expect(draft?.to).toBeUndefined();
     expect(draft?.body).not.toContain("[");
+  });
+
+  it("round-trips a send-ready draft through fullEmailText", () => {
+    const source = {
+      to: "jane@work.com",
+      subject: "Friday off",
+      body: "Hi Jane,\n\nSee you then.",
+    };
+    expect(parseEmailDraft(fullEmailText(source))).toEqual(source);
   });
 
   it("keeps a real To address and markdown links in the body", () => {

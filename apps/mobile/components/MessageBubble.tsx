@@ -17,6 +17,7 @@ import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { LearningLaunchButton } from "@/components/LearningLaunchButton";
+import { AssistantMessageScope } from "@/contexts/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
@@ -442,13 +443,15 @@ export const MessageBubble = React.memo(function MessageBubble({
               <CircularClockBlock content={clockTimezone} />
             ) : null}
             {hasMarkdown ? (
-              <MarkdownErrorBoundary
-                resetKey={markdownResetKey}
-                content={markdownContent}
-              >
-                <MarkdownContent content={markdownContent} streaming={markdownStreamMode} />
-                {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
-              </MarkdownErrorBoundary>
+              <AssistantMessageScope messageId={message.id}>
+                <MarkdownErrorBoundary
+                  resetKey={markdownResetKey}
+                  content={markdownContent}
+                >
+                  <MarkdownContent content={markdownContent} streaming={markdownStreamMode} />
+                  {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
+                </MarkdownErrorBoundary>
+              </AssistantMessageScope>
             ) : null}
             {message.generationStopped ? (
               <Text style={b.stoppedFooter}>{t("chat.generation_stopped")}</Text>

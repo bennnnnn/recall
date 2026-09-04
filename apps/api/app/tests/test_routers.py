@@ -721,6 +721,37 @@ def test_list_messages_enqueues_topic_backfill():
     assert payload["assistant_message"] == asst_msg.content
 
 
+def test_patch_message_email_rewrites_via_service():
+    from app.models.orm import Message
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    chat_id = uuid4()
+    message_id = uuid4()
+    asst_msg = MagicMock(spec=Message)
+    asst_msg.id = message_id
+    asst_msg.role = "assistant"
+    asst_msg.content = "```email\nTo: a@b.com\nSubject: Hi\n\nShorter\n```"
+    asst_msg.model = "free-chat"
+    asst_msg.feedback = None
+    asst_msg.created_at = datetime(2024, 1, 1)
+
+    with patch(
+        "app.services.chats.update_message_email",
+        AsyncMock(return_value=asst_msg),
+    ) as update:
+        client = TestClient(app)
+        r = client.patch(
+            f"/chats/{chat_id}/messages/{message_id}/email",
+            headers={"Authorization": "Bearer tok"},
+            json={"to": "a@b.com", "subject": "Hi", "body": "Shorter"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()["content"].startswith("```email")
+    update.assert_awaited_once()
+
+
 def test_rename_chat_rejects_blank_title():
     user = _fake_user()
     app = _app_with_user(user)

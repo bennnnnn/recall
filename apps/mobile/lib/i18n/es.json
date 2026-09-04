@@ -43,6 +43,7 @@
   "chat.email_card_edit": "Edit email",
   "chat.email_card_gmail": "Open in Gmail",
   "chat.email_card_gmail_copied": "Email copied to your clipboard. Open Gmail and paste if the compose screen did not open.",
+  "chat.email_card_save_failed": "Could not save this email draft.",
   "chat.email_card_subject": "Subject",
   "chat.email_card_subject_placeholder": "Subject",
   "chat.email_card_title": "Email",

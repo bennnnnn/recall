@@ -15,6 +15,7 @@ from app.models.schemas import (
     ChatListOut,
     ChatOut,
     ChatRename,
+    EmailDraftUpdate,
     FeedbackUpdate,
     MessageOut,
     MessagePageOut,
@@ -184,6 +185,31 @@ async def set_message_feedback(
     try:
         message = await chats_service.set_message_feedback(
             session, redis, user, chat_id, message_id, body.feedback
+        )
+    except chats_service.ChatsError as exc:
+        raise _map_error(exc) from exc
+    return MessageOut.model_validate(message)
+
+
+@router.patch("/{chat_id}/messages/{message_id}/email", response_model=MessageOut)
+async def update_message_email(
+    chat_id: UUID,
+    message_id: UUID,
+    body: EmailDraftUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> MessageOut:
+    try:
+        message = await chats_service.update_message_email(
+            session,
+            redis,
+            user,
+            chat_id,
+            message_id,
+            to=body.to,
+            subject=body.subject,
+            body=body.body,
         )
     except chats_service.ChatsError as exc:
         raise _map_error(exc) from exc

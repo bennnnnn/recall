@@ -72,6 +72,21 @@ def iter_closed_fences(text: str, lang: str) -> Iterator[tuple[int, int, str]]:
         index = after
 
 
+def replace_first_closed_fence_body(text: str, lang: str, new_body: str) -> str | None:
+    """Replace the inner body of the first closed ```lang fence. Keep opener/closer."""
+    hit = next(iter_closed_fences(text, lang), None)
+    if hit is None:
+        return None
+    opener, _after, old_body = hit
+    newline = text.find("\n", opener)
+    if newline < 0:
+        return None
+    body_start = newline + 1
+    line_start = body_start + len(old_body)
+    body = new_body.rstrip("\n") + "\n"
+    return text[:body_start] + body + text[line_start:]
+
+
 def has_closed_fence(text: str, lang: str) -> bool:
     return next(iter_closed_fences(text, lang), None) is not None
 

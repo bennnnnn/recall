@@ -180,7 +180,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   scripts/styles only from `cdn.jsdelivr.net`, `unpkg.com`, `cdnjs.cloudflare.com`, and Google
   Fonts — not open `https:`.
 - ✅ **Rich blocks** — callouts (`> [!NOTE]`), key-value, comparison, step lists, and
-  email/message/social "copy" cards.
+  email/message/social "copy" cards. EmailCard edits persist into the stored
+  ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
   set (`copy` / drafts, `mermaid`, `chart`, `math`, chemistry source). Server attaches
@@ -1025,6 +1026,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
    excerpt/page caps are disclosed to the model; image follow-ups rehydrate prior
    photos; frozen table rows share height; grouped bars keep their offset. No new
    cards, chips, or surfaces.
+6. ✅ **EmailCard one draft** — edits on Done (and a debounce / send flush) rewrite
+   the first ` ```email ` fence on that assistant message. Card Copy, whole-reply
+   Copy, “make that shorter”, and reopen agree. Not user-message edit.
 
 ### Future (not implementing now)
 

@@ -10,6 +10,7 @@ jest.mock("expo-file-system/legacy", () => ({
 import {
   cachedChatPageFetchedAt,
   clearCachedChatMessages,
+  patchCachedChatMessage,
   readCachedChatMessages,
   writeCachedChatMessages,
 } from "@/lib/chatMessageCache";
@@ -61,6 +62,28 @@ describe("chatMessageCache", () => {
     expect(deleteAsync).toHaveBeenCalledWith("/mock-cache/chat-pages/chat-1.json", {
       idempotent: true,
     });
+  });
+
+  it("patches one cached message without dropping has_more", async () => {
+    (getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+    (readAsStringAsync as jest.Mock).mockResolvedValue(
+      JSON.stringify({
+        messages: [
+          { id: "m1", role: "assistant", content: "old", model: null, created_at: "2026-01-01T00:00:00Z" },
+        ],
+        has_more: true,
+        cached_at: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    await patchCachedChatMessage("chat-1", "m1", { content: "new" });
+    expect(writeAsStringAsync).toHaveBeenCalledWith(
+      "/mock-cache/chat-pages/chat-1.json",
+      expect.stringContaining('"content":"new"'),
+    );
+    expect(writeAsStringAsync).toHaveBeenCalledWith(
+      "/mock-cache/chat-pages/chat-1.json",
+      expect.stringContaining('"has_more":true'),
+    );
   });
 
   it("parses cached_at for the silent-refetch stale window", () => {

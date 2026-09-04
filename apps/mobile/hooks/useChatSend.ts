@@ -20,6 +20,7 @@ import {
   shouldBlockSend,
 } from "@/lib/chat/chatSendLogic";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
+import { flushEmailDrafts } from "@/lib/emailDraftFlush";
 import {
   extractImageGenPrompt,
   extractImageRevisionPrompt,
@@ -262,12 +263,13 @@ export function useChatSend({
       const attached = pendingAttachment;
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
+      setSendPhase(attached ? "uploading" : "preparing");
+      await flushEmailDrafts();
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
       // with sendInFlightRef set looked finished and ate the next tap.
       setInput("");
       setPendingAttachment(null);
-      setSendPhase(attached ? "uploading" : "preparing");
       Keyboard.dismiss();
 
       const optimisticId = `local-${Date.now()}`;

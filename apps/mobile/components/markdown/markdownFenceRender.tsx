@@ -80,11 +80,11 @@ function renderFenceInner(
     if (isNeverCodeBlockLang(lang)) return neverCodeBlockFallback(key, content);
   }
 
-  const copyStyle = renderCopyStyleBlock(lang, content, key);
+  const copyStyle = renderCopyStyleBlock(lang, content, key, tokenIndex);
   if (copyStyle) return copyStyle;
 
   if (decision.kind === "copy") {
-    const styled = renderCopyStyleBlock("copy", content, key);
+    const styled = renderCopyStyleBlock("copy", content, key, tokenIndex);
     if (styled) return styled;
     return <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />;
   }
