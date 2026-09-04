@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -20,6 +20,7 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chat/chatSendLogic";
+import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
 import {
   extractImageGenPrompt,
   extractImageRevisionPrompt,
@@ -64,6 +65,8 @@ type SendMessageFn = (
 type Options = {
   token: string | null;
   chatId: string | null;
+  /** Route `chatId` — composer drafts key off this, not the lagging loaded id. */
+  routeChatId?: string;
   setChatId: React.Dispatch<React.SetStateAction<string | null>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   router: Router;
@@ -93,6 +96,7 @@ type Options = {
 export function useChatSend({
   token,
   chatId,
+  routeChatId,
   setChatId,
   setChatTitle,
   router,
@@ -123,7 +127,14 @@ export function useChatSend({
   } = draft;
   const { newMessageCountRef } = scroll;
 
-  const { setInput, inputRef } = useComposerDraftApi();
+  const {
+    setInput,
+    inputRef,
+    switchThread,
+    adoptComposerThread,
+    saveDraftForThread,
+    getThreadKey,
+  } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const attachBusy = false;
@@ -148,6 +159,19 @@ export function useChatSend({
 
   const attachPickInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
+  const composerThread = composerThreadKey(routeChatId);
+  const prevComposerThreadRef = useRef(composerThread);
+  useLayoutEffect(() => {
+    const fromKey = getThreadKey();
+    switchThread(composerThread);
+    if (prevComposerThreadRef.current === composerThread) return;
+    prevComposerThreadRef.current = composerThread;
+    if (fromKey === composerThread) return;
+    setPendingAttachment(null);
+    setEditingMessageId(null);
+    setAttachSheetOpen(false);
+    setMathScannerOpen(false);
+  }, [composerThread, switchThread, getThreadKey]);
   useEffect(() => {
     const applyQueued = () => {
       const next = takeQueuedComposerAttachment();
@@ -245,6 +269,7 @@ export function useChatSend({
       if (!authToken) return;
 
       const attached = pendingAttachment;
+      const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
       // Clear the composer immediately — including the attachment chip.
       // Upload continues in the background; keeping the chip + attachBusy
@@ -279,8 +304,12 @@ export function useChatSend({
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
         }
-        setInput(text);
-        setPendingAttachment(attached);
+        if (getThreadKey() === sendThreadKey) {
+          setInput(text);
+          setPendingAttachment(attached);
+        } else {
+          saveDraftForThread(sendThreadKey, text);
+        }
         sendInFlightRef.current = false;
         setSendPhase("idle");
       };
@@ -326,6 +355,7 @@ export function useChatSend({
           setChatId(id);
           draftChatIdRef.current = null;
           setDraftChatId(null);
+          adoptComposerThread(id);
           router.setParams({ chatId: id });
           setPendingSend(
             buildPendingSendAfterCreate({
@@ -388,6 +418,9 @@ export function useChatSend({
       feedback,
       setChatId,
       setChatTitle,
+      getThreadKey,
+      saveDraftForThread,
+      adoptComposerThread,
     ],
   );
 

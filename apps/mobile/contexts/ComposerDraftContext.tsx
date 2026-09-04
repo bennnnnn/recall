@@ -10,9 +10,19 @@ import {
   type SetStateAction,
 } from "react";
 
+import {
+  COMPOSER_NEW_THREAD_KEY,
+  adoptNewComposerThread,
+  takeThreadDraft,
+} from "@/lib/chat/composerThreadDraft";
+
 type ComposerDraftApi = {
   setInput: Dispatch<SetStateAction<string>>;
   inputRef: MutableRefObject<string>;
+  switchThread: (nextKey: string) => void;
+  adoptComposerThread: (nextKey: string) => void;
+  saveDraftForThread: (key: string, text: string) => void;
+  getThreadKey: () => string;
 };
 
 type ComposerDraftValue = {
@@ -27,8 +37,43 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState("");
   const inputRef = useRef(input);
   inputRef.current = input;
+  const draftsRef = useRef(new Map<string, string>());
+  const threadKeyRef = useRef(COMPOSER_NEW_THREAD_KEY);
 
-  const api = useMemo<ComposerDraftApi>(() => ({ setInput, inputRef }), []);
+  const api = useMemo<ComposerDraftApi>(
+    () => ({
+      setInput,
+      inputRef,
+      switchThread: (nextKey: string) => {
+        const fromKey = threadKeyRef.current;
+        const nextText = takeThreadDraft(
+          draftsRef.current,
+          fromKey,
+          nextKey,
+          inputRef.current,
+        );
+        if (fromKey === nextKey) return;
+        threadKeyRef.current = nextKey;
+        setInput(nextText);
+      },
+      adoptComposerThread: (nextKey: string) => {
+        threadKeyRef.current = adoptNewComposerThread(
+          draftsRef.current,
+          threadKeyRef.current,
+          nextKey,
+          inputRef.current,
+        );
+      },
+      saveDraftForThread: (key: string, text: string) => {
+        draftsRef.current.set(key, text);
+        if (threadKeyRef.current === key) {
+          setInput(text);
+        }
+      },
+      getThreadKey: () => threadKeyRef.current,
+    }),
+    [],
+  );
   const value = useMemo<ComposerDraftValue>(() => ({ input }), [input]);
 
   return (

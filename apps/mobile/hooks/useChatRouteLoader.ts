@@ -53,7 +53,6 @@ type Options = {
   stopGeneration: () => void;
   setQuizVariant: React.Dispatch<React.SetStateAction<QuizVariant>>;
   resolveQuizVariant: (projectId: string | null | undefined) => QuizVariant;
-  setInputRef: React.MutableRefObject<(value: string) => void>;
   listRef: React.RefObject<FlashListRef<Message> | null>;
   showActionBanner: (message: string, icon?: IoniconName) => void;
   t: (key: string) => string;
@@ -74,7 +73,6 @@ export function useChatRouteLoader({
   stopGeneration,
   setQuizVariant,
   resolveQuizVariant,
-  setInputRef,
   listRef,
   showActionBanner,
   t,
@@ -426,7 +424,6 @@ export function useChatRouteLoader({
   const startNewChat = useCallback(
     (_opts?: { force?: boolean }) => {
       leaveOpenChat(_opts);
-      setInputRef.current("");
       setChatId(null);
       setChatTitle(null);
       setPinned(false);
@@ -442,7 +439,6 @@ export function useChatRouteLoader({
       routeChatId,
       router,
       setMessages,
-      setInputRef,
       setChatId,
     ],
   );

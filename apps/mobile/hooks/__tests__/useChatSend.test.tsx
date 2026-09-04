@@ -12,8 +12,19 @@ const uploadAttachment = uploadChatAttachment as jest.Mock;
 const inputRef = { current: "hello" };
 const mockSetInput = jest.fn();
 const mockFeedbackError = jest.fn();
+const mockSwitchThread = jest.fn();
+const mockAdoptComposerThread = jest.fn();
+const mockSaveDraftForThread = jest.fn();
+let mockThreadKey = "new";
 jest.mock("@/contexts/ComposerDraftContext", () => ({
-  useComposerDraftApi: () => ({ setInput: mockSetInput, inputRef }),
+  useComposerDraftApi: () => ({
+    setInput: mockSetInput,
+    inputRef,
+    switchThread: mockSwitchThread,
+    adoptComposerThread: mockAdoptComposerThread,
+    saveDraftForThread: mockSaveDraftForThread,
+    getThreadKey: () => mockThreadKey,
+  }),
 }));
 jest.mock("@/contexts/ActionFeedbackContext", () => ({
   useActionFeedbackOptional: () => ({ error: mockFeedbackError }),
@@ -52,12 +63,14 @@ const onGenerateImage = jest.fn();
 function Probe({
   offline = false,
   chatId = null,
+  routeChatId,
   sendMessage = jest.fn(),
   prepareDraftChat = jest.fn(),
   setMessages = jest.fn(),
 }: {
   offline?: boolean;
   chatId?: string | null;
+  routeChatId?: string;
   sendMessage?: jest.Mock;
   prepareDraftChat?: jest.Mock;
   setMessages?: jest.Mock;
@@ -65,6 +78,7 @@ function Probe({
   current = useChatSend({
     token: "token",
     chatId,
+    routeChatId,
     setChatId: jest.fn(),
     setChatTitle: jest.fn(),
     router: { setParams: jest.fn() } as never,
@@ -96,6 +110,7 @@ describe("useChatSend", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     inputRef.current = "hello";
+    mockThreadKey = "new";
     resolveGeo.mockResolvedValue({ ok: true, clientGeo: null });
   });
 
@@ -249,5 +264,73 @@ describe("useChatSend", () => {
       await sendPromise;
     });
     expect(sendMessage).toHaveBeenCalled();
+  });
+
+  it("clears attachment and edit when switching threads", async () => {
+    const view = await act(async () =>
+      render(<Probe chatId="chat-1" routeChatId="chat-1" />),
+    );
+    await act(async () => {
+      current.setPendingAttachment({
+        localUri: "file://pic.jpg",
+        contentType: "image/jpeg",
+        fileName: "pic.jpg",
+        kind: "image",
+      });
+      current.setEditingMessageId("msg-1");
+    });
+    expect(current.pendingAttachment).not.toBeNull();
+    expect(current.editingMessageId).toBe("msg-1");
+
+    await act(async () => {
+      view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
+    });
+
+    expect(current.pendingAttachment).toBeNull();
+    expect(current.editingMessageId).toBeNull();
+    expect(mockSwitchThread).toHaveBeenCalledWith("chat-2");
+  });
+
+  it("stashes a failed send on the originating thread after a switch", async () => {
+    mockThreadKey = "chat-1";
+    let finishGeo: (value: { ok: false }) => void = () => undefined;
+    resolveGeo.mockReturnValue(
+      new Promise((resolve) => {
+        finishGeo = resolve;
+      }),
+    );
+    const view = await act(async () =>
+      render(<Probe chatId="chat-1" routeChatId="chat-1" />),
+    );
+
+    let sendPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      sendPromise = current.handleSend();
+      await Promise.resolve();
+    });
+
+    mockThreadKey = "chat-2";
+    await act(async () => {
+      view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
+    });
+
+    await act(async () => {
+      finishGeo({ ok: false });
+      await sendPromise;
+    });
+
+    expect(mockSaveDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
+    expect(mockSetInput).not.toHaveBeenCalledWith("hello");
+  });
+
+  it("adopts the composer onto a newly created chat id", async () => {
+    const prepareDraftChat = jest.fn().mockResolvedValue("created-1");
+    await act(async () => {
+      render(<Probe prepareDraftChat={prepareDraftChat} />);
+    });
+    await act(async () => {
+      await current.handleSend();
+    });
+    expect(mockAdoptComposerThread).toHaveBeenCalledWith("created-1");
   });
 });
