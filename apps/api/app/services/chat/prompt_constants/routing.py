@@ -407,7 +407,8 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"(?:翻訳してください|訳してください)(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:翻訳して|訳して)\s+ください(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:翻訳して|訳して)(?=$|[.!?:\u3002\uFF01\uFF1F\uFF1A])|"
-    r"(?:번역)(?:해\s*(?:주세요|줘)|하세요|(?:을\s*)?\s*부탁(?:드립니다|드려요|해요)?)"
+    r"(?:번역)\s*(?:좀\s*)?"
+    r"(?:해\s*(?:주세요|줘)|하세요|(?:을\s*)?부탁(?:드립니다|드려요|해요)?)"
     r"(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:번역해)(?=$|[.!?:\u3002\uFF01\uFF1F\uFF1A])"
     r")",
@@ -463,6 +464,21 @@ def _starts_direct_writing_request(text: str) -> bool:
     )
 
 
+def _has_later_closing_single_quote(text: str, index: int, quote: str) -> bool:
+    """Check for a later quote terminator, ignoring contraction apostrophes."""
+    for later in range(index + 1, len(text)):
+        if text[later] != quote:
+            continue
+        if 0 < later < len(text) - 1:
+            if text[later - 1].isalnum() and text[later + 1].isalnum():
+                continue
+        before = text[later - 1] if later > 0 else ""
+        after = text[later + 1] if later + 1 < len(text) else ""
+        if not after or before in ".!?" or after in ".!?;:,":
+            return True
+    return False
+
+
 def _next_sentence_tail(text: str) -> str | None:
     """Return text after the next plausible sentence boundary."""
     quote_closers = {
@@ -492,7 +508,7 @@ def _next_sentence_tail(text: str) -> str | None:
                     if (
                         text[index - 1].lower() == "s"
                         and text[index + 1].isspace()
-                        and closing_quote in text[index + 1 :]
+                        and _has_later_closing_single_quote(text, index, closing_quote)
                     ):
                         continue
                 closing_quote = None

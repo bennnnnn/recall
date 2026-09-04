@@ -241,6 +241,7 @@ def test_writing_request_kinds_cover_each_output_shape():
         "번역해 주세요": "translation",
         "번역해주세요": "translation",
         "번역 부탁드립니다": "translation",
+        "번역 좀 해주세요": "translation",
         "翻译理论是什么？": None,
         "翻译为什么这么难？": None,
         "翻譯為什麼這麼難？": None,
@@ -279,6 +280,7 @@ def test_writing_request_kinds_cover_each_output_shape():
             "How do I revise ‘I don’t know. Please help’? Please translate it into French."
         ): "translation",
         ("How do I revise 'the students' essays. Please proofread them.'?"): None,
+        ("How do I revise 'these words' if I don't like them? Please proofread it."): "edit",
         "How do I end a list with etc. Then proofread it.": "edit",
         'How do I respond to "Can you attend?" Please write a reply.': "message",
         "How do I improve Chris' sentence? Please proofread it.": "edit",
