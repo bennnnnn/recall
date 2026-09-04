@@ -405,8 +405,9 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"句子|单词|單詞|邮件|郵件|消息|标题|標題|菜单|菜單|网页|網頁|文件|文档|文檔|"
     r"字幕|说明|說明|歌词|歌詞|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
     r"(?:翻訳してください|訳してください)(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
+    r"(?:翻訳して|訳して)\s+ください(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:翻訳して|訳して)(?=$|[.!?:\u3002\uFF01\uFF1F\uFF1A])|"
-    r"(?:번역)(?:해\s*(?:주세요|줘)|하세요|(?:을\s*)?부탁(?:드립니다|드려요|해요)?)"
+    r"(?:번역)(?:해\s*(?:주세요|줘)|하세요|(?:을\s*)?\s*부탁(?:드립니다|드려요|해요)?)"
     r"(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:번역해)(?=$|[.!?:\u3002\uFF01\uFF1F\uFF1A])"
     r")",
@@ -488,6 +489,12 @@ def _next_sentence_tail(text: str) -> str | None:
                 if char in {"'", "\u2019"} and 0 < index < len(text) - 1:
                     if text[index - 1].isalnum() and text[index + 1].isalnum():
                         continue
+                    if (
+                        text[index - 1].lower() == "s"
+                        and text[index + 1].isspace()
+                        and closing_quote in text[index + 1 :]
+                    ):
+                        continue
                 closing_quote = None
             continue
         if char in quote_closers:
@@ -560,16 +567,23 @@ def writing_request_kind(text: str) -> str | None:
     # has no translation verb and still routes to email below.
     if _TRANSLATION_WRITING.search(cleaned) or _UNSPACED_TRANSLATION_COMMAND.search(cleaned):
         return "translation"
-    if _EMAIL_WRITING.search(cleaned) or has_locale_cue(cleaned, "writing"):
-        return "email"
-    if _MESSAGE_WRITING.search(cleaned):
-        return "message"
-    if _SOCIAL_WRITING.search(cleaned):
-        return "social"
-    if _PROSE_WRITING.search(cleaned):
-        return "prose"
     if _EDIT_WRITING.search(cleaned):
         return "edit"
+    shape_matches: list[tuple[int, int, str]] = []
+    for priority, (kind, pattern) in enumerate(
+        (
+            ("email", _EMAIL_WRITING),
+            ("message", _MESSAGE_WRITING),
+            ("social", _SOCIAL_WRITING),
+            ("prose", _PROSE_WRITING),
+        )
+    ):
+        if match := pattern.search(cleaned):
+            shape_matches.append((match.start(), priority, kind))
+    if has_locale_cue(cleaned, "writing"):
+        shape_matches.append((0, 0, "email"))
+    if shape_matches:
+        return min(shape_matches)[2]
     return None
 
 
