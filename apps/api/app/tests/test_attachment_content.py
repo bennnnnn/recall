@@ -171,16 +171,16 @@ def test_extract_text_from_legacy_doc_returns_none():
 async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
     import threading
 
-    from app.services.attachment_content import extract_text_from_bytes_async
+    from app.services.attachment_content import ExtractedText, extract_text_from_bytes_async
 
     caller_thread = threading.current_thread()
     seen_thread: dict[str, threading.Thread] = {}
 
-    def spy(content_type: str, data: bytes, **kwargs: object) -> str | None:
+    def spy(content_type: str, data: bytes, **kwargs: object) -> ExtractedText | None:
         seen_thread["thread"] = threading.current_thread()
-        return "extracted"
+        return ExtractedText(text="extracted")
 
-    monkeypatch.setattr("app.services.attachment_content.extract_text_from_bytes", spy)
+    monkeypatch.setattr("app.services.attachment_content.extract_text_details", spy)
 
     result = await extract_text_from_bytes_async("text/plain", b"hi", Settings())
 
@@ -196,7 +196,7 @@ async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
         time.sleep(0.5)
         return "should never be returned"
 
-    monkeypatch.setattr("app.services.attachment_content.extract_text_from_bytes", slow_extract)
+    monkeypatch.setattr("app.services.attachment_content.extract_text_details", slow_extract)
 
     from app.services.attachment_content import extract_text_from_bytes_async
 
@@ -287,7 +287,7 @@ async def test_format_attachment_lines_scanned_pdf_empty_text():
     gateway.read_bytes = AsyncMock(return_value=b"%PDF-1.4 empty-ish")
 
     with patch(
-        "app.services.attachment_content.extract_text_from_bytes_async",
+        "app.services.attachment_content.extract_text_details_async",
         AsyncMock(return_value=None),
     ):
         lines, is_image = await format_attachment_lines(
@@ -314,7 +314,7 @@ async def test_format_attachment_lines_skips_ocr_on_prepare():
 
     extract = AsyncMock(return_value=None)
     with patch(
-        "app.services.attachment_content.extract_text_from_bytes_async",
+        "app.services.attachment_content.extract_text_details_async",
         extract,
     ):
         await format_attachment_lines(
@@ -537,3 +537,102 @@ def test_strip_attachment_from_content_empty_means_delete_message():
     attachment_id = uuid4()
     content = f"[Image: /attachments/{attachment_id}/file]"
     assert strip_attachment_from_content(content, attachment_id) == ""
+
+
+def test_file_excerpt_limit_note_names_caps():
+    from app.services.attachment_content import file_excerpt_limit_note
+
+    assert file_excerpt_limit_note(char_capped=False, page_capped=False) is None
+    note = file_excerpt_limit_note(char_capped=True, page_capped=True)
+    assert note is not None
+    assert "25 pages" in note
+    assert "12000" in note
+    assert "unread" in note
+
+
+def test_extract_text_details_flags_char_cap():
+    from app.services.attachment_content import extract_text_details
+
+    details = extract_text_details("text/plain", ("x" * 50).encode(), max_chars=10)
+    assert details is not None
+    assert details.char_capped is True
+    assert details.page_capped is False
+    assert len(details.text) == 10
+
+
+def test_docx_tables_keep_row_alignment():
+    from docx import Document
+
+    from app.services.attachment_content import extract_text_from_bytes
+
+    document = Document()
+    table = document.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "Name"
+    table.cell(0, 1).text = "Score"
+    table.cell(1, 0).text = "Ada"
+    table.cell(1, 1).text = "12"
+    buf = io.BytesIO()
+    document.save(buf)
+    result = extract_text_from_bytes(_DOCX_CONTENT_TYPE, buf.getvalue())
+    assert result is not None
+    assert "| Name | Score |" in result
+    assert "| Ada | 12 |" in result
+
+
+def test_prior_image_attachment_ids_skips_current_user_turn():
+    from app.services.attachment_content import prior_image_attachment_ids
+
+    first = uuid4()
+    messages = [
+        {"role": "user", "content": f"[Image: /attachments/{first}/file]"},
+        {"role": "assistant", "content": "a street sign"},
+        {"role": "user", "content": "what does the tiny label say?"},
+    ]
+    assert prior_image_attachment_ids(messages) == [first]
+
+
+def test_prior_image_attachment_ids_newest_first_with_cap():
+    from app.services.attachment_content import prior_image_attachment_ids
+
+    older = uuid4()
+    newer = uuid4()
+    extra = uuid4()
+    messages = [
+        {"role": "user", "content": f"[Image: /attachments/{older}/file]"},
+        {"role": "assistant", "content": "first"},
+        {
+            "role": "user",
+            "content": (f"[Image: /attachments/{newer}/file]\n[Image: /attachments/{extra}/file]"),
+        },
+        {"role": "assistant", "content": "second"},
+        {"role": "user", "content": "the second one"},
+    ]
+    assert prior_image_attachment_ids(messages, limit=2) == [newer, extra]
+
+
+@pytest.mark.asyncio
+async def test_format_attachment_lines_discloses_truncated_excerpt():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.services.attachment_content import ExtractedText, format_attachment_lines
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"hello")
+    details = ExtractedText(text="hello", char_capped=True, page_capped=True)
+    with patch(
+        "app.services.attachment_content.extract_text_details_async",
+        AsyncMock(return_value=details),
+    ):
+        lines, is_image = await format_attachment_lines(
+            gateway,
+            attachment_id="550e8400-e29b-41d4-a716-446655440000",
+            content_type="application/pdf",
+            storage_key="key",
+            size_bytes=5,
+            settings=Settings(),
+            data=b"hello",
+        )
+    assert is_image is False
+    assert "[File note:" in lines[1]
+    assert "25 pages" in lines[1]
+    assert "hello" in lines[1]

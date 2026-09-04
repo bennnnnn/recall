@@ -7,6 +7,7 @@ import base64
 import io
 import logging
 import zipfile
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
@@ -25,6 +26,17 @@ MAX_EXTRACT_CHARS = 12_000
 # pgvector RAG, so it can extract far more than the inline excerpt. Capped to
 # avoid runaway memory on adversarially large text payloads.
 MAX_INDEX_EXTRACT_CHARS = 50_000
+# PDF text-layer extract reads this many pages on both the inline excerpt
+# and the index/RAG path. Later pages are unread — disclose that to the model.
+PDF_EXTRACT_MAX_PAGES = 25
+VISION_REHYDRATE_LIMIT = 2
+
+_IMAGE_UNAVAILABLE_NOTE = (
+    "The earlier image is not available to look at again. "
+    "Do not guess from a prior description; say you cannot see it."
+)
+_ATTACH_ID_PREFIX = "/attachments/"
+_ATTACH_ID_SUFFIX = "/file"
 
 GALLERY_THUMB_MIN_EDGE = 32
 GALLERY_THUMB_MAX_EDGE = 512
@@ -213,30 +225,90 @@ _DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessi
 EXTRACTABLE_CONTENT_TYPES = _TEXTISH_TYPES | {"application/pdf", _DOCX_CONTENT_TYPE}
 
 
-def extract_text_from_bytes(
+@dataclass(frozen=True)
+class ExtractedText:
+    text: str
+    char_capped: bool = False
+    page_capped: bool = False
+
+
+def file_excerpt_limit_note(
+    *,
+    char_capped: bool,
+    page_capped: bool,
+    max_chars: int = MAX_EXTRACT_CHARS,
+    max_pages: int = PDF_EXTRACT_MAX_PAGES,
+) -> str | None:
+    """Model-facing note when only a prefix of the file was read. Hidden in the UI
+    because it sits inside the ``[File (type)]`` excerpt block."""
+    if not char_capped and not page_capped:
+        return None
+    bits: list[str] = []
+    if page_capped:
+        bits.append(f"the first {max_pages} pages")
+    if char_capped:
+        bits.append(f"the first {max_chars} characters")
+    covered = " and ".join(bits)
+    return (
+        f"[File note: only {covered} were read; later pages or text may be missing. "
+        "Do not claim facts from unread parts. If asked about later content, say "
+        "it was not in the excerpt.]"
+    )
+
+
+def _docx_tables_as_markdown(document: Any) -> list[str]:
+    """Keep table cell alignment as a markdown grid instead of flattening cells."""
+    blocks: list[str] = []
+    for table in document.tables:
+        rows_out: list[str] = []
+        for row in table.rows:
+            cells = [cell.text.strip().replace("|", "\\|") for cell in row.cells]
+            if not any(cells):
+                continue
+            rows_out.append("| " + " | ".join(cells) + " |")
+        if not rows_out:
+            continue
+        col_count = max(1, rows_out[0].count("|") - 1)
+        sep = "| " + " | ".join("---" for _ in range(col_count)) + " |"
+        if len(rows_out) == 1:
+            blocks.append(f"{rows_out[0]}\n{sep}")
+        else:
+            blocks.append(f"{rows_out[0]}\n{sep}\n" + "\n".join(rows_out[1:]))
+    return blocks
+
+
+def extract_text_details(
     content_type: str,
     data: bytes,
     *,
     max_chars: int = MAX_EXTRACT_CHARS,
-) -> str | None:
-    """Sync, CPU-bound parsing — call via extract_text_from_bytes_async on
-    any code path that isn't already off the event loop."""
+) -> ExtractedText | None:
+    """Sync, CPU-bound parsing with truncation flags for honest disclosure."""
     if content_type in _TEXTISH_TYPES:
         text = data.decode("utf-8", errors="replace").strip()
-        return text[:max_chars] if text else None
+        if not text:
+            return None
+        return ExtractedText(text=text[:max_chars], char_capped=len(text) > max_chars)
 
     if content_type == "application/pdf":
         try:
             from pypdf import PdfReader
 
             reader = PdfReader(io.BytesIO(data))
+            page_capped = len(reader.pages) > PDF_EXTRACT_MAX_PAGES
             parts: list[str] = []
-            for index, page in enumerate(reader.pages[:25], start=1):
+            for index, page in enumerate(reader.pages[:PDF_EXTRACT_MAX_PAGES], start=1):
                 page_text = page.extract_text()
                 if page_text:
                     parts.append(f"[page {index}] {page_text.strip()}")
             joined = "\n\n".join(parts).strip()
-            return joined[:max_chars] if joined else None
+            if not joined:
+                return None
+            return ExtractedText(
+                text=joined[:max_chars],
+                char_capped=len(joined) > max_chars,
+                page_capped=page_capped,
+            )
         except Exception:
             logger.debug("PDF text extraction failed", exc_info=True)
             return None
@@ -249,13 +321,11 @@ def extract_text_from_bytes(
 
             document = Document(io.BytesIO(data))
             parts = [p.text.strip() for p in document.paragraphs if p.text.strip()]
-            for table in document.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        if cell.text.strip():
-                            parts.append(cell.text.strip())
+            parts.extend(_docx_tables_as_markdown(document))
             joined = "\n".join(parts).strip()
-            return joined[:max_chars] if joined else None
+            if not joined:
+                return None
+            return ExtractedText(text=joined[:max_chars], char_capped=len(joined) > max_chars)
         except Exception:
             logger.debug("DOCX text extraction failed", exc_info=True)
             return None
@@ -266,14 +336,26 @@ def extract_text_from_bytes(
     return None
 
 
-async def extract_text_from_bytes_async(
+def extract_text_from_bytes(
+    content_type: str,
+    data: bytes,
+    *,
+    max_chars: int = MAX_EXTRACT_CHARS,
+) -> str | None:
+    """Sync, CPU-bound parsing — call via extract_text_from_bytes_async on
+    any code path that isn't already off the event loop."""
+    details = extract_text_details(content_type, data, max_chars=max_chars)
+    return None if details is None else details.text
+
+
+async def extract_text_details_async(
     content_type: str,
     data: bytes,
     settings: Settings,
     *,
     max_chars: int = MAX_EXTRACT_CHARS,
     allow_ocr: bool = True,
-) -> str | None:
+) -> ExtractedText | None:
     """Offload the sync, CPU-bound parse to a worker thread with a timeout,
     so a large or adversarially crafted PDF/DOCX can't block the event loop —
     same pattern as the SymPy math solve offload.
@@ -286,22 +368,41 @@ async def extract_text_from_bytes_async(
     timed_out = False
     try:
         async with asyncio.timeout(settings.attachment_extract_timeout_seconds):
-            text = await asyncio.to_thread(
-                extract_text_from_bytes, content_type, data, max_chars=max_chars
+            details = await asyncio.to_thread(
+                extract_text_details, content_type, data, max_chars=max_chars
             )
     except TimeoutError:
         logger.warning("Attachment text extraction timed out for content_type=%s", content_type)
         timed_out = True
-        text = None
-    if text:
-        return text
+        details = None
+    if details:
+        return details
     if timed_out:
         return None
     if allow_ocr and content_type == "application/pdf" and settings.attachment_ocr_enabled:
         from app.services.attachment_ocr import ocr_scanned_pdf
 
-        return await ocr_scanned_pdf(settings, data)
+        ocr_text = await ocr_scanned_pdf(settings, data)
+        return ExtractedText(text=ocr_text) if ocr_text else None
     return None
+
+
+async def extract_text_from_bytes_async(
+    content_type: str,
+    data: bytes,
+    settings: Settings,
+    *,
+    max_chars: int = MAX_EXTRACT_CHARS,
+    allow_ocr: bool = True,
+) -> str | None:
+    details = await extract_text_details_async(
+        content_type,
+        data,
+        settings,
+        max_chars=max_chars,
+        allow_ocr=allow_ocr,
+    )
+    return None if details is None else details.text
 
 
 async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:
@@ -409,9 +510,14 @@ async def format_attachment_lines(
         data = await read_attachment_bytes(gateway, storage_key)
     file_ref = f"[File: /attachments/{attachment_id}/file]"
     if data:
-        excerpt = await extract_text_from_bytes_async(content_type, data, settings, allow_ocr=False)
+        excerpt = await extract_text_details_async(content_type, data, settings, allow_ocr=False)
         if excerpt:
-            return [file_ref, f"[File ({content_type})]\n{excerpt}"], False
+            note = file_excerpt_limit_note(
+                char_capped=excerpt.char_capped,
+                page_capped=excerpt.page_capped,
+            )
+            body = f"{note}\n{excerpt.text}" if note else excerpt.text
+            return [file_ref, f"[File ({content_type})]\n{body}"], False
         if content_type not in EXTRACTABLE_CONTENT_TYPES:
             return (
                 [
@@ -453,6 +559,105 @@ def _is_file_ref_line(line: str) -> bool:
     return s.startswith("[File:") and s.endswith("]") and len(s) > len("[File:]")
 
 
+def image_attachment_ids_from_text(content: str) -> list[UUID]:
+    """Parse ``[Image: /attachments/{uuid}/file]`` markers with a linear scan."""
+    found: list[UUID] = []
+    seen: set[UUID] = set()
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not _is_image_marker_line(stripped):
+            continue
+        inner = stripped[len("[Image:") : -1].strip()
+        start = inner.find(_ATTACH_ID_PREFIX)
+        if start < 0:
+            continue
+        id_start = start + len(_ATTACH_ID_PREFIX)
+        id_end = inner.find(_ATTACH_ID_SUFFIX, id_start)
+        if id_end < 0:
+            continue
+        raw = inner[id_start:id_end]
+        try:
+            uid = UUID(raw)
+        except ValueError:
+            continue
+        if uid in seen:
+            continue
+        seen.add(uid)
+        found.append(uid)
+    return found
+
+
+def _content_as_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                text = part.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "\n".join(parts)
+    return ""
+
+
+def prior_image_attachment_ids(
+    messages: list[dict[str, Any]],
+    *,
+    limit: int = VISION_REHYDRATE_LIMIT,
+) -> list[UUID]:
+    """Most recent prior-turn image ids (newest first), excluding the last user turn."""
+    if limit <= 0:
+        return []
+    last_user: int | None = None
+    for index in range(len(messages) - 1, -1, -1):
+        if messages[index].get("role") == "user":
+            last_user = index
+            break
+    start = last_user - 1 if last_user is not None else len(messages) - 1
+    ordered: list[UUID] = []
+    seen: set[UUID] = set()
+    for index in range(start, -1, -1):
+        for uid in image_attachment_ids_from_text(_content_as_text(messages[index].get("content"))):
+            if uid in seen:
+                continue
+            seen.add(uid)
+            ordered.append(uid)
+            if len(ordered) >= limit:
+                return ordered
+    return ordered
+
+
+def history_has_image_marker(messages: list[Any]) -> bool:
+    """True when any history row still has an ``[Image: …]`` marker."""
+    for row in messages:
+        if isinstance(row, dict):
+            text = _content_as_text(row.get("content"))
+        else:
+            raw = getattr(row, "content", None)
+            text = raw if isinstance(raw, str) else ""
+        if image_attachment_ids_from_text(text):
+            return True
+    return False
+
+
+def append_image_unavailable_note(prompt_messages: list[dict[str, Any]]) -> None:
+    """Tell the model it cannot see a prior image — do not guess from a caption."""
+    for index in range(len(prompt_messages) - 1, -1, -1):
+        msg = prompt_messages[index]
+        if msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            msg["content"] = f"{content}\n\n{_IMAGE_UNAVAILABLE_NOTE}"
+            return
+        if isinstance(content, list):
+            content.append({"type": "text", "text": _IMAGE_UNAVAILABLE_NOTE})
+            return
+        msg["content"] = _IMAGE_UNAVAILABLE_NOTE
+        return
+
+
 def strip_attachment_from_content(content: str, attachment_id: UUID) -> str:
     """Remove this attachment's markers (and a following file excerpt) from a message.
 
@@ -487,10 +692,11 @@ async def inject_vision_content(
     *,
     caption: str = "",
     bytes_by_key: dict[str, bytes] | None = None,
-) -> None:
+) -> bool:
     """Replace the last user turn with multimodal content for vision models.
 
     Prefer *bytes_by_key* (turn-prep verify cache) over re-downloading.
+    Returns True when at least one image part was injected.
     """
     parts: list[dict[str, Any]] = []
     text = _strip_image_markers(caption).strip() or "What's in this image?"
@@ -517,9 +723,10 @@ async def inject_vision_content(
         )
 
     if not any(part.get("type") == "image_url" for part in parts):
-        return
+        return False
 
     for idx in range(len(prompt_messages) - 1, -1, -1):
         if prompt_messages[idx].get("role") == "user":
             prompt_messages[idx] = {"role": "user", "content": parts}
-            return
+            return True
+    return False

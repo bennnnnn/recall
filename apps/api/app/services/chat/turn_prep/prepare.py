@@ -33,6 +33,23 @@ from app.services.vocab_quiz import QuizAnswerGrade
 logger = logging.getLogger(__name__)
 
 
+def _should_use_vision_chat(
+    *,
+    settings: Settings,
+    has_image_attachment: bool,
+    recent_messages: list[Any] | None,
+) -> bool:
+    if not settings.attachments_enabled:
+        return False
+    if has_image_attachment:
+        return True
+    if not recent_messages:
+        return False
+    from app.services.attachment_content import history_has_image_marker
+
+    return history_has_image_marker(recent_messages)
+
+
 async def _grade_quiz_answer(
     *,
     user: User,
@@ -140,7 +157,11 @@ async def prepare_chat_turn(
                 model = plan_service.resolve_user_model_override(
                     user, model_alias, content, settings
                 )
-            if attachment_ids and settings.attachments_enabled and has_image_attachment:
+            if _should_use_vision_chat(
+                settings=settings,
+                has_image_attachment=has_image_attachment,
+                recent_messages=recent_messages,
+            ):
                 model = "vision-chat"
             if prior_count is None:
                 prior_count = await messages_repo.count_for_chat(session, chat_id)
@@ -191,10 +212,18 @@ async def prepare_chat_turn(
         and prior_count is not None
         and recent_messages is not None
     ):
-        if model is None:
-            model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
-        if attachment_ids and settings.attachments_enabled and has_image_attachment:
-            model = "vision-chat"
+        overlap_model: str = (
+            model
+            if model is not None
+            else plan_service.resolve_user_model_override(user, model_alias, content, settings)
+        )
+        if _should_use_vision_chat(
+            settings=settings,
+            has_image_attachment=has_image_attachment,
+            recent_messages=recent_messages,
+        ):
+            overlap_model = "vision-chat"
+        model = overlap_model
         prompt_recent = [
             *recent_messages,
             SimpleNamespace(id=pending_id, role="user", content=user_content),
@@ -225,7 +254,7 @@ async def prepare_chat_turn(
                 user_id,
                 chat_id,
                 content,
-                model,
+                overlap_model,
                 settings,
                 redis,
                 client_timezone=client_timezone,
@@ -301,9 +330,9 @@ async def prepare_chat_turn(
         )
 
     prompt_messages = bundle.prompt_messages
-    if has_image_attachment and image_attachments and gateway is not None:
-        from app.services import attachment_content as attachment_content_service
+    from app.services import attachment_content as attachment_content_service
 
+    if has_image_attachment and image_attachments and gateway is not None:
         await attachment_content_service.inject_vision_content(
             prompt_messages,
             gateway,
@@ -311,6 +340,36 @@ async def prepare_chat_turn(
             caption=content,
             bytes_by_key=attachment_bytes_by_key,
         )
+    elif not has_image_attachment and settings.attachments_enabled and user is not None:
+        prior_ids = attachment_content_service.prior_image_attachment_ids(prompt_messages)
+        if prior_ids:
+            from app.gateways.storage_gateway import get_storage_gateway
+            from app.repositories import attachments as attachments_repo
+
+            rehydrate_gateway = gateway or get_storage_gateway(settings)
+            async with SessionLocal() as session:
+                rows = await attachments_repo.get_by_ids(session, prior_ids, user.id)
+            by_id = {row.id: row for row in rows}
+            images: list[tuple[str, str]] = []
+            for uid in prior_ids:
+                row = by_id.get(uid)
+                if row is None or not attachment_content_service.is_image_content_type(
+                    row.content_type
+                ):
+                    continue
+                images.append((row.content_type, row.storage_key))
+            injected = False
+            if images:
+                injected = await attachment_content_service.inject_vision_content(
+                    prompt_messages,
+                    rehydrate_gateway,
+                    images,
+                    caption=content,
+                )
+                if injected:
+                    model = "vision-chat"
+            if not injected or len(images) < len(prior_ids):
+                attachment_content_service.append_image_unavailable_note(prompt_messages)
 
     # Vision may have mutated prompt_messages in place on the bundle.
     if user is None or chat is None or model is None or prior_count is None:

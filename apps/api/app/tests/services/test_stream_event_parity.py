@@ -52,6 +52,18 @@ def test_stream_end_omits_absent_model_fields() -> None:
     }
 
 
+def test_done_includes_completion_when_interrupted() -> None:
+    payload = stream_events.build_done_payload({"message_id": "abc", "completion": "interrupted"})
+    assert payload["type"] == "done"
+    assert payload["completion"] == "interrupted"
+    assert payload["message_id"] == "abc"
+
+
+def test_done_omits_complete_completion() -> None:
+    payload = stream_events.build_done_payload({"message_id": "abc"})
+    assert "completion" not in payload
+
+
 def test_status_detail_is_optional() -> None:
     assert stream_events.build_status_event("searching") == {
         "type": "status",

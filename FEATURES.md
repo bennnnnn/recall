@@ -75,9 +75,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Learning quiz lookback and attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
-  is kept. Hard WS/SSE disconnect with tokens already streamed also finalizes (same as soft stop).
-  **New chat / leave does not abort SSE** (Stop still does); leftover events are ignored for the
-  next thread. `GET /messages` waits for the in-flight SSE producer the same way it waits on WS.
+  is kept and marked incomplete (same “Generation stopped.” footer as a provider
+  drop or token-limit cut). Hard WS/SSE disconnect with tokens already streamed also
+  finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
+  does); leftover events are ignored for the next thread. `GET /messages` waits for
+  the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
@@ -189,7 +191,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
-  sandboxed WebView, dev build); tap opens full viewer with share/export.
+  sandboxed WebView, dev build); tap opens full viewer with share/export. Inline extract
+  is the first 25 pages / ~12k characters; the model is told when later pages were
+  unread. A RAG miss is not treated as “not in the file.”
 - 🔜 **Collaborative cursors / shared docs** — multi-user editing not in scope for v1 personal app.
 
 ## 5. Models & routing
@@ -650,7 +654,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
-- ✅ **Vision + Pro image gen** — image attachments route to vision models; Pro image generation
+- ✅ **Vision + Pro image gen** — image attachments route to vision models; a later
+  plain-text follow-up in the same chat rehydrates the last image(s). If the file
+  is gone, the model is told not to guess from a prior caption. Pro image generation
   from the composer on send (daily cap; no separate prompt sheet).
 - ✅ **Per-chat Redis prepare lock** — `chatprep:{chat_id}` around prepare + stream; concurrent
   turns get `ChatBusyError` / `code: "busy"` (#536).
@@ -1015,6 +1021,10 @@ weakness. No video generation. Native share is enough unless we later decide we 
 4. ✅ **Reply-quality Lane 2** — “yes/go” follows the prior offer; requested length
    and type beat keyword templates; one question when an email has no purpose or
    a real-data chart has no numbers.
+5. ✅ **Reply-quality Lane 3** — interrupted streams are marked incomplete; file
+   excerpt/page caps are disclosed to the model; image follow-ups rehydrate prior
+   photos; frozen table rows share height; grouped bars keep their offset. No new
+   cards, chips, or surfaces.
 
 ### Future (not implementing now)
 
@@ -1029,9 +1039,6 @@ weakness. No video generation. Native share is enough unless we later decide we 
 - Locale prose + legal page bodies.
 - Public share URLs only if we explicitly want unauthenticated read links.
 - Folders, family plans, response-cache / prompt-budget UI, user-tunable routing.
-- **Reply-quality Lane 3** — mark interrupted/incomplete streams; disclose file
-  excerpt limits; rehydrate image follow-ups; keep table rows aligned; preserve
-  chart grouping. No new cards, chips, or surfaces.
 
 ### Not doing
 

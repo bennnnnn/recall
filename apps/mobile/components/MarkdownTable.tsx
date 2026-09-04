@@ -34,6 +34,10 @@ const TABLE_H_PAD = 32;
 /** Wide enough that a 3-col ChatGPT-style grid pans instead of squeezing. */
 const MIN_COL_WIDTH = 168;
 
+export function resolveFrozenRowHeight(left?: number, right?: number): number {
+  return Math.max(left ?? 0, right ?? 0);
+}
+
 export function tableColumnWidth(viewportWidth: number, columns: number): number {
   const colCount = Math.max(1, columns);
   const available = Math.max(200, viewportWidth);
@@ -164,7 +168,8 @@ function FrozenFirstColumnTable({
   theme: Theme;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const [rowHeights, setRowHeights] = useState<number[]>([]);
+  const [leftHeights, setLeftHeights] = useState<number[]>([]);
+  const [rightHeights, setRightHeights] = useState<number[]>([]);
 
   return (
     <View style={s.freezeRow}>
@@ -178,10 +183,20 @@ function FrozenFirstColumnTable({
           const cells = Children.toArray(
             (row.props as { children?: ReactNode }).children,
           );
+          const height = resolveFrozenRowHeight(leftHeights[index], rightHeights[index]);
           return (
             <View
               key={`frozen-${index}`}
-              style={[s.row, index === rows.length - 1 && s.rowLast, { minHeight: rowHeights[index] }]}
+              style={[s.row, index === rows.length - 1 && s.rowLast, height ? { minHeight: height } : null]}
+              onLayout={(e) => {
+                const h = Math.round(e.nativeEvent.layout.height);
+                setLeftHeights((prev) => {
+                  if (prev[index] === h) return prev;
+                  const next = prev.slice();
+                  next[index] = h;
+                  return next;
+                });
+              }}
             >
               {cells[0]}
             </View>
@@ -203,6 +218,7 @@ function FrozenFirstColumnTable({
             const cells = Children.toArray(
               (row.props as { children?: ReactNode }).children,
             );
+            const height = resolveFrozenRowHeight(leftHeights[index], rightHeights[index]);
             return (
               <View
                 key={`rest-${index}`}
@@ -210,10 +226,11 @@ function FrozenFirstColumnTable({
                   s.row,
                   index === rows.length - 1 && s.rowLast,
                   { width: columnWidth * restCols },
+                  height ? { minHeight: height } : null,
                 ]}
                 onLayout={(e) => {
                   const h = Math.round(e.nativeEvent.layout.height);
-                  setRowHeights((prev) => {
+                  setRightHeights((prev) => {
                     if (prev[index] === h) return prev;
                     const next = prev.slice();
                     next[index] = h;

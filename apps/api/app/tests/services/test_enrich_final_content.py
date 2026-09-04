@@ -160,6 +160,32 @@ async def test_cancelled_turn_closes_unclosed_fence(
 
 
 @pytest.mark.asyncio
+async def test_truncated_turn_closes_unclosed_fence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", _run_sympy_inline)
+
+    result: dict[str, Any] = {}
+    open_fence = "```python\nprint(1"
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=open_fence,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[open_fence],
+        should_cancel=None,
+        completion="interrupted",
+    )
+
+    assert persisted.rstrip().endswith("```")
+    assert "Generation stopped" not in persisted
+
+
+@pytest.mark.asyncio
 async def test_mermaid_parenthetical_labels_quoted_on_persist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

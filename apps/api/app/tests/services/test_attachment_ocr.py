@@ -117,7 +117,7 @@ async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
     from app.services.attachment_content import extract_text_from_bytes_async
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_from_bytes",
+        "app.services.attachment_content.extract_text_details",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
@@ -134,7 +134,7 @@ async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
     from app.services.attachment_content import extract_text_from_bytes_async
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_from_bytes",
+        "app.services.attachment_content.extract_text_details",
         lambda *_a, **_k: None,
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
@@ -149,11 +149,11 @@ async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
-    from app.services.attachment_content import extract_text_from_bytes_async
+    from app.services.attachment_content import ExtractedText, extract_text_from_bytes_async
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_from_bytes",
-        lambda *_a, **_k: "selectable text",
+        "app.services.attachment_content.extract_text_details",
+        lambda *_a, **_k: ExtractedText(text="selectable text"),
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
     monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", ocr_mock)
@@ -174,7 +174,7 @@ async def test_extract_async_timeout_does_not_ocr(monkeypatch):
         time.sleep(0.5)
         return None
 
-    monkeypatch.setattr("app.services.attachment_content.extract_text_from_bytes", _slow)
+    monkeypatch.setattr("app.services.attachment_content.extract_text_details", _slow)
     ocr_mock = AsyncMock(return_value="should-not-run")
     monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", ocr_mock)
     settings = Settings(attachment_extract_timeout_seconds=0.05, attachment_ocr_enabled=True)

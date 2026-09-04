@@ -91,7 +91,7 @@ export function parseUserMessageContent(content: string): ParsedUserMessageConte
       continue;
     }
 
-    if (FILE_ATTACHED_MARKER.test(trimmed)) {
+    if (FILE_ATTACHED_MARKER.test(trimmed) || trimmed.startsWith("[File note:")) {
       hasFileAttachment = true;
       continue;
     }

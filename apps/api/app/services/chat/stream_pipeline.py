@@ -16,11 +16,30 @@ from app.services.chat.turn_prep import StreamContext, await_user_message_persis
 
 logger = logging.getLogger(__name__)
 
+# Provider finish_reason values that mean the reply stopped short of a
+# complete answer. "stop" is a normal end; these are not.
+_INCOMPLETE_FINISH_REASONS = frozenset({"length", "max_tokens", "content_filter"})
+
 
 @dataclass
 class StreamAccum:
     parts: list[str] = field(default_factory=list)
     was_cancelled: bool = False
+    completion: str = "complete"
+
+    def mark_user_stop(self) -> None:
+        self.was_cancelled = True
+        if self.completion == "complete":
+            self.completion = "user_stop"
+
+    def mark_interrupted(self) -> None:
+        self.was_cancelled = True
+        if self.completion == "complete":
+            self.completion = "interrupted"
+
+    def mark_truncated(self) -> None:
+        if self.completion == "complete":
+            self.completion = "interrupted"
 
 
 async def run_instant_reply_path(
@@ -37,7 +56,7 @@ async def run_instant_reply_path(
         accum.parts.append(ctx.instant_reply)
         yield ctx.instant_reply
     else:
-        accum.was_cancelled = True
+        accum.mark_user_stop()
 
 
 async def run_tool_loop_path(
@@ -158,15 +177,18 @@ async def run_llm_token_stream(
     try:
         async for token in llm_stream:
             if should_cancel and should_cancel():
-                accum.was_cancelled = True
+                accum.mark_user_stop()
                 break
             if ctx.timing is not None and not accum.parts:
                 ctx.timing.mark_first_token()
             accum.parts.append(token)
             yield token
         stream_ok = bool(accum.parts) or accum.was_cancelled
+        finish = stream_meta.get("finish_reason")
+        if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
+            accum.mark_truncated()
     except asyncio.CancelledError:
-        accum.was_cancelled = True
+        accum.mark_user_stop()
         raise
     finally:
         close = getattr(llm_stream, "aclose", None)
@@ -205,6 +227,7 @@ async def enrich_final_content(
     was_cancelled: bool,
     assistant_parts: list[str],
     should_cancel: Callable[[], bool] | None,
+    completion: str = "complete",
 ) -> str:
     raw_assistant_text = assistant_text
     reminder_created = 0
@@ -304,7 +327,7 @@ async def enrich_final_content(
         from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
         from app.services.md_fence_scan import close_unclosed_fences
 
-        if was_cancelled:
+        if was_cancelled or completion != "complete":
             assistant_text = close_unclosed_fences(assistant_text)
 
         normalized = normalize_prose_artifacts(assistant_text)
@@ -481,7 +504,7 @@ async def stream_and_finalize(
         except asyncio.CancelledError:
             if not accum.parts:
                 raise
-            accum.was_cancelled = True
+            accum.mark_user_stop()
             logger.info(
                 "Hard cancel with partial reply; finalizing chat_id=%s parts=%d",
                 ctx.chat_id,
@@ -490,7 +513,7 @@ async def stream_and_finalize(
         except ModelUnavailableError:
             if not accum.parts:
                 raise
-            accum.was_cancelled = True
+            accum.mark_interrupted()
             logger.info(
                 "Provider fail with partial reply; finalizing chat_id=%s parts=%d",
                 ctx.chat_id,
@@ -502,6 +525,8 @@ async def stream_and_finalize(
                 "That model isn't responding right now. Try again — or pick a different model.",
                 failed_alias=ctx.model,
             )
+        if result is not None and accum.completion != "complete":
+            result["completion"] = accum.completion
         assistant_text = await enrich_final_content(
             seams,
             redis,
@@ -513,6 +538,7 @@ async def stream_and_finalize(
             was_cancelled=accum.was_cancelled,
             assistant_parts=accum.parts,
             should_cancel=should_cancel,
+            completion=accum.completion,
         )
         await await_user_message_persist(ctx)
         await register_and_enqueue_finalize(

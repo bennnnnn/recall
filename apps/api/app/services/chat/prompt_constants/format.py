@@ -150,7 +150,8 @@ CHART_FORMAT_HINT = (
     'First key must be "$schema": "https://vega.github.io/schema/vega-lite/v5.json". '
     "Prefer mark bar/line as asked. Named categories (months, items) go on y "
     'with "sort": null (horizontal bars) so labels stay visible — never '
-    "clip them under the plot.\n"
+    "clip them under the plot. Grouped series dodge with yOffset when "
+    "category is on y (or xOffset when category is on x).\n"
     "Example shape only:\n"
     "```chart\n"
     '{"$schema":"https://vega.github.io/schema/vega-lite/v5.json",'

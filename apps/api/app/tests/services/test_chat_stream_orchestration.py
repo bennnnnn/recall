@@ -1000,6 +1000,7 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
 
     assert tokens == ["partial "]
     assert result.get("final_content") == "partial"
+    assert result.get("completion") == "user_stop"
     finalize.assert_awaited()
 
 
@@ -1043,6 +1044,180 @@ async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
             pass
 
     finalize.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline_io):
+    """A mid-stream provider error with tokens must finalize as interrupted, not complete."""
+    from uuid import uuid4
+
+    from app.gateways.litellm_gateway import ModelUnavailableError
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "partial "
+        raise ModelUnavailableError("provider died", failed_alias="free-chat")
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.services.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["partial "]
+    assert result.get("completion") == "interrupted"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
+    """finish_reason=length is a truncated answer, not a completed one."""
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**kwargs):
+        meta = kwargs.get("stream_meta")
+        if isinstance(meta, dict):
+            meta["finish_reason"] = "length"
+        yield "cutoff"
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.services.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        async for _ in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert result.get("completion") == "interrupted"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "keep "
+        yield "going"
+
+    cancel_after_first = {"n": 0}
+
+    def should_cancel() -> bool:
+        cancel_after_first["n"] += 1
+        return cancel_after_first["n"] > 1
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.services.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["keep "]
+    assert result.get("completion") == "user_stop"
+    finalize.assert_awaited()
 
 
 @pytest.mark.asyncio
