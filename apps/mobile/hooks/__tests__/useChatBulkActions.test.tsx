@@ -10,16 +10,20 @@ import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 
 let mockSession = 0;
 const mockError = jest.fn();
+const mockT = jest.fn((key: string, _options?: Record<string, unknown>) => key);
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("@/lib/api", () => ({ api: { setArchive: jest.fn(), deleteChat: jest.fn() } }));
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/chatMessageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn() }));
 jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
-const first = { id: "first", title: "First", pinned: true, archived: false } as Chat;
-const second = { id: "second", title: "Second", archived: false } as Chat;
+const first: Chat = {
+  id: "first", title: "First", pinned: true, archived: false, model: "free-chat",
+  created_at: "2026-01-01", updated_at: "2026-01-01",
+};
+const second: Chat = { ...first, id: "second", title: "Second", pinned: false };
 const insertChatInGroups = jest.fn();
 const patchChatInGroups = jest.fn();
 const moveChatArchiveState = jest.fn();
@@ -77,8 +81,9 @@ it("waits for all archive results and restores only failed snapshots, including 
   expect(reloadChats).not.toHaveBeenCalled();
   expect(insertChatInGroups).not.toHaveBeenCalled();
   await act(async () => { request.resolve({ ...second, archived: true }); await pending; });
-  expect(patchChatInGroups).toHaveBeenCalledTimes(1);
+  expect(patchChatInGroups).toHaveBeenCalledTimes(2);
   expect(patchChatInGroups).toHaveBeenCalledWith(first.id, first);
+  expect(patchChatInGroups).toHaveBeenCalledWith(second.id, { pinned: false, archived: true });
   expect(moveChatArchiveState).not.toHaveBeenCalledWith(second.id, false);
   expect(mockError).toHaveBeenCalledWith("chat.archive_failed");
 });
@@ -131,4 +136,30 @@ it("uses the latest row at confirmation when restoring a failed archive", async 
   jest.mocked(getCachedChat).mockReturnValue(latest);
   await act(async () => { await confirmation()(); });
   expect(patchChatInGroups).toHaveBeenCalledWith(first.id, latest);
+});
+
+it("reconciles each fulfilled archive with its returned flags and reports the actual archived count", async () => {
+  const savedFirst = { ...first, pinned: true, archived: false };
+  const savedSecond = { ...second, pinned: false, archived: true };
+  jest.mocked(api.setArchive).mockImplementation(async (_token, id) => id === first.id ? savedFirst : savedSecond);
+  const complete = jest.fn();
+  await render(<Probe />);
+  await act(async () => { actions.bulkArchiveChats([first, second], complete); });
+  await act(async () => { await confirmation()(); });
+  expect(patchChatInGroups).toHaveBeenCalledWith(first.id, { pinned: true, archived: false });
+  expect(patchChatInGroups).toHaveBeenCalledWith(second.id, { pinned: false, archived: true });
+  expect(mockT).toHaveBeenCalledWith("drawer.bulk_archived_toast", { count: 1 });
+  expect(complete).toHaveBeenCalledTimes(1);
+  expect(mockError).not.toHaveBeenCalled();
+});
+
+it("does not report chats archived when all returned rows are active again", async () => {
+  jest.mocked(api.setArchive).mockResolvedValue(first);
+  const complete = jest.fn();
+  await render(<Probe />);
+  await act(async () => { actions.bulkArchiveChats([first], complete); });
+  await act(async () => { await confirmation()(); });
+  expect(patchChatInGroups).toHaveBeenCalledWith(first.id, { pinned: true, archived: false });
+  expect(showActionBanner).not.toHaveBeenCalled();
+  expect(complete).toHaveBeenCalledTimes(1);
 });

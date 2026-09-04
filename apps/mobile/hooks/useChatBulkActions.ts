@@ -70,8 +70,12 @@ export function useChatBulkActions({
                 );
                 if (!currentSession()) return;
                 const failed = snapshots.filter((_chat, index) => results[index].status === "rejected");
+                let archivedCount = 0;
                 for (const [index, result] of results.entries()) {
-                  if (result.status === "fulfilled") moveChatArchiveState(targets[index].id, true);
+                  if (result.status !== "fulfilled") continue;
+                  const saved = result.value;
+                  patchChatInGroups(targets[index].id, { pinned: saved.pinned, archived: Boolean(saved.archived) });
+                  if (saved.archived) archivedCount++;
                 }
                 // Archiving clears pins too. Restore the whole failed row, and
                 // only after every sibling request has settled before reloading.
@@ -80,7 +84,9 @@ export function useChatBulkActions({
                   reloadChats();
                   if (currentView()) reportRecoverableError(feedback, t("chat.archive_failed"));
                 } else if (currentView()) {
-                  showActionBanner(t("drawer.bulk_archived_toast", { count: targets.length }), "archive-outline");
+                  if (archivedCount > 0) {
+                    showActionBanner(t("drawer.bulk_archived_toast", { count: archivedCount }), "archive-outline");
+                  }
                   onSuccess?.();
                 }
               } finally { release(); }

@@ -103,12 +103,13 @@ export function useChatManagementActions({
     setPinned(next);
     patchChatGlobal(chatId, { pinned: next });
     try {
-      await api.setPin(token, chatId, next);
+      const saved = await api.setPin(token, chatId, next);
       if (!currentSession()) return;
-      patchChatGlobal(chatId, { pinned: next });
+      patchChatGlobal(chatId, { pinned: saved.pinned, archived: Boolean(saved.archived) });
       if (currentView()) {
-        setPinned(next);
-        showActionBanner(next ? t("chat.pinned_toast") : t("chat.unpinned_toast"), next ? "pin" : "pin-outline");
+        setPinned(saved.pinned);
+        setArchived(Boolean(saved.archived));
+        showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-outline");
       }
     } catch {
       if (!currentSession()) return;
@@ -118,7 +119,7 @@ export function useChatManagementActions({
         reportRecoverableError(feedback, t("chat.pin_failed"));
       }
     } finally { release(); }
-  }, [chatId, token, archived, currentView, session, pinned, setPinned, showActionBanner, t, currentSession, feedback]);
+  }, [chatId, token, archived, currentView, session, pinned, setPinned, setArchived, showActionBanner, t, currentSession, feedback]);
 
   const toggleArchive = useCallback(async () => {
     if (!chatId || !token || !currentView()) return;
@@ -130,13 +131,13 @@ export function useChatManagementActions({
     if (next) setPinned(false);
     moveChatArchiveGlobal(chatId, next);
     try {
-      await api.setArchive(token, chatId, next);
+      const saved = await api.setArchive(token, chatId, next);
       if (!currentSession()) return;
-      moveChatArchiveGlobal(chatId, next);
+      patchChatGlobal(chatId, { archived: Boolean(saved.archived), pinned: saved.pinned });
       if (currentView()) {
-        setArchived(next);
-        if (next) setPinned(false);
-        showActionBanner(next ? t("chat.archived_toast") : t("chat.unarchived_toast"), next ? "archive-outline" : "arrow-undo-outline");
+        setArchived(Boolean(saved.archived));
+        setPinned(saved.pinned);
+        showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive-outline" : "arrow-undo-outline");
       }
     } catch {
       if (!currentSession()) return;

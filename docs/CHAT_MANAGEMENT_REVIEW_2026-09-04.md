@@ -14,7 +14,9 @@ production-ready.
   chat after it was read. Pinning an archived chat returns a conflict.
 - Header, drawer, and bulk actions share a per-chat mutation lock. Results stay in
   the account that started the action; header updates also stay in their original
-  view. Confirmed deletion uses the registered new-chat action immediately.
+  view. Pin/archive success uses the state returned by the server, including
+  concurrent changes from another device. Confirmed deletion uses the registered
+  new-chat action immediately.
 - Bulk operations wait for every request to settle. Successful deletions remain
   deleted; only failed rows are restored. Archive rollback restores pins and the
   original activity group. Selection can retry failed items and includes archived
@@ -44,7 +46,7 @@ PostgreSQL equivalents run in CI.
 The full local backend suite passed 3,352 tests with 85.69% coverage. The 40 real
 PostgreSQL tests were collected locally and are delegated to CI's isolated database.
 Ruff, formatting, mypy, mobile TypeScript and ESLint, and web TypeScript and ESLint
-passed. All 2,333 mobile tests passed across 272 suites. Final CI
+passed. All 2,339 mobile tests passed across 272 suites. Final CI
 results are recorded in the PR.
 Local API validation used a sanitized environment with live services blocked; no
 production database migrations or storage calls were made.
