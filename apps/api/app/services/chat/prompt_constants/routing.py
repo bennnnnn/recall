@@ -442,9 +442,10 @@ def writing_request_kind(text: str) -> str | None:
     # Questions about how to produce or manage a writing artifact are advice,
     # not requests for Recall to draft it. A later sentence can still contain
     # an explicit deliverable request and must keep its output contract.
-    cleaned = _after_initial_writing_howto(cleaned)
-    if cleaned is None:
+    writing_candidate = _after_initial_writing_howto(cleaned)
+    if writing_candidate is None:
         return None
+    cleaned = writing_candidate
     # Translation leads before quoted-source classifiers: `Translate "write
     # me an email" into Spanish` is a translation, not a request to draft an
     # email. An actual email deliverable such as "write an email in Spanish"
