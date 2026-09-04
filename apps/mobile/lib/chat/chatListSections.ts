@@ -71,17 +71,18 @@ export function patchChatListGroups(
   chatId: string,
   patch: Partial<Chat>,
 ): ChatList {
-  const apply = (list: Chat[]) =>
-    list.map((c) => (c.id === chatId ? { ...c, ...patch } : c));
-  return {
-    pinned: apply(groups.pinned),
-    today: apply(groups.today),
-    yesterday: apply(groups.yesterday),
-    last_7_days: apply(groups.last_7_days),
-    this_month: apply(groups.this_month),
-    older: apply(groups.older),
-    archived: apply(groups.archived),
-  };
+  const chat = allChatsFromGroups(groups).find((row) => row.id === chatId);
+  if (!chat) return groups;
+  const updated = { ...chat, ...patch };
+  if (patch.archived === true) updated.pinned = false;
+  if (updated.pinned !== chat.pinned || updated.archived !== chat.archived || updated.updated_at !== chat.updated_at) {
+    return insertChatByRecency(removeChatFromGroups(groups, chatId), updated);
+  }
+  const next = { ...groups };
+  for (const key of [PINNED_CHAT_SECTION, ...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]) {
+    next[key] = groups[key].map((row) => row.id === chatId ? updated : row);
+  }
+  return next;
 }
 
 export function removeChatFromGroups(groups: ChatList, chatId: string): ChatList {
@@ -95,4 +96,25 @@ export function removeChatFromGroups(groups: ChatList, chatId: string): ChatList
     older: drop(groups.older),
     archived: drop(groups.archived),
   };
+}
+
+/** Matches server recency buckets using the device timezone synced to the account. */
+export function chatRecencySection(chat: Chat, now = new Date()): ChatDateSection {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const week = new Date(today); week.setDate(today.getDate() - 7);
+  const month = new Date(now.getFullYear(), now.getMonth(), 1);
+  const updated = new Date(chat.updated_at).getTime();
+  if (updated >= today.getTime()) return "today";
+  if (updated >= yesterday.getTime()) return "yesterday";
+  if (updated >= week.getTime()) return "last_7_days";
+  if (updated >= month.getTime()) return "this_month";
+  return "older";
+}
+
+export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {
+  const key = chat.archived ? ARCHIVED_CHAT_SECTION : chat.pinned ? PINNED_CHAT_SECTION : chatRecencySection(chat);
+  const rows = [...groups[key], chat].sort((a, b) =>
+    Date.parse(b.updated_at) - Date.parse(a.updated_at) || b.id.localeCompare(a.id));
+  return { ...groups, [key]: rows };
 }

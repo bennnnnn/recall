@@ -13,7 +13,9 @@ compiled queries against Postgres via the `db_session` fixture
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import update
 
+from app.models.orm import Chat
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
@@ -100,3 +102,48 @@ async def test_list_for_user_archived_filtering_happens_in_sql(db_session):
 
     with_archived = await chats_repo.list_for_user(db_session, user.id, include_archived=True)
     assert {c.id for c in with_archived} == {active.id, archived.id}
+
+
+@pytest.mark.asyncio
+async def test_generated_title_preserves_rename_and_owner_scope(db_session):
+    owner = await _make_user(db_session)
+    other_user = await _make_user(db_session)
+    chat = await chats_repo.create(db_session, user_id=owner.id, model="free-chat")
+    assert not await chats_repo.set_title_if_empty(
+        db_session, chat.id, "Wrong owner", user_id=other_user.id
+    )
+    await db_session.execute(
+        update(Chat)
+        .where(Chat.id == chat.id)
+        .values(title="Manual title")
+        .execution_options(synchronize_session=False)
+    )
+    await db_session.commit()
+    assert chat.title is None
+
+    assert not await chats_repo.set_title_if_empty(
+        db_session, chat.id, "Generated title", user_id=owner.id
+    )
+    await db_session.refresh(chat)
+    assert chat.title == "Manual title"
+
+
+@pytest.mark.asyncio
+async def test_pin_archive_races_preserve_archived_unpinned_state(db_session):
+    owner = await _make_user(db_session)
+    chat = await chats_repo.create(db_session, user_id=owner.id, model="free-chat")
+    await db_session.execute(
+        update(Chat)
+        .where(Chat.id == chat.id)
+        .values(pinned=True)
+        .execution_options(synchronize_session=False)
+    )
+    await db_session.commit()
+    assert chat.pinned is False
+
+    await chats_repo.set_archived(db_session, chat, True)
+    assert chat.archived is True
+    assert chat.pinned is False
+    await chats_repo.set_pinned(db_session, chat, True)
+    assert chat.archived is True
+    assert chat.pinned is False

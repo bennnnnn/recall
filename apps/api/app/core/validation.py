@@ -109,6 +109,12 @@ def normalize_chat_title(raw: str | None) -> str | None:
     return title
 
 
+def normalize_stored_chat_title(raw: str | None) -> str | None:
+    """Display a saved title, including short or generic user-chosen labels."""
+    title = unwrap_chat_title(raw or "")
+    return title if title and len(title) <= 80 else None
+
+
 def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
     if allow_auto and alias == "auto":
         return

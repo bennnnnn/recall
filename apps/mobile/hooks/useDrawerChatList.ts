@@ -15,9 +15,10 @@ import {
   getCachedChatList,
   getChatListFetchedAt,
   isChatListFresh,
-  setChatListCache,
+  updateChatListCache,
 } from "@/lib/cache/chatListCache";
 import {
+  publishChatChange,
   registerChatArchiveMover,
   registerChatInserter,
   registerChatPatcher,
@@ -31,253 +32,147 @@ import {
   shouldWarmClosedDrawerChatList,
 } from "@/lib/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 
-type Params = {
-  token: string | null;
-  isDrawerOpen: boolean;
-};
+type Params = { token: string | null; isDrawerOpen: boolean };
 
-function applyChatList(
-  data: ChatList,
-  setGroups: (groups: ChatList) => void,
-  lastFetchedRef: { current: number },
-  hasLoadedOnceRef: { current: boolean },
-  fetchedAt?: number,
-) {
-  setGroups(data);
-  lastFetchedRef.current = fetchedAt ?? getChatListFetchedAt() ?? Date.now();
-  hasLoadedOnceRef.current = true;
+function initialCollapsedSections(): Record<string, boolean> {
+  return Object.fromEntries([...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]
+    .map((key) => [key, defaultChatSectionCollapsed(key)]));
 }
 
 export function useDrawerChatList({ token, isDrawerOpen }: Params) {
-  // Idle until the drawer opens — ConversationList mounts with the chat
-  // screen, so an eager true would spin before the user ever opens history.
+  const session = getSessionGeneration();
+  const [snapshot, setSnapshot] = useState(() => ({ session, groups: emptyChatList() }));
+  const groups = useMemo(() => snapshot.session === session && token ? snapshot.groups : emptyChatList(), [snapshot, session, token]);
   const [loading, setLoading] = useState(false);
-  const [groups, setGroups] = useState<ChatList>(emptyChatList);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    for (const key of [...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]) {
-      if (defaultChatSectionCollapsed(key)) {
-        initial[key] = true;
-      }
-    }
-    return initial;
-  });
+  const [collapsedSections, setCollapsedSections] = useState(initialCollapsedSections);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const lastFetchedRef = useRef(0);
   const hasLoadedOnceRef = useRef(false);
+  const ownerRef = useRef(session);
+  const mountedRef = useRef(true);
+  const loadIdRef = useRef(0);
   const [, setTitlePendingTick] = useState(0);
+  if (ownerRef.current !== session) {
+    ownerRef.current = session;
+    hasLoadedOnceRef.current = false;
+    loadIdRef.current++;
+  }
+  const current = useCallback(() => mountedRef.current && session === getSessionGeneration(), [session]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+  useEffect(() => {
+    setLoading(false);
+    setRefreshing(false);
+    setError(false);
+    setCollapsedSections(initialCollapsedSections());
+  }, [session]);
 
   const allChats = useMemo(() => activeChatsFromGroups(groups), [groups]);
-
-  const isSectionCollapsed = useCallback(
-    (key: ChatListSectionKey) =>
-      isCollapsibleChatSection(key) &&
-      (collapsedSections[key] ?? defaultChatSectionCollapsed(key)),
-    [collapsedSections],
-  );
-
+  const isSectionCollapsed = useCallback((key: ChatListSectionKey) =>
+    isCollapsibleChatSection(key) && (collapsedSections[key] ?? defaultChatSectionCollapsed(key)), [collapsedSections]);
   const toggleSectionCollapsed = useCallback((key: ChatListSectionKey) => {
     if (!isCollapsibleChatSection(key)) return;
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [key]: !(prev[key] ?? defaultChatSectionCollapsed(key)),
-    }));
+    setCollapsedSections((prev) => ({ ...prev, [key]: !(prev[key] ?? defaultChatSectionCollapsed(key)) }));
   }, []);
 
+  const applyChatList = useCallback((data: ChatList, fetched = true) => {
+    if (!current()) return;
+    setSnapshot((prev) => prev.session === session && prev.groups === data ? prev : { session, groups: data });
+    if (fetched) hasLoadedOnceRef.current = true;
+  }, [current, session]);
   const hydrateFromCache = useCallback(() => {
+    if (!token || !current()) return false;
     const cached = getCachedChatList();
-    const fetchedAt = getChatListFetchedAt();
-    if (!cached || fetchedAt == null) return false;
-    if (hasLoadedOnceRef.current && fetchedAt <= lastFetchedRef.current) {
-      return true;
-    }
-    applyChatList(cached, setGroups, lastFetchedRef, hasLoadedOnceRef, fetchedAt);
-    return true;
-  }, []);
+    if (!cached) return false;
+    const fetched = getChatListFetchedAt() != null;
+    applyChatList(cached, fetched);
+    return fetched;
+  }, [token, current, applyChatList]);
 
-  const load = useCallback(
-    async (background = false, force = false) => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      if (!background && !force && isChatListFresh() && hydrateFromCache()) {
-        return;
-      }
-      if (!background) {
-        setLoading(true);
-      }
-      setError(false);
-      try {
-        // Blocking paths force a network read; background respects TTL/inflight.
-        const chatGroups = await fetchChatList(token, { force });
-        if (!chatGroups) {
-          if (!background) setError(true);
-          return;
-        }
-        applyChatList(chatGroups, setGroups, lastFetchedRef, hasLoadedOnceRef);
-      } catch {
-        if (!background) setError(true);
-      } finally {
-        if (!background) {
-          setLoading(false);
-        }
-      }
-    },
-    [token, hydrateFromCache],
-  );
+  const load = useCallback(async (background = false, force = false) => {
+    if (!token || !current()) return;
+    if (!force && isChatListFresh() && hydrateFromCache()) return;
+    const loadId = ++loadIdRef.current;
+    if (!background) setLoading(true);
+    setError(false);
+    const data = await fetchChatList(token, { force });
+    if (!current() || loadId !== loadIdRef.current) return;
+    if (data) applyChatList(getCachedChatList() ?? data);
+    else if (!background) setError(true);
+    if (!background) setLoading(false);
+  }, [token, current, hydrateFromCache, applyChatList]);
 
   const handleRefresh = useCallback(async () => {
-    if (!token) return;
+    if (!token || !current()) return;
     setRefreshing(true);
-    try {
-      await load(false, true);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [token, load]);
+    try { await load(false, true); }
+    finally { if (current()) setRefreshing(false); }
+  }, [token, current, load]);
 
-  // Idle-warm GET /chats while the drawer is closed so first open has titles.
-  // Skip after the user already opened history (closing the drawer to tap a
-  // chat must not refetch the list).
+  // Idle warm is only for first paint. Closing the drawer never triggers a read.
   useEffect(() => {
     hydrateFromCache();
-    if (
-      !shouldWarmClosedDrawerChatList({
-        hasToken: Boolean(token),
-        isDrawerOpen,
-        hasLoadedOnce: hasLoadedOnceRef.current,
-      })
-    ) {
-      return;
-    }
-    const accessToken = token;
-    if (!accessToken) return;
-
+    if (!shouldWarmClosedDrawerChatList({ hasToken: Boolean(token), isDrawerOpen, hasLoadedOnce: hasLoadedOnceRef.current })) return;
+    if (!token) return;
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
-      if (cancelled) return;
-      void (async () => {
-        const data = await fetchChatList(accessToken);
-        if (cancelled || !data) return;
-        applyChatList(data, setGroups, lastFetchedRef, hasLoadedOnceRef);
-      })();
+      if (cancelled || !current()) return;
+      void fetchChatList(token).then((data) => {
+        if (!cancelled && current() && data) applyChatList(getCachedChatList() ?? data);
+      });
     });
-    return () => {
-      cancelled = true;
-      cancelIdle();
-    };
-  }, [token, isDrawerOpen, hydrateFromCache]);
+    return () => { cancelled = true; cancelIdle(); };
+  }, [token, isDrawerOpen, current, hydrateFromCache, applyChatList]);
 
   useEffect(() => {
-    // Prefetch may have filled the module cache; sync into hook state before
-    // deciding whether a spinner full-fetch is needed.
     hydrateFromCache();
-
-    const mode = drawerChatFetchMode({
-      isDrawerOpen,
-      hasToken: Boolean(token),
-      hasLoadedOnce: hasLoadedOnceRef.current,
-    });
-    if (mode === "skip") return;
-    void load(false);
+    if (drawerChatFetchMode({ isDrawerOpen, hasToken: Boolean(token), hasLoadedOnce: hasLoadedOnceRef.current }) !== "skip") void load();
   }, [isDrawerOpen, token, load, hydrateFromCache]);
 
+  const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
+    if (!token || !current()) return;
+    applyChatList(updateChatListCache(update), false);
+    publishChatChange(chatId, patch);
+  }, [token, current, applyChatList]);
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    setGroups((prev) => {
-      const next = patchChatListGroups(prev, chatId, patch);
-      setChatListCache(next);
-      return next;
-    });
-  }, []);
-
+    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
+    updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
+  }, [updateGroups]);
   const insertChatInGroups = useCallback((chat: Chat) => {
-    setGroups((prev) => {
-      const next = insertChatIntoGroups(prev, chat);
-      setChatListCache(next);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    registerChatPatcher(patchChatInGroups);
-    return () => registerChatPatcher(null);
+    updateGroups(chat.id, chat, (prev) => insertChatIntoGroups(prev, chat));
+  }, [updateGroups]);
+  const removeChatFromGroupsById = useCallback((chatId: string) => {
+    updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
+  }, [updateGroups]);
+  const moveChatPinState = useCallback((chatId: string, pinned: boolean) => {
+    patchChatInGroups(chatId, { pinned });
+  }, [patchChatInGroups]);
+  const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
+    patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
   }, [patchChatInGroups]);
 
   useEffect(() => {
+    registerChatPatcher(patchChatInGroups);
     registerChatInserter(insertChatInGroups);
-    return () => registerChatInserter(null);
-  }, [insertChatInGroups]);
-
-  const removeChatFromGroupsById = useCallback((chatId: string) => {
-    setGroups((prev) => {
-      const next = removeChatFromGroups(prev, chatId);
-      setChatListCache(next);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
     registerChatRemover(removeChatFromGroupsById);
-    return () => registerChatRemover(null);
-  }, [removeChatFromGroupsById]);
-
-  useEffect(() => {
-    return subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1));
-  }, []);
-
-  const moveChatPinState = useCallback((chatId: string, pinned: boolean) => {
-    setGroups((prev) => {
-      const chat = [...activeChatsFromGroups(prev), ...prev.archived].find(
-        (c) => c.id === chatId,
-      );
-      if (!chat) return prev;
-      const updated = { ...chat, pinned };
-      const rest = removeChatFromGroups(prev, chatId);
-      const next = pinned
-        ? { ...rest, pinned: [updated, ...rest.pinned] }
-        : { ...rest, today: [updated, ...rest.today] };
-      setChatListCache(next);
-      return next;
-    });
-  }, []);
-
-  const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
-    setGroups((prev) => {
-      const chat = [...activeChatsFromGroups(prev), ...prev.archived].find(
-        (c) => c.id === chatId,
-      );
-      if (!chat) return prev;
-      const updated = { ...chat, archived };
-      const rest = removeChatFromGroups(prev, chatId);
-      const next = insertChatIntoGroups(rest, updated);
-      setChatListCache(next);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
     registerChatArchiveMover(moveChatArchiveState);
-    return () => registerChatArchiveMover(null);
-  }, [moveChatArchiveState]);
+    return () => {
+      registerChatPatcher(null);
+      registerChatInserter(null);
+      registerChatRemover(null);
+      registerChatArchiveMover(null);
+    };
+  }, [patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, moveChatArchiveState]);
+  useEffect(() => subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1)), []);
 
   return {
-    loading,
-    error,
-    refreshing,
-    groups,
-    allChats,
-    load,
-    handleRefresh,
-    patchChatInGroups,
-    insertChatInGroups,
-    isSectionCollapsed,
-    toggleSectionCollapsed,
-    moveChatPinState,
-    moveChatArchiveState,
-    removeChatFromGroupsById,
+    loading, error, refreshing, groups, allChats, load, handleRefresh,
+    patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
+    moveChatPinState, moveChatArchiveState, removeChatFromGroupsById,
   };
 }

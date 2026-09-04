@@ -11,6 +11,7 @@ import {
   isChatListFresh,
   prefetchChatList,
   setChatListCache,
+  updateChatListCache,
 } from "@/lib/cache/chatListCache";
 import {
   markChatHasAssistant,
@@ -24,6 +25,8 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+let mockSession = 0;
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession, requireTokenSession: jest.fn() }));
 const listChats = api.listChats as jest.Mock;
 
 const sample: ChatList = {
@@ -48,6 +51,7 @@ const sample: ChatList = {
 describe("chatListCache", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSession = 0;
     invalidateChatListCache();
   });
 
@@ -133,4 +137,66 @@ describe("chatListCache", () => {
     const result = await fetchChatList("token", { force: true });
     expect(result?.archived).toEqual([]);
   });
+});
+
+
+it("cannot refill an invalidated cache from an older read", async () => {
+  invalidateChatListCache();
+  let finish!: (value: ChatList) => void;
+  listChats.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  const old = fetchChatList("token");
+  invalidateChatListCache();
+  const newList = { ...sample, today: [{ ...sample.today[0], id: "new-account" }] };
+  listChats.mockResolvedValueOnce(newList);
+  await fetchChatList("new-token");
+  finish(sample);
+  expect(await old).toBeNull();
+  expect(getCachedChatList()).toEqual(newList);
+});
+
+it("isolates cached rows, created chat and inflight requests by account session", async () => {
+  invalidateChatListCache();
+  setChatListCache(sample);
+  rememberCreatedChat(sample.today[0]);
+  let finish!: (value: ChatList) => void;
+  listChats.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  const old = fetchChatList("token", { force: true });
+  mockSession++;
+  expect(getCachedChatList()).toBeUndefined();
+  expect(peekCreatedChat("c1")).toBeUndefined();
+  expect(consumeCreatedSuggestionSkip("c1")).toBe(false);
+  finish(sample);
+  expect(await old).toBeNull();
+  expect(getCachedChatList()).toBeUndefined();
+});
+
+it("replays local edits on a late list response while retaining other server rows", async () => {
+  invalidateChatListCache();
+  setChatListCache(sample);
+  let finish!: (value: ChatList) => void;
+  listChats.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  const read = fetchChatList("token", { force: true });
+  updateChatListCache((groups) => ({ ...groups, today: groups.today.filter((chat) => chat.id !== "c1") }));
+  const incoming = { ...sample, today: [...sample.today, { ...sample.today[0], id: "server-new" }] };
+  finish(incoming);
+  expect((await read)?.today.map((chat) => chat.id)).toEqual(["server-new"]);
+  expect(getCachedChat("c1")).toBeUndefined();
+});
+
+it("keeps optimistic first-chat insertion from suppressing the first full list read", async () => {
+  invalidateChatListCache();
+  updateChatListCache((groups) => ({ ...groups, today: sample.today }));
+  expect(isChatListFresh()).toBe(false);
+  listChats.mockResolvedValueOnce(sample);
+  await fetchChatList("token");
+  expect(isChatListFresh()).toBe(true);
+});
+
+
+it("does not return current cached history to a token from an old account", async () => {
+  setChatListCache(sample);
+  const { requireTokenSession } = jest.requireMock("@/lib/auth") as { requireTokenSession: jest.Mock };
+  requireTokenSession.mockImplementationOnce(() => { throw new Error("old account"); });
+  expect(await fetchChatList("old-token")).toBeNull();
+  expect(getCachedChatList()).toEqual(sample);
 });

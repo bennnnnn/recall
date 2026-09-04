@@ -3,7 +3,7 @@ import {
   insertChatIntoGroups,
   shouldWarmClosedDrawerChatList,
 } from "@/lib/drawerChatList";
-import { removeChatFromGroups } from "@/lib/chat/chatListSections";
+import { chatRecencySection, patchChatListGroups, removeChatFromGroups } from "@/lib/chat/chatListSections";
 import type { Chat, ChatList } from "@/lib/api";
 
 const empty: ChatList = {
@@ -27,6 +27,9 @@ function chat(id: string, overrides: Partial<Chat> = {}): Chat {
     ...overrides,
   };
 }
+
+beforeEach(() => { jest.useFakeTimers().setSystemTime(new Date(2026, 6, 1, 14)); });
+afterEach(() => { jest.useRealTimers(); });
 
 describe("drawerChatFetchMode", () => {
   const base = {
@@ -125,4 +128,42 @@ describe("archive/unarchive move (remove + reinsert with flipped field)", () => 
     expect(next.archived).toHaveLength(0);
     expect(next.pinned.map((c) => c.id)).toEqual(["a"]);
   });
+});
+
+
+it("moves a header pin patch into Pinned and restores the activity bucket on unpin", () => {
+  const old = chat("old", { updated_at: new Date(2026, 5, 1).toISOString() });
+  const groups = { ...empty, older: [old] };
+  const pinned = patchChatListGroups(groups, old.id, { pinned: true });
+  expect(pinned.older).toEqual([]);
+  expect(pinned.pinned[0].id).toBe(old.id);
+  const restored = patchChatListGroups(pinned, old.id, { pinned: false });
+  expect(restored.today).toEqual([]);
+  expect(restored.older[0].id).toBe(old.id);
+});
+
+it("archive clears pinned and rollback restores the original pinned row", () => {
+  const old = chat("pinned", { pinned: true });
+  const archived = patchChatListGroups({ ...empty, pinned: [old] }, old.id, { archived: true });
+  expect(archived.pinned).toEqual([]);
+  expect(archived.archived[0]).toMatchObject({ archived: true, pinned: false });
+  const rollback = patchChatListGroups(archived, old.id, { archived: false, pinned: true });
+  expect(rollback.archived).toEqual([]);
+  expect(rollback.pinned[0].id).toBe(old.id);
+});
+
+it("restores deleted old chats to their date bucket in newest-first order", () => {
+  const first = chat("newer", { updated_at: new Date(2026, 5, 10).toISOString() });
+  const restored = insertChatIntoGroups({ ...empty, older: [first] }, chat("old", { updated_at: new Date(2026, 5, 1).toISOString() }));
+  expect(restored.today).toEqual([]);
+  expect(restored.older.map((row) => row.id)).toEqual(["newer", "old"]);
+});
+
+it.each([
+  [new Date(2026, 6, 1, 0), "today"],
+  [new Date(2026, 5, 30, 23), "yesterday"],
+  [new Date(2026, 5, 24, 0), "last_7_days"],
+  [new Date(2026, 5, 23, 23), "older"],
+])("uses calendar-day boundaries across the start of a month", (updated, section) => {
+  expect(chatRecencySection(chat("day", { updated_at: updated.toISOString() }))).toBe(section);
 });

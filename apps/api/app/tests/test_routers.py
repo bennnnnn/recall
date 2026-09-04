@@ -717,6 +717,7 @@ def test_list_messages_enqueues_topic_backfill():
     enqueue_job.assert_awaited_once()
     assert enqueue_job.call_args.args[1] == "topic"
     payload = enqueue_job.call_args.args[2]
+    assert payload["user_id"] == str(user.id)
     assert payload["user_message"] == user_msg.content
     assert payload["assistant_message"] == asst_msg.content
 

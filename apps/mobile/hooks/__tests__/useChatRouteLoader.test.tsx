@@ -5,8 +5,22 @@ import { act, render, waitFor } from "@testing-library/react-native";
 import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
-import { readCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages, readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 
+
+let mockSession = 0;
+let mockRevision = 0;
+let mockChatChange: ((id: string, patch: Record<string, unknown> | null) => void) | undefined;
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
+jest.mock("@/lib/drawer", () => ({
+  getChatMutationRevision: () => mockRevision,
+  subscribeChatChanges: (fn: typeof mockChatChange) => { mockChatChange = fn; return () => { mockChatChange = undefined; }; },
+  removeChatGlobal: jest.fn(),
+}));
+jest.mock("@/lib/api/client", () => ({
+  ApiRequestError: class extends Error { status: number; constructor(status: number) { super("Request failed"); this.status = status; } },
+}));
+import { ApiRequestError } from "@/lib/api/client";
 
 jest.mock("expo-router", () => ({
   useFocusEffect: () => undefined,
@@ -22,6 +36,7 @@ jest.mock("@/lib/cache/chatListCache", () => ({
   getCachedChat: jest.fn(() => undefined),
 }));
 jest.mock("@/lib/chatMessageCache", () => ({
+  clearCachedChatMessages: jest.fn(async () => undefined),
   readCachedChatMessages: jest.fn(async () => null),
   writeCachedChatMessages: jest.fn(async () => undefined),
   cachedChatPageFetchedAt: (cached: { cached_at?: string } | null) => {
@@ -81,6 +96,8 @@ function Probe() {
 describe("useChatRouteLoader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSession = 0;
+    mockRevision = 0;
     (getCachedChat as jest.Mock).mockReturnValue(undefined);
     (readCachedChatMessages as jest.Mock).mockResolvedValue(null);
     (api.getChat as jest.Mock).mockResolvedValue({
@@ -261,6 +278,7 @@ describe("useChatRouteLoader", () => {
       startNewChat?.({ force: true });
     });
     expect(stopGeneration).toHaveBeenCalled();
+    expect(mockHandleFirstReply).not.toHaveBeenCalled();
   });
 });
 
@@ -287,11 +305,11 @@ const routeDraft = {
 const resolveVariant = () => "vocab" as const;
 const banner = jest.fn();
 const translate = (key: string) => key;
-function RouteProbe({ routeId }: { routeId: string }) {
+function RouteProbe({ routeId, token = "token" }: { routeId: string; token?: string }) {
   const [chatId, updateChatId] = useState<string | null>(null);
   const [messages, updateMessages] = useState<Message[]>([]);
   const result = useChatRouteLoader({
-    token: "token", routeChatId: routeId, routeHighlightMessage: undefined,
+    token, routeChatId: routeId, routeHighlightMessage: undefined,
     router: { setParams: jest.fn() } as never,
     draft: routeDraft as never,
     chatId, setChatId: updateChatId, messages, setMessages: updateMessages,
@@ -307,6 +325,8 @@ describe("chat history navigation races", () => {
   const current = message("11111111-1111-1111-1111-111111111111", "A current");
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSession = 0;
+    mockRevision = 0;
     (getCachedChat as jest.Mock).mockReturnValue(undefined);
     (readCachedChatMessages as jest.Mock).mockResolvedValue(null);
     (api.getChat as jest.Mock).mockImplementation(async (_token, id) => ({
@@ -336,6 +356,17 @@ describe("chat history navigation races", () => {
     });
     expect(visibleMessages).toEqual([other]);
     expect(routeState.hasMoreOlder).toBe(false);
+  });
+
+  it("rejects a retained pagination callback from a previous route", async () => {
+    const view = await render(<RouteProbe routeId="chat-a" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    const loadA = routeState.loadOlderMessages;
+    await view.rerender(<RouteProbe routeId="chat-b" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    (api.listMessages as jest.Mock).mockClear();
+    await act(async () => { await loadA(); });
+    expect(api.listMessages).not.toHaveBeenCalled();
   });
 
   it("requests a history page only once for rapid repeated scroll events", async () => {
@@ -371,6 +402,74 @@ describe("chat history navigation races", () => {
     });
     expect(visibleMessages).toEqual([current, reply]);
     expect(routeState.chatLoading).toBe(false);
+  });
+
+  it("preserves the loaded conversation across an access-token refresh", async () => {
+    const view = await render(<RouteProbe routeId="chat-a" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    (api.listMessages as jest.Mock).mockClear();
+    (readCachedChatMessages as jest.Mock).mockClear();
+    await view.rerender(<RouteProbe routeId="chat-a" token="refreshed" />);
+    expect(visibleMessages).toEqual([current]);
+    expect(api.listMessages).not.toHaveBeenCalled();
+    expect(readCachedChatMessages).not.toHaveBeenCalled();
+  });
+
+  it("ignores a history response immediately after logout, before React rerenders", async () => {
+    const page = deferred<{ messages: Message[]; has_more: boolean }>();
+    (api.listMessages as jest.Mock).mockReturnValue(page.promise);
+    await render(<RouteProbe routeId="chat-a" />);
+    mockSession++;
+    await act(async () => { page.resolve({ messages: [current], has_more: false }); });
+    expect(visibleMessages).toEqual([]);
+    expect(writeCachedChatMessages).not.toHaveBeenCalled();
+  });
+
+  it("applies drawer metadata immediately and keeps it when an older load completes", async () => {
+    const page = deferred<{ messages: Message[]; has_more: boolean }>();
+    (api.listMessages as jest.Mock).mockReturnValue(page.promise);
+    await render(<RouteProbe routeId="chat-a" />);
+    const updated = { id: "chat-a", title: "Manual title", pinned: true, archived: false, project_id: null };
+    await act(async () => {
+      mockRevision++;
+      (getCachedChat as jest.Mock).mockReturnValue(updated);
+      mockChatChange?.("chat-a", updated);
+    });
+    expect(routeState.chatTitle).toBe("Manual title");
+    expect(routeState.pinned).toBe(true);
+    await act(async () => { page.resolve({ messages: [current], has_more: false }); });
+    expect(routeState.chatTitle).toBe("Manual title");
+    expect(routeState.pinned).toBe(true);
+    expect(visibleMessages).toEqual([current]);
+  });
+
+  it("cannot restore a deleted conversation before route params rerender", async () => {
+    const page = deferred<{ messages: Message[]; has_more: boolean }>();
+    (api.listMessages as jest.Mock).mockReturnValue(page.promise);
+    await render(<RouteProbe routeId="chat-a" />);
+    await act(async () => { routeState.startNewChat({ force: true }); });
+    await act(async () => { page.resolve({ messages: [current], has_more: false }); });
+    expect(visibleMessages).toEqual([]);
+    expect(routeState.chatTitle).toBeNull();
+    expect(writeCachedChatMessages).not.toHaveBeenCalled();
+  });
+
+  it("clears cached history when the server confirms the chat is gone", async () => {
+    (readCachedChatMessages as jest.Mock).mockResolvedValue({ messages: [current], has_more: true });
+    (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(404, "Gone"));
+    await render(<RouteProbe routeId="chat-a" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    expect(visibleMessages).toEqual([]);
+    expect(clearCachedChatMessages).toHaveBeenCalledWith("chat-a");
+  });
+
+  it("keeps cached history during a temporary service failure", async () => {
+    (readCachedChatMessages as jest.Mock).mockResolvedValue({ messages: [current], has_more: true });
+    (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(503, "Unavailable"));
+    await render(<RouteProbe routeId="chat-a" />);
+    await waitFor(() => expect(routeState.chatLoading).toBe(false));
+    expect(visibleMessages).toEqual([current]);
+    expect(clearCachedChatMessages).not.toHaveBeenCalled();
   });
 
 });

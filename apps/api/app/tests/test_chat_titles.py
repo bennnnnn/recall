@@ -46,7 +46,7 @@ def test_needs_generated_title():
     assert needs_generated_title("Homework") is False
 
 
-def test_chat_out_sanitizes_boring_title():
+def test_chat_out_preserves_user_chosen_generic_title():
     from datetime import UTC, datetime
     from uuid import uuid4
 
@@ -58,7 +58,7 @@ def test_chat_out_sanitizes_boring_title():
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
-    assert out.title is None
+    assert out.title == "New chat"
 
 
 @pytest.mark.parametrize(
