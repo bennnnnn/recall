@@ -241,9 +241,7 @@ def test_bare_drafts_ask_once_but_supplied_purpose_drafts_now():
     assert is_underspecified_writing_request("escribeme un correo")
     assert not is_underspecified_writing_request("Message my friend saying happy birthday")
     assert not is_underspecified_writing_request("write a vacation email to my boss")
-    assert not is_underspecified_writing_request(
-        "escribeme un correo diciendo que llegare tarde"
-    )
+    assert not is_underspecified_writing_request("escribeme un correo diciendo que llegare tarde")
 
 
 def test_each_writing_kind_gets_only_its_relevant_format_hint():
