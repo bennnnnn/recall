@@ -121,9 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentToken = await getToken();
         if (!current() || !currentToken) return;
         setCurrentToken(currentToken);
-        setProfileValidated(true);
         if (revision === updateUserGenRef.current) {
           setCurrentUser(me);
+          setProfileValidated(true);
           void writeCachedUser(me);
         }
       } catch {
@@ -252,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await api.me(token);
     if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
     setCurrentUser(me);
+    setProfileValidated(true);
     void writeCachedUser(me);
   }, [token, sessionGeneration, isCurrent, setCurrentUser]);
 
@@ -265,18 +266,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token || !isCurrent(sessionGeneration)) return;
     const revision = ++updateUserGenRef.current;
     const snapshot = userRef.current;
+    const snapshotValidated = profileValidated;
     setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
     try {
       const updated = await api.updateMe(token, patch);
       if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
       setCurrentUser(updated);
+      setProfileValidated(true);
       void writeCachedUser(updated);
     } catch {
       if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
       setCurrentUser(snapshot);
+      setProfileValidated(snapshotValidated);
       throw new Error("update failed");
     }
-  }, [token, sessionGeneration, isCurrent, setCurrentUser]);
+  }, [token, sessionGeneration, profileValidated, isCurrent, setCurrentUser]);
 
   const mergeUser = useCallback((patch: Partial<User>) => {
     if (!isCurrent(sessionGeneration)) return;

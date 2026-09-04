@@ -258,3 +258,62 @@ it("preserves matching cached first paint during a temporary startup outage", as
   expect(current.token).toBe("access-a");
   expect(rendered.queryByText("login.error_generic")).toBeNull();
 });
+
+it("keeps bootstrap gated when a profile edit supersedes startup validation and then fails", async () => {
+  const me = deferred<User>();
+  const update = deferred<User>();
+  const cached = { ...userA, push_notifications_enabled: false, reminder_lead_minutes: 0 };
+  const verified = { ...userA, push_notifications_enabled: true, reminder_lead_minutes: 30 };
+  (readCachedUser as jest.Mock).mockResolvedValue(cached);
+  (api.me as jest.Mock).mockReturnValueOnce(me.promise);
+  (api.updateMe as jest.Mock).mockReturnValueOnce(update.promise);
+  await mount();
+  const { useBootstrapSync } = jest.requireMock("@/hooks/useBootstrapSync");
+  let pending!: Promise<void>;
+  await act(async () => { pending = current.updateUser({ name: "Edited" }).catch(() => {}); });
+  await act(async () => { me.resolve(verified); });
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
+  await act(async () => { update.reject(new Error("offline")); await pending; });
+  expect(current.user).toEqual(cached);
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
+
+  (api.me as jest.Mock).mockResolvedValueOnce(verified);
+  await act(async () => { await current.refreshUser(); });
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: "access-a", user: verified }));
+});
+
+it("enables bootstrap when a superseding profile edit adopts a full server profile", async () => {
+  const me = deferred<User>();
+  const update = deferred<User>();
+  const verified = { ...userA, name: "Edited", push_notifications_enabled: true, reminder_lead_minutes: 30 };
+  (api.me as jest.Mock).mockReturnValueOnce(me.promise);
+  (api.updateMe as jest.Mock).mockReturnValueOnce(update.promise);
+  await mount();
+  const { useBootstrapSync } = jest.requireMock("@/hooks/useBootstrapSync");
+  let pending!: Promise<void>;
+  await act(async () => { pending = current.updateUser({ name: "Edited" }); });
+  await act(async () => { me.resolve(userA); });
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
+  await act(async () => { update.resolve(verified); await pending; });
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: "access-a", user: verified }));
+});
+
+it("restores an unvalidated cache flag when a failed edit rolls back after token refresh", async () => {
+  const me = deferred<User>();
+  const update = deferred<User>();
+  const verified = { ...userA, push_notifications_enabled: true, reminder_lead_minutes: 30 };
+  (api.me as jest.Mock).mockReturnValueOnce(me.promise);
+  (api.updateMe as jest.Mock).mockReturnValueOnce(update.promise);
+  await mount();
+  const { useBootstrapSync } = jest.requireMock("@/hooks/useBootstrapSync");
+  let pending!: Promise<void>;
+  await act(async () => { pending = current.updateUser({ name: "Edited" }).catch(() => {}); });
+  await act(async () => {
+    const refresh = (setTokenRefreshHandler as jest.Mock).mock.calls.at(-1)[0];
+    refresh("refreshed", verified);
+  });
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ user: verified }));
+  await act(async () => { update.reject(new Error("offline")); await pending; me.resolve(verified); });
+  expect(current.user).toEqual(userA);
+  expect(useBootstrapSync.mock.calls.at(-1)[0]).toEqual(expect.objectContaining({ token: null, user: null }));
+});
