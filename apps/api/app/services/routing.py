@@ -10,6 +10,7 @@ Routing always respects the caller's allowed model pool (plan + enabled toggles)
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from app.core.config import Settings
 from app.services import model_catalog
@@ -83,6 +84,34 @@ _PHYSICS_FORMULA_CUES = (
     "projectile motion",
 )
 
+_FOLLOWUP_MAX_CHARS = 120
+# Linear phrase scan — same style as prompt_constants.routing `_OFFER_PHRASES`.
+# Do not add bare "fix" to `_SMART_TRIGGERS`; that would pin every "fix dinner"
+# ask onto the strong model.
+_FOLLOWUP_CUES = (
+    "now fix",
+    "fix it",
+    "try again",
+    "also",
+    "instead",
+    "the tests",
+    "the error",
+    "keep going",
+    "make it",
+    "change it",
+    "do that",
+)
+_FOLLOWUP_LEAD_VERBS = frozenset(
+    {
+        "add",
+        "fix",
+        "retry",
+        "patch",
+        "update",
+        "continue",
+    }
+)
+
 _LONG_MESSAGE_CHARS = 800
 # BUG FIX: this used to only match a fixed language allowlist
 # (python/javascript/typescript/rust/go/java/c++/sql), so a bare ``` ```` ```
@@ -120,8 +149,71 @@ def _looks_like_physics_homework(content: str) -> bool:
     return any(cue in lower for cue in _PHYSICS_FORMULA_CUES)
 
 
-def route_chat_model(content: str) -> str:
-    """Return a preferred chat alias for an auto-routed message (before pool filter)."""
+def last_user_content(messages: list[Any] | None) -> str | None:
+    """Last user line already in the recent window (oldest-first).
+
+    The current turn is not persisted yet, so this is the prior user message.
+    """
+    if not messages:
+        return None
+    for msg in reversed(messages):
+        if getattr(msg, "role", None) != "user":
+            continue
+        text = getattr(msg, "content", None)
+        if isinstance(text, str) and text.strip():
+            return text
+    return None
+
+
+def _leading_followup_verb(lowered: str) -> bool:
+    if not lowered:
+        return False
+    first = lowered.split(" ", 1)[0]
+    while first and first[-1] in ".,!?;:":
+        first = first[:-1]
+    return first in _FOLLOWUP_LEAD_VERBS
+
+
+def _looks_like_smart_continuation(content: str) -> bool:
+    """True when this line continues the prior hard turn, not a new topic."""
+    from app.services.chat.prompt_constants.routing import (
+        is_lightweight_chat_turn,
+        is_personal_advice_question,
+        is_short_confirmation,
+        is_writing_deliverable_request,
+    )
+    from app.services.day_planning import is_day_planning_question
+    from app.services.text_normalize import collapse_ws
+
+    if is_personal_advice_question(content):
+        return False
+    if is_day_planning_question(content):
+        return False
+    if is_writing_deliverable_request(content):
+        return False
+    cleaned = collapse_ws(content)
+    if len(cleaned) > _FOLLOWUP_MAX_CHARS:
+        return False
+    # yes / go / sure inherit; hi / thanks do not (those are lightweight acks).
+    if is_short_confirmation(content):
+        return True
+    if is_lightweight_chat_turn(content):
+        return False
+    lowered = cleaned.lower()
+    if any(cue in lowered for cue in _FOLLOWUP_CUES):
+        return True
+    return _leading_followup_verb(lowered)
+
+
+def _should_inherit_smart(content: str, prior_user: str) -> bool:
+    """Inherit Pro only when the last user line itself scored smart."""
+    if _route_current_line(prior_user) != model_catalog.auto_smart_alias():
+        return False
+    return _looks_like_smart_continuation(content)
+
+
+def _route_current_line(content: str) -> str:
+    """Score this message alone — no prior-turn inherit."""
     text = content.lower()
     smart = model_catalog.auto_smart_alias()
     fast = model_catalog.auto_fast_alias()
@@ -144,6 +236,21 @@ def route_chat_model(content: str) -> str:
     if needs_symbolic(content) and not _verified_math_stays_fast(content):
         return smart
     return fast
+
+
+def route_chat_model(content: str, *, prior_user: str | None = None) -> str:
+    """Return a preferred chat alias for an auto-routed message (before pool filter).
+
+    Scores the current line first. A short continuation of a prior smart user
+    turn inherits Pro; a new topic does not pin the rest of the chat.
+    """
+    smart = model_catalog.auto_smart_alias()
+    preferred = _route_current_line(content)
+    if preferred == smart:
+        return smart
+    if prior_user and prior_user.strip() and _should_inherit_smart(content, prior_user):
+        return smart
+    return preferred
 
 
 def _verified_math_stays_fast(content: str) -> bool:
@@ -171,10 +278,15 @@ def _verified_math_stays_fast(content: str) -> bool:
     return not has_algebraic_equation(cleaned)
 
 
-def resolve_alias(alias: str, content: str) -> str:
+def resolve_alias(
+    alias: str,
+    content: str,
+    *,
+    prior_user: str | None = None,
+) -> str:
     """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
     all_ids = [m.id for m in model_catalog.selectable_models()]
-    return resolve_alias_in_pool(alias, content, all_ids)
+    return resolve_alias_in_pool(alias, content, all_ids, prior_user=prior_user)
 
 
 def resolve_alias_in_pool(
@@ -182,13 +294,15 @@ def resolve_alias_in_pool(
     content: str,
     pool: list[str],
     settings: Settings | None = None,
+    *,
+    prior_user: str | None = None,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool."""
     if not pool:
         return model_catalog.auto_fast_alias()
 
     if alias == "auto":
-        preferred = route_chat_model(content)
+        preferred = route_chat_model(content, prior_user=prior_user)
         return _pick_preferred_tier(preferred, pool)
 
     if alias == "fast":
