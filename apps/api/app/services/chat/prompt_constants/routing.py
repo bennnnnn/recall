@@ -404,9 +404,11 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"(?:这|這|那|以下|下面|下列|上述|此|我|成|为|為|一下|文本|文章|内容|內容|"
     r"句子|单词|單詞|邮件|郵件|消息|标题|標題|菜单|菜單|网页|網頁|文件|文档|文檔|"
     r"字幕|说明|說明|歌词|歌詞|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
-    r"(?:翻訳)(?=(?:して|し|を|この|これ|次|以下|下記|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
-    r"(?:訳して)|"
-    r"(?:번역)(?=(?:해|하|을|를|좀|부탁|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))"
+    r"(?:翻訳してください|訳してください)(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
+    r"(?:翻訳して|訳して)(?=$|[.!?:\u3002\uFF01\uFF1F\uFF1A])|"
+    r"(?:번역)(?:해\s*(?:주세요|줘)|하세요|(?:을\s*)?부탁(?:드립니다|드려요|해요)?)"
+    r"(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
+    r"(?:번역해)(?=$|[.!?:\u3002\uFF01\uFF1F\uFF1A])"
     r")",
     re.IGNORECASE,
 )
@@ -446,6 +448,19 @@ _WRITING_HOWTO = re.compile(
 )
 
 
+def _normalize_writing_followup(text: str) -> str:
+    return _WRITING_SEQUENCE_PREFIX.sub("", text.strip(), count=1)
+
+
+def _starts_direct_writing_request(text: str) -> bool:
+    candidate = _normalize_writing_followup(text)
+    return bool(
+        _DIRECT_WRITING_REQUEST_START.search(candidate)
+        or _TRANSLATION_WRITING.search(candidate)
+        or _UNSPACED_TRANSLATION_COMMAND.search(candidate)
+    )
+
+
 def _after_initial_writing_howto(text: str) -> str | None:
     """Drop a leading how-to sentence, but retain a later explicit request."""
     if not _WRITING_HOWTO.search(text):
@@ -463,6 +478,9 @@ def _after_initial_writing_howto(text: str) -> str | None:
     for index, char in enumerate(text):
         if closing_quote is not None:
             if char == closing_quote:
+                if char == "'" and 0 < index < len(text) - 1:
+                    if text[index - 1].isalnum() and text[index + 1].isalnum():
+                        continue
                 closing_quote = None
             continue
         if char in quote_closers:
@@ -484,7 +502,7 @@ def _after_initial_writing_howto(text: str) -> str | None:
             if re.search(
                 r"(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc)\.|(?:\b[a-z]\.){2,})$",
                 prefix,
-            ):
+            ) and not _starts_direct_writing_request(text[next_index:]):
                 continue
         boundary_end = next_index
         break
@@ -508,13 +526,9 @@ def writing_request_kind(text: str) -> str | None:
         return None
     cleaned = writing_candidate
     if had_initial_howto:
-        cleaned = _WRITING_SEQUENCE_PREFIX.sub("", cleaned, count=1)
-        if not (
-            _DIRECT_WRITING_REQUEST_START.search(cleaned)
-            or _TRANSLATION_WRITING.search(cleaned)
-            or _UNSPACED_TRANSLATION_COMMAND.search(cleaned)
-        ):
+        if not _starts_direct_writing_request(cleaned):
             return None
+        cleaned = _normalize_writing_followup(cleaned)
     # Translation leads before quoted-source classifiers: `Translate "write
     # me an email" into Spanish` is a translation, not a request to draft an
     # email. An actual email deliverable such as "write an email in Spanish"
