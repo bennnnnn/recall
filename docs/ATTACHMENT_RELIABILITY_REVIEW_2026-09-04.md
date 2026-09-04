@@ -12,6 +12,7 @@ Scope: selecting, uploading, opening, retaining, reusing, indexing, and deleting
 - Local upload retries accept identical bytes and reject changes to an already verified file. Confirming an unfinished local upload reports a conflict. Failed Library reuse rolls back clone records and cleans up copied bytes.
 - Chat acceptance validates requested attachment ownership and upload completion. Linking the user message and every attachment occurs in one transaction; a concurrent reuse conflict rolls back the unsaved message.
 - An explicit attachment rejection removes the unsaved optimistic bubble and retains the original text and local file for **Restore draft**. Restoration waits for an empty composer and discards the rejected server attachment ID. It cannot overwrite newer text/files, regenerate a saved turn, or replay an accepted send. Recovery is scoped to the chat and signed-in session while the screen remains mounted; it is not durable across a full app restart.
+- Library selection downloads documents as well as images before handing them to the composer. PR review caught that a remote document URL could not be read by Expo File after its rejected attachment ID was removed. A local copy supports both ordinary Library reuse and explicit re-upload after restoring the draft.
 - Index jobs use both attachment and chat identity for deduplication. Before replacing chunks, the worker locks the owning chat and attachment and verifies the current association. Deleted files, deleted chats, and old jobs from a reused Library file cannot write stale chunks.
 - Attachment deletion relies on the existing foreign-key cascade to remove chunks. Removing redundant chunk-first deletes keeps deletion and indexing in the same lock order and avoids a deadlock between them.
 
@@ -20,7 +21,7 @@ Scope: selecting, uploading, opening, retaining, reusing, indexing, and deleting
 The final local revision passes:
 
 - API: 3,335 tests, 85.65% coverage, full Ruff lint/format and mypy (600 source files).
-- Mobile: 2,253 tests across 266 suites, TypeScript, and ESLint. Changed files have no lint warnings; the full checkout reports 166 existing warnings.
+- Mobile: 2,256 tests across 266 suites, TypeScript, and ESLint. Changed files have no lint warnings; the full checkout reports 166 existing warnings.
 - Web: TypeScript build and ESLint.
 - Whitespace/diff validation.
 

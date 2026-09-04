@@ -1,5 +1,6 @@
 import { File } from "expo-file-system";
 import { api } from "@/lib/api";
+import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 import { requestRaw } from "@/lib/api/client";
 import { pickDocument, pickFromPhotoLibrary, uploadChatAttachment } from "@/lib/attachments";
 import * as DocumentPicker from "expo-document-picker";
@@ -27,6 +28,9 @@ jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => mockGeneration,
   requireTokenSession: jest.fn(),
   SessionChangedError: class extends Error { constructor() { super("Session changed"); } },
+}));
+jest.mock("@/lib/downloadChatAttachment", () => ({
+  ensureLocalAttachmentFile: jest.fn(async () => "file:///cache/library-notes.pdf"),
 }));
 jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 
@@ -89,4 +93,25 @@ it("converts a HEIC photo when the picker omits MIME metadata", async () => {
 it("does not classify unknown document types as JPEG photos", async () => {
   jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///archive.bin", name: "archive.bin", lastModified: 0 }] });
   await expect(pickDocument()).resolves.toMatchObject({ contentType: "application/octet-stream", kind: "file" });
+});
+
+
+it("reuploads a restored Library document after its rejected server ID is removed", async () => {
+  jest.mocked(File).mockImplementation((...uris) => {
+    if (uris[0] !== "file:///cache/library-notes.pdf") throw new Error("Not a local file");
+    return { exists: true, size: 3, arrayBuffer: mockRead } as unknown as File;
+  });
+  const librarySelection = await pendingFromLibraryItem({
+    id: "rejected-id", content_type: "application/pdf", original_filename: "notes.pdf", download_url: "/attachments/rejected-id/file",
+  }, "token");
+  expect(librarySelection.existingAttachmentId).toBe("rejected-id");
+  const restoredDraft = { ...librarySelection, existingAttachmentId: undefined };
+
+  await expect(uploadChatAttachment("token", restoredDraft)).resolves.toBe("a1");
+
+  expect(File).toHaveBeenCalledWith("file:///cache/library-notes.pdf");
+  expect(api.presignAttachment).toHaveBeenCalledWith("token", {
+    content_type: "application/pdf", size_bytes: 3, filename: "notes.pdf",
+  });
+  expect(requestRaw).toHaveBeenCalledWith("/attachments/a1/upload", "token", expect.objectContaining({ method: "PUT", body: expect.any(ArrayBuffer) }), true, expect.any(Number));
 });
