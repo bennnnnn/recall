@@ -20,6 +20,7 @@ from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.chat import finalize_registry
 from app.services.chat_titles import sanitize_manual_chat_title
+from app.services.email_fence import rewrite_first_email_fence
 from app.services.quota import utc_today
 
 DEFAULT_CHAT_LIST_LIMIT = 200
@@ -223,3 +224,32 @@ async def set_message_feedback(
     if message is None:
         raise ChatsError("Message not found", status_code=404)
     return message
+
+
+async def update_message_email(
+    session: AsyncSession,
+    redis: Redis,
+    user: User,
+    chat_id: UUID,
+    message_id: UUID,
+    *,
+    to: str | None,
+    subject: str | None,
+    body: str,
+) -> Message:
+    """Rewrite the first ```email fence on an assistant message. Not arbitrary content PATCH."""
+    await get_chat(session, user, chat_id)
+    message = await messages_repo.get_in_chat(session, message_id, chat_id)
+    if message is None:
+        await finalize_registry.wait_for_pending_finalize(chat_id, redis)
+        message = await messages_repo.get_in_chat(session, message_id, chat_id)
+    if message is None:
+        raise ChatsError("Message not found", status_code=404)
+    if message.role != "assistant":
+        raise ChatsError("Only assistant email drafts can be updated", status_code=400)
+    rewritten = rewrite_first_email_fence(message.content, to=to, subject=subject, body=body)
+    if rewritten is None:
+        raise ChatsError("No email draft on this message", status_code=400)
+    if rewritten == message.content:
+        return message
+    return await messages_repo.update_content(session, message, rewritten)

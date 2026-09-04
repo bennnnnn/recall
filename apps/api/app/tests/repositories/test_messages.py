@@ -105,6 +105,19 @@ async def test_set_feedback(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_update_content(fake_session):
+    from app.repositories.messages import update_content
+
+    mock_message = MagicMock()
+    result = await update_content(fake_session, mock_message, "new body")
+
+    assert result is mock_message
+    assert mock_message.content == "new body"
+    fake_session.commit.assert_awaited_once()
+    fake_session.refresh.assert_awaited_once_with(mock_message)
+
+
+@pytest.mark.asyncio
 async def test_list_user_contents_since_sql_is_user_only():
     from sqlalchemy.dialects import postgresql
 

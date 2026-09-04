@@ -70,6 +70,19 @@ export async function writeCachedChatMessages(
   }
 }
 
+export async function patchCachedChatMessage(
+  chatId: string,
+  messageId: string,
+  patch: Partial<Message>,
+): Promise<void> {
+  const cached = await readCachedChatMessages(chatId);
+  if (!cached) return;
+  const messages = cached.messages.map((m) =>
+    m.id === messageId ? { ...m, ...patch } : m,
+  );
+  await writeCachedChatMessages(chatId, messages, cached.has_more);
+}
+
 export async function clearCachedChatMessages(chatId: string): Promise<void> {
   if (!cacheDirectory) return;
   try {

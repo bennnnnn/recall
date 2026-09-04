@@ -20,6 +20,7 @@ import {
 } from "@/components/chat/ChatComposer";
 import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
+import { EmailDraftPersistProvider } from "@/contexts/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -196,6 +197,7 @@ function ChatScreen() {
     setArchived,
     setChatTitle,
     setMessages,
+    hasMoreOlder,
     router,
     t,
   });
@@ -212,6 +214,7 @@ function ChatScreen() {
     actionBanner,
     dismissActionBanner,
     handleFeedback,
+    handleSaveEmailDraft,
     confirmRename,
     onShareFromMenu,
     onExportPdfFromMenu,
@@ -590,37 +593,39 @@ function ChatScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <View style={{ flex: 1 }}>
-      <ChatScreenBody {...chatScreenBodyProps} />
-      <LiveTalkOverlay
-        visible={liveTalk.visible}
-        phase={liveTalk.phase}
-        meterLevel={liveTalk.meterLevel}
-        recording={liveTalk.recording}
-        headerInset={drawerOpen ? 0 : layout.headerInset}
-        composerClearance={layout.composerClearance}
-        onToggle={() => void liveTalk.toggle()}
-      />
+    <EmailDraftPersistProvider save={handleSaveEmailDraft}>
+      <View style={{ flex: 1 }}>
+        <ChatScreenBody {...chatScreenBodyProps} />
+        <LiveTalkOverlay
+          visible={liveTalk.visible}
+          phase={liveTalk.phase}
+          meterLevel={liveTalk.meterLevel}
+          recording={liveTalk.recording}
+          headerInset={drawerOpen ? 0 : layout.headerInset}
+          composerClearance={layout.composerClearance}
+          onToggle={() => void liveTalk.toggle()}
+        />
 
-      <ChatScreenMenuSheets
-        menuVisible={menuVisible}
-        chatTitle={chatTitle}
-        pinned={pinned}
-        archived={archived}
-        onCloseMenu={() => setMenuVisible(false)}
-        onShare={onShareFromMenu}
-        onExportPdf={onExportPdfFromMenu}
-        onRename={onRenameFromMenu}
-        onTogglePin={onTogglePinFromMenu}
-        onToggleArchive={onToggleArchiveFromMenu}
-        onDelete={onDeleteFromMenu}
-        renameVisible={renameVisible}
-        renameText={renameText}
-        onRenameTextChange={setRenameText}
-        onCloseRename={() => setRenameVisible(false)}
-        onConfirmRename={() => void confirmRename()}
-      />
-    </View>
+        <ChatScreenMenuSheets
+          menuVisible={menuVisible}
+          chatTitle={chatTitle}
+          pinned={pinned}
+          archived={archived}
+          onCloseMenu={() => setMenuVisible(false)}
+          onShare={onShareFromMenu}
+          onExportPdf={onExportPdfFromMenu}
+          onRename={onRenameFromMenu}
+          onTogglePin={onTogglePinFromMenu}
+          onToggleArchive={onToggleArchiveFromMenu}
+          onDelete={onDeleteFromMenu}
+          renameVisible={renameVisible}
+          renameText={renameText}
+          onRenameTextChange={setRenameText}
+          onCloseRename={() => setRenameVisible(false)}
+          onConfirmRename={() => void confirmRename()}
+        />
+      </View>
+    </EmailDraftPersistProvider>
   );
 }
 

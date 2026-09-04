@@ -115,4 +115,18 @@ export const chatsApi = {
       method: "PATCH",
       body: JSON.stringify({ feedback }),
     }),
+  updateMessageEmail: (
+    token: string,
+    chatId: string,
+    messageId: string,
+    draft: { to?: string; subject?: string; body: string },
+  ) =>
+    request<Message>(`/chats/${chatId}/messages/${messageId}/email`, token, {
+      method: "PATCH",
+      body: JSON.stringify({
+        to: draft.to ?? "",
+        subject: draft.subject ?? "",
+        body: draft.body,
+      }),
+    }),
 };

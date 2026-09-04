@@ -103,6 +103,31 @@ function findLangOpener(text: string, lang: string, start = 0): number | null {
   }
 }
 
+export function replaceFirstClosedFenceBody(
+  text: string,
+  lang: string,
+  newBody: string,
+): string | null {
+  let index = 0;
+  while (true) {
+    const opener = findLangOpener(text, lang, index);
+    if (opener == null) return null;
+    const newline = text.indexOf("\n", opener);
+    if (newline < 0) return null;
+    const marker = nextFenceMarkerLine(text, newline + 1);
+    if (marker == null || !isFenceCloser(marker.stripped)) {
+      index = newline + 1;
+      continue;
+    }
+    let stripped = newBody;
+    while (stripped.endsWith("\n")) {
+      stripped = stripped.slice(0, -1);
+    }
+    const body = `${stripped}\n`;
+    return text.slice(0, newline + 1) + body + text.slice(marker.start);
+  }
+}
+
 export function collectClosedFenceBodies(text: string, lang: string): string[] {
   const bodies: string[] = [];
   mapClosedLangFence(text, lang, (body) => {

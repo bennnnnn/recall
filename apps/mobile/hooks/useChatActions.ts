@@ -9,18 +9,19 @@ type Router = ReturnType<typeof useRouter>;
 import { insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 import { api, type Chat, type Message } from "@/lib/api";
 import { FREE_CHAT_MODEL_ID } from "@/lib/modelCatalogFallback";
-import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages, patchCachedChatMessage, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
+import { fullEmailText } from "@/lib/emailCompose";
+import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
+import type { EmailDraft } from "@/lib/richBlocks";
+import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-
-const SERVER_MESSAGE_ID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Options = {
   token: string | null;
@@ -33,6 +34,7 @@ type Options = {
   setArchived: React.Dispatch<React.SetStateAction<boolean>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  hasMoreOlder?: boolean;
   router: Router;
   t: (key: string, options?: Record<string, unknown>) => string;
 };
@@ -48,6 +50,7 @@ export function useChatActions({
   setArchived,
   setChatTitle,
   setMessages,
+  hasMoreOlder = false,
   router,
   t,
 }: Options) {
@@ -81,7 +84,7 @@ export function useChatActions({
           return { ...mm, feedback: next };
         }),
       );
-      if (token && chatId && SERVER_MESSAGE_ID.test(messageId)) {
+      if (token && chatId && isServerMessageId(messageId)) {
         void api.setMessageFeedback(token, chatId, messageId, next).catch(() => {
           setMessages((prev) =>
             prev.map((mm) =>
@@ -93,6 +96,65 @@ export function useChatActions({
       }
     },
     [token, chatId, setMessages, feedback, t],
+  );
+
+  const handleSaveEmailDraft = useCallback(
+    async (messageId: string, draft: EmailDraft): Promise<boolean> => {
+      if (!token || !chatId || !isServerMessageId(messageId)) return false;
+      const fenceBody = fullEmailText(draft);
+      let previous: string | null = null;
+      let nextMessages: Message[] | null = null;
+      setMessages((prev) => {
+        let changed = false;
+        const next = prev.map((mm) => {
+          if (mm.id !== messageId) return mm;
+          previous = mm.content;
+          const rewritten = replaceFirstClosedFenceBody(mm.content, "email", fenceBody);
+          if (rewritten == null || rewritten === mm.content) return mm;
+          changed = true;
+          return { ...mm, content: rewritten };
+        });
+        if (!changed) return prev;
+        nextMessages = next;
+        return next;
+      });
+      if (previous != null) {
+        const rewritten = replaceFirstClosedFenceBody(previous, "email", fenceBody);
+        if (rewritten == null) return false;
+        if (rewritten === previous) return true;
+      } else {
+        return false;
+      }
+      if (nextMessages) {
+        await writeCachedChatMessages(chatId, nextMessages, hasMoreOlder);
+      }
+      try {
+        const updated = await api.updateMessageEmail(token, chatId, messageId, {
+          to: draft.to,
+          subject: draft.subject,
+          body: draft.body,
+        });
+        setMessages((prev) =>
+          prev.map((mm) =>
+            mm.id === messageId ? { ...mm, content: updated.content } : mm,
+          ),
+        );
+        void patchCachedChatMessage(chatId, messageId, { content: updated.content });
+        return true;
+      } catch {
+        setMessages((prev) =>
+          prev.map((mm) =>
+            mm.id === messageId && previous != null ? { ...mm, content: previous } : mm,
+          ),
+        );
+        if (previous != null) {
+          void patchCachedChatMessage(chatId, messageId, { content: previous });
+        }
+        reportRecoverableError(feedback, t("chat.email_card_save_failed"));
+        return false;
+      }
+    },
+    [token, chatId, hasMoreOlder, setMessages, feedback, t],
   );
 
   const loadTranscriptMessages = useCallback(async () => {
@@ -287,6 +349,7 @@ export function useChatActions({
     dismissActionBanner,
     closeMenu,
     handleFeedback,
+    handleSaveEmailDraft,
     handleShare,
     handleExportPdf,
     openRename,

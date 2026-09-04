@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -8,6 +8,7 @@ import { NewChatIcon } from "@/components/NewChatIcon";
 import { CardShell } from "@/components/rich/CardShell";
 import { GmailMark } from "@/components/rich/chatgptDraftIcons";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useEmailCardPersist } from "@/hooks/useEmailCardPersist";
 import { fullEmailText } from "@/lib/emailCompose";
 import { openGmailCompose } from "@/lib/openGmailCompose";
 import { notifySuccess, tap } from "@/lib/haptics";
@@ -44,13 +45,20 @@ export function EmailCard({ draft }: Props) {
   const [gmailOpening, setGmailOpening] = useState(false);
   const [editing, setEditing] = useState(false);
   const [fields, setFields] = useState(() => draftFields(draft));
+  const fieldsRef = useRef(fields);
+  fieldsRef.current = fields;
+
+  const draftTo = draft.to;
+  const draftSubject = draft.subject;
+  const draftBody = draft.body;
 
   useEffect(() => {
-    setFields(draftFields(draft));
-    setEditing(false);
-  }, [draft.to, draft.subject, draft.body]);
+    if (editing) return;
+    setFields(draftFields({ to: draftTo, subject: draftSubject, body: draftBody }));
+  }, [draftTo, draftSubject, draftBody, editing]);
 
   const currentDraft = useMemo(() => toDraft(fields), [fields]);
+  const persistNow = useEmailCardPersist(currentDraft, editing);
   const copyPayload = fullEmailText(currentDraft);
 
   const onGmail = async () => {
@@ -72,12 +80,16 @@ export function EmailCard({ draft }: Props) {
   const toggleEditing = () => {
     tap();
     if (editing) {
-      setFields((prev) => ({
+      const prev = fieldsRef.current;
+      const next = {
         to: prev.to.trim(),
         subject: prev.subject.trim(),
         body: prev.body.trimEnd(),
-      }));
+      };
+      fieldsRef.current = next;
+      setFields(next);
       setEditing(false);
+      void persistNow(toDraft(next));
       return;
     }
     setEditing(true);
@@ -129,7 +141,13 @@ export function EmailCard({ draft }: Props) {
             <TextInput
               style={s.input}
               value={fields.to}
-              onChangeText={(to) => setFields((prev) => ({ ...prev, to }))}
+              onChangeText={(to) => {
+                setFields((prev) => {
+                  const next = { ...prev, to };
+                  fieldsRef.current = next;
+                  return next;
+                });
+              }}
               placeholder={t("chat.email_card_to_placeholder")}
               placeholderTextColor={theme.textDisabled}
               autoCapitalize="none"
@@ -140,14 +158,26 @@ export function EmailCard({ draft }: Props) {
             <TextInput
               style={s.input}
               value={fields.subject}
-              onChangeText={(subject) => setFields((prev) => ({ ...prev, subject }))}
+              onChangeText={(subject) => {
+                setFields((prev) => {
+                  const next = { ...prev, subject };
+                  fieldsRef.current = next;
+                  return next;
+                });
+              }}
               placeholder={t("chat.email_card_subject_placeholder")}
               placeholderTextColor={theme.textDisabled}
             />
             <TextInput
               style={[s.input, s.bodyInput]}
               value={fields.body}
-              onChangeText={(body) => setFields((prev) => ({ ...prev, body }))}
+              onChangeText={(body) => {
+                setFields((prev) => {
+                  const next = { ...prev, body };
+                  fieldsRef.current = next;
+                  return next;
+                });
+              }}
               multiline
               textAlignVertical="top"
               placeholder={t("chat.email_card_body_placeholder")}
