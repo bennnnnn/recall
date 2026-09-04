@@ -1,6 +1,7 @@
-/** Guarded loader for expo-audio — skipped in Expo Go (native module not present). */
+/** Guarded loader for expo-audio — probe the native registry before requiring JS. */
 
 import type { PermissionResponse } from "expo-audio";
+import { requireOptionalNativeModule } from "expo-modules-core";
 import { getInfoAsync, readAsStringAsync } from "expo-file-system/legacy";
 import { Platform } from "react-native";
 
@@ -31,6 +32,11 @@ export function loadExpoAudio(): ExpoAudioModule | null {
   if (audioModule === null) return null;
   if (audioModule) return audioModule;
   try {
+    if (!requireOptionalNativeModule("ExpoAudio")) {
+      audioModule = null;
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     audioModule = require("expo-audio") as ExpoAudioModule;
     return audioModule;
   } catch {

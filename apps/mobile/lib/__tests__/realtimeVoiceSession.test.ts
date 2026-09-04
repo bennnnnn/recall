@@ -2,7 +2,11 @@ import { speechApi } from "@/lib/api/speech";
 import { createRealtimeVoiceSession, webRtcMicConstraints, type RealtimeVoiceEvent } from "@/lib/realtimeVoice";
 import * as webrtc from "react-native-webrtc";
 
-jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
+jest.mock("react-native", () => ({
+  Platform: { OS: "ios" },
+  NativeModules: { WebRTCModule: {} },
+  TurboModuleRegistry: { get: (name: string) => (name === "WebRTCModule" ? {} : null) },
+}));
 jest.mock("expo-modules-core", () => ({
   requireOptionalNativeModule: () => ({ isDevice: true }),
 }));

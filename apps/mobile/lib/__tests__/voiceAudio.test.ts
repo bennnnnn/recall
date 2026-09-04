@@ -7,6 +7,10 @@ jest.mock("@/lib/expoRuntime", () => ({
   canUseVoiceInput: jest.fn(() => true),
 }));
 
+jest.mock("expo-modules-core", () => ({
+  requireOptionalNativeModule: jest.fn(() => null),
+}));
+
 jest.mock("expo-audio", () => {
   throw new Error("Cannot find native module 'ExpoAudio'");
 });
@@ -33,7 +37,7 @@ describe("voiceAudio", () => {
     mockCanUseVoiceInput.mockReturnValue(true);
   });
 
-  it("skips expo-audio import in Expo Go", () => {
+  it("skips expo-audio import when voice input is disabled", () => {
     mockCanUseVoiceInput.mockReturnValue(false);
     expect(loadExpoAudio()).toBeNull();
     expect(isVoiceInputAvailable()).toBe(false);

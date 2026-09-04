@@ -29,7 +29,7 @@ describe("expoRuntime", () => {
     (Constants as { appOwnership: string | null }).appOwnership = "expo";
     expect(isExpoGo()).toBe(true);
     expect(canUseDeviceLocation()).toBe(false);
-    expect(canUseVoiceInput()).toBe(false);
+    expect(canUseVoiceInput()).toBe(true);
   });
 
   it("does not treat bare dev builds as Expo Go even when expoGoConfig is set", () => {

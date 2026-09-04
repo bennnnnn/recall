@@ -20,7 +20,7 @@ jest.mock("@/lib/api/speech", () => ({
 import { createRealtimeVoiceSession, isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/realtimeVoice";
 
 describe("realtimeVoice", () => {
-  it("is unavailable when Metro resolved the WebRTC stub", () => {
+  it("is unavailable when WebRTC is not in this native binary", () => {
     expect(isRealtimeVoiceAvailable()).toBe(false);
   });
 
