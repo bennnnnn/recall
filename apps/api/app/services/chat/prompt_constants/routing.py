@@ -400,7 +400,7 @@ _TRANSLATION_WRITING = re.compile(
 
 _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"^(?:"
-    r"(?:请|請)?(?:翻译|翻譯)(?!(?:为什么|為什麼))(?="
+    r"(?:请|請)?(?:翻译|翻譯)(?!(?:为什么|為什麼|为何|為何|为啥|為啥))(?="
     r"(?:这|這|那|以下|下面|下列|上述|此|我|成|为|為|一下|文本|文章|内容|內容|"
     r"句子|单词|單詞|邮件|郵件|消息|标题|標題|菜单|菜單|网页|網頁|文件|文档|文檔|"
     r"字幕|说明|說明|歌词|歌詞|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
@@ -485,7 +485,7 @@ def _next_sentence_tail(text: str) -> str | None:
                         if tail and _starts_direct_writing_request(tail):
                             return tail
             if char == closing_quote:
-                if char == "'" and 0 < index < len(text) - 1:
+                if char in {"'", "\u2019"} and 0 < index < len(text) - 1:
                     if text[index - 1].isalnum() and text[index + 1].isalnum():
                         continue
                 closing_quote = None
