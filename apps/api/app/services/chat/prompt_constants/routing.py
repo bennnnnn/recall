@@ -373,32 +373,41 @@ _MESSAGE_WRITING = re.compile(
 )
 
 _SOCIAL_WRITING = re.compile(
-    r"\b(?:"
-    r"(?:write|draft|compose|create|rewrite)(?: me)? (?:an? )?"
+    r"\b(?:write|draft|compose|create|rewrite)(?: me)? (?:an? )?"
     r"(?:linkedin (?:post|note)|instagram caption|social(?: media)? post|"
-    r"twitter post|x post|tweet|caption|dating (?:app )?bio)|"
-    r"(?:linkedin|instagram|twitter|social media) (?:post|caption|bio)"
-    r")\b",
+    r"twitter post|x post|tweet|caption|dating (?:app )?bio)\b",
     re.IGNORECASE,
 )
 
 _TRANSLATION_WRITING = re.compile(
-    r"(?:\b(?:translate|translation|traduc(?:e|ir)|traduis|traduire|"
-    r"[uü]bersetze|traduci|traduz(?:a)?|cevir|çevir|hiiki)\b|"
-    r"переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역)",
+    r"(?:^(?:(?:(?:can|could|would) you|please|por favor|bitte|per favore)\s+)*"
+    r"(?:translate|traduc(?:e|ir)|traduis|traduire|[uü]bersetze|traduci|"
+    r"traduz(?:a)?|cevir|çevir|hiiki)\b|"
+    r"^(?:translation\s*:|переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역))",
     re.IGNORECASE,
 )
 
 _PROSE_WRITING = re.compile(
-    r"\b(?:write|draft|compose|rewrite|create)(?: me)? (?:an?|one|the)?\s*"
+    r"\b(?:write|draft|compose|rewrite|create)(?: me)?\s+"
+    r"(?:(?:an?|one|the)\s+)?"
+    r"(?:(?:(?:very\s+)?(?:short|long|brief|concise|detailed|formal|informal|"
+    r"professional|personal|persuasive|creative|academic)|"
+    r"\d+(?:[- ](?:word|paragraph|page))?)\s+){0,3}"
     r"(?:paragraph|essay|article|story|poem|letter|statement|announcement|"
     r"description|script|outline)\b",
     re.IGNORECASE,
 )
 
 _EDIT_WRITING = re.compile(
-    r"\b(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
-    r"grammar(?: check)?|is this (?:correct|right|grammatical))\b",
+    r"(?:^(?:(?:(?:can|could|would) you|please)\s+)*"
+    r"(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
+    r"grammar check|check (?:this )?(?:sentence|grammar))\b|"
+    r"\bis this (?:sentence )?(?:correct|right|grammatical)\b)",
+    re.IGNORECASE,
+)
+
+_WRITING_HOWTO = re.compile(
+    r"^(?:how (?:do|can|should|would) i|how to)\b",
     re.IGNORECASE,
 )
 
@@ -407,6 +416,10 @@ def writing_request_kind(text: str) -> str | None:
     """Return the writing shape the response contract should preserve."""
     cleaned = collapse_ws(text)
     if not cleaned:
+        return None
+    # Questions about how to produce or manage a writing artifact are advice,
+    # not requests for Recall to draft the artifact itself.
+    if _WRITING_HOWTO.search(cleaned):
         return None
     # Translation leads before quoted-source classifiers: `Translate "write
     # me an email" into Spanish` is a translation, not a request to draft an

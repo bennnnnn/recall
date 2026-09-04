@@ -16,8 +16,10 @@ _FRAGMENT_LEAD = re.compile(
     re.IGNORECASE,
 )
 _PROOFREAD_CUE = re.compile(
-    r"\b(?:correct(?: this)?|proofread|fix (?:this )?(?:sentence|grammar)|"
-    r"grammar(?: check)?|is this (?:correct|right|grammatical))\b",
+    r"(?:^(?:(?:(?:can|could|would) you|please)\s+)*"
+    r"(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
+    r"grammar check|check (?:this )?(?:sentence|grammar))\b|"
+    r"\bis this (?:sentence )?(?:correct|right|grammatical)\b)",
     re.IGNORECASE,
 )
 

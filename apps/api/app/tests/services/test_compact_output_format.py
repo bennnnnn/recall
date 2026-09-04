@@ -224,9 +224,18 @@ def test_writing_request_kinds_cover_each_output_shape():
         "Message my friend saying happy birthday": "message",
         "Write a LinkedIn post announcing my new role": "social",
         "Translate 'see you tomorrow' into Spanish": "translation",
+        "Translation: 'see you tomorrow' into Spanish": "translation",
         'Translate "write me an email" into Spanish': "translation",
         "Write one paragraph about photosynthesis": "prose",
+        "Write a short article comparing Python and Java": "prose",
+        "Write a 500-word essay": "prose",
         "Is this sentence correct?": "edit",
+        "How do I delete a LinkedIn post?": None,
+        "How do I write a LinkedIn post?": None,
+        "Explain translation in protein synthesis": None,
+        "Explain how ribosomes translate mRNA": None,
+        "What is grammar?": None,
+        "What does proofread mean?": None,
         "What is the capital of Kenya?": None,
     }
     for query, expected in cases.items():
@@ -298,6 +307,15 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
     assert PROSE_WRITING_HINT in article
     assert COMPARISON_FORMAT_HINT not in article
 
+    modified_article = _style_format_hints(
+        query_text="Write a short article comparing Python and Java",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert PROSE_WRITING_HINT in modified_article
+    assert COMPARISON_FORMAT_HINT not in modified_article
+
     post = _style_format_hints(
         query_text="Write a LinkedIn post comparing Python vs Java",
         style="balanced",
@@ -306,6 +324,38 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
     )
     assert SOCIAL_DRAFT_HINT in post
     assert COMPARISON_FORMAT_HINT not in post
+
+
+def test_informational_queries_do_not_receive_writing_hints():
+    from app.services.chat.prompt_constants import (
+        EMAIL_ASK_PURPOSE_HINT,
+        SOCIAL_DRAFT_HINT,
+        TRANSLATION_FORMAT_HINT,
+        WRITING_LINE_HINT,
+    )
+
+    writing_hints = {
+        EMAIL_ASK_PURPOSE_HINT,
+        SOCIAL_DRAFT_HINT,
+        TRANSLATION_FORMAT_HINT,
+        WRITING_LINE_HINT,
+    }
+    for query in (
+        "How do I delete a LinkedIn post?",
+        "How do I write a LinkedIn post?",
+        "Explain translation in protein synthesis",
+        "Explain how ribosomes translate mRNA",
+        "What is grammar?",
+        "What does proofread mean?",
+    ):
+        parts = _style_format_hints(
+            query_text=query,
+            style="balanced",
+            is_day_plan=False,
+            minimal_personal_context=False,
+            compact=True,
+        )
+        assert not writing_hints.intersection(parts)
 
 
 def test_explicit_table_request_survives_short_and_compact_styles():
