@@ -120,6 +120,11 @@ describe("formatMathExpr", () => {
       expect(formatMathExpr("1/2")).toBe("\\frac{1}{2}");
       expect(formatMathExpr("a/b=1")).toBe("\\frac{a}{b} = 1");
     });
+    it("does not turn SI unit slashes into fractions", () => {
+      expect(formatMathExpr("1.2 m/s^2")).toBe("1.2 m/s^2");
+      expect(formatMathExpr("1.2 m/s^2")).not.toContain("\\frac");
+      expect(formatMathExpr("80 km/h")).toBe("80 km/h");
+    });
   });
 });
 

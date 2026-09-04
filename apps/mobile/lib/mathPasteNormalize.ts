@@ -45,6 +45,18 @@ const OP_GLYPHS: [string, string][] = [
 
 const MATH_GLYPH_RE = /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞√×÷±∓≤≥≠≈∞π·−²³¹⁰⁴⁵⁶⁷⁸⁹⁺⁻₀-₉]/;
 
+/** Enough English words that a paste is a word problem, not a formula. */
+const PROSE_WORD_MIN = 8;
+
+/**
+ * True for homework / chat prose that happens to contain a unit or ².
+ * Keep this off the math-wrap / math-preview path.
+ */
+export function isMostlyProsePaste(text: string): boolean {
+  const words = text.match(/[A-Za-z]{3,}/g);
+  return (words?.length ?? 0) >= PROSE_WORD_MIN;
+}
+
 export function pastedDeltaLooksLikeMath(delta: string): boolean {
   const s = delta.trim();
   if (s.length < 1) return false;
@@ -80,6 +92,7 @@ function formatPastedExpr(expr: string): string {
 }
 
 export function normalizePastedMath(delta: string): string {
+  if (isMostlyProsePaste(delta)) return delta;
   if (!pastedDeltaLooksLikeMath(delta)) return delta;
   let s = delta;
   for (const [glyph, latex] of Object.entries(VULGAR_FRACTIONS)) {

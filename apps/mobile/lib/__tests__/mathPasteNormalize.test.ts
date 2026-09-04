@@ -78,4 +78,13 @@ describe("extractInsertedDelta / applyComposerTextChange", () => {
     const next = "please read notes_draft.txt later";
     expect(applyComposerTextChange(prev, next)).toBe(next);
   });
+
+  it("leaves a pasted physics word problem verbatim, including m/s²", () => {
+    const pasted =
+      "A car starts from rest and accelerates at a constant rate of 1.2 m/s². How long does it take the car to travel a distance of 500 meters?";
+    expect(normalizePastedMath(pasted)).toBe(pasted);
+    expect(applyComposerTextChange("", pasted)).toBe(pasted);
+    expect(applyComposerTextChange("", pasted)).not.toContain("\\frac");
+    expect(applyComposerTextChange("", pasted)).not.toContain("$");
+  });
 });
