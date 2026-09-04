@@ -121,7 +121,7 @@ function UserActions({
 
 function AssistantActions({
   messageId,
-  content,
+  markdown,
   feedback,
   onFeedback,
   onRegenerate,
@@ -131,7 +131,7 @@ function AssistantActions({
   thumbsOnly = false,
 }: {
   messageId: string;
-  content: string;
+  markdown: string;
   feedback: "up" | "down" | null;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   onRegenerate?: () => void;
@@ -148,10 +148,12 @@ function AssistantActions({
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const speakGenRef = useRef(0);
+  const copyPayload = extractPrimaryCopyText(markdown);
 
   const handleCopy = async () => {
+    if (!copyPayload.trim()) return;
     tap();
-    await copyText(content);
+    await copyText(copyPayload);
     setCopied(true);
     notifySuccess();
     setTimeout(() => setCopied(false), 1500);
@@ -167,7 +169,7 @@ function AssistantActions({
     const gen = ++speakGenRef.current;
     tap();
     setSpeaking(true);
-    const result = await speakPlainText(content, speechLocale(user?.locale), {
+    const result = await speakPlainText(markdown, speechLocale(user?.locale), {
       token,
       preferCloud: true,
     });
@@ -204,7 +206,7 @@ function AssistantActions({
             style={a.btn}
             onPress={handleCopy}
             hitSlop={8}
-            disabled={!content.trim()}
+            disabled={!copyPayload.trim()}
             accessibilityRole="button"
             accessibilityLabel={t("common.copy")}
           >
@@ -218,7 +220,7 @@ function AssistantActions({
             style={a.btn}
             onPress={() => void handleSpeak()}
             hitSlop={8}
-            disabled={!content.trim()}
+            disabled={!markdown.trim()}
             accessibilityRole="button"
             accessibilityLabel={t("chat.read_aloud_a11y")}
           >
@@ -346,7 +348,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     wasStreamed,
   });
   const {
-    content,
     hasContent,
     showActionSlot,
     actionsReady,
@@ -522,7 +523,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         <View style={b.actionRowSlot}>
           <AssistantActions
             messageId={message.id}
-            content={extractPrimaryCopyText(content)}
+            markdown={markdownContent}
             feedback={message.feedback ?? null}
             onFeedback={onFeedback}
             onRegenerate={isLastAssistant ? onRegenerate : undefined}
