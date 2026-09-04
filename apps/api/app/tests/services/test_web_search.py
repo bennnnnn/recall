@@ -61,8 +61,18 @@ def test_is_local_places_query():
     assert is_geo_query("The nearest gas station")
     assert is_distance_query("how far is the airport")
     assert is_distance_query("driving time to Golden Gate Bridge")
+    assert is_distance_query("how long does it take to get to the airport")
+    assert is_distance_query("how long is the drive")
     assert is_geo_query("how far is the airport")
     assert not is_geo_query("distance between NYC and LA")
+    kinematics = (
+        "A car starts from rest and accelerates at a constant rate of 1.2 m/s^2. "
+        "How long does it take the car to travel a distance of 500 meters?"
+    )
+    assert not is_distance_query(kinematics)
+    assert not is_geo_query(kinematics)
+    assert not is_distance_query("How long does it take the ball to fall 20 meters?")
+    assert not is_distance_query("A car accelerates at 2 m/s^2. How far does it travel in 10 s?")
     assert not is_proximity_query("explain Python decorators")
     assert not is_proximity_query("find the nearest prime number")
     assert not is_proximity_query("who is my closest friend")
