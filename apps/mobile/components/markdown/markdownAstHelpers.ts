@@ -33,11 +33,9 @@ export function ancestorTypeCount(parent: unknown, type: string): number {
   return n;
 }
 
-/** Nested `-` lists and real `1.` lists both get numeric markers so children scan. */
+/** Numbers carry order/rank semantics; nested unordered items stay bullets. */
 export function shouldNumberListItem(parent: unknown): boolean {
-  const immediate = immediateAncestorType(parent);
-  if (immediate === "ordered_list") return true;
-  return immediate === "bullet_list" && ancestorTypeCount(parent, "bullet_list") >= 2;
+  return immediateAncestorType(parent) === "ordered_list";
 }
 
 export function listItemDisplayNumber(parent: unknown, index: number): number {

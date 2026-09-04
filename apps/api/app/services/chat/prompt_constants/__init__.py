@@ -55,6 +55,7 @@ from app.services.chat.prompt_constants.routing import (
     CONFIRM_FOLLOW_THROUGH_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     is_broad_self_question,
+    is_email_or_message_request,
     is_learning_progress_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
@@ -63,6 +64,7 @@ from app.services.chat.prompt_constants.routing import (
     is_writing_deliverable_request,
     needs_rich_context,
     prior_looks_like_offer,
+    writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
@@ -74,6 +76,9 @@ from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
+    PROSE_WRITING_HINT,
+    SOCIAL_DRAFT_HINT,
+    TRANSLATION_FORMAT_HINT,
     WRITING_LINE_HINT,
     is_bare_writing_line,
 )
@@ -103,6 +108,7 @@ __all__ = [
     "MATH_TUTORING_HINT",
     "MERMAID_FORMAT_HINT",
     "PRIVACY_HINT",
+    "PROSE_WRITING_HINT",
     "QUIZ_ANSWER_HINT",
     "QUIZ_RECENT_MESSAGE_LIMIT",
     "QUOTE_FORMAT_HINT",
@@ -110,8 +116,10 @@ __all__ = [
     "SEQUENCE_FORMAT_HINT",
     "SHORT_MATH_SAFETY_HINT",
     "SHORT_RESPONSE_FORMAT_HINT",
+    "SOCIAL_DRAFT_HINT",
     "STYLE_HINTS",
     "TONE_FORMAT_GUARD",
+    "TRANSLATION_FORMAT_HINT",
     "UNIVERSAL_FORMAT_BASELINE",
     "VISUALIZATION_HINTS",
     "VOCAB_CHAT_ANSWER_HINT",
@@ -124,6 +132,7 @@ __all__ = [
     "is_callout_question",
     "is_chart_question",
     "is_comparison_question",
+    "is_email_or_message_request",
     "is_howto_question",
     "is_html_ui_question",
     "is_learning_progress_question",
@@ -138,4 +147,5 @@ __all__ = [
     "is_writing_deliverable_request",
     "needs_rich_context",
     "prior_looks_like_offer",
+    "writing_request_kind",
 ]

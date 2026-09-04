@@ -165,3 +165,24 @@ def test_detect_quality_malformed_json_fence():
     ctx = _ctx(rich_context_turn=False)
     report = detect_quality_issues(ctx, "```graph\n{bad json\n```")
     assert any(s.code == "malformed_json_fence" for s in report.signals)
+
+
+def test_detect_quality_flags_instructions_inside_draft_fence():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(
+        ctx,
+        "I'll craft a message for you.\n"
+        "```message\n"
+        "fence!\n(Or paste their number if SMS and you want it formatted for texting.)\n"
+        "```",
+    )
+    assert any(s.code == "invalid_draft_fence" for s in report.signals)
+
+
+def test_detect_quality_allows_real_multilingual_draft_fence():
+    ctx = _ctx(rich_context_turn=False)
+    report = detect_quality_issues(
+        ctx,
+        "```message\nመልካም ልደት! ደስታና ፍቅር የተሞላ ቀን እመኛለሁ።\n```",
+    )
+    assert not any(s.code == "invalid_draft_fence" for s in report.signals)

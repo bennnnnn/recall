@@ -223,6 +223,20 @@ def has_locale_cue(text: str, group: CueGroup) -> bool:
     return any(cue in folded for cue in _CUES[group])
 
 
+def is_bare_locale_cue(text: str, group: CueGroup) -> bool:
+    """True when a localized cue is the whole request, aside from punctuation.
+
+    This distinguishes a bare ``escribeme un correo`` (ask what it should say)
+    from ``escribeme un correo diciendo ...`` (the purpose is already present).
+    A substring-only check cannot make that distinction and caused non-English
+    draft requests to be interviewed after they had supplied the content.
+    """
+    folded = " ".join(text.casefold().split()).strip(".!?¿¡…،؟")
+    if not folded:
+        return False
+    return any(folded == cue for cue in _CUES[group])
+
+
 def has_any_personal_locale_cue(text: str) -> bool:
     """True when any personal-data locale cue matches (code-switching OK)."""
     folded = text.casefold()

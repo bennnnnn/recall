@@ -27,10 +27,15 @@ export function looksLikeCode(content: string): boolean {
   if (looksLikeMathFenceBody(content)) return false;
   const sample = content.slice(0, 2000);
   if (
-    /^\s*(def |class |function |import |export |const |let |var |public |private |protected |#include |package |func |fn |interface |type |enum |struct |impl |module |namespace |using |SELECT |CREATE |INSERT |UPDATE |DELETE |<!DOCTYPE|<\/?[a-z][\w-]*[\s/>])/im.test(
+    /^\s*(def |class |function |import |export |const |var |public |private |protected |#include |package |func |fn |interface |type |enum |struct |impl |module |namespace |using |SELECT |CREATE |INSERT |UPDATE |DELETE |<!DOCTYPE|<\/?[a-z][\w-]*[\s/>])/im.test(
       sample,
     )
   ) {
+    return true;
+  }
+  // `Let me know...` is one of the most common message openings. Treat
+  // lowercase `let` as code only when it has declaration syntax.
+  if (/^\s*let\s+[A-Za-z_$][\w$]*\s*(?::[^=\n;]+)?=/m.test(sample)) {
     return true;
   }
   if (/^\s{4}\S/m.test(sample) || /^\t+\S/m.test(sample)) return true;
@@ -109,7 +114,7 @@ export function looksLikeExplanatoryProse(content: string): boolean {
 }
 
 /** Recommendations, comparisons, career/stack advice — not paste-and-send text. */
-export function looksLikeAdvisoryNote(content: string): boolean {
+function hasDefiniteAdvisorySignals(content: string): boolean {
   const sample = content.slice(0, 1600).trim();
   if (
     /^(As a|If you('| a)re|For most|In general|When (choosing|building|learning)|I('| would) (recommend|suggest)|A solid|Good choices|Consider|You might|You('ll| will) (want|find)|Overall,|In practice,)/i.test(
@@ -139,6 +144,13 @@ export function looksLikeAdvisoryNote(content: string): boolean {
   ) {
     return true;
   }
+  return false;
+}
+
+/** Recommendations, comparisons, career/stack advice — not paste-and-send text. */
+export function looksLikeAdvisoryNote(content: string): boolean {
+  const sample = content.slice(0, 1600).trim();
+  if (hasDefiniteAdvisorySignals(sample)) return true;
   if (
     sample.length > 100 &&
     !emailDraftSignals(content) &&
@@ -243,16 +255,98 @@ export function looksLikeAssistantMeta(content: string): boolean {
   return false;
 }
 
+/** Definite drafting instructions/questions that must never become a draft card. */
+export function looksLikeDraftInstruction(content: string): boolean {
+  const sample = content.slice(0, 1200).trim();
+  const compact = sample.replace(/\s+/g, " ");
+  if (!compact) return true;
+  if (/^fence!?\b/i.test(compact)) return true;
+  if (
+    /\b(?:who is this for|what(?:'s| is) the purpose|what would you like (?:it|the (?:message|email|post)) to say|paste (?:their|the) (?:phone )?number|formatted for texting)\b/i.test(
+      compact,
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(?:i(?:'ll| will) (?:craft|draft|format)|i need (?:the |your |a )?(?:recipient|purpose|tone|details|name|email address|phone number))\b/i.test(
+      compact,
+    )
+  ) {
+    return true;
+  }
+  if (/\bdrop (?:those|these|that) in\b/i.test(compact) && /\bdraft\b/i.test(compact)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Explicit model-owned draft tags are authoritative across languages, except
+ * for definite code, assistant commentary, or leaked drafting instructions.
+ * Requiring English greetings/contractions made Amharic and Spanish copy fall
+ * through to a syntax-highlighted CodeBlock.
+ */
+export function looksLikeExplicitDraftContent(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+  if (looksLikeDraftInstruction(trimmed)) return false;
+  // Explicit email/message/social tags are authoritative. Only reject meta
+  // text that unmistakably refers to revising the assistant's own draft;
+  // broad checks such as a leading "Let me know if..." would throw away a
+  // perfectly valid message the user intends to send.
+  if (
+    /^(?:happy to|i can) (?:revise|update|adjust) (?:the |this |it )?(?:tone|length|draft|message|email|post)\b/i.test(
+      trimmed,
+    ) ||
+    (/\bi assumed\b/i.test(trimmed) && /\blet me know\b/i.test(trimmed))
+  ) {
+    return false;
+  }
+  return !looksLikeCode(trimmed);
+}
+
+export function isStructuredDraftLang(lang: string): boolean {
+  const l = lang.trim().toLowerCase();
+  return (
+    l === "email" ||
+    l === "message" ||
+    l === "sms" ||
+    l === "reply" ||
+    l === "twitter" ||
+    l === "tweet" ||
+    l === "x" ||
+    l === "linkedin" ||
+    l === "social"
+  );
+}
+
+/** Remove the literal developer term shown in the reported malformed card. */
+export function draftFenceProseText(content: string): string {
+  return content
+    .split("\n")
+    .filter((line) => !/^\s*fence!?\s*$/i.test(line))
+    .join("\n")
+    .trim();
+}
+
 /** Fences that should render as normal body text — not CopyBlock or CodeBlock. */
 export function shouldRenderAsPlainProseFence(
   lang: string,
   content: string,
 ): boolean {
+  const l = lang.trim().toLowerCase();
+  // An explicit copy tag can contain any language. Keep genuine copy fenced;
+  // unwrap only obvious assistant/meta text so it reads as normal prose.
+  if (l === "copy") {
+    return (
+      !looksLikeExplicitDraftContent(content) || hasDefiniteAdvisorySignals(content)
+    );
+  }
   if (looksLikeExplanatoryProse(content)) return true;
   if (looksLikeAssistantMeta(content)) return true;
   if (looksLikeCode(content)) return false;
   if (isExplicitCodeLang(lang)) return false;
-  const l = lang.trim().toLowerCase();
   if (isCopyLang(l) || isProseLang(lang)) {
     return looksLikeProse(content) && !looksLikeSendDeliverable(content);
   }
@@ -332,13 +426,20 @@ export function shouldRenderAsCopyBlock(
   lang: string,
   content: string,
 ): boolean {
+  const l = lang.trim().toLowerCase();
   if (looksLikeCode(content)) return false;
-  if (looksLikeAssistantMeta(content)) return false;
-  if (looksLikeExplanatoryProse(content)) return false;
+  if (looksLikeDraftInstruction(content)) return false;
   if (looksLikeMathAnswer(content)) return false;
   if (isAnswerLang(lang)) return false;
   if (isExplicitCodeLang(lang)) return false;
-  const l = lang.trim().toLowerCase();
+  if (l === "copy") {
+    return (
+      looksLikeExplicitDraftContent(content) &&
+      !hasDefiniteAdvisorySignals(content)
+    );
+  }
+  if (looksLikeAssistantMeta(content)) return false;
+  if (looksLikeExplanatoryProse(content)) return false;
   if (
     l === "copy" ||
     l === "text" ||

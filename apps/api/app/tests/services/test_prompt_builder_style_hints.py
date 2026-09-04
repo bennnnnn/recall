@@ -395,7 +395,7 @@ def test_howto_query_gets_headings_and_lists_layout():
     assert HOWTO_FORMAT_HINT in rich
 
 
-def test_vs_query_gets_table_then_code_card_layout():
+def test_vs_query_gets_table_with_conditional_code_examples():
     from app.services.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
         COMPARISON_FORMAT_HINT,
@@ -409,7 +409,8 @@ def test_vs_query_gets_table_then_code_card_layout():
         compact=False,
     )
     assert COMPARISON_FORMAT_HINT in rich
-    assert "code cards" in COMPARISON_FORMAT_HINT
+    assert "tagged code fences" in COMPARISON_FORMAT_HINT
+    assert "materially help" in COMPARISON_FORMAT_HINT
 
     slim = _style_format_hints(
         query_text="Compare Python vs Java for a beginner. Side by side on typing, syntax, and use cases.",

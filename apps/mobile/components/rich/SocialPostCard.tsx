@@ -3,7 +3,6 @@ import { StyleSheet, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
-import { stripDraftFormSlots } from "@/lib/emailDraftSanitize";
 import { type IoniconName } from "@/lib/icons";
 import { SocialPlatform } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
@@ -25,7 +24,7 @@ export function SocialPostCard({ text, platform }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const meta = platformMeta(t)[platform];
-  const sanitized = useMemo(() => stripDraftFormSlots(text), [text]);
+  const sanitized = useMemo(() => text.trim(), [text]);
 
   return (
     <CardShell label={meta.label} copyText={sanitized} icon={meta.icon} accent={false}>

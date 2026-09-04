@@ -242,6 +242,17 @@ describe("renderFence edge cases", () => {
     expect(renderFence(node('{"prompt":"a cute cat"}', "image"))).toBeNull();
   });
 
+  it("renders leaked message-fence instructions as prose, not a draft card", async () => {
+    const leaked =
+      "fence!\n(Or paste their number if SMS and you want it formatted for texting.)";
+    const { getByText, queryByText } = await render(
+      <>{renderFence(node(leaked, "message"))}</>,
+    );
+    expect(queryByText(/fence!/i)).toBeNull();
+    expect(getByText(/paste their number/i)).toBeOnTheScreen();
+    expect(queryByText("rich.message_draft")).toBeNull();
+  });
+
   it("falls back to CodeBlock for a plain code fence with an explicit language", async () => {
     const { getByText } = await render(<>{renderFence(node("const x = 1;", "javascript"))}</>);
     expect(getByText("javascript:const x = 1;")).toBeOnTheScreen();

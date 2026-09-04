@@ -178,15 +178,17 @@ function stripMarkdownChrome(text: string): string {
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
   out = out.replace(/^#{1,6}\s+/gm, "");
   out = out.replace(/^>\s?/gm, "");
-  out = out.replace(/^\s*[-+]\s+/gm, "• ");
-  out = out.replace(/^\s*\d+\.\s+/gm, "");
+  out = out.replace(/^(\s*)[-+]\s+/gm, "$1• ");
+  // Whole-message Copy must preserve sequence/rank and nested indentation.
+  // Removing `1.`, `2.`, `3.` turned copied procedures into unordered lines.
+  out = out.replace(/^(\s*)(\d+)\.\s+/gm, "$1$2. ");
   out = unwrapDelimited(out, "**");
   out = unwrapDelimited(out, "__");
   out = unwrapDelimited(out, "~~");
   out = unwrapDelimited(out, "`");
   out = unwrapWordEdgeMarker(out, "_");
   out = unwrapWordEdgeMarker(out, "*");
-  out = out.replace(/^\s*\*\s+/gm, "• ");
+  out = out.replace(/^(\s*)\*\s+/gm, "$1• ");
   return out;
 }
 
