@@ -7,6 +7,10 @@ import { api, type Message } from "@/lib/api";
 import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+jest.mock("@/lib/cache/chatListCache", () => ({
+  getCachedChat: () => ({ id: "chat-1", title: "Old title" }),
+  peekCreatedChat: () => undefined,
+}));
 
 jest.mock("@/lib/api", () => ({
   api: {

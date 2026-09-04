@@ -110,12 +110,16 @@ export function ConversationList(_props: unknown) {
 
   const { bulkArchiveChats, bulkDeleteChats } = useChatBulkActions({
     token,
+    isDrawerOpen: isOpen,
+    patchChatInGroups,
     insertChatInGroups,
     moveChatArchiveState,
     removeChatFromGroupsById,
-    reloadChats: () => void load(),
+    reloadChats: () => void load(false, true),
     showActionBanner,
   });
+
+  const listedChats = useMemo(() => [...allChats, ...groups.archived], [allChats, groups.archived]);
 
   const {
     selectionMode,
@@ -126,8 +130,9 @@ export function ConversationList(_props: unknown) {
     toggleSelected,
     selectAllListed,
   } = useDrawerChatSelection({
+    token,
     isDrawerOpen: isOpen,
-    listedChats: allChats,
+    listedChats,
   });
 
   const { unseenCount, showIndicator } = useReminderBadgeCount({
@@ -214,7 +219,7 @@ export function ConversationList(_props: unknown) {
   const activeChatId = isOpen ? getActiveChatIdGlobal() : null;
 
   const onRetryLoad = useCallback(() => {
-    void load();
+    void load(false, true);
   }, [load]);
 
   const listHeader = useMemo(
@@ -364,6 +369,7 @@ export function ConversationList(_props: unknown) {
           theme={theme}
           paddingBottom={insets.bottom + 8}
           selectedCount={selectedCount}
+          archivableCount={selectedChats.filter((chat) => !chat.archived).length}
           onArchive={handleBulkArchive}
           onDelete={handleBulkDelete}
         />

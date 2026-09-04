@@ -4,6 +4,10 @@ import { act, render, waitFor } from "@testing-library/react-native";
 
 import { useChatTitlePolling } from "@/hooks/useChatTitlePolling";
 
+let mockSession = 0;
+let mockRevision = 0;
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
+
 jest.mock("@/lib/api", () => ({
   api: {
     getChat: jest.fn(),
@@ -18,6 +22,7 @@ jest.mock("@/lib/cache/chatListCache", () => ({
 jest.mock("@/lib/drawer", () => {
   let pending: string | null = null;
   return {
+    getChatMutationRevision: () => mockRevision,
     insertChatGlobal: jest.fn(),
     patchChatGlobal: jest.fn(),
     setChatTitleGenerating: jest.fn((id: string | null) => {
@@ -68,6 +73,8 @@ describe("useChatTitlePolling", () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     screenTitle = null;
+    mockSession = 0;
+    mockRevision = 0;
     setGenerating(null);
     peekCreated.mockReturnValue(undefined);
     listedChat.mockReturnValue(undefined);
@@ -295,4 +302,87 @@ describe("useChatTitlePolling", () => {
     });
     expect(patchChat).toHaveBeenCalledWith("chat-new", { title: "Voice note" });
   });
+  it("does not apply a first-reply lookup to a different header", async () => {
+    let resolve!: (value: { id: string; title: string }) => void;
+    getChat.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const view = await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.handleFirstReply(); });
+    await view.rerender(<Probe chatId="chat-b" />);
+    await act(async () => {
+      resolve({ id: "chat-a", title: "A only" });
+      await pending;
+    });
+    expect(screenTitle).toBeNull();
+    expect(insertChat).toHaveBeenCalledWith({ id: "chat-a", title: "A only" });
+  });
+
+  it.each(["rename", "logout", "unmount", "return"])('ignores a pending title after %s', async (change) => {
+    let resolve!: (value: { title: string }) => void;
+    getChat.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const view = await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
+    await act(async () => { jest.advanceTimersByTime(2000); });
+    if (change === "rename") mockRevision++;
+    if (change === "logout") mockSession++;
+    if (change === "unmount") await view.unmount();
+    if (change === "return") {
+      await view.rerender(<Probe chatId="chat-b" />);
+      await view.rerender(<Probe chatId="chat-a" />);
+    }
+    await act(async () => {
+      resolve({ title: "Old title" });
+      await pending;
+    });
+    expect(screenTitle).toBeNull();
+    if (change !== "return") expect(patchChat).not.toHaveBeenCalled();
+  });
+
+  it("keeps a manual rename made while a poll timer was waiting", async () => {
+    await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
+    mockRevision++;
+    listedChat.mockReturnValue({ id: "chat-a", title: "My manual title" });
+    await act(async () => { jest.advanceTimersByTime(2000); await pending; });
+    expect(getChat).not.toHaveBeenCalled();
+    expect(patchChat).not.toHaveBeenCalled();
+  });
+
+  it("rejects retained title callbacks from an ended account session", async () => {
+    const view = await render(<Probe chatId="chat-a" />);
+    const stale = current;
+    mockSession++;
+    await view.rerender(<Probe chatId="chat-b" />);
+    setGenerating.mockClear();
+    await act(async () => {
+      await stale.pollForTitle("tok", "chat-a");
+      await stale.handleFirstReply();
+    });
+    expect(setGenerating).not.toHaveBeenCalled();
+    expect(getChat).not.toHaveBeenCalled();
+    expect(insertChat).not.toHaveBeenCalled();
+  });
+
+  it("does not schedule network work after unmount", async () => {
+    const view = await render(<Probe chatId="chat-a" />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = current.pollForTitle("tok", "chat-a"); });
+    await view.unmount();
+    await act(async () => { await pending; });
+    await act(async () => { jest.advanceTimersByTime(2000); });
+    expect(getChat).not.toHaveBeenCalled();
+  });
+
+  it("treats a persisted short manual title as finished", async () => {
+    listedChat.mockReturnValue({ id: "chat-a", title: "Chat", pinned: false });
+    await render(<Probe chatId="chat-a" />);
+    await act(async () => { void current.handleFirstReply(); });
+    expect(screenTitle).toBe("Chat");
+    expect(setGenerating).not.toHaveBeenCalledWith("chat-a");
+    await act(async () => { jest.advanceTimersByTime(2000); });
+    expect(getChat).not.toHaveBeenCalled();
+  });
+
 });

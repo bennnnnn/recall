@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
 import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
-import { chatNeedsGeneratedTitle } from "@/lib/chat/chatTitle";
 import { firstReplyTitlePlan } from "@/lib/chatTitleRefresh";
 import {
+  getChatMutationRevision,
   insertChatGlobal,
   isChatTitleGenerating,
   patchChatGlobal,
@@ -17,96 +18,125 @@ type Options = {
   setChatTitle: (title: string | null) => void;
   getFirstUserText?: () => string | undefined;
 };
-
+type TitlePoll = { cancel: () => void; task: Promise<void> };
 const TITLE_POLL_ATTEMPTS = 8;
 const TITLE_POLL_MS = 2000;
 
 /** Polls for the auto-generated chat title after the first assistant reply. */
-export function useChatTitlePolling({
-  token,
-  chatId,
-  setChatTitle,
-  getFirstUserText,
-}: Options) {
+export function useChatTitlePolling({ token, chatId, setChatTitle, getFirstUserText }: Options) {
   const [titleGenerating, setTitleGenerating] = useState(false);
-  const chatIdRef = useRef(chatId);
-  chatIdRef.current = chatId;
+  const session = getSessionGeneration();
+  const view = useRef({ chatId, session, version: 0 });
+  if (view.current.chatId !== chatId || view.current.session !== session) {
+    view.current = { chatId, session, version: view.current.version + 1 };
+  }
+  const mounted = useRef(true);
+  const polls = useRef(new Map<string, TitlePoll>());
+  useEffect(() => {
+    mounted.current = true;
+    const active = polls.current;
+    return () => {
+      mounted.current = false;
+      for (const poll of active.values()) poll.cancel();
+      active.clear();
+    };
+  }, [session]);
 
-  const pollForTitle = useCallback(
-    async (tid: string, cid: string) => {
-      setChatTitleGenerating(cid);
-      if (cid === chatIdRef.current) {
-        setTitleGenerating(true);
-      }
+  const pollForTitle = useCallback((tid: string, cid: string): Promise<void> => {
+    if (!mounted.current || session !== getSessionGeneration()) return Promise.resolve();
+    const existing = polls.current.get(cid);
+    if (existing) return existing.task;
+    const ownerSession = session;
+    const version = view.current.version;
+    let revision = getChatMutationRevision(cid);
+    let cancelled = false;
+    let wake: (() => void) | undefined;
+    const isCurrent = () => mounted.current && !cancelled && ownerSession === getSessionGeneration();
+    const ownsHeader = () => isCurrent() && version === view.current.version && cid === view.current.chatId;
+    const poll: TitlePoll = {
+      cancel: () => { cancelled = true; wake?.(); },
+      task: Promise.resolve(),
+    };
+    polls.current.set(cid, poll);
+    setChatTitleGenerating(cid);
+    if (ownsHeader()) setTitleGenerating(true);
+    poll.task = (async () => {
       try {
         for (let i = 0; i < TITLE_POLL_ATTEMPTS; i++) {
-          await new Promise((r) => setTimeout(r, TITLE_POLL_MS));
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, TITLE_POLL_MS);
+            wake = () => { clearTimeout(timer); resolve(); };
+          });
+          wake = undefined;
+          if (!isCurrent()) return;
+          const latestRevision = getChatMutationRevision(cid);
+          if (revision !== latestRevision) {
+            const latest = getCachedChat(cid);
+            // An optimistic rename already owns the displayed title. A removed
+            // row must not be revived by a poll that started before deletion.
+            if (!latest || latest.title?.trim()) return;
+            revision = latestRevision;
+          }
           try {
             const updated = await api.getChat(tid, cid);
-            if (updated.title && !chatNeedsGeneratedTitle(updated.title)) {
+            if (!isCurrent() || revision !== getChatMutationRevision(cid)) return;
+            // API titles are persisted values; short manual labels are valid too.
+            if (updated.title?.trim()) {
               patchChatGlobal(cid, { title: updated.title });
-              // Header follows the open chat only. Drawer patch still applies
-              // after New chat / another thread (the topic job is for `cid`).
-              if (cid === chatIdRef.current) {
-                setChatTitle(updated.title);
-              }
+              if (ownsHeader()) setChatTitle(updated.title);
               return;
             }
           } catch {
-            /* ignore */
+            /* Topic generation and drawer refresh are best-effort. */
           }
         }
       } finally {
-        if (cid === chatIdRef.current) {
-          setTitleGenerating(false);
-        }
-        // Single-slot marker: only drop it if this poll still owns it. A's
-        // poll ending after we opened B must not clear B's generating state.
-        if (isChatTitleGenerating(cid)) {
+        if (ownsHeader()) setTitleGenerating(false);
+        if (ownerSession === getSessionGeneration() && isChatTitleGenerating(cid)) {
           setChatTitleGenerating(null);
         }
+        if (polls.current.get(cid) === poll) polls.current.delete(cid);
       }
-    },
-    [setChatTitle],
-  );
+    })();
+    return poll.task;
+  }, [session, setChatTitle]);
 
   const handleFirstReply = useCallback(async (explicitChatId?: string | null) => {
     const cid = explicitChatId ?? chatId;
-    if (!token || !cid) return;
-    const plan = firstReplyTitlePlan(
-      peekCreatedChat(cid),
-      getCachedChat(cid),
-      getFirstUserText?.(),
-    );
+    if (!token || !cid || !mounted.current || session !== getSessionGeneration()) return;
+    const ownerSession = session;
+    const version = view.current.version;
+    const revision = getChatMutationRevision(cid);
+    const isCurrent = () => mounted.current && ownerSession === getSessionGeneration() &&
+      revision === getChatMutationRevision(cid);
+    const ownsHeader = () => mounted.current && ownerSession === getSessionGeneration() &&
+      version === view.current.version && cid === view.current.chatId;
+    const plan = firstReplyTitlePlan(peekCreatedChat(cid), getCachedChat(cid), getFirstUserText?.());
     let shouldPoll = plan.poll;
     if (plan.insert) {
       insertChatGlobal(plan.insert);
-      if (plan.insert.title && !chatNeedsGeneratedTitle(plan.insert.title)) {
-        setChatTitle(plan.insert.title);
-      }
+      if (plan.insert.title && ownsHeader()) setChatTitle(plan.insert.title);
     } else if (plan.fetch) {
       try {
         const chat = await api.getChat(token, cid);
+        if (!isCurrent()) return;
         insertChatGlobal(chat);
-        if (chat.title && !chatNeedsGeneratedTitle(chat.title)) {
-          setChatTitle(chat.title);
+        if (chat.title?.trim()) {
+          if (ownsHeader()) setChatTitle(chat.title);
           shouldPoll = false;
         }
       } catch {
-        /* drawer insert is best-effort */
+        if (!isCurrent()) return;
+        /* Drawer insert is best-effort. */
       }
     }
-    if (shouldPoll) {
-      await pollForTitle(token, cid);
-    }
-  }, [token, chatId, pollForTitle, setChatTitle, getFirstUserText]);
+    if (shouldPoll) await pollForTitle(token, cid);
+  }, [token, session, chatId, pollForTitle, setChatTitle, getFirstUserText]);
 
   useEffect(() => {
     setTitleGenerating(false);
-    if (!chatId) {
-      setChatTitleGenerating(null);
-    }
-  }, [chatId]);
+    if (!chatId) setChatTitleGenerating(null);
+  }, [chatId, session]);
 
   return { titleGenerating, pollForTitle, handleFirstReply };
 }

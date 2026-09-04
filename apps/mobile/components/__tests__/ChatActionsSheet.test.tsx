@@ -93,3 +93,13 @@ describe("ChatActionsSheet", () => {
     expect(queryByText("chat.export_pdf")).toBeNull();
   });
 });
+
+
+it("offers Unarchive before Pin for an archived conversation", async () => {
+  const view = await render(<ChatActionsSheet {...baseProps} archived />);
+  expect(view.queryByText("chat.pin")).toBeNull();
+  expect(view.queryByText("chat.unpin")).toBeNull();
+  expect(view.getByText("chat.unarchive")).toBeTruthy();
+  await view.rerender(<ChatActionsSheet {...baseProps} archived={false} />);
+  expect(view.getByText("chat.pin")).toBeTruthy();
+});

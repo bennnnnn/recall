@@ -10,6 +10,7 @@ type Props = {
   theme: Theme;
   paddingBottom: number;
   selectedCount: number;
+  archivableCount: number;
   onArchive: () => void;
   onDelete: () => void;
 };
@@ -19,26 +20,28 @@ export function DrawerSelectionBar({
   theme,
   paddingBottom,
   selectedCount,
+  archivableCount,
   onArchive,
   onDelete,
 }: Props) {
   const { t } = useTranslation();
   const disabled = selectedCount === 0;
+  const archiveDisabled = disabled || archivableCount === 0;
 
   return (
     <View style={[s.selectionBar, { paddingBottom }]} pointerEvents="box-none">
       <Pressable
-        style={[s.selectionAction, disabled && s.selectionActionDisabled]}
-        disabled={disabled}
+        style={[s.selectionAction, archiveDisabled && s.selectionActionDisabled]}
+        disabled={archiveDisabled}
         onPress={onArchive}
         accessibilityRole="button"
       >
         <Icon
           name="archive-outline"
           size={18}
-          color={disabled ? theme.textTertiary : theme.primary}
+          color={archiveDisabled ? theme.textTertiary : theme.primary}
         />
-        <Text style={[s.selectionActionText, disabled && s.selectionActionTextDisabled]}>
+        <Text style={[s.selectionActionText, archiveDisabled && s.selectionActionTextDisabled]}>
           {t("drawer.bulk_archive")}
         </Text>
       </Pressable>

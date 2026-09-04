@@ -25,9 +25,9 @@ export function firstReplyTitlePlan(
   listed: Chat | undefined,
   firstUserText?: string,
 ): FirstReplyTitlePlan {
-  const chat = created ?? listed;
+  const chat = listed ?? created;
   if (!chat) return { insert: null, fetch: true, poll: true };
-  if (chat.title && !chatNeedsGeneratedTitle(chat.title)) {
+  if (chat.title && (listed || !chatNeedsGeneratedTitle(chat.title))) {
     return { insert: chat, fetch: false, poll: false };
   }
   const overlay = provisionalAttachmentTitle(firstUserText);
