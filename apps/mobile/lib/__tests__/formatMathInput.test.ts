@@ -9,7 +9,7 @@ describe("formatMathExpr", () => {
       expect(formatMathExpr("x^2 = 4")).toBe("x^2 = 4");
     });
     it("does not turn a command tail into a false exponent", () => {
-      // \pm2 must stay \pm2, not \pm^2 (regression guard from fixImplicitExponents).
+      // \pm2 must stay \pm2, not \pm^2 (regression guard from applyImplicitPowerNotation).
       expect(formatMathExpr("x = \\pm2")).toBe("x = \\pm2");
     });
     it("can be disabled", () => {

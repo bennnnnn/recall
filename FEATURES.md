@@ -88,7 +88,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do
   **not** fold (code blocks may still fold). Do not reintroduce assistant-body folding.
-- ✅ **Copy** — copy a whole message, and a dedicated copy button per code block.
+- ✅ **Copy** — copy a whole message (keeps code syntax, `$`, identifiers, and
+  ` ```answer ` results; skips reminder/control JSON). Dedicated copy per code
+  block. Read-aloud uses a separate spoken form (prose + the visible result;
+  a short label for charts/diagrams; never control JSON).
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
@@ -133,6 +136,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
   inline code, horizontal rules.
 - ✅ **Code blocks** — dark card, language badge, copy button, horizontal scroll.
+  Fenced bodies stay opaque to math/table beautification (`$$` in a Python string,
+  a quoted GFM table, ASCII boxes in ` ```text `).
 - ✅ **Syntax highlighting** — **Prism.js** token coloring for 40+ languages (comments, strings,
   numbers, keywords); heuristic fallback for unknown langs.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
@@ -151,7 +156,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
   display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
-  fullscreen scroll. Server-side **SymPy** solves equations and samples graphs before the LLM
+  fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
+  supplied — the renderer does not invent exponents. Composer keypad OCR still maps
+  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs before the LLM
   explains (verified numbers injected into the prompt; Recall attaches geometry,
   graph, and algebra ` ```answer ` after the stream). The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
@@ -1015,6 +1022,11 @@ weakness. No video generation. Native share is enough unless we later decide we 
 - Locale prose + legal page bodies.
 - Public share URLs only if we explicitly want unauthenticated read links.
 - Folders, family plans, response-cache / prompt-budget UI, user-tunable routing.
+- **Reply-quality Lane 2** — interpret “yes/go” against the prior offer; let “one
+  sentence” beat format templates; ask one question when a draft has no purpose.
+- **Reply-quality Lane 3** — mark interrupted/incomplete streams; disclose file
+  excerpt limits; rehydrate image follow-ups; keep table rows aligned; preserve
+  chart grouping. No new cards, chips, or surfaces.
 
 ### Not doing
 

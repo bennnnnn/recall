@@ -1,5 +1,66 @@
 /** Linear markdown-fence scan — no nested regex on assistant text. */
 
+/** CommonMark fence opener/closer: 3+ backticks or tildes, up to 3 leading spaces. */
+export function readFenceMarker(
+  line: string,
+): { char: "`" | "~"; len: number; info: string } | null {
+  let i = 0;
+  while (i < line.length && i < 3 && line[i] === " ") i += 1;
+  const char = line[i];
+  if (char !== "`" && char !== "~") return null;
+  let len = 0;
+  while (i < line.length && line[i] === char) {
+    len += 1;
+    i += 1;
+  }
+  if (len < 3) return null;
+  return { char, len, info: line.slice(i).trim() };
+}
+
+/**
+ * Apply `fn` only to prose between fenced regions. Fence openers, bodies, and
+ * closers are copied byte-for-byte (including `$$` inside a Python string).
+ */
+export function applyOutsideFences(text: string, fn: (prose: string) => string): string {
+  if (!text) return fn(text);
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let prose: string[] = [];
+  let open: { char: "`" | "~"; len: number } | null = null;
+
+  const flushProse = () => {
+    if (prose.length === 0) return;
+    out.push(fn(prose.join("\n")));
+    prose = [];
+  };
+
+  for (const line of lines) {
+    const marker = readFenceMarker(line);
+    if (open) {
+      out.push(line);
+      if (
+        marker &&
+        marker.char === open.char &&
+        marker.len >= open.len &&
+        marker.info === ""
+      ) {
+        open = null;
+      }
+      continue;
+    }
+    // ` ``` | ```java` is a table-cell leftover, not a fence opener.
+    if (marker && !marker.info.includes("|")) {
+      flushProse();
+      out.push(line);
+      open = { char: marker.char, len: marker.len };
+      continue;
+    }
+    prose.push(line);
+  }
+  flushProse();
+  return out.join("\n");
+}
+
 export function isFenceCloser(line: string): boolean {
   const stripped = line.trim();
   return stripped.length >= 3 && stripped === "`".repeat(stripped.length);

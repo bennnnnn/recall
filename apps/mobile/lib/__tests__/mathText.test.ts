@@ -1,3 +1,4 @@
+import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import {
   MATH_TALL_LINE_HEIGHT,
   MATH_SCRIPT_LINE_HEIGHT,
@@ -15,6 +16,14 @@ describe("parseSimpleLatex", () => {
     const segs = parseSimpleLatex("x^2 + 2 = 6");
     expect(segmentsToPlain(segs)).toBe("x^2 + 2 = 6");
     expect(segs.some((s) => s.type === "sup" && s.value === "2")).toBe(true);
+  });
+
+  it("does not turn adjacent digits into a superscript (MathText pipeline)", () => {
+    for (const expr of ["12+3=15", "20-10=10", "99*2=198"]) {
+      const segs = parseSimpleLatex(fixImplicitExponents(expr));
+      expect(segs.some((s) => s.type === "sup")).toBe(false);
+      expect(segmentsToPlain(segs)).toBe(expr);
+    }
   });
 
   it("BUG FIX regression: braced 2/3 exponent is one sup (not 3 then 2 then /3)", () => {

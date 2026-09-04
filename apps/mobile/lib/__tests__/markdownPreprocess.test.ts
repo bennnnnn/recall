@@ -539,7 +539,10 @@ represents`;
     expect(tables.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("BUG FIX regression: unwraps a GFM table swallowed by a python fence", () => {
+  it("keeps a GFM table inside an explicit python fence instead of splitting it out", () => {
+    // A valid Python program can contain a Markdown table in a string.
+    // Splitting it out used to change the program. The table-cell
+    // ```python swallow case is handled by breakAttachedMathFences.
     const input = [
       "```python",
       'print("Hello, world!")',
@@ -552,14 +555,15 @@ represents`;
       "```",
     ].join("\n");
     const out = preprocessMarkdown(input);
+    expect(out).toContain("```python");
+    expect(out).toContain("| Web Development | Django, Flask | Spring |");
     const tokens = markdownItInstance.parse(out, {});
-    expect(tokens.some((t) => t.type === "table_open")).toBe(true);
     const fenceBodies = tokens
       .filter((t) => t.type === "fence")
       .map((t) => t.content)
       .join("\n");
-    expect(fenceBodies).not.toMatch(/Web Development/);
-    expect(out).toContain("Django");
+    expect(fenceBodies).toMatch(/Web Development/);
+    expect(tokens.some((t) => t.type === "table_open")).toBe(false);
   });
 
   it("BUG FIX regression: does not leave a stray backtick on a check-sum line", () => {
@@ -835,6 +839,14 @@ Bob | 88`;
     expect(out).toContain("| A | B |");
   });
 
+  it("keeps an ASCII table inside a tagged text fence, including borders", () => {
+    const input = ["```text", "+---+", "| a |", "+---+", "```"].join("\n");
+    const out = normalizeMarkdownTables(input);
+    expect(out).toBe(input);
+    expect(preprocessMarkdown(input)).toContain("+---+");
+    expect(preprocessMarkdown(input)).toContain("```text");
+  });
+
   it("strips divider-only lines between table rows", () => {
     const input = `| Col A | Col B |
 ---
@@ -989,5 +1001,40 @@ foo | 1`;
     const tokens = markdownItInstance.parse(prepared, {});
     const types = tokens.map((t) => t.type);
     expect(types).toContain("table_open");
+  });
+});
+
+describe("fenced code stays opaque to math/table repair", () => {
+  it("does not turn $$ inside a Python string into a math fence", () => {
+    const input = '```python\ns = "$$x$$"\nprint(s)\n```';
+    const out = preprocessMarkdown(input);
+    expect(out).toContain('s = "$$x$$"');
+    expect(out).not.toMatch(/```math/);
+    expect(out).toContain("```python");
+  });
+
+  it("does not split a GFM table out of a Python triple-quoted string", () => {
+    const input = [
+      "```python",
+      'doc = """',
+      "| A | B |",
+      "| --- | --- |",
+      "| 1 | 2 |",
+      '"""',
+      "print(doc)",
+      "```",
+    ].join("\n");
+    const out = preprocessMarkdown(input);
+    expect(out).toContain('doc = """');
+    expect(out).toContain("| A | B |");
+    expect(out).toContain("| --- | --- |");
+    expect(out).toContain("```python");
+    expect(out).toContain("print(doc)");
+  });
+
+  it("still converts $$ display math in prose", () => {
+    const out = preprocessMarkdown("See\n\n$$x^2$$\n\nDone.");
+    expect(out).toContain("```math");
+    expect(out).toContain("x^2");
   });
 });
