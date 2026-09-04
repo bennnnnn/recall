@@ -236,6 +236,9 @@ def test_writing_request_kinds_cover_each_output_shape():
         "翻译这句话": "translation",
         "翻訳してください": "translation",
         "번역해 주세요": "translation",
+        "翻译理论是什么？": None,
+        "翻訳とは何ですか？": None,
+        "번역이란 무엇인가요?": None,
         'Translate "write me an email" into Spanish': "translation",
         "Write one paragraph about photosynthesis": "prose",
         "Write a short article comparing Python and Java": "prose",
@@ -247,6 +250,12 @@ def test_writing_request_kinds_cover_each_output_shape():
         "How do I write a LinkedIn post?": None,
         (
             "How do I make it concise? Please write a LinkedIn post comparing Python and Java."
+        ): "social",
+        (
+            "How do I revise 'This is good. Really good'? Please translate it into French."
+        ): "translation",
+        (
+            "How do I shorten this, e.g. for LinkedIn? Please write a LinkedIn post about it."
         ): "social",
         "Explain translation in protein synthesis": None,
         "Explain how ribosomes translate mRNA": None,

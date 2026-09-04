@@ -393,8 +393,21 @@ _TRANSLATION_WRITING = re.compile(
     r"^(?:" + _DIRECT_REQUEST_INTRO + r"(?:"
     r"(?:translate|traduc(?:e|ir)|traduis|traduire|[uü]bersetze|traduci|"
     r"traduz(?:a|ir)?|cevir|çevir|hiiki)\b|"
-    r"(?:переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역)|"
+    r"(?:переведи|ተርጉም)\b|"
     r"translation\s*:))",
+    re.IGNORECASE,
+)
+
+_UNSPACED_TRANSLATION_COMMAND = re.compile(
+    r"^(?:"
+    r"(?:请|請)?(?:翻译|翻譯)(?="
+    r"(?:这|這|那|以下|下面|下列|上述|此|我|成|为|為|一下|文本|文章|内容|內容|"
+    r"句子|单词|單詞|邮件|郵件|消息|标题|標題|菜单|菜單|网页|網頁|文件|文档|文檔|"
+    r"字幕|说明|說明|歌词|歌詞|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
+    r"(?:翻訳)(?=(?:して|し|を|この|これ|次|以下|下記|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
+    r"(?:訳して)|"
+    r"(?:번역)(?=(?:해|하|을|를|좀|부탁|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))"
+    r")",
     re.IGNORECASE,
 )
 
@@ -427,10 +440,47 @@ def _after_initial_writing_howto(text: str) -> str | None:
     """Drop a leading how-to sentence, but retain a later explicit request."""
     if not _WRITING_HOWTO.search(text):
         return text
-    boundary = re.search(r"[.!?]+(?:\s+|$)", text)
-    if boundary is None:
+    quote_closers = {
+        '"': '"',
+        "'": "'",
+        "“": "”",
+        "\u2018": "\u2019",
+        "「": "」",
+        "『": "』",
+    }
+    closing_quote: str | None = None
+    boundary_end: int | None = None
+    for index, char in enumerate(text):
+        if closing_quote is not None:
+            if char == closing_quote:
+                closing_quote = None
+            continue
+        if char in quote_closers:
+            # Do not treat an apostrophe inside a word as a quote delimiter.
+            if char == "'" and 0 < index < len(text) - 1:
+                if text[index - 1].isalnum() and text[index + 1].isalnum():
+                    continue
+            closing_quote = quote_closers[char]
+            continue
+        if char not in ".!?":
+            continue
+        next_index = index + 1
+        while next_index < len(text) and text[next_index] in ".!?":
+            next_index += 1
+        if next_index < len(text) and not text[next_index].isspace():
+            continue
+        if char == ".":
+            prefix = text[:next_index].lower()
+            if re.search(
+                r"(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc)\.|(?:\b[a-z]\.){2,})$",
+                prefix,
+            ):
+                continue
+        boundary_end = next_index
+        break
+    if boundary_end is None:
         return None
-    tail = text[boundary.end() :].strip()
+    tail = text[boundary_end:].strip()
     return tail or None
 
 
@@ -450,7 +500,7 @@ def writing_request_kind(text: str) -> str | None:
     # me an email" into Spanish` is a translation, not a request to draft an
     # email. An actual email deliverable such as "write an email in Spanish"
     # has no translation verb and still routes to email below.
-    if _TRANSLATION_WRITING.search(cleaned):
+    if _TRANSLATION_WRITING.search(cleaned) or _UNSPACED_TRANSLATION_COMMAND.search(cleaned):
         return "translation"
     if _EMAIL_WRITING.search(cleaned) or has_locale_cue(cleaned, "writing"):
         return "email"
