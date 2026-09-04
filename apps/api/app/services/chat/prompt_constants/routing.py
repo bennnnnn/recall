@@ -408,13 +408,13 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"(?:成|为|為)(?:英文|英语|英語|中文|汉语|漢語|日文|日语|日語|韩文|韓文|"
     r"韩语|韓語|法文|法语|法語|德文|德语|德語|西班牙文|西班牙语|西班牙語|"
     r"俄文|俄语|俄語|阿拉伯文|阿拉伯语|阿拉伯語)"
-    r"(?=$|[.!?\u3002\uFF01\uFF1F])|"
+    r"(?=$|[.!?\u3002\uFF01\uFF1F]|[:\uFF1A\"'“\u2018「『])|"
     r"[:\uFF1A\"'“\u2018「『])|"
     r"一下(?=$|[.!?\u3002\uFF01\uFF1F])|"
     r"(?:成|为|為)(?:英文|英语|英語|中文|汉语|漢語|日文|日语|日語|韩文|韓文|"
     r"韩语|韓語|法文|法语|法語|德文|德语|德語|西班牙文|西班牙语|西班牙語|"
     r"俄文|俄语|俄語|阿拉伯文|阿拉伯语|阿拉伯語)"
-    r"(?=$|[.!?\u3002\uFF01\uFF1F])|"
+    r"(?=$|[.!?\u3002\uFF01\uFF1F]|[:\uFF1A\"'“\u2018「『])|"
     r"[:\uFF1A\"'“\u2018「『]|\s+(?=[\"'“\u2018「『A-Za-z0-9])|(?=[A-Za-z0-9]))|"
     r"(?:翻訳してください|訳してください)(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
     r"(?:翻訳して|訳して)\s+ください(?=$|[\s.!?:\u3002\uFF01\uFF1F\uFF1A])|"
@@ -448,13 +448,6 @@ _EDIT_WRITING = re.compile(
 )
 
 _WRITING_SEQUENCE_PREFIX = re.compile(r"^(?:then|now|also|next)[,\s]+", re.IGNORECASE)
-
-_QUOTE_FOLLOWING_CONNECTOR = re.compile(
-    r"^\s+(?:and|or|but|if|when|while|because|as|in|on|at|to|for|from|with|"
-    r"without|before|after|than|that|which|who|where|is|are|was|were|has|have|"
-    r"had|can|could|would|should|will|may|might|must|do|does|did)\b",
-    re.IGNORECASE,
-)
 
 _DIRECT_REQUEST_PREFIX = re.compile(r"^" + _DIRECT_REQUEST_INTRO, re.IGNORECASE)
 
@@ -500,6 +493,12 @@ def _has_later_closing_single_quote(text: str, index: int, quote: str) -> bool:
     return False
 
 
+def _is_strong_single_quote_closer(text: str, index: int) -> bool:
+    before = text[index - 1] if index > 0 else ""
+    after = text[index + 1] if index + 1 < len(text) else ""
+    return not after or before in ".!?" or after in ".!?;:,"
+
+
 def _next_sentence_tail(text: str) -> str | None:
     """Return text after the next plausible sentence boundary."""
     quote_closers = {
@@ -511,6 +510,7 @@ def _next_sentence_tail(text: str) -> str | None:
         "『": "』",
     }
     closing_quote: str | None = None
+    require_strong_single_quote_closer = False
     delimiter_stack: list[str] = []
     boundary_end: int | None = None
     for index, char in enumerate(text):
@@ -529,14 +529,12 @@ def _next_sentence_tail(text: str) -> str | None:
                 if char in {"'", "\u2019"} and 0 < index < len(text) - 1:
                     if text[index - 1].isalnum() and text[index + 1].isalnum():
                         continue
-                    if (
-                        text[index - 1].lower() == "s"
-                        and text[index + 1].isspace()
-                        and _has_later_closing_single_quote(text, index, closing_quote)
-                        and not _QUOTE_FOLLOWING_CONNECTOR.match(text[index + 1 :])
+                    if require_strong_single_quote_closer and not _is_strong_single_quote_closer(
+                        text, index
                     ):
                         continue
                 closing_quote = None
+                require_strong_single_quote_closer = False
             continue
         if char in quote_closers:
             # Apostrophes following a word are contractions or possessives,
@@ -544,6 +542,9 @@ def _next_sentence_tail(text: str) -> str | None:
             if char == "'" and index > 0 and text[index - 1].isalnum():
                 continue
             closing_quote = quote_closers[char]
+            require_strong_single_quote_closer = char in {"'", "\u2018"} and (
+                _has_later_closing_single_quote(text, index, closing_quote)
+            )
             continue
         if char in "([{":
             delimiter_stack.append({"(": ")", "[": "]", "{": "}"}[char])
@@ -634,7 +635,7 @@ def writing_request_kind(text: str) -> str | None:
     ):
         if match := pattern.search(cleaned):
             shape_matches.append((match.start(), priority, kind))
-    if has_locale_cue(cleaned, "writing"):
+    if starts_with_locale_cue(cleaned, "writing"):
         shape_matches.append((0, 0, "email"))
     if shape_matches:
         return min(shape_matches)[2]
