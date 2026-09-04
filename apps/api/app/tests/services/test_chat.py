@@ -1012,6 +1012,8 @@ def test_needs_rich_context(text, expected):
         ("what should I return", False),
         ("recommend a library", False),
         ("I need to show you this", False),
+        ("Please summarize this movie review for me", False),
+        ("I don't need a workout", False),
         ("what should I do", False),
         ("explain photosynthesis", False),
     ],

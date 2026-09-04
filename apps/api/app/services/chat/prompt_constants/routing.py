@@ -253,7 +253,9 @@ _ADVICE_PROGRAMMING = re.compile(
     re.IGNORECASE,
 )
 
-# Need/plan/for-me path. Omit show/watch so "I need to show you this" stays slim.
+# Need/plan path. Omit show/watch so "I need to show you this" stays slim.
+# Do not use a bare "for me" cue — it pairs with any later/earlier domain word
+# ("summarize this movie review for me").
 _ADVICE_NEED_PLAN = re.compile(
     r"\b("
     r"i need|i want|"
@@ -261,7 +263,6 @@ _ADVICE_NEED_PLAN = re.compile(
     r"want (?:a |an )|"
     r"plan (?:a |an |my )|"
     r"help me plan|"
-    r"for me|"
     r"quick dinner|easy dinner|"
     r"dinner tonight|lunch tonight|breakfast tonight"
     r")\b",
@@ -279,6 +280,39 @@ _ADVICE_NEED_DOMAIN = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+# Domain must sit in the same short clause as the need/plan cue.
+_ADVICE_NEED_LOOKBEHIND = 12
+_ADVICE_NEED_LOOKAHEAD = 48
+_ADVICE_NEED_NEGATION_TAILS = (
+    "don't ",
+    "dont ",
+    "do not ",
+    "doesn't ",
+    "doesnt ",
+    "never ",
+    "won't ",
+    "wont ",
+    "can't ",
+    "cant ",
+    "cannot ",
+)
+
+
+def _advice_need_plan_with_domain(cleaned: str) -> bool:
+    """True when a need/plan cue and a life-domain word share a short span.
+
+    Independent whole-message searches treated “summarize this movie review
+    for me” and “I don't need a workout” as advice.
+    """
+    plan = _ADVICE_NEED_PLAN.search(cleaned)
+    if plan is None:
+        return False
+    prefix = cleaned[: plan.start()].lower()
+    if any(prefix.endswith(tail) for tail in _ADVICE_NEED_NEGATION_TAILS):
+        return False
+    start = max(0, plan.start() - _ADVICE_NEED_LOOKBEHIND)
+    end = min(len(cleaned), plan.end() + _ADVICE_NEED_LOOKAHEAD)
+    return bool(_ADVICE_NEED_DOMAIN.search(cleaned[start:end]))
 
 
 def is_personal_advice_question(text: str) -> bool:
@@ -295,7 +329,7 @@ def is_personal_advice_question(text: str) -> bool:
         return True
     if _ADVICE_STANDALONE.search(cleaned):
         return True
-    if _ADVICE_NEED_PLAN.search(cleaned) and _ADVICE_NEED_DOMAIN.search(cleaned):
+    if _advice_need_plan_with_domain(cleaned):
         return True
     return bool(_ADVICE_INTENT.search(cleaned) and _ADVICE_DOMAIN.search(cleaned))
 
