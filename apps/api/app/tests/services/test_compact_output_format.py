@@ -165,7 +165,10 @@ def test_fragment_gets_writing_line_hint():
     assert is_bare_writing_line("Whoever made the best decision for me")
     assert is_bare_writing_line("Because I said so yesterday")
     assert is_bare_writing_line("correct this sentence: I goes to store")
+    assert is_bare_writing_line("Please help me proofread this paragraph")
+    assert is_bare_writing_line("I want you to proofread this paragraph")
     assert not is_bare_writing_line("What is 2+2?")
+    assert not is_bare_writing_line("What does proofread mean?")
     assert not is_bare_writing_line("Tell me about mitochondria")
     assert not is_bare_writing_line("Python vs Java")
 
@@ -223,13 +226,20 @@ def test_writing_request_kinds_cover_each_output_shape():
         "Write me an email about taking Friday off": "email",
         "Message my friend saying happy birthday": "message",
         "Write a LinkedIn post announcing my new role": "social",
+        "Write a short LinkedIn post comparing Python and Java": "social",
+        "Rewrite my LinkedIn post": "social",
         "Translate 'see you tomorrow' into Spanish": "translation",
         "Translation: 'see you tomorrow' into Spanish": "translation",
+        "Could you help me translate this into Spanish?": "translation",
+        "Please, translate this": "translation",
+        "Por favor, traduce esto al inglés": "translation",
         'Translate "write me an email" into Spanish': "translation",
         "Write one paragraph about photosynthesis": "prose",
         "Write a short article comparing Python and Java": "prose",
         "Write a 500-word essay": "prose",
         "Is this sentence correct?": "edit",
+        "Please help me proofread this paragraph": "edit",
+        "I want you to proofread this paragraph": "edit",
         "How do I delete a LinkedIn post?": None,
         "How do I write a LinkedIn post?": None,
         "Explain translation in protein synthesis": None,
@@ -324,6 +334,15 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
     )
     assert SOCIAL_DRAFT_HINT in post
     assert COMPARISON_FORMAT_HINT not in post
+
+    modified_post = _style_format_hints(
+        query_text="Write a short LinkedIn post comparing Python and Java",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert SOCIAL_DRAFT_HINT in modified_post
+    assert COMPARISON_FORMAT_HINT not in modified_post
 
 
 def test_informational_queries_do_not_receive_writing_hints():

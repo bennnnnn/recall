@@ -6,6 +6,7 @@ from app.services.chat.prompt_constants.format import is_comparison_question
 from app.services.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
     is_writing_deliverable_request,
+    writing_request_kind,
 )
 from app.services.text_normalize import collapse_ws
 
@@ -15,14 +16,6 @@ _FRAGMENT_LEAD = re.compile(
     r"whereas|unless|until)\b",
     re.IGNORECASE,
 )
-_PROOFREAD_CUE = re.compile(
-    r"(?:^(?:(?:(?:can|could|would) you|please)\s+)*"
-    r"(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
-    r"grammar check|check (?:this )?(?:sentence|grammar))\b|"
-    r"\bis this (?:sentence )?(?:correct|right|grammatical)\b)",
-    re.IGNORECASE,
-)
-
 WRITING_LINE_HINT = (
     "The user sent a sentence fragment or asked for a writing edit. Complete "
     "their sentence — you are finishing the line, not answering as an assistant. "
@@ -125,7 +118,7 @@ def is_bare_writing_line(text: str) -> bool:
         return False
     # "Is this sentence correct?" is a question syntactically but an explicit
     # writing edit semantically. Detect it before excluding ordinary questions.
-    if _PROOFREAD_CUE.search(cleaned):
+    if writing_request_kind(cleaned) == "edit":
         return True
     if "?" in cleaned:
         return False

@@ -373,17 +373,27 @@ _MESSAGE_WRITING = re.compile(
 )
 
 _SOCIAL_WRITING = re.compile(
-    r"\b(?:write|draft|compose|create|rewrite)(?: me)? (?:an? )?"
+    r"\b(?:write|draft|compose|create|rewrite)\s+"
+    r"(?:me\s+)?(?:(?:an?|the|my|one)\s+)?"
+    r"(?:(?:(?:very\s+)?(?:short|long|brief|concise|detailed|formal|informal|"
+    r"professional|personal|promotional|funny|casual)|"
+    r"\d+(?:[- ](?:word|character)))\s+){0,2}"
     r"(?:linkedin (?:post|note)|instagram caption|social(?: media)? post|"
     r"twitter post|x post|tweet|caption|dating (?:app )?bio)\b",
     re.IGNORECASE,
 )
 
+_DIRECT_REQUEST_INTRO = (
+    r"(?:(?:(?:can|could|would|will) you|please|por favor|s'il vous plaît|"
+    r"bitte|per favore|lütfen|maaloo)[,\s]+)*"
+    r"(?:(?:help me(?: to)?|i (?:want|need)(?: you)? to)[,\s]+)?"
+)
+
 _TRANSLATION_WRITING = re.compile(
-    r"(?:^(?:(?:(?:can|could|would) you|please|por favor|bitte|per favore)\s+)*"
+    r"^(?:" + _DIRECT_REQUEST_INTRO + r"(?:"
     r"(?:translate|traduc(?:e|ir)|traduis|traduire|[uü]bersetze|traduci|"
-    r"traduz(?:a)?|cevir|çevir|hiiki)\b|"
-    r"^(?:translation\s*:|переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역))",
+    r"traduz(?:a|ir)?|cevir|çevir|hiiki|переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역)\b|"
+    r"translation\s*:))",
     re.IGNORECASE,
 )
 
@@ -399,10 +409,10 @@ _PROSE_WRITING = re.compile(
 )
 
 _EDIT_WRITING = re.compile(
-    r"(?:^(?:(?:(?:can|could|would) you|please)\s+)*"
+    r"(?:^" + _DIRECT_REQUEST_INTRO + r"(?:"
     r"(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
     r"grammar check|check (?:this )?(?:sentence|grammar))\b|"
-    r"\bis this (?:sentence )?(?:correct|right|grammatical)\b)",
+    r"\bis this (?:sentence )?(?:correct|right|grammatical)\b))",
     re.IGNORECASE,
 )
 
