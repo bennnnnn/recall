@@ -126,9 +126,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Typing a draft hides mute and close so the field uses the full row; they
   return when the draft is empty. Spoken turns are saved as normal chat
   messages (what you said + the reply) so they are in the thread when you
-  close. The chat header (drawer / ⋮) stays available. Needs `OPENAI_API_KEY`
-  — OpenRouter has no Realtime API. Stale clients that still call
-  `POST /speech/live/speak` get **410**.
+  close. Spoken sessions get the same stored-memory snapshot as text chat
+  (not Calendar, Gmail, or tools). The chat header (drawer / ⋮) stays
+  available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. Stale
+  clients that still call `POST /speech/live/speak` get **410**.
 - ✅ **Read aloud (TTS)** — speaker streams OpenRouter **Gemini 3.1 Flash TTS** PCM
   (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
   another utterance's unbilled quota) and starts playback on the first sentence; **Kokoro 82M**
