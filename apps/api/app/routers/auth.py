@@ -81,6 +81,8 @@ async def google_login(
     await _enforce_login_rate_limit(redis, request, settings, provider="google")
     try:
         auth = await auth_service.login_with_google(session, settings, body.id_token, redis)
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -103,6 +105,8 @@ async def apple_login(
             redis,
             name=body.name,
         )
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)
@@ -138,6 +142,8 @@ async def dev_login(
             name=body.name,
             redis=redis,
         )
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)

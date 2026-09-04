@@ -1,5 +1,11 @@
 import { getApiUrl } from "@/lib/config";
-import { getRefreshToken, setTokenPair } from "@/lib/auth";
+import {
+  getRefreshToken,
+  getSessionGeneration,
+  requireTokenSession,
+  SessionChangedError,
+  setTokenPair,
+} from "@/lib/auth";
 
 import type { AuthResult, User } from "@/lib/api/types";
 
@@ -10,15 +16,25 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
 }
 
-/** Invoke the global unauthorized handler (e.g. SSE refresh failure). */
-export function notifyUnauthorized(): void {
-  onUnauthorized?.();
+export function notifyUnauthorized(generation = getSessionGeneration()): void {
+  if (generation === getSessionGeneration()) onUnauthorized?.();
 }
 
 export function setTokenRefreshHandler(
   fn: ((accessToken: string, user?: User) => void) | null,
 ): void {
   onTokenRefresh = fn;
+}
+
+function requireSession(generation: number): void {
+  if (generation !== getSessionGeneration()) throw new SessionChangedError();
+}
+
+function requireNotAborted(signal?: AbortSignal | null): void {
+  if (!signal?.aborted) return;
+  const error = new Error("Request canceled");
+  error.name = "AbortError";
+  throw error;
 }
 
 const AUTH_FETCH_TIMEOUT_MS = 15_000;
@@ -30,9 +46,7 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(
-        "Could not reach the Recall server. Check Wi‑Fi (same network as your Mac) or USB debugging with the API running.",
-      );
+      throw new Error("Could not reach the Recall server. Check your connection and try again.");
     }
     throw error;
   } finally {
@@ -40,48 +54,48 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
   }
 }
 
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: { generation: number; promise: Promise<string | null> } | null = null;
 
-/** Refresh the access token using the stored refresh token. Returns the new
- * access token, or null if refresh failed (caller should surface an auth
- * error). Single-flighted so concurrent callers share one refresh. Exported
- * so the SSE/WS streaming paths can mirror the REST `request()` 401→refresh
- * behaviour (they use raw fetch/WebSocket and otherwise can't auto-refresh). */
+/** Share refresh within one session. Only an absent/rejected refresh credential
+ * returns null; outages and secure storage failures must not sign the user out. */
 export async function refreshAccessToken(): Promise<string | null> {
-  if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = (async () => {
-    try {
-      const refreshToken = await getRefreshToken();
-      if (!refreshToken) return null;
-      const response = await fetchWithTimeout(apiUrl("/auth/refresh"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-      if (!response.ok) return null;
-      const data = (await response.json()) as AuthResult;
-      await setTokenPair(data.access_token, data.refresh_token);
-      // L2: pass the user payload too so AuthContext can merge plan/profile
-      // changes (e.g. webhook downgrade) without waiting for /auth/me.
-      onTokenRefresh?.(data.access_token, data.user);
-      return data.access_token;
-    } catch {
-      return null;
-    } finally {
-      // Every exit path (including the no-refresh-token early return) must
-      // clear this, or a single missing-refresh-token 401 permanently wedges
-      // refreshAccessToken to always short-circuit to this stale resolved
-      // promise for the rest of the app session.
-      refreshInFlight = null;
+  const generation = getSessionGeneration();
+  if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
+  const promise = (async () => {
+    const refreshToken = await getRefreshToken();
+    requireSession(generation);
+    if (!refreshToken) return null;
+    const response = await fetchWithTimeout(apiUrl("/auth/refresh"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    requireSession(generation);
+    if (response.status === 401) return null;
+    if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+    const data = (await response.json()) as AuthResult;
+    requireSession(generation);
+    if (!data || typeof data.access_token !== "string" || !data.access_token ||
+      typeof data.refresh_token !== "string" || !data.refresh_token) {
+      throw new Error("Recall returned an invalid sign-in response. Please try again.");
     }
+    const saved = await setTokenPair(data.access_token, data.refresh_token, generation);
+    requireSession(generation);
+    if (!saved) throw new SessionChangedError();
+    onTokenRefresh?.(data.access_token, data.user);
+    return data.access_token;
   })();
-  return refreshInFlight;
+  refreshInFlight = { generation, promise };
+  try {
+    return await promise;
+  } finally {
+    // An old account's completion must not release a newer account's refresh.
+    if (refreshInFlight?.promise === promise) refreshInFlight = null;
+  }
 }
 
 export async function logoutSession(token: string, refreshToken: string | null): Promise<void> {
   try {
-    // L6: use fetchWithTimeout so a hung backend doesn't wedge the sign-out
-    // flow (the user is already clearing the local token regardless).
     await fetchWithTimeout(apiUrl("/auth/logout"), {
       method: "POST",
       headers: {
@@ -91,15 +105,15 @@ export async function logoutSession(token: string, refreshToken: string | null):
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
   } catch {
-    /* best-effort */
+    /* Server revocation is best-effort; local credential removal is independent. */
   }
 }
 
 export class ApiRequestError extends Error {
   readonly status: number;
 
-  constructor(status: number, body: string) {
-    super(body || `Request failed: ${status}`);
+  constructor(status: number, message: string) {
+    super(message || `Request failed: ${status}`);
     this.name = "ApiRequestError";
     this.status = status;
   }
@@ -116,151 +130,77 @@ export async function request<T>(
   allowRefresh = true,
   timeoutMs = 30_000,
 ): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const externalSignal = init?.signal ?? null;
-
-  const onExternalAbort = () => controller.abort();
-  externalSignal?.addEventListener("abort", onExternalAbort);
-
-  try {
-    const response = await fetch(apiUrl(path), {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(init?.headers ?? {}),
-      },
-    });
-
-    if (response.status === 401 && allowRefresh) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return request<T>(path, refreshed, init, false);
-      }
-      onUnauthorized?.();
-      const text = await response.text();
-      throw new ApiRequestError(response.status, text);
-    }
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        onUnauthorized?.();
-      }
-      const text = await response.text();
-      throw new ApiRequestError(response.status, text);
-    }
-
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    return response.json() as Promise<T>;
-  } finally {
-    externalSignal?.removeEventListener("abort", onExternalAbort);
-    clearTimeout(timeout);
-  }
+  const generation = getSessionGeneration();
+  const response = await requestRaw(path, token, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  }, allowRefresh, timeoutMs);
+  if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+  const data = response.status === 204 ? undefined : await response.json();
+  requireSession(generation);
+  return data as T;
 }
 
 export async function fetchExportText(token: string, allowRefresh = true): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
-
-  try {
-    const response = await fetch(apiUrl("/auth/me/export"), {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (response.status === 401 && allowRefresh) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return fetchExportText(refreshed, false);
-      }
-      onUnauthorized?.();
-      const text = await response.text();
-      throw new Error(text || `Request failed: ${response.status}`);
-    }
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        onUnauthorized?.();
-      }
-      const text = await response.text();
-      throw new Error(text || `Request failed: ${response.status}`);
-    }
-
-    return response.text();
-  } finally {
-    clearTimeout(timeout);
-  }
+  const generation = getSessionGeneration();
+  const response = await requestRaw("/auth/me/export", token, {
+    headers: { Accept: "application/json" },
+  }, allowRefresh, 120_000);
+  if (!response.ok) throw new ApiRequestError(response.status, await response.text());
+  const text = await response.text();
+  requireSession(generation);
+  return text;
 }
 
-/**
- * Authed fetch that returns the raw ``Response`` (for callers that need the
- * body as a stream, non-JSON, or binary). Mirrors ``request()``'s 401→refresh
- * →retry behaviour so non-JSON endpoints (SSE, file downloads, link preview)
- * get the same auto-refresh as REST. The caller controls Content-Type /
- * Accept / body via ``init``; only Authorization (when ``token`` is non-empty)
- * is added.
- *
- * This is the single network-boundary helper for non-JSON fetches — every
- * HTTP egress from the mobile app should go through ``request``,
- * ``requestRaw``, ``requestSse``, or ``fetchExportText`` (all in lib/api),
- * never a bare ``fetch(getApiUrl()...)``. ``file://`` reads remain the only
- * exception (expo-file-system, not network).
- */
+/** Single authenticated fetch boundary for JSON, downloads, and SSE. Raw
+ * responses keep their bodies unread; auth recovery always happens here. */
 export async function requestRaw(
   path: string,
   token: string | null,
   init?: RequestInit,
   allowRefresh = true,
   timeoutMs = 30_000,
+  retainStreamAbort = false,
 ): Promise<Response> {
+  if (token) requireTokenSession(token);
+  const generation = getSessionGeneration();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const externalSignal = init?.signal ?? null;
   const onExternalAbort = () => controller.abort();
-  externalSignal?.addEventListener("abort", onExternalAbort);
-
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+  let streamingBodyReturned = false;
   try {
-    const callerHeaders = (init?.headers ?? {}) as Record<string, string>;
-    const headers: Record<string, string> = { ...callerHeaders };
+    requireNotAborted(externalSignal);
+    const headers = { ...(init?.headers ?? {}) } as Record<string, string>;
     if (token) headers.Authorization = `Bearer ${token}`;
-
     const response = await fetch(apiUrl(path), {
       ...init,
       signal: controller.signal,
       headers,
     });
-
-    if (response.status === 401 && allowRefresh && token) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return requestRaw(path, refreshed, init, false);
+    requireSession(generation);
+    requireNotAborted(controller.signal);
+    if (response.status === 401 && token) {
+      if (allowRefresh) {
+        const refreshed = await refreshAccessToken();
+        requireSession(generation);
+        requireNotAborted(controller.signal);
+        if (refreshed) return requestRaw(path, refreshed, init, false, timeoutMs, retainStreamAbort);
       }
-      onUnauthorized?.();
+      notifyUnauthorized(generation);
     }
+    streamingBodyReturned = retainStreamAbort && response.ok && response.body != null;
     return response;
   } finally {
-    externalSignal?.removeEventListener("abort", onExternalAbort);
+    // SSE callers own one AbortController per stream. Keep forwarding Stop
+    // after headers; the once-listener is released on abort or with that signal.
+    if (!streamingBodyReturned) externalSignal?.removeEventListener("abort", onExternalAbort);
     clearTimeout(timeout);
   }
 }
 
-/**
- * Authed fetch for an SSE chat stream. Returns the raw ``Response`` so the
- * caller can read ``response.body`` as a stream of events. Handles 401→refresh
- * →retry so a backgrounded-then-resumed app doesn't fail the stream silently.
- *
- * This is the SSE counterpart to ``request()`` — the streaming paths (chat
- * send / regenerate / edit) must go through it (or the WS equivalent) so the
- * lib/api boundary stays the single network egress point.
- */
+/** Streaming counterpart to request; returns the raw event-stream response. */
 export async function requestSse(
   path: string,
   token: string,
@@ -269,19 +209,10 @@ export async function requestSse(
   allowRefresh = true,
   timeoutMs = 30_000,
 ): Promise<Response> {
-  return requestRaw(
-    path,
-    token,
-    {
-      method: "POST",
-      signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-      },
-      body: JSON.stringify(body),
-    },
-    allowRefresh,
-    timeoutMs,
-  );
+  return requestRaw(path, token, {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify(body),
+  }, allowRefresh, timeoutMs, true);
 }

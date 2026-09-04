@@ -1,12 +1,5 @@
-jest.mock("expo-file-system/legacy", () => ({
-  cacheDirectory: "/mock-cache/",
-  getInfoAsync: jest.fn(),
-  readAsStringAsync: jest.fn(),
-  writeAsStringAsync: jest.fn(),
-  deleteAsync: jest.fn(),
-}));
-
 import {
+  cachedUserMatchesToken,
   clearCachedUser,
   mergeCachedUser,
   readCachedUser,
@@ -19,6 +12,14 @@ import {
   readAsStringAsync,
   writeAsStringAsync,
 } from "expo-file-system/legacy";
+
+jest.mock("expo-file-system/legacy", () => ({
+  cacheDirectory: "/mock-cache/",
+  getInfoAsync: jest.fn(),
+  readAsStringAsync: jest.fn(),
+  writeAsStringAsync: jest.fn(),
+  deleteAsync: jest.fn(),
+}));
 
 const user: User = {
   id: "u1",
@@ -147,3 +148,36 @@ describe("cachedUser", () => {
     expect(merged.custom_instructions).toBeNull();
   });
 });
+
+it("finishes an already-started user cache write before clearing for signout", async () => {
+  let finish!: () => void;
+  let disk: string | null = null;
+  (writeAsStringAsync as jest.Mock).mockImplementationOnce(async (_path, data) => {
+    await new Promise<void>((resolve) => { finish = resolve; });
+    disk = data;
+  });
+  (deleteAsync as jest.Mock).mockImplementationOnce(async () => { disk = null; });
+  const write = writeCachedUser(user);
+  await Promise.resolve();
+  const clear = clearCachedUser();
+  await Promise.resolve();
+  finish();
+  await Promise.all([write, clear]);
+  expect(disk).toBeNull();
+});
+
+function accessTokenFor(sub: unknown): string {
+  const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub })}.signature`;
+}
+
+it("selects cached display fields only for the stored token's subject", () => {
+  expect(cachedUserMatchesToken(user, accessTokenFor(user.id))).toBe(true);
+  expect(cachedUserMatchesToken(user, accessTokenFor("another-account"))).toBe(false);
+});
+
+it.each(["opaque-token", "a.@@.b", "a.bnVsbA.b", "a.e30.b", "a.e30.", accessTokenFor(123)])(
+  "skips cached display fields for an unreadable or missing subject: %s", (token) => {
+    expect(cachedUserMatchesToken(user, token)).toBe(false);
+  },
+);

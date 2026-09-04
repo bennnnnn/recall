@@ -1,7 +1,7 @@
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
-import { notifyUnauthorized, requestSse } from "@/lib/api/client";
+import { requestSse } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/lib/chatSocketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
@@ -52,9 +52,6 @@ async function streamChatSseRequest(
   const response = await requestSse(path, options.token, body, options.signal);
 
   if (!response.ok) {
-    if (response.status === 401) {
-      notifyUnauthorized();
-    }
     const text = await response.text();
     throw new Error(text || `SSE request failed: ${response.status}`);
   }

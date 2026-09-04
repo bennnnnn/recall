@@ -21,7 +21,9 @@ def create_access_token(user_id: UUID, settings: Settings) -> str:
     payload = {
         "sub": str(user_id),
         "exp": expire,
-        "iat": now,
+        # Keep subsecond precision so a fresh sign-in after session revocation
+        # in the same second is newer than the Redis revocation cutoff.
+        "iat": now.timestamp(),
         "jti": secrets.token_urlsafe(16),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")

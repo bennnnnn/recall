@@ -1,19 +1,8 @@
-jest.mock("@/lib/config", () => ({
-  getApiUrl: () => "http://test.local",
-}));
-
-const mockGetRefreshToken = jest.fn();
-const mockSetTokenPair = jest.fn();
-
-jest.mock("@/lib/auth", () => ({
-  getRefreshToken: (...args: unknown[]) => mockGetRefreshToken(...args),
-  setTokenPair: (...args: unknown[]) => mockSetTokenPair(...args),
-}));
-
 import {
   ApiRequestError,
   apiUrl,
   fetchWithTimeout,
+  fetchExportText,
   request,
   requestRaw,
   requestSse,
@@ -21,13 +10,34 @@ import {
   setUnauthorizedHandler,
 } from "@/lib/api/client";
 
+jest.mock("@/lib/config", () => ({
+  getApiUrl: () => "http://test.local",
+}));
+
+const mockGetRefreshToken = jest.fn();
+const mockSetTokenPair = jest.fn();
+let mockSessionGeneration = 0;
+const mockRequireTokenSession = jest.fn();
+
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: () => mockSessionGeneration,
+  requireTokenSession: (...args: unknown[]) => mockRequireTokenSession(...args),
+  SessionChangedError: class extends Error { constructor() { super("Session changed"); this.name = "SessionChangedError"; } },
+  getRefreshToken: (...args: unknown[]) => mockGetRefreshToken(...args),
+  setTokenPair: (...args: unknown[]) => mockSetTokenPair(...args),
+}));
+
+
+
 const mockFetch = jest.fn();
 globalThis.fetch = mockFetch as unknown as typeof fetch;
 
 beforeEach(() => {
   mockFetch.mockReset();
   mockGetRefreshToken.mockReset();
-  mockSetTokenPair.mockReset();
+  mockSetTokenPair.mockReset().mockResolvedValue(true);
+  mockSessionGeneration = 0;
+  mockRequireTokenSession.mockReset();
   setUnauthorizedHandler(null);
   setTokenRefreshHandler(null);
 });
@@ -58,7 +68,7 @@ describe("api client", () => {
 
   it("request refreshes on 401 and retries once", async () => {
     mockGetRefreshToken.mockResolvedValue("refresh-token");
-    mockSetTokenPair.mockResolvedValue(undefined);
+    mockSetTokenPair.mockResolvedValue(true);
 
     mockFetch
       .mockResolvedValueOnce({
@@ -86,7 +96,7 @@ describe("api client", () => {
     const data = await request<{ ok: boolean }>("/users/me", "stale-token");
     expect(data).toEqual({ ok: true });
     expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(mockSetTokenPair).toHaveBeenCalledWith("new-access", "new-refresh");
+    expect(mockSetTokenPair).toHaveBeenCalledWith("new-access", "new-refresh", 0);
     // L2: onRefresh now also receives the user payload (undefined when the
     // refresh response omits it).
     expect(onRefresh).toHaveBeenCalledWith("new-access", undefined);
@@ -134,7 +144,7 @@ describe("api client", () => {
 
   it("single-flights concurrent refresh attempts", async () => {
     mockGetRefreshToken.mockResolvedValue("refresh-token");
-    mockSetTokenPair.mockResolvedValue(undefined);
+    mockSetTokenPair.mockResolvedValue(true);
 
     let resolveRefresh: (value: Response) => void;
     const refreshPromise = new Promise<Response>((resolve) => {
@@ -212,7 +222,7 @@ describe("api client", () => {
 
   it("requestRaw refreshes on 401 and retries once with the fresh token", async () => {
     mockGetRefreshToken.mockResolvedValue("refresh-token");
-    mockSetTokenPair.mockResolvedValue(undefined);
+    mockSetTokenPair.mockResolvedValue(true);
 
     mockFetch
       .mockResolvedValueOnce({
@@ -285,4 +295,201 @@ describe("api client", () => {
     });
     expect(init?.body).toBe(JSON.stringify({ content: "hi" }));
   });
+});
+
+describe("session recovery", () => {
+  it.each([429, 500, 503])("preserves sign-in when refresh returns %s", async (status) => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "expired" })
+      .mockResolvedValueOnce({ ok: false, status, text: async () => "Try again later" });
+    const unauthorized = jest.fn();
+    setUnauthorizedHandler(unauthorized);
+    await expect(request("/auth/me", "old-access")).rejects.toThrow("Try again later");
+    expect(unauthorized).not.toHaveBeenCalled();
+    expect(mockSetTokenPair).not.toHaveBeenCalled();
+  });
+
+  it("preserves sign-in when refresh cannot reach the server", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "expired" })
+      .mockRejectedValueOnce(new Error("Network request failed"));
+    const unauthorized = jest.fn();
+    setUnauthorizedHandler(unauthorized);
+    await expect(request("/auth/me", "old-access")).rejects.toThrow("Network request failed");
+    expect(unauthorized).not.toHaveBeenCalled();
+  });
+
+  it("notifies unauthorized when the raw request retry also returns401", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockSetTokenPair.mockResolvedValue(true);
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ access_token: "new-access", refresh_token: "new-refresh" }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 401 });
+    const unauthorized = jest.fn();
+    setUnauthorizedHandler(unauthorized);
+    const response = await requestRaw("/chats/c1/messages/stream", "old-access");
+    expect(response.status).toBe(401);
+    expect(unauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry a canceled request after token refresh finishes", async () => {
+    const signal = new AbortController();
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockSetTokenPair.mockResolvedValue(true);
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401 })
+      .mockImplementationOnce(async () => {
+        signal.abort();
+        return {
+          ok: true, status: 200,
+          json: async () => ({ access_token: "new-access", refresh_token: "new-refresh" }),
+        };
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200 });
+    await expect(requestRaw("/chats/c1/messages/stream", "old-access", { signal: signal.signal }))
+      .rejects.toMatchObject({ name: "AbortError" });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
+}
+
+it("does not revoke a new session when an old request finally returns401", async () => {
+  const response = deferred<Response>();
+  mockFetch.mockReturnValueOnce(response.promise);
+  const unauthorized = jest.fn();
+  setUnauthorizedHandler(unauthorized);
+  const pending = requestRaw("/auth/me", "old-access");
+  mockSessionGeneration++;
+  response.resolve({ ok: false, status: 401 } as Response);
+  await expect(pending).rejects.toMatchObject({ name: "SessionChangedError" });
+  expect(unauthorized).not.toHaveBeenCalled();
+  expect(mockGetRefreshToken).not.toHaveBeenCalled();
+});
+
+it("does not save or publish an old refresh after sign-out", async () => {
+  const refresh = deferred<Response>();
+  const started = deferred<void>();
+  mockGetRefreshToken.mockResolvedValue("refresh-token");
+  mockFetch
+    .mockResolvedValueOnce({ ok: false, status: 401 })
+    .mockImplementationOnce(() => { started.resolve(); return refresh.promise; });
+  const onRefresh = jest.fn();
+  const unauthorized = jest.fn();
+  setTokenRefreshHandler(onRefresh);
+  setUnauthorizedHandler(unauthorized);
+  const pending = requestRaw("/auth/me", "old-access");
+  await started.promise;
+  mockSessionGeneration++;
+  refresh.resolve({
+    ok: true, status: 200,
+    json: async () => ({ access_token: "late-access", refresh_token: "late-refresh" }),
+  } as Response);
+  await expect(pending).rejects.toMatchObject({ name: "SessionChangedError" });
+  expect(mockSetTokenPair).not.toHaveBeenCalled();
+  expect(onRefresh).not.toHaveBeenCalled();
+  expect(unauthorized).not.toHaveBeenCalled();
+});
+
+it("does not share an old account's in-flight refresh with the next account", async () => {
+  const firstRefresh = deferred<Response>();
+  const started = deferred<void>();
+  mockGetRefreshToken.mockResolvedValueOnce("refresh-a").mockResolvedValueOnce("refresh-b");
+  mockFetch
+    .mockResolvedValueOnce({ ok: false, status: 401 })
+    .mockImplementationOnce(() => { started.resolve(); return firstRefresh.promise; })
+    .mockResolvedValueOnce({ ok: false, status: 401 })
+    .mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ access_token: "access-b2", refresh_token: "refresh-b2" }),
+    })
+    .mockResolvedValueOnce({ ok: true, status: 200 });
+  const oldRequest = requestRaw("/auth/me", "access-a");
+  const oldOutcome = oldRequest.catch((error: unknown) => error);
+  await started.promise;
+  mockSessionGeneration++;
+  await expect(requestRaw("/auth/me", "access-b")).resolves.toMatchObject({ status: 200 });
+  firstRefresh.resolve({ ok: false, status: 401 } as Response);
+  await expect(oldOutcome).resolves.toMatchObject({ name: "SessionChangedError" });
+  expect(mockSetTokenPair).toHaveBeenCalledTimes(1);
+  expect(mockSetTokenPair).toHaveBeenCalledWith("access-b2", "refresh-b2", 1);
+});
+
+it("rejects malformed refresh data without signing out or saving undefined tokens", async () => {
+  mockGetRefreshToken.mockResolvedValue("refresh-token");
+  mockFetch
+    .mockResolvedValueOnce({ ok: false, status: 401 })
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ error: "proxy failure" }) });
+  const unauthorized = jest.fn();
+  setUnauthorizedHandler(unauthorized);
+  await expect(requestRaw("/auth/me", "old-access")).rejects.toThrow("invalid sign-in response");
+  expect(mockSetTokenPair).not.toHaveBeenCalled();
+  expect(unauthorized).not.toHaveBeenCalled();
+});
+
+it("surfaces a refreshed token persistence failure without signing out", async () => {
+  mockGetRefreshToken.mockResolvedValue("refresh-token");
+  mockSetTokenPair.mockRejectedValueOnce(new Error("Secure storage unavailable"));
+  mockFetch
+    .mockResolvedValueOnce({ ok: false, status: 401 })
+    .mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ access_token: "new-access", refresh_token: "new-refresh" }),
+    });
+  const unauthorized = jest.fn();
+  const onRefresh = jest.fn();
+  setUnauthorizedHandler(unauthorized);
+  setTokenRefreshHandler(onRefresh);
+  await expect(requestRaw("/auth/me", "old-access")).rejects.toThrow("Secure storage unavailable");
+  expect(unauthorized).not.toHaveBeenCalled();
+  expect(onRefresh).not.toHaveBeenCalled();
+});
+
+it("honors an already aborted signal without starting a request", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(requestRaw("/auth/me", "access", { signal: controller.signal }))
+    .rejects.toMatchObject({ name: "AbortError" });
+  expect(mockFetch).not.toHaveBeenCalled();
+});
+
+it("does not send or replay a retained previous-account token after switching accounts", async () => {
+  mockSessionGeneration = 1;
+  mockRequireTokenSession.mockImplementationOnce(() => { throw new Error("Session changed"); });
+  await expect(requestRaw("/todos", "old-account-token", { method: "POST" }))
+    .rejects.toThrow("Session changed");
+  expect(mockFetch).not.toHaveBeenCalled();
+  expect(mockGetRefreshToken).not.toHaveBeenCalled();
+});
+
+it("keeps Stop connected to the SSE fetch after response headers arrive", async () => {
+  const controller = new AbortController();
+  mockFetch.mockResolvedValueOnce({ ok: true, status: 200, body: {} });
+  await requestSse("/chats/c1/messages/stream", "access", {}, controller.signal);
+  const fetchSignal = mockFetch.mock.calls[0][1].signal as AbortSignal;
+  expect(fetchSignal.aborted).toBe(false);
+  controller.abort();
+  expect(fetchSignal.aborted).toBe(true);
+});
+
+it.each(["json", "export"])("discards an old account's %s body that finishes after sign-out", async (kind) => {
+  const body = deferred<never>();
+  const decoding = deferred<void>();
+  const decode = () => { decoding.resolve(); return body.promise; };
+  mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: decode, text: decode });
+  const pending = kind === "json" ? request("/auth/me", "access") : fetchExportText("access");
+  await decoding.promise;
+  mockSessionGeneration++;
+  body.resolve("previous account data" as never);
+  await expect(pending).rejects.toMatchObject({ name: "SessionChangedError" });
 });

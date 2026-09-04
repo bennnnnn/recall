@@ -97,7 +97,7 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
     expect(events).toEqual([{ type: "done" }]);
   });
 
-  it("throws and calls notifyUnauthorized when response is 401", async () => {
+  it("surfaces401 without duplicating the network boundary sign-out notification", async () => {
     requestSseMock.mockResolvedValueOnce({
       ok: false,
       status: 401,
@@ -112,7 +112,7 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
         onEvent: () => {},
       }),
     ).rejects.toThrow();
-    expect(unauthorizedMock).toHaveBeenCalledTimes(1);
+    expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 
   it("throws on a non-401 failure without calling notifyUnauthorized", async () => {

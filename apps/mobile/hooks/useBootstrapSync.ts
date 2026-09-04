@@ -1,5 +1,9 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
 
+import { getDeviceTimezone } from "@/lib/deviceTimezone";
+import { getDeviceLocationLabel } from "@/lib/deviceLocation";
+import { configurePurchases, isPurchasesConfigured, registerPlanChangeListener } from "@/lib/purchases";
+import { getSessionGeneration } from "@/lib/auth";
 import { api, type User } from "@/lib/api";
 
 type Options = {
@@ -10,61 +14,59 @@ type Options = {
 
 /** Post-login side effects — timezone, location, Gmail/push sync, RevenueCat, reminders. */
 export function useBootstrapSync({ token, user, setUser }: Options): void {
+  const userId = user?.id;
+  const timezone = user?.timezone;
+  const location = user?.location;
+  const locationEnabled = user?.location_enabled;
+  const pushEnabled = user?.push_notifications_enabled ?? false;
+  const reminderLeadMinutes = user?.reminder_lead_minutes;
   useEffect(() => {
-    if (!token || !user) return;
-    void import("@/lib/deviceTimezone").then(({ getDeviceTimezone }) => {
+    if (!token || !userId) return;
+    const generation = getSessionGeneration();
+    let cancelled = false;
+    const active = () => !cancelled && generation === getSessionGeneration();
+    void (async () => {
+      if (!active()) return;
       const deviceTz = getDeviceTimezone();
-      if (user.timezone !== deviceTz) {
-        void api
-          .updateMe(token, { timezone: deviceTz })
-          .then((updated) => {
-            // Only apply the fields this call changed — a full User replace
-            // can race with an optimistic models/prefs patch and flash old toggles.
-            setUser((current) =>
-              current
-                ? { ...current, timezone: updated.timezone }
-                : updated,
-            );
-          })
-          .catch((error: unknown) => {
-            // L5: log so a misconfigured backend / network issue isn't silent —
-            // the user's prompts will use the stale tz until the next sync.
-            console.warn("[bootstrap] timezone sync failed", error);
-          });
-      }
+      if (timezone === deviceTz) return;
+      const updated = await api.updateMe(token, { timezone: deviceTz });
+      if (!active()) return;
+      setUser((current) => current?.id === userId
+        ? { ...current, timezone: updated.timezone } : current);
+    })().catch(() => {
+      if (active()) console.warn("[bootstrap] timezone sync failed");
     });
-  }, [token, user?.id, user?.timezone, setUser]);
+    return () => { cancelled = true; };
+  }, [token, userId, timezone, setUser]);
 
   useEffect(() => {
-    if (!token || !user?.location_enabled) return;
-    void import("@/lib/deviceLocation").then(async ({ getDeviceLocationLabel }) => {
+    if (!token || !userId || !locationEnabled) return;
+    const generation = getSessionGeneration();
+    let cancelled = false;
+    const active = () => !cancelled && generation === getSessionGeneration();
+    void (async () => {
+      if (!active()) return;
       const label = await getDeviceLocationLabel();
-      if (label && user.location !== label) {
-        void api
-          .updateMe(token, { location: label })
-          .then((updated) => {
-            setUser((current) =>
-              current
-                ? { ...current, location: updated.location }
-                : updated,
-            );
-          })
-          .catch((error: unknown) => {
-            // L5: log so location sync failures aren't silent.
-            console.warn("[bootstrap] location sync failed", error);
-          });
-      }
+      if (!active() || !label || location === label) return;
+      const updated = await api.updateMe(token, { location: label });
+      if (!active()) return;
+      setUser((current) => current?.id === userId
+        ? { ...current, location: updated.location } : current);
+    })().catch(() => {
+      if (active()) console.warn("[bootstrap] location sync failed");
     });
-  }, [token, user?.id, user?.location, user?.location_enabled, setUser]);
+    return () => { cancelled = true; };
+  }, [token, userId, location, locationEnabled, setUser]);
 
   useEffect(() => {
     if (!token) return;
+    const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
     void import("@/lib/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
-      if (cancelled) return;
+      if (cancelled || generation !== getSessionGeneration()) return;
       cleanup = attachGmailForegroundSync(token);
-    });
+    }).catch(() => {});
     return () => {
       cancelled = true;
       cleanup?.();
@@ -73,75 +75,76 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
 
   useEffect(() => {
     if (!token) return;
+    const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
     void import("@/lib/pushNotifications").then(({ attachPushForegroundSync }) => {
-      if (cancelled) return;
+      if (cancelled || generation !== getSessionGeneration()) return;
       // Gate push registration on user.push_notifications_enabled — without
       // this, the backend holds a live push token for a user who opted out
       // and keeps sending them notifications. When disabled, the sync
       // unregisters the token instead of registering it.
       cleanup = attachPushForegroundSync(
         token,
-        user?.push_notifications_enabled ?? false,
+        pushEnabled,
       );
-    });
+    }).catch(() => {});
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [token, user?.push_notifications_enabled]);
+  }, [token, pushEnabled]);
 
   useEffect(() => {
-    if (user?.reminder_lead_minutes == null) return;
-    void import("@/lib/reminderPrefs").then(({ syncReminderLeadFromServer }) =>
-      syncReminderLeadFromServer(user.reminder_lead_minutes),
-    );
-  }, [user?.reminder_lead_minutes]);
-
-  useEffect(() => {
-    if (!token || !user?.id) return;
+    if (reminderLeadMinutes == null) return;
+    const generation = getSessionGeneration();
     let cancelled = false;
+    void import("@/lib/reminderPrefs").then(({ syncReminderLeadFromServer }) => {
+      if (cancelled || generation !== getSessionGeneration()) return;
+      return syncReminderLeadFromServer(reminderLeadMinutes);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [userId, reminderLeadMinutes]);
+
+  useEffect(() => {
+    if (!token || !userId) return;
+    const generation = getSessionGeneration();
+    let cancelled = false;
+    const active = () => !cancelled && generation === getSessionGeneration();
     let cleanup: (() => void) | undefined;
-    void import("@/lib/purchases").then(
-      async ({
-        configurePurchases,
-        isPurchasesConfigured,
-        registerPlanChangeListener,
-      }) => {
-        if (cancelled) return;
-        if (!isPurchasesConfigured()) return;
-        await configurePurchases(user.id);
-        if (cancelled) return;
-        // Keep the backend plan in sync when the entitlement changes
-        // (purchase / restore / expiry). The webhook may fail or lag; this
-        // listener closes the gap without relying on a manual sync. The REST
-        // call auto-refreshes the access token on 401, so a stale token is
-        // fine.
-        cleanup =
-          (await registerPlanChangeListener(() => {
-            // M3: merge only the plan field — setUser replaces the entire
-            // user object and bypasses the generation guard in updateUser,
-            // so a slow sync can overwrite an in-flight profile patch (e.g.
-            // timezone toggle snaps back).
-            void api
-              .syncSubscription(token)
-              .then((updated) => {
-                setUser((prev) =>
-                  prev ? { ...prev, plan: updated.plan } : updated,
-                );
-              })
-              .catch(() => {});
-          })) ?? undefined;
-        if (cancelled) {
-          cleanup?.();
-          cleanup = undefined;
-        }
-      },
-    );
+    void (async () => {
+      if (!active() || !isPurchasesConfigured()) return;
+      await configurePurchases(userId);
+      if (!active()) return;
+      // Keep the backend plan in sync when the entitlement changes
+      // (purchase / restore / expiry). The webhook may fail or lag; this
+      // listener closes the gap without relying on a manual sync. The REST
+      // call auto-refreshes the access token on 401, so a stale token is
+      // fine.
+      cleanup =
+        (await registerPlanChangeListener(() => {
+          if (!active()) return;
+          // M3: merge only the plan field — setUser replaces the entire
+          // user object and bypasses the generation guard in updateUser,
+          // so a slow sync can overwrite an in-flight profile patch (e.g.
+          // timezone toggle snaps back).
+          void api
+            .syncSubscription(token)
+            .then((updated) => {
+              if (!active()) return;
+              setUser((prev) => prev?.id === userId
+                ? { ...prev, plan: updated.plan } : prev);
+            })
+            .catch(() => {});
+        })) ?? undefined;
+      if (!active()) {
+        cleanup?.();
+        cleanup = undefined;
+      }
+    })().catch(() => {});
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [token, user?.id, setUser]);
+  }, [token, userId, setUser]);
 }
