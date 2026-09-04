@@ -430,6 +430,16 @@ _EDIT_WRITING = re.compile(
     re.IGNORECASE,
 )
 
+_WRITING_SEQUENCE_PREFIX = re.compile(r"^(?:then|now|also|next)[,\s]+", re.IGNORECASE)
+
+_DIRECT_WRITING_REQUEST_START = re.compile(
+    r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
+    r"(?:write|draft|compose|create|rewrite|send|email|message|text|reply|correct|"
+    r"proofread|fix|check)\b|grammar check\b|"
+    r"is this (?:sentence )?(?:correct|right|grammatical)\b)",
+    re.IGNORECASE,
+)
+
 _WRITING_HOWTO = re.compile(
     r"^(?:how (?:do|can|should|would) i|how to)\b",
     re.IGNORECASE,
@@ -492,10 +502,19 @@ def writing_request_kind(text: str) -> str | None:
     # Questions about how to produce or manage a writing artifact are advice,
     # not requests for Recall to draft it. A later sentence can still contain
     # an explicit deliverable request and must keep its output contract.
+    had_initial_howto = bool(_WRITING_HOWTO.search(cleaned))
     writing_candidate = _after_initial_writing_howto(cleaned)
     if writing_candidate is None:
         return None
     cleaned = writing_candidate
+    if had_initial_howto:
+        cleaned = _WRITING_SEQUENCE_PREFIX.sub("", cleaned, count=1)
+        if not (
+            _DIRECT_WRITING_REQUEST_START.search(cleaned)
+            or _TRANSLATION_WRITING.search(cleaned)
+            or _UNSPACED_TRANSLATION_COMMAND.search(cleaned)
+        ):
+            return None
     # Translation leads before quoted-source classifiers: `Translate "write
     # me an email" into Spanish` is a translation, not a request to draft an
     # email. An actual email deliverable such as "write an email in Spanish"

@@ -257,6 +257,9 @@ def test_writing_request_kinds_cover_each_output_shape():
         (
             "How do I shorten this, e.g. for LinkedIn? Please write a LinkedIn post about it."
         ): "social",
+        ('How do I improve this prompt? It says "Write a LinkedIn post about AI."'): None,
+        "How do I improve this sentence? Then proofread it.": "edit",
+        'How do I revise it? It says "Translate this into French."': None,
         "Explain translation in protein synthesis": None,
         "Explain how ribosomes translate mRNA": None,
         "What is grammar?": None,
