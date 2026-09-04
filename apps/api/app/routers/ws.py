@@ -21,7 +21,7 @@ from app.exceptions import (
 )
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
-from app.models.schemas import ChatMessageRequest, EditMessageRequest
+from app.models.schemas import ChatMessageRequest
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
 from app.services.chat.finalize_registry import register_inflight_stream
@@ -267,7 +267,7 @@ def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
 
 
 def _client_geo_kwargs(
-    request: ChatMessageRequest | EditMessageRequest,
+    request: ChatMessageRequest,
     *,
     client_timezone: str | None,
 ) -> dict[str, Any]:
@@ -318,51 +318,6 @@ async def _handle_regenerate(
         websocket,
         cancel_event=cancel_event,
         stream_factory=_regen_stream,
-        chat_id=chat_id,
-    )
-
-
-async def _handle_edit(
-    websocket: WebSocket,
-    *,
-    redis: Any,
-    settings: Any,
-    user_id: UUID,
-    chat_id: UUID,
-    payload: dict[str, Any],
-    client_timezone: str | None,
-    cancel_event: asyncio.Event,
-    emit_status: Any,
-    emit_reasoning: Any,
-) -> None:
-    try:
-        edit_request = EditMessageRequest.model_validate(payload)
-    except ValidationError:
-        await websocket.send_json(
-            {"type": "error", "message": "Invalid edit request"},
-        )
-        return
-
-    def _edit_stream(result: dict[str, str]) -> AsyncIterator[str]:
-        return chat_service.stream_edit_response(
-            redis,
-            settings,
-            user_id=user_id,
-            chat_id=chat_id,
-            message_id=edit_request.message_id,
-            new_content=edit_request.content,
-            model_alias=edit_request.model,
-            should_cancel=cancel_event.is_set,
-            result=result,
-            on_status=emit_status,
-            on_reasoning=emit_reasoning,
-            **_client_geo_kwargs(edit_request, client_timezone=client_timezone),
-        )
-
-    await _run_chat_stream(
-        websocket,
-        cancel_event=cancel_event,
-        stream_factory=_edit_stream,
         chat_id=chat_id,
     )
 
@@ -533,21 +488,6 @@ async def chat_websocket(
 
             if msg_type == "regenerate":
                 await _handle_regenerate(
-                    websocket,
-                    redis=redis,
-                    settings=settings,
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    payload=payload,
-                    client_timezone=client_timezone,
-                    cancel_event=cancel_event,
-                    emit_status=emit_status,
-                    emit_reasoning=emit_reasoning,
-                )
-                continue
-
-            if msg_type == "edit":
-                await _handle_edit(
                     websocket,
                     redis=redis,
                     settings=settings,

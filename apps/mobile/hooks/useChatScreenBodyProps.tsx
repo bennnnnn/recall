@@ -100,14 +100,8 @@ export type UseChatScreenBodyPropsParams = {
   retryChatError: () => void;
   dismissChatError: () => void;
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
-  setInput: (value: string) => void;
   streaming: boolean;
   sendBusy: boolean;
-  /** Which message (if any) the composer is editing in place. */
-  editing: {
-    editingMessageId: string | null;
-    setEditingMessageId: (value: string | null) => void;
-  };
   stopGeneration: () => void;
   isOffline: boolean;
   voice: {
@@ -184,10 +178,8 @@ export function useChatScreenBodyProps({
   retryChatError,
   dismissChatError,
   composerAnimatedStyle,
-  setInput,
   streaming,
   sendBusy,
-  editing: { editingMessageId, setEditingMessageId },
   stopGeneration,
   isOffline,
   voice: {
@@ -254,10 +246,6 @@ export function useChatScreenBodyProps({
     router.push("/settings/models");
   }, [dismissChatError, router]);
   const onRemoveAttachment = useCallback(() => setPendingAttachment(null), [setPendingAttachment]);
-  const onCancelEdit = useCallback(() => {
-    setEditingMessageId(null);
-    setInput("");
-  }, [setEditingMessageId, setInput]);
   const onAttachmentSource = useCallback(
     (source: AttachmentSource) => {
       void handleAttachmentSheetSelect(source);
@@ -348,8 +336,6 @@ export function useChatScreenBodyProps({
       sendBusy,
       pendingAttachment,
       onRemoveAttachment,
-      editingMessageId,
-      onCancelEdit,
       onPickAttachment: handlePickAttachment,
       onAttachmentSource,
       mathScannerOpen,
@@ -409,15 +395,12 @@ export function useChatScreenBodyProps({
       onChangeModel,
       dismissChatError,
       composerAnimatedStyle,
-      setInput,
       streaming,
       attachBusy,
       attachPicking,
       sendBusy,
       pendingAttachment,
       onRemoveAttachment,
-      editingMessageId,
-      onCancelEdit,
       handlePickAttachment,
       onAttachmentSource,
       mathScannerOpen,

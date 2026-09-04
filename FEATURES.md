@@ -79,7 +79,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   **New chat / leave does not abort SSE** (Stop still does); leftover events are ignored for the
   next thread. `GET /messages` waits for the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
-  Opening another thread restores that draft and clears attachment, edit, and in-progress
+  Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. “One sentence” / briefly beats chart, compare, and how-to
@@ -87,16 +87,20 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   “write me an email” asks one purpose question; a named purpose still drafts
   now. Real/my chart data without numbers asks once instead of inventing a
   sample as the answer.
+- ✅ **Send stays busy until accepted** — after Send, the composer clears so the next
+  draft can be typed, but Send and Attach stay disabled until upload/create finishes.
+  A failed turn restores into an empty composer and does not overwrite a newer draft.
 - ✅ **Regenerate** — re-run the last assistant reply.
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do
   **not** fold (code blocks may still fold). Do not reintroduce assistant-body folding.
-- ✅ **Copy** — copy a whole message, and a dedicated copy button per code block.
+- ✅ **Copy** — copy a whole message (keeps code syntax, `$`, identifiers, and
+  ` ```answer ` results; skips reminder/control JSON). Dedicated copy per code
+  block. Read-aloud uses a separate spoken form (prose + the visible result;
+  a short label for charts/diagrams; never control JSON).
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
-- ✅ **Edit & resend** — edit a user message (pencil under the bubble); truncates forward from that
-  turn, rewrites the message, and re-runs.
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
   DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
   vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips
@@ -136,6 +140,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
   inline code, horizontal rules.
 - ✅ **Code blocks** — dark card, language badge, copy button, horizontal scroll.
+  Fenced bodies stay opaque to math/table beautification (`$$` in a Python string,
+  a quoted GFM table, ASCII boxes in ` ```text `).
 - ✅ **Syntax highlighting** — **Prism.js** token coloring for 40+ languages (comments, strings,
   numbers, keywords); heuristic fallback for unknown langs.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
@@ -154,7 +160,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
   display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
-  fullscreen scroll. Server-side **SymPy** solves equations and samples graphs before the LLM
+  fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
+  supplied — the renderer does not invent exponents. Composer keypad OCR still maps
+  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs before the LLM
   explains (verified numbers injected into the prompt; Recall attaches geometry,
   graph, and algebra ` ```answer ` after the stream). The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live

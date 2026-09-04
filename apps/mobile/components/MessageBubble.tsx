@@ -45,8 +45,6 @@ type Props = {
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
   regenerating?: boolean;
-  onEdit?: (message: Message) => void;
-  canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   highlighted?: boolean;
   isSending?: boolean;
@@ -66,11 +64,9 @@ function userMessageCopyText(content: string): string {
 
 function UserActions({
   content,
-  onEdit,
   theme,
 }: {
   content: string;
-  onEdit?: () => void;
   theme: Theme;
 }) {
   const { t } = useTranslation();
@@ -100,28 +96,14 @@ function UserActions({
           size={20}
           color={copied ? theme.primary : theme.textSecondary}
         />
-      </Pressable>
-      {onEdit ? (
-        <Pressable
-          style={a.btn}
-          onPress={() => {
-            tap();
-            onEdit();
-          }}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.edit_message_a11y")}
-        >
-          <Icon name="pencil-outline" size={20} color={theme.textSecondary} />
         </Pressable>
-      ) : null}
     </View>
   );
 }
 
 function AssistantActions({
   messageId,
-  content,
+  markdown,
   feedback,
   onFeedback,
   onRegenerate,
@@ -131,7 +113,7 @@ function AssistantActions({
   thumbsOnly = false,
 }: {
   messageId: string;
-  content: string;
+  markdown: string;
   feedback: "up" | "down" | null;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   onRegenerate?: () => void;
@@ -148,10 +130,12 @@ function AssistantActions({
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const speakGenRef = useRef(0);
+  const copyPayload = extractPrimaryCopyText(markdown);
 
   const handleCopy = async () => {
+    if (!copyPayload.trim()) return;
     tap();
-    await copyText(content);
+    await copyText(copyPayload);
     setCopied(true);
     notifySuccess();
     setTimeout(() => setCopied(false), 1500);
@@ -167,7 +151,7 @@ function AssistantActions({
     const gen = ++speakGenRef.current;
     tap();
     setSpeaking(true);
-    const result = await speakPlainText(content, speechLocale(user?.locale), {
+    const result = await speakPlainText(markdown, speechLocale(user?.locale), {
       token,
       preferCloud: true,
     });
@@ -204,7 +188,7 @@ function AssistantActions({
             style={a.btn}
             onPress={handleCopy}
             hitSlop={8}
-            disabled={!content.trim()}
+            disabled={!copyPayload.trim()}
             accessibilityRole="button"
             accessibilityLabel={t("common.copy")}
           >
@@ -218,7 +202,7 @@ function AssistantActions({
             style={a.btn}
             onPress={() => void handleSpeak()}
             hitSlop={8}
-            disabled={!content.trim()}
+            disabled={!markdown.trim()}
             accessibilityRole="button"
             accessibilityLabel={t("chat.read_aloud_a11y")}
           >
@@ -291,8 +275,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   isLastAssistant,
   onRegenerate,
   regenerating = false,
-  onEdit,
-  canEdit,
   onFeedback,
   highlighted = false,
   isSending = false,
@@ -319,8 +301,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     if (isGenerating) setWasStreamed(true);
   }, [isGenerating]);
   const userCopyText = isUser ? userMessageCopyText(message.content) : "";
-  const canShowEdit = Boolean(canEdit && onEdit && !message.id.startsWith("local-"));
-  const canRevealUserActions = isUser && (userCopyText.length > 0 || canShowEdit);
+  const canRevealUserActions = isUser && userCopyText.length > 0;
 
   useEffect(() => {
     if (!isSending) {
@@ -333,7 +314,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   useEffect(() => {
     setShowUserActions(false);
-  }, [message.id, canShowEdit]);
+  }, [message.id]);
 
   const assistant = useAssistantMessageContent({
     message,
@@ -346,7 +327,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     wasStreamed,
   });
   const {
-    content,
     hasContent,
     showActionSlot,
     actionsReady,
@@ -419,14 +399,6 @@ export const MessageBubble = React.memo(function MessageBubble({
           {showUserActions ? (
             <UserActions
               content={userCopyText}
-              onEdit={
-                canShowEdit
-                  ? () => {
-                      setShowUserActions(false);
-                      onEdit?.(message);
-                    }
-                  : undefined
-              }
               theme={theme}
             />
           ) : null}
@@ -522,7 +494,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         <View style={b.actionRowSlot}>
           <AssistantActions
             messageId={message.id}
-            content={extractPrimaryCopyText(content)}
+            markdown={markdownContent}
             feedback={message.feedback ?? null}
             onFeedback={onFeedback}
             onRegenerate={isLastAssistant ? onRegenerate : undefined}

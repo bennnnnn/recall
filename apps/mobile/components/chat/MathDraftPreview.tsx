@@ -5,6 +5,7 @@ import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
+import { isMostlyProsePaste } from "@/lib/mathPasteNormalize";
 import {
   caretAfterExpression,
   caretBeforeExpression,
@@ -30,6 +31,7 @@ export const MATH_DRAFT_PREVIEW_HEIGHT = 48;
 export function draftShowsMathPreview(input: string): boolean {
   const s = input.trim();
   if (s.length === 0) return false;
+  if (isMostlyProsePaste(s)) return false;
   if (input.includes("$")) return true;
   return textLooksLikeMath(input);
 }

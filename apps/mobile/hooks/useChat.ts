@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
-import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chatSse";
+import { streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import {
@@ -15,7 +15,6 @@ import {
   publishStreamingDraft,
   type StreamingDraft,
 } from "@/lib/streamingDraftStore";
-import { applyOptimisticEdit, shouldRestoreEditOnError } from "@/lib/chatEditLogic";
 import {
   popLastAssistantMessage,
   restoreAssistantMessage,
@@ -63,8 +62,6 @@ export function useChat(
   const finalizingRef = useRef(false);
   /** Prior assistant reply kept until regenerate succeeds or is rolled back. */
   const regenerateBackupRef = useRef<Message | null>(null);
-  /** Full thread snapshot taken before an optimistic edit truncates the list. */
-  const editBackupRef = useRef<Message[] | null>(null);
   /**
    * When the user stops generation, the streaming bubble is committed locally
    * as `streamed-<ts>`. We track that id so the server's late `done` event
@@ -143,19 +140,6 @@ export function useChat(
     }
   }, [clearStreamingBubble]);
 
-  const restoreEditBackup = useCallback(() => {
-    const snapshot = editBackupRef.current;
-    editBackupRef.current = null;
-    setSendingMessageId(null);
-    setStreaming(false);
-    setFinalizing(false);
-    streamingRef.current = false;
-    updateStreamingDraft(null);
-    if (snapshot) {
-      setMessages(snapshot);
-    }
-  }, [updateStreamingDraft]);
-
   const appendStreamingPlaceholder = useCallback(() => {
     setMessages((prev) => {
       if (prev.some((m) => m.id === "streaming")) return prev;
@@ -203,7 +187,6 @@ export function useChat(
     assistantBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
-    editBackupRef.current = null;
     stoppedStreamedIdRef.current = null;
     clearTodoSyncTimers();
     updateStreamingDraft(null);
@@ -267,7 +250,6 @@ export function useChat(
 
       if (payload.type === "done") {
         regenerateBackupRef.current = null;
-        editBackupRef.current = null;
         setSendingMessageId(null);
         const stoppedId = stoppedStreamedIdRef.current;
         stoppedStreamedIdRef.current = null;
@@ -309,11 +291,7 @@ export function useChat(
         const draft = streamingDraftRef.current;
         const partial = (draft?.content ?? assistantBuffer.current).trim();
         assistantBuffer.current = "";
-        if (shouldRestoreEditOnError(editBackupRef.current != null)) {
-          // WS edit failures must restore the pre-edit thread — the optimistic
-          // truncate already dropped later turns locally.
-          restoreEditBackup();
-        } else if (regenerateBackupRef.current) {
+        if (regenerateBackupRef.current) {
           restoreRegenerateBackup();
         } else if (partial) {
           // Keep what the user already saw (same idea as stop / disconnect).
@@ -347,7 +325,6 @@ export function useChat(
     [
       appendStreamingPlaceholder,
       clearStreamingBubble,
-      restoreEditBackup,
       restoreRegenerateBackup,
       reportError,
       updateStreamingDraft,
@@ -442,18 +419,11 @@ export function useChat(
           finalizingRef.current = false;
           const hadContent = assistantBuffer.current.trim().length > 0;
           const draft = streamingDraftRef.current;
-          const failedEditBackup = editBackupRef.current;
-          editBackupRef.current = null;
           const failedRegenerateBackup = regenerateBackupRef.current;
           regenerateBackupRef.current = null;
           assistantBuffer.current = "";
           updateStreamingDraft(null);
           setSendingMessageId(null);
-          if (failedEditBackup && !hadContent) {
-            setMessages(failedEditBackup);
-            reportError(t("chat.error_connection_lost"));
-            return;
-          }
           setMessages((prev) => {
             const streamingMsg = prev.find((m) => m.id === "streaming");
             if (!streamingMsg) return prev;
@@ -738,79 +708,6 @@ export function useChat(
     [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse],
   );
 
-  const editMessage = useCallback(
-    async (
-      messageId: string,
-      content: string,
-      model?: string | null,
-      clientGeo?: ClientGeo | null,
-    ) => {
-      if (!token || !chatId || !content.trim()) return;
-
-      const localId = `local-edit-${Date.now()}`;
-      setMessages((prev) => {
-        const { snapshot, messages: next } = applyOptimisticEdit(
-          prev,
-          messageId,
-          content,
-          localId,
-        );
-        if (next === prev) return prev;
-        editBackupRef.current = snapshot;
-        return next;
-      });
-      setStreaming(true);
-      streamingRef.current = true;
-      assistantBuffer.current = "";
-      updateStreamingDraft({ content: "" });
-      appendStreamingPlaceholder();
-
-      await ensureConnected();
-      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
-        const signal = beginSseStream();
-        try {
-          await streamChatEditSse({
-            token,
-            chatId,
-            messageId,
-            content: content.trim(),
-            model,
-            clientGeo,
-            signal,
-            onEvent: (payload) => handleChatPayloadForChat(chatId, payload),
-          });
-        } catch (err) {
-          if (isSseAbortError(err)) return;
-          restoreEditBackup();
-          reportError(t("chat.error_unreachable"));
-        }
-        return;
-      }
-
-      wsRef.current.send(
-        JSON.stringify({
-          type: "edit",
-          message_id: messageId,
-          content: content.trim(),
-          model: model ?? null,
-          ...clientGeoWsFields(clientGeo),
-        }),
-      );
-    },
-    [
-      token,
-      chatId,
-      ensureConnected,
-      beginSseStream,
-      handleChatPayloadForChat,
-      reportError,
-      appendStreamingPlaceholder,
-      restoreEditBackup,
-      updateStreamingDraft,
-      t,
-    ],
-  );
-
   const stopGeneration = useCallback(() => {
     sseAbortRef.current?.abort();
     sseAbortRef.current = null;
@@ -827,7 +724,6 @@ export function useChat(
     // already deleted any prior assistant on regenerate and persists this
     // partial). Drop backups so a later `error` can't wrongly restore them.
     regenerateBackupRef.current = null;
-    editBackupRef.current = null;
     const stoppedId = `streamed-${Date.now()}`;
     setMessages((prev) => {
       const streamingMsg = prev.find((m) => m.id === "streaming");
@@ -863,7 +759,6 @@ export function useChat(
     beginRegenerateUi,
     cancelRegenerateUi: restoreRegenerateBackup,
     regenerateResponse,
-    editMessage,
     stopGeneration,
     connect,
   };

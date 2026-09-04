@@ -1,5 +1,8 @@
 import { isMathLike } from "@/lib/normalizeImplicitMath";
-import { pastedDeltaLooksLikeMath } from "@/lib/mathPasteNormalize";
+import {
+  isMostlyProsePaste,
+  pastedDeltaLooksLikeMath,
+} from "@/lib/mathPasteNormalize";
 
 const MATH_FENCE = /```(?:math|geometry|graph|answer)\b/i;
 const MATH_MARKERS = /\$|\\(?:frac|sqrt|sum|int|lim|pi|times|div|leq|geq|neq|sin|cos|tan)|[√π∞≤≥≠×÷]/;
@@ -12,7 +15,9 @@ const MATH_SIGNAL = /[0-9=+\-*/^()]|\\(?:frac|sqrt|sum|int|lim)|[√≤≥≠×�
 export function textLooksLikeMath(text: string): boolean {
   const s = text.trim();
   if (s.length < 2) return false;
-  if (MATH_FENCE.test(s) || MATH_MARKERS.test(s)) return true;
+  if (MATH_FENCE.test(s)) return true;
+  if (isMostlyProsePaste(s)) return false;
+  if (MATH_MARKERS.test(s)) return true;
   // MATH_ASK words alone (e.g. "solve this mystery") need a co-occurring math signal
   // to avoid false-positive chips in prose-heavy chats.
   if (MATH_ASK.test(s) && MATH_SIGNAL.test(s)) return true;

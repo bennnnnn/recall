@@ -1,4 +1,9 @@
-import { fixImplicitExponents, normalizeImplicitMathInProse } from "@/lib/normalizeImplicitMath";
+import {
+  applyImplicitPowerNotation,
+  fixImplicitExponents,
+  normalizeImplicitMath,
+  normalizeImplicitMathInProse,
+} from "@/lib/normalizeImplicitMath";
 
 describe("normalizeImplicitMath", () => {
   it("wraps parenthesized algebra from model output", () => {
@@ -24,18 +29,20 @@ describe("normalizeImplicitMath", () => {
     expect(out.match(/\$/g)?.length).toBe(2);
   });
 
-  it("fixes implicit exponents and wraps bare equations", () => {
+  it("wraps a bare letter-digit identifier without inventing an exponent", () => {
     const input = "Equation: x2+2=6\nx2=6-2\nx2=4";
     const out = normalizeImplicitMathInProse(input);
-    expect(out).toContain("$x^2+2=6$");
-    expect(out).toContain("$x^2=6-2$");
-    expect(out).toContain("$x^2=4$");
+    expect(out).toContain("$x2+2=6$");
+    expect(out).toContain("$x2=6-2$");
+    expect(out).toContain("$x2=4$");
+    expect(out).not.toContain("x^2");
   });
 
-  it("fixes verification lines with squared digits", () => {
+  it("does not turn adjacent digits into exponents", () => {
     const input = "For x=2: 22+2=4+2=6 ✓";
     const out = normalizeImplicitMathInProse(input);
-    expect(out).toContain("$2^2+2=4+2=6$");
+    expect(out).toContain("$22+2=4+2=6$");
+    expect(out).not.toContain("2^2");
   });
 
   it("BUG FIX regression: recognizes verification lines with any single-letter variable and 'Let' phrasing, not just x/y/z + 'For'", () => {
@@ -166,7 +173,7 @@ describe("normalizeImplicitMath", () => {
     const input = "```python\n( x = 1 )\n```\nx2=4";
     const out = normalizeImplicitMath(input);
     expect(out).toContain("```python\n( x = 1 )\n```");
-    expect(out).toContain("$x^2=4$");
+    expect(out).toContain("$x2=4$");
   });
 
   it("BUG FIX regression: does not wrap LaTeX commands inside a \\[...\\] display-math span in $...$", () => {
@@ -248,22 +255,42 @@ describe("normalizeImplicitMath", () => {
 });
 
 describe("fixImplicitExponents", () => {
-  it("converts x2 to x^2", () => {
-    expect(fixImplicitExponents("x2+2=6")).toBe("x^2+2=6");
+  it("does not invent exponents from adjacent digits or letter+digit identifiers", () => {
+    expect(fixImplicitExponents("12+3=15")).toBe("12+3=15");
+    expect(fixImplicitExponents("20-10=10")).toBe("20-10=10");
+    expect(fixImplicitExponents("99*2=198")).toBe("99*2=198");
+    expect(fixImplicitExponents("x2+2=6")).toBe("x2+2=6");
+    expect(fixImplicitExponents("x2 = 4")).toBe("x2 = 4");
   });
 
-  it("BUG FIX regression: does not turn a command's trailing letter+digit into a false exponent", () => {
-    // Reported live: "x = \pm\sqrt{4}" simplifies to "x = \pm2" (model
-    // omits the space before the digit). The bare-variable exponent rule
-    // matched "m2" (the tail of "\pm" + the digit) the same as it would
-    // match "x2", rewriting it to "\pm^2" — which renders as "±²" ("plus or
-    // minus SQUARED") instead of "± 2", silently changing the answer.
+  it("leaves genuine caret exponents and already-delimited math alone", () => {
+    expect(fixImplicitExponents("x^2 = 4")).toBe("x^2 = 4");
+    expect(normalizeImplicitMath("$12+3=15$")).toBe("$12+3=15$");
+    expect(normalizeImplicitMathInProse("12+3=15")).toBe("$12+3=15$");
+    expect(normalizeImplicitMathInProse("20-10=10")).toBe("$20-10=10$");
+    expect(normalizeImplicitMathInProse("99*2=198")).toBe("$99*2=198$");
+  });
+
+  it("still maps unicode ± to \\pm without touching command tails", () => {
+    expect(fixImplicitExponents("x = ±2")).toBe("x = \\pm 2");
     expect(fixImplicitExponents("x = \\pm2")).toBe("x = \\pm2");
     expect(fixImplicitExponents("x = \\pm 2")).toBe("x = \\pm 2");
-    // A real bare-variable exponent right after a command must still convert.
-    expect(fixImplicitExponents("x = \\pm x2")).toBe("x = \\pm x^2");
-    // Unaffected: genuine implicit exponents with no preceding command.
-    expect(fixImplicitExponents("x2 = 4")).toBe("x^2 = 4");
     expect(fixImplicitExponents("r + 1/r = 17/4")).toBe("r + 1/r = 17/4");
+  });
+});
+
+describe("applyImplicitPowerNotation", () => {
+  it("converts keypad OCR x2 to x^2", () => {
+    expect(applyImplicitPowerNotation("x2+2=6")).toBe("x^2+2=6");
+    expect(applyImplicitPowerNotation("x2 = 4")).toBe("x^2 = 4");
+  });
+
+  it("does not turn a command's trailing letter+digit into a false exponent", () => {
+    expect(applyImplicitPowerNotation("x = \\pm2")).toBe("x = \\pm2");
+    expect(applyImplicitPowerNotation("x = \\pm x2")).toBe("x = \\pm x^2");
+  });
+
+  it("does not rewrite adjacent digits as a base and exponent", () => {
+    expect(applyImplicitPowerNotation("12+3=15")).toBe("12+3=15");
   });
 });

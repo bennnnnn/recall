@@ -9,6 +9,7 @@ from app.services.web_search.patterns import (
     _DISTANCE_INTENT,
     _FROM_USER,
     _IMPLICIT_LOCAL,
+    _MOTION_HOMEWORK,
     _NEARBY_INTENT,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
@@ -43,6 +44,8 @@ def is_distance_query(text: str) -> bool:
     """Distance, travel time, or directions from the user's location."""
     cleaned = text.strip()
     if not cleaned or not _DISTANCE_INTENT.search(cleaned):
+        return False
+    if _MOTION_HOMEWORK.search(cleaned):
         return False
     if distance_between_phrase(cleaned) and not _FROM_USER.search(cleaned):
         return False

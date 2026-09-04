@@ -3,6 +3,8 @@ import {
   adoptNewComposerThread,
   composerThreadKey,
   takeThreadDraft,
+  shouldRestoreFailedSend,
+  stashFailedSendDraft,
 } from "@/lib/chat/composerThreadDraft";
 
 describe("composerThreadKey", () => {
@@ -54,5 +56,34 @@ describe("adoptNewComposerThread", () => {
     ).toBe("other");
     expect(drafts.get("created")).toBeUndefined();
     expect(drafts.get("other")).toBe("keep me");
+  });
+});
+
+describe("shouldRestoreFailedSend", () => {
+  it("restores into an empty composer", () => {
+    expect(shouldRestoreFailedSend("", "hello")).toBe(true);
+    expect(shouldRestoreFailedSend("   ", "hello")).toBe(true);
+  });
+
+  it("restores when the composer still shows the sent text", () => {
+    expect(shouldRestoreFailedSend("hello", "hello")).toBe(true);
+  });
+
+  it("does not replace a newer draft", () => {
+    expect(shouldRestoreFailedSend("follow-up", "hello")).toBe(false);
+  });
+});
+
+describe("stashFailedSendDraft", () => {
+  it("writes the failed text when the thread slot is empty", () => {
+    const drafts = new Map<string, string>();
+    stashFailedSendDraft(drafts, "a", "hello");
+    expect(drafts.get("a")).toBe("hello");
+  });
+
+  it("does not overwrite a newer draft on that thread", () => {
+    const drafts = new Map<string, string>([["a", "follow-up"]]);
+    stashFailedSendDraft(drafts, "a", "hello");
+    expect(drafts.get("a")).toBe("follow-up");
   });
 });

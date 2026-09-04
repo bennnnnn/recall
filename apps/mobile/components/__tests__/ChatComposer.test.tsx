@@ -64,8 +64,6 @@ const baseProps = {
   attachBusy: false,
   pendingAttachment: null,
   onRemoveAttachment: jest.fn(),
-  editingMessageId: null,
-  onCancelEdit: jest.fn(),
   onCloseAttachSheet: jest.fn(),
   onPickAttachment: jest.fn(),
   onSend: jest.fn(),
@@ -290,6 +288,15 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-draft-preview")).toBeTruthy();
     expect(getByTestId("math-frac")).toBeTruthy();
     expect(getByTestId("math-vinculum")).toBeTruthy();
+  });
+
+  it("does not render a pasted physics word problem as stacked math", async () => {
+    const pasted =
+      "A car starts from rest and accelerates at a constant rate of 1.2 m/s². How long does it take the car to travel a distance of 500 meters?";
+    const { queryByTestId } = await render(
+      <ChatComposer {...baseProps} input={pasted} />,
+    );
+    expect(queryByTestId("math-draft-preview")).toBeNull();
   });
 
   it("puts the caret in the numerator, then continues the expression after the fraction", async () => {

@@ -4,7 +4,7 @@ import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-syst
 
 import { requestRaw } from "@/lib/api/client";
 import { playbackStatusFinished } from "@/lib/cloudPlayback";
-import { markdownToPlainText } from "@/lib/markdownPlain";
+import { markdownToSpeechText } from "@/lib/markdownPlain";
 import { splitTtsChunks } from "@/lib/ttsLead";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/voiceAudio";
@@ -432,7 +432,7 @@ export async function speakPlainText(
   logTtsLatency("tap");
   stopSpeaking();
   const generation = speakGeneration;
-  const plain = markdownToPlainText(text).slice(0, 4000);
+  const plain = markdownToSpeechText(text).slice(0, 4000);
   if (!plain) return { ok: false, reason: "error" };
 
   const ttsModel = await getTtsModel();

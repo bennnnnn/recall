@@ -9,7 +9,7 @@ describe("formatMathExpr", () => {
       expect(formatMathExpr("x^2 = 4")).toBe("x^2 = 4");
     });
     it("does not turn a command tail into a false exponent", () => {
-      // \pm2 must stay \pm2, not \pm^2 (regression guard from fixImplicitExponents).
+      // \pm2 must stay \pm2, not \pm^2 (regression guard from applyImplicitPowerNotation).
       expect(formatMathExpr("x = \\pm2")).toBe("x = \\pm2");
     });
     it("can be disabled", () => {
@@ -119,6 +119,11 @@ describe("formatMathExpr", () => {
     it("converts a simple a/b to \\frac", () => {
       expect(formatMathExpr("1/2")).toBe("\\frac{1}{2}");
       expect(formatMathExpr("a/b=1")).toBe("\\frac{a}{b} = 1");
+    });
+    it("does not turn SI unit slashes into fractions", () => {
+      expect(formatMathExpr("1.2 m/s^2")).toBe("1.2 m/s^2");
+      expect(formatMathExpr("1.2 m/s^2")).not.toContain("\\frac");
+      expect(formatMathExpr("80 km/h")).toBe("80 km/h");
     });
   });
 });

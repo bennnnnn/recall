@@ -2,8 +2,8 @@
  * Math input formatter — a single place that holds the features for cleaning up
  * math a user typed in the composer so it renders nicely.
  *
- * The power feature (`x2` → `x^2`) reuses `fixImplicitExponents` from
- * normalizeImplicitMath (the "power of (x^y)" formatter we already had).
+ * The power feature (`x2` → `x^2`) is keypad-only OCR
+ * (`applyImplicitPowerNotation`). Model replies do not rewrite digits.
  * Also: spacing around `=` / binary `+` / binary `-`, relational glyphs,
  * `+-` → `\pm`, `*` → `\times`, simple `a/b` → `\frac{a}{b}`.
  *
@@ -11,7 +11,7 @@
  * (`messageTextForSend`) so the user bubble matches the composer.
  */
 
-import { fixImplicitExponents, isMathLike } from "@/lib/normalizeImplicitMath";
+import { applyImplicitPowerNotation, isMathLike } from "@/lib/normalizeImplicitMath";
 
 export type MathFormatOptions = {
   /** `x2` → `x^2` (OCR's dropped caret). Default true. */
@@ -137,6 +137,11 @@ function timesOperators(s: string): string {
   return out;
 }
 
+/** Length/time unit slashes (`m/s`, `km/h`) — not algebraic `a/b`. */
+function isUnitSlash(left: string, right: string): boolean {
+  return /^(?:nm|mm|cm|km|m)$/i.test(left) && /^(?:ms|min|hr|s|h)$/i.test(right);
+}
+
 /** Simple `a/b` (number or single letter) → `\frac{a}{b}`. */
 function slashToFrac(s: string): string {
   let out = "";
@@ -158,7 +163,7 @@ function slashToFrac(s: string): string {
     if (s[i] === "/") {
       const left = lastAtomStart(out);
       const right = readAtom(s, i + 1);
-      if (left && right) {
+      if (left && right && !isUnitSlash(left.atom, right.atom)) {
         out = out.slice(0, left.start) + `\\frac{${left.atom}}{${right.atom}}`;
         i = right.next;
         continue;
@@ -268,7 +273,7 @@ export function formatMathExpr(
   const o = { ...DEFAULTS, ...opts };
   let s = expr.trim();
   if (!s) return s;
-  if (o.power) s = fixImplicitExponents(s);
+  if (o.power) s = applyImplicitPowerNotation(s);
   if (o.relations) {
     s = s.replace(/<=/g, " \\leq ").replace(/>=/g, " \\geq ").replace(/!=/g, " \\neq ");
   }

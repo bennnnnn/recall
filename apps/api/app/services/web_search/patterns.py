@@ -313,15 +313,37 @@ _PROXIMITY_PHRASES = (
 _QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
 
 # Distance / travel from the user's location — venue-agnostic.
+# Keep in sync with apps/mobile/lib/localPlacesQuery.ts DISTANCE_INTENT.
+# ``does it take`` must require a commute verb (get/drive/walk/reach/arrive).
+# Bare ``how long does it take the car to travel`` is kinematics, not maps.
 _DISTANCE_INTENT = re.compile(
     r"\b("
     r"how\s+far"
     r"|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)"
     r"|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)"
     r"|distance\s+(?:to|from)"
-    r"|how\s+long\s+(?:to\s+get|does\s+it\s+take|is\s+the\s+(?:drive|trip|walk))"
+    r"|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)"
+    r"|is\s+the\s+(?:drive|trip|walk))"
     r"|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))"
     r"|directions?\s+to"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Homework motion — not maps, even if the prompt also says "how far" / "how long".
+# Keep in sync with apps/mobile/lib/localPlacesQuery.ts MOTION_HOMEWORK.
+_MOTION_HOMEWORK = re.compile(
+    r"\b(?:"
+    r"accelerat(?:e|es|ed|ing|ion)"
+    r"|decelerat(?:e|es|ed|ing|ion)"
+    r"|from\s+rest"
+    r"|kinematics"
+    r"|projectile"
+    r"|free\s*falls?"
+    r"|constant\s+(?:rate|acceleration|speed|velocity)"
+    r"|m\s*/\s*s"
+    r"|metres?\s+per\s+second"
+    r"|meters?\s+per\s+second"
     r")\b",
     re.IGNORECASE,
 )

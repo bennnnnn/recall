@@ -21,8 +21,27 @@ describe("geo intent", () => {
   it("detects distance and directions", () => {
     expect(isDistanceQuery("how far is the airport")).toBe(true);
     expect(isDistanceQuery("driving time to work")).toBe(true);
+    expect(isDistanceQuery("how long does it take to get to the airport")).toBe(
+      true,
+    );
+    expect(isDistanceQuery("how long is the drive")).toBe(true);
     expect(isGeoQuery("how far is the airport")).toBe(true);
     expect(isPlacesListQuery("how far is the airport")).toBe(false);
+  });
+
+  it("does not treat kinematics homework as a maps distance ask", () => {
+    const kinematics =
+      "A car starts from rest and accelerates at a constant rate of 1.2 m/s^2. How long does it take the car to travel a distance of 500 meters?";
+    expect(isDistanceQuery(kinematics)).toBe(false);
+    expect(isGeoQuery(kinematics)).toBe(false);
+    expect(
+      isDistanceQuery("How long does it take the ball to fall 20 meters?"),
+    ).toBe(false);
+    expect(
+      isDistanceQuery(
+        "A car accelerates at 2 m/s^2. How far does it travel in 10 s?",
+      ),
+    ).toBe(false);
   });
 
   it("detects where-am-I asks and requires geo", () => {

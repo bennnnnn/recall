@@ -14,13 +14,12 @@ import type { useChatScroll } from "@/hooks/useChatScroll";
 import type { Message } from "@/lib/api";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
-import { parseUserMessageContent } from "@/lib/messageAttachments";
 import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chat/chatSendLogic";
-import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
+import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
 import {
   extractImageGenPrompt,
   extractImageRevisionPrompt,
@@ -74,7 +73,6 @@ type Options = {
   scroll: ChatScroll;
   streaming: boolean;
   sendMessage: SendMessageFn;
-  editMessage: (id: string, text: string, model: string, clientGeo?: ClientGeo | null) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   /** Current transcript — used to treat short follow-ups after image replies as revisions. */
   messages: Message[];
@@ -104,7 +102,6 @@ export function useChatSend({
   scroll,
   streaming,
   sendMessage,
-  editMessage,
   setMessages,
   messages,
   selectedModel,
@@ -132,7 +129,7 @@ export function useChatSend({
     inputRef,
     switchThread,
     adoptComposerThread,
-    saveDraftForThread,
+    stashFailedDraftForThread,
     getThreadKey,
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
@@ -142,7 +139,6 @@ export function useChatSend({
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{
     text: string;
@@ -168,7 +164,6 @@ export function useChatSend({
     prevComposerThreadRef.current = composerThread;
     if (fromKey === composerThread) return;
     setPendingAttachment(null);
-    setEditingMessageId(null);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
   }, [composerThread, switchThread, getThreadKey]);
@@ -241,10 +236,6 @@ export function useChatSend({
         })
       )
         return;
-      if (editingMessageId && pendingAttachment) {
-        reportRecoverableWarning(feedback, t("chat.edit_no_attachments"));
-        return;
-      }
       tap();
       if (onBeforeSend?.(text) === true) return;
 
@@ -252,7 +243,7 @@ export function useChatSend({
       // Do not gate on client isPro — plan can be stale while the API still knows Pro;
       // submitPrompt / the API open upgrade or generate. Never let the model invent
       // "the app will attach an image shortly" without calling generate.
-      if (onGenerateImage && !pendingAttachment && !editingMessageId) {
+      if (onGenerateImage && !pendingAttachment) {
         const imagePrompt =
           extractImageGenPrompt(text) ??
           extractImageRevisionPrompt(text, imageGenRevisionContext(messages));
@@ -271,32 +262,28 @@ export function useChatSend({
       const attached = pendingAttachment;
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
-      // Clear the composer immediately — including the attachment chip.
-      // Upload continues in the background; keeping the chip + attachBusy
-      // showed a second spinner next to the optimistic bubble.
+      // Clear the composer immediately so the next draft can be typed.
+      // Keep Send/Attach busy until the turn is accepted — an idle button
+      // with sendInFlightRef set looked finished and ate the next tap.
       setInput("");
       setPendingAttachment(null);
-      setSendPhase("idle");
+      setSendPhase(attached ? "uploading" : "preparing");
       Keyboard.dismiss();
 
-      const isEdit = Boolean(editingMessageId && chatId);
       const optimisticId = `local-${Date.now()}`;
       const createdAt = new Date().toISOString();
-      let addedOptimistic = false;
-      if (!isEdit) {
-        addedOptimistic = true;
-        setPendingOutboundId(optimisticId);
-        setMessages((prev) => [
-          ...prev,
-          buildOptimisticUserMessage({
-            text,
-            attached,
-            optimisticId,
-            createdAt,
-          }),
-        ]);
-        newMessageCountRef.current += 1;
-      }
+      const addedOptimistic = true;
+      setPendingOutboundId(optimisticId);
+      setMessages((prev) => [
+        ...prev,
+        buildOptimisticUserMessage({
+          text,
+          attached,
+          optimisticId,
+          createdAt,
+        }),
+      ]);
+      newMessageCountRef.current += 1;
 
       const restoreDraft = () => {
         if (addedOptimistic) {
@@ -305,10 +292,12 @@ export function useChatSend({
           newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
         }
         if (getThreadKey() === sendThreadKey) {
-          setInput(text);
-          setPendingAttachment(attached);
+          if (shouldRestoreFailedSend(inputRef.current, text)) {
+            setInput(text);
+            setPendingAttachment(attached);
+          }
         } else {
-          saveDraftForThread(sendThreadKey, text);
+          stashFailedDraftForThread(sendThreadKey, text);
         }
         sendInFlightRef.current = false;
         setSendPhase("idle");
@@ -334,15 +323,6 @@ export function useChatSend({
         return;
       }
       const clientGeo = geoResult.clientGeo;
-
-      if (editingMessageId && chatId) {
-        const editId = editingMessageId;
-        setEditingMessageId(null);
-        void editMessage(editId, text, selectedModel, clientGeo);
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
-        return;
-      }
 
       if (!chatId) {
         creatingRef.current = true;
@@ -394,10 +374,8 @@ export function useChatSend({
       token,
       creatingRef,
       attachBusy,
-      editingMessageId,
       chatId,
       newMessageCountRef,
-      editMessage,
       selectedModel,
       setMessages,
       prepareDraftChat,
@@ -419,13 +397,13 @@ export function useChatSend({
       setChatId,
       setChatTitle,
       getThreadKey,
-      saveDraftForThread,
+      stashFailedDraftForThread,
       adoptComposerThread,
     ],
   );
 
   const handlePickAttachment = useCallback(() => {
-    if (!token || attachBusy || streaming) return;
+    if (!token || attachBusy || streaming || sendInFlightRef.current) return;
     Keyboard.dismiss();
     // Let the keyboard finish dismissing before presenting the Modal so the
     // first tap isn't swallowed on Android.
@@ -436,13 +414,20 @@ export function useChatSend({
 
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
-      if (attachPickInFlightRef.current || !token || attachBusy || streaming) return;
+      if (
+        attachPickInFlightRef.current ||
+        !token ||
+        attachBusy ||
+        streaming ||
+        sendInFlightRef.current
+      )
+        return;
       attachPickInFlightRef.current = true;
       setAttachPicking(true);
       setAttachSheetOpen(false);
       await waitForPickerUi();
 
-      if (!token || attachBusy || streaming) {
+      if (!token || attachBusy || streaming || sendInFlightRef.current) {
         attachPickInFlightRef.current = false;
         setAttachPicking(false);
         return;
@@ -488,17 +473,6 @@ export function useChatSend({
     setMathScannerOpen(false);
   }, []);
 
-  const handleEditMessage = useCallback(
-    (message: Message) => {
-      if (streaming) return;
-      const parsed = parseUserMessageContent(message.content);
-      setInput(parsed.caption || message.content);
-      setEditingMessageId(message.id);
-      setPendingAttachment(null);
-    },
-    [streaming],
-  );
-
   return {
     setInput,
     pendingAttachment,
@@ -510,13 +484,10 @@ export function useChatSend({
     setAttachSheetOpen,
     mathScannerOpen,
     setMathScannerOpen,
-    editingMessageId,
-    setEditingMessageId,
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
-    handleEditMessage,
     creatingRef,
     pendingOutboundId,
   };

@@ -1,5 +1,9 @@
 import * as markdownPlain from "@/lib/markdownPlain";
-import { markdownToPlainText } from "@/lib/markdownPlain";
+import {
+  markdownToCopyText,
+  markdownToPlainText,
+  markdownToSpeechText,
+} from "@/lib/markdownPlain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 import { projectLearningToPrintHtml } from "@/lib/exportProjectPdf";
 import type { ProjectDetail, ProjectItem } from "@/lib/api";
@@ -10,10 +14,13 @@ describe("markdownPlain", () => {
     expect(plain).toContain("Title");
     expect(plain).toContain("Bold");
     expect(plain).not.toContain("```");
+    expect(plain).toContain("{}");
   });
 
   it("does not re-export print helpers that pull KaTeX", () => {
-    expect(Object.keys(markdownPlain)).toEqual(["markdownToPlainText"]);
+    expect(Object.keys(markdownPlain).sort()).toEqual(
+      ["markdownToCopyText", "markdownToPlainText", "markdownToSpeechText"].sort(),
+    );
   });
 
   it("does not load printDocument", () => {
@@ -25,15 +32,54 @@ describe("markdownPlain", () => {
     jest.dontMock("@/lib/printDocument");
   });
 
-  it("strips server fences and flattens pipe tables", () => {
-    const plain = markdownToPlainText(
-      "Intro\n\n```answer\n42\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n",
-    );
-    expect(plain).toContain("Intro");
-    expect(plain).not.toContain("42");
-    expect(plain).not.toContain("```");
-    expect(plain).toContain("A — B");
-    expect(plain).toContain("1 — 2");
+  it("keeps the visible final answer and flattens pipe tables", () => {
+    const src =
+      "Intro\n\n```answer\n42\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n";
+    const copy = markdownToCopyText(src);
+    const spoken = markdownToSpeechText(src);
+    expect(copy).toContain("Intro");
+    expect(copy).toContain("42");
+    expect(copy).not.toContain("```");
+    expect(copy).toContain("A — B");
+    expect(copy).toContain("1 — 2");
+    expect(spoken).toContain("42");
+  });
+
+  it("keeps code syntax, identifiers, and currency on Copy", () => {
+    const src = [
+      "user_id = {\"count\": 2}",
+      "",
+      "```python",
+      "print(user_id * 2)",
+      "```",
+      "",
+      "Costs $5 or $10.",
+    ].join("\n");
+    const copy = markdownToCopyText(src);
+    expect(copy).toContain('user_id = {"count": 2}');
+    expect(copy).toContain("print(user_id * 2)");
+    expect(copy).toContain("Costs $5 or $10.");
+    expect(copy).not.toContain("userid");
+  });
+
+  it("does not strip a numeric-only answer fence", () => {
+    expect(markdownToCopyText("```answer\n42\n```")).toBe("42");
+    expect(markdownToSpeechText("```answer\n42\n```")).toBe("42");
+  });
+
+  it("labels a chart for speech and omits chart JSON from Copy", () => {
+    const src = 'Rainfall\n\n```chart\n{"mark":"bar"}\n```\n';
+    expect(markdownToCopyText(src)).toBe("Rainfall");
+    expect(markdownToSpeechText(src)).toContain("Rainfall");
+    expect(markdownToSpeechText(src)).toContain("a chart");
+    expect(markdownToCopyText(src)).not.toContain("mark");
+  });
+
+  it("never copies or speaks reminder control JSON", () => {
+    const src = 'Done.\n\n```reminder\n{"title":"Pay rent"}\n```\n';
+    expect(markdownToCopyText(src)).toBe("Done.");
+    expect(markdownToSpeechText(src)).toBe("Done.");
+    expect(markdownToCopyText(src)).not.toContain("Pay rent");
   });
 });
 

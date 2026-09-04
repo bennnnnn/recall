@@ -71,8 +71,6 @@ export type ChatScreenBodyProps = {
   sendBusy: boolean;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
-  editingMessageId: string | null;
-  onCancelEdit: () => void;
   onPickAttachment: () => void;
   onAttachmentSource: (source: AttachmentSource) => void;
   mathScannerOpen: boolean;
@@ -146,8 +144,6 @@ export function ChatScreenBody({
   sendBusy,
   pendingAttachment,
   onRemoveAttachment,
-  editingMessageId,
-  onCancelEdit,
   onPickAttachment,
   onAttachmentSource,
   mathScannerOpen,
@@ -240,8 +236,6 @@ export function ChatScreenBody({
             sendBusy={sendBusy}
         pendingAttachment={pendingAttachment}
         onRemoveAttachment={onRemoveAttachment}
-        editingMessageId={editingMessageId}
-        onCancelEdit={onCancelEdit}
         onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
         onSend={(text) => {

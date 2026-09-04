@@ -1,5 +1,5 @@
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
-import { markdownToPlainText } from "@/lib/markdownPlain";
+import { markdownToCopyText } from "@/lib/markdownPlain";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/mathFenceRetag";
 
 export const COPY_LANGS = new Set([
@@ -370,5 +370,5 @@ export function copyBlockLabel(lang: string): string | undefined {
 
 /** Cleaned full message for copy. EmailCard has its own copy control. */
 export function extractPrimaryCopyText(content: string): string {
-  return markdownToPlainText(content);
+  return markdownToCopyText(content);
 }

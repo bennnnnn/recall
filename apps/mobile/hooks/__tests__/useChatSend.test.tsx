@@ -14,7 +14,7 @@ const mockSetInput = jest.fn();
 const mockFeedbackError = jest.fn();
 const mockSwitchThread = jest.fn();
 const mockAdoptComposerThread = jest.fn();
-const mockSaveDraftForThread = jest.fn();
+const mockStashFailedDraftForThread = jest.fn();
 let mockThreadKey = "new";
 jest.mock("@/contexts/ComposerDraftContext", () => ({
   useComposerDraftApi: () => ({
@@ -22,7 +22,7 @@ jest.mock("@/contexts/ComposerDraftContext", () => ({
     inputRef,
     switchThread: mockSwitchThread,
     adoptComposerThread: mockAdoptComposerThread,
-    saveDraftForThread: mockSaveDraftForThread,
+    stashFailedDraftForThread: mockStashFailedDraftForThread,
     getThreadKey: () => mockThreadKey,
   }),
 }));
@@ -92,7 +92,6 @@ function Probe({
     scroll: { newMessageCountRef: { current: 0 } } as never,
     streaming: false,
     sendMessage,
-    editMessage: jest.fn(),
     setMessages,
     messages: [],
     selectedModel: "free-chat",
@@ -190,6 +189,7 @@ describe("useChatSend", () => {
     expect(appended.at(-1)).toMatchObject({ role: "user", content: "hello" });
     expect(sendMessage).not.toHaveBeenCalled();
     expect(current.pendingOutboundId).toBeTruthy();
+    expect(current.sendPhase).toBe("preparing");
 
     await act(async () => {
       finishGeo({ ok: true, clientGeo: null });
@@ -201,6 +201,7 @@ describe("useChatSend", () => {
       expect.objectContaining({ skipUserBubble: true }),
     );
     expect(current.pendingOutboundId).toBeNull();
+    expect(current.sendPhase).toBe("idle");
   });
 
   it("rolls back the bubble and restores the draft when geo is cancelled", async () => {
@@ -255,7 +256,7 @@ describe("useChatSend", () => {
     });
 
     expect(current.pendingAttachment).toBeNull();
-    expect(current.sendPhase).toBe("idle");
+    expect(current.sendPhase).toBe("uploading");
     expect(current.attachBusy).toBe(false);
     expect(sendMessage).not.toHaveBeenCalled();
 
@@ -264,9 +265,10 @@ describe("useChatSend", () => {
       await sendPromise;
     });
     expect(sendMessage).toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
   });
 
-  it("clears attachment and edit when switching threads", async () => {
+  it("clears attachment when switching threads", async () => {
     const view = await act(async () =>
       render(<Probe chatId="chat-1" routeChatId="chat-1" />),
     );
@@ -277,17 +279,14 @@ describe("useChatSend", () => {
         fileName: "pic.jpg",
         kind: "image",
       });
-      current.setEditingMessageId("msg-1");
     });
     expect(current.pendingAttachment).not.toBeNull();
-    expect(current.editingMessageId).toBe("msg-1");
 
     await act(async () => {
       view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
     });
 
     expect(current.pendingAttachment).toBeNull();
-    expect(current.editingMessageId).toBeNull();
     expect(mockSwitchThread).toHaveBeenCalledWith("chat-2");
   });
 
@@ -319,8 +318,35 @@ describe("useChatSend", () => {
       await sendPromise;
     });
 
-    expect(mockSaveDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
     expect(mockSetInput).not.toHaveBeenCalledWith("hello");
+  });
+
+  it("does not replace a newer draft when the failed send restores", async () => {
+    let finishGeo: (value: { ok: false }) => void = () => undefined;
+    resolveGeo.mockReturnValue(
+      new Promise((resolve) => {
+        finishGeo = resolve;
+      }),
+    );
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={jest.fn()} />);
+    });
+
+    let sendPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      sendPromise = current.handleSend();
+      await Promise.resolve();
+    });
+    inputRef.current = "follow-up";
+
+    await act(async () => {
+      finishGeo({ ok: false });
+      await sendPromise;
+    });
+
+    expect(mockSetInput).not.toHaveBeenCalledWith("hello");
+    expect(current.sendPhase).toBe("idle");
   });
 
   it("adopts the composer onto a newly created chat id", async () => {

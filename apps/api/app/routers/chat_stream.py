@@ -21,7 +21,7 @@ from app.core.redis import get_redis_client
 from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
-from app.models.schemas import ChatMessageRequest, EditMessageRequest
+from app.models.schemas import ChatMessageRequest
 from app.services import chat as chat_service
 from app.services.chat.finalize_registry import register_inflight_stream
 from app.services.chat.prompt_builder import StreamReasoningFn
@@ -215,7 +215,7 @@ def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
     )
 
 
-def _client_geo(body: ChatMessageRequest | EditMessageRequest) -> dict[str, Any]:
+def _client_geo(body: ChatMessageRequest) -> dict[str, Any]:
     return {
         "client_timezone": body.client_timezone,
         "client_location": body.client_location,
@@ -279,40 +279,6 @@ async def stream_regenerate_sse(
                     settings,
                     user_id=user.id,
                     chat_id=chat_id,
-                    model_alias=body.model,
-                    should_cancel=should_cancel,
-                    result=result,
-                    on_status=on_status,
-                    on_reasoning=on_reasoning,
-                    **_client_geo(body),
-                )
-            ),
-        )
-    )
-
-
-@router.post("/{chat_id}/edit/stream")
-async def stream_edit_sse(
-    chat_id: UUID,
-    body: EditMessageRequest,
-    request: Request,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
-    redis: Redis = Depends(require_chat_rate_limit),
-) -> StreamingResponse:
-    return _sse_response(
-        _stream_tokens_sse(
-            chat_id=chat_id,
-            settings=settings,
-            request=request,
-            stream_factory=lambda result, on_status, on_reasoning, should_cancel: (
-                chat_service.stream_edit_response(
-                    redis,
-                    settings,
-                    user_id=user.id,
-                    chat_id=chat_id,
-                    message_id=body.message_id,
-                    new_content=body.content,
                     model_alias=body.model,
                     should_cancel=should_cancel,
                     result=result,

@@ -19,6 +19,7 @@ import {
 } from "@/lib/copyBlock";
 import { allowsContentHeuristic } from "@/lib/fenceDispatch";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
+import { applyOutsideFences, readFenceMarker } from "@/lib/mdFenceScan";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
@@ -236,7 +237,7 @@ const PRICE_SHIELD_SUFFIX = "\uE001";
 const DETAILS_HTML_RE =
   /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
 const FENCED_TABLE_RE =
-  /```(?:markdown|md|table|text)?\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
+  /```(?:markdown|md|table)\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
 const FENCE_BLOCK_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
 /** Math/answer/graph/geometry fences that should be lifted out of list items. */
@@ -567,21 +568,6 @@ function isDividerLine(line: string): boolean {
   return compact.length >= 3 && /^[-–—_=*~]+$/.test(compact);
 }
 
-/** CommonMark fence opener/closer: 3+ backticks or tildes, up to 3 leading spaces. */
-function readFenceMarker(line: string): { char: "`" | "~"; len: number; info: string } | null {
-  let i = 0;
-  while (i < line.length && i < 3 && line[i] === " ") i += 1;
-  const char = line[i];
-  if (char !== "`" && char !== "~") return null;
-  let len = 0;
-  while (i < line.length && line[i] === char) {
-    len += 1;
-    i += 1;
-  }
-  if (len < 3) return null;
-  return { char, len, info: line.slice(i).trim() };
-}
-
 /** `---` between two pipe rows is a fake separator; keep it as an hr / setext otherwise. */
 function isTableDebrisDivider(prev: string | undefined, next: string | undefined): boolean {
   return Boolean(prev && next && isTableRow(prev) && isTableRow(next));
@@ -640,11 +626,6 @@ export function normalizeMarkdownTables(content: string): string {
     (_m, table: string) => `\n${table.trim()}\n`,
   );
 
-  out = out
-    .split("\n")
-    .filter((line) => !/^\+[-=+]+\+$/.test(line.trim()))
-    .join("\n");
-
   const lines = out.split("\n");
   const fixed: string[] = [];
   let tableBuffer: string[] = [];
@@ -688,6 +669,10 @@ export function normalizeMarkdownTables(content: string): string {
       flushTable();
       openFence = { char: marker.char, len: marker.len };
       fixed.push(line);
+      continue;
+    }
+
+    if (/^\+[-=+]+\+$/.test(line.trim())) {
       continue;
     }
 
@@ -795,15 +780,23 @@ function unwrapNonCodeFences(content: string): string {
       return full;
     }
 
-    const splitTable = splitCodeFenceAroundPipeTable(lang, trimmed);
-    if (splitTable != null) return splitTable;
+    const taggedLiteral = l === "text" || l === "plain";
+    if (!isExplicitCodeLang(lang) && !taggedLiteral) {
+      const splitTable = splitCodeFenceAroundPipeTable(lang, trimmed);
+      if (splitTable != null) return splitTable;
+    }
 
     if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {
       return full;
     }
 
     if (isPipeTable(trimmed)) {
+      if (taggedLiteral) return full;
       return `\n${normalizeMarkdownTables(trimmed)}\n`;
+    }
+
+    if (taggedLiteral && /^\+[-=+]+\+$/m.test(trimmed)) {
+      return full;
     }
 
     if (shouldRenderAsPlainProseFence(lang, trimmed)) {
@@ -1266,11 +1259,15 @@ export function preprocessMarkdown(
   });
 
   const { text: blockMathInput, restore: restorePriceTiers } = shieldPriceTiers(out);
-  let blockMathOut = blockMathInput.replace(BLOCK_MATH_RE, (_m, latex: string) => {
-    return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
-  });
-  blockMathOut = blockMathOut.replace(BLOCK_MATH_BRACKET_RE, (_m, latex: string) => {
-    return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+  const blockMathOut = applyOutsideFences(blockMathInput, (prose) => {
+    BLOCK_MATH_RE.lastIndex = 0;
+    BLOCK_MATH_BRACKET_RE.lastIndex = 0;
+    let next = prose.replace(BLOCK_MATH_RE, (_m, latex: string) => {
+      return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+    });
+    return next.replace(BLOCK_MATH_BRACKET_RE, (_m, latex: string) => {
+      return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+    });
   });
   out = restorePriceTiers(blockMathOut);
   out = unwrapCorruptedMathFences(out);
