@@ -991,8 +991,13 @@ def test_needs_rich_context(text, expected):
     "text, expected",
     [
         ("what should I eat tonight", True),
+        ("What should I eat for dinner?", True),
         ("What's for dinner?", True),
+        ("I need a quick dinner tonight.", True),
         ("recommend a movie", True),
+        ("Recommend a workout.", True),
+        ("Plan a workout for me.", True),
+        ("Need a workout", True),
         ("what should I wear", True),
         ("gift ideas for a birthday", True),
         ("I'm hungry", True),
@@ -1006,6 +1011,9 @@ def test_needs_rich_context(text, expected):
         ("anything left tonight", False),
         ("what should I return", False),
         ("recommend a library", False),
+        ("I need to show you this", False),
+        ("Please summarize this movie review for me", False),
+        ("I don't need a workout", False),
         ("what should I do", False),
         ("explain photosynthesis", False),
     ],
@@ -1935,6 +1943,29 @@ async def test_classify_turn_mode_eat_tonight_is_advice_memory():
     chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
+
+    assert mode.lightweight is False
+    assert mode.rich_context is False
+    assert mode.advice_memory is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I need a quick dinner tonight.",
+        "Plan a workout for me.",
+    ],
+)
+async def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: str):
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, text)
 
     assert mode.lightweight is False
     assert mode.rich_context is False
