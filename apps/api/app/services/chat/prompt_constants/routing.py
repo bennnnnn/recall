@@ -392,7 +392,8 @@ _DIRECT_REQUEST_INTRO = (
 _TRANSLATION_WRITING = re.compile(
     r"^(?:" + _DIRECT_REQUEST_INTRO + r"(?:"
     r"(?:translate|traduc(?:e|ir)|traduis|traduire|[uü]bersetze|traduci|"
-    r"traduz(?:a|ir)?|cevir|çevir|hiiki|переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역)\b|"
+    r"traduz(?:a|ir)?|cevir|çevir|hiiki)\b|"
+    r"(?:переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역)|"
     r"translation\s*:))",
     re.IGNORECASE,
 )
@@ -422,14 +423,27 @@ _WRITING_HOWTO = re.compile(
 )
 
 
+def _after_initial_writing_howto(text: str) -> str | None:
+    """Drop a leading how-to sentence, but retain a later explicit request."""
+    if not _WRITING_HOWTO.search(text):
+        return text
+    boundary = re.search(r"[.!?]+(?:\s+|$)", text)
+    if boundary is None:
+        return None
+    tail = text[boundary.end() :].strip()
+    return tail or None
+
+
 def writing_request_kind(text: str) -> str | None:
     """Return the writing shape the response contract should preserve."""
     cleaned = collapse_ws(text)
     if not cleaned:
         return None
     # Questions about how to produce or manage a writing artifact are advice,
-    # not requests for Recall to draft the artifact itself.
-    if _WRITING_HOWTO.search(cleaned):
+    # not requests for Recall to draft it. A later sentence can still contain
+    # an explicit deliverable request and must keep its output contract.
+    cleaned = _after_initial_writing_howto(cleaned)
+    if cleaned is None:
         return None
     # Translation leads before quoted-source classifiers: `Translate "write
     # me an email" into Spanish` is a translation, not a request to draft an

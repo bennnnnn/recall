@@ -233,6 +233,9 @@ def test_writing_request_kinds_cover_each_output_shape():
         "Could you help me translate this into Spanish?": "translation",
         "Please, translate this": "translation",
         "Por favor, traduce esto al inglés": "translation",
+        "翻译这句话": "translation",
+        "翻訳してください": "translation",
+        "번역해 주세요": "translation",
         'Translate "write me an email" into Spanish': "translation",
         "Write one paragraph about photosynthesis": "prose",
         "Write a short article comparing Python and Java": "prose",
@@ -242,6 +245,9 @@ def test_writing_request_kinds_cover_each_output_shape():
         "I want you to proofread this paragraph": "edit",
         "How do I delete a LinkedIn post?": None,
         "How do I write a LinkedIn post?": None,
+        (
+            "How do I make it concise? Please write a LinkedIn post comparing Python and Java."
+        ): "social",
         "Explain translation in protein synthesis": None,
         "Explain how ribosomes translate mRNA": None,
         "What is grammar?": None,
