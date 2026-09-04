@@ -14,6 +14,12 @@ describe("textLooksLikeMath", () => {
     expect(textLooksLikeMath("I'm going later")).toBe(false);
   });
 
+  it("does not treat a physics word problem as composer math", () => {
+    const pasted =
+      "A car starts from rest and accelerates at a constant rate of 1.2 m/s². How long does it take the car to travel a distance of 500 meters?";
+    expect(textLooksLikeMath(pasted)).toBe(false);
+  });
+
   it("BUG FIX regression: MATH_ASK words without math signal do not trigger (KB-039)", () => {
     // "solve" in prose without any math signal (digits, =, operators) should not trigger.
     expect(textLooksLikeMath("solve this mystery")).toBe(false);

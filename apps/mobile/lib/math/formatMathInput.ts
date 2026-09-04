@@ -137,6 +137,11 @@ function timesOperators(s: string): string {
   return out;
 }
 
+/** Length/time unit slashes (`m/s`, `km/h`) — not algebraic `a/b`. */
+function isUnitSlash(left: string, right: string): boolean {
+  return /^(?:nm|mm|cm|km|m)$/i.test(left) && /^(?:ms|min|hr|s|h)$/i.test(right);
+}
+
 /** Simple `a/b` (number or single letter) → `\frac{a}{b}`. */
 function slashToFrac(s: string): string {
   let out = "";
@@ -158,7 +163,7 @@ function slashToFrac(s: string): string {
     if (s[i] === "/") {
       const left = lastAtomStart(out);
       const right = readAtom(s, i + 1);
-      if (left && right) {
+      if (left && right && !isUnitSlash(left.atom, right.atom)) {
         out = out.slice(0, left.start) + `\\frac{${left.atom}}{${right.atom}}`;
         i = right.next;
         continue;
