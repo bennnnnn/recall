@@ -18,6 +18,30 @@ async def _fake_sse_stream(*_args, **_kwargs):
     yield 'data: {"type":"done","message_id":"msg-1"}\n\n'
 
 
+@pytest.mark.asyncio
+async def test_sse_attachment_rejection_is_explicit_and_never_done():
+    import json
+
+    from app.exceptions import AttachmentValidationError
+    from app.routers.chat_stream import _stream_tokens_sse
+
+    async def rejected(*args, **kwargs):
+        raise AttachmentValidationError("Attach the file again.")
+        yield  # pragma: no cover
+
+    request = AsyncMock()
+    request.is_disconnected.return_value = False
+    chunks = [
+        chunk
+        async for chunk in _stream_tokens_sse(
+            chat_id=uuid4(), settings=Settings(), stream_factory=rejected, request=request
+        )
+    ]
+    events = [json.loads(chunk.removeprefix("data: ")) for chunk in chunks]
+    assert [event["type"] for event in events] == ["start", "error"]
+    assert events[-1]["code"] == "attachment_rejected"
+
+
 def test_stream_message_sse_returns_event_stream():
     user = _fake_user()
     app = _app_with_user(user)

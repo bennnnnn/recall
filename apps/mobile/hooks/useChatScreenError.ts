@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { ComposerSendDraft } from "@/lib/chat/chatSendLogic";
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
 
@@ -20,9 +21,9 @@ export function useChatErrorHandlers(isPro: boolean) {
   }, [isPro, t]);
 
   const dismissChatError = useCallback(() => setChatError(null), []);
-  const handleRejectedSendChange = useCallback((hasRejectedSend: boolean) => {
-    if (hasRejectedSend) handleChatError("", "send_rejected");
-    else setChatError((current) => current?.kind === "send_rejected" ? null : current);
+  const handleRejectedSendChange = useCallback((reason: "send_rejected" | "attachment_rejected" | null) => {
+    if (reason) handleChatError("", reason);
+    else setChatError((current) => current?.kind === "send_rejected" || current?.kind === "attachment_rejected" ? null : current);
   }, [handleChatError]);
 
   return {
@@ -32,6 +33,39 @@ export function useChatErrorHandlers(isPro: boolean) {
     dismissChatError,
     handleRejectedSendChange,
   };
+}
+
+/** Keep unsaved-send recovery separate from regeneration of a saved reply. */
+export function useChatErrorRecovery({
+  error, blocked, dismiss, retryRejectedSend, restoreRejectedAttachmentDraft,
+  restoreComposerDraft, regenerate, selectedModel,
+}: {
+  error: ResolvedChatError | null;
+  blocked: boolean;
+  dismiss: () => void;
+  retryRejectedSend: () => Promise<boolean>;
+  restoreRejectedAttachmentDraft: (restore: (draft: ComposerSendDraft) => boolean) => boolean;
+  restoreComposerDraft: (draft: ComposerSendDraft) => boolean;
+  regenerate: (model: string) => unknown;
+  selectedModel: string;
+}) {
+  return useCallback(() => {
+    if (blocked) return;
+    if (error?.kind === "attachment_rejected") {
+      if (restoreRejectedAttachmentDraft(restoreComposerDraft)) dismiss();
+      return;
+    }
+    if (error?.kind === "send_rejected") {
+      dismiss();
+      void retryRejectedSend();
+      return;
+    }
+    if (error?.kind === "generic") {
+      dismiss();
+      void regenerate(selectedModel);
+    }
+  }, [blocked, error?.kind, dismiss, retryRejectedSend, restoreRejectedAttachmentDraft,
+    restoreComposerDraft, regenerate, selectedModel]);
 }
 
 type StreamLifecycleParams = {

@@ -414,7 +414,7 @@ async def enqueue_post_turn_jobs(
                     "user_id": str(ctx.user_id),
                     "chat_id": str(ctx.chat_id),
                 },
-                f"attachment_index:{attachment_id}",
+                f"attachment_index:{attachment_id}:{ctx.chat_id}",
             ),
         )
     if (

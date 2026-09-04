@@ -26,6 +26,8 @@ import {
   WS_CONNECT_TIMEOUT_MS,
 } from "@/lib/chatWsConnect";
 
+import type { ComposerSendDraft } from "@/lib/chat/chatSendLogic";
+
 export type { StreamingDraft };
 
 type SendMessageOptions = {
@@ -38,6 +40,8 @@ type SendMessageOptions = {
   localFileContentType?: string | null;
   model?: string | null;
   clientGeo?: ClientGeo | null;
+  /** Original composer data, retained only for definitely-unsaved recovery. */
+  composerDraft?: ComposerSendDraft;
 };
 
 type PendingSend = {
@@ -47,6 +51,8 @@ type PendingSend = {
   retryingRejected: boolean;
   dispatched: boolean;
 };
+
+type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };
 
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
@@ -76,8 +82,8 @@ export function useChat(
   const pendingSendRef = useRef<PendingSend | null>(null);
   // Only explicit pre-persistence rejections belong here. Keep them across
   // conversation switches and newer sends until the user retries or stops.
-  const rejectedSendsRef = useRef(new Map<string, PendingSend[]>());
-  const [rejectedSend, setRejectedSend] = useState<{ content: string } | null>(null);
+  const rejectedSendsRef = useRef(new Map<string, RejectedSend[]>());
+  const [rejectedSend, setRejectedSend] = useState<RejectedSend | null>(null);
   const mountedRef = useRef(true);
   const connectingRef = useRef<Promise<void> | null>(null);
   const preferSseRef = useRef(false);
@@ -359,9 +365,12 @@ export function useChat(
       }
 
       if (payload.type === "error") {
-        // Both transports send start before attempting the prepare lock. Busy
-        // is the explicit guarantee this new user turn was never persisted.
-        const rejected = payload.code === "busy" ? pendingSendRef.current : null;
+        // These codes explicitly guarantee this user turn was never saved.
+        // A start/status event alone is not acceptance; answer events are.
+        const pending = pendingSendRef.current;
+        const reason = payload.code === "busy" ? "send_rejected"
+          : payload.code === "attachment_rejected" ? "attachment_rejected" : null;
+        const rejected: RejectedSend | null = pending && reason ? { ...pending, reason } : null;
         pendingSendRef.current = null;
         if (rejected && chatId) {
           const queue = rejectedSendsRef.current.get(chatId) ?? [];
@@ -411,7 +420,7 @@ export function useChat(
         }
         reportError(
           payload.message ?? t("chat.error_generic"),
-          rejected ? "send_rejected" : typeof payload.code === "string" ? payload.code : undefined,
+          rejected && chatId ? rejectedSendsRef.current.get(chatId)?.[0]?.reason : typeof payload.code === "string" ? payload.code : undefined,
         );
       }
     },
@@ -715,7 +724,7 @@ export function useChat(
     async (
       content: string,
       options?: SendMessageOptions,
-      rejectedRetry?: PendingSend,
+      rejectedRetry?: RejectedSend,
     ) => {
       if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return;
       const attempt = ++sendAttemptRef.current;
@@ -757,6 +766,10 @@ export function useChat(
           skipUserBubble: false,
           trackSendingMessageId: undefined,
           attachmentIds: options?.attachmentIds?.slice(),
+          composerDraft: options?.composerDraft ? {
+            text: options.composerDraft.text,
+            attachment: options.composerDraft.attachment ? { ...options.composerDraft.attachment } : null,
+          } : undefined,
           clientGeo: options?.clientGeo ? { ...options.clientGeo } : options?.clientGeo,
         },
       };
@@ -827,11 +840,28 @@ export function useChat(
     if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return false;
     const queue = rejectedSendsRef.current.get(chatId);
     const rejected = queue?.[0];
-    if (!rejected) return false;
+    if (!rejected || rejected.reason !== "send_rejected") return false;
     const attempt = sendAttemptRef.current + 1;
     await dispatchSend(rejected.content, rejected.options, rejected);
     return isCurrentView() && sendAttemptRef.current === attempt;
   }, [token, chatId, isCurrentView, dispatchSend]);
+
+  const restoreRejectedAttachmentDraft = useCallback((restore: (draft: ComposerSendDraft) => boolean): boolean => {
+    if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return false;
+    const queue = rejectedSendsRef.current.get(chatId);
+    const rejected = queue?.[0];
+    if (!rejected || rejected.reason !== "attachment_rejected") return false;
+    const original = rejected.options.composerDraft ?? { text: rejected.content, attachment: null };
+    const attachment = original.attachment ? { ...original.attachment } : null;
+    // The server has rejected this reference. A local file can be uploaded
+    // again when the user sends, or replaced in the restored composer.
+    if (attachment) delete attachment.existingAttachmentId;
+    if (!restore({ text: original.text, attachment })) return false;
+    queue!.shift();
+    if (queue!.length === 0) rejectedSendsRef.current.delete(chatId);
+    setRejectedSend(queue![0] ?? null);
+    return true;
+  }, [token, chatId, isCurrentView]);
 
   const beginRegenerateUi = useCallback(() => {
     if (!isCurrentView()) return;
@@ -958,6 +988,7 @@ export function useChat(
     sendMessage,
     rejectedSend,
     retryRejectedSend,
+    restoreRejectedAttachmentDraft,
     beginRegenerateUi,
     cancelRegenerateUi: restoreRegenerateBackup,
     regenerateResponse,

@@ -1,3 +1,13 @@
+import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
+import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
+
+let mockGeneration = 0;
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: () => mockGeneration,
+  requireTokenSession: jest.fn(),
+  SessionChangedError: class extends Error { constructor() { super("Session changed"); } },
+}));
+
 jest.mock("@/lib/downloadChatAttachment", () => ({
   ensureLocalAttachmentFile: jest.fn(async ({ uri }: { uri: string }) => `file://cache/${uri}`),
 }));
@@ -6,9 +16,6 @@ jest.mock("@/lib/attachmentUri", () => ({
   resolveAttachmentUri: ({ attachmentId }: { attachmentId: string }) =>
     `http://api.test/attachments/${attachmentId}/file`,
 }));
-
-import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
-import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 
 describe("pendingFromLibraryItem", () => {
   it("downloads images and skips re-upload via existingAttachmentId", async () => {
@@ -49,4 +56,15 @@ describe("pendingFromLibraryItem", () => {
       existingAttachmentId: "doc-1",
     });
   });
+});
+
+
+it("does not return a previous account's Library selection after downloading", async () => {
+  jest.mocked(ensureLocalAttachmentFile).mockImplementationOnce(async () => {
+    mockGeneration++;
+    return "file:///old-account.jpg";
+  });
+  await expect(pendingFromLibraryItem({
+    id: "old-image", content_type: "image/jpeg", original_filename: "image.jpg", download_url: "/attachments/old-image/file",
+  }, "old-token")).rejects.toThrow("Session changed");
 });

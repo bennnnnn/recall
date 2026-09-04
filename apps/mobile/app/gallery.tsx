@@ -51,6 +51,8 @@ export default function GalleryScreen() {
     loading,
     loadingMore,
     error,
+    pageError,
+    retryPage,
     pullRefreshing,
     refresh,
     loadMore,
@@ -177,6 +179,9 @@ export default function GalleryScreen() {
               <View style={s.footer}>
                 <ActivityIndicator color={C.textTertiary} />
               </View>
+            ) : pageError ? (
+              <StateView variant="error" title={t("common.error")}
+                onRetry={() => void retryPage()} retryLabel={t("common.retry")} />
             ) : null
           }
           ListEmptyComponent={
@@ -221,7 +226,7 @@ export default function GalleryScreen() {
         onShare={() => {
           const item = library.actionItem;
           if (!item) return;
-          void library.shareFile(item).then(() => library.setActionItem(null));
+          void library.shareFile(item);
         }}
         onDelete={() => {
           const item = library.actionItem;

@@ -4,6 +4,7 @@ import { signOutGoogle } from "@/lib/google-auth";
  * session revocation is separate, so an offline server never holds logout UI. */
 export async function clearSignedOutAccount(userId: string | undefined): Promise<void> {
   await Promise.allSettled([
+    import("@/lib/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
     import("@/lib/todos/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/lib/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
     import("@/lib/chatMessageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),

@@ -68,6 +68,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   only after the server confirms the file is gone. Opening Library warms the All page
   from the drawer tap (20s cache, same window as Memory); tab snapshots avoid a
   wrong-grid flash. Logout, chat delete, upload, and image-gen invalidate it.
+- ✅ **Attachment reliability review (2026-09-04)** — picker and Library completions
+  stay in their account and conversation; pagination failures retain rows with Retry.
+  Downloads use distinct cache files, verify cached files still exist, and clear on logout.
+  Temporary storage failures preserve attachment records; failed object deletions remain
+  queued for cleanup. Local upload retries cannot overwrite an existing Library file.
+  See [review and validation notes](./docs/ATTACHMENT_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
@@ -275,6 +281,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   text-layer excerpt. File chip shows “still indexing” until chunks exist; inject
   includes filename (and `[page n]` when known). Invalidated on attachment delete. Flag: `attachment_rag_enabled`
   (default on).
+  Reusing a retained Library file in another chat schedules a separate index job;
+  late jobs recheck ownership, verification, and the current chat before replacing chunks.
 - ✅ **Chat-history semantic RAG** — background `message_index` embeds past turns into
   `message_chunks` (pgvector). Turn start retrieves a small top-k, excluding the recent
   window. Golden Rule 3 still holds — never the full transcript. First index also

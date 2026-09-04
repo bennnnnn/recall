@@ -20,6 +20,7 @@ from app.services.attachment_content import (
     is_image_content_type,
     normalize_content_type,
 )
+from app.services.attachment_quota import has_current_upload_reservation
 
 
 class AttachmentUploadError(Exception):
@@ -91,7 +92,9 @@ async def create_presigned_upload(
             content_type=normalized,
             size_bytes=size_bytes,
             original_filename=sanitize_original_filename(filename),
+            commit=False,
         )
+        await session.commit()
     except Exception:
         if image_reserved:
             await quota_service.refund_image_upload(redis, user.id)
@@ -123,8 +126,16 @@ async def cancel_pending_upload(
             status_code=409,
         )
 
-    gateway = get_storage_gateway(settings)
-    await gateway.delete_bytes(row.storage_key)
-    await attachments_repo.delete_rows(session, [attachment_id])
-    if is_image_content_type(row.content_type):
+    # The conditional DELETE also fences a concurrent send that links this row.
+    removed = await attachments_repo.delete_unlinked_returning(session, [attachment_id])
+    if not removed:
+        raise AttachmentUploadError("Attachment is no longer pending", status_code=409)
+    from app.services.attachment_lifecycle import (
+        delete_storage_keys,
+        enqueue_failed_storage_deletes,
+    )
+
+    failed = await delete_storage_keys(settings, removed)
+    await enqueue_failed_storage_deletes(failed)
+    if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
         await quota_service.refund_image_upload(get_redis_client(), user.id)

@@ -15,6 +15,7 @@ from app.gateways.storage_gateway import get_storage_gateway
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
 from app.services.attachment_content import is_image_content_type
+from app.services.attachment_quota import has_current_upload_reservation
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +40,8 @@ async def detach_attachments_for_messages(
         return []
     attachment_ids = [row.id for row in rows]
     storage_keys = [row.storage_key for row in rows if row.storage_key]
-    from app.repositories import attachment_chunks as chunks_repo
-
-    await chunks_repo.delete_for_attachment_ids(session, attachment_ids, commit=False)
+    # The FK cascade deletes chunks after locking their attachment parent,
+    # matching the index worker's lock order.
     await attachments_repo.delete_rows(session, attachment_ids, commit=commit)
     return storage_keys
 
@@ -90,14 +90,14 @@ async def retry_pending_storage_deletes(settings: Settings) -> int:
     ]
     if not keys:
         return 0
-    still_failed = await delete_storage_keys(settings, keys)
-    try:
-        await redis.srem(PENDING_STORAGE_DELETE_KEY, *keys)
-    except Exception:
-        logger.debug("Could not clear pending storage deletes", exc_info=True)
-    if still_failed:
-        await enqueue_failed_storage_deletes(still_failed)
-    return len(keys) - len(still_failed)
+    still_failed = set(await delete_storage_keys(settings, keys))
+    succeeded = [key for key in keys if key not in still_failed]
+    if succeeded:
+        try:
+            await redis.srem(PENDING_STORAGE_DELETE_KEY, *succeeded)
+        except Exception:
+            logger.debug("Could not clear pending storage deletes", exc_info=True)
+    return len(succeeded)
 
 
 async def purge_attachments_for_messages(
@@ -138,9 +138,6 @@ async def purge_attachments_for_user(
     ]
     if not attachment_ids:
         return 0
-    from app.repositories import attachment_chunks as chunks_repo
-
-    await chunks_repo.delete_for_attachment_ids(session, attachment_ids)
     return await attachments_repo.delete_rows(session, attachment_ids)
 
 
@@ -175,25 +172,25 @@ async def reap_orphan_attachments(settings: Settings) -> int:
     # is NOT removed and its bytes are preserved.
     ids_to_delete = [row.id for row in orphans]
     async with SessionLocal() as session:
-        removed_keys = await attachments_repo.delete_unlinked_returning(session, ids_to_delete)
+        removed_keys = await attachments_repo.delete_unlinked_returning(
+            session, ids_to_delete, orphan_only=True
+        )
     if not removed_keys:
         return 0
 
     # Storage cleanup for confirmed-removed rows only.
     removed_set = set(removed_keys)
     rows_to_refund = [row for row in orphans if row.storage_key in removed_set]
-    await delete_storage_keys(settings, removed_keys)
+    failed = await delete_storage_keys(settings, removed_keys)
+    await enqueue_failed_storage_deletes(failed)
 
     # Refund the daily image slot for each reaped image.
     if rows_to_refund:
         redis = get_redis_client()
         for row in rows_to_refund:
-            if is_image_content_type(row.content_type):
+            if is_image_content_type(row.content_type) and has_current_upload_reservation(row):
                 try:
-                    if getattr(row, "source", "upload") == "generated":
-                        await quota_service.refund_image_generation(redis, row.user_id)
-                    else:
-                        await quota_service.refund_image_upload(redis, row.user_id)
+                    await quota_service.refund_image_upload(redis, row.user_id)
                 except Exception:
                     logger.debug(
                         "Image quota refund failed for user %s", row.user_id, exc_info=True

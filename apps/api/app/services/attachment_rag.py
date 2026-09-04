@@ -115,7 +115,7 @@ async def index_attachment(
 
     async with SessionLocal() as session:
         row = await attachments_repo.get_by_id(session, attachment_id, user_id)
-        if row is None or not is_indexable_attachment(row):
+        if row is None or row.verified_at is None or not is_indexable_attachment(row):
             return 0
         storage_key = row.storage_key
         content_type = row.content_type
@@ -168,14 +168,14 @@ async def index_attachment(
         )
 
     async with SessionLocal() as session:
-        await chunks_repo.replace_chunks(
+        stored = await chunks_repo.replace_chunks(
             session,
             user_id=owner_id,
             attachment_id=row_id,
             chat_id=chat_id,
             chunks=successful,
         )
-    return len(successful)
+    return len(successful) if stored else 0
 
 
 async def retrieve_for_prompt(

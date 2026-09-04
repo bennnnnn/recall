@@ -161,7 +161,7 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_lifecycle.get_storage_gateway", return_value=gateway),
         patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
         patch(
             "app.services.attachment_upload.quota_service.refund_image_upload",
@@ -265,9 +265,21 @@ def test_cancel_pending_upload_refunds_image_quota():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
     row.id = attachment_id
+    from datetime import UTC, datetime
+
     row.message_id = None
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
     row.content_type = "image/png"
     row.storage_key = "user/key"
 
@@ -286,10 +298,10 @@ def test_cancel_pending_upload_refunds_image_quota():
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_upload.attachments_repo.delete_rows",
-            AsyncMock(return_value=1),
+            "app.services.attachment_upload.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=["user/key"]),
         ),
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_lifecycle.get_storage_gateway", return_value=gateway),
         patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
         patch(
             "app.services.attachment_upload.quota_service.refund_image_upload",
@@ -306,11 +318,40 @@ def test_cancel_pending_upload_refunds_image_quota():
     refund_mock.assert_awaited_once_with(fake_redis, user.id)
 
 
+def test_confirm_storage_outage_returns_retryable_503_without_purging():
+    from app.gateways.storage_gateway import StorageUnavailableError
+
+    user = _fake_user()
+    attachment_id = uuid4()
+    row = MagicMock(id=attachment_id, content_type="text/plain", storage_key="u/a", size_bytes=4)
+    gateway = MagicMock(read_bytes=AsyncMock(side_effect=StorageUnavailableError("outage")))
+    with (
+        patch(
+            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_content.purge_invalid_upload", AsyncMock()) as purge,
+    ):
+        response = TestClient(_app_with_user(user)).post(
+            f"/attachments/{attachment_id}/confirm", headers={"Authorization": "Bearer tok"}
+        )
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "5"
+    purge.assert_not_awaited()
+
+
 def test_confirm_upload_rejects_spoofed_r2_bytes():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
@@ -436,7 +477,14 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "image/png"
@@ -480,6 +528,7 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
     app = _app_with_user(user)
     attachment_id = uuid4()
     row = MagicMock()
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "image/png"
@@ -518,6 +567,7 @@ def test_upload_rejects_body_larger_than_declared_size_without_writing():
     app = _app_with_user(user)
     attachment_id = uuid4()
     row = MagicMock()
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "image/png"
@@ -560,7 +610,13 @@ def test_serve_file_rejects_spoofed_r2_bytes():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
@@ -676,7 +732,7 @@ def test_serve_file_missing_local_drops_row():
 
     assert r.status_code == 404
     assert r.json()["detail"] == "File missing"
-    delete_chunks.assert_awaited_once()
+    delete_chunks.assert_not_awaited()
     delete_rows.assert_awaited_once()
 
 
@@ -727,7 +783,14 @@ def test_upload_rejects_size_mismatch_with_declared_size():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "image/png"
@@ -773,7 +836,13 @@ def test_download_url_rejects_spoofed_r2_bytes():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
@@ -851,6 +920,7 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
     app = _app_with_user(user)
     attachment_id = uuid4()
     row = MagicMock()
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -888,6 +958,7 @@ def test_upload_rejects_already_linked_attachment():
     app = _app_with_user(user)
     attachment_id = uuid4()
     row = MagicMock()
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = uuid4()
     row.content_type = "image/png"
@@ -918,6 +989,7 @@ def test_upload_r2_backend_returns_501_before_refund():
     app = _app_with_user(user)
     attachment_id = uuid4()
     row = MagicMock()
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "image/png"
@@ -1049,8 +1121,8 @@ def test_cancel_still_allowed_when_attachments_disabled():
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_upload.attachments_repo.delete_rows",
-            AsyncMock(return_value=1),
+            "app.services.attachment_upload.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=["user/key"]),
         ),
         patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
         patch("app.services.attachment_upload.get_redis_client", return_value=AsyncMock()),
@@ -1318,7 +1390,14 @@ def test_put_upload_empty_body_purges_row_and_refunds_quota():
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.verified_at = None
+    row.created_at = datetime.now(UTC)
+    row.verified_at = None
     row.id = attachment_id
     row.message_id = None
     row.content_type = "image/png"
