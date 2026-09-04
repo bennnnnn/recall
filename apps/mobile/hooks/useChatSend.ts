@@ -14,7 +14,6 @@ import type { useChatScroll } from "@/hooks/useChatScroll";
 import type { Message } from "@/lib/api";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
-import { parseUserMessageContent } from "@/lib/messageAttachments";
 import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
@@ -74,7 +73,6 @@ type Options = {
   scroll: ChatScroll;
   streaming: boolean;
   sendMessage: SendMessageFn;
-  editMessage: (id: string, text: string, model: string, clientGeo?: ClientGeo | null) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   /** Current transcript — used to treat short follow-ups after image replies as revisions. */
   messages: Message[];
@@ -104,7 +102,6 @@ export function useChatSend({
   scroll,
   streaming,
   sendMessage,
-  editMessage,
   setMessages,
   messages,
   selectedModel,
@@ -142,7 +139,6 @@ export function useChatSend({
   const [sendPhase, setSendPhase] = useState<ChatSendPhase>("idle");
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{
     text: string;
@@ -168,7 +164,6 @@ export function useChatSend({
     prevComposerThreadRef.current = composerThread;
     if (fromKey === composerThread) return;
     setPendingAttachment(null);
-    setEditingMessageId(null);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
   }, [composerThread, switchThread, getThreadKey]);
@@ -241,10 +236,6 @@ export function useChatSend({
         })
       )
         return;
-      if (editingMessageId && pendingAttachment) {
-        reportRecoverableWarning(feedback, t("chat.edit_no_attachments"));
-        return;
-      }
       tap();
       if (onBeforeSend?.(text) === true) return;
 
@@ -252,7 +243,7 @@ export function useChatSend({
       // Do not gate on client isPro — plan can be stale while the API still knows Pro;
       // submitPrompt / the API open upgrade or generate. Never let the model invent
       // "the app will attach an image shortly" without calling generate.
-      if (onGenerateImage && !pendingAttachment && !editingMessageId) {
+      if (onGenerateImage && !pendingAttachment) {
         const imagePrompt =
           extractImageGenPrompt(text) ??
           extractImageRevisionPrompt(text, imageGenRevisionContext(messages));
@@ -279,24 +270,20 @@ export function useChatSend({
       setSendPhase(attached ? "uploading" : "preparing");
       Keyboard.dismiss();
 
-      const isEdit = Boolean(editingMessageId && chatId);
       const optimisticId = `local-${Date.now()}`;
       const createdAt = new Date().toISOString();
-      let addedOptimistic = false;
-      if (!isEdit) {
-        addedOptimistic = true;
-        setPendingOutboundId(optimisticId);
-        setMessages((prev) => [
-          ...prev,
-          buildOptimisticUserMessage({
-            text,
-            attached,
-            optimisticId,
-            createdAt,
-          }),
-        ]);
-        newMessageCountRef.current += 1;
-      }
+      const addedOptimistic = true;
+      setPendingOutboundId(optimisticId);
+      setMessages((prev) => [
+        ...prev,
+        buildOptimisticUserMessage({
+          text,
+          attached,
+          optimisticId,
+          createdAt,
+        }),
+      ]);
+      newMessageCountRef.current += 1;
 
       const restoreDraft = () => {
         if (addedOptimistic) {
@@ -336,15 +323,6 @@ export function useChatSend({
         return;
       }
       const clientGeo = geoResult.clientGeo;
-
-      if (editingMessageId && chatId) {
-        const editId = editingMessageId;
-        setEditingMessageId(null);
-        void editMessage(editId, text, selectedModel, clientGeo);
-        sendInFlightRef.current = false;
-        setSendPhase("idle");
-        return;
-      }
 
       if (!chatId) {
         creatingRef.current = true;
@@ -396,10 +374,8 @@ export function useChatSend({
       token,
       creatingRef,
       attachBusy,
-      editingMessageId,
       chatId,
       newMessageCountRef,
-      editMessage,
       selectedModel,
       setMessages,
       prepareDraftChat,
@@ -497,17 +473,6 @@ export function useChatSend({
     setMathScannerOpen(false);
   }, []);
 
-  const handleEditMessage = useCallback(
-    (message: Message) => {
-      if (streaming) return;
-      const parsed = parseUserMessageContent(message.content);
-      setInput(parsed.caption || message.content);
-      setEditingMessageId(message.id);
-      setPendingAttachment(null);
-    },
-    [streaming],
-  );
-
   return {
     setInput,
     pendingAttachment,
@@ -519,13 +484,10 @@ export function useChatSend({
     setAttachSheetOpen,
     mathScannerOpen,
     setMathScannerOpen,
-    editingMessageId,
-    setEditingMessageId,
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
-    handleEditMessage,
     creatingRef,
     pendingOutboundId,
   };

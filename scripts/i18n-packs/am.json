@@ -28,8 +28,6 @@
   "chat.delete_confirm_title": "ውይይት ሰርዝ",
   "chat.delete_failed": "ይህን ውይይት መሰረዝ አልተቻለም።",
   "chat.deleted_toast": "ውይይት ተሰርዟል",
-  "chat.edit_no_attachments": "አርትዖቶች ለጊዜው ጽሑፍ ብቻ ናቸው።",
-  "chat.editing_message": "መልእክት በመስተካከል ላይ — ከዚህ በኋላ እንደገና ለመስራት ላክ",
   "chat.empty_hint": "ምን እንደሚያስቡ?",
   "chat.empty_title": "እንዴት ልረዳዎት?",
   "chat.error_title": "ምላሽ ማግኘት አልተቻለም",

@@ -341,45 +341,6 @@ async def stream_regenerate_response(
         yield token
 
 
-async def stream_edit_response(
-    redis: Redis,
-    settings: Settings,
-    *,
-    user_id: UUID,
-    chat_id: UUID,
-    message_id: UUID,
-    new_content: str,
-    model_alias: str | None = None,
-    should_cancel: Callable[[], bool] | None = None,
-    result: dict[str, Any] | None = None,
-    client_timezone: str | None = None,
-    client_location: str | None = None,
-    client_latitude: float | None = None,
-    client_longitude: float | None = None,
-    on_status: StreamStatusFn | None = None,
-    on_reasoning: StreamReasoningFn | None = None,
-) -> AsyncIterator[str]:
-    async for token in _entry.stream_edit_response(
-        _seams(),
-        redis,
-        settings,
-        user_id=user_id,
-        chat_id=chat_id,
-        message_id=message_id,
-        new_content=new_content,
-        model_alias=model_alias,
-        should_cancel=should_cancel,
-        result=result,
-        client_timezone=client_timezone,
-        client_location=client_location,
-        client_latitude=client_latitude,
-        client_longitude=client_longitude,
-        on_status=on_status,
-        on_reasoning=on_reasoning,
-    ):
-        yield token
-
-
 async def stream_and_finalize(
     redis: Redis,
     settings: Settings,
@@ -431,7 +392,6 @@ __all__ = [
     "reserve_turn_quota",
     "stream_and_finalize",
     "stream_chat_response",
-    "stream_edit_response",
     "stream_regenerate_response",
     "weighted_reserve_tokens",
     "wrap_stream_status",

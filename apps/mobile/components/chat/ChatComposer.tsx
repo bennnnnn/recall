@@ -70,8 +70,6 @@ type Props = {
   sendBusy?: boolean;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
-  editingMessageId: string | null;
-  onCancelEdit: () => void;
   onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
   onSend: (text?: string) => void;
@@ -112,8 +110,6 @@ export const ChatComposer = memo(function ChatComposer({
   sendBusy = false,
   pendingAttachment,
   onRemoveAttachment,
-  editingMessageId,
-  onCancelEdit,
   onCloseAttachSheet,
   onPickAttachment,
   onSend,
@@ -207,14 +203,6 @@ export const ChatComposer = memo(function ChatComposer({
   return (
     <Animated.View style={containerStyle}>
       <View style={s.composerAnchor}>
-        {editingMessageId ? (
-          <View style={s.editBanner}>
-            <Text style={s.editBannerText}>{t("chat.editing_message")}</Text>
-            <Pressable onPress={onCancelEdit}>
-              <Text style={s.editBannerCancel}>{t("common.cancel")}</Text>
-            </Pressable>
-          </View>
-        ) : null}
         <View style={s.composer}>
           {scanHint && onOpenMathScanner ? (
             <View style={s.scanHint}>
@@ -471,19 +459,6 @@ function makeStyles(theme: Theme) {
       paddingTop: 2,
     },
     composerAnchor: { position: "relative", overflow: "visible" },
-    editBanner: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginHorizontal: 4,
-      marginBottom: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-    },
-    editBannerText: { fontSize: 13, fontWeight: "600", color: theme.primary },
-    editBannerCancel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
     composer: { paddingVertical: 6, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
     liveTalkRow: {

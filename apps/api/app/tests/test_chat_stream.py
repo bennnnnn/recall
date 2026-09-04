@@ -222,11 +222,10 @@ async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
     [
         ("messages/stream", {"content": "hello"}),
         ("regenerate/stream", {}),
-        ("edit/stream", {"message_id": str(uuid4()), "content": "revised"}),
     ],
 )
 def test_stream_routes_return_429_when_chat_rate_limited(path: str, body: dict):
-    """All three streaming routes share require_chat_rate_limit; each must 429.
+    """Streaming routes share require_chat_rate_limit; each must 429.
 
     The check used to be copy-pasted into every route body, so a new streaming
     entry point could silently ship without it. This pins the throttle to the
