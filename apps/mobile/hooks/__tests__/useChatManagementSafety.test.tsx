@@ -25,14 +25,20 @@ jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));
 jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 
+const chat: Chat = {
+  id: "chat-1", title: "Old title", model: "free-chat", pinned: false, archived: false,
+  created_at: "2026-01-01", updated_at: "2026-01-01",
+};
 const setChatTitle = jest.fn();
 const setPinned = jest.fn();
 const setArchived = jest.fn();
 const router = { canGoBack: () => true, back: jest.fn(), replace: jest.fn() };
 let actions: ReturnType<typeof useChatActions>;
-function Probe({ chatId = "chat-1", token = "token" }: { chatId?: string; token?: string }) {
+function Probe({ chatId = "chat-1", token = "token", pinned = false, archived = false }: {
+  chatId?: string; token?: string; pinned?: boolean; archived?: boolean;
+}) {
   const value = useChatActions({
-    token, chatId, chatTitle: "Old title", messages: [], pinned: false, archived: false,
+    token, chatId, chatTitle: "Old title", messages: [], pinned, archived,
     setPinned, setArchived, setChatTitle, setMessages: jest.fn(), router: router as never, t: (key) => key,
   });
   React.useLayoutEffect(() => { actions = value; });
@@ -60,7 +66,7 @@ describe.each([
   ["archive", "setArchive", "toggleArchive", setArchived],
 ] as const)("%s lifetime", (_name, apiMethod, action, setter) => {
   it.each(["resolve", "reject"] as const)("does not update a different chat when its request %ss", async (outcome) => {
-    const request = deferred<{ title: string }>();
+    const request = deferred<Chat>();
     (api[apiMethod] as jest.Mock).mockReturnValue(request.promise);
     const view = await render(<Probe />);
     await act(async () => { actions.setRenameText("New title"); });
@@ -69,7 +75,7 @@ describe.each([
     await view.rerender(<Probe chatId="chat-2" />);
     setter.mockClear();
     await act(async () => {
-      if (outcome === "resolve") request.resolve({ title: "Saved" });
+      if (outcome === "resolve") request.resolve({ ...chat, title: "Saved", pinned: apiMethod === "setPin", archived: apiMethod === "setArchive" });
       else request.reject(new Error("offline"));
       await pending;
     });
@@ -80,7 +86,7 @@ describe.each([
 });
 
 it("does not reconcile an old account's rename into the next account", async () => {
-  const request = deferred<{ title: string }>();
+  const request = deferred<Chat>();
   (api.renameChat as jest.Mock).mockReturnValue(request.promise);
   const view = await render(<Probe />);
   await act(async () => { actions.setRenameText("New title"); });
@@ -89,7 +95,7 @@ it("does not reconcile an old account's rename into the next account", async () 
   mockSession++;
   await view.rerender(<Probe token="account-2" />);
   jest.mocked(patchChatGlobal).mockClear(); setChatTitle.mockClear();
-  await act(async () => { request.resolve({ title: "Old account" }); await pending; });
+  await act(async () => { request.resolve({ ...chat, title: "Old account" }); await pending; });
   expect(setChatTitle).not.toHaveBeenCalled();
   expect(patchChatGlobal).not.toHaveBeenCalled();
   expect(actions.actionBanner).toBeNull();
@@ -133,7 +139,7 @@ it("clears the active deleted conversation through the registered new-chat actio
 });
 
 it("coalesces repeated archive taps while the mutation is pending, including token refresh", async () => {
-  const request = deferred<{ title: string }>();
+  const request = deferred<Chat>();
   (api.setArchive as jest.Mock).mockReturnValue(request.promise);
   const view = await render(<Probe />);
   let pending!: Promise<void>;
@@ -141,7 +147,7 @@ it("coalesces repeated archive taps while the mutation is pending, including tok
   await view.rerender(<Probe token="refreshed-token" />);
   await act(async () => { void actions.toggleArchive(); });
   expect(api.setArchive).toHaveBeenCalledTimes(1);
-  await act(async () => { request.resolve({ title: "Saved" }); await pending; });
+  await act(async () => { request.resolve({ ...chat, title: "Saved", archived: true }); await pending; });
   expect(actions.actionBanner?.message).toBe("chat.archived_toast");
   expect(moveChatArchiveGlobal).toHaveBeenCalledWith("chat-1", true);
 });
@@ -176,4 +182,22 @@ it("recovers real metadata after a failed delete when the chat was outside the c
   expect(api.getChat).toHaveBeenCalledWith("token", "chat-1");
   expect(insertChatGlobal).toHaveBeenCalledWith(original);
   expect(mockError).toHaveBeenCalledWith("chat.delete_failed");
+});
+
+it.each([
+  { name: "pin", action: "togglePin", method: "setPin", initialPinned: false, initialArchived: false, pinned: false, archived: true, toast: "chat.unpinned_toast" },
+  { name: "unpin", action: "togglePin", method: "setPin", initialPinned: true, initialArchived: false, pinned: true, archived: false, toast: "chat.pinned_toast" },
+  { name: "archive", action: "toggleArchive", method: "setArchive", initialPinned: true, initialArchived: false, pinned: true, archived: false, toast: "chat.unarchived_toast" },
+  { name: "unarchive", action: "toggleArchive", method: "setArchive", initialPinned: false, initialArchived: true, pinned: false, archived: true, toast: "chat.archived_toast" },
+] as const)("reconciles $name with the returned server flags after another device changes them", async (testCase) => {
+  const saved = { ...chat, pinned: testCase.pinned, archived: testCase.archived };
+  jest.mocked(api[testCase.method]).mockResolvedValue(saved);
+  await render(<Probe pinned={testCase.initialPinned} archived={testCase.initialArchived} />);
+  await act(async () => { await actions[testCase.action](); });
+  expect(api[testCase.method]).toHaveBeenCalledWith("token", chat.id,
+    !(testCase.method === "setPin" ? testCase.initialPinned : testCase.initialArchived));
+  expect(setPinned).toHaveBeenLastCalledWith(saved.pinned);
+  expect(setArchived).toHaveBeenLastCalledWith(saved.archived);
+  expect(patchChatGlobal).toHaveBeenLastCalledWith(chat.id, { pinned: saved.pinned, archived: saved.archived });
+  expect(actions.actionBanner?.message).toBe(testCase.toast);
 });
