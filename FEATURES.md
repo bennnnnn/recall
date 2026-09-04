@@ -20,10 +20,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `DEV_AUTH_ENABLED`, blocked in production).
 - ✅ **Sessions** — JWT (HS256) access token (1h) + Redis-backed refresh token (30d), stored in
   secure storage; `POST /auth/refresh` and `POST /auth/logout` with access-token revocation.
-- ✅ **Auto sign-out on 401** — refresh is attempted first; if it fails, the user is signed out.
+- ✅ **Session recovery and account boundaries** — atomic secure credential pairs and Redis
+  rotation; temporary failures preserve sign-in; startup offers Retry when validation is
+  unavailable; old-account requests, cache writes and background sync cannot restore a
+  signed-out account. See [authentication review](docs/AUTH_SESSION_REVIEW_2026-09-04.md).
+- ✅ **Auto sign-out on 401** — refresh is attempted first; definitive rejection signs out,
+  while temporary refresh failures preserve the session for retry.
 - ✅ **Sign out** — revokes server tokens, clears local storage, and signs out of Google.
 - ✅ **Sign in with Apple** — iOS only (hidden on Android); requires Apple capability on App ID.
 - 🔜 Email/password, magic links, multi-device session management.
+- ⚠️ **Native sign-in verification (2026-09-04)** — the installed simulator app lacks signing
+  entitlements and cannot use Keychain; no valid signing identity is available in this
+  environment. Configure Apple development signing and rebuild before verifying session
+  persistence and native Google/Apple callbacks. Credentials stay in secure storage.
 
 ## 2. Conversations (chats)
 - ✅ **New chat** — from the header `＋` and the drawer; created **lazily** on the first message

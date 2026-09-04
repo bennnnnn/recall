@@ -78,6 +78,60 @@ def _slim_turn_mode() -> _TurnMode:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content,expected_instant_reply",
+    [("Again", None), ("tell me again", None), ("what time is it", "```clock\n```")],
+)
+async def test_followup_keeps_conversation_context_instead_of_instant_clock(
+    content, expected_instant_reply, fake_redis
+):
+    user = _make_user()
+    chat = _make_chat()
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": "Repeat the word pineapple"},
+        {"role": "assistant", "content": "pineapple"},
+        {"role": "user", "content": content},
+    ]
+    build_prompt = AsyncMock(return_value=list(messages))
+    with (
+        patch("app.services.chat.turn_prep.context.build_prompt_messages", build_prompt),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "free-chat",
+            Settings(
+                _env_file=None,
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=False,
+                web_search_enabled=False,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    assert bundle.instant_reply == expected_instant_reply
+    assert bundle.prompt_messages == messages
+    assert build_prompt.await_args.kwargs["query_text"] == content
+
+
+@pytest.mark.asyncio
 async def test_fetches_run_concurrently_not_serially():
     """Phase A (build_prompt | instant_reply) and Phase B (integration | web+tools)
     must overlap, so total time is the max of each pair -- not the sum."""

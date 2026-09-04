@@ -5,6 +5,15 @@ import {
 } from "@/lib/timeQuestion";
 
 describe("timeQuestion", () => {
+  it.each(["again", "Again!", "one more time", "tell me again", "refresh", "update", "update it"])(
+    "does not infer a time request from the contextual follow-up %s",
+    (text) => {
+      expect(isTimeQuestion(text)).toBe(false);
+      expect(assistantReplyIsTimeAnswer("pineapple", text)).toBe(false);
+      expect(assistantReplyIsTimeAnswer("```clock\n```", text)).toBe(true);
+    },
+  );
+
   it("treats shorthand local asks as time questions", () => {
     expect(isTimeQuestion("What time")).toBe(true);
     expect(isTimeQuestion("what time is it")).toBe(true);

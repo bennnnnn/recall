@@ -1,13 +1,13 @@
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
-import { notifyUnauthorized, requestSse } from "@/lib/api/client";
+import { requestSse } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/lib/chatSocketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
 
 export function isSseAbortError(err: unknown): boolean {
-  return err instanceof DOMException && err.name === "AbortError";
+  return typeof err === "object" && err !== null && "name" in err && err.name === "AbortError";
 }
 
 /** Abort the previous SSE only when replacing a stream in the same chat.
@@ -52,9 +52,6 @@ async function streamChatSseRequest(
   const response = await requestSse(path, options.token, body, options.signal);
 
   if (!response.ok) {
-    if (response.status === 401) {
-      notifyUnauthorized();
-    }
     const text = await response.text();
     throw new Error(text || `SSE request failed: ${response.status}`);
   }
@@ -66,23 +63,33 @@ async function streamChatSseRequest(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parsed = parseSseChunk(buffer);
-    buffer = parsed.rest;
-    for (const event of parsed.events) {
+  let completed = false;
+  const deliver = (events: ChatSsePayload[]) => {
+    for (const event of events) {
+      if (event.type === "done" || event.type === "error") completed = true;
       options.onEvent(event);
     }
-  }
+  };
 
-  if (buffer.trim()) {
-    const parsed = parseSseChunk(`${buffer}\n\n`);
-    for (const event of parsed.events) {
-      options.onEvent(event);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSseChunk(buffer);
+      buffer = parsed.rest;
+      deliver(parsed.events);
     }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      deliver(parseSseChunk(`${buffer}\n\n`).events);
+    }
+    // EOF only closes the transport. Without done/error the turn may have
+    // been cut off before persistence, and the UI must recover its busy state.
+    if (!completed) throw new Error("Chat stream ended before completion");
+  } finally {
+    reader.releaseLock();
   }
 }
 

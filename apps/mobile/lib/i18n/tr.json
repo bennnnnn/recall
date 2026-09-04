@@ -31,6 +31,7 @@
   "chat.attach_solve_math_camera": "Matematik tara",
   "chat.attached_file": "Ekli dosya",
   "chat.busy": "Hâlâ oluşturuluyor — bekleyin veya durdurup tekrar deneyin.",
+  "chat.send_rejected": "Mesaj gönderilmedi. Biraz bekleyip tekrar deneyin.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Sohbeti sil",
   "chat.delete_confirm_body": "Bu konuşma kalıcı olarak silinecek. Kütüphanedeki dosyalar kalır.",

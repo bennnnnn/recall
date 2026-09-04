@@ -68,3 +68,20 @@ describe("reminderPrefs", () => {
     );
   });
 });
+
+it("does not restore a previous account's reminder preference after signout", async () => {
+  let finish!: () => void;
+  let disk: string | null = null;
+  writeAsStringAsync.mockImplementationOnce(async (_path, value) => {
+    await new Promise<void>((resolve) => { finish = resolve; });
+    disk = value;
+  });
+  deleteAsync.mockImplementationOnce(async () => { disk = null; });
+  const write = setReminderLeadMinutes(30);
+  await Promise.resolve();
+  const clear = clearReminderLeadPrefs();
+  await Promise.resolve();
+  finish();
+  await Promise.all([write, clear]);
+  expect(disk).toBeNull();
+});

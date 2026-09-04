@@ -6,8 +6,6 @@ import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
-type Router = ReturnType<typeof useRouter>;
-
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
@@ -44,6 +42,7 @@ import {
   takeQueuedComposerAttachment,
 } from "@/lib/pendingComposerAttachment";
 
+type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
 export type ChatSendPhase = "idle" | "preparing" | "uploading" | "creating";
@@ -66,6 +65,7 @@ type SendMessageFn = (
 type Options = {
   token: string | null;
   chatId: string | null;
+  chatLoading?: boolean;
   /** Route `chatId` — composer drafts key off this, not the lagging loaded id. */
   routeChatId?: string;
   setChatId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -96,6 +96,7 @@ type Options = {
 export function useChatSend({
   token,
   chatId,
+  chatLoading = false,
   routeChatId,
   setChatId,
   setChatTitle,
@@ -123,6 +124,7 @@ export function useChatSend({
     creatingRef,
     prepareDraftChat,
     setDraftChatId,
+    discardEmptyChat,
   } = draft;
   const { newMessageCountRef } = scroll;
 
@@ -143,6 +145,9 @@ export function useChatSend({
   const [mathScannerOpen, setMathScannerOpen] = useState(false);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{
+    chatId: string;
+    token: string;
+    originViewVersion: number;
     text: string;
     skipUserBubble?: boolean;
     trackSendingMessageId?: string;
@@ -158,6 +163,14 @@ export function useChatSend({
   const attachPickInFlightRef = useRef(false);
   const sendInFlightRef = useRef(false);
   const composerThread = composerThreadKey(routeChatId);
+  const viewRef = useRef({ token, composerThread, version: 0 });
+  if (viewRef.current.token !== token || viewRef.current.composerThread !== composerThread) {
+    viewRef.current = { token, composerThread, version: viewRef.current.version + 1 };
+  }
+  useEffect(() => () => {
+    viewRef.current.version += 1;
+  }, []);
+
   const prevComposerThreadRef = useRef(composerThread);
   useLayoutEffect(() => {
     const fromKey = getThreadKey();
@@ -178,7 +191,21 @@ export function useChatSend({
     return subscribeComposerAttachmentQueue(applyQueued);
   }, []);
   useEffect(() => {
-    if (chatId && pendingSend) {
+    if (
+      pendingSend &&
+      (token !== pendingSend.token ||
+        (routeChatId != null
+          ? routeChatId !== pendingSend.chatId
+          : viewRef.current.version !== pendingSend.originViewVersion))
+    ) {
+      stashFailedDraftForThread(pendingSend.chatId, pendingSend.text);
+      setPendingSend(null);
+      setPendingOutboundId(null);
+      sendInFlightRef.current = false;
+      setSendPhase("idle");
+      return;
+    }
+    if (chatId && pendingSend && chatId === pendingSend.chatId) {
       const {
         text,
         skipUserBubble,
@@ -207,11 +234,16 @@ export function useChatSend({
       sendInFlightRef.current = false;
       setSendPhase("idle");
     }
-  }, [chatId, pendingSend, sendMessage]);
+  }, [chatId, routeChatId, token, pendingSend, sendMessage, stashFailedDraftForThread]);
 
   const handleSend = useCallback(
     async (overrideText?: string) => {
-      if (sendInFlightRef.current) return;
+      if (
+        sendInFlightRef.current || chatLoading ||
+        (routeChatId != null && routeChatId !== chatId)
+      ) return;
+      const version = viewRef.current.version;
+      const isCurrentView = () => viewRef.current.version === version;
       const text = (overrideText ?? inputRef.current).trim();
       if (isOffline) {
         // Keep the draft; banner + dimmed send already signal offline. A modal
@@ -258,7 +290,7 @@ export function useChatSend({
           const draftsSaved = await flushEmailDrafts();
           sendInFlightRef.current = false;
           setSendPhase("idle");
-          if (!draftsSaved) return;
+          if (!draftsSaved || !isCurrentView()) return;
           setInput("");
           setPendingAttachment(null);
           Keyboard.dismiss();
@@ -278,7 +310,7 @@ export function useChatSend({
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
       setSendPhase(attached ? "uploading" : "preparing");
-      if (!await flushEmailDrafts()) {
+      if (!await flushEmailDrafts() || !isCurrentView()) {
         sendInFlightRef.current = false;
         setSendPhase("idle");
         return;
@@ -292,7 +324,6 @@ export function useChatSend({
 
       const optimisticId = `local-${Date.now()}`;
       const createdAt = new Date().toISOString();
-      const addedOptimistic = true;
       setPendingOutboundId(optimisticId);
       setMessages((prev) => [
         ...prev,
@@ -306,11 +337,9 @@ export function useChatSend({
       newMessageCountRef.current += 1;
 
       const restoreDraft = () => {
-        if (addedOptimistic) {
-          setPendingOutboundId(null);
-          setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-          newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
-        }
+        setPendingOutboundId(null);
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 1);
         if (getThreadKey() === sendThreadKey) {
           if (shouldRestoreFailedSend(inputRef.current, text)) {
             setInput(text);
@@ -328,6 +357,10 @@ export function useChatSend({
         try {
           const id = await uploadChatAttachment(authToken, attached);
           attachmentIds = [id];
+          if (!isCurrentView()) {
+            restoreDraft();
+            return;
+          }
         } catch (error) {
           restoreDraft();
           feedback?.error(
@@ -338,7 +371,7 @@ export function useChatSend({
       }
 
       const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
-      if (!geoResult.ok) {
+      if (!geoResult.ok || !isCurrentView()) {
         restoreDraft();
         return;
       }
@@ -350,6 +383,15 @@ export function useChatSend({
         try {
           const id = await prepareDraftChat(undefined, selectedModel);
           if (!id) throw new Error("Could not create chat");
+          if (!isCurrentView()) {
+            if (draftChatIdRef.current === id) {
+              draftChatIdRef.current = null;
+              setDraftChatId(null);
+            }
+            discardEmptyChat(id);
+            restoreDraft();
+            return;
+          }
           skipLoadForChatIdRef.current = id;
           setChatTitle(null);
           setChatId(id);
@@ -357,8 +399,11 @@ export function useChatSend({
           setDraftChatId(null);
           adoptComposerThread(id);
           router.setParams({ chatId: id });
-          setPendingSend(
-            buildPendingSendAfterCreate({
+          setPendingSend({
+            chatId: id,
+            token: authToken,
+            originViewVersion: version,
+            ...buildPendingSendAfterCreate({
               text,
               attached,
               attachmentIds,
@@ -366,7 +411,7 @@ export function useChatSend({
               clientGeo,
               model: selectedModel,
             }),
-          );
+          });
         } catch {
           restoreDraft();
           feedback?.error(t("chat.error_generic"));
@@ -390,11 +435,15 @@ export function useChatSend({
     },
     [
       pendingAttachment,
+      inputRef,
+      setInput,
       streaming,
       token,
       creatingRef,
       attachBusy,
       chatId,
+      chatLoading,
+      routeChatId,
       newMessageCountRef,
       selectedModel,
       setMessages,
@@ -402,6 +451,7 @@ export function useChatSend({
       skipLoadForChatIdRef,
       draftChatIdRef,
       setDraftChatId,
+      discardEmptyChat,
       router,
       sendMessage,
       updateUser,
@@ -491,7 +541,7 @@ export function useChatSend({
     setPendingAttachment(pending);
     setInput(defaultMathCameraPrompt());
     setMathScannerOpen(false);
-  }, []);
+  }, [setInput]);
 
   return {
     setInput,

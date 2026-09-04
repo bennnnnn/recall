@@ -191,7 +191,7 @@ async def test_login_with_google_links_existing_account_by_email():
         "name": "Shared",
         "picture": None,
     }
-    existing = MagicMock(id=uid, email="shared@test.local")
+    existing = MagicMock(id=uid, email="shared@test.local", google_sub=None)
 
     create_mock = AsyncMock(return_value=MagicMock())
     update_mock = AsyncMock(return_value=existing)
@@ -343,7 +343,7 @@ async def test_login_with_apple_links_existing_account_by_email():
         "email": "shared-apple@test.local",
         "email_verified": True,
     }
-    existing = MagicMock(id=uid, email="shared-apple@test.local")
+    existing = MagicMock(id=uid, email="shared-apple@test.local", apple_sub=None)
     create_mock = AsyncMock(return_value=MagicMock())
     update_mock = AsyncMock(return_value=existing)
 

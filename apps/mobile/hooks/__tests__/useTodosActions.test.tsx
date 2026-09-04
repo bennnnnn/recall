@@ -51,7 +51,7 @@ const refresh = jest.fn(async () => undefined);
 let actions: ReturnType<typeof useTodosActions>;
 
 function Probe({ todos }: { todos: Todo[] }) {
-  actions = useTodosActions({
+  const result = useTodosActions({
     token: "tok",
     userId: "user-1",
     todos,
@@ -59,6 +59,9 @@ function Probe({ todos }: { todos: Todo[] }) {
     refresh,
     goToDay: jest.fn(),
   });
+  React.useLayoutEffect(() => {
+    actions = result;
+  }, [result]);
   return <Text>todos actions</Text>;
 }
 

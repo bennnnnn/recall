@@ -1,6 +1,7 @@
 """WebSocket endpoint tests."""
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -68,6 +69,68 @@ def test_ws_missing_token_closes():
         msg = ws.receive_json()
     assert msg["type"] == "error"
     assert "Missing token" in msg["message"]
+
+
+@pytest.mark.asyncio
+async def test_ws_disconnect_before_auth_is_a_normal_close():
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.routers.ws import chat_websocket
+
+    socket = AsyncMock()
+    socket.receive_json.side_effect = WebSocketDisconnect(code=1000)
+    with (
+        patch("app.routers.ws._ws_handshake_rate_limit", AsyncMock(return_value=True)),
+        patch("app.routers.ws.get_redis_client", return_value=AsyncMock()),
+    ):
+        await chat_websocket(socket, uuid4())
+    socket.send_json.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_frame", [json.JSONDecodeError("bad JSON", "{", 1), KeyError("text")]
+)
+async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame):
+    from app.routers.ws import _stream_over_ws
+
+    first_token = asyncio.Event()
+    resume = asyncio.Event()
+    frames = []
+
+    async def stream_tokens():
+        yield "first"
+        first_token.set()
+        await resume.wait()
+        yield " second"
+
+    class Socket:
+        reads = 0
+
+        async def send_json(self, frame):
+            frames.append(frame)
+
+        async def receive_json(self):
+            self.reads += 1
+            if self.reads == 1:
+                await first_token.wait()
+                raise invalid_frame
+            resume.set()
+            await asyncio.Event().wait()
+
+    try:
+        await asyncio.wait_for(
+            _stream_over_ws(Socket(), stream_tokens(), asyncio.Event(), {}), timeout=1
+        )
+    finally:
+        resume.set()
+        await asyncio.sleep(0)
+    assert [frame["content"] for frame in frames if frame["type"] == "token"] == [
+        "first",
+        " second",
+    ]
+    assert sum(frame["type"] == "done" for frame in frames) == 1
+    assert any(frame.get("message") == "Invalid JSON" for frame in frames)
 
 
 def test_ws_handshake_fails_closed_on_redis_error():

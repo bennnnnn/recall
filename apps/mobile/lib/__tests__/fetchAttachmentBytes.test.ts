@@ -1,75 +1,48 @@
-import { notifyUnauthorized, refreshAccessToken } from "@/lib/api/client";
+import { requestRaw } from "@/lib/api/client";
 import { fetchAttachmentBytes } from "@/lib/fetchAttachmentBytes";
 
 jest.mock("@/lib/api/client", () => ({
-  refreshAccessToken: jest.fn(),
-  notifyUnauthorized: jest.fn(),
+  apiUrl: (path: string) => `https://api.test/v1${path}`,
+  requestRaw: jest.fn(),
 }));
 
 const mockFetch = jest.fn();
 const originalFetch = globalThis.fetch;
 globalThis.fetch = mockFetch as unknown as typeof fetch;
+const rawMock = requestRaw as jest.MockedFunction<typeof requestRaw>;
+const bytes = new Uint8Array([1, 2, 3]).buffer;
 
-const refreshMock = refreshAccessToken as jest.MockedFunction<typeof refreshAccessToken>;
-const unauthorizedMock = notifyUnauthorized as jest.MockedFunction<typeof notifyUnauthorized>;
+beforeEach(() => {
+  mockFetch.mockReset();
+  rawMock.mockReset();
+});
+afterAll(() => { globalThis.fetch = originalFetch; });
 
-describe("fetchAttachmentBytes", () => {
-  const attachmentUri = "http://test.local/attachments/abc/file";
+it("uses the shared authenticated request boundary for Recall attachments", async () => {
+  rawMock.mockResolvedValueOnce({ ok: true, arrayBuffer: async () => bytes } as Response);
+  await expect(fetchAttachmentBytes("https://api.test/v1/attachments/abc/file?download=1", "access"))
+    .resolves.toBe(bytes);
+  expect(rawMock).toHaveBeenCalledWith("/attachments/abc/file?download=1", "access");
+  expect(mockFetch).not.toHaveBeenCalled();
+});
 
-  beforeEach(() => {
-    mockFetch.mockReset();
-    refreshMock.mockReset();
-    unauthorizedMock.mockReset();
-  });
+it.each([
+  "https://external.test/v1/attachments/abc/file",
+  "https://api.test.external.test/v1/attachments/abc/file",
+  "https://api.test/v1-other/attachments/abc/file",
+  "https://api.test/attachments/abc/file",
+  "file:///local.pdf",
+])("never sends credentials to a non-API attachment URI: %s", async (uri) => {
+  mockFetch.mockResolvedValueOnce({ ok: true, arrayBuffer: async () => bytes } as Response);
+  await expect(fetchAttachmentBytes(uri, "access")).resolves.toBe(bytes);
+  expect(mockFetch).toHaveBeenCalledWith(uri);
+  expect(rawMock).not.toHaveBeenCalled();
+});
 
-  afterAll(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it("retries once via refreshAccessToken on 401", async () => {
-    const bytes = new Uint8Array([1, 2, 3]).buffer;
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        arrayBuffer: async () => bytes,
-      } as Response);
-    refreshMock.mockResolvedValue("fresh-token");
-
-    await expect(fetchAttachmentBytes(attachmentUri, "stale-token")).resolves.toBe(bytes);
-    expect(refreshMock).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch.mock.calls[1][1]).toEqual({
-      headers: { Authorization: "Bearer fresh-token" },
-    });
-    expect(unauthorizedMock).not.toHaveBeenCalled();
-  });
-
-  it("notifies unauthorized and throws when refresh fails", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 401 } as Response);
-    refreshMock.mockResolvedValue(null);
-
-    await expect(fetchAttachmentBytes(attachmentUri, "stale-token")).rejects.toThrow(
-      "Could not load attachment.",
-    );
-    expect(unauthorizedMock).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not attach a bearer token or refresh for non-attachment URIs", async () => {
-    const bytes = new Uint8Array([9]).buffer;
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      arrayBuffer: async () => bytes,
-    } as Response);
-
-    await expect(fetchAttachmentBytes("file:///local.pdf", "tok")).resolves.toBe(bytes);
-    expect(mockFetch.mock.calls[0][1]).toEqual({ headers: {} });
-    expect(refreshMock).not.toHaveBeenCalled();
-  });
+it("surfaces rejected authorization without a separate signout or refresh flow", async () => {
+  rawMock.mockResolvedValueOnce({ ok: false, status: 401 } as Response);
+  await expect(fetchAttachmentBytes("https://api.test/v1/attachments/abc/file", "access"))
+    .rejects.toThrow("Could not load attachment");
+  expect(rawMock).toHaveBeenCalledTimes(1);
+  expect(mockFetch).not.toHaveBeenCalled();
 });

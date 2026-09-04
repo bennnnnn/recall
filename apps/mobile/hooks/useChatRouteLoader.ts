@@ -5,8 +5,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { type IoniconName } from "@/lib/icons";
 
-type Router = ReturnType<typeof useRouter>;
-
 import { api, type Message } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import {
@@ -35,6 +33,7 @@ import type { useDraftChat } from "@/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/hooks/useChatHighlightScroll";
 import { useChatTitlePolling } from "@/hooks/useChatTitlePolling";
 
+type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 
 type Options = {
@@ -110,6 +109,14 @@ export function useChatRouteLoader({
   const [chatLoading, setChatLoading] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const viewRef = useRef({ token, routeChatId, version: 0 });
+  if (viewRef.current.token !== token || viewRef.current.routeChatId !== routeChatId) {
+    viewRef.current = { token, routeChatId, version: viewRef.current.version + 1 };
+  }
+  const olderRequestRef = useRef<object | null>(null);
+  useEffect(() => () => {
+    viewRef.current.version += 1;
+  }, []);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
   const skipNextFocusRef = useRef(true);
@@ -129,11 +136,19 @@ export function useChatRouteLoader({
     }
   }, [knownAssistantChatId, messagesHadContent]);
 
-  const turnBusy = () => streamingRef.current || Boolean(imageGeneratingRef?.current);
+  const turnBusy = useCallback(
+    () => streamingRef.current || Boolean(imageGeneratingRef?.current),
+    [imageGeneratingRef],
+  );
 
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
       if (!token) return;
+      const version = viewRef.current.version;
+      const previousMessages = messagesRef.current;
+      const stale = () =>
+        cancelled() || version !== viewRef.current.version ||
+        turnBusy() || messagesRef.current !== previousMessages;
       if (
         shouldSkipSilentChatRefetch({
           lastFetchedAt: lastSilentFetchAtRef.current.get(openChatId),
@@ -143,7 +158,7 @@ export function useChatRouteLoader({
         return;
       }
       const disk = await readCachedChatMessages(openChatId);
-      if (cancelled()) return;
+      if (stale()) return;
       if (
         shouldSkipSilentChatRefetch({
           lastFetchedAt: cachedChatPageFetchedAt(disk),
@@ -162,7 +177,7 @@ export function useChatRouteLoader({
           listed ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
-        if (cancelled()) return;
+        if (stale()) return;
         setChatId(chat.id);
         setChatTitle(chat.title);
         setPinned(chat.pinned);
@@ -177,7 +192,7 @@ export function useChatRouteLoader({
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, setChatId, setMessages, draftProjectIdRef, setQuizVariant, resolveQuizVariant],
+    [token, setChatId, setMessages, draftProjectIdRef, setQuizVariant, resolveQuizVariant, turnBusy],
   );
 
   useEffect(() => {
@@ -235,6 +250,7 @@ export function useChatRouteLoader({
     clearDraftChat,
     draftChatIdRef,
     silentRefetchChat,
+    imageGeneratingRef,
   ]);
 
   useEffect(() => {
@@ -242,6 +258,8 @@ export function useChatRouteLoader({
   }, [routeChatId]);
 
   useEffect(() => {
+    olderRequestRef.current = null;
+    setLoadingOlder(false);
     if (!token) {
       setChatLoading(false);
       return;
@@ -286,6 +304,13 @@ export function useChatRouteLoader({
       }
       setChatLoading(true);
       setHasMoreOlder(false);
+      // Detach the previous conversation immediately; its pending work must not
+      // paint into this route while the cache or network is still loading.
+      setChatId(openChatId);
+      setMessages([]);
+      setChatTitle(null);
+      setPinned(false);
+      setArchived(false);
       try {
         const cached = await readCachedChatMessages(openChatId);
         if (cancelled) return;
@@ -294,25 +319,17 @@ export function useChatRouteLoader({
           setChatId(openChatId);
           setMessages((prev) => mergeLocalAttachmentUris(prev, cached.messages));
           setHasMoreOlder(cached.has_more);
-          setChatLoading(false);
           if (listed) {
             setChatTitle(listed.title);
             setPinned(listed.pinned);
             setArchived(Boolean(listed.archived));
             draftProjectIdRef.current = listed.project_id ?? draftProjectIdRef.current;
             setQuizVariant(resolveQuizVariant(listed.project_id));
-            lastSilentFetchAtRef.current.set(
-              openChatId,
-              cachedChatPageFetchedAt(cached) ?? Date.now(),
-            );
-            return;
           }
         }
         const [chat, page] = await Promise.all([
           listed ?? api.getChat(token, openChatId),
-          cached
-            ? Promise.resolve({ messages: cached.messages, has_more: cached.has_more })
-            : api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
+          api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (cancelled) return;
         setChatId(chat.id);
@@ -357,30 +374,46 @@ export function useChatRouteLoader({
       return () => {
         cancelled = true;
       };
-    }, [token, routeChatId, chatLoading, silentRefetchChat]),
+    }, [token, routeChatId, chatLoading, silentRefetchChat, turnBusy]),
   );
 
   const loadOlderMessages = useCallback(async () => {
-    if (!token || !chatId || loadingOlder || !hasMoreOlder || messages.length === 0) return;
+    if (
+      !token || !chatId || chatLoading || olderRequestRef.current ||
+      !hasMoreOlder || messages.length === 0
+    ) return;
     const oldest = messages[0];
     const isServerId =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldest.id);
     if (!isServerId) return;
 
+    const request = {};
+    const version = viewRef.current.version;
+    const isCurrent = () =>
+      version === viewRef.current.version && olderRequestRef.current === request;
+    olderRequestRef.current = request;
     setLoadingOlder(true);
     try {
       const page = await api.listMessages(token, chatId, {
         limit: MESSAGE_PAGE_SIZE,
         before: oldest.id,
       });
-      setMessages((prev) => [...page.messages, ...prev]);
+      if (!isCurrent()) return;
+      setMessages((prev) => {
+        if (version !== viewRef.current.version) return prev;
+        const knownIds = new Set(prev.map((message) => message.id));
+        return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
+      });
       setHasMoreOlder(page.has_more);
     } catch {
-      showActionBanner(t("common.error"), "cloud-offline-outline");
+      if (isCurrent()) showActionBanner(t("common.error"), "cloud-offline-outline");
     } finally {
-      setLoadingOlder(false);
+      if (isCurrent()) {
+        olderRequestRef.current = null;
+        setLoadingOlder(false);
+      }
     }
-  }, [token, chatId, loadingOlder, hasMoreOlder, messages, setMessages, showActionBanner, t]);
+  }, [token, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
 
   const { highlightedMessageId } = useChatHighlightScroll({
     routeHighlightMessage,
@@ -413,6 +446,7 @@ export function useChatRouteLoader({
     },
     [
       stopGeneration,
+      turnBusy,
       handleFirstReply,
       routeChatId,
       discardEmptyChat,

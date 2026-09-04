@@ -47,11 +47,6 @@ _EVENT_WHEN = re.compile(
     re.IGNORECASE,
 )
 
-_AGAIN_QUESTION = re.compile(
-    r"^(?:again|one more time|tell me again|refresh|update(?: it)?)[.!?]*$",
-    re.IGNORECASE,
-)
-
 _LOCATION_QUESTION = re.compile(
     r"^(?:"
     r"where am i(?: (?:at|right now|right nwo|now|currently))?\??"
@@ -162,8 +157,6 @@ def is_time_question(text: str) -> bool:
         return False
     if _TIME_QUESTION.match(cleaned):
         return _SCHEDULED_EVENT.search(cleaned) is None
-    if _AGAIN_QUESTION.match(cleaned):
-        return True
     return False
 
 

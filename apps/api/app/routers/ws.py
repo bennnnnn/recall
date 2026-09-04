@@ -188,6 +188,11 @@ async def _stream_over_ws(
                     # Navigate-away: finish the producer (it drains on send
                     # failure). Do not cancel — Stop is the only hard stop.
                     break
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    # Keep ownership of the active producer when a bad JSON
+                    # or binary frame arrives, just as the idle loop does.
+                    await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
+                    continue
                 # Non-dict JSON (array/primitive) must not AttributeError the
                 # dispatch loop while the producer is still streaming.
                 if not isinstance(msg, dict):
@@ -406,6 +411,9 @@ async def chat_websocket(
         client_timezone = auth_message.get("client_timezone")
         if client_timezone is not None and not isinstance(client_timezone, str):
             client_timezone = None
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected before authentication chat_id=%s", chat_id)
+        return
     except TimeoutError:
         await _safe_send_json(websocket, {"type": "error", "message": "Auth timeout"})
         await websocket.close()

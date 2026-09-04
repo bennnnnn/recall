@@ -43,15 +43,21 @@ let latest: ReturnType<typeof useGalleryData> | null = null;
 let setProbeFilter: ((next: GalleryFilter) => void) | null = null;
 
 function Probe({ filter = "all" }: { filter?: GalleryFilter }) {
-  latest = useGalleryData(filter, "");
-  return <Text>{latest.items.map((row) => row.id).join(",")}</Text>;
+  const result = useGalleryData(filter, "");
+  React.useLayoutEffect(() => {
+    latest = result;
+  }, [result]);
+  return <Text>{result.items.map((row) => row.id).join(",")}</Text>;
 }
 
 function FilterSwitchProbe() {
   const [filter, setFilter] = React.useState<GalleryFilter>("files");
-  setProbeFilter = setFilter;
-  latest = useGalleryData(filter, "");
-  return <Text>{latest.items.map((row) => row.id).join(",")}</Text>;
+  const result = useGalleryData(filter, "");
+  React.useLayoutEffect(() => {
+    setProbeFilter = setFilter;
+    latest = result;
+  }, [result]);
+  return <Text>{result.items.map((row) => row.id).join(",")}</Text>;
 }
 
 describe("useGalleryData", () => {

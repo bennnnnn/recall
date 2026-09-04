@@ -142,6 +142,7 @@ async def finalize_stream_turn_db(
     persisted_text = assistant_text
     settings = get_settings()
     pending_storage_keys: list[str] = []
+    committed = False
 
     try:
         async with SessionLocal() as session:
@@ -175,8 +176,8 @@ async def finalize_stream_turn_db(
                 commit=False,  # batch with touch + usage into one commit below
             )
             if result is not None:
-                # `done` is sent before this task finishes; stream_and_finalize
-                # already filled these. Kept for callers that await the task.
+                # stream_and_finalize preassigns these; direct callers also
+                # receive the flushed row's identity before commit returns.
                 result.setdefault("message_id", str(assistant_message.id))
                 result.setdefault("resolved_model", ctx.model)
                 if ctx.recalled_count:
@@ -206,11 +207,11 @@ async def finalize_stream_turn_db(
                 commit=False,
             )
 
-            # Single commit for message + chat touch + usage (was 3 Neon
-            # round-trips per turn). Refresh the message so its server-side
-            # id/created_at are populated for callers that read them.
+            # The create flush already supplies the row identity. No refresh
+            # is needed after commit: a failed read must not report a saved
+            # reply as failed or refund its charged quota.
             await session.commit()
-            await session.refresh(assistant_message)
+            committed = True
 
         # Cap overshoot at the user's daily limit so one turn's actual >
         # reserved delta can't push the counter past the cap (which would
@@ -259,7 +260,7 @@ async def finalize_stream_turn_db(
         raise
     finally:
         await clear_pending_finalize(redis, ctx.chat_id)
-        if pending_storage_keys:
+        if committed and pending_storage_keys:
             await attachment_lifecycle.delete_storage_keys(settings, pending_storage_keys)
 
 

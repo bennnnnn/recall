@@ -113,6 +113,17 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.showSearchSources).toBe(false);
   });
 
+  it("keeps a contextual follow-up's prose without injecting a clock", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      priorUserText: "Again",
+      content: "pineapple",
+    });
+
+    expect(result.showLiveClock).toBe(false);
+    expect(result.markdownContent).toBe("pineapple");
+  });
+
   it("hides Sources on a where-am-I reply even when search hits leaked", () => {
     const result = deriveAssistantMessageContent({
       ...base,

@@ -26,7 +26,10 @@ import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 let actions: ReturnType<typeof useProjectActions>;
 
 function Probe() {
-  actions = useProjectActions();
+  const result = useProjectActions();
+  React.useLayoutEffect(() => {
+    actions = result;
+  }, [result]);
   return <Text>project actions</Text>;
 }
 

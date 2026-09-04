@@ -31,6 +31,7 @@
   "chat.attach_solve_math_camera": "Scansiona matematica",
   "chat.attached_file": "File allegato",
   "chat.busy": "Generazione in corso — attendi o tocca stop, poi riprova.",
+  "chat.send_rejected": "Il messaggio non è stato inviato. Attendi un momento, poi riprova.",
   "chat.close_menu": "Close menu",
   "chat.delete": "Elimina chat",
   "chat.delete_confirm_body": "Questa conversazione verrà eliminata definitivamente. I file della libreria restano.",

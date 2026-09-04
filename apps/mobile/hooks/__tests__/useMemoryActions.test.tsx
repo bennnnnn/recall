@@ -42,8 +42,11 @@ type Actions = ReturnType<typeof useMemoryActions>;
 let current: Actions;
 
 function Probe({ token }: { token: string | null }) {
-  current = useMemoryActions(token);
-  return <Text>{current.memories.length}</Text>;
+  const result = useMemoryActions(token);
+  React.useLayoutEffect(() => {
+    current = result;
+  }, [result]);
+  return <Text>{result.memories.length}</Text>;
 }
 
 async function mount(token: string | null = "tok") {

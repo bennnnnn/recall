@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -22,6 +23,8 @@ from app.services.chat import finalize_registry
 from app.services.chat_titles import sanitize_manual_chat_title
 from app.services.email_fence import rewrite_first_email_fence
 from app.services.quota import utc_today
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CHAT_LIST_LIMIT = 200
 ARCHIVED_CHAT_LIST_LIMIT = 50
@@ -190,17 +193,20 @@ async def list_messages_page(
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
             dedupe_key = f"topic_backfill:{chat_id}"
-            claimed = await redis.set(dedupe_key, "1", nx=True, ex=300)
-            if claimed:
-                await jobs.enqueue(
-                    redis,
-                    "topic",
-                    {
-                        "chat_id": str(chat_id),
-                        "user_message": user_msg.content,
-                        "assistant_message": asst_msg.content,
-                    },
-                )
+            try:
+                claimed = await redis.set(dedupe_key, "1", nx=True, ex=300)
+                if claimed:
+                    await jobs.enqueue(
+                        redis,
+                        "topic",
+                        {
+                            "chat_id": str(chat_id),
+                            "user_message": user_msg.content,
+                            "assistant_message": asst_msg.content,
+                        },
+                    )
+            except Exception:
+                logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
 
     return MessagePageOut(
         messages=[MessageOut.model_validate(m) for m in msgs],

@@ -20,12 +20,17 @@ export function useChatErrorHandlers(isPro: boolean) {
   }, [isPro, t]);
 
   const dismissChatError = useCallback(() => setChatError(null), []);
+  const handleRejectedSendChange = useCallback((hasRejectedSend: boolean) => {
+    if (hasRejectedSend) handleChatError("", "send_rejected");
+    else setChatError((current) => current?.kind === "send_rejected" ? null : current);
+  }, [handleChatError]);
 
   return {
     chatError,
     handleChatError,
     handleStreamBusy,
     dismissChatError,
+    handleRejectedSendChange,
   };
 }
 

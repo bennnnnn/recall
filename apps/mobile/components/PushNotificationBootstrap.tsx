@@ -33,31 +33,42 @@ export function PushNotificationBootstrap() {
     // whole app on load via an uncaught rejection.
     if (Platform.OS === "web") return;
 
+    let active = true;
+
     const navigate = (data: Record<string, unknown> | undefined) => {
+      if (!active) return;
       void handlePushNotificationResponse(
         router as Parameters<typeof handlePushNotificationResponse>[0],
         token,
         data as never,
-      );
+      ).catch(() => {
+        if (active) console.warn("[notifications] Could not open notification");
+      });
     };
 
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
         navigate(response.notification.request.content.data as Record<string, unknown>);
       }
+    }).catch(() => {
+      if (active) console.warn("[notifications] Could not restore startup notification");
     });
 
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       navigate(response.notification.request.content.data as Record<string, unknown>);
     });
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      if (!active) return;
       if (!isRemotePushTrigger(notification.request.trigger)) return;
       const todoId = todoIdFromNotificationData(
         notification.request.content.data as Record<string, unknown>,
       );
-      if (todoId) void cancelTodoReminder(todoId);
+      if (todoId) void cancelTodoReminder(todoId).catch(() => {
+        if (active) console.warn("[notifications] Could not cancel duplicate reminder");
+      });
     });
     return () => {
+      active = false;
       responseSub.remove();
       receivedSub.remove();
     };

@@ -33,8 +33,11 @@ import {
 let current: ReturnType<typeof useProjectDetail>;
 
 function Probe() {
-  current = useProjectDetail("p1");
-  return <Text>{current.project?.title ?? "empty"}</Text>;
+  const result = useProjectDetail("p1");
+  React.useLayoutEffect(() => {
+    current = result;
+  }, [result]);
+  return <Text>{result.project?.title ?? "empty"}</Text>;
 }
 
 describe("useProjectDetail", () => {

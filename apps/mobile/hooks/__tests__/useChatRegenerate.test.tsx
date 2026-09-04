@@ -64,8 +64,10 @@ function Probe({
     cancelRegenerateUi,
     regenerateImage,
   });
-  currentRegenerate = result.regenerate;
-  currentRegenerating = result.regenerating;
+  React.useLayoutEffect(() => {
+    currentRegenerate = result.regenerate;
+    currentRegenerating = result.regenerating;
+  }, [result]);
   return <Text>{result.regenerating ? "busy" : "idle"}</Text>;
 }
 
@@ -73,6 +75,26 @@ describe("useChatRegenerate", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resolveGeo.mockResolvedValue({ ok: true, clientGeo: null });
+  });
+
+  it("does not dispatch a regeneration stopped while location preparation is pending", async () => {
+    let finish!: (value: { ok: boolean; clientGeo: null }) => void;
+    resolveGeo.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    let active = true;
+    const regenerateResponse = jest.fn();
+    const cancelRegenerateUi = jest.fn();
+    await render(<Probe
+      messages={[msg("user", "question", "u1"), msg("assistant", "answer", "a1")]}
+      regenerateResponse={regenerateResponse}
+      beginRegenerateUi={jest.fn(() => () => active)}
+      cancelRegenerateUi={cancelRegenerateUi}
+    />);
+    let pending!: Promise<void>;
+    await act(async () => { pending = currentRegenerate("free-chat"); });
+    active = false;
+    await act(async () => { finish({ ok: true, clientGeo: null }); await pending; });
+    expect(regenerateResponse).not.toHaveBeenCalled();
+    expect(cancelRegenerateUi).not.toHaveBeenCalled();
   });
 
   it("routes to regenerateImage when last assistant is an image-only reply", async () => {

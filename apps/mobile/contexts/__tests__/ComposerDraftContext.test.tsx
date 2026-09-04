@@ -13,8 +13,8 @@ function ValueProbe() {
   return <Text testID="draft">{draft?.input ?? ""}</Text>;
 }
 
-function ApiProbe({ renders }: { renders: { current: number } }) {
-  renders.current += 1;
+function ApiProbe({ onRender }: { onRender: () => void }) {
+  React.useLayoutEffect(onRender);
   const { setInput } = useComposerDraftApi();
   return (
     <Pressable testID="set" onPress={() => setInput("hello")}>
@@ -25,16 +25,16 @@ function ApiProbe({ renders }: { renders: { current: number } }) {
 
 describe("ComposerDraftContext", () => {
   it("updates the value subscriber without re-rendering the api subscriber", async () => {
-    const renders = { current: 0 };
+    const onRender = jest.fn();
     const view = await act(async () =>
       render(
         <ComposerDraftProvider>
           <ValueProbe />
-          <ApiProbe renders={renders} />
+          <ApiProbe onRender={onRender} />
         </ComposerDraftProvider>,
       ),
     );
-    const afterMount = renders.current;
+    const afterMount = onRender.mock.calls.length;
     expect(view.getByTestId("draft").props.children).toBe("");
 
     await act(async () => {
@@ -42,7 +42,7 @@ describe("ComposerDraftContext", () => {
     });
 
     expect(view.getByTestId("draft").props.children).toBe("hello");
-    expect(renders.current).toBe(afterMount);
+    expect(onRender).toHaveBeenCalledTimes(afterMount);
   });
 
   it("restores a saved draft when switching back to a thread", async () => {
