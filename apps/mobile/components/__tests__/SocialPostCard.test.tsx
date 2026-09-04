@@ -52,4 +52,17 @@ describe("SocialPostCard", () => {
     expect(getByText("Shipped this week.")).toBeTruthy();
     expect(queryByText("common.you")).toBeNull();
   });
+
+  it("preserves a template placeholder instead of leaving a grammar hole", async () => {
+    const { getByText, queryByText } = await render(
+      <SocialPostCard
+        platform="linkedin"
+        text="Thrilled to welcome [New Hire's Name] to the team."
+      />,
+    );
+    expect(
+      getByText("Thrilled to welcome [New Hire's Name] to the team."),
+    ).toBeTruthy();
+    expect(queryByText("Thrilled to welcome  to the team.")).toBeNull();
+  });
 });

@@ -42,6 +42,11 @@ const SOCIAL_LANGS: Record<string, SocialPlatform> = {
 const MESSAGE_LANGS = new Set(["sms", "message", "reply"]);
 const QUOTE_LANGS = new Set(["quote", "blockquote"]);
 
+const EMAIL_TO_LABEL =
+  /^(?:to|para|à|an|a|кому|kime|ለ|gara|收件人|致|宛先|받는 사람)\s*:\s*(.+)$/i;
+const EMAIL_SUBJECT_LABEL =
+  /^(?:subject|asunto|objet|betreff|oggetto|assunto|тема|konu|ርዕስ|dhimma|主题|件名|제목)\s*:\s*(.+)$/i;
+
 // Which langs are structured now lives in lib/fenceRegistry.ts, alongside the
 // other per-fence behaviour flags, so the lists cannot drift apart again.
 export { isStructuredFenceLang } from "@/lib/fenceRegistry";
@@ -87,8 +92,8 @@ export function parseEmailDraft(text: string): EmailDraft | null {
   let inBody = false;
 
   for (const line of lines) {
-    const toMatch = line.match(/^to:\s*(.+)$/i);
-    const subjectMatch = line.match(/^subject:\s*(.+)$/i);
+    const toMatch = line.match(EMAIL_TO_LABEL);
+    const subjectMatch = line.match(EMAIL_SUBJECT_LABEL);
     if (!inBody && toMatch) {
       to = toMatch[1].trim();
       continue;

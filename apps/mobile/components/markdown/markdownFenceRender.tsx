@@ -10,7 +10,7 @@ import {
   renderCopyStyleBlock,
   renderRichFenceById,
 } from "@/components/rich/RichFence";
-import { copyBlockLabel } from "@/lib/copyBlock";
+import { copyBlockLabel, draftFenceProseText } from "@/lib/copyBlock";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import {
@@ -72,6 +72,11 @@ function renderFenceInner(
 
   if (decision.kind === "clock") {
     return <CircularClockBlock key={key} content={content} />;
+  }
+
+  if (decision.kind === "prose") {
+    const prose = draftFenceProseText(content);
+    return prose ? neverCodeBlockFallback(key, prose) : null;
   }
 
   if (decision.kind === "rich" && decision.id) {

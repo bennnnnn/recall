@@ -186,6 +186,33 @@ async def test_truncated_turn_closes_unclosed_fence(
 
 
 @pytest.mark.asyncio
+async def test_normal_completion_also_closes_provider_unclosed_fence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A provider can emit done normally while forgetting the final backticks."""
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", _run_sympy_inline)
+
+    result: dict[str, Any] = {}
+    open_fence = "```message\nHappy birthday! Hope you have a wonderful day."
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=open_fence,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[open_fence],
+        should_cancel=None,
+        completion="complete",
+    )
+
+    assert persisted.rstrip().endswith("```")
+    assert result["final_content"] == persisted
+
+
+@pytest.mark.asyncio
 async def test_mermaid_parenthetical_labels_quoted_on_persist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

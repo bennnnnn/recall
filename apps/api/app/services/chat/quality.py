@@ -39,6 +39,30 @@ _MIN_RICH_REPLY_CHARS = 40
 
 _JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
 _ANSWER_LANGS = frozenset({"answer", "result", "final"})
+_DRAFT_FENCE_LANGS = frozenset(
+    {"email", "message", "sms", "reply", "twitter", "tweet", "x", "linkedin", "social", "copy"}
+)
+
+_DRAFT_INSTRUCTION_PATTERNS = (
+    re.compile(r"^fence!?\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:who is this for|what(?:'s| is) the purpose|"
+        r"what would you like (?:it|the (?:message|email|post)) to say|"
+        r"paste (?:their|the) (?:phone )?number|formatted for texting)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:i(?:'ll| will) (?:craft|draft|format)|"
+        r"i need (?:the |your |a )?(?:recipient|purpose|tone|details|name|"
+        r"email address|phone number))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:i can|happy to) (?:revise|update|adjust) (?:the |this |it )?"
+        r"(?:tone|length|draft|message|email|post)",
+        re.IGNORECASE,
+    ),
+)
 
 
 @dataclass
@@ -131,6 +155,19 @@ def _collect_format_signals(text: str) -> list[QualitySignal]:
         return []
     fences = _iter_fences(text)
     signals: list[QualitySignal] = []
+
+    for fence in fences:
+        if fence.lang not in _DRAFT_FENCE_LANGS or not fence.closed:
+            continue
+        body = " ".join(fence.body.split())
+        if body and any(pattern.search(body) for pattern in _DRAFT_INSTRUCTION_PATTERNS):
+            signals.append(
+                QualitySignal(
+                    code="invalid_draft_fence",
+                    detail=f"```{fence.lang} contains drafting instructions instead of copy",
+                )
+            )
+            break
 
     for fence in fences:
         if fence.lang not in _ANSWER_LANGS or not fence.closed:

@@ -28,7 +28,7 @@ def test_compact_turn_skips_rich_format_pack():
     assert "do not invent a topic essay" in joined.lower()
 
 
-def test_compact_compare_turn_uses_table_then_code_cards_not_plain_prose():
+def test_compact_technical_compare_uses_table_and_conditional_code_examples():
     from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
 
     parts = _style_format_hints(
@@ -41,7 +41,9 @@ def test_compact_compare_turn_uses_table_then_code_cards_not_plain_prose():
     assert COMPARISON_FORMAT_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "code cards" in joined
+    assert "tagged code fences" in joined
+    assert "only when" in joined
+    assert "Never invent a 'beginner choice' section" in joined
     assert "No ## headings" not in joined
 
 
@@ -127,7 +129,8 @@ def test_compact_week_plan_uses_howto_lists_not_plain_prose():
     assert HOWTO_FORMAT_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "NEVER use a pipe table" in joined
+    assert "Prefer lists over a pipe table" in joined
+    assert "explicitly asks for a compact table" in joined
     assert "No ## headings" not in joined
 
 
@@ -211,6 +214,118 @@ def test_clarification_hint_asks_once_when_purpose_or_data_missing():
     assert not is_underspecified_writing_request("write an email saying I will be late")
     assert "named a recipient" not in EMAIL_DRAFT_HINT
     assert "escribeme un correo" in EMAIL_ASK_PURPOSE_HINT
+
+
+def test_writing_request_kinds_cover_each_output_shape():
+    from app.services.chat.prompt_constants import writing_request_kind
+
+    cases = {
+        "Write me an email about taking Friday off": "email",
+        "Message my friend saying happy birthday": "message",
+        "Write a LinkedIn post announcing my new role": "social",
+        "Translate 'see you tomorrow' into Spanish": "translation",
+        'Translate "write me an email" into Spanish': "translation",
+        "Write one paragraph about photosynthesis": "prose",
+        "Is this sentence correct?": "edit",
+        "What is the capital of Kenya?": None,
+    }
+    for query, expected in cases.items():
+        assert writing_request_kind(query) == expected
+
+
+def test_bare_drafts_ask_once_but_supplied_purpose_drafts_now():
+    from app.services.chat.prompt_constants import is_underspecified_writing_request
+
+    assert is_underspecified_writing_request("Message to my friend")
+    assert is_underspecified_writing_request("write me an email")
+    assert is_underspecified_writing_request("escribeme un correo")
+    assert not is_underspecified_writing_request("Message my friend saying happy birthday")
+    assert not is_underspecified_writing_request("write a vacation email to my boss")
+    assert not is_underspecified_writing_request("escribeme un correo diciendo que llegare tarde")
+
+
+def test_each_writing_kind_gets_only_its_relevant_format_hint():
+    from app.services.chat.prompt_constants import (
+        EMAIL_ASK_PURPOSE_HINT,
+        EMAIL_DRAFT_HINT,
+        PROSE_WRITING_HINT,
+        SOCIAL_DRAFT_HINT,
+        TRANSLATION_FORMAT_HINT,
+        WRITING_LINE_HINT,
+    )
+
+    cases = (
+        ("Message to my friend", EMAIL_ASK_PURPOSE_HINT),
+        ("Message my friend saying happy birthday", EMAIL_DRAFT_HINT),
+        ("Write a LinkedIn post announcing my new role", SOCIAL_DRAFT_HINT),
+        ("Translate 'see you tomorrow' into Spanish", TRANSLATION_FORMAT_HINT),
+        ("Write one paragraph about photosynthesis", PROSE_WRITING_HINT),
+        ("Is this sentence correct?", WRITING_LINE_HINT),
+    )
+    specialized = {
+        EMAIL_ASK_PURPOSE_HINT,
+        EMAIL_DRAFT_HINT,
+        PROSE_WRITING_HINT,
+        SOCIAL_DRAFT_HINT,
+        TRANSLATION_FORMAT_HINT,
+        WRITING_LINE_HINT,
+    }
+    for query, expected in cases:
+        parts = _style_format_hints(
+            query_text=query,
+            style="balanced",
+            is_day_plan=False,
+            minimal_personal_context=False,
+            compact=True,
+        )
+        assert expected in parts
+        assert specialized.intersection(parts) == {expected}
+
+
+def test_writing_deliverable_wins_over_incidental_comparison_layout():
+    from app.services.chat.prompt_constants import (
+        COMPARISON_FORMAT_HINT,
+        PROSE_WRITING_HINT,
+        SOCIAL_DRAFT_HINT,
+    )
+
+    article = _style_format_hints(
+        query_text="Write an article comparing Python vs Java",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert PROSE_WRITING_HINT in article
+    assert COMPARISON_FORMAT_HINT not in article
+
+    post = _style_format_hints(
+        query_text="Write a LinkedIn post comparing Python vs Java",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert SOCIAL_DRAFT_HINT in post
+    assert COMPARISON_FORMAT_HINT not in post
+
+
+def test_explicit_table_request_survives_short_and_compact_styles():
+    from app.services.chat.prompt_constants import (
+        COMPACT_RESPONSE_FORMAT_HINT,
+        SHORT_RESPONSE_FORMAT_HINT,
+        UNIVERSAL_FORMAT_BASELINE,
+    )
+
+    assert "unless the user explicitly requested one" in SHORT_RESPONSE_FORMAT_HINT
+    assert "explicitly asked for a table" in COMPACT_RESPONSE_FORMAT_HINT
+    assert "Honor an explicit request for a table" in UNIVERSAL_FORMAT_BASELINE
+
+
+def test_translation_and_proofreading_do_not_load_private_rich_context():
+    from app.services.chat.prompt_constants import needs_rich_context
+
+    assert not needs_rich_context("Translate 'hello' into Spanish")
+    assert not needs_rich_context("Is this sentence correct?")
+    assert needs_rich_context("Message my wife saying I will be late")
 
 
 def test_universal_baseline_bans_invented_tables_and_hooks():

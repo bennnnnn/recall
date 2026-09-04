@@ -25,6 +25,7 @@ import {
 } from "@/lib/streamUiTiming";
 import { collectPreviewFiles } from "@/lib/htmlPreviewBundle";
 import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
+import { draftFenceProseText } from "@/lib/copyBlock";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
 
@@ -232,6 +233,12 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
             ) : null
           ) : fencePreview === "math" ? (
             <StreamingMathPreview body={openRegion.body} />
+          ) : fencePreview === "prose" ? (
+            draftFenceProseText(openRegion.body) ? (
+              <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
+                {draftFenceProseText(openRegion.body)}
+              </Markdown>
+            ) : null
           ) : fencePreview === "hide" ? null : fencePreview === "diagram" ? (
             <StreamingDiagramPlaceholder />
           ) : (

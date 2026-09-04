@@ -13,13 +13,13 @@ describe("nested list numbering", () => {
     expect(shouldNumberListItem(parent)).toBe(false);
   });
 
-  it("numbers bullets nested under another bullet list", () => {
+  it("keeps bullets nested under another bullet list unordered", () => {
     const parent = [
       { type: "bullet_list" },
       { type: "list_item" },
       { type: "bullet_list" },
     ];
-    expect(shouldNumberListItem(parent)).toBe(true);
+    expect(shouldNumberListItem(parent)).toBe(false);
     expect(listItemDisplayNumber(parent, 0)).toBe(1);
     expect(listItemDisplayNumber(parent, 1)).toBe(2);
   });

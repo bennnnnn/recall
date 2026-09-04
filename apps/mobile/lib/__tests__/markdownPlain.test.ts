@@ -81,6 +81,20 @@ describe("markdownPlain", () => {
     expect(markdownToSpeechText(src)).toBe("Done.");
     expect(markdownToCopyText(src)).not.toContain("Pay rent");
   });
+
+  it("preserves ordered markers and nested indentation when copying", () => {
+    const src = [
+      "1. Open Settings",
+      "2. Choose Privacy",
+      "   - Disable analytics",
+      "   - Keep crash reports",
+    ].join("\n");
+    const copy = markdownToCopyText(src);
+    expect(copy).toContain("1. Open Settings");
+    expect(copy).toContain("2. Choose Privacy");
+    expect(copy).toContain("   • Disable analytics");
+    expect(copy).toContain("   • Keep crash reports");
+  });
 });
 
 describe("markdownToStructuredPrintHtml", () => {

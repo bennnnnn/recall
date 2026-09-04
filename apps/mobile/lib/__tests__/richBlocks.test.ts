@@ -6,7 +6,6 @@ import {
   parseSteps,
 } from "@/lib/richBlocks";
 import { fullEmailText } from "@/lib/emailCompose";
-import { stripDraftFormSlots } from "@/lib/emailDraftSanitize";
 
 describe("detectJsonRichFenceKind", () => {
   it("BUG FIX regression: recognizes a mistagged ```json geometry fence", () => {
@@ -80,7 +79,7 @@ describe("parseQuoteAttribution", () => {
 });
 
 describe("parseEmailDraft", () => {
-  it("BUG FIX regression: drops bracketed To/name slots so the card is send-ready", () => {
+  it("drops an unsafe placeholder To field but preserves intentional template slots", () => {
     const draft = parseEmailDraft(
       [
         "To: [Manager's Email Address]",
@@ -95,11 +94,12 @@ describe("parseEmailDraft", () => {
       ].join("\n"),
     );
     expect(draft).toEqual({
-      subject: "Request for Time Off - This Friday",
-      body: "Hi,\n\nI would like to request Friday off.\n\nBest regards,\nBini",
+      subject: "Request for Time Off - [Your Name] - This Friday",
+      body:
+        "Hi [Manager's Name],\n\nI would like to request Friday off.\n\nBest regards,\nBini",
     });
     expect(draft?.to).toBeUndefined();
-    expect(draft?.body).not.toContain("[");
+    expect(draft?.body).toContain("[Manager's Name]");
   });
 
   it("round-trips a send-ready draft through fullEmailText", () => {
@@ -128,16 +128,23 @@ describe("parseEmailDraft", () => {
       body: "Hi Jane,\n\nSee [the policy](https://example.com/pto).",
     });
   });
-});
 
-describe("stripDraftFormSlots", () => {
-  it("strips [Your Name] from SMS and social copy", () => {
-    expect(stripDraftFormSlots("Hey [Your Name], running late.")).toBe(
-      "Hey , running late.",
-    );
-    expect(
-      stripDraftFormSlots("Posted by [Your Name]\nSee you Friday."),
-    ).not.toContain("[Your Name]");
+  it.each([
+    ["Para: ana@example.com", "Asunto: Vacaciones"],
+    ["À: jean@example.fr", "Objet: Vacances"],
+    ["An: ida@example.de", "Betreff: Urlaub"],
+    ["Kime: ada@example.com", "Konu: Tatil"],
+    ["ለ: hana@example.com", "ርዕስ: ዕረፍት"],
+    ["收件人: li@example.cn", "主题: 假期"],
+    ["宛先: aiko@example.jp", "件名: 休暇"],
+    ["받는 사람: min@example.kr", "제목: 휴가"],
+  ])("parses localized email headers: %s / %s", (toLine, subjectLine) => {
+    const draft = parseEmailDraft(`${toLine}\n${subjectLine}\n\nHello team,\n\nBody.`);
+    expect(draft).toEqual({
+      to: toLine.slice(toLine.indexOf(":") + 1).trim(),
+      subject: subjectLine.slice(subjectLine.indexOf(":") + 1).trim(),
+      body: "Hello team,\n\nBody.",
+    });
   });
 });
 

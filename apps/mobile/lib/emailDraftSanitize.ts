@@ -1,4 +1,4 @@
-/** Strip model form-slots from a parsed email draft so copy/Gmail are send-ready. */
+/** Keep draft text intact while rejecting unsafe placeholder recipient fields. */
 
 export type EmailDraftFields = {
   to?: string;
@@ -63,57 +63,6 @@ function isFormSlot(inner: string): boolean {
   return false;
 }
 
-function stripFormSlots(text: string): string {
-  let out = "";
-  let i = 0;
-  while (i < text.length) {
-    const open = text.indexOf("[", i);
-    if (open < 0) {
-      out += text.slice(i);
-      break;
-    }
-    const close = text.indexOf("]", open + 1);
-    if (close < 0) {
-      out += text.slice(i);
-      break;
-    }
-    const inner = text.slice(open + 1, close);
-    if (isFormSlot(inner)) {
-      out += text.slice(i, open);
-      i = close + 1;
-    } else {
-      out += text.slice(i, close + 1);
-      i = close + 1;
-    }
-  }
-  return collapsePlaceholderGaps(out);
-}
-
-function collapsePlaceholderGaps(text: string): string {
-  const lines = text.split("\n");
-  const cleaned: string[] = [];
-  for (const line of lines) {
-    let s = line;
-    while (s.includes(" -  - ") || s.includes(" - - ")) {
-      s = s.replace(" -  - ", " - ").replace(" - - ", " - ");
-    }
-    let compact = "";
-    let space = false;
-    for (let i = 0; i < s.length; i++) {
-      const ch = s[i];
-      if (ch === " " || ch === "\t") {
-        if (!space) compact += " ";
-        space = true;
-      } else {
-        compact += ch;
-        space = false;
-      }
-    }
-    cleaned.push(compact.trimEnd());
-  }
-  return cleaned.join("\n").trim();
-}
-
 function looksLikeEmailAddress(value: string): boolean {
   const at = value.indexOf("@");
   if (at <= 0) return false;
@@ -160,17 +109,15 @@ function tidyLonelyGreeting(body: string): string {
   return body;
 }
 
-export function stripDraftFormSlots(text: string): string {
-  return stripFormSlots(text);
-}
-
 export function sanitizeEmailDraft(draft: EmailDraftFields): EmailDraftFields {
   const toRaw = draft.to?.trim() ?? "";
   const to = toRaw && !isPlaceholderAddress(toRaw) ? toRaw : undefined;
-  const subjectRaw = draft.subject?.trim() ? stripFormSlots(draft.subject) : "";
-  const subject =
-    subjectRaw && !isPlaceholderAddress(subjectRaw) ? subjectRaw : undefined;
-  const body = tidyLonelyGreeting(stripFormSlots(draft.body));
+  // Body/subject placeholders may be intentional reusable-template slots.
+  // Preserve them instead of manufacturing broken grammar such as "Hi," or
+  // "Request for - This Friday". Only a placeholder recipient is unsafe to
+  // hand to Gmail's To field, so that field still fails closed above.
+  const subject = draft.subject?.trim() || undefined;
+  const body = tidyLonelyGreeting(draft.body.trim());
   return {
     ...(to ? { to } : {}),
     ...(subject ? { subject } : {}),

@@ -1,7 +1,10 @@
 import {
   isAnswerLang,
   isCopyLang,
+  draftFenceProseText,
   looksLikeCode,
+  looksLikeDraftInstruction,
+  looksLikeExplicitDraftContent,
   looksLikeMathAnswer,
   looksLikeSendDeliverable,
   shouldRenderAsCopyBlock,
@@ -22,6 +25,7 @@ describe("copyBlock heuristics", () => {
 
   it("detects source code vs prose", () => {
     expect(looksLikeCode("def hello():\n    print('hi')")).toBe(true);
+    expect(looksLikeCode("let total = 2;")).toBe(true);
     expect(looksLikeCode("Hi team,\n\nThanks for the update.\n\nBest,")).toBe(false);
   });
 
@@ -43,6 +47,33 @@ describe("copyBlock heuristics", () => {
       "As a software engineer, Python is a solid choice for prototyping. JavaScript is great for the frontend.";
     expect(looksLikeSendDeliverable(advice)).toBe(false);
     expect(shouldRenderAsCopyBlock("copy", advice)).toBe(false);
+  });
+
+  it("rejects the leaked screenshot instructions from a draft card", () => {
+    const leaked =
+      "fence!\n(Or paste their number if SMS and you want it formatted for texting.)";
+    expect(looksLikeDraftInstruction(leaked)).toBe(true);
+    expect(looksLikeExplicitDraftContent(leaked)).toBe(false);
+    expect(shouldRenderAsCopyBlock("copy", leaked)).toBe(false);
+    expect(draftFenceProseText(leaked)).not.toContain("fence!");
+    expect(draftFenceProseText(leaked)).toContain("paste their number");
+  });
+
+  it.each([
+    "¡Feliz cumpleaños! Espero que tengas un día maravilloso lleno de alegría.",
+    "መልካም ልደት! ዛሬ በደስታ እና በፍቅር የተሞላ ቀን እንዲሆንልህ እመኛለሁ።",
+    "祝你生日快乐！愿你今天充满欢笑，也愿新的一年带给你平安和惊喜。",
+  ])("accepts explicit multilingual copy as a real draft: %s", (draft) => {
+    expect(looksLikeExplicitDraftContent(draft)).toBe(true);
+    expect(shouldRenderAsCopyBlock("copy", draft)).toBe(true);
+  });
+
+  it("keeps a real message that naturally starts with 'Let me know if'", () => {
+    const draft = "Let me know if you can make dinner at 7. I hope you can join us!";
+    expect(looksLikeDraftInstruction(draft)).toBe(false);
+    expect(looksLikeCode(draft)).toBe(false);
+    expect(looksLikeExplicitDraftContent(draft)).toBe(true);
+    expect(shouldRenderAsCopyBlock("copy", draft)).toBe(true);
   });
 
   it("does not treat a prose expression like 2 + Y as a final-answer card", () => {

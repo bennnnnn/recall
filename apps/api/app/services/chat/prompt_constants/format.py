@@ -21,12 +21,11 @@ COMPARISON_FORMAT_HINT = (
     "| Area | First option | Second option |\n"
     "| --- | --- | --- |\n"
     "| Typing | Dynamically typed | Statically typed |\n"
-    "2. AFTER the table, ### headings for the rows they asked about. Under each: "
-    "1-2 sentences, then a tagged code fence per option (```python then ```java, "
-    "or the languages they named) — those render as code cards. "
-    "Do not dump code as indented prose.\n"
-    "3. End with ### Which should a beginner choose? (or equivalent) and a short "
-    "recommendation.\n"
+    "2. After the table, expand only the areas that need explanation. Use ### headings "
+    "only when there are multiple real sections. Include tagged code fences only when the "
+    "user is comparing programming languages/tools and code examples materially help.\n"
+    "3. Give a short recommendation only when the user asks which to choose or clearly "
+    "needs a decision. Never invent a 'beginner choice' section.\n"
     "Every table row starts and ends with |. Never wrap the table in a fence."
 )
 
@@ -86,9 +85,21 @@ def is_structured_comparison_question(text: str) -> bool:
     if not is_comparison_question(text):
         return False
     lower = text.strip().lower()
-    if "side by side" in lower or "side-by-side" in lower:
-        return True
-    if "feature" in lower:
+    if any(
+        cue in lower
+        for cue in (
+            "feature",
+            "price",
+            "cost",
+            "performance",
+            "battery",
+            "camera",
+            "specification",
+            "specs",
+            "use case",
+            "pros and cons",
+        )
+    ):
         return True
     return any(_has_whole_word(lower, word) for word in _TECHNICAL_COMPARE_WORDS)
 
@@ -108,7 +119,8 @@ _BREVITY_MARKERS = (
 
 BREVITY_REQUEST_HINT = (
     "The user asked for a one-sentence, one-word, or brief answer. "
-    "Ignore table/heading/fence layout for this turn. Match the length they asked."
+    "Ignore decorative table/heading layout and match the length they asked. Preserve a "
+    "draft/code/visual container only when that container is the requested deliverable."
 )
 
 
@@ -272,24 +284,20 @@ def is_mermaid_question(text: str) -> bool:
 
 _CALLOUT_TURN = re.compile(
     r"(?:"
-    r"\b(?:give|share|list)(?:\s+me)?\s+(?:an?\s+|\d+\s+)?tips?\b|"
-    r"\btips?\s+(?:for|on)\b|"
-    r"\b(?:study|exam|safety|pro|quick)\s+tips?\b|"
     r"\binclude\s+(?:a\s+)?(?:tip|note|warning)\b|"
-    r"\bwarning\s+about\b"
+    r"\b(?:important\s+|safety\s+)?warning\s+about\b|"
+    r"\bcallout\b"
     r")",
     re.IGNORECASE,
 )
 
 CALLOUT_FORMAT_HINT = (
-    "This turn asked for tips and/or a warning. Recall renders blockquotes "
+    "This turn explicitly asked for a highlighted tip/note/warning. Recall renders blockquotes "
     "starting with Tip: / Note: / Warning: as callout cards.\n"
     "Do not write a joke setup. Lead with the advice.\n"
-    "Put the most important tip in a markdown blockquote: `> Tip: …` "
-    "(plain `>`, not a ```tip fence and not a ## heading).\n"
-    "If they asked for a warning, add `> Warning: …` — not a heading that "
-    "says Warning.\n"
-    "Remaining tips as a short numbered list. Never a pipe table."
+    "Use one matching markdown blockquote—`> Tip: …`, `> Note: …`, or "
+    "`> Warning: …`—for the specifically highlighted point. Use ordinary bullets for "
+    "other unordered tips; use numbers only if order matters. Never a pipe table."
 )
 
 
@@ -328,8 +336,9 @@ _HOWTO_TURN = re.compile(
 
 HOWTO_FORMAT_HINT = (
     "This turn is a how-to, roadmap, or N-week learning plan.\n"
-    "Do not write a joke setup. NEVER use a pipe table — a week-by-week plan "
-    "is not a schedule grid (columns clip on a phone).\n"
+    "Do not write a joke setup. Prefer lists over a pipe table—a week-by-week plan "
+    "is normally not a schedule grid. If the user explicitly asks for a compact table, "
+    "honor that request and keep it to 2-3 columns.\n"
     "Use ## headings per week or phase. Under each: a one-line goal, then "
     "numbered steps or short bullets. Keep vocab/phrases in bullets, not table "
     "columns."
@@ -396,35 +405,40 @@ FORMAT_CONTRACT = (
     "This is a conversational chat. Write normal Markdown — headings, lists, "
     "tables, and blockquotes. Do not invent custom fence names for layout.\n"
     "\n"
-    "Default (facts, lists, rankings, lookups, recommendations, tips, how-tos):\n"
-    "  - Numbered list or bullets. This is the right format for rankings "
-    '("top N …"), tips, roadmaps, troubleshooting, and general Q&A.\n'
+    "Explicit format requests win: one paragraph stays one paragraph; requested outline "
+    "markers, tables, code, poems, and multiple draft versions keep that shape.\n"
+    "Default:\n"
+    "  - Simple factual or conversational answer: 1-3 short paragraphs, usually no heading.\n"
+    "  - Bullets are for parallel unordered items. Numbers are only for steps, rankings, "
+    "chronology, or priorities. Letters are for alternatives/answer choices or when requested; "
+    "roman numerals only when requested. Do not use numbers merely as indentation.\n"
     '  - For a single topic ("tell me about X"), a short paragraph or flat bullets '
     "is enough. Use 2-3 short headings only when they group real sections — not a "
     "parent bullet whose children are more bullets, and not a wall of text or a table.\n"
-    "  - Nested facts under a bullet use a numbered list (`1.` `2.`), not more "
-    "bullets — mixed markers are easier to scan. Do not use a/b or roman "
-    "numerals; markdown will not render those as lists. Two short sibling "
+    "  - Nest at most one level and preserve meaning: unordered children stay bullets; "
+    "ordered children stay numbers. If the user requests letters/roman numerals, use clear "
+    "plain labels such as `A.` or `I.` even if Markdown does not auto-number them. Two short sibling "
     "facts can stay on one line after the label instead of nesting "
     "(`**Powers:** 8² = 64, 8³ = 512`).\n"
-    "  - How-to / roadmap / guide: ## headings for phases, numbered steps under "
-    "each. NEVER put a roadmap, learning plan, tip list, or how-to into a "
-    "pipe table — those belong as lists, not grids. A week-by-week learning "
-    "plan is a how-to, not a schedule table.\n"
+    "  - Short how-to: one numbered list. Multi-phase roadmap/guide: ## headings for "
+    "phases and numbered steps under each. Prefer lists to a pipe table unless the user "
+    "explicitly requested a compact grid.\n"
     "  - Callouts: a blockquote starting with Tip: / Note: / Warning: "
     "(plain `>`). Not a fence.\n"
     "  - Famous quotes: a markdown blockquote (`>`), attribution on its own "
     "line as `— Name`. Not a ```quote fence and not a quoted italic paragraph.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
-    "  - If they named what the email/message should say, put the send-ready text "
-    "inside ```email, ```message, ```sms, or ```copy now. At most ONE such fence.\n"
+    "  - If they named what the email/message should say, put only send-ready text "
+    "inside ```email, ```message, ```sms, or ```copy now. One by default; multiple only "
+    "when the user explicitly requests alternatives.\n"
     "  - If they only asked to write an email with no purpose, ask one question "
     "first — do not invent a generic letter or placeholders.\n"
     "\n"
     "Coding:\n"
-    "  - Brief approach sentence, then a tagged code fence (```python, "
-    "```javascript, etc.), then notes. Never put source code in an untagged "
+    "  - For a direct code request, lead with the code or one brief approach sentence, "
+    "then a tagged code fence (```python, ```javascript, etc.). Add notes only when they "
+    "help the user run, understand, or safely change it. Never put source code in an untagged "
     "fence.\n"
     "\n"
     "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
@@ -443,7 +457,8 @@ FORMAT_CONTRACT = (
     "\n"
     "Tables: use a pipe table when aligned rows and columns help lookup or "
     "comparison (timetables, measurements, matrices, lookup grids, X vs Y). "
-    "Never for tips, how-tos, roadmaps, guides, checklists, or single-topic advice."
+    "Do not choose one for tips, how-tos, roadmaps, guides, or single-topic advice unless "
+    "the user explicitly requested a compact table."
 )
 
 # Compat aliases — one contract, two historical names.
@@ -455,7 +470,7 @@ STYLE_HINTS = {
         "Response length: SHORT. The user chose brevity — this overrides default formatting length. "
         "Answer in 1-3 sentences or at most 4-5 tight bullets. No preamble, no recap of the question, "
         "no closing offers to help further. Skip sections, headings, tables, diagrams, and HTML unless "
-        "the user explicitly asked for them."
+        "the user explicitly asked for them. Explicit prose/draft/code format requests still win."
     ),
     "balanced": (
         "Response length: BALANCED. Be clear and complete without rambling — use short headings and "
@@ -463,8 +478,9 @@ STYLE_HINTS = {
         "Lead with the answer; explanation after."
     ),
     "detailed": (
-        "Response length: DETAILED. Be thorough but stay scannable: sections, headings, "
-        "and bullets — not essay-style paragraphs. Use a pipe table for timetables, "
+        "Response length: DETAILED. Be thorough but stay scannable: use sections, headings, "
+        "and bullets when they fit the task. If the user requested an essay, article, story, "
+        "letter, or paragraph, preserve that prose form. Use a pipe table for timetables, "
         "measurements, lookup grids, and X vs Y comparisons — not for tips or how-tos. "
         "Include examples and nuance where useful."
     ),
@@ -472,7 +488,8 @@ STYLE_HINTS = {
 
 SHORT_RESPONSE_FORMAT_HINT = (
     "Formatting for SHORT mode: plain text or a few bullets only. No ## headings. "
-    "No pipe tables. No ```html / ```mermaid / ```chart unless the user explicitly requested a visual."
+    "No pipe tables unless the user explicitly requested one. No ```html / ```mermaid / "
+    "```chart unless the user explicitly requested a visual."
 )
 
 # Compact baseline injected on ALL non-lightweight turns (short, day-plan, quiz).
@@ -480,7 +497,8 @@ SHORT_RESPONSE_FORMAT_HINT = (
 UNIVERSAL_FORMAT_BASELINE = (
     "Never put a colon on its own line — it strands as a lone punctuation mark. "
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
-    "Keep paragraphs to 2-3 sentences. Avoid 3+ consecutive blank lines. "
+    "By default, keep paragraphs to 2-3 sentences; an explicitly requested prose length or "
+    "shape wins. Avoid 3+ consecutive blank lines. "
     "Lead with the answer; explanation after. No intro paragraph before the conclusion. "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
     '"Let\'s dive in"). Headings only when they group real sections. '
@@ -488,6 +506,7 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
     "Do not restate the question. "
     "Use the simplest structure that answers; do not add sections just to look structured. "
+    "Honor an explicit request for a table, paragraph, outline marker, or code block. "
     "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
     "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
     "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
@@ -497,8 +516,8 @@ UNIVERSAL_FORMAT_BASELINE = (
 # Slim/casual turns: ChatGPT-shaped, not a rich-fence pack.
 COMPACT_RESPONSE_FORMAT_HINT = (
     "Casual turn: lead with the answer in the first sentence. Plain prose or at "
-    "most 4 short bullets. No ## headings and no pipe tables unless they asked "
-    "for an X vs Y compare. If they pasted a phrase or fragment, "
+    "most 4 short bullets. No ## headings and no pipe tables unless they explicitly "
+    "asked for a table or an X vs Y compare. If they pasted a phrase or fragment, "
     "correct or complete it — do not invent a topic essay or joke about the words."
 )
 
@@ -506,8 +525,8 @@ COMPACT_RESPONSE_FORMAT_HINT = (
 TONE_FORMAT_GUARD = (
     "Configured tone is word choice only. Do not add a joke setup or recap "
     "before the answer. Funny never means a bit about the question. "
-    "If they asked for one sentence, one word, or briefly, skip tables, headings, "
-    "and fences. "
+    "If they asked for one sentence, one word, or briefly, skip decorative tables and headings; "
+    "keep a draft/code fence only when it is the requested deliverable. "
     "Do not invent a decorative table before the answer — a feature or language "
     "compare leads with the pipe table; a casual preference can be a short "
     "paragraph; a numeric chart leads with ```chart, "

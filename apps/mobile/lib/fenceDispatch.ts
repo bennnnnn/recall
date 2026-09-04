@@ -11,7 +11,9 @@
 import { shouldUseHtmlPreview } from "@/lib/codeHighlight";
 import {
   isExplicitCodeLang,
+  isStructuredDraftLang,
   looksLikeMathAnswer,
+  looksLikeExplicitDraftContent,
   shouldRenderAsCodeBlock,
   shouldRenderAsCopyBlock,
 } from "@/lib/copyBlock";
@@ -36,7 +38,8 @@ export type FenceRenderKind =
   | "math"
   | "clock"
   | "code"
-  | "copy";
+  | "copy"
+  | "prose";
 
 export type FenceDecision = {
   kind: FenceRenderKind;
@@ -73,6 +76,9 @@ export function classifyFence(lang: string, content: string): FenceDecision {
 
   const spec = fenceSpecForLang(l);
   if (spec?.structured) {
+    if (isStructuredDraftLang(l) && !looksLikeExplicitDraftContent(content)) {
+      return { kind: "prose", lang: l, id: spec.id };
+    }
     if (spec.id === "answer") return { kind: "answer", lang: l, id: spec.id };
     if (spec.id === "math") return { kind: "math", lang: l, id: spec.id };
     if (spec.id === "clock") return { kind: "clock", lang: l, id: spec.id };
@@ -102,19 +108,38 @@ export function classifyFence(lang: string, content: string): FenceDecision {
     }
   }
 
+  if (l === "copy") {
+    return shouldRenderAsCopyBlock(lang, content)
+      ? { kind: "copy", lang: l, id: "copy" }
+      : { kind: "prose", lang: l, id: "copy" };
+  }
+
   if (shouldRenderAsCodeBlock(lang, content)) return { kind: "code", lang: l };
   if (shouldRenderAsCopyBlock(lang, content)) return { kind: "copy", lang: l };
   return { kind: "code", lang: l };
 }
 
-export type OpenFencePreviewKind = "answer" | "math" | "diagram" | "code" | "hide";
+export type OpenFencePreviewKind =
+  | "answer"
+  | "math"
+  | "diagram"
+  | "code"
+  | "prose"
+  | "hide";
 
 /** Same classifier as settled `renderFence` — preview kinds are a subset. */
 export function classifyOpenFencePreview(lang: string, body: string): OpenFencePreviewKind {
   const decision = classifyFence(lang, body);
   if (decision.kind === "hide") return "hide";
-  // Draft text can stream as prose; it must never flash a programming block.
-  if (decision.id === "email") return "answer";
+  // Draft text streams as neutral prose until the fence closes. It must never
+  // flash a programming block or a math-style Answer box before becoming a card.
+  if (
+    decision.kind === "prose" ||
+    decision.kind === "copy" ||
+    (decision.id != null && isStructuredDraftLang(decision.lang))
+  ) {
+    return "prose";
+  }
   if (decision.kind === "answer") return "answer";
   if (decision.kind === "math") return "math";
   // Server already appended 3D after SMILES; the model's extra open

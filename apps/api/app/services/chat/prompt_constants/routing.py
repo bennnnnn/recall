@@ -6,6 +6,7 @@ from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants.locale_cues import (
     has_any_personal_locale_cue,
     has_locale_cue,
+    is_bare_locale_cue,
 )
 from app.services.text_normalize import collapse_ws
 
@@ -198,7 +199,10 @@ def needs_rich_context(
         return False
     if is_broad_self_question(cleaned):
         return True
-    if is_writing_deliverable_request(cleaned):
+    # Direct drafts can benefit from names/relationships in memory. Generic
+    # prose, proofreading, and translation should stay on the snappy slim
+    # path rather than loading the user's private context without a reason.
+    if is_email_or_message_request(cleaned):
         return True
     if is_learning_progress_question(cleaned):
         return True
@@ -347,26 +351,90 @@ CONFIRM_FOLLOW_THROUGH_HINT = (
     "Carry out that offer now. Do not treat this as a greeting or a one-word ack."
 )
 
-_WRITING_DELIVERABLE = re.compile(
-    r"\b("
+_EMAIL_WRITING = re.compile(
+    r"\b(?:"
     r"send (?:me )?(?:an? )?email|"
     r"email (?:to|my)|"
     r"write (?:me )?(?:an? )?email|"
     r"draft (?:an? )?email|"
-    r"compose (?:an? )?email|"
-    r"send (?:a )?(?:text|message)|"
-    r"text (?:to|my)|"
-    r"message (?:to|my)"
+    r"compose (?:an? )?email"
     r")\b",
     re.IGNORECASE,
 )
 
+_MESSAGE_WRITING = re.compile(
+    r"\b(?:"
+    r"send (?:me )?(?:a )?(?:text|message)|"
+    r"(?:write|draft|compose) (?:me )?(?:an? )?(?:text|message|sms|reply)|"
+    r"(?:text|message|reply) (?:to|for|my)|"
+    r"reply (?:to|saying|that says)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_SOCIAL_WRITING = re.compile(
+    r"\b(?:"
+    r"(?:write|draft|compose|create|rewrite)(?: me)? (?:an? )?"
+    r"(?:linkedin (?:post|note)|instagram caption|social(?: media)? post|"
+    r"twitter post|x post|tweet|caption|dating (?:app )?bio)|"
+    r"(?:linkedin|instagram|twitter|social media) (?:post|caption|bio)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_TRANSLATION_WRITING = re.compile(
+    r"(?:\b(?:translate|translation|traduc(?:e|ir)|traduis|traduire|"
+    r"[uü]bersetze|traduci|traduz(?:a)?|cevir|çevir|hiiki)\b|"
+    r"переведи|ተርጉም|翻译|翻譯|翻訳|訳して|번역)",
+    re.IGNORECASE,
+)
+
+_PROSE_WRITING = re.compile(
+    r"\b(?:write|draft|compose|rewrite|create)(?: me)? (?:an?|one|the)?\s*"
+    r"(?:paragraph|essay|article|story|poem|letter|statement|announcement|"
+    r"description|script|outline)\b",
+    re.IGNORECASE,
+)
+
+_EDIT_WRITING = re.compile(
+    r"\b(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
+    r"grammar(?: check)?|is this (?:correct|right|grammatical))\b",
+    re.IGNORECASE,
+)
+
+
+def writing_request_kind(text: str) -> str | None:
+    """Return the writing shape the response contract should preserve."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return None
+    # Translation leads before quoted-source classifiers: `Translate "write
+    # me an email" into Spanish` is a translation, not a request to draft an
+    # email. An actual email deliverable such as "write an email in Spanish"
+    # has no translation verb and still routes to email below.
+    if _TRANSLATION_WRITING.search(cleaned):
+        return "translation"
+    if _EMAIL_WRITING.search(cleaned) or has_locale_cue(cleaned, "writing"):
+        return "email"
+    if _MESSAGE_WRITING.search(cleaned):
+        return "message"
+    if _SOCIAL_WRITING.search(cleaned):
+        return "social"
+    if _PROSE_WRITING.search(cleaned):
+        return "prose"
+    if _EDIT_WRITING.search(cleaned):
+        return "edit"
+    return None
+
 
 def is_writing_deliverable_request(text: str) -> bool:
-    cleaned = text.strip()
-    if not cleaned:
-        return False
-    return bool(_WRITING_DELIVERABLE.search(cleaned)) or has_locale_cue(cleaned, "writing")
+    """True for drafts, translations, prose writing, and writing edits."""
+    return writing_request_kind(text) is not None
+
+
+def is_email_or_message_request(text: str) -> bool:
+    """True only when recipient/profile context can improve a direct draft."""
+    return writing_request_kind(text) in {"email", "message"}
 
 
 _WRITING_PURPOSE_MARKERS = (
@@ -390,14 +458,42 @@ _WRITING_PURPOSE_MARKERS = (
     " follow up",
     " apology",
     " thank",
+    " requesting ",
+    " request for ",
+    " inviting ",
+    " invite ",
+    " announcing ",
+    " announce ",
+    " comparing ",
+    " covering ",
+    " explaining ",
+    " promoting ",
+    " celebrating ",
+    " sharing ",
+    " birthday",
+    " congratulat",
+    " vacation",
+    " time off",
+    " meeting",
+    " reschedul",
+    " cancell",
+    " checking in",
+    " check-in",
+    " update",
+    " news",
 )
 
 
 def is_underspecified_writing_request(text: str) -> bool:
-    """True for 'write me an email' with no purpose — not 'saying I will be late'."""
-    if not is_writing_deliverable_request(text):
+    """True for a bare sendable draft ask, not a supplied writing task."""
+    kind = writing_request_kind(text)
+    if kind not in {"email", "message", "social"}:
         return False
     cleaned = f" {collapse_ws(text).lower()} "
     if '"' in cleaned or "\u201c" in cleaned:
         return False
+    # Localized writing cues are stored as complete bare requests. Any text
+    # beyond the cue is user-supplied purpose/content and should be drafted.
+    if has_locale_cue(text, "writing"):
+        return is_bare_locale_cue(text, "writing")
     return not any(marker in cleaned for marker in _WRITING_PURPOSE_MARKERS)

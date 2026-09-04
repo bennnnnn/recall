@@ -70,11 +70,11 @@ describe("MessagePreview", () => {
     expect(sawPrimaryAccent).toBe(false);
   });
 
-  it("strips form-slot placeholders before display", async () => {
-    const { queryByText, getByText } = await render(
+  it("preserves explicit template placeholders without broken grammar", async () => {
+    const { getByText, queryByText } = await render(
       <MessagePreview text="Hey [Friend's Name]! 👋" />,
     );
-    expect(queryByText("Hey [Friend's Name]! 👋")).toBeNull();
-    expect(getByText("Hey ! 👋")).toBeTruthy();
+    expect(getByText("Hey [Friend's Name]! 👋")).toBeTruthy();
+    expect(queryByText("Hey ! 👋")).toBeNull();
   });
 });

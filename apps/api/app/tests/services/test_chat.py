@@ -159,9 +159,10 @@ async def test_build_prompt_includes_comparison_table_hint():
         )
 
     system = messages[0]["content"]
-    # Compare turns get the dedicated table → ### code-card layout (ChatGPT).
+    # Technical compares get a table plus code only where it adds information.
     assert "This turn is X vs Y" in system
-    assert "code cards" in system
+    assert "tagged code fences" in system
+    assert "only when" in system
     assert "pipe table" in system.lower()
     assert "NEVER put source code" in system
     assert "### headings" in system
@@ -341,8 +342,8 @@ def test_is_mermaid_question(text, expected):
             "Give me 3 tips for staying focused while studying. Include a warning about all-nighters.",
             True,
         ),
-        ("Give me tips on how to master python", True),
-        ("study tips for finals", True),
+        ("Give me tips on how to master python", False),
+        ("study tips for finals", False),
         ("include a warning about all-nighters", True),
         ("warning about all-nighters", True),
         ("roadmap to learn TypeScript", False),
@@ -391,7 +392,8 @@ def test_format_hints_discourage_tables_for_how_tos():
     assert "roadmap" in blob.lower() or "how-to" in blob.lower()
     assert "NEVER" in blob or "Never" in blob
     assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
-    assert "week-by-week" in blob.lower()
+    assert "Short how-to" in blob
+    assert "explicitly requested a compact grid" in blob
     assert "ask one question" in blob.lower()
     assert "invent a generic letter" in blob.lower()
 
@@ -437,10 +439,13 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "quoted italic paragraph" in FORMAT_CONTRACT
     assert "```email" in FORMAT_CONTRACT
     assert "```python" in FORMAT_CONTRACT
-    assert "numbered list (`1.` `2.`)" in FORMAT_CONTRACT
-    assert "not more bullets" in FORMAT_CONTRACT
-    assert "Do not use a/b or roman" in FORMAT_CONTRACT
-    assert "parent bullet whose children are more bullets" in FORMAT_CONTRACT
+    assert "Bullets are for parallel unordered items" in FORMAT_CONTRACT
+    assert "Numbers are only for steps, rankings" in FORMAT_CONTRACT
+    assert "Letters are for alternatives/answer choices" in FORMAT_CONTRACT
+    assert "roman numerals only when requested" in FORMAT_CONTRACT
+    assert "Nest at most one level" in FORMAT_CONTRACT
+    assert "unordered children stay bullets" in FORMAT_CONTRACT
+    assert "plain labels such as `A.` or `I.`" in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS
     assert "```chemistry" not in VISUALIZATION_HINTS
     from app.services.chat.prompt_constants import CHEMISTRY_FENCE_HINT, MATH_SOLVER_HINT

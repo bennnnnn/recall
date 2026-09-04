@@ -327,8 +327,10 @@ async def enrich_final_content(
         from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
         from app.services.md_fence_scan import close_unclosed_fences
 
-        if was_cancelled or completion != "complete":
-            assistant_text = close_unclosed_fences(assistant_text)
+        # A provider can report a normal finish while still omitting a fence
+        # closer. Always repair odd fence parity so settled rendering never
+        # leaves raw backticks or an open streaming-style block behind.
+        assistant_text = close_unclosed_fences(assistant_text)
 
         normalized = normalize_prose_artifacts(assistant_text)
         if prose_changed(assistant_text, normalized):

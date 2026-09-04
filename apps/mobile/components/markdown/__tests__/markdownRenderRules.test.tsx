@@ -212,13 +212,13 @@ describe("markdown render rules", () => {
     expect(queryByText(/^:$/)).toBeNull();
   });
 
-  it("numbers nested bullets under a parent bullet so they scan as children", async () => {
+  it("keeps nested bullets as bullets instead of inventing sequence", async () => {
     const md = `- **Powers**
   - eight squared is 64
   - eight cubed is 512`;
     const { getByText, queryByText } = await render(<MarkdownContent content={md} />);
-    expect(getByText("1.")).toBeOnTheScreen();
-    expect(getByText("2.")).toBeOnTheScreen();
+    expect(queryByText("1.")).toBeNull();
+    expect(queryByText("2.")).toBeNull();
     expect(getByText(/eight squared is 64/)).toBeOnTheScreen();
     expect(queryByText("3.")).toBeNull();
   });

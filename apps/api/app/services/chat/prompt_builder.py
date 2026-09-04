@@ -50,13 +50,16 @@ from app.services.chat.prompt_constants import (
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
     PRIVACY_HINT,
+    PROSE_WRITING_HINT,
     QUIZ_ANSWER_HINT,
     QUOTE_FORMAT_HINT,
     SEQUENCE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
+    SOCIAL_DRAFT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
+    TRANSLATION_FORMAT_HINT,
     UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
     VOCAB_CHAT_ANSWER_HINT,
@@ -66,6 +69,7 @@ from app.services.chat.prompt_constants import (
     is_brevity_request,
     is_callout_question,
     is_chart_question,
+    is_email_or_message_request,
     is_howto_question,
     is_learning_progress_question,
     is_mermaid_question,
@@ -75,6 +79,7 @@ from app.services.chat.prompt_constants import (
     is_structured_comparison_question,
     is_underspecified_writing_request,
     is_writing_deliverable_request,
+    writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import is_html_ui_question
 from app.services.chat.stream_status import StreamStatusFn
@@ -155,7 +160,7 @@ def should_include_profile_email(query_text: str | None) -> bool:
         return False
     if _PROFILE_EMAIL_ASK.search(cleaned):
         return True
-    if is_writing_deliverable_request(cleaned):
+    if is_email_or_message_request(cleaned):
         return True
     if email_service.should_inject_gmail_block(cleaned):
         return True
@@ -612,6 +617,12 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return None
     if is_brevity_request(query_text):
         return None
+    # A requested deliverable owns its shape. For example, "write a LinkedIn
+    # post comparing X and Y" is a post—not a comparison table with a post
+    # awkwardly appended afterward. Its writing-specific hint handles any
+    # explicit side-by-side/table request inside the deliverable.
+    if writing_request_kind(query_text) is not None:
+        return None
     if is_chart_question(query_text):
         return CHART_FORMAT_HINT
     if is_sequence_diagram_question(query_text):
@@ -693,10 +704,21 @@ def _style_format_hints(
         parts.append(BREVITY_REQUEST_HINT)
     parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_writing_deliverable_request(query_text):
-        if is_underspecified_writing_request(query_text):
-            parts.append(EMAIL_ASK_PURPOSE_HINT)
-        else:
-            parts.append(EMAIL_DRAFT_HINT)
+        writing_kind = writing_request_kind(query_text)
+        if writing_kind in {"email", "message"}:
+            if is_underspecified_writing_request(query_text):
+                parts.append(EMAIL_ASK_PURPOSE_HINT)
+            else:
+                parts.append(EMAIL_DRAFT_HINT)
+        elif writing_kind == "social":
+            if is_underspecified_writing_request(query_text):
+                parts.append(EMAIL_ASK_PURPOSE_HINT)
+            else:
+                parts.append(SOCIAL_DRAFT_HINT)
+        elif writing_kind == "translation":
+            parts.append(TRANSLATION_FORMAT_HINT)
+        elif writing_kind == "prose":
+            parts.append(PROSE_WRITING_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
     return parts
