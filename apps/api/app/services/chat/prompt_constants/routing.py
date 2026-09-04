@@ -403,7 +403,8 @@ _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"(?:请|請)?(?:翻译|翻譯)(?:"
     r"(?:一下)?(?:这句话|這句話|这个句子|這個句子|这段文字|這段文字|"
     r"这篇文章|這篇文章|这封邮件|這封郵件|以下内容|以下內容|下面内容|下面內容|"
-    r"上述内容|上述內容)(?=$|[.!?\u3002\uFF01\uFF1F]|(?:成|为|為)|"
+    r"上述内容|上述內容)(?=$|[.!?\u3002\uFF01\uFF1F]|"
+    r"(?:成|为|為)(?!(?:什么|什麼|何|啥))|"
     r"[:\uFF1A\"'“\u2018「『])|"
     r"一下(?=$|[.!?\u3002\uFF01\uFF1F])|"
     r"(?:成|为|為)(?!(?:什么|什麼|何|啥))\S+|"
@@ -441,13 +442,7 @@ _EDIT_WRITING = re.compile(
 
 _WRITING_SEQUENCE_PREFIX = re.compile(r"^(?:then|now|also|next)[,\s]+", re.IGNORECASE)
 
-_DIRECT_WRITING_REQUEST_START = re.compile(
-    r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
-    r"(?:write|draft|compose|create|rewrite|send|email|message|text|reply|correct|"
-    r"proofread|fix|check)\b|grammar check\b|"
-    r"is this (?:sentence )?(?:correct|right|grammatical)\b)",
-    re.IGNORECASE,
-)
+_DIRECT_REQUEST_PREFIX = re.compile(r"^" + _DIRECT_REQUEST_INTRO, re.IGNORECASE)
 
 _WRITING_HOWTO = re.compile(
     r"^(?:how (?:do|can|should|would) i|how to)\b",
@@ -461,10 +456,18 @@ def _normalize_writing_followup(text: str) -> str:
 
 def _starts_direct_writing_request(text: str) -> bool:
     candidate = _normalize_writing_followup(text)
-    return bool(
-        _DIRECT_WRITING_REQUEST_START.search(candidate)
-        or _TRANSLATION_WRITING.search(candidate)
+    if (
+        _TRANSLATION_WRITING.search(candidate)
         or _UNSPACED_TRANSLATION_COMMAND.search(candidate)
+        or _EDIT_WRITING.search(candidate)
+        or has_locale_cue(candidate, "writing")
+    ):
+        return True
+    prefix = _DIRECT_REQUEST_PREFIX.match(candidate)
+    prefix_end = prefix.end() if prefix else 0
+    return any(
+        (match := pattern.search(candidate)) is not None and match.start() <= prefix_end
+        for pattern in (_EMAIL_WRITING, _MESSAGE_WRITING, _SOCIAL_WRITING, _PROSE_WRITING)
     )
 
 
@@ -502,7 +505,9 @@ def _next_sentence_tail(text: str) -> str | None:
                 quote_end = index + 1
                 if text[quote_end] == closing_quote:
                     quote_end += 1
-                    if quote_end == len(text) or text[quote_end].isspace():
+                    if not delimiter_stack and (
+                        quote_end == len(text) or text[quote_end].isspace()
+                    ):
                         tail = text[quote_end:].strip()
                         if tail and _starts_direct_writing_request(tail):
                             return tail
