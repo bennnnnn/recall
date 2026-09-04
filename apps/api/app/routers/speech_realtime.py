@@ -19,14 +19,6 @@ from app.services import quota as quota_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 
-_REALTIME_INSTRUCTIONS = (
-    "You are Recall, a personal voice assistant. Speak naturally and respond quickly. "
-    "Prefer one or two concise spoken sentences unless the user asks for detail. "
-    "Do not use markdown or read punctuation aloud. Continue in the language the user is speaking."
-)
-_REALTIME_HISTORY_MAX = 10
-_REALTIME_HISTORY_CHARS = 600
-
 
 class RealtimeSessionIn(BaseModel):
     chat_id: UUID | None = None
@@ -61,35 +53,32 @@ def _safety_identifier(user: User) -> str:
     return hashlib.sha256(f"recall:{user.id}".encode()).hexdigest()
 
 
-def _realtime_instructions(history: list[tuple[str, str]] | None) -> str:
-    if not history:
-        return _REALTIME_INSTRUCTIONS
-    lines: list[str] = []
-    for role, content in history[-_REALTIME_HISTORY_MAX:]:
-        if role not in {"user", "assistant"}:
-            continue
-        text = " ".join((content or "").split()).strip()[:_REALTIME_HISTORY_CHARS]
-        if text:
-            lines.append(f"{role}: {text}")
-    if not lines:
-        return _REALTIME_INSTRUCTIONS
-    context = "\n".join(lines)
-    return f"{_REALTIME_INSTRUCTIONS}\n\nRecent conversation context:\n{context}"
+def _realtime_instructions(
+    history: list[tuple[str, str]] | None,
+    *,
+    memory_block: str = "",
+    custom_instructions: str = "",
+) -> str:
+    return live_talk_service.build_realtime_instructions(
+        history,
+        memory_block=memory_block,
+        custom_instructions=custom_instructions,
+    )
 
 
-async def _load_history_or_404(chat_id: UUID | None, user: User) -> list[tuple[str, str]] | None:
-    if chat_id is None:
-        return None
-    async with SessionLocal() as session:
-        loaded = await live_talk_service.load_live_talk_history(
-            session,
-            chat_id=chat_id,
-            user_id=user.id,
-        )
+async def _load_session_context_or_404(
+    chat_id: UUID | None,
+    user: User,
+    settings: Settings,
+) -> tuple[list[tuple[str, str]] | None, str]:
+    loaded = await live_talk_service.load_live_talk_session_context(
+        chat_id=chat_id,
+        user=user,
+        settings=settings,
+    )
     if loaded is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-    history, _ = loaded
-    return history
+    return loaded
 
 
 async def _reserve_realtime_or_raise(user: User, settings: Settings):
@@ -136,12 +125,16 @@ async def create_realtime_session(
     settings: Settings = Depends(get_settings_dep),
 ) -> RealtimeSessionOut:
     """Mint a short-lived key; mobile completes WebRTC directly with OpenAI."""
-    history = await _load_history_or_404(body.chat_id, user)
+    history, memory_block = await _load_session_context_or_404(body.chat_id, user, settings)
     redis = await _reserve_realtime_or_raise(user, settings)
 
     result = await openai_speech_gateway.create_realtime_client_secret(
         settings,
-        instructions=_realtime_instructions(history),
+        instructions=_realtime_instructions(
+            history,
+            memory_block=memory_block,
+            custom_instructions=live_talk_service.voice_custom_instructions(user),
+        ),
         safety_identifier=_safety_identifier(user),
     )
     if result is None:

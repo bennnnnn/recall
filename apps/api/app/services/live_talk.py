@@ -17,6 +17,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import todos as todos_service
 from app.services.chat_titles import needs_generated_title
+from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
 from app.services.speech import LIVE_TALK_ALIAS
 from app.services.text_normalize import cap_text_head_tail
 
@@ -25,6 +26,15 @@ logger = logging.getLogger(__name__)
 _LIVE_TALK_RECENT = 12
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 _REALTIME_SESSION_TTL_SECONDS = 2 * 60 * 60
+# Match text-chat advice inject (`_ADVICE_MEMORY_MAX_CHARS` in prompt_builder).
+_LIVE_TALK_MEMORY_MAX_CHARS = 1000
+_REALTIME_HISTORY_MAX = 10
+_REALTIME_HISTORY_CHARS = 600
+_REALTIME_INSTRUCTIONS = (
+    "You are Recall, a personal voice assistant. Speak naturally and respond quickly. "
+    "Prefer one or two concise spoken sentences unless the user asks for detail. "
+    "Do not use markdown or read punctuation aloud. Continue in the language the user is speaking."
+)
 
 
 def _realtime_session_key(user_id: UUID, session_id: str) -> str:
@@ -62,6 +72,122 @@ async def load_live_talk_history(
     history = [(row.role, row.content) for row in recent if row.role in {"user", "assistant"}]
     untitled = needs_generated_title(chat.title)
     return history, untitled
+
+
+def last_user_line(history: list[tuple[str, str]] | None) -> str | None:
+    """Newest user line in oldest-first history."""
+    if not history:
+        return None
+    for role, content in reversed(history):
+        if role != "user" or not isinstance(content, str):
+            continue
+        text = content.strip()
+        if text:
+            return text
+    return None
+
+
+def cap_live_talk_memory_block(block: str) -> str:
+    text = (block or "").strip()
+    if not text:
+        return ""
+    if len(text) <= _LIVE_TALK_MEMORY_MAX_CHARS:
+        return text
+    cut = max(1, _LIVE_TALK_MEMORY_MAX_CHARS - 1)
+    return f"{text[:cut].rstrip()}…"
+
+
+def voice_custom_instructions(user: User) -> str:
+    raw = getattr(user, "custom_instructions", None)
+    custom = raw.strip() if isinstance(raw, str) and raw.strip() else ""
+    if not custom:
+        return ""
+    return wrap_user_preferences(f"User's personal instructions:\n{custom[:2000]}")
+
+
+def _history_lines(history: list[tuple[str, str]] | None) -> list[str]:
+    if not history:
+        return []
+    lines: list[str] = []
+    for role, content in history[-_REALTIME_HISTORY_MAX:]:
+        if role not in {"user", "assistant"}:
+            continue
+        text = " ".join((content or "").split()).strip()[:_REALTIME_HISTORY_CHARS]
+        if text:
+            lines.append(f"{role}: {text}")
+    return lines
+
+
+def build_realtime_instructions(
+    history: list[tuple[str, str]] | None = None,
+    *,
+    memory_block: str = "",
+    custom_instructions: str = "",
+) -> str:
+    """Persona plus optional custom instructions, memory snapshot, and recent chat."""
+    parts = [_REALTIME_INSTRUCTIONS]
+    custom = (custom_instructions or "").strip()
+    if custom:
+        parts.append(custom)
+    wrapped_memory = wrap_untrusted(
+        "memory",
+        cap_live_talk_memory_block(memory_block),
+        first_party=True,
+    )
+    if wrapped_memory.strip():
+        parts.append(wrapped_memory)
+    lines = _history_lines(history)
+    if lines:
+        parts.append("Recent conversation context:\n" + "\n".join(lines))
+    return "\n\n".join(parts)
+
+
+async def _memory_block_best_effort(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    history: list[tuple[str, str]] | None,
+) -> str:
+    if not getattr(user, "memory_enabled", False):
+        return ""
+    try:
+        from app.services import memory as memory_service
+
+        return await memory_service.get_memory_block(
+            session,
+            user,
+            settings,
+            query_text=last_user_line(history),
+        )
+    except Exception:
+        logger.debug("Live talk memory load failed", exc_info=True)
+        return ""
+
+
+async def load_live_talk_session_context(
+    *,
+    chat_id: UUID | None,
+    user: User,
+    settings: Settings,
+) -> tuple[list[tuple[str, str]] | None, str] | None:
+    """Recent history plus a best-effort memory snapshot.
+
+    Returns ``None`` when ``chat_id`` is set but the chat is missing (404).
+    Memory failures yield an empty block so the session can still mint.
+    """
+    async with SessionLocal() as session:
+        history: list[tuple[str, str]] | None = None
+        if chat_id is not None:
+            loaded = await load_live_talk_history(
+                session,
+                chat_id=chat_id,
+                user_id=user.id,
+            )
+            if loaded is None:
+                return None
+            history, _ = loaded
+        memory_block = await _memory_block_best_effort(session, user, settings, history)
+        return history, memory_block
 
 
 async def persist_live_talk_turn(

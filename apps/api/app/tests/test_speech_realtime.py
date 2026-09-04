@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -25,6 +26,29 @@ def test_realtime_instructions_include_bounded_chat_history():
     assert "user: earlier question" in prompt
     assert "assistant: earlier answer" in prompt
     assert "Recent conversation context:" in prompt
+    assert "UNTRUSTED CONTENT — memory" not in prompt
+
+
+def test_realtime_instructions_include_memory_block():
+    prompt = _realtime_instructions(None, memory_block="Allergic to peanuts")
+    assert "[BEGIN UNTRUSTED CONTENT — memory]" in prompt
+    assert "Allergic to peanuts" in prompt
+    assert "user-saved notes" in prompt
+    assert "do not recite them back" in prompt
+
+
+def test_realtime_instructions_omit_empty_memory():
+    prompt = _realtime_instructions(None, memory_block="   ")
+    assert "UNTRUSTED CONTENT — memory" not in prompt
+
+
+def test_realtime_instructions_include_custom_instructions():
+    from app.services.live_talk import voice_custom_instructions
+
+    wrapped = voice_custom_instructions(_fake_user(custom_instructions="Keep answers short."))
+    prompt = _realtime_instructions(None, custom_instructions=wrapped)
+    assert "[BEGIN USER PREFERENCES]" in prompt
+    assert "Keep answers short." in prompt
 
 
 @pytest.mark.asyncio
@@ -81,6 +105,35 @@ def _realtime_app(user, settings: Settings):
     return app
 
 
+@contextmanager
+def _session_mint_patches(*, mint: AsyncMock, memory_block: str = ""):
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech_realtime.quota_service.live_talk_limit_for_user",
+            return_value=30,
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
+            AsyncMock(),
+        ),
+        patch(
+            "app.routers.speech_realtime.live_talk_service.load_live_talk_session_context",
+            AsyncMock(return_value=(None, memory_block)),
+        ),
+        patch(
+            "app.routers.speech_realtime.openai_speech_gateway.create_realtime_client_secret",
+            mint,
+        ),
+    ):
+        yield
+
+
 def test_persist_requires_issued_realtime_session():
     user = _fake_user(plan="pro")
     settings = Settings(
@@ -135,27 +188,9 @@ def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
         speech_realtime_voice_enabled=True,
         speech_rate_limit_per_minute=0,
     )
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
     client = TestClient(_realtime_app(user, settings))
-    with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.routers.speech_realtime.quota_service.live_talk_limit_for_user",
-            return_value=30,
-        ),
-        patch(
-            "app.routers.speech_realtime.quota_service.reserve_live_talk",
-            AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
-            AsyncMock(),
-        ),
-        patch(
-            "app.routers.speech_realtime.openai_speech_gateway.create_realtime_client_secret",
-            AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123)),
-        ),
-    ):
+    with _session_mint_patches(mint=mint):
         r = client.post(
             "/speech/live/session",
             headers={"Authorization": "Bearer tok"},
@@ -167,6 +202,54 @@ def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
     assert body["expires_at"] == 123
     assert body["call_id"]
     assert body["model"] == "gpt-realtime-2.1"
+    instructions = mint.await_args.kwargs["instructions"]
+    assert "UNTRUSTED CONTENT — memory" not in instructions
+
+
+def test_realtime_session_injects_memory_and_custom_instructions():
+    user = _fake_user(plan="pro", custom_instructions="Keep answers short.")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        speech_rate_limit_per_minute=0,
+    )
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, settings))
+    with _session_mint_patches(mint=mint, memory_block="Lives in Austin"):
+        r = client.post(
+            "/speech/live/session",
+            headers={"Authorization": "Bearer tok"},
+            json={},
+        )
+    assert r.status_code == 200
+    instructions = mint.await_args.kwargs["instructions"]
+    assert "Lives in Austin" in instructions
+    assert "[BEGIN UNTRUSTED CONTENT — memory]" in instructions
+    assert "Keep answers short." in instructions
+    assert "[BEGIN USER PREFERENCES]" in instructions
+
+
+def test_realtime_session_mints_when_memory_load_returns_empty():
+    user = _fake_user(plan="pro")
+    user.memory_enabled = False
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        speech_rate_limit_per_minute=0,
+    )
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, settings))
+    with _session_mint_patches(mint=mint, memory_block=""):
+        r = client.post(
+            "/speech/live/session",
+            headers={"Authorization": "Bearer tok"},
+            json={},
+        )
+    assert r.status_code == 200
+    instructions = mint.await_args.kwargs["instructions"]
+    assert "UNTRUSTED CONTENT — memory" not in instructions
 
 
 def test_legacy_webrtc_endpoint_requires_current_mobile_bundle():
