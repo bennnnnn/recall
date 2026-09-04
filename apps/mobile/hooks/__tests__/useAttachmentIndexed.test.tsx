@@ -19,8 +19,11 @@ jest.mock("@/lib/api", () => ({
 let indexed: boolean;
 
 function Probe({ attachmentId }: { attachmentId?: string }) {
-  indexed = useAttachmentIndexed(attachmentId);
-  return <Text>{indexed ? "ready" : "indexing"}</Text>;
+  const result = useAttachmentIndexed(attachmentId);
+  React.useLayoutEffect(() => {
+    indexed = result;
+  }, [result]);
+  return <Text>{result ? "ready" : "indexing"}</Text>;
 }
 
 describe("useAttachmentIndexed", () => {

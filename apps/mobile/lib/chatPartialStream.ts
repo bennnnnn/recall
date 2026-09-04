@@ -14,6 +14,7 @@ export function replaceStreamingMessageWithPartial(
           id,
           content: partial,
           search_sources: draft?.search_sources ?? message.search_sources,
+          generationStopped: true,
         }
       : message,
   );

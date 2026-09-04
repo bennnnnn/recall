@@ -143,12 +143,8 @@ async def stream_chat_response(
         borrowed=resources,
     ) as res:
 
-        async def _load_user_and_quota() -> tuple[User, int, str, int, Any, list[Any], Any]:
+        async def _load_user_and_quota() -> tuple[User, int, Any]:
             loaded = user
-            prior_count = 0
-            chat = None
-            recent: list[Any] = []
-            turn_mode = None
             need_usage_seed = False
             if not skip_usage_seed:
                 try:
@@ -167,33 +163,36 @@ async def stream_chat_response(
                 chat = await seams.chats_repo.get_by_id(session, chat_id, user_id)
                 if chat is None:
                     raise ChatNotFoundError("Chat not found.")
-                window = settings.recent_message_window
-                recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
-                prior_count = await _prior_count_for_window(
-                    recent,
-                    window,
-                    count_for_chat=seams.messages_repo.count_for_chat,
-                    session=session,
-                    chat_id=chat_id,
-                )
-                turn_mode = await _classify_turn_mode(session, chat, content)
                 limit = seams.quota_service.daily_limit_for_user(loaded, settings)
-                prior_user, prior_model = last_user_turn(recent)
-                resolved = seams.plan_service.resolve_user_model_override(
-                    loaded,
-                    model_alias,
-                    content,
-                    settings,
-                    prior_user=prior_user,
-                    prior_model=prior_model,
-                )
-            return loaded, limit, resolved, prior_count, chat, recent, turn_mode
+            return loaded, limit, chat
 
         # Wait is the previous turn's DB finalize only — never the WS
         # producer (gather runs this as a child Task; waiting on self is 10s).
-        _, (user, daily_limit, model, prior_count, chat, recent, turn_mode) = await asyncio.gather(
-            seams.wait_for_pending_finalize(chat_id, redis),
+        _, (user, daily_limit, chat) = await asyncio.gather(
+            seams.wait_for_pending_finalize(chat_id, redis, require_complete=True),
             _load_user_and_quota(),
+        )
+        # History and model routing depend on the previous assistant insert.
+        # Read them only after finalize, outside the preload transaction.
+        async with seams.SessionLocal() as session:
+            window = settings.recent_message_window
+            recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
+            prior_count = await _prior_count_for_window(
+                recent,
+                window,
+                count_for_chat=seams.messages_repo.count_for_chat,
+                session=session,
+                chat_id=chat_id,
+            )
+            turn_mode = await _classify_turn_mode(session, chat, content)
+        prior_user, prior_model = last_user_turn(recent)
+        model = seams.plan_service.resolve_user_model_override(
+            user,
+            model_alias,
+            content,
+            settings,
+            prior_user=prior_user,
+            prior_model=prior_model,
         )
         timing.mark_phase("user_quota")
 
@@ -305,7 +304,7 @@ async def stream_regenerate_response(
         # that load with wait_for_pending_finalize can regenerate from a
         # stale last row. New turns gather wait with user/quota instead —
         # prepare reads messages only after both finish.
-        await seams.wait_for_pending_finalize(chat_id, redis)
+        await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
         regenerate_backup: RegenerateBackup | None = None
         omit_message_ids: set[UUID] | None = None
         async with seams.SessionLocal() as session:

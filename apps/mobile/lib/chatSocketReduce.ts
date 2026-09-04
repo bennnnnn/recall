@@ -19,6 +19,7 @@ export type ChatWsPayload = {
 };
 
 const STOPPED_STREAM_DELTA_TYPES = new Set([
+  "start",
   "token",
   "status",
   "reasoning",

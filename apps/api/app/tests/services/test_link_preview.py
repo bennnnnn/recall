@@ -7,6 +7,8 @@ service calls it with the right URL + UA and parses its response, without
 re-testing fetch_safely's internals.
 """
 
+import asyncio
+import socket
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -97,7 +99,7 @@ async def test_fetch_link_preview_no_meta():
     assert result["description"] is None
 
 
-# ── SSRF validation tests (real function, no mock) ──
+# ── SSRF validation tests (real address validation) ──
 
 
 @pytest.mark.asyncio
@@ -141,8 +143,14 @@ async def test_validate_external_url_allows_public():
     """A public IP (e.g., 1.1.1.1) should pass validation."""
     from app.services.link_preview import _validate_external_url
 
-    # This resolves DNS for a real public hostname; the IP check passes.
-    await _validate_external_url("https://one.one.one.one/")
+    # Keep the public-address check real without depending on external DNS.
+    with patch.object(
+        asyncio.get_running_loop(),
+        "getaddrinfo",
+        AsyncMock(return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("1.1.1.1", 0))]),
+    ) as resolve:
+        await _validate_external_url("https://one.one.one.one/")
+    resolve.assert_awaited_once_with("one.one.one.one", None)
 
 
 @pytest.mark.asyncio

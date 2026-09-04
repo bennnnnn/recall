@@ -1,8 +1,10 @@
+const { jest: jestGlobals } = require("@jest/globals");
+
 /**
  * AppSheet (and other chrome) import RNGH + Reanimated. The RN jest env has
  * neither native module, so mock them before any component test file loads.
  */
-jest.mock("react-native-reanimated", () => {
+jestGlobals.mock("react-native-reanimated", () => {
   const { View: RNView } = require("react-native");
   const id = (value) => value;
   return {
@@ -23,11 +25,11 @@ jest.mock("react-native-reanimated", () => {
     withSpring: id,
     withTiming: id,
     withRepeat: id,
-    cancelAnimation: jest.fn(),
+    cancelAnimation: jestGlobals.fn(),
   };
 });
 
-jest.mock("react-native-gesture-handler", () => {
+jestGlobals.mock("react-native-gesture-handler", () => {
   const { View: RNView } = require("react-native");
   const chain = () => {
     const api = {};

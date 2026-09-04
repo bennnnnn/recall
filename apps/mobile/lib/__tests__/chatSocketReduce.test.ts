@@ -212,13 +212,14 @@ describe("chatSocketReduce", () => {
     expect(next[0].model).toBe("smart-chat");
   });
 
-  it("shouldIgnoreStoppedStreamEvent drops deltas after Stop, not start/done/error", () => {
+  it("shouldIgnoreStoppedStreamEvent drops late starts and deltas after Stop, not done/error", () => {
     expect(shouldIgnoreStoppedStreamEvent("token", false)).toBe(true);
     expect(shouldIgnoreStoppedStreamEvent("status", false)).toBe(true);
     expect(shouldIgnoreStoppedStreamEvent("reasoning", false)).toBe(true);
     expect(shouldIgnoreStoppedStreamEvent("stream_end", false)).toBe(true);
     expect(shouldIgnoreStoppedStreamEvent("token", true)).toBe(false);
-    expect(shouldIgnoreStoppedStreamEvent("start", false)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("start", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("start", true)).toBe(false);
     expect(shouldIgnoreStoppedStreamEvent("done", false)).toBe(false);
     expect(shouldIgnoreStoppedStreamEvent("error", false)).toBe(false);
   });

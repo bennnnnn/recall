@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
@@ -11,6 +11,8 @@ const uploadAttachment = uploadChatAttachment as jest.Mock;
 
 const inputRef = { current: "hello" };
 const mockSetInput = jest.fn();
+const mockSetParams = jest.fn();
+const mockSetChatId = jest.fn();
 const mockFeedbackError = jest.fn();
 const mockSwitchThread = jest.fn();
 const mockAdoptComposerThread = jest.fn();
@@ -62,6 +64,7 @@ const onGenerateImage = jest.fn();
 
 function Probe({
   offline = false,
+  chatLoading = false,
   chatId = null,
   routeChatId,
   sendMessage = jest.fn(),
@@ -69,25 +72,28 @@ function Probe({
   setMessages = jest.fn(),
 }: {
   offline?: boolean;
+  chatLoading?: boolean;
   chatId?: string | null;
   routeChatId?: string;
   sendMessage?: jest.Mock;
   prepareDraftChat?: jest.Mock;
   setMessages?: jest.Mock;
 }) {
-  current = useChatSend({
+  const result = useChatSend({
     token: "token",
     chatId,
+    chatLoading,
     routeChatId,
-    setChatId: jest.fn(),
+    setChatId: mockSetChatId,
     setChatTitle: jest.fn(),
-    router: { setParams: jest.fn() } as never,
+    router: { setParams: mockSetParams } as never,
     draft: {
       draftChatIdRef: { current: null },
       skipLoadForChatIdRef: { current: null },
       creatingRef: { current: false },
       prepareDraftChat,
       setDraftChatId: jest.fn(),
+      discardEmptyChat: jest.fn(),
     } as never,
     scroll: { newMessageCountRef: { current: 0 } } as never,
     streaming: false,
@@ -102,6 +108,7 @@ function Probe({
     onOfflineBlocked,
     onGenerateImage,
   });
+  useLayoutEffect(() => { current = result; });
   return <Text>send</Text>;
 }
 
@@ -283,7 +290,7 @@ describe("useChatSend", () => {
     expect(current.pendingAttachment).not.toBeNull();
 
     await act(async () => {
-      view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
+      await view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
     });
 
     expect(current.pendingAttachment).toBeNull();
@@ -310,7 +317,7 @@ describe("useChatSend", () => {
 
     mockThreadKey = "chat-2";
     await act(async () => {
-      view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
+      await view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
     });
 
     await act(async () => {
@@ -359,4 +366,79 @@ describe("useChatSend", () => {
     });
     expect(mockAdoptComposerThread).toHaveBeenCalledWith("created-1");
   });
+
+  it("keeps the draft while the requested chat is still loading", async () => {
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" routeChatId="chat-2" sendMessage={sendMessage} />);
+    await act(async () => { await current.handleSend(); });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalled();
+  });
+
+  it("keeps the draft until history loading finishes", async () => {
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" routeChatId="chat-1" chatLoading sendMessage={sendMessage} />);
+    await act(async () => { await current.handleSend(); });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch a prepared send after switching chats", async () => {
+    mockThreadKey = "chat-1";
+    let finishGeo!: (value: { ok: true; clientGeo: null }) => void;
+    resolveGeo.mockReturnValue(new Promise((resolve) => { finishGeo = resolve; }));
+    const sendMessage = jest.fn();
+    const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />);
+    let sending!: Promise<void>;
+    await act(async () => {
+      sending = current.handleSend();
+      await Promise.resolve();
+    });
+    mockThreadKey = "chat-2";
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} />);
+    await act(async () => {
+      finishGeo({ ok: true, clientGeo: null });
+      await sending;
+    });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "hello");
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("does not reopen a new chat when creation finishes after navigation", async () => {
+    let finishCreate!: (id: string) => void;
+    const prepareDraftChat = jest.fn(() => new Promise((resolve) => { finishCreate = resolve; }));
+    const view = await render(<Probe prepareDraftChat={prepareDraftChat} />);
+    let sending!: Promise<void>;
+    await act(async () => {
+      sending = current.handleSend();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    mockThreadKey = "chat-2";
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" />);
+    await act(async () => {
+      finishCreate("created-1");
+      await sending;
+    });
+    expect(mockSetParams).not.toHaveBeenCalled();
+    expect(mockAdoptComposerThread).not.toHaveBeenCalled();
+    expect(mockSetChatId).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+
+  it("dispatches a new chat's pending send once its own id is loaded", async () => {
+    const prepareDraftChat = jest.fn().mockResolvedValue("created-1");
+    const sendMessage = jest.fn();
+    const view = await render(<Probe prepareDraftChat={prepareDraftChat} sendMessage={sendMessage} />);
+    await act(async () => { await current.handleSend(); });
+    expect(sendMessage).not.toHaveBeenCalled();
+    mockThreadKey = "created-1";
+    await view.rerender(<Probe chatId="created-1" routeChatId="created-1" sendMessage={sendMessage} />);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith("hello", expect.objectContaining({ skipUserBubble: true }));
+    expect(current.sendPhase).toBe("idle");
+  });
+
 });

@@ -274,6 +274,7 @@ function ChatScreen() {
   const send = useChatSend({
     token,
     chatId,
+    chatLoading,
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     setChatId,
     setChatTitle,
@@ -376,7 +377,7 @@ function ChatScreen() {
 
   const closeAttachSheet = useCallback(() => {
     setAttachSheetOpen(false);
-  }, []);
+  }, [setAttachSheetOpen]);
 
   const closeMathScanner = useCallback(() => {
     setMathScannerOpen(false);
@@ -555,7 +556,7 @@ function ChatScreen() {
     dismissChatError,
     composerAnimatedStyle,
     streaming: streamActive,
-    sendBusy: sendPhase !== "idle",
+    sendBusy: chatLoading || sendPhase !== "idle",
     stopGeneration: stopTurn,
     isOffline,
     voice: {

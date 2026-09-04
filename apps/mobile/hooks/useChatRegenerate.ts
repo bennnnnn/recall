@@ -12,8 +12,8 @@ type Params = {
   user: User | null;
   updateUser: (patch: Partial<User>) => Promise<void>;
   regenerateResponse: (model?: string | null, clientGeo?: ClientGeo | null) => Promise<void>;
-  /** Pop the last assistant + show typing immediately, before geo. */
-  beginRegenerateUi?: () => void;
+  /** Show typing before geo; optional guard invalidates preparation on Stop/navigation. */
+  beginRegenerateUi?: () => (() => boolean) | void;
   /** Restore the prior assistant when geo is cancelled. */
   cancelRegenerateUi?: () => void;
   /**
@@ -55,7 +55,7 @@ export function useChatRegenerate({
       }
       inFlightRef.current = true;
       setRegenerating(true);
-      beginRegenerateUi?.();
+      const isCurrentAttempt = beginRegenerateUi?.();
       try {
         const lastUser = [...messages].reverse().find((m) => m.role === "user");
         const result = await resolveClientGeoForQuery(
@@ -64,6 +64,7 @@ export function useChatRegenerate({
           t,
           updateUser,
         );
+        if (isCurrentAttempt && !isCurrentAttempt()) return;
         if (!result.ok) {
           cancelRegenerateUi?.();
           return;

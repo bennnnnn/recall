@@ -60,8 +60,11 @@ const mockApi = api as unknown as {
 let current: ReturnType<typeof useSettingsIntegrations>;
 
 function Probe() {
-  current = useSettingsIntegrations();
-  return <Text>{current.calendarStatus?.connected ? "on" : "off"}</Text>;
+  const result = useSettingsIntegrations();
+  React.useLayoutEffect(() => {
+    current = result;
+  }, [result]);
+  return <Text>{result.calendarStatus?.connected ? "on" : "off"}</Text>;
 }
 
 async function mount() {

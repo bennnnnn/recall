@@ -50,13 +50,16 @@ function Probe({
   getFirstUserText?: () => string | undefined;
 }) {
   const [title, setTitle] = useState<string | null>(null);
-  screenTitle = title;
-  current = useChatTitlePolling({
+  const result = useChatTitlePolling({
     token: "tok",
     chatId,
     setChatTitle: setTitle,
     getFirstUserText,
   });
+  React.useLayoutEffect(() => {
+    screenTitle = title;
+    current = result;
+  }, [title, result]);
   return <Text>{title ?? "none"}</Text>;
 }
 

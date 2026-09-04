@@ -1,3 +1,6 @@
+import { isSseAbortError, parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/lib/chatSse";
+import { notifyUnauthorized, requestSse } from "@/lib/api/client";
+
 jest.mock("@/lib/config", () => ({
   getApiUrl: () => "https://api.test",
 }));
@@ -14,9 +17,6 @@ jest.mock("@/lib/api/client", () => ({
   notifyUnauthorized: jest.fn(),
   refreshAccessToken: jest.fn(),
 }));
-
-import { isSseAbortError, parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/lib/chatSse";
-import { notifyUnauthorized, requestSse } from "@/lib/api/client";
 
 describe("parseSseChunk", () => {
   it("parses complete SSE frames and keeps trailing partial buffer", () => {
@@ -36,6 +36,12 @@ describe("isSseAbortError", () => {
     expect(isSseAbortError(new DOMException("aborted", "AbortError"))).toBe(true);
     expect(isSseAbortError(new Error("network"))).toBe(false);
   });
+
+  it("recognizes React Native cancellation errors without requiring DOMException", () => {
+    const error = new Error("cancelled");
+    error.name = "AbortError";
+    expect(isSseAbortError(error)).toBe(true);
+  });
 });
 
 describe("shouldAbortPriorSse", () => {
@@ -52,6 +58,7 @@ const makeOkStream = (payload: string) =>
     status: 200,
     body: {
       getReader: () => ({
+        releaseLock: jest.fn(),
         read: jest
           .fn()
           .mockResolvedValueOnce({
@@ -141,5 +148,32 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
         onEvent: () => {},
       }),
     ).rejects.toThrow();
+  });
+
+  it("rejects a truncated response after tokens instead of leaving the composer busy", async () => {
+    requestSseMock.mockResolvedValueOnce(makeOkStream(
+      'data: {"type":"start"}\n\ndata: {"type":"token","content":"partial"}\n\n',
+    ));
+    const onEvent = jest.fn();
+    await expect(streamChatMessageSse({
+      token: "tok", chatId: "chat-1", content: "hi", onEvent,
+    })).rejects.toThrow("before completion");
+    expect(onEvent).toHaveBeenCalledWith({ type: "token", content: "partial" });
+  });
+
+  it("requires saved completion even after stream_end", async () => {
+    requestSseMock.mockResolvedValueOnce(makeOkStream('data: {"type":"stream_end"}\n\n'));
+    await expect(streamChatMessageSse({
+      token: "tok", chatId: "chat-1", content: "hi", onEvent: jest.fn(),
+    })).rejects.toThrow("before completion");
+  });
+
+  it("accepts error completion and CRLF framed streams", async () => {
+    requestSseMock.mockResolvedValueOnce(makeOkStream(
+      'data: {"type":"start"}\r\n\r\ndata: {"type":"error","message":"busy"}\r\n\r\n',
+    ));
+    const onEvent = jest.fn();
+    await streamChatMessageSse({ token: "tok", chatId: "chat-1", content: "hi", onEvent });
+    expect(onEvent.mock.calls.map(([event]) => event.type)).toEqual(["start", "error"]);
   });
 });

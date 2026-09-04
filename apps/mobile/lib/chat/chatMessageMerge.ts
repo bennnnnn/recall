@@ -83,22 +83,19 @@ export function mergeLocalAttachmentUris(
     };
   });
 
-  // M11: preserve streamed-* assistant messages that haven't been persisted
-  // yet. After a stream ends with `persisting: true` (finalize still running
-  // or timed out), the local list holds a `streamed-<ts>` assistant bubble
-  // but the server hasn't persisted the row. A foreground refetch would
-  // silently drop the partial reply. Keep any streamed-* assistant message
-  // from `previous` that has no server counterpart in `incoming` — the
-  // server list's last assistant message (if any) means the row landed and
-  // the streamed id was already replaced.
-  const hasServerAssistant = incoming.some((m) => m.role === "assistant");
-  if (!hasServerAssistant) {
-    const streamed = previous.filter(
-      (m) => m.role === "assistant" && typeof m.id === "string" && m.id.startsWith("streamed-"),
+  // A prior turn's assistant is not proof that the current reply was saved.
+  // Keep only the current turn's partial until an assistant follows the latest
+  // persisted user; otherwise refetching a second turn silently drops its reply.
+  const latestIncomingUser = incoming.findLastIndex((m) => m.role === "user");
+  const hasCurrentAssistant = incoming
+    .slice(latestIncomingUser + 1)
+    .some((m) => m.role === "assistant");
+  if (!hasCurrentAssistant) {
+    const latestPreviousUser = previous.findLastIndex((m) => m.role === "user");
+    const streamed = previous.slice(latestPreviousUser + 1).filter(
+      (m) => m.role === "assistant" && m.id.startsWith("streamed-") && !incomingIds.has(m.id),
     );
-    if (streamed.length > 0) {
-      merged.push(...streamed);
-    }
+    merged.push(...streamed);
   }
 
   return merged;

@@ -1596,7 +1596,7 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_regenerate_restores_assistant_when_stream_empty():
+async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
     """If regenerate deletes the prior assistant but the model returns nothing,
     the old reply is restored so the chat is not left blank."""
     from app.services import chat as chat_module
@@ -1714,7 +1714,7 @@ async def test_regenerate_restores_assistant_when_stream_empty():
 
         with pytest.raises(ModelUnavailableError, match="isn't responding"):
             async for _ in chat_module.stream_regenerate_response(
-                AsyncMock(),
+                fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
@@ -1728,7 +1728,7 @@ async def test_regenerate_restores_assistant_when_stream_empty():
 
 
 @pytest.mark.asyncio
-async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
+async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_redis):
     """Prior assistant stays in DB until finalize; prompt build must omit it."""
     from app.services import chat as chat_module
     from app.services.chat.turn_prep import ClientGeoContext, TurnPromptBundle
@@ -1848,7 +1848,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
 
         with pytest.raises(ModelUnavailableError):
             async for _ in chat_module.stream_regenerate_response(
-                AsyncMock(),
+                fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
@@ -1860,7 +1860,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
 
 
 @pytest.mark.asyncio
-async def test_regenerate_passes_client_geo_to_web_search():
+async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
     from app.services import chat as chat_module
 
     fake_user = MagicMock()
@@ -1973,7 +1973,7 @@ async def test_regenerate_passes_client_geo_to_web_search():
 
         with pytest.raises(ModelUnavailableError):
             async for _ in chat_module.stream_regenerate_response(
-                AsyncMock(),
+                fake_redis,
                 Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),

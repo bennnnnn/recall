@@ -163,4 +163,31 @@ describe("mergeLocalAttachmentUris", () => {
     expect(merged).toHaveLength(2);
     expect(merged[1].id).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
   });
+
+  it("keeps the second turn's partial reply while only its user row is persisted", () => {
+    const make = (id: string, role: "user" | "assistant", content: string): Message => ({
+      id, role, content, model: null, created_at: "2026-01-01T00:00:00Z",
+    });
+    const firstTurn = [make("u1", "user", "First"), make("a1", "assistant", "First answer")];
+    const user = make("u2", "user", "Second");
+    const partial = make("streamed-200", "assistant", "Second answer so far");
+    const previous = [...firstTurn, user, partial];
+    const incoming = [...firstTurn, user];
+
+    expect(mergeLocalAttachmentUris(previous, incoming)).toEqual(previous);
+    const complete = make("a2", "assistant", "Second answer complete");
+    expect(mergeLocalAttachmentUris(previous, [...incoming, complete])).toEqual([...incoming, complete]);
+  });
+
+  it("does not carry an earlier partial into a newer unanswered turn", () => {
+    const make = (id: string, role: "user" | "assistant"): Message => ({
+      id, role, content: id, model: null, created_at: "2026-01-01T00:00:00Z",
+    });
+    const firstUser = make("u1", "user");
+    const latestUser = make("u2", "user");
+    const previous = [firstUser, make("streamed-100", "assistant"), latestUser];
+    const incoming = [firstUser, latestUser];
+    expect(mergeLocalAttachmentUris(previous, incoming)).toEqual(incoming);
+  });
+
 });
