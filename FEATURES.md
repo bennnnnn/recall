@@ -79,7 +79,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   **New chat / leave does not abort SSE** (Stop still does); leftover events are ignored for the
   next thread. `GET /messages` waits for the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
-  Opening another thread restores that draft and clears attachment, edit, and in-progress
+  Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
 - ✅ **Send stays busy until accepted** — after Send, the composer clears so the next
   draft can be typed, but Send and Attach stay disabled until upload/create finishes.
@@ -95,8 +95,6 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
-- ✅ **Edit & resend** — edit a user message (pencil under the bubble); truncates forward from that
-  turn, rewrites the message, and re-runs.
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
   DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
   vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips

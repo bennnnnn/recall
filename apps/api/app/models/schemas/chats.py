@@ -100,17 +100,12 @@ class _StreamClientContext(BaseModel):
 
 
 class ChatMessageRequest(_StreamClientContext):
-    # Cap matches EditMessageRequest — without it a client can push a
-    # multi-MB body that bloats the prompt, DB row, and memory-extraction
-    # job. 32k chars is well beyond any realistic chat turn.
+    # Cap the body — without it a client can push a multi-MB prompt that
+    # bloats the DB row and memory-extraction job. 32k chars is well beyond
+    # any realistic chat turn.
     content: str = Field(default="", max_length=32_000)
     # Cap per turn — unbounded lists let a client force huge DB/RAG work.
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
-
-
-class EditMessageRequest(_StreamClientContext):
-    message_id: UUID
-    content: str = Field(min_length=1, max_length=32_000)
 
 
 class TitleGenerationResult(BaseModel):

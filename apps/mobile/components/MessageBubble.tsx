@@ -45,8 +45,6 @@ type Props = {
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
   regenerating?: boolean;
-  onEdit?: (message: Message) => void;
-  canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   highlighted?: boolean;
   isSending?: boolean;
@@ -66,11 +64,9 @@ function userMessageCopyText(content: string): string {
 
 function UserActions({
   content,
-  onEdit,
   theme,
 }: {
   content: string;
-  onEdit?: () => void;
   theme: Theme;
 }) {
   const { t } = useTranslation();
@@ -100,21 +96,7 @@ function UserActions({
           size={20}
           color={copied ? theme.primary : theme.textSecondary}
         />
-      </Pressable>
-      {onEdit ? (
-        <Pressable
-          style={a.btn}
-          onPress={() => {
-            tap();
-            onEdit();
-          }}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.edit_message_a11y")}
-        >
-          <Icon name="pencil-outline" size={20} color={theme.textSecondary} />
         </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -293,8 +275,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   isLastAssistant,
   onRegenerate,
   regenerating = false,
-  onEdit,
-  canEdit,
   onFeedback,
   highlighted = false,
   isSending = false,
@@ -321,8 +301,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     if (isGenerating) setWasStreamed(true);
   }, [isGenerating]);
   const userCopyText = isUser ? userMessageCopyText(message.content) : "";
-  const canShowEdit = Boolean(canEdit && onEdit && !message.id.startsWith("local-"));
-  const canRevealUserActions = isUser && (userCopyText.length > 0 || canShowEdit);
+  const canRevealUserActions = isUser && userCopyText.length > 0;
 
   useEffect(() => {
     if (!isSending) {
@@ -335,7 +314,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   useEffect(() => {
     setShowUserActions(false);
-  }, [message.id, canShowEdit]);
+  }, [message.id]);
 
   const assistant = useAssistantMessageContent({
     message,
@@ -420,14 +399,6 @@ export const MessageBubble = React.memo(function MessageBubble({
           {showUserActions ? (
             <UserActions
               content={userCopyText}
-              onEdit={
-                canShowEdit
-                  ? () => {
-                      setShowUserActions(false);
-                      onEdit?.(message);
-                    }
-                  : undefined
-              }
               theme={theme}
             />
           ) : null}

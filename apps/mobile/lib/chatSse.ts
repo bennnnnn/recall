@@ -35,11 +35,6 @@ type StreamChatMessageOptions = StreamChatSseClient & {
   attachmentIds?: string[];
 };
 
-type StreamChatEditOptions = StreamChatSseClient & {
-  messageId: string;
-  content: string;
-};
-
 async function streamChatSseRequest(
   path: string,
   options: StreamChatSseClient,
@@ -118,11 +113,4 @@ export async function streamChatRegenerateSse(
   options: StreamChatSseClient,
 ): Promise<void> {
   await streamChatSseRequest(`/chats/${options.chatId}/regenerate/stream`, options);
-}
-
-export async function streamChatEditSse(options: StreamChatEditOptions): Promise<void> {
-  await streamChatSseRequest(`/chats/${options.chatId}/edit/stream`, options, {
-    message_id: options.messageId,
-    content: options.content,
-  });
 }

@@ -42,7 +42,7 @@ def _turn_load():
 
 
 def _borrowed_resources(redis, user_id, chat_id, reserved: int) -> stream_module.TurnResources:
-    """Resources already held by an outer turn (what stream_edit_response hands down)."""
+    """Resources already held by an outer turn (what regenerate hands down)."""
     return stream_module.TurnResources(
         redis=redis,
         user_id=user_id,

@@ -92,7 +92,6 @@ function Probe({
     scroll: { newMessageCountRef: { current: 0 } } as never,
     streaming: false,
     sendMessage,
-    editMessage: jest.fn(),
     setMessages,
     messages: [],
     selectedModel: "free-chat",
@@ -269,7 +268,7 @@ describe("useChatSend", () => {
     expect(current.sendPhase).toBe("idle");
   });
 
-  it("clears attachment and edit when switching threads", async () => {
+  it("clears attachment when switching threads", async () => {
     const view = await act(async () =>
       render(<Probe chatId="chat-1" routeChatId="chat-1" />),
     );
@@ -280,17 +279,14 @@ describe("useChatSend", () => {
         fileName: "pic.jpg",
         kind: "image",
       });
-      current.setEditingMessageId("msg-1");
     });
     expect(current.pendingAttachment).not.toBeNull();
-    expect(current.editingMessageId).toBe("msg-1");
 
     await act(async () => {
       view.rerender(<Probe chatId="chat-1" routeChatId="chat-2" />);
     });
 
     expect(current.pendingAttachment).toBeNull();
-    expect(current.editingMessageId).toBeNull();
     expect(mockSwitchThread).toHaveBeenCalledWith("chat-2");
   });
 

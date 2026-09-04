@@ -66,4 +66,11 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Do **not** show a Learning progress bar, due-soon stack, or “For you” personalized chips.
 - Starters stay `welcomeStarters()` — ignore API `starters` / `project_highlight` on this surface.
 
+## 11. No user-message edit / resend
+- Do **not** show a pencil on user bubbles, an “editing message” composer banner, or
+  send-as-edit that truncates the thread and re-runs from that turn.
+- Do **not** wire WS `type: "edit"`, `POST /chats/{id}/edit/stream`, `editMessage`,
+  `handleEditMessage`, or `stream_edit_response`.
+- Long-press on a user bubble is copy only.
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

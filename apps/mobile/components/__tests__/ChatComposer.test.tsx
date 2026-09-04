@@ -64,8 +64,6 @@ const baseProps = {
   attachBusy: false,
   pendingAttachment: null,
   onRemoveAttachment: jest.fn(),
-  editingMessageId: null,
-  onCancelEdit: jest.fn(),
   onCloseAttachSheet: jest.fn(),
   onPickAttachment: jest.fn(),
   onSend: jest.fn(),
