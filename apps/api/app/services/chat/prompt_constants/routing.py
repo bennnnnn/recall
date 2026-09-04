@@ -400,7 +400,7 @@ _TRANSLATION_WRITING = re.compile(
 
 _UNSPACED_TRANSLATION_COMMAND = re.compile(
     r"^(?:"
-    r"(?:请|請)?(?:翻译|翻譯)(?="
+    r"(?:请|請)?(?:翻译|翻譯)(?!(?:为什么|為什麼))(?="
     r"(?:这|這|那|以下|下面|下列|上述|此|我|成|为|為|一下|文本|文章|内容|內容|"
     r"句子|单词|單詞|邮件|郵件|消息|标题|標題|菜单|菜單|网页|網頁|文件|文档|文檔|"
     r"字幕|说明|說明|歌词|歌詞|[:\uFF1A\s\"'“\u2018「『]|[A-Za-z0-9]))|"
@@ -426,7 +426,8 @@ _PROSE_WRITING = re.compile(
 
 _EDIT_WRITING = re.compile(
     r"(?:^" + _DIRECT_REQUEST_INTRO + r"(?:"
-    r"(?:correct(?: this)?|proofread|rewrite this|fix (?:this )?(?:sentence|grammar)|"
+    r"(?:correct(?: this)?|proofread|rewrite (?:this|it)|"
+    r"fix (?:this )?(?:sentence|grammar)|"
     r"grammar check|check (?:this )?(?:sentence|grammar))\b|"
     r"\bis this (?:sentence )?(?:correct|right|grammatical)\b))",
     re.IGNORECASE,
@@ -461,10 +462,8 @@ def _starts_direct_writing_request(text: str) -> bool:
     )
 
 
-def _after_initial_writing_howto(text: str) -> str | None:
-    """Drop a leading how-to sentence, but retain a later explicit request."""
-    if not _WRITING_HOWTO.search(text):
-        return text
+def _next_sentence_tail(text: str) -> str | None:
+    """Return text after the next plausible sentence boundary."""
     quote_closers = {
         '"': '"',
         "'": "'",
@@ -477,6 +476,14 @@ def _after_initial_writing_howto(text: str) -> str | None:
     boundary_end: int | None = None
     for index, char in enumerate(text):
         if closing_quote is not None:
+            if char in ".!?" and index + 1 < len(text):
+                quote_end = index + 1
+                if text[quote_end] == closing_quote:
+                    quote_end += 1
+                    if quote_end == len(text) or text[quote_end].isspace():
+                        tail = text[quote_end:].strip()
+                        if tail and _starts_direct_writing_request(tail):
+                            return tail
             if char == closing_quote:
                 if char == "'" and 0 < index < len(text) - 1:
                     if text[index - 1].isalnum() and text[index + 1].isalnum():
@@ -484,10 +491,10 @@ def _after_initial_writing_howto(text: str) -> str | None:
                 closing_quote = None
             continue
         if char in quote_closers:
-            # Do not treat an apostrophe inside a word as a quote delimiter.
-            if char == "'" and 0 < index < len(text) - 1:
-                if text[index - 1].isalnum() and text[index + 1].isalnum():
-                    continue
+            # Apostrophes following a word are contractions or possessives,
+            # never the opening delimiter for a new single-quoted span.
+            if char == "'" and index > 0 and text[index - 1].isalnum():
+                continue
             closing_quote = quote_closers[char]
             continue
         if char not in ".!?":
@@ -512,6 +519,23 @@ def _after_initial_writing_howto(text: str) -> str | None:
     return tail or None
 
 
+def _after_initial_writing_howto(text: str) -> str | None:
+    """Drop a leading how-to sentence, but retain later text."""
+    if not _WRITING_HOWTO.search(text):
+        return text
+    return _next_sentence_tail(text)
+
+
+def _find_direct_writing_followup(text: str) -> str | None:
+    """Find the first sentence after a how-to that starts a writing command."""
+    candidate: str | None = text
+    while candidate:
+        if _starts_direct_writing_request(candidate):
+            return _normalize_writing_followup(candidate)
+        candidate = _next_sentence_tail(candidate)
+    return None
+
+
 def writing_request_kind(text: str) -> str | None:
     """Return the writing shape the response contract should preserve."""
     cleaned = collapse_ws(text)
@@ -526,9 +550,10 @@ def writing_request_kind(text: str) -> str | None:
         return None
     cleaned = writing_candidate
     if had_initial_howto:
-        if not _starts_direct_writing_request(cleaned):
+        direct_followup = _find_direct_writing_followup(cleaned)
+        if direct_followup is None:
             return None
-        cleaned = _normalize_writing_followup(cleaned)
+        cleaned = direct_followup
     # Translation leads before quoted-source classifiers: `Translate "write
     # me an email" into Spanish` is a translation, not a request to draft an
     # email. An actual email deliverable such as "write an email in Spanish"
