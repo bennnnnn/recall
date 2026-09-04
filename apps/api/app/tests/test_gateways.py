@@ -699,6 +699,44 @@ async def test_stream_chat_completion_no_fallback_after_tokens_started():
 
 
 @pytest.mark.asyncio
+async def test_stream_chat_once_records_finish_reason_length():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    stream_meta: dict[str, str] = {}
+
+    class _Delta:
+        content = "cut"
+
+    class _Choice:
+        delta = _Delta()
+        finish_reason = "length"
+
+    class _Chunk:
+        choices = [_Choice()]
+        usage = None
+
+    async def fake_acompletion(**_kwargs):
+        class _Resp:
+            async def __aiter__(self):
+                yield _Chunk()
+
+        return _Resp()
+
+    with patch.object(litellm_gateway, "acompletion", fake_acompletion):
+        tokens = [
+            t
+            async for t in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=8,
+                stream_meta=stream_meta,
+            )
+        ]
+    assert tokens == ["cut"]
+    assert stream_meta["finish_reason"] == "length"
+
+
+@pytest.mark.asyncio
 async def test_stream_chat_completion_retries_when_primary_yields_no_tokens():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
     calls: list[str] = []

@@ -18,6 +18,20 @@ from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
 
+_RAG_COVERAGE_PREFIX = (
+    f"Indexed file text covers at most the first "
+    f"{attachment_content_service.PDF_EXTRACT_MAX_PAGES} PDF pages and the first "
+    f"{attachment_content_service.MAX_INDEX_EXTRACT_CHARS} characters. "
+    "A retrieval miss is not proof the answer is absent from unread pages. "
+    "Do not invent from outside these excerpts.\n\n"
+)
+_RAG_MISS_NOTE = (
+    "Indexed excerpts were searched but none matched this question. "
+    "That is not proof the answer is absent from unread pages or the rest of "
+    "the file. Do not invent from outside the file. If you cannot ground an "
+    "answer in the excerpts, say so."
+)
+
 # Cap concurrent embedding calls so a large PDF doesn't stampede the provider.
 _EMBED_CONCURRENCY = 8
 # Foreground TTFT path — match memory's live-embed budget.
@@ -248,10 +262,10 @@ async def retrieve_for_prompt(
         rows = [item[1] for item in scored[: settings.attachment_rag_chunk_limit]]
 
     if not rows:
-        return ""
+        return wrap_untrusted("attached documents", _RAG_MISS_NOTE)
 
     lines = []
     for i, row in enumerate(rows):
         name = filenames.get(row.attachment_id) or "attachment"
         lines.append(f"[{i + 1}] ({name}) {row.text}")
-    return wrap_untrusted("attached documents", "\n\n".join(lines))
+    return wrap_untrusted("attached documents", _RAG_COVERAGE_PREFIX + "\n\n".join(lines))

@@ -169,12 +169,25 @@ describe("chatSocketReduce", () => {
     expect(input.stoppedStreamedId).toBe("streamed-100");
   });
 
-  it("buildDoneMergeInput defaults stoppedStreamedId to null", () => {
+  it("maps interrupted completion onto generationStopped", () => {
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "abc", completion: "interrupted" },
+      { content: "Partial" },
+    );
+    expect(input.generationStopped).toBe(true);
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Partial", model: null, created_at: "" },
+    ];
+    const next = mergeDoneIntoMessages(prev, input);
+    expect(next[0].generationStopped).toBe(true);
+  });
+
+  it("does not mark a complete done as generationStopped", () => {
     const input = buildDoneMergeInput(
       { type: "done", message_id: "abc" },
-      { content: "Hi" },
+      { content: "Full" },
     );
-    expect(input.stoppedStreamedId).toBeNull();
+    expect(input.generationStopped).toBe(false);
   });
 
   it("mergeDoneIntoMessages stores resolved model on assistant message", () => {

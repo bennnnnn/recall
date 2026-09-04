@@ -320,6 +320,8 @@ async def stream_chat_completion(
         pending: list[str] = []
         started = False
         try:
+            if stream_meta is not None:
+                stream_meta.pop("finish_reason", None)
             async for token in _stream_chat_once(
                 settings=settings,
                 model_alias=alias,
@@ -327,6 +329,7 @@ async def stream_chat_completion(
                 max_tokens=max_tokens,
                 usage=usage,
                 on_reasoning=on_reasoning,
+                stream_meta=stream_meta,
             ):
                 if not started:
                     pending.append(token)
@@ -383,6 +386,7 @@ async def _stream_chat_once(
     max_tokens: int,
     usage: dict[str, int] | None = None,
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
+    stream_meta: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)
@@ -452,8 +456,11 @@ async def _stream_chat_once(
             choices = getattr(chunk, "choices", None) or []
             if not choices:
                 continue
-            delta = choices[0].delta
-            content = getattr(delta, "content", None) or ""
+            reason = getattr(choices[0], "finish_reason", None)
+            if reason and stream_meta is not None:
+                stream_meta["finish_reason"] = str(reason)
+            delta = getattr(choices[0], "delta", None)
+            content = getattr(delta, "content", None) or "" if delta is not None else ""
             if content:
                 cleaned = stripper.feed(content)
                 if cleaned:

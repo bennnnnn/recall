@@ -62,10 +62,18 @@ export function preferHorizontalCategoryBars(spec: Record<string, unknown>): voi
   const enc = encoding as Record<string, unknown>;
   const xt = channelType(enc.x);
   const yt = channelType(enc.y);
-  if (isCategoryType(xt) && yt === "quantitative" && !isCategoryType(yt)) {
+    if (isCategoryType(xt) && yt === "quantitative" && !isCategoryType(yt)) {
     const x = enc.x;
     enc.x = enc.y;
     enc.y = x;
+    const xOff = enc.xOffset;
+    const yOff = enc.yOffset;
+    if (xOff !== undefined || yOff !== undefined) {
+      enc.xOffset = yOff;
+      enc.yOffset = xOff;
+      if (enc.xOffset === undefined) delete enc.xOffset;
+      if (enc.yOffset === undefined) delete enc.yOffset;
+    }
   }
 }
 

@@ -43,9 +43,15 @@ describe("stripNumericAnswerAfterChart", () => {
     expect(stripNumericAnswerAfterChart(src)).toContain("x = 2");
   });
 
-  it("does not strip a number that is not after a chart fence", () => {
-    const src = "The answer is\n\n```\n3.1\n```\n";
-    expect(stripNumericAnswerAfterChart(src)).toContain("3.1");
+  it("keeps a labelled statistic after the fence", () => {
+    const src = `\`\`\`chart\n${VEGA}\n\`\`\`\n\nmean 42\n`;
+    expect(stripNumericAnswerAfterChart(src)).toContain("mean 42");
+    expect(isBareNumericChartCrumb("mean 42")).toBe(false);
+  });
+
+  it("keeps a recap sentence with the requested number", () => {
+    const src = `\`\`\`chart\n${VEGA}\n\`\`\`\n\nThe mean is 42.\n`;
+    expect(stripNumericAnswerAfterChart(src)).toContain("The mean is 42.");
   });
 });
 

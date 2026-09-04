@@ -70,6 +70,38 @@ describe("normalizeChartSpec", () => {
     normalizeChartSpec(spec);
     expect((spec.encoding.x as { field?: string }).field).toBe("month");
   });
+
+  it("moves xOffset to yOffset when flipping grouped bars horizontal", () => {
+    const spec: Record<string, unknown> = {
+      mark: "bar",
+      encoding: {
+        x: { field: "month", type: "nominal" },
+        y: { field: "inches", type: "quantitative" },
+        xOffset: { field: "series", type: "nominal" },
+      },
+    };
+    normalizeChartSpec(spec);
+    const enc = spec.encoding as Record<string, { field?: string } | undefined>;
+    expect(enc.y?.field).toBe("month");
+    expect(enc.x?.field).toBe("inches");
+    expect(enc.yOffset?.field).toBe("series");
+    expect(enc.xOffset).toBeUndefined();
+  });
+
+  it("leaves already-horizontal grouped bars on yOffset", () => {
+    const spec: Record<string, unknown> = {
+      mark: "bar",
+      encoding: {
+        x: { field: "inches", type: "quantitative" },
+        y: { field: "month", type: "nominal" },
+        yOffset: { field: "series", type: "nominal" },
+      },
+    };
+    normalizeChartSpec(spec);
+    const enc = spec.encoding as Record<string, { field?: string } | undefined>;
+    expect(enc.yOffset?.field).toBe("series");
+    expect(enc.xOffset).toBeUndefined();
+  });
 });
 
 describe("buildVegaHtml", () => {

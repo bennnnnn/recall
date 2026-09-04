@@ -90,6 +90,39 @@ async def test_retrieve_for_prompt_includes_filename_and_page():
 
     assert "(notes.pdf)" in block
     assert "[page 3] hello from notes" in block
+    assert "first 25 PDF pages" in block
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_prompt_miss_is_not_not_in_file():
+    settings = Settings(mock_llm_enabled=True, attachment_rag_enabled=True)
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.get_or_embed_query",
+            AsyncMock(return_value=[0.1] * 1536),
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.search_semantic",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+    ):
+        block = await retrieve_for_prompt(
+            settings=settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            query="what is on page 30?",
+        )
+
+    assert "none matched" in block.lower()
+    assert "not proof" in block.lower()
+    assert "Do not invent" in block
 
 
 @pytest.mark.asyncio

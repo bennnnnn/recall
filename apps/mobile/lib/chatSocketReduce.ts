@@ -15,6 +15,7 @@ export type ChatWsPayload = {
   todos_sync?: string;
   search_sources?: string;
   resolved_model?: string;
+  completion?: string;
 };
 
 const STOPPED_STREAM_DELTA_TYPES = new Set([
@@ -68,6 +69,7 @@ export type DoneMergeInput = {
    * If non-null and the id is no longer present, the `done` is dropped.
    */
   stoppedStreamedId?: string | null;
+  generationStopped?: boolean;
 };
 
 /** Pure merge for the WebSocket `done` event — used by useChat and unit tests. */
@@ -84,6 +86,7 @@ export function mergeDoneIntoMessages(
     draftSearchSources,
     model,
     stoppedStreamedId,
+    generationStopped,
   } = input;
 
   if (prev.some((m) => m.id === "streaming")) {
@@ -104,6 +107,7 @@ export function mergeDoneIntoMessages(
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
+            generationStopped: m.generationStopped || generationStopped,
           }
         : m,
     );
@@ -132,6 +136,7 @@ export function mergeDoneIntoMessages(
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
+            generationStopped: m.generationStopped || generationStopped,
           }
         : m,
     );
@@ -151,6 +156,7 @@ export function mergeDoneIntoMessages(
       model: model ?? null,
       search_sources: search_sources ?? parseSearchSources(content),
       created_at: new Date().toISOString(),
+      generationStopped,
     },
   ];
 }
@@ -174,6 +180,7 @@ export function buildDoneMergeInput(
 ): DoneMergeInput {
   const finalContent =
     typeof payload.final_content === "string" ? payload.final_content : undefined;
+  const completion = payload.completion;
   return {
     finalId: payload.message_id ?? `streamed-${now}`,
     messageId: payload.message_id,
@@ -183,5 +190,6 @@ export function buildDoneMergeInput(
     draftSearchSources: draft?.search_sources,
     model: payload.resolved_model ?? null,
     stoppedStreamedId,
+    generationStopped: completion === "interrupted" || completion === "user_stop",
   };
 }
