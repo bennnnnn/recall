@@ -13,6 +13,7 @@ import {
 import {
   COMPOSER_NEW_THREAD_KEY,
   adoptNewComposerThread,
+  stashFailedSendDraft,
   takeThreadDraft,
 } from "@/lib/chat/composerThreadDraft";
 
@@ -21,7 +22,7 @@ type ComposerDraftApi = {
   inputRef: MutableRefObject<string>;
   switchThread: (nextKey: string) => void;
   adoptComposerThread: (nextKey: string) => void;
-  saveDraftForThread: (key: string, text: string) => void;
+  stashFailedDraftForThread: (key: string, failedText: string) => void;
   getThreadKey: () => string;
 };
 
@@ -64,11 +65,9 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
           inputRef.current,
         );
       },
-      saveDraftForThread: (key: string, text: string) => {
-        draftsRef.current.set(key, text);
-        if (threadKeyRef.current === key) {
-          setInput(text);
-        }
+      stashFailedDraftForThread: (key: string, failedText: string) => {
+        if (threadKeyRef.current === key) return;
+        stashFailedSendDraft(draftsRef.current, key, failedText);
       },
       getThreadKey: () => threadKeyRef.current,
     }),
