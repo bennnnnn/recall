@@ -162,7 +162,7 @@ async def test_load_session_context_passes_last_user_line_as_query():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
         patch(
             "app.services.live_talk.load_live_talk_history",
             AsyncMock(return_value=(history, False)),
@@ -181,6 +181,39 @@ async def test_load_session_context_passes_last_user_line_as_query():
     assert result == (history, "likes spicy food")
     mem.assert_awaited_once()
     assert mem.await_args.kwargs["query_text"] == "what's for dinner"
+    assert mem.await_args.kwargs["exclude_sensitive"] is True
+    assert session_factory.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_load_session_context_keeps_sensitive_memory_on_matching_ask():
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    chat_id = uuid4()
+    history = [("user", "I have a peanut allergy, what can I eat?")]
+    settings = Settings()
+    session = _memory_session()
+
+    with (
+        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch(
+            "app.services.live_talk.load_live_talk_history",
+            AsyncMock(return_value=(history, False)),
+        ),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value="allergic to peanuts"),
+        ) as mem,
+    ):
+        result = await load_live_talk_session_context(
+            chat_id=chat_id,
+            user=user,
+            settings=settings,
+        )
+
+    assert result == (history, "allergic to peanuts")
+    assert mem.await_args.kwargs["exclude_sensitive"] is False
 
 
 @pytest.mark.asyncio
@@ -192,7 +225,7 @@ async def test_load_session_context_without_chat_has_no_query():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
         patch(
             "app.services.memory.get_memory_block",
             AsyncMock(return_value="vegetarian"),
@@ -207,6 +240,8 @@ async def test_load_session_context_without_chat_has_no_query():
     assert result == (None, "vegetarian")
     mem.assert_awaited_once()
     assert mem.await_args.kwargs["query_text"] is None
+    assert mem.await_args.kwargs["exclude_sensitive"] is True
+    assert session_factory.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -270,7 +305,7 @@ async def test_load_session_context_missing_chat_is_none():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
         patch("app.services.live_talk.load_live_talk_history", AsyncMock(return_value=None)),
         patch("app.services.memory.get_memory_block", AsyncMock()) as mem,
     ):
@@ -282,3 +317,4 @@ async def test_load_session_context_missing_chat_is_none():
 
     assert result is None
     mem.assert_not_called()
+    assert session_factory.call_count == 1

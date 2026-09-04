@@ -143,7 +143,6 @@ def build_realtime_instructions(
 
 
 async def _memory_block_best_effort(
-    session: AsyncSession,
     user: User,
     settings: Settings,
     history: list[tuple[str, str]] | None,
@@ -153,12 +152,15 @@ async def _memory_block_best_effort(
     try:
         from app.services import memory as memory_service
 
-        return await memory_service.get_memory_block(
-            session,
-            user,
-            settings,
-            query_text=last_user_line(history),
-        )
+        query_text = last_user_line(history)
+        async with SessionLocal() as session:
+            return await memory_service.get_memory_block(
+                session,
+                user,
+                settings,
+                query_text=query_text,
+                exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
+            )
     except Exception:
         logger.debug("Live talk memory load failed", exc_info=True)
         return ""
@@ -174,10 +176,12 @@ async def load_live_talk_session_context(
 
     Returns ``None`` when ``chat_id`` is set but the chat is missing (404).
     Memory failures yield an empty block so the session can still mint.
+    History and memory use separate short-lived sessions so an embed wait
+    does not hold the chat-history checkout.
     """
-    async with SessionLocal() as session:
-        history: list[tuple[str, str]] | None = None
-        if chat_id is not None:
+    history: list[tuple[str, str]] | None = None
+    if chat_id is not None:
+        async with SessionLocal() as session:
             loaded = await load_live_talk_history(
                 session,
                 chat_id=chat_id,
@@ -186,8 +190,8 @@ async def load_live_talk_session_context(
             if loaded is None:
                 return None
             history, _ = loaded
-        memory_block = await _memory_block_best_effort(session, user, settings, history)
-        return history, memory_block
+    memory_block = await _memory_block_best_effort(user, settings, history)
+    return history, memory_block
 
 
 async def persist_live_talk_turn(
