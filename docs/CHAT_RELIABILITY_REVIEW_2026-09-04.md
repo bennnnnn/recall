@@ -19,6 +19,16 @@ Scope: send, stream, stop, regenerate, persist, reopen, and paginate a text conv
 - Malformed WebSocket frames or a pre-authentication disconnect could escape their lifecycle handlers. The stream producer remains owned and ordinary disconnects are handled.
 - Ambiguous follow-ups such as “again” and “refresh” were intercepted as requests for the local time regardless of the conversation. Both the backend shortcut and mobile renderer had this defect. Only explicit time questions now take the instant-clock path; contextual follow-ups use ordinary chat generation and render the returned answer.
 
+## PR feedback: rejected follow-up recovery
+
+The [P1 review comment](https://github.com/bennnnnn/recall/pull/1185#discussion_r3938085217) correctly identified a gap: the strict finalize timeout rejects a follow-up before saving it, but the client left its optimistic user bubble in the transcript and offered Stop. Both transports can emit `start` before this rejection, so `start` is not evidence of persistence.
+
+Explicit busy rejections now retain the original send payload in a queue for that chat, remove its unsaved optimistic bubble, and offer Retry. Retry submits the rejected content, model, attachment IDs and location context as a new send; it does not regenerate an earlier saved message. New composer text remains untouched, later rejected sends do not replace earlier ones, and reopening a chat within the mounted screen recovers its queued sends. Stop, account changes and stale callbacks cannot replay them. Generic errors and network failures are not treated as proof that a send was unsaved.
+
+This recovery queue lasts for the mounted chat screen and signed-in session; it is not a durable offline outbox across a full app restart. Updated validation results are recorded on PR #1185.
+
+The follow-up passed independent review and local backend validation: 3,298 tests with 85.55% coverage, full Ruff/format/mypy, and web TypeScript/lint. All 2,175 mobile tests across 263 suites passed, including 17 new transport, error recovery and UI regressions. Mobile TypeScript and lint also passed with no warnings in changed files.
+
 ## Local verification
 
 - Mobile: 2,087 tests passed in 258 suites; TypeScript and ESLint passed. Existing warnings elsewhere remain.

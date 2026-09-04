@@ -38,7 +38,7 @@ export function ChatInlineError({
   const iconName =
     error.kind === "quota"
       ? "flash-outline"
-      : error.kind === "busy"
+      : error.kind === "busy" || error.kind === "send_rejected"
         ? "hourglass-outline"
         : error.kind === "model_unavailable"
           ? "cloud-offline-outline"
@@ -66,7 +66,7 @@ export function ChatInlineError({
           <Text style={s.ctaText}>{t("chat.stop")}</Text>
         </Pressable>
       ) : null}
-      {error.kind === "generic" && onRetry ? (
+      {(error.kind === "generic" || error.kind === "send_rejected") && onRetry ? (
         <Pressable
           style={s.cta}
           onPress={onRetry}

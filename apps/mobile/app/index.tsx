@@ -93,7 +93,7 @@ function ChatScreen() {
       void refreshHome({ silent: true });
     }, [refreshHome, routeChatId, chatId, hasFetchedHome]),
   );
-  const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
+  const { chatError, handleChatError, handleStreamBusy, dismissChatError, handleRejectedSendChange } =
     useChatErrorHandlers(isPro);
   const activeChatId = draft.activeChatId;
 
@@ -115,6 +115,8 @@ function ChatScreen() {
     finalizing,
     sendingMessageId,
     sendMessage,
+    rejectedSend,
+    retryRejectedSend,
     beginRegenerateUi,
     cancelRegenerateUi,
     regenerateResponse,
@@ -263,6 +265,10 @@ function ChatScreen() {
     dismissChatError();
   };
   const streamActive = llmBusy || imageGen.generating;
+
+  useEffect(() => {
+    if (!streamActive) handleRejectedSendChange(Boolean(rejectedSend));
+  }, [streamActive, rejectedSend, handleRejectedSendChange]);
 
   const { turnRefreshKey, ...quotaNudge } = useChatStreamLifecycle({
     streamActive,
@@ -426,16 +432,22 @@ function ChatScreen() {
     cancelRegenerateUi,
   });
   const retryChatError = useCallback(() => {
-    if (streaming || finalizing || regenerating) return;
+    if (chatLoading || streamActive || regenerating) return;
     dismissChatError();
+    if (chatError?.kind === "send_rejected") {
+      void retryRejectedSend();
+      return;
+    }
     void handleRegenerate(selectedModel);
   }, [
     dismissChatError,
-    finalizing,
+    chatError?.kind,
+    chatLoading,
     handleRegenerate,
     regenerating,
+    retryRejectedSend,
     selectedModel,
-    streaming,
+    streamActive,
   ]);
 
   const displayMessages = messages;

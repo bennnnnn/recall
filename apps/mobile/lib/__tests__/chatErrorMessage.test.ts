@@ -16,6 +16,13 @@ describe("chatErrorMessage", () => {
     });
   });
 
+  it("distinguishes an unsaved send from an active reply's busy notice", () => {
+    expect(resolveChatError({ message: "Still saving", code: "send_rejected", isPro: false, t })).toEqual({
+      kind: "send_rejected",
+      message: "chat.send_rejected",
+    });
+  });
+
   it("parses FastAPI detail JSON", () => {
     expect(parseApiErrorDetail('{"detail":"Quota exceeded"}')).toBe("Quota exceeded");
     expect(

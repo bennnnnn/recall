@@ -1,6 +1,6 @@
 import { isQuotaErrorMessage } from "@/lib/quota";
 
-export type ChatErrorKind = "quota" | "model_unavailable" | "busy" | "generic";
+export type ChatErrorKind = "quota" | "model_unavailable" | "busy" | "send_rejected" | "generic";
 
 export type ResolvedChatError = {
   kind: ChatErrorKind;
@@ -41,6 +41,9 @@ export function resolveChatError(options: {
   const parsed = parseApiErrorDetail(options.message);
   const text = (parsed ?? options.message).trim();
 
+  if (options.code === "send_rejected") {
+    return { kind: "send_rejected", message: options.t("chat.send_rejected") };
+  }
   if (options.code === "busy") {
     return { kind: "busy", message: options.t("chat.busy") };
   }

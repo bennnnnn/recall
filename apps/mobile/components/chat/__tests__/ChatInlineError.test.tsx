@@ -30,6 +30,40 @@ jest.mock("@/lib/theme", () => ({
 }));
 
 describe("ChatInlineError", () => {
+  it("offers Retry instead of Stop for a rejected unsaved message", async () => {
+    const onRetry = jest.fn();
+    const onStop = jest.fn();
+    const view = await render(
+      <ChatInlineError
+        error={{ kind: "send_rejected", message: "Message wasn’t sent. Wait a moment, then retry." }}
+        onRetry={onRetry}
+        onStop={onStop}
+        onDismiss={jest.fn()}
+        bottom={20}
+      />,
+    );
+    expect(view.queryByTestId("chat-busy-stop")).toBeNull();
+    fireEvent.press(view.getByTestId("chat-error-retry"));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it("keeps Stop available for an active reply", async () => {
+    const onStop = jest.fn();
+    const view = await render(
+      <ChatInlineError
+        error={{ kind: "busy", message: "Still generating" }}
+        onRetry={jest.fn()}
+        onStop={onStop}
+        onDismiss={jest.fn()}
+        bottom={20}
+      />,
+    );
+    expect(view.queryByTestId("chat-error-retry")).toBeNull();
+    fireEvent.press(view.getByTestId("chat-busy-stop"));
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it("offers one-tap retry for a failed reply", async () => {
     const onRetry = jest.fn();
     const view = await render(

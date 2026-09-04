@@ -31,6 +31,7 @@
   "chat.attach_solve_math_camera": "ሂሳብ ቃኝ",
   "chat.attached_file": "የተያያዘ ፋይል",
   "chat.busy": "አሁንም በመፍጠር ላይ — ይጠብቁ ወይም stop ይጫኑና እንደገና ይሞክሩ።",
+  "chat.send_rejected": "መልዕክቱ አልተላከም። ትንሽ ይጠብቁና እንደገና ይሞክሩ።",
   "chat.close_menu": "Close menu",
   "chat.delete": "ውይይት ሰርዝ",
   "chat.delete_confirm_body": "ይህ ውይይት በቋሚነት ይወገዳል። በቤተ-መጻሕፍት ያሉ ፋይሎች ይቀራሉ።",

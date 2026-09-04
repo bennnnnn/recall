@@ -4,6 +4,7 @@ import { chatWebSocketUrl, Message } from "@/lib/api";
 import { streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
+import { getSessionGeneration } from "@/lib/auth";
 import {
   applyStreamEndModel,
   buildDoneMergeInput,
@@ -26,6 +27,26 @@ import {
 } from "@/lib/chatWsConnect";
 
 export type { StreamingDraft };
+
+type SendMessageOptions = {
+  skipUserBubble?: boolean;
+  trackSendingMessageId?: string;
+  attachmentIds?: string[];
+  localImageUri?: string | null;
+  localFileUri?: string | null;
+  localFileName?: string | null;
+  localFileContentType?: string | null;
+  model?: string | null;
+  clientGeo?: ClientGeo | null;
+};
+
+type PendingSend = {
+  content: string;
+  options: SendMessageOptions;
+  messageId: string | null;
+  retryingRejected: boolean;
+  dispatched: boolean;
+};
 
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
@@ -52,6 +73,11 @@ export function useChat(
   const wsTurnRef = useRef<WebSocket | null>(null);
   const wsAuthFallbackRef = useRef<{ socket: WebSocket; retry: () => Promise<void> } | null>(null);
   const sendAttemptRef = useRef(0);
+  const pendingSendRef = useRef<PendingSend | null>(null);
+  // Only explicit pre-persistence rejections belong here. Keep them across
+  // conversation switches and newer sends until the user retries or stops.
+  const rejectedSendsRef = useRef(new Map<string, PendingSend[]>());
+  const [rejectedSend, setRejectedSend] = useState<{ content: string } | null>(null);
   const mountedRef = useRef(true);
   const connectingRef = useRef<Promise<void> | null>(null);
   const preferSseRef = useRef(false);
@@ -60,12 +86,14 @@ export function useChat(
   const viewingChatIdRef = useRef(chatId);
   viewingChatIdRef.current = chatId;
   const authenticated = token != null;
+  const sessionGeneration = getSessionGeneration();
+  const rejectedSessionRef = useRef(sessionGeneration);
   // A -> B -> A is a new view: old callbacks for A must stay detached.
-  const viewIdentity = useMemo(() => ({ chatId, authenticated }), [chatId, authenticated]);
+  const viewIdentity = useMemo(() => ({ chatId, authenticated, sessionGeneration }), [chatId, authenticated, sessionGeneration]);
   const activeViewRef = useRef(viewIdentity);
   activeViewRef.current = viewIdentity;
   const isCurrentView = useCallback(
-    () => mountedRef.current && activeViewRef.current === viewIdentity,
+    () => mountedRef.current && activeViewRef.current === viewIdentity && getSessionGeneration() === viewIdentity.sessionGeneration,
     [viewIdentity],
   );
   const assistantBuffer = useRef("");
@@ -208,6 +236,16 @@ export function useChat(
     wsTurnRef.current = null;
     wsAuthFallbackRef.current = null;
     sendAttemptRef.current += 1;
+    const pendingRetry = pendingSendRef.current;
+    if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {
+      setMessages((previous) => previous.filter((message) => message.id !== pendingRetry.messageId));
+    }
+    pendingSendRef.current = null;
+    if (rejectedSessionRef.current !== sessionGeneration) {
+      rejectedSendsRef.current.clear();
+      rejectedSessionRef.current = sessionGeneration;
+    }
+    setRejectedSend(chatId ? rejectedSendsRef.current.get(chatId)?.[0] ?? null : null);
     // Detach the old fetch without aborting its server-side finalization.
     sseAbortRef.current = null;
     sseAbortChatIdRef.current = null;
@@ -225,7 +263,7 @@ export function useChat(
     streamingRef.current = false;
     finalizingRef.current = false;
     setSendingMessageId(null);
-  }, [viewIdentity, updateStreamingDraft, clearTodoSyncTimers]);
+  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers]);
 
   const handleChatPayload = useCallback(
     (payload: ChatSsePayload) => {
@@ -265,6 +303,7 @@ export function useChat(
       // already covers "the model is working".
 
       if (payload.type === "token") {
+        pendingSendRef.current = null;
         assistantBuffer.current += payload.content ?? "";
         updateStreamingDraft({
           content: assistantBuffer.current,
@@ -275,6 +314,7 @@ export function useChat(
       }
 
       if (payload.type === "stream_end") {
+        pendingSendRef.current = null;
         setFinalizing(true);
         if (typeof payload.resolved_model === "string" && payload.resolved_model) {
           setMessages((prev) => applyStreamEndModel(prev, payload.resolved_model));
@@ -282,6 +322,7 @@ export function useChat(
       }
 
       if (payload.type === "done") {
+        pendingSendRef.current = null;
         regenerateUiActiveRef.current = false;
         wsAuthFallbackRef.current = null;
         wsTurnRef.current = null;
@@ -318,6 +359,19 @@ export function useChat(
       }
 
       if (payload.type === "error") {
+        // Both transports send start before attempting the prepare lock. Busy
+        // is the explicit guarantee this new user turn was never persisted.
+        const rejected = payload.code === "busy" ? pendingSendRef.current : null;
+        pendingSendRef.current = null;
+        if (rejected && chatId) {
+          const queue = rejectedSendsRef.current.get(chatId) ?? [];
+          if (rejected.retryingRejected) queue.unshift(rejected);
+          else queue.push(rejected);
+          rejectedSendsRef.current.set(chatId, queue);
+          setRejectedSend(queue[0]);
+          setMessages((previous) => previous.filter((message) =>
+            message.id !== rejected.messageId || message.role !== "user"));
+        }
         regenerateUiActiveRef.current = false;
         wsAuthFallbackRef.current = null;
         wsTurnRef.current = null;
@@ -357,12 +411,13 @@ export function useChat(
         }
         reportError(
           payload.message ?? t("chat.error_generic"),
-          typeof payload.code === "string" ? payload.code : undefined,
+          rejected ? "send_rejected" : typeof payload.code === "string" ? payload.code : undefined,
         );
       }
     },
     [
       appendStreamingPlaceholder,
+      chatId,
       clearStreamingBubble,
       restoreRegenerateBackup,
       reportError,
@@ -447,6 +502,7 @@ export function useChat(
         // A failed handshake must let the waiting send fall back to SSE.
         if (wsTurnRef.current !== ws) return;
         wsTurnRef.current = null;
+        pendingSendRef.current = null;
         if (streamingRef.current || finalizingRef.current) {
           setStreaming(false);
           setFinalizing(false);
@@ -578,6 +634,7 @@ export function useChat(
         });
       } catch (err) {
         if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal || isSseAbortError(err)) return;
+        pendingSendRef.current = null;
         setSendingMessageId(null);
         setStreaming(false);
         setFinalizing(false);
@@ -654,20 +711,11 @@ export function useChat(
     }
   }, [connect, reportError, t]);
 
-  const sendMessage = useCallback(
+  const dispatchSend = useCallback(
     async (
       content: string,
-      options?: {
-        skipUserBubble?: boolean;
-        trackSendingMessageId?: string;
-        attachmentIds?: string[];
-        localImageUri?: string | null;
-        localFileUri?: string | null;
-        localFileName?: string | null;
-        localFileContentType?: string | null;
-        model?: string | null;
-        clientGeo?: ClientGeo | null;
-      },
+      options?: SendMessageOptions,
+      rejectedRetry?: PendingSend,
     ) => {
       if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return;
       const attempt = ++sendAttemptRef.current;
@@ -683,7 +731,7 @@ export function useChat(
 
       let trackedId = options?.trackSendingMessageId ?? null;
       if (!options?.skipUserBubble) {
-        trackedId = `local-${Date.now()}`;
+        trackedId = `local-${Date.now()}-${attempt}`;
         setMessages((prev) => [
           ...prev,
           {
@@ -699,6 +747,19 @@ export function useChat(
           },
         ]);
       }
+      pendingSendRef.current = {
+        content,
+        messageId: trackedId,
+        retryingRejected: rejectedRetry != null,
+        dispatched: false,
+        options: {
+          ...options,
+          skipUserBubble: false,
+          trackSendingMessageId: undefined,
+          attachmentIds: options?.attachmentIds?.slice(),
+          clientGeo: options?.clientGeo ? { ...options.clientGeo } : options?.clientGeo,
+        },
+      };
       assistantBuffer.current = "";
       // Typing dots immediately — don't wait for the socket or server `start`,
       // and don't leave "Sending" on the user bubble while we connect.
@@ -717,6 +778,16 @@ export function useChat(
 
       await ensureConnected();
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
+      if (rejectedRetry) {
+        // Keep recovery available while the handshake is pending: navigation
+        // can still prevent dispatch. Consume it only when sending can begin.
+        const queue = rejectedSendsRef.current.get(chatId);
+        const index = queue?.indexOf(rejectedRetry) ?? -1;
+        if (queue && index >= 0) queue.splice(index, 1);
+        if (!queue?.length) rejectedSendsRef.current.delete(chatId);
+        setRejectedSend(queue?.[0] ?? null);
+      }
+      if (pendingSendRef.current) pendingSendRef.current.dispatched = true;
 
       if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
         await sendViaSse(content, {
@@ -749,9 +820,23 @@ export function useChat(
     [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse, isCurrentView],
   );
 
+  const sendMessage = useCallback((content: string, options?: SendMessageOptions) =>
+    dispatchSend(content, options), [dispatchSend]);
+
+  const retryRejectedSend = useCallback(async (): Promise<boolean> => {
+    if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return false;
+    const queue = rejectedSendsRef.current.get(chatId);
+    const rejected = queue?.[0];
+    if (!rejected) return false;
+    const attempt = sendAttemptRef.current + 1;
+    await dispatchSend(rejected.content, rejected.options, rejected);
+    return isCurrentView() && sendAttemptRef.current === attempt;
+  }, [token, chatId, isCurrentView, dispatchSend]);
+
   const beginRegenerateUi = useCallback(() => {
     if (!isCurrentView()) return;
     const attempt = ++sendAttemptRef.current;
+    pendingSendRef.current = null;
     regenerateUiActiveRef.current = true;
     const popped = popLastAssistantMessage(messagesRef.current);
     regenerateBackupRef.current = popped.backup;
@@ -813,6 +898,13 @@ export function useChat(
   const stopGeneration = useCallback(() => {
     if (!isCurrentView()) return;
     sendAttemptRef.current += 1;
+    const pendingRetry = pendingSendRef.current;
+    if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {
+      setMessages((previous) => previous.filter((message) => message.id !== pendingRetry.messageId));
+    }
+    pendingSendRef.current = null;
+    if (chatId) rejectedSendsRef.current.delete(chatId);
+    setRejectedSend(null);
     wsAuthFallbackRef.current = null;
     regenerateUiActiveRef.current = false;
     sseAbortRef.current?.abort();
@@ -855,7 +947,7 @@ export function useChat(
     // Track the committed bubble id so the server's late `done` reconciles
     // it (real message_id + final_content) instead of appending a duplicate.
     stoppedStreamedIdRef.current = stoppedId;
-  }, [updateStreamingDraft, isCurrentView]);
+  }, [updateStreamingDraft, isCurrentView, chatId]);
 
   return {
     messages,
@@ -864,6 +956,8 @@ export function useChat(
     finalizing,
     sendingMessageId,
     sendMessage,
+    rejectedSend,
+    retryRejectedSend,
     beginRegenerateUi,
     cancelRegenerateUi: restoreRegenerateBackup,
     regenerateResponse,
