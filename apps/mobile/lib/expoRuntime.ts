@@ -33,7 +33,10 @@ export function canUseDeviceLocation(): boolean {
   return !isExpoGo();
 }
 
-/** Microphone recording (expo-audio) is not bundled in Expo Go. */
+/**
+ * Dictation uses expo-audio, which is included in Expo Go. Live Talk still
+ * needs WebRTC in a custom Recall build — that is gated separately.
+ */
 export function canUseVoiceInput(): boolean {
-  return !isExpoGo();
+  return true;
 }

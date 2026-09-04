@@ -1,5 +1,5 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
-import { Platform } from "react-native";
+import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 
 import { speechApi } from "@/lib/api/speech";
 import {
@@ -65,7 +65,19 @@ function debug(stage: string, detail?: unknown): void {
   }
 }
 
+function isWebRtcLinked(): boolean {
+  try {
+    if (TurboModuleRegistry.get("WebRTCModule") != null) return true;
+  } catch {
+    /* Expo Go / incomplete RN mock */
+  }
+  return Boolean((NativeModules as Record<string, unknown> | undefined)?.WebRTCModule);
+}
+
 function loadWebRtc(): NativeWebRtc | null {
+  // Expo Go fatals on require("react-native-webrtc") even inside try/catch.
+  // Probe the native registry first — same pattern as getPreviewWebView.
+  if (!isWebRtcLinked()) return null;
   try {
     // Native module: Live Talk requires a rebuilt dev client, not Expo Go.
     // eslint-disable-next-line @typescript-eslint/no-require-imports

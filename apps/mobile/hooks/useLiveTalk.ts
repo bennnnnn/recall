@@ -18,6 +18,7 @@ import {
 import { playLiveTalkCue } from "@/lib/liveTalkSfx";
 import {
   createRealtimeVoiceSession,
+  isRealtimeVoiceAvailable,
   type RealtimeVoiceEvent,
   type RealtimeVoiceSession,
 } from "@/lib/realtimeVoice";
@@ -339,6 +340,10 @@ export function useLiveTalk({
     if (!token) return;
     if (isOffline) {
       alertForGate("offline");
+      return;
+    }
+    if (!isRealtimeVoiceAvailable()) {
+      alertForGate("unavailable");
       return;
     }
     const gen = sessionGenRef.current + 1;
