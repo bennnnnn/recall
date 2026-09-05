@@ -90,6 +90,8 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     are deleted explicitly too — harmless if already cascaded,
     and keeps the operation correct regardless of migration state.
     """
+    # Memory writers lock User before Memory; use the same order during deletion.
+    await session.execute(select(User.id).where(User.id == user_id).with_for_update())
     await session.execute(delete(Message).where(Message.user_id == user_id))
     await session.execute(delete(Memory).where(Memory.user_id == user_id))
     await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))

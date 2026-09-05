@@ -7,6 +7,11 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Memory
+from app.repositories.memory_writes import lock_memory_enabled as lock_memory_enabled
+from app.repositories.memory_writes import (
+    update_embedding_if_current as update_embedding_if_current,
+)
+from app.repositories.memory_writes import write_rows_if_current
 
 
 async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Memory]:
@@ -82,6 +87,7 @@ async def upsert_sections(
     user_id: UUID,
     items: list[tuple[str, str, float, UUID | None]],
     commit: bool = True,
+    expected_sections: dict[str, tuple[UUID, str]] | None = None,
 ) -> None:
     """Upsert one summary paragraph per memory type (profile, preference, …).
 
@@ -113,6 +119,14 @@ async def upsert_sections(
         for memory_type, text, confidence, source_chat_id in best_by_type.values()
     ]
     if not rows:
+        return
+
+    if expected_sections is not None:
+        await write_rows_if_current(session, user_id, rows, expected_sections)
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
         return
 
     stmt = pg_insert(Memory).values(rows)
@@ -192,6 +206,9 @@ async def update_text(
     if memory is None:
         return None
     memory.text = text.strip()
+    memory.embedding = None
+    memory.embedding_json = None
+    memory.embedding_text_hash = None
     if commit:
         await session.commit()
         await session.refresh(memory)

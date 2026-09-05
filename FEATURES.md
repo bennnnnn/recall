@@ -282,6 +282,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   single fact rewrites that section rather than removing a separate row per bullet.
   `PATCH /memories/{id}` updates text, re-embeds, and invalidates caches.
 - ✅ **Memory toggle** — turn learning on/off in Settings.
+- ✅ **Memory management reliability review (2026-09-04)** — account and navigation
+  changes invalidate old dialogs, reads, and feedback; independent section edits compose,
+  and pending writes remain exclusive across screen visits. Failed refreshes retain saved
+  rows with Retry. Manual changes clear stale embeddings and invalidate derived caches;
+  delayed background writes cannot overwrite changed/deleted sections and recheck the
+  learning toggle before saving. See [review and release checks](docs/MEMORY_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks

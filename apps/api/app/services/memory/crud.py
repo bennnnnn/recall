@@ -10,6 +10,13 @@ from app.models.orm import Memory
 logger = logging.getLogger(__name__)
 
 
+async def _invalidate_caches(seams: Any, user_id: UUID) -> None:
+    from app.services import home as home_service
+
+    await seams.invalidate_memory_block(user_id)
+    await home_service.invalidate_home_cache(user_id)
+
+
 async def delete_memory_fact(
     seams: Any,
     session: AsyncSession,
@@ -56,7 +63,7 @@ async def delete_memory_fact(
                 await session.rollback()
                 raise
             if deleted:
-                await seams.invalidate_memory_block(user_id)
+                await _invalidate_caches(seams, user_id)
             return deleted
 
         new_text = seams.join_memory_facts(facts)
@@ -74,6 +81,7 @@ async def delete_memory_fact(
                     new_text,
                     new_vec,
                     embedding_gateway.serialize_embedding(new_vec),
+                    embedding_text_hash=seams.embedding_text_hash(new_text),
                     commit=False,
                 )
             else:
@@ -90,7 +98,7 @@ async def delete_memory_fact(
             await session.rollback()
             raise
         if updated is not None:
-            await seams.invalidate_memory_block(user_id)
+            await _invalidate_caches(seams, user_id)
             return True
         return False
     finally:
@@ -108,7 +116,7 @@ async def update_memory(
     from app.gateways import embedding_gateway
     from app.repositories import memories as memories_repo
 
-    clean = seams.normalize_memory_text(text)
+    clean = seams.normalize_memory_text(seams.strip_memory_as_of(text))
     if not clean:
         raise seams.MemoryEmptyTextError()
     stamped = seams.stamp_memory_as_of(clean)
@@ -148,7 +156,7 @@ async def update_memory(
             await session.rollback()
             raise
         if updated is not None:
-            await seams.invalidate_memory_block(user_id)
+            await _invalidate_caches(seams, user_id)
         return updated
     finally:
         await seams.release_memory_write_lock(user_id, lock_token)
@@ -176,7 +184,7 @@ async def delete_memory(
             await session.rollback()
             raise
         if deleted:
-            await seams.invalidate_memory_block(user_id)
+            await _invalidate_caches(seams, user_id)
         return deleted
     finally:
         await seams.release_memory_write_lock(user_id, lock_token)
@@ -204,7 +212,7 @@ async def delete_memory_section(
             await session.rollback()
             raise
         if removed:
-            await seams.invalidate_memory_block(user_id)
+            await _invalidate_caches(seams, user_id)
         return removed > 0
     finally:
         await seams.release_memory_write_lock(user_id, lock_token)
