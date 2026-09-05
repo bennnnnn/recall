@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.schemas.chats import ChatMessageRequest
-from app.models.schemas.lists import TodoUpdate
+from app.models.schemas.schedule import TodoUpdate
 
 
 def test_todo_update_rejects_oversized_content():
@@ -38,10 +38,10 @@ def test_todo_patch_rejects_null_nonnullable_field(field):
 
 @pytest.mark.parametrize("model", ["TodoCreate", "TodoUpdate"])
 def test_todo_rejects_whitespace_content(model):
-    from app.models.schemas import lists
+    from app.models.schemas import schedule
 
     payload = {"content": " \t\n "}
     if model == "TodoCreate":
         payload["due_at"] = "2026-09-05T08:00:00Z"
     with pytest.raises(ValidationError):
-        getattr(lists, model)(**payload)
+        getattr(schedule, model)(**payload)

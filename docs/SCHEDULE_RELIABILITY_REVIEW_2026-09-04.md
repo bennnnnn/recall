@@ -7,6 +7,11 @@ features. This pass does not add undated lists or Learning-project linking.
 
 ## Fixed behavior
 
+- Schedule models and validation now live in `models/orm/schedule.py` and
+  `models/schemas/schedule.py`. The old `lists.py` files and unused `List…` aliases
+  are removed. API JSON payloads and database tables stay compatible; OpenAPI schema
+  identifiers now use the existing `Todo…` API names.
+
 - Reminder creation omits the unsupported project field so the API accepts normal saves.
   Failed saves preserve the draft. Row actions roll back only their own changes, use the
   latest row, and remain exclusive across screen visits. A returned creation cannot
@@ -47,7 +52,7 @@ and external providers are replaced by fixtures.
 
 All 2,540 mobile tests passed across 290 suites. TypeScript and ESLint passed; changed
 mobile files have no lint warnings, with 146 existing warnings elsewhere. The full
-local API suite passed 3,415 tests with 85.88% coverage. Ruff, formatting and mypy passed. The 71 PostgreSQL tests, including nine new Schedule persistence cases,
+local API suite passed 3,415 tests with 85.87% coverage. Ruff, formatting and mypy passed. The 71 PostgreSQL tests, including nine new Schedule persistence cases,
 run against CI's isolated database. Final CI results are recorded in the PR.
 Local backend tests use a sanitized environment with live services blocked. No schema
 migration or web code change is required.

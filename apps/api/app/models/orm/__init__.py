@@ -1,8 +1,7 @@
 """SQLAlchemy mapped models. Prefer `from app.models.orm import User`.
 
-Canonical product names: Learning / LearningItem / ListItem. Legacy aliases
-(`Project`, `ProjectItem`, `TodoItem`) stay for existing call sites. Table and
-column names are unchanged.
+Learning retains the `Project` and `ProjectItem` aliases for existing call sites.
+Schedule exports `TodoItem`. Database table and column names are unchanged.
 """
 
 from app.models.orm.attachments import Attachment, AttachmentChunk, MessageChunk
@@ -14,15 +13,14 @@ from app.models.orm.integrations import (
     UserGmailConnection,
 )
 from app.models.orm.learning import Learning, LearningItem, QuizMissEvent, VocabDeck, VocabEntry
-from app.models.orm.lists import ListItem
 from app.models.orm.memory import Memory
+from app.models.orm.schedule import TodoItem
 from app.models.orm.suggestions import Suggestion
 from app.models.orm.usage import ProductEvent, UsageDaily
 from app.models.orm.user import User
 
 Project = Learning
 ProjectItem = LearningItem
-TodoItem = ListItem
 
 __all__ = [
     "Attachment",
@@ -30,7 +28,6 @@ __all__ = [
     "Chat",
     "Learning",
     "LearningItem",
-    "ListItem",
     "Memory",
     "Message",
     "MessageChunk",

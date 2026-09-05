@@ -110,14 +110,13 @@ from app.models.schemas.learning import (
     ProjectUpdate,
     VocabStatus,
 )
-from app.models.schemas.lists import (
-    ListActionItem,
-    ListExtractionResult,
-    ListItemCreate,
-    ListItemOut,
-    ListItemUpdate,
-    ListReorderBody,
-    ListReorderItem,
+from app.models.schemas.memory import (
+    MemoryOut,
+    MemorySectionItem,
+    MemorySectionUpdateResult,
+    MemoryUpdate,
+)
+from app.models.schemas.schedule import (
     RecurrenceRule,
     TodoActionItem,
     TodoCreate,
@@ -126,12 +125,6 @@ from app.models.schemas.lists import (
     TodoReorderBody,
     TodoReorderItem,
     TodoUpdate,
-)
-from app.models.schemas.memory import (
-    MemoryOut,
-    MemorySectionItem,
-    MemorySectionUpdateResult,
-    MemoryUpdate,
 )
 
 __all__ = [
@@ -183,13 +176,6 @@ __all__ = [
     "LearningOut",
     "LearningStats",
     "LearningUpdate",
-    "ListActionItem",
-    "ListExtractionResult",
-    "ListItemCreate",
-    "ListItemOut",
-    "ListItemUpdate",
-    "ListReorderBody",
-    "ListReorderItem",
     "LogoutRequest",
     "MemoryOut",
     "MemorySectionItem",

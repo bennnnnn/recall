@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
-from app.models.schemas.lists import ListItemCreate, ListItemUpdate
+from app.models.schemas.schedule import TodoCreate, TodoUpdate
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import home as home_service
@@ -33,28 +33,28 @@ def _session_local_side_effect(session: AsyncMock):
     return [_FakeSessionCM(session), _FakeSessionCM(session)]
 
 
-def test_list_item_create_requires_due_at():
+def test_todo_create_requires_due_at():
     with pytest.raises(ValidationError):
-        ListItemCreate(content="Call mom")
+        TodoCreate(content="Call mom")
 
 
-def test_list_item_create_rejects_project_id():
+def test_todo_create_rejects_project_id():
     with pytest.raises(ValidationError):
-        ListItemCreate(
+        TodoCreate(
             content="Call mom",
             due_at=datetime.now(UTC),
             project_id=uuid4(),
         )
 
 
-def test_list_item_update_rejects_project_id():
+def test_todo_update_rejects_project_id():
     with pytest.raises(ValidationError):
-        ListItemUpdate(project_id=uuid4())
+        TodoUpdate(project_id=uuid4())
 
 
-def test_list_item_update_rejects_cleared_due_at():
+def test_todo_update_rejects_cleared_due_at():
     with pytest.raises(ValidationError):
-        ListItemUpdate(due_at=None)
+        TodoUpdate(due_at=None)
 
 
 @pytest.mark.asyncio
