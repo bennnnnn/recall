@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
+import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,7 +57,10 @@ export function ConversationList(_props: unknown) {
     hasSearchQuery,
     hasMore,
     loadingMore,
+    loadingMoreError,
     loadMore,
+    retrySearch,
+    isCurrentSearch,
     searchInputRef,
     openSearch,
     closeSearch,
@@ -146,6 +149,7 @@ export function ConversationList(_props: unknown) {
 
   const openChat = useCallback(
     (id: string, messageId?: string | null) => {
+      clearChatHighlightGlobal();
       closeDrawer();
       closeSearch();
       router.setParams({
@@ -154,6 +158,13 @@ export function ConversationList(_props: unknown) {
       });
     },
     [closeSearch, router],
+  );
+
+  const openSearchResult = useCallback(
+    (id: string, messageId?: string | null) => {
+      if (isCurrentSearch()) openChat(id, messageId);
+    },
+    [isCurrentSearch, openChat],
   );
 
   const newChat = useCallback(() => {
@@ -240,6 +251,7 @@ export function ConversationList(_props: unknown) {
           activeChatCount={allChats.length}
           searchOpen={searchOpen}
           onRetry={onRetryLoad}
+          onRetrySearch={retrySearch}
           hasSearchQuery={hasSearchQuery}
           searchLoading={searchLoading}
           searchError={searchError}
@@ -260,6 +272,7 @@ export function ConversationList(_props: unknown) {
       allChats.length,
       searchOpen,
       onRetryLoad,
+      retrySearch,
       hasSearchQuery,
       searchLoading,
       searchError,
@@ -317,6 +330,7 @@ export function ConversationList(_props: unknown) {
         highlightedIds={highlightedIds}
         activeChatId={activeChatId}
         onOpenChat={openChat}
+        onOpenSearchResult={openSearchResult}
         onShowRowMenu={onShowRowMenu}
         selectionMode={selectionMode}
         selectedIds={selectedIds}
@@ -330,6 +344,7 @@ export function ConversationList(_props: unknown) {
         searchResults={searchResults}
         searchHasMore={hasMore}
         searchLoadingMore={loadingMore}
+        searchLoadingMoreError={loadingMoreError}
         onSearchLoadMore={loadMore}
       />
 

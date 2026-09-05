@@ -14,6 +14,7 @@ type ChromeProps = {
   searchLoading: boolean;
   searchError: boolean;
   resultCount: number;
+  onRetry: () => void;
 };
 
 /** Section title + non-row states for drawer search (rows live in FlashList data). */
@@ -22,6 +23,7 @@ export function DrawerSearchResultsChrome({
   searchLoading,
   searchError,
   resultCount,
+  onRetry,
 }: ChromeProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -35,7 +37,7 @@ export function DrawerSearchResultsChrome({
       ) : searchLoading ? (
         <SkeletonList count={3} />
       ) : searchError ? (
-        <StateView variant="error" compact message={t("common.error")} />
+        <StateView variant="error" compact message={t("common.error")} onRetry={onRetry} />
       ) : resultCount === 0 ? (
         <StateView variant="empty" compact message={t("search.no_results")} />
       ) : null}
@@ -56,6 +58,7 @@ export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
   return (
     <Pressable
       style={s.searchResult}
+      accessibilityRole="button"
       onPress={() => onOpenChat(result.chat_id, result.message_id)}
     >
       <View style={s.searchResultHeader}>
@@ -86,13 +89,18 @@ export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
 
 type LoadMoreProps = {
   loadingMore?: boolean;
+  loadingMoreError?: boolean;
   onLoadMore?: () => void;
 };
 
-export function DrawerSearchLoadMore({ loadingMore, onLoadMore }: LoadMoreProps) {
+export function DrawerSearchLoadMore({ loadingMore, loadingMoreError, onLoadMore }: LoadMoreProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
+
+  if (loadingMoreError && !loadingMore) {
+    return <StateView variant="error" compact message={t("common.error")} onRetry={onLoadMore} />;
+  }
 
   return (
     <Pressable
