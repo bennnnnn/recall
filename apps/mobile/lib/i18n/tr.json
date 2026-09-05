@@ -749,5 +749,13 @@
   "lesson.kind.common": "Cins isim",
   "lesson.kind.proper": "Özel isim",
   "lesson.kind.abstract": "Soyut isim",
-  "lesson.kind.collective": "Topluluk ismi"
+  "lesson.kind.collective": "Topluluk ismi",
+  "vocabulary.title": "Söz varlığı",
+  "vocabulary.search": "Kelime ve anlam ara",
+  "vocabulary.clear_search": "Aramayı temizle",
+  "vocabulary.no_results": "Eşleşen kelime bulunamadı",
+  "vocabulary.empty": "Söz varlığı henüz hazır değil.",
+  "vocabulary.entry_count": "{{count}} madde",
+  "vocabulary.entry_count_one": "{{count}} madde",
+  "vocabulary.entry_count_other": "{{count}} madde"
 }

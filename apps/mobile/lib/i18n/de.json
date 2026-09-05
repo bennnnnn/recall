@@ -749,5 +749,13 @@
   "lesson.kind.common": "Gattungsname",
   "lesson.kind.proper": "Eigenname",
   "lesson.kind.abstract": "Abstraktes Nomen",
-  "lesson.kind.collective": "Sammelbegriff"
+  "lesson.kind.collective": "Sammelbegriff",
+  "vocabulary.title": "Wortschatz",
+  "vocabulary.search": "Wörter und Bedeutungen suchen",
+  "vocabulary.clear_search": "Suche löschen",
+  "vocabulary.no_results": "Keine passenden Einträge",
+  "vocabulary.empty": "Der Wortschatz ist noch nicht verfügbar.",
+  "vocabulary.entry_count": "{{count}} Einträge",
+  "vocabulary.entry_count_one": "{{count}} Eintrag",
+  "vocabulary.entry_count_other": "{{count}} Einträge"
 }

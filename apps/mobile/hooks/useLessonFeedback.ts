@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
-import { createLessonAudio } from "@/lib/lessonAudio";
+import { useLessonAudio } from "@/hooks/useLessonAudio";
 import { prefFilePath, safePrefUserId } from "@/lib/filePrefs";
 import { loadLessonPreferences, saveLessonPreferences } from "@/lib/projects/lessonPreferences";
 import { notifySuccess, notifyWarning } from "@/lib/haptics";
@@ -16,7 +15,7 @@ export function useLessonFeedback(answer: LessonAnswer | null, isCurrent: () => 
   const prefs = useRef({ sound: true, voice: false });
   const changed = useRef(false);
   const path = prefFilePath(`recall.lesson-feedback.${safePrefUserId(user?.id ?? "guest")}.json`);
-  const audio = useMemo(() => createLessonAudio(isCurrent), [isCurrent]);
+  const audio = useLessonAudio(isCurrent);
   const played = useRef<string | null>(null);
   useEffect(() => {
     let current = true;
@@ -30,15 +29,6 @@ export function useLessonFeedback(answer: LessonAnswer | null, isCurrent: () => 
       current = false;
     };
   }, [path, isCurrent]);
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active") audio.stop();
-    });
-    return () => {
-      subscription.remove();
-      audio.stop();
-    };
-  }, [audio]);
   useEffect(() => {
     if (!answer || played.current === answer.attemptId || !isCurrent()) return;
     played.current = answer.attemptId;

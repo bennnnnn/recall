@@ -749,5 +749,13 @@
   "lesson.kind.common": "የጋራ ስም",
   "lesson.kind.proper": "ልዩ ስም",
   "lesson.kind.abstract": "ረቂቅ ስም",
-  "lesson.kind.collective": "የስብስብ ስም"
+  "lesson.kind.collective": "የስብስብ ስም",
+  "vocabulary.title": "ቃላት",
+  "vocabulary.search": "ቃላትን እና ትርጉሞችን ፈልግ",
+  "vocabulary.clear_search": "ፍለጋውን አጽዳ",
+  "vocabulary.no_results": "የሚዛመድ ቃል አልተገኘም",
+  "vocabulary.empty": "ቃላቱ እስካሁን አልተዘጋጁም።",
+  "vocabulary.entry_count": "{{count}} ቃላት",
+  "vocabulary.entry_count_one": "{{count}} ቃል",
+  "vocabulary.entry_count_other": "{{count}} ቃላት"
 }

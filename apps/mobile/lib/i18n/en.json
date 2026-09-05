@@ -749,5 +749,13 @@
   "lesson.kind.common": "Common noun",
   "lesson.kind.proper": "Proper noun",
   "lesson.kind.abstract": "Abstract noun",
-  "lesson.kind.collective": "Collective noun"
+  "lesson.kind.collective": "Collective noun",
+  "vocabulary.title": "Vocabulary",
+  "vocabulary.search": "Search words and meanings",
+  "vocabulary.clear_search": "Clear search",
+  "vocabulary.no_results": "No matching vocabulary",
+  "vocabulary.empty": "Vocabulary is not available yet.",
+  "vocabulary.entry_count": "{{count}} entries",
+  "vocabulary.entry_count_one": "{{count}} entry",
+  "vocabulary.entry_count_other": "{{count}} entries"
 }
