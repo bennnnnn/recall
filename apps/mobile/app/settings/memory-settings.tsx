@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { StateView } from "@/components/StateView";
-import { useMemoryViewOwner } from "@/hooks/useMemoryViewOwner";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useMemoryToggle } from "@/hooks/useMemoryToggle";
 import {
   fetchMemories,
@@ -25,7 +25,7 @@ import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function MemorySettingsScreen() {
-  const view = useMemoryViewOwner();
+  const view = useAccountViewOwner();
   return <MemorySettingsContent key={view.key} isCurrentView={view.isCurrent} />;
 }
 

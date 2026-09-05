@@ -32,6 +32,7 @@ from app.models.orm import (
     UserCalendarConnection,
 )
 from app.repositories import push_tokens as push_repo
+from app.repositories.todo_schedules import TodoScheduleSnapshot, update_schedule_if_current
 from app.services import calendar as calendar_service
 from app.services import calendar_nudges as calendar_nudge_service
 from app.services.learning import nudges as learning_nudges
@@ -507,26 +508,23 @@ async def process_calendar_nudges(
 
 async def _mark_todo_after_successful_push(
     session: AsyncSession,
-    todo_target: TodoItem,
     todo: TodoItem,
     *,
     now: datetime,
-) -> None:
-    """Stamp sent for one-shot items; advance recurring due so the next fire can run."""
-    rule = getattr(todo_target, "recurrence_rule", None)
-    due = getattr(todo_target, "due_at", None)
+) -> bool:
+    """Apply this delivery only to the occurrence that was actually sent."""
+    snapshot = TodoScheduleSnapshot.from_todo(todo)
+    rule, due = snapshot.recurrence_rule, snapshot.due_at
     if is_recurrence_rule(rule) and due is not None:
-        user_row = await session.get(User, getattr(todo_target, "user_id", None))
+        user_row = await session.get(User, snapshot.user_id)
         timezone = getattr(user_row, "timezone", None) if user_row is not None else None
-        nxt = next_recurring_due(due, rule, now=now, timezone=timezone)
-        todo_target.due_at = nxt
-        todo_target.notification_sent_at = None
-        todo_target.email_sent_at = None
-        todo.due_at = nxt
-        todo.notification_sent_at = None
-        return
-    todo_target.notification_sent_at = now
-    todo.notification_sent_at = now
+        # A lead-time notification already consumed this occurrence, even
+        # when its due time is still in the future.
+        nxt = next_recurring_due(due, rule, now=max(now, due), timezone=timezone)
+        return await update_schedule_if_current(
+            session, snapshot, due_at=nxt, notification_sent_at=None, email_sent_at=None
+        )
+    return await update_schedule_if_current(session, snapshot, notification_sent_at=now)
 
 
 async def _finalize_push_deliveries(
@@ -555,13 +553,8 @@ async def _finalize_push_deliveries(
             todo_id = getattr(todo, "id", None)
             if todo_id is None or todo_id in todos_marked:
                 continue
-            # Production collect/finalize use different sessions — mutate a
-            # row loaded here or the UPDATE never flushes.
-            todo_row = await session.get(TodoItem, todo_id)
-            if todo_row is None:
-                continue
-            await _mark_todo_after_successful_push(session, todo_row, todo, now=now)
-            todos_marked.add(todo_id)
+            if await _mark_todo_after_successful_push(session, todo, now=now):
+                todos_marked.add(todo_id)
         for suggestion in item.suggestions:
             suggestion_id = getattr(suggestion, "id", None)
             if suggestion_id is None or suggestion_id in suggestions_marked:

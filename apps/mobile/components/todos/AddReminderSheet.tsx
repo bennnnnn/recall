@@ -7,7 +7,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -122,10 +123,8 @@ export function AddReminderSheet({
 
         <Text style={[s.formLabel, s.fieldGap]}>{t("todos.due_date_required")}</Text>
         {Platform.OS === "ios" && showPicker ? (
-          <DateTimePicker
+          <ReminderDateTimePicker
             value={dueDate}
-            mode="datetime"
-            display="spinner"
             onChange={onPickerChange}
             disabled={saving}
           />
@@ -149,9 +148,8 @@ export function AddReminderSheet({
           </Pressable>
         )}
         {Platform.OS === "android" && showPicker ? (
-          <DateTimePicker
+          <ReminderDateTimePicker
             value={dueDate}
-            mode="datetime"
             onChange={onPickerChange}
             disabled={saving}
           />

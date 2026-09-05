@@ -1,91 +1,125 @@
 import { api, type SuggestedReminder } from "@/lib/api";
-import { StaleResourceCache } from "@/lib/cache/staleResource";
-import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
+import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
+import { isContextFresh } from "@/lib/cache/contextRefresh";
 
 type SuggestedRemindersPayload = {
   reminders: SuggestedReminder[];
   pending_count: number;
 };
+type Update = (current: SuggestedRemindersPayload) => SuggestedRemindersPayload;
+type CacheState = {
+  session: number;
+  data?: SuggestedRemindersPayload;
+  fetchedAt?: number;
+  pending?: { task: Promise<SuggestedRemindersPayload | null>; updates: Update[] };
+};
+let cache: CacheState = { session: -1 };
+const listeners = new Set<() => void>();
+function notify(): void { listeners.forEach((listener) => listener()); }
+function currentCache(): CacheState {
+  if (cache.session !== getSessionGeneration()) cache = { session: getSessionGeneration() };
+  return cache;
+}
 
-const SUGGESTED_REMINDERS_KEY = "suggested-reminders";
-const resource = new StaleResourceCache<string, SuggestedRemindersPayload>(
-  CONTEXT_REFRESH_STALE_MS,
-);
+export function subscribeSuggestedRemindersCache(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
 
 export function getCachedSuggestedReminders(): SuggestedRemindersPayload | undefined {
-  return resource.get(SUGGESTED_REMINDERS_KEY);
+  return currentCache().data;
 }
 
 export function isSuggestedRemindersFresh(): boolean {
-  return resource.isFresh(SUGGESTED_REMINDERS_KEY);
+  const state = currentCache();
+  return state.data != null && isContextFresh(state.fetchedAt);
 }
 
-export function setSuggestedRemindersCache(data: SuggestedRemindersPayload): void {
-  resource.set(SUGGESTED_REMINDERS_KEY, data);
+export function setSuggestedRemindersCache(data: SuggestedRemindersPayload, expectedSession?: number): void {
+  const state = currentCache();
+  if (expectedSession != null && state.session !== expectedSession) return;
+  state.data = data;
+  state.fetchedAt = Date.now();
+  state.pending?.updates.push(() => data);
+  notify();
 }
 
 export function invalidateSuggestedRemindersCache(): void {
-  resource.invalidate(SUGGESTED_REMINDERS_KEY);
+  cache = { session: getSessionGeneration() };
+  notify();
 }
 
-export function removeSuggestedReminderFromCache(id: string): void {
-  const current = resource.get(SUGGESTED_REMINDERS_KEY);
-  if (!current) return;
-  resource.update(SUGGESTED_REMINDERS_KEY, () => {
-    const reminders = current.reminders.filter((item) => item.id !== id);
+function updateCache(update: Update, expectedSession?: number): boolean {
+  const state = currentCache();
+  if (expectedSession != null && state.session !== expectedSession) return false;
+  if (state.data) state.data = update(state.data);
+  state.pending?.updates.push(update);
+  notify();
+  return true;
+}
+
+export function removeSuggestedReminderFromCache(id: string, expectedSession?: number): void {
+  updateCache((current) => {
+    if (!current.reminders.some((item) => item.id === id)) return current;
     return {
-      reminders,
+      reminders: current.reminders.filter((item) => item.id !== id),
       pending_count: Math.max(0, current.pending_count - 1),
     };
-  });
+  }, expectedSession);
 }
 
 /** Put a dismissed/added suggestion back when the API call fails. */
-export function restoreSuggestedReminderToCache(reminder: SuggestedReminder): void {
-  const current = resource.get(SUGGESTED_REMINDERS_KEY);
-  if (!current) return;
-  if (current.reminders.some((item) => item.id === reminder.id)) return;
-  resource.update(SUGGESTED_REMINDERS_KEY, () => ({
+export function restoreSuggestedReminderToCache(reminder: SuggestedReminder, expectedSession?: number): void {
+  updateCache((current) => current.reminders.some((item) => item.id === reminder.id) ? current : ({
     reminders: [reminder, ...current.reminders],
     pending_count: current.pending_count + 1,
-  }));
+  }), expectedSession);
 }
 
-type ReminderListSetter = (
-  updater: (prev: SuggestedReminder[]) => SuggestedReminder[],
-) => void;
+type ReminderListSetter = (updater: (prev: SuggestedReminder[]) => SuggestedReminder[]) => void;
 
 /** Drop from cache + UI together (optimistic add/dismiss). */
-export function dropSuggestedReminder(
-  id: string,
-  setReminders: ReminderListSetter,
-): void {
-  removeSuggestedReminderFromCache(id);
+export function dropSuggestedReminder(id: string, setReminders: ReminderListSetter, expectedSession?: number): void {
+  if (expectedSession != null && expectedSession !== getSessionGeneration()) return;
+  removeSuggestedReminderFromCache(id, expectedSession);
   setReminders((prev) => prev.filter((item) => item.id !== id));
 }
 
 /** Restore cache + UI together after a failed add/dismiss. */
-export function undeleteSuggestedReminder(
-  reminder: SuggestedReminder,
-  setReminders: ReminderListSetter,
-): void {
-  restoreSuggestedReminderToCache(reminder);
-  setReminders((prev) =>
-    prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev],
-  );
+export function undeleteSuggestedReminder(reminder: SuggestedReminder, setReminders: ReminderListSetter, expectedSession?: number): void {
+  if (expectedSession != null && expectedSession !== getSessionGeneration()) return;
+  restoreSuggestedReminderToCache(reminder, expectedSession);
+  setReminders((prev) => prev.some((item) => item.id === reminder.id) ? prev : [reminder, ...prev]);
 }
 
 export async function fetchSuggestedReminders(
   token: string,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; afterPending?: boolean },
 ): Promise<SuggestedRemindersPayload | null> {
-  try {
-    return await resource.fetch(
-      SUGGESTED_REMINDERS_KEY,
-      () => api.listSuggestedReminders(token),
-      opts,
-    );
-  } catch {
-    return null;
+  try { requireTokenSession(token); } catch { return null; }
+  const state = currentCache();
+  if (opts?.afterPending && state.pending) {
+    await state.pending.task;
+    if (currentCache() !== state) return null;
+    return fetchSuggestedReminders(token, { force: true });
   }
+  if (!opts?.force && !opts?.afterPending && isSuggestedRemindersFresh()) return state.data!;
+  if (state.pending) return state.pending.task;
+  const updates: Update[] = [];
+  const task = (async () => {
+    try {
+      const data = await api.listSuggestedReminders(token);
+      if (currentCache() !== state) return null;
+      state.data = updates.reduce((rows, update) => update(rows), data);
+      state.fetchedAt = Date.now();
+      notify();
+      return state.data;
+    } catch {
+      return null;
+    }
+  })();
+  const pending = { task, updates };
+  state.pending = pending;
+  try { return await task; }
+  finally { if (state.pending === pending) state.pending = undefined; }
 }

@@ -5,8 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type ViewOwner = { session: number; visit: number; signedIn: boolean };
 
-/** Memory dialogs and settings callbacks belong to one focused account visit. */
-export function useMemoryViewOwner() {
+/** Dialogs and screen callbacks belong to one focused account visit. */
+export function useAccountViewOwner() {
   // Subscribe here: context changes can rerender a child without its wrapper.
   const { token } = useAuth();
   const signedIn = Boolean(token);

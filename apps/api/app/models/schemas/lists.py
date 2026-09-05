@@ -40,6 +40,14 @@ class ListItemCreate(BaseModel):
     due_at: datetime
     recurrence_rule: RecurrenceRule | None = None
 
+    @field_validator("content")
+    @classmethod
+    def content_cannot_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("content cannot be blank")
+        return value
+
     @model_validator(mode="after")
     def recurrence_needs_due(self) -> Self:
         if self.recurrence_rule is not None and self.due_at is None:
@@ -59,6 +67,22 @@ class ListItemUpdate(BaseModel):
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = Field(default=None, ge=0)
     project_id: UUID | None = None
+
+    @field_validator("content", "topic", "checked")
+    @classmethod
+    def supplied_value_cannot_be_null(cls, value: str | bool | None) -> str | bool:
+        if value is None:
+            raise ValueError("field cannot be null")
+        return value
+
+    @field_validator("content")
+    @classmethod
+    def content_cannot_be_blank(cls, value: str | None) -> str | None:
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                raise ValueError("content cannot be blank")
+        return value
 
     @model_validator(mode="after")
     def due_at_cannot_be_cleared(self) -> Self:
