@@ -46,7 +46,7 @@ PostgreSQL equivalents run in CI.
 The full local backend suite passed 3,352 tests with 85.69% coverage. The 40 real
 PostgreSQL tests were collected locally and are delegated to CI's isolated database.
 Ruff, formatting, mypy, mobile TypeScript and ESLint, and web TypeScript and ESLint
-passed. All 2,339 mobile tests passed across 272 suites. Final CI
+passed. All 2,341 mobile tests passed across 272 suites. Final CI
 results are recorded in the PR.
 Local API validation used a sanitized environment with live services blocked; no
 production database migrations or storage calls were made.
