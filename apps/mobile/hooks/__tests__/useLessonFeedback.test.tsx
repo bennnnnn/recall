@@ -11,8 +11,14 @@ jest.mock("@/lib/lessonAudio", () => ({ createLessonAudio: () => mockAudio }));
 jest.mock("@/lib/haptics", () => ({ notifySuccess: jest.fn(), notifyWarning: jest.fn() }));
 
 let current: ReturnType<typeof useLessonFeedback>;
-function Probe({ answer }: { answer: LessonAnswer | null }) {
-  const value = useLessonFeedback(answer, mockCurrent);
+function Probe({
+  answer,
+  effectSound = true,
+}: {
+  answer: LessonAnswer | null;
+  effectSound?: boolean;
+}) {
+  const value = useLessonFeedback(answer, mockCurrent, effectSound);
   useLayoutEffect(() => {
     current = value;
   });
@@ -58,4 +64,22 @@ it("still speaks the word when asked", async () => {
   await render(<Probe answer={null} />);
   await act(() => current.speak("hola", "es"));
   expect(mockAudio.start).toHaveBeenCalledWith("hola", "es");
+});
+
+it("skips the grade cue when effect sounds are off", async () => {
+  await render(<Probe answer={grade(true, "quiet")} effectSound={false} />);
+  expect(notifySuccess).toHaveBeenCalledTimes(1);
+  expect(mockAudio.start).not.toHaveBeenCalled();
+});
+
+it("plays the group-complete woo when asked", async () => {
+  await render(<Probe answer={null} />);
+  await act(() => current.celebrate());
+  expect(mockAudio.start).toHaveBeenCalledWith("", "en", "complete");
+});
+
+it("skips the group-complete woo when effect sounds are off", async () => {
+  await render(<Probe answer={null} effectSound={false} />);
+  await act(() => current.celebrate());
+  expect(mockAudio.start).not.toHaveBeenCalled();
 });
