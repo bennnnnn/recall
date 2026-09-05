@@ -157,7 +157,7 @@ function makeStyles(theme: Theme) {
       width: "100%",
     },
     card: {
-      minHeight: 64,
+      minHeight: 68,
       borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
@@ -184,12 +184,15 @@ function makeStyles(theme: Theme) {
     },
     letter: {
       ...Type.body,
+      fontSize: 20,
       fontWeight: "800",
       color: theme.primary,
-      minWidth: 22,
+      minWidth: 24,
     },
     text: {
       ...Type.body,
+      fontSize: 20,
+      lineHeight: 28,
       color: theme.text,
       flex: 1,
     },

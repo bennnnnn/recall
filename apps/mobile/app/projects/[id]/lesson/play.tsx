@@ -87,36 +87,6 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
           {t(reviewing ? "lesson.review_of" : "lesson.step_of", { current: currentNumber, total })}
         </Text>
       </View>
-      <View style={s.audioRow}>
-        <Pressable
-          accessibilityRole="switch"
-          accessibilityState={{ checked: audio.sound }}
-          accessibilityLabel={t("lesson.sound")}
-          onPress={audio.toggleSound}
-          style={s.audioControl}
-        >
-          <Icon
-            name={audio.sound ? "volume-medium-outline" : "volume-mute-outline"}
-            size={19}
-            color={theme.textSecondary}
-          />
-          <Text style={s.progressLabel}>{t("lesson.sound")}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="switch"
-          accessibilityState={{ checked: audio.voice }}
-          accessibilityLabel={t("lesson.voice_feedback")}
-          onPress={audio.toggleVoice}
-          style={s.audioControl}
-        >
-          <Icon
-            name="chatbubble-ellipses-outline"
-            size={19}
-            color={audio.voice ? theme.primary : theme.textTertiary}
-          />
-          <Text style={s.progressLabel}>{t("lesson.voice_feedback")}</Text>
-        </Pressable>
-      </View>
       <ScrollView
         key={step ? `${step.itemId}:${step.kind}` : "summary"}
         contentContainerStyle={[s.body, quiz ? s.bodyQuiz : null]}
@@ -169,16 +139,14 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
                 ]}
                 accessibilityLiveRegion="polite"
               >
-                <View style={s.feedbackTitle}>
-                  <Icon
-                    name={answer.correct ? "checkmark-circle" : "refresh-circle"}
-                    size={24}
-                    color={answer.correct ? theme.success : theme.danger}
-                  />
-                  <Text style={s.feedbackHeading}>
-                    {t(answer.correct ? "lesson.correct" : "lesson.try_again")}
-                  </Text>
-                </View>
+                {answer.correct ? (
+                  <View style={s.feedbackTitle}>
+                    <Icon name="checkmark-circle" size={24} color={theme.success} />
+                    <Text style={s.feedbackHeading}>{t("lesson.correct")}</Text>
+                  </View>
+                ) : (
+                  <Icon name="close-circle" size={24} color={theme.danger} />
+                )}
                 <Text style={s.feedbackText}>{quiz.explanation}</Text>
               </View>
             ) : null}
@@ -219,15 +187,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    contextSentence: { ...Type.body, fontSize: 18, lineHeight: 28, color: theme.textSecondary },
-    audioRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "flex-end",
-      paddingHorizontal: Space.lg,
-      gap: Space.md,
-    },
-    audioControl: { flexDirection: "row", alignItems: "center", gap: Space.xs, minHeight: 44 },
+    contextSentence: { ...Type.body, fontSize: 20, lineHeight: 30, color: theme.textSecondary },
     feedback: { padding: Space.md, borderRadius: Radius.lg, gap: Space.sm },
     feedbackTitle: { flexDirection: "row", gap: Space.sm, alignItems: "center" },
     feedbackHeading: { ...Type.body, fontWeight: "700", color: theme.text },
@@ -269,10 +229,10 @@ function makeStyles(theme: Theme) {
       gap: Space.xl,
     },
     question: {
-      fontSize: 22,
+      fontSize: 24,
       fontWeight: "700",
       color: theme.text,
-      lineHeight: 28,
+      lineHeight: 32,
     },
     footer: {
       paddingHorizontal: Space.lg,

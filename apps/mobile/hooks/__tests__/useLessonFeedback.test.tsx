@@ -2,74 +2,60 @@ import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useLessonFeedback } from "@/hooks/useLessonFeedback";
-import { readPrefFile, writePrefFile } from "@/lib/filePrefs";
+import { notifySuccess, notifyWarning } from "@/lib/haptics";
+import type { LessonAnswer } from "@/hooks/useLessonSession";
+
 const mockCurrent = () => true;
 const mockAudio = { start: jest.fn(), stop: jest.fn() };
-const mockT = (key: string) => key;
-let mockUser = "first";
-jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: mockUser } }) }));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: mockT, i18n: { language: "en" } }),
-}));
 jest.mock("@/lib/lessonAudio", () => ({ createLessonAudio: () => mockAudio }));
 jest.mock("@/lib/haptics", () => ({ notifySuccess: jest.fn(), notifyWarning: jest.fn() }));
-jest.mock("@/lib/filePrefs", () => ({
-  prefFilePath: (name: string) => name,
-  safePrefUserId: (id: string) => id,
-  readPrefFile: jest.fn(),
-  writePrefFile: jest.fn(),
-}));
+
 let current: ReturnType<typeof useLessonFeedback>;
-function Probe() {
-  const value = useLessonFeedback(null, mockCurrent);
+function Probe({ answer }: { answer: LessonAnswer | null }) {
+  const value = useLessonFeedback(answer, mockCurrent);
   useLayoutEffect(() => {
     current = value;
   });
-  return <Text>{`${value.sound}:${value.voice}`}</Text>;
+  return <Text>ok</Text>;
 }
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
+
+function grade(correct: boolean, attemptId: string): LessonAnswer {
+  return {
+    letter: "A",
+    correct,
+    attemptId,
+    itemId: "one",
+    completesWord: correct,
+    status: "saved",
+  };
 }
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUser += "x";
-  jest.mocked(readPrefFile).mockResolvedValue(null);
-  jest.mocked(writePrefFile).mockResolvedValue(undefined);
 });
-it("serializes rapid preferences across visits and persists the latest toggles last", async () => {
-  const pending = deferred<void>();
-  jest.mocked(writePrefFile).mockReturnValueOnce(pending.promise);
-  const first = await render(<Probe />);
-  await act(() => {
-    current.toggleSound();
-    current.toggleVoice();
-  });
-  expect(writePrefFile).toHaveBeenCalledTimes(1);
-  await first.unmount();
-  await render(<Probe />);
-  expect(current.sound).toBe(false);
-  expect(current.voice).toBe(true);
-  await act(() => current.toggleSound());
-  expect(writePrefFile).toHaveBeenCalledTimes(1);
+
+it("plays the incorrect cue without speaking feedback copy", async () => {
+  const screen = await render(<Probe answer={null} />);
   await act(async () => {
-    pending.resolve();
+    screen.rerender(<Probe answer={grade(false, "a1")} />);
   });
-  expect(writePrefFile).toHaveBeenCalledTimes(3);
-  expect(JSON.parse(jest.mocked(writePrefFile).mock.calls[2][1])).toEqual({
-    sound: true,
-    voice: true,
-  });
+  expect(notifyWarning).toHaveBeenCalledTimes(1);
+  expect(notifySuccess).not.toHaveBeenCalled();
+  expect(mockAudio.start).toHaveBeenCalledWith("", "en", false);
 });
-it("a delayed preference read cannot overwrite a newer toggle", async () => {
-  const pending = deferred<string | null>();
-  jest.mocked(readPrefFile).mockReturnValueOnce(pending.promise);
-  await render(<Probe />);
-  await act(() => current.toggleSound());
-  await act(async () => pending.resolve('{"sound":true,"voice":true}'));
-  expect(current.sound).toBe(false);
-  expect(current.voice).toBe(false);
+
+it("plays the correct cue once per attempt", async () => {
+  const screen = await render(<Probe answer={grade(true, "a2")} />);
+  expect(notifySuccess).toHaveBeenCalledTimes(1);
+  expect(mockAudio.start).toHaveBeenCalledWith("", "en", true);
+  await act(async () => {
+    screen.rerender(<Probe answer={grade(true, "a2")} />);
+  });
+  expect(mockAudio.start).toHaveBeenCalledTimes(1);
+});
+
+it("still speaks the word when asked", async () => {
+  await render(<Probe answer={null} />);
+  await act(() => current.speak("hola", "es"));
+  expect(mockAudio.start).toHaveBeenCalledWith("hola", "es");
 });

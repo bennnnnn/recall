@@ -2,8 +2,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
-import type { IoniconName } from "@/lib/icons";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -35,16 +33,8 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const token = useAuthToken();
   const word = cleanQuizWord(card.word);
   const ipa = card.ipa?.trim();
-  const pos = card.partOfSpeech?.trim();
   const meaning = cardMeaning(card);
   const examples = card.examples?.length ? card.examples : exampleSentences(card.exampleSentence);
-  const labels = [
-    card.vocabularyKind && card.vocabularyKind !== "word"
-      ? t(`lesson.kind.${card.vocabularyKind}`)
-      : pos,
-    card.verbKind ? t(`lesson.kind.${card.verbKind}`) : null,
-    card.nounKind ? t(`lesson.kind.${card.nounKind}`) : null,
-  ].filter(Boolean);
 
   const handleSpeak = () => {
     if (onSpeak) {
@@ -76,21 +66,16 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
           </Pressable>
         </View>
         {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
-        {labels.length ? (
-          <View style={s.posChip}>
-            <Text style={s.posText}>{labels.join(" · ")}</Text>
-          </View>
-        ) : null}
       </View>
 
       <View style={[s.block, s.afterHero]}>
-        <Badge icon="book-outline" label={t("lesson.meaning")} theme={theme} />
+        <Text style={s.sectionTitle}>{t("lesson.meaning")}</Text>
         <Text style={s.meaning}>{meaning}</Text>
       </View>
 
       {examples.length > 0 ? (
         <View style={s.block}>
-          <Badge icon="pencil-outline" label={t("lesson.example")} theme={theme} />
+          <Text style={s.sectionTitle}>{t("lesson.example")}</Text>
           {examples.map((sentence) => (
             <Text key={sentence} style={s.example}>
               {highlightLemmaParts(sentence, word).map((part, index) =>
@@ -115,16 +100,6 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
 function formatIpa(ipa: string): string {
   const cleaned = ipa.replaceAll("\u02CC", "").trim();
   return `/${cleaned}/`;
-}
-
-function Badge({ icon, label, theme }: { icon: IoniconName; label: string; theme: Theme }) {
-  const s = makeBadge(theme);
-  return (
-    <View style={s.wrap}>
-      <Icon name={icon} size={12} color={theme.primary} />
-      <Text style={s.label}>{label}</Text>
-    </View>
-  );
 }
 
 function makeStyles(t: Theme) {
@@ -162,35 +137,28 @@ function makeStyles(t: Theme) {
     },
     ipa: {
       ...Type.secondary,
-      fontSize: 15,
+      fontSize: 17,
       color: t.textSecondary,
     },
-    posChip: {
-      alignSelf: "flex-start",
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: Radius.full,
-      backgroundColor: t.primaryLight,
-    },
-    posText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: t.primary,
-    },
     block: {
-      gap: Space.md,
+      gap: Space.sm,
     },
     afterHero: {
       paddingTop: AFTER_HERO,
     },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: t.textSecondary,
+    },
     meaning: {
-      fontSize: 21,
-      lineHeight: 30,
+      fontSize: 22,
+      lineHeight: 32,
       color: t.text,
     },
     example: {
-      fontSize: 18,
-      lineHeight: 28,
+      fontSize: 20,
+      lineHeight: 30,
       color: t.text,
     },
     exampleRest: {
@@ -200,28 +168,6 @@ function makeStyles(t: Theme) {
       fontStyle: "normal",
       fontWeight: "700",
       color: t.success,
-    },
-  });
-}
-
-function makeBadge(t: Theme) {
-  return StyleSheet.create({
-    wrap: {
-      flexDirection: "row",
-      alignItems: "center",
-      alignSelf: "flex-start",
-      gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: Radius.full,
-      backgroundColor: t.primaryLight,
-    },
-    label: {
-      fontSize: 10,
-      fontWeight: "700",
-      letterSpacing: 0.6,
-      textTransform: "uppercase",
-      color: t.primary,
     },
   });
 }

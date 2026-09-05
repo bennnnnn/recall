@@ -628,7 +628,7 @@ were removed. Programming help lives in main chat.
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
-  (word, pronunciation, classification, meaning, examples), then A–D **lesson choice cards**.
+  (word, pronunciation, meaning, examples), then A–D **lesson choice cards**.
   Cloze questions match whole words; naturally inflected examples use an intact-sentence
   meaning check. Each answer posts an idempotent practice event. Continue follows a
   saved correct answer; only the final check completes the word. Completed-group
@@ -658,8 +658,8 @@ were removed. Programming help lives in main chat.
   batch and include mastered vocabulary due for review; delivery keeps timezone and
   daily deduplication rules.
 - ✅ **Pronunciation and feedback** — lesson pronunciation uses device speech with
-  visit-owned cancellation. Optional bundled sound cues and spoken correct/try-again
-  feedback have per-user controls; they do not change the global recording mode.
+  visit-owned cancellation. Right/wrong answers always play bundled sound cues; they
+  do not speak “correct” / “try again” and they do not change the global recording mode.
   The shared pronunciation helper outside the lesson retains URL/cloud/device fallback.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on word completion. Due counts include learning items and mastered words

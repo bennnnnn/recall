@@ -75,10 +75,6 @@ jest.mock("@/lib/cache/projectDetailCache", () => ({
 }));
 jest.mock("@/hooks/useLessonFeedback", () => ({
   useLessonFeedback: () => ({
-    sound: true,
-    voice: false,
-    toggleSound: jest.fn(),
-    toggleVoice: jest.fn(),
     speak: jest.fn(),
     stop: jest.fn(),
   }),
@@ -117,6 +113,10 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   expect(screen.queryByRole("header", { name: "dormir" })).toBeNull();
   expect(screen.getByText("Me despierto a las siete.")).toBeOnTheScreen();
   expect(screen.getByText("Ana se despierta temprano.")).toBeOnTheScreen();
+  expect(screen.queryByText("Sounds")).toBeNull();
+  expect(screen.queryByText("Spoken feedback")).toBeNull();
+  expect(screen.queryByText("Action verb")).toBeNull();
+  expect(screen.queryByText("Try again")).toBeNull();
   expect(record).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText("Continue"));
   await fireEvent.press(screen.getByText("Dejar de dormir."));
