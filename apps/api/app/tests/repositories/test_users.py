@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -92,7 +93,16 @@ async def test_delete_user_deletes_all_related(fake_session):
 
     await delete_user(fake_session, user_id)
 
-    # Should execute 4 deletes + get + delete user
+    # Background memory writes lock User before Memory. Taking a Memory lock
+    # before the User lock here can deadlock an account deletion against them.
+    first_statement = fake_session.execute.await_args_list[0].args[0]
+    compiled = first_statement.compile(dialect=postgresql.dialect())
+    assert str(compiled).startswith("SELECT users.id")
+    assert "WHERE users.id =" in str(compiled)
+    assert str(compiled).endswith("FOR UPDATE")
+    assert list(compiled.params.values()) == [user_id]
+
+    # Account lock, related-row deletes, then user delete and commit.
     assert fake_session.execute.await_count >= 4
     fake_session.delete.assert_awaited_once_with(fake_user)
     fake_session.commit.assert_awaited_once()
