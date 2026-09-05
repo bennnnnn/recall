@@ -113,10 +113,13 @@
       "undici": "6.28.0",
       "nanoid@3": "3.3.18",
       "shell-quote": "1.9.0",
-      "image-size": "file:vendor/image-size"
+      "image-size": "file:vendor/image-size",
+      "browserslist": "4.28.7",
+      "decode-uri-component": "0.5.0"
     },
     "patchedDependencies": {
-      "react-native-draggable-flatlist@4.0.3": "patches/react-native-draggable-flatlist@4.0.3.patch"
+      "react-native-draggable-flatlist@4.0.3": "patches/react-native-draggable-flatlist@4.0.3.patch",
+      "decode-uri-component@0.5.0": "patches/decode-uri-component@0.5.0.patch"
     }
   },
   "private": true
