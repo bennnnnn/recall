@@ -22,6 +22,14 @@ beforeEach(() => {
 afterEach(() => {
   jest.useRealTimers();
 });
+it("plays a right-or-wrong cue without speaking when feedback text is empty", async () => {
+  const owner = createLessonAudio(() => true);
+  await owner.start("", "en", false);
+  expect(player.play).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(380);
+  expect(Speech.speak).not.toHaveBeenCalled();
+  owner.stop();
+});
 it("plays a gentle effect before localized speech without changing global audio mode", async () => {
   const owner = createLessonAudio(() => true);
   await owner.start("Correcto", "es", true);

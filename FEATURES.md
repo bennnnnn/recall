@@ -628,12 +628,16 @@ were removed. Programming help lives in main chat.
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
-  (word, pronunciation, classification, meaning, examples), then A–D **lesson choice cards**.
+  (word, pronunciation, meaning, examples) as a tap-to-hear dictionary card,
+  then A–D **lesson choice cards** that fill on select.
   Cloze questions match whole words; naturally inflected examples use an intact-sentence
-  meaning check. Each answer posts an idempotent practice event. Continue follows a
-  saved correct answer; only the final check completes the word. Completed-group
-  review also saves activity and updates its review schedule, retaining first mastery.
-  Wrong answers record a miss without demoting a mastered word. No per-word illustration. The next group stays locked until every word in the
+  meaning check. A correct answer posts an idempotent practice event in the background
+  (no saving spinner). Continue is available as soon as the answer is right; only the
+  final check completes the word. Reopening a completed group is a scan: the correct
+  A–D choice is already marked, and Continue records the review and updates its
+  schedule, retaining first mastery.
+  Wrong answers stay on device until the learner picks the right choice; they are not
+  saved and they do not demote a mastered word. No per-word illustration. The next group stays locked until every word in the
   current chapter is mastered. Chat must not render A–D quiz chips, `vocab_card` study
   cards, or grade letter answers. Regular chat must not quiz in-bubble. Chat tutor prompts
   must not invent words.
@@ -646,8 +650,8 @@ were removed. Programming help lives in main chat.
 - ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
   (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
   There is no due-queue of old mastered words across groups. Reopening a
-  **completed** group on the map is a same-group review pass that updates scheduling;
-  it does not assemble a cross-group queue.
+  **completed** group on the map is a same-group scan (correct answers already
+  marked) that updates scheduling; it does not assemble a cross-group queue.
   Settings has PDF export, not a deck browser.
 - ❌ **Class CEFR level** — unused. Vocab is the full catalog for everyone;
   Settings has daily goal + PDF; Recall manages lesson content. Chat extract `set_level` is a no-op.
@@ -658,8 +662,8 @@ were removed. Programming help lives in main chat.
   batch and include mastered vocabulary due for review; delivery keeps timezone and
   daily deduplication rules.
 - ✅ **Pronunciation and feedback** — lesson pronunciation uses device speech with
-  visit-owned cancellation. Optional bundled sound cues and spoken correct/try-again
-  feedback have per-user controls; they do not change the global recording mode.
+  visit-owned cancellation. Right/wrong answers always play bundled sound cues; they
+  do not speak “correct” / “try again” and they do not change the global recording mode.
   The shared pronunciation helper outside the lesson retains URL/cloud/device fallback.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on word completion. Due counts include learning items and mastered words

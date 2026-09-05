@@ -51,6 +51,7 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: jest.requireActual("react-native").View,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "token", user: { id: "user" } }),
@@ -75,10 +76,6 @@ jest.mock("@/lib/cache/projectDetailCache", () => ({
 }));
 jest.mock("@/hooks/useLessonFeedback", () => ({
   useLessonFeedback: () => ({
-    sound: true,
-    voice: false,
-    toggleSound: jest.fn(),
-    toggleVoice: jest.fn(),
     speak: jest.fn(),
     stop: jest.fn(),
   }),
@@ -117,10 +114,20 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   expect(screen.queryByRole("header", { name: "dormir" })).toBeNull();
   expect(screen.getByText("Me despierto a las siete.")).toBeOnTheScreen();
   expect(screen.getByText("Ana se despierta temprano.")).toBeOnTheScreen();
+  expect(screen.queryByText("Sounds")).toBeNull();
+  expect(screen.queryByText("Spoken feedback")).toBeNull();
+  expect(screen.queryByText("Action verb")).toBeNull();
+  expect(screen.queryByText("Try again")).toBeNull();
+  expect(screen.queryByText("Meaning")).toBeNull();
+  expect(screen.queryByText("Example")).toBeNull();
+  expect(screen.queryByText("Choose the word or phrase you just studied:")).toBeNull();
+  expect(screen.queryByText("Saving your answer…")).toBeNull();
   expect(record).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText("Continue"));
   await fireEvent.press(screen.getByText("Dejar de dormir."));
+  expect(screen.queryByText("Saving your answer…")).toBeNull();
   expect(screen.getByText("Couldn't save your answer. Try again.")).toBeOnTheScreen();
+  expect(screen.getByText("Correct")).toBeOnTheScreen();
   expect(screen.queryByText("Practice complete")).toBeNull();
   await fireEvent.press(screen.getByText("Retry"));
   expect(record.mock.calls[0][3]).toEqual(record.mock.calls[1][3]);

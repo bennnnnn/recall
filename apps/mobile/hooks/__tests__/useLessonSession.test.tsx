@@ -92,7 +92,7 @@ beforeEach(() => {
   } as ProjectDetail;
   record.mockResolvedValue(response());
 });
-it("requires an assessment, serializes wrong answers, and completes only the final correct question", async () => {
+it("requires an assessment, ignores misses, and completes only the final correct question", async () => {
   const pending = deferred<ReturnType<typeof response>>();
   record.mockReturnValueOnce(pending.promise);
   await render(<Probe />);
@@ -101,15 +101,13 @@ it("requires an assessment, serializes wrong answers, and completes only the fin
   expect(record).not.toHaveBeenCalled();
   const answer = correct();
   const wrong = answer === "A" ? "B" : "A";
-  await act(() => {
-    current.submitLetter(wrong);
-    current.submitLetter(answer);
-  });
-  expect(record).toHaveBeenCalledTimes(1);
+  await act(() => current.submitLetter(wrong));
+  expect(record).not.toHaveBeenCalled();
   expect(current.canAdvance).toBe(false);
-  await act(async () => pending.resolve(response()));
   await act(() => current.submitLetter(answer));
+  expect(record).toHaveBeenCalledTimes(1);
   expect(current.canAdvance).toBe(true);
+  await act(async () => pending.resolve(response()));
   expect(record).toHaveBeenLastCalledWith(
     "token",
     "p",
@@ -200,17 +198,29 @@ it("does not record or advance from a blurred callback", async () => {
   expect(current.step?.kind).toBe("teach");
   expect(record).not.toHaveBeenCalled();
 });
-it("counts a mastered chapter completion as reviewed", async () => {
+it("counts a mastered chapter as a scan and records review on the final Continue", async () => {
   record.mockResolvedValue({ ...response(), newly_mastered: false });
   mockProject.lists[0].items[0].mastered = true;
   mockProject.lists[0].items[0].status = "mastered";
   await render(<Probe />);
+  expect(current.reviewing).toBe(true);
   await act(() => current.continueLesson());
+  expect(record).not.toHaveBeenCalled();
   await act(() => current.submitLetter(correct()));
+  expect(record).not.toHaveBeenCalled();
   await act(() => current.continueLesson());
-  await act(() => current.submitLetter(correct()));
+  expect(record).not.toHaveBeenCalled();
+  await act(() => current.continueLesson());
+  expect(record).toHaveBeenCalledTimes(1);
+  expect(record).toHaveBeenLastCalledWith(
+    "token",
+    "p",
+    "one",
+    expect.objectContaining({ was_correct: true, completes_word: true }),
+  );
   expect(current.reviewed).toBe(1);
   expect(current.learned).toBe(0);
+  expect(current.complete).toBe(true);
 });
 
 it("can prepare an empty lesson after a successful content retry", async () => {

@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
-import type { IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -24,9 +23,8 @@ type Props = {
   onSpeak?: () => void;
 };
 
-const SPEAK = 56;
-const SECTION_GAP = 28;
-const AFTER_HERO = 8;
+const SPEAK = 52;
+const COMPACT_WORD = 18;
 
 export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const theme = useTheme();
@@ -35,16 +33,9 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const token = useAuthToken();
   const word = cleanQuizWord(card.word);
   const ipa = card.ipa?.trim();
-  const pos = card.partOfSpeech?.trim();
   const meaning = cardMeaning(card);
   const examples = card.examples?.length ? card.examples : exampleSentences(card.exampleSentence);
-  const labels = [
-    card.vocabularyKind && card.vocabularyKind !== "word"
-      ? t(`lesson.kind.${card.vocabularyKind}`)
-      : pos,
-    card.verbKind ? t(`lesson.kind.${card.verbKind}`) : null,
-    card.nounKind ? t(`lesson.kind.${card.nounKind}`) : null,
-  ].filter(Boolean);
+  const compactWord = word.length > COMPACT_WORD;
 
   const handleSpeak = () => {
     if (onSpeak) {
@@ -61,50 +52,42 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
 
   return (
     <View style={s.root} accessibilityRole="summary">
-      <View style={s.hero}>
-        <View style={s.wordRow}>
-          <Text style={s.word} accessibilityRole="header">
-            {word}
-          </Text>
+      <View style={s.entry}>
+        <View style={s.hero}>
+          <Pressable onPress={handleSpeak} style={s.heroText} accessible={false}>
+            <Text style={[s.word, compactWord && s.wordCompact]} accessibilityRole="header">
+              {word}
+            </Text>
+            {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
+          </Pressable>
           <Pressable
             onPress={handleSpeak}
             style={s.speakBtn}
             accessibilityRole="button"
             accessibilityLabel={t("lesson.speak")}
           >
-            <Icon name="volume-medium-outline" size={24} color={theme.primary} />
+            <Icon name="volume-medium-outline" size={22} color={theme.onPrimary} />
           </Pressable>
         </View>
-        {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
-        {labels.length ? (
-          <View style={s.posChip}>
-            <Text style={s.posText}>{labels.join(" · ")}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={[s.block, s.afterHero]}>
-        <Badge icon="book-outline" label={t("lesson.meaning")} theme={theme} />
         <Text style={s.meaning}>{meaning}</Text>
       </View>
 
       {examples.length > 0 ? (
-        <View style={s.block}>
-          <Badge icon="pencil-outline" label={t("lesson.example")} theme={theme} />
+        <View style={s.examples}>
           {examples.map((sentence) => (
-            <Text key={sentence} style={s.example}>
-              {highlightLemmaParts(sentence, word).map((part, index) =>
-                part.match ? (
-                  <Text key={`${index}-m`} style={s.lemma}>
-                    {part.text}
-                  </Text>
-                ) : (
-                  <Text key={`${index}-r`} style={s.exampleRest}>
-                    {part.text}
-                  </Text>
-                ),
-              )}
-            </Text>
+            <View key={sentence} style={s.quote}>
+              <Text style={s.example}>
+                {highlightLemmaParts(sentence, word).map((part, index) =>
+                  part.match ? (
+                    <Text key={`${index}-m`} style={s.lemma}>
+                      {part.text}
+                    </Text>
+                  ) : (
+                    <Text key={`${index}-r`}>{part.text}</Text>
+                  ),
+                )}
+              </Text>
+            </View>
           ))}
         </View>
       ) : null}
@@ -117,38 +100,37 @@ function formatIpa(ipa: string): string {
   return `/${cleaned}/`;
 }
 
-function Badge({ icon, label, theme }: { icon: IoniconName; label: string; theme: Theme }) {
-  const s = makeBadge(theme);
-  return (
-    <View style={s.wrap}>
-      <Icon name={icon} size={12} color={theme.primary} />
-      <Text style={s.label}>{label}</Text>
-    </View>
-  );
-}
-
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     root: {
       alignSelf: "stretch",
-      gap: SECTION_GAP,
+      gap: Space.lg,
+    },
+    entry: {
+      gap: Space.md,
+      padding: Space.lg,
+      borderRadius: Radius.sheet,
+      backgroundColor: t.surface,
     },
     hero: {
-      gap: Space.md,
-    },
-    wordRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
       gap: Space.md,
+    },
+    heroText: {
+      flex: 1,
+      gap: Space.xs,
     },
     word: {
       ...Type.display,
-      flex: 1,
-      fontSize: 38,
-      lineHeight: 44,
+      fontSize: 30,
+      lineHeight: 36,
       fontWeight: "800",
       color: t.text,
+    },
+    wordCompact: {
+      fontSize: 26,
+      lineHeight: 32,
     },
     speakBtn: {
       width: SPEAK,
@@ -156,72 +138,37 @@ function makeStyles(t: Theme) {
       borderRadius: SPEAK / 2,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: t.bg,
-      borderWidth: 2,
-      borderColor: t.primary,
+      backgroundColor: t.primary,
     },
     ipa: {
       ...Type.secondary,
-      fontSize: 15,
+      fontSize: 17,
       color: t.textSecondary,
     },
-    posChip: {
-      alignSelf: "flex-start",
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: Radius.full,
-      backgroundColor: t.primaryLight,
-    },
-    posText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: t.primary,
-    },
-    block: {
-      gap: Space.md,
-    },
-    afterHero: {
-      paddingTop: AFTER_HERO,
-    },
     meaning: {
-      fontSize: 21,
-      lineHeight: 30,
-      color: t.text,
-    },
-    example: {
-      fontSize: 18,
+      fontSize: 20,
       lineHeight: 28,
       color: t.text,
     },
-    exampleRest: {
-      fontStyle: "italic",
+    examples: {
+      gap: Space.sm,
+    },
+    quote: {
+      paddingVertical: Space.md,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.lg,
+      backgroundColor: t.bg,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
+    example: {
+      fontSize: 18,
+      lineHeight: 26,
+      color: t.textSecondary,
     },
     lemma: {
-      fontStyle: "normal",
       fontWeight: "700",
-      color: t.success,
-    },
-  });
-}
-
-function makeBadge(t: Theme) {
-  return StyleSheet.create({
-    wrap: {
-      flexDirection: "row",
-      alignItems: "center",
-      alignSelf: "flex-start",
-      gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: Radius.full,
-      backgroundColor: t.primaryLight,
-    },
-    label: {
-      fontSize: 10,
-      fontWeight: "700",
-      letterSpacing: 0.6,
-      textTransform: "uppercase",
-      color: t.primary,
+      color: t.text,
     },
   });
 }
