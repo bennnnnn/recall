@@ -749,13 +749,5 @@
   "lesson.kind.common": "Nome comune",
   "lesson.kind.proper": "Nome proprio",
   "lesson.kind.abstract": "Nome astratto",
-  "lesson.kind.collective": "Nome collettivo",
-  "vocabulary.title": "Vocabolario",
-  "vocabulary.search": "Cerca parole e significati",
-  "vocabulary.clear_search": "Cancella ricerca",
-  "vocabulary.no_results": "Nessuna voce corrispondente",
-  "vocabulary.empty": "Il vocabolario non è ancora disponibile.",
-  "vocabulary.entry_count": "{{count}} voci",
-  "vocabulary.entry_count_one": "{{count}} voce",
-  "vocabulary.entry_count_other": "{{count}} voci"
+  "lesson.kind.collective": "Nome collettivo"
 }

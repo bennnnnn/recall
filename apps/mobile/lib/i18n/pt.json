@@ -749,13 +749,5 @@
   "lesson.kind.common": "Substantivo comum",
   "lesson.kind.proper": "Substantivo próprio",
   "lesson.kind.abstract": "Substantivo abstrato",
-  "lesson.kind.collective": "Substantivo coletivo",
-  "vocabulary.title": "Vocabulário",
-  "vocabulary.search": "Buscar palavras e significados",
-  "vocabulary.clear_search": "Limpar busca",
-  "vocabulary.no_results": "Nenhum vocabulário correspondente",
-  "vocabulary.empty": "O vocabulário ainda não está disponível.",
-  "vocabulary.entry_count": "{{count}} entradas",
-  "vocabulary.entry_count_one": "{{count}} entrada",
-  "vocabulary.entry_count_other": "{{count}} entradas"
+  "lesson.kind.collective": "Substantivo coletivo"
 }

@@ -1,10 +1,8 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { vocabularyPath } from "@/lib/projects/vocabularyOverview";
 import { Button } from "@/components/Button";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { LearningPathList } from "@/components/projects/LearningPathList";
@@ -124,26 +122,6 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
         </View>
       ) : null}
 
-      <Pressable
-        style={s.vocabularyLink}
-        accessibilityRole="button"
-        accessibilityLabel={t("vocabulary.title")}
-        onPress={() => {
-          if (isCurrent() && isCurrentOwner()) router.push(vocabularyPath(project.id));
-        }}
-      >
-        <Icon name="book-outline" size={24} color={theme.primary} />
-        <View style={s.vocabularyCopy}>
-          <Text style={s.vocabularyTitle}>{t("vocabulary.title")}</Text>
-          <Text style={s.todayLabel}>
-            {t("vocabulary.entry_count", {
-              count: project.lists.reduce((total, group) => total + group.items.length, 0),
-            })}
-          </Text>
-        </View>
-        <Icon name="chevron-forward" size={18} color={theme.textSecondary} />
-      </Pressable>
-
       {domains.length === 0 ? (
         <StateView
           variant="empty"
@@ -159,19 +137,6 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    vocabularyLink: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.md,
-      padding: Space.md,
-      marginBottom: Space.md,
-      borderRadius: 16,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-    },
-    vocabularyCopy: { flex: 1, gap: Space.xxs },
-    vocabularyTitle: { ...Type.navTitle, color: theme.text },
     nextCard: {
       backgroundColor: theme.primaryLight,
       borderRadius: 20,

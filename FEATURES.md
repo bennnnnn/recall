@@ -618,9 +618,9 @@ were removed. Programming help lives in main chat.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
-- ✅ **Vocabulary overview** — the lesson map opens a read-only, searchable vocabulary
-  view grouped by chapter. Browse definitions, examples, classifications, and
-  pronunciation without starting a lesson or changing progress.
+- ✅ **One entry at a time** — start a group from the lesson map, learn one entry
+  with its definition and examples, answer its practice question, then continue.
+  There is no bulk vocabulary browser or page of word cards.
 - ✅ **Vocab items** — term, definition, two or more example sentences, IPA where available,
   part of speech, word/expression/phrasal-verb/idiom/proverb classification,
   verb and noun subtypes, simple gloss, status (new / learning / mastered), SM-2 fields.
