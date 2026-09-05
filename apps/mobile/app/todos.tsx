@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
@@ -13,12 +13,18 @@ import { makeTodosStyles } from "@/components/todos/todosStyles";
 import { useTodosActions } from "@/hooks/useTodosActions";
 import { useTodosCalendarIntegration } from "@/hooks/useTodosCalendarIntegration";
 import { useTodosDerivedState } from "@/hooks/useTodosDerivedState";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { ensureNotificationPermission } from "@/lib/todos/todoReminders";
 import { useTheme } from "@/lib/theme";
 
 export default function TodosScreen() {
+  const view = useAccountViewOwner();
+  return <TodosContent key={view.key} isCurrentView={view.isCurrent} />;
+}
+
+function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token, user } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
@@ -35,9 +41,13 @@ export default function TodosScreen() {
     error,
     refresh,
     markSeen,
+    markSeenIds,
+    getTodos,
+    isCurrentSession,
   } = useTodos();
   const [reminderSheetOpen, setReminderSheetOpen] = useState(false);
   const [pullRefreshing, setPullRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
 
   const calendar = useTodosCalendarIntegration({
     token,
@@ -46,7 +56,8 @@ export default function TodosScreen() {
     refresh,
     markSeen,
     setTodos,
-    pushEnabled: user?.push_notifications_enabled ?? true,
+    isCurrentSession,
+    isCurrentView,
   });
 
   const { openReminders, showRemindersEmptyHero } = useTodosDerivedState(todos);
@@ -56,6 +67,10 @@ export default function TodosScreen() {
     userId: user?.id,
     pushEnabled: user?.push_notifications_enabled ?? true,
     todos,
+    getTodos,
+    isCurrentSession,
+    isCurrentView,
+    markSeenIds,
     setTodos,
     refresh,
     goToDay: calendar.goToDay,
@@ -69,16 +84,25 @@ export default function TodosScreen() {
   }, [navigation, t]);
 
   const onPullRefresh = useCallback(async () => {
+    if (!isCurrentView() || refreshingRef.current) return;
+    refreshingRef.current = true;
     setPullRefreshing(true);
-    await refresh({ silent: true, force: true });
-    setPullRefreshing(false);
-  }, [refresh]);
+    try { await refresh({ silent: true, force: true }); }
+    finally {
+      refreshingRef.current = false;
+      if (isCurrentView()) setPullRefreshing(false);
+    }
+  }, [refresh, isCurrentView]);
+
+  const retry = useCallback(() => {
+    if (isCurrentView()) void refresh({ force: true });
+  }, [refresh, isCurrentView]);
 
   const listHeader = useMemo(
     () => (
       <TodosScreenHeader
         error={Boolean(error)}
-        onRetry={refresh}
+        onRetry={retry}
         showRemindersEmptyHero={showRemindersEmptyHero}
         openReminders={openReminders}
         calendarEvents={calendar.calendarEvents}
@@ -132,7 +156,7 @@ export default function TodosScreen() {
       error,
       highlight,
       openReminders,
-      refresh,
+      retry,
       showRemindersEmptyHero,
     ],
   );
@@ -148,7 +172,9 @@ export default function TodosScreen() {
   }
 
   const openReminderSheet = () => {
-    void ensureNotificationPermission();
+    if (!isCurrentView()) return;
+    // A native permission failure must not prevent saving the reminder itself.
+    void ensureNotificationPermission().catch(() => undefined);
     setReminderSheetOpen(true);
   };
 
@@ -171,12 +197,12 @@ export default function TodosScreen() {
         visible={reminderSheetOpen}
         saving={actions.savingReminder}
         todos={todos}
-        onClose={() => setReminderSheetOpen(false)}
+        onClose={() => { if (isCurrentView()) setReminderSheetOpen(false); }}
         onSave={(content, dueDate, recurrence) =>
           void actions.handleCreateReminder(
             content,
             dueDate,
-            () => setReminderSheetOpen(false),
+            () => { if (isCurrentView()) setReminderSheetOpen(false); },
             recurrence,
           )
         }

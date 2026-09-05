@@ -445,6 +445,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   or a failure line — it does not promise a change that has not happened. Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
+- ✅ **Schedule reliability review (2026-09-04)** — normal reminder saves use the
+  accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
+  list reads and row mutations, Android date-then-time selection, serialized local
+  notifications, and conditional server recurrence/delivery writes protect reminder state.
+  See [review and release checks](docs/SCHEDULE_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.

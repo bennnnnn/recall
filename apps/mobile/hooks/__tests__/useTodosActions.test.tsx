@@ -3,7 +3,9 @@ import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useTodosActions } from "@/hooks/useTodosActions";
-import type { Todo } from "@/lib/api";
+import { api, type Todo } from "@/lib/api";
+
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -30,7 +32,6 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
-import { api } from "@/lib/api";
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {
@@ -71,7 +72,7 @@ describe("useTodosActions reminders", () => {
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
-  it("creates a reminder optimistically and closes the sheet before the API returns", async () => {
+  it("creates optimistically and closes the sheet only after the API succeeds", async () => {
     let finish: (created: Todo) => void = () => undefined;
     (api.createTodo as jest.Mock).mockReturnValue(
       new Promise((resolve) => {
@@ -90,7 +91,7 @@ describe("useTodosActions reminders", () => {
       await Promise.resolve();
     });
 
-    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(onCreated).not.toHaveBeenCalled();
     expect(setTodos).toHaveBeenCalled();
     const addUpdater = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
     const added = addUpdater([]);
@@ -110,6 +111,7 @@ describe("useTodosActions reminders", () => {
       finish(created);
       await createPromise;
     });
+    expect(onCreated).toHaveBeenCalledTimes(1);
     const swapUpdater = setTodos.mock.calls.at(-1)?.[0] as (prev: Todo[]) => Todo[];
     expect(swapUpdater(added)[0]).toEqual(created);
   });
@@ -133,6 +135,7 @@ describe("useTodosActions reminders", () => {
     const added = addUpdater([]);
     const rollback = setTodos.mock.calls.at(-1)?.[0] as (prev: Todo[]) => Todo[];
     expect(rollback(added)).toEqual([]);
+    expect(onCreated).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalled();
   });
 
@@ -162,6 +165,7 @@ describe("useTodosActions reminders", () => {
 
     const optimistic = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
     expect(optimistic([existing])[0]?.due_at).not.toBe(existing.due_at);
-    expect(setTodos).toHaveBeenCalledWith([existing]);
+    const rollback = setTodos.mock.calls.at(-1)?.[0] as (prev: Todo[]) => Todo[];
+    expect(rollback(optimistic([existing]))).toEqual([existing]);
   });
 });

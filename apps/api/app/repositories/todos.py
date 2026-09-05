@@ -33,7 +33,12 @@ async def list_due_soon(
 
 
 async def list_for_user(
-    session: AsyncSession, user_id: UUID, *, limit: int = 1000, offset: int = 0
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int = 1000,
+    offset: int = 0,
+    populate_existing: bool = False,
 ) -> list[TodoItem]:
     result = await session.execute(
         select(TodoItem)
@@ -43,9 +48,11 @@ async def list_for_user(
             TodoItem.sort_order.asc().nulls_last(),
             TodoItem.checked.asc(),
             TodoItem.created_at.desc(),
+            TodoItem.id.asc(),
         )
         .limit(limit)
         .offset(offset)
+        .execution_options(populate_existing=populate_existing)
     )
     return list(result.scalars().all())
 
@@ -121,6 +128,9 @@ async def create(
 async def update(
     session: AsyncSession, todo: TodoItem, *, commit: bool = True, **fields: Any
 ) -> TodoItem:
+    if "due_at" in fields and fields["due_at"] != todo.due_at:
+        fields["notification_sent_at"] = None
+        fields["email_sent_at"] = None
     for key, value in fields.items():
         if hasattr(todo, key):
             if key == "topic" and isinstance(value, str):
