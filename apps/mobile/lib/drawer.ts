@@ -1,4 +1,5 @@
 import type { Chat } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
 
 // Shared drawer control — avoids circular imports between DrawerShell and ConversationList
 let _open: (() => void) | null = null;
@@ -31,6 +32,16 @@ export function startNewChatGlobal(opts?: StartNewChatOptions) {
   _newChat?.(opts);
 }
 
+// Selecting a title result can keep the same route/chat id. Explicitly cancel
+// the previous message target even when there is no route change to observe.
+let _clearChatHighlight: (() => void) | null = null;
+export function registerChatHighlightClearer(clear: (() => void) | null) {
+  _clearChatHighlight = clear;
+}
+export function clearChatHighlightGlobal() {
+  _clearChatHighlight?.();
+}
+
 /** Active chat id on the home screen — drawer deletes use this to avoid orphans. */
 let _activeChatId: string | null = null;
 
@@ -58,10 +69,7 @@ export function abandonActiveChatIfDeleted(deletedIds: readonly string[]) {
 }
 
 /** Patch a chat row in the drawer list (e.g. when auto-title arrives). */
-export type ChatListPatch = {
-  title?: string | null;
-  pinned?: boolean;
-};
+export type ChatListPatch = Partial<Chat>;
 
 let _patchChat: ((chatId: string, patch: ChatListPatch) => void) | null = null;
 
@@ -126,4 +134,28 @@ export function subscribeChatTitleGenerating(fn: () => void) {
   return () => {
     if (_onTitlePendingChange === fn) _onTitlePendingChange = null;
   };
+}
+
+/** Metadata changes shared by the drawer and the currently open conversation. */
+type ChatChangeListener = (chatId: string, patch: Partial<Chat> | null) => void;
+const chatChangeListeners = new Set<ChatChangeListener>();
+let mutationSession = -1;
+const chatMutationRevisions = new Map<string, number>();
+
+export function getChatMutationRevision(chatId: string): number {
+  if (mutationSession !== getSessionGeneration()) {
+    mutationSession = getSessionGeneration();
+    chatMutationRevisions.clear();
+  }
+  return chatMutationRevisions.get(chatId) ?? 0;
+}
+
+export function publishChatChange(chatId: string, patch: Partial<Chat> | null): void {
+  chatMutationRevisions.set(chatId, getChatMutationRevision(chatId) + 1);
+  for (const listener of chatChangeListeners) listener(chatId, patch);
+}
+
+export function subscribeChatChanges(listener: ChatChangeListener): () => void {
+  chatChangeListeners.add(listener);
+  return () => { chatChangeListeners.delete(listener); };
 }

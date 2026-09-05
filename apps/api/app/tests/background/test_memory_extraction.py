@@ -7,7 +7,6 @@ import pytest
 
 from app.background.memory_extraction import extract_and_store_memories
 from app.core.config import Settings
-from app.models.orm import Memory
 from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
 from app.services.memory import embedding_text_hash
 
@@ -36,6 +35,18 @@ def _real_memory_lock():
     (fake) Redis backend — see
     test_extraction_and_consolidation_do_not_race_the_same_user."""
     return True
+
+
+@pytest.fixture(autouse=True)
+def _memory_persistence_gate_enabled():
+    with patch("app.repositories.memories.lock_memory_enabled", AsyncMock(return_value=True)):
+        yield
+
+
+@pytest.fixture
+def embedding_write():
+    with patch("app.repositories.memories.update_embedding_if_current", AsyncMock()) as write:
+        yield write
 
 
 @pytest.fixture(autouse=True)
@@ -204,7 +215,7 @@ async def test_extract_rejects_rewrite_that_drops_prior_anchors():
         ]
     )
     upsert = AsyncMock()
-    existing = [SimpleNamespace(type="profile", text=prior)]
+    existing = [SimpleNamespace(id=uuid4(), type="profile", text=prior)]
     _, session_locals = _extraction_sessions()
 
     with (
@@ -239,7 +250,7 @@ async def test_extract_accepts_rewrite_that_preserves_anchors_and_adds_fact():
         sections=[MemorySectionItem(type="profile", summary=rewritten, confidence=0.95)]
     )
     upsert = AsyncMock()
-    existing = [SimpleNamespace(type="profile", text=prior)]
+    existing = [SimpleNamespace(id=uuid4(), type="profile", text=prior)]
     _, session_locals = _extraction_sessions(count=2)
 
     with (
@@ -275,15 +286,8 @@ async def test_extract_accepts_rewrite_that_preserves_anchors_and_adds_fact():
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_stores_embedding_for_new_memory():
-    """Full round trip: a newly-extracted section gets both the pgvector
-    column and the JSON fallback populated, with a hash matching its text —
-    the invariant every later staleness check depends on.
-
-    The apply path now runs in two DB sessions (persist text + collect what
-    needs embedding, then close the connection; embed with no connection
-    held; reopen to write vectors), so the test asserts on the object the
-    phase-3 session.get(Memory, id) returns, not on the phase-1 list row."""
+async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write):
+    """Persist vectors against the same text that was sent to the provider."""
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemorySectionUpdateResult(
         sections=[MemorySectionItem(type="fact", summary="Owns a bicycle.", confidence=0.9)]
@@ -299,21 +303,9 @@ async def test_extract_and_store_stores_embedding_for_new_memory():
         embedding_json=None,
         embedding_text_hash=None,
     )
-    # Phase-3 session.get(Memory, id) returns this object; the embedding is
-    # written onto it. Same shape, separate instance, mirroring how a fresh
-    # session re-fetches the row by id.
-    fetched = SimpleNamespace(
-        id=memory_id,
-        type="fact",
-        text="Owns a bicycle",
-        embedding=None,
-        embedding_json=None,
-        embedding_text_hash=None,
-    )
     vector = [0.4, 0.5, 0.6]
 
     session, session_locals = _extraction_sessions(count=3)
-    session.get = AsyncMock(return_value=fetched)
     with (
         patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
         patch(
@@ -341,13 +333,15 @@ async def test_extract_and_store_stores_embedding_for_new_memory():
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
         )
 
-    # Phase 3 wrote the vector onto the re-fetched row.
-    session.get.assert_awaited_with(Memory, memory_id)
-    assert fetched.embedding == vector
-    assert fetched.embedding_json == "[0.4,0.5,0.6]"
-    assert fetched.embedding_text_hash == embedding_text_hash(fetched.text)
-    # The phase-1 list row is never mutated (it was detached when phase 1
-    # closed its session) — the vector lands on the phase-3 re-fetch.
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        memory_id,
+        listed.text,
+        vector,
+        "[0.4,0.5,0.6]",
+        embedding_text_hash(listed.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
     assert listed.embedding is None
 
 
@@ -368,6 +362,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
     # fires without needing to mock merge_memory_section too.
     messy_text = "Prefers concise answers. Prefers concise answers. Prefers concise answers."
     shared_memory = SimpleNamespace(
+        id=uuid4(),
         type="preference",
         text=messy_text,
         embedding=[0.1, 0.2, 0.3],

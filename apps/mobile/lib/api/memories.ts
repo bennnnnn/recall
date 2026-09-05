@@ -1,6 +1,9 @@
 import { request } from "@/lib/api/client";
 import type { Memory } from "@/lib/api/types";
 
+// Saved text can contain 4000 code points plus an "As of YYYY-MM-DD: " stamp.
+export const MAX_MEMORY_FACT_TEXT_LENGTH = 4018;
+
 export const memoriesApi = {
   listMemories: (token: string) => request<Memory[]>("/memories", token),
   updateMemory: (token: string, memoryId: string, text: string) =>
@@ -16,10 +19,15 @@ export const memoriesApi = {
   // at that index. Sending factText (what the user actually saw and tapped)
   // lets the server locate the fact by content instead of trusting a
   // possibly-stale position.
-  deleteMemoryFact: (token: string, memoryId: string, factIndex: number, factText: string) =>
-    request<void>(
-      `/memories/${memoryId}/facts/${factIndex}?fact_text=${encodeURIComponent(factText)}`,
+  deleteMemoryFact: async (token: string, memoryId: string, factIndex: number, factText: string) => {
+    if ([...factText].length > MAX_MEMORY_FACT_TEXT_LENGTH) {
+      throw new RangeError("Memory fact text exceeds the deletion selector limit");
+    }
+    const query = new URLSearchParams({ fact_text: factText });
+    return request<void>(
+      `/memories/${memoryId}/facts/${factIndex}?${query.toString()}`,
       token,
       { method: "DELETE" },
-    ),
+    );
+  },
 };

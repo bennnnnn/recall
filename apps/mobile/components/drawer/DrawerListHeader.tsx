@@ -10,6 +10,7 @@ type Props = {
   activeChatCount: number;
   searchOpen: boolean;
   onRetry: () => void;
+  onRetrySearch: () => void;
   hasSearchQuery: boolean;
   searchLoading: boolean;
   searchError: boolean;
@@ -22,6 +23,7 @@ export function DrawerListHeader({
   activeChatCount,
   searchOpen,
   onRetry,
+  onRetrySearch,
   hasSearchQuery,
   searchLoading,
   searchError,
@@ -33,7 +35,7 @@ export function DrawerListHeader({
     <>
       {loading && activeChatCount === 0 && !searchOpen ? (
         <SkeletonList count={4} />
-      ) : error && activeChatCount === 0 ? (
+      ) : error && activeChatCount === 0 && !searchOpen ? (
         <StateView
           variant="error"
           compact
@@ -48,6 +50,7 @@ export function DrawerListHeader({
           searchLoading={searchLoading}
           searchError={searchError}
           resultCount={searchResultCount}
+          onRetry={onRetrySearch}
         />
       ) : null}
     </>

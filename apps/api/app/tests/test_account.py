@@ -206,8 +206,13 @@ async def test_delete_user_deletes_children_then_user():
     # cleared explicitly (messages, memories, usage, project_items, projects,
     # todos, suggestions, suggested_reminders, push_tokens,
     # attachments, calendar connections, gmail connections, chats).
-    assert session.execute.await_count == 13
-    session.delete.assert_called_once()
+    # The account lock precedes every child delete to match memory writers.
+    statements = [call.args[0] for call in session.execute.await_args_list]
+    assert len(statements) == 14
+    assert statements[0].is_select
+    assert str(statements[0]).endswith("FOR UPDATE")
+    assert all(statement.is_delete for statement in statements[1:])
+    session.delete.assert_awaited_once()
     session.commit.assert_awaited_once()
 
 

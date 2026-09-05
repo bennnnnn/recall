@@ -107,7 +107,12 @@ async def rename_chat(session: AsyncSession, user: User, chat_id: UUID, title: s
 
 async def pin_chat(session: AsyncSession, user: User, chat_id: UUID, *, pinned: bool) -> Chat:
     chat = await get_chat(session, user, chat_id)
-    return await chats_repo.set_pinned(session, chat, pinned)
+    if pinned and chat.archived:
+        raise ChatsError("Unarchive the chat before pinning", status_code=409)
+    chat = await chats_repo.set_pinned(session, chat, pinned)
+    if pinned and chat.archived:
+        raise ChatsError("Unarchive the chat before pinning", status_code=409)
+    return chat
 
 
 async def archive_chat(session: AsyncSession, user: User, chat_id: UUID, *, archived: bool) -> Chat:
@@ -201,6 +206,7 @@ async def list_messages_page(
                         "topic",
                         {
                             "chat_id": str(chat_id),
+                            "user_id": str(user.id),
                             "user_message": user_msg.content,
                             "assistant_message": asst_msg.content,
                         },

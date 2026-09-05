@@ -1,27 +1,23 @@
 import { useCallback, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 
 import { type IoniconName } from "@/lib/icons";
 
-type Router = ReturnType<typeof useRouter>;
-
-import { insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
-import { api, type Chat, type Message } from "@/lib/api";
-import { FREE_CHAT_MODEL_ID } from "@/lib/modelCatalogFallback";
-import { clearCachedChatMessages, patchCachedChatMessage } from "@/lib/chatMessageCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { api, type Message } from "@/lib/api";
+import { patchCachedChatMessage } from "@/lib/chatMessageCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
-import { sanitizeManualChatTitle } from "@/lib/chat/chatTitle";
+import { useChatManagementActions } from "@/hooks/useChatManagementActions";
 import { fullEmailText } from "@/lib/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+
+type Router = ReturnType<typeof useRouter>;
 
 type Options = {
   token: string | null;
@@ -50,7 +46,6 @@ export function useChatActions({
   setArchived,
   setChatTitle,
   setMessages,
-  router,
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
@@ -58,8 +53,6 @@ export function useChatActions({
   messagesRef.current = messages;
   const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
-  const [renameVisible, setRenameVisible] = useState(false);
-  const [renameText, setRenameText] = useState("");
   const [actionBanner, setActionBanner] = useState<{
     message: string;
     icon?: IoniconName;
@@ -179,113 +172,13 @@ export function useChatActions({
     }
   }, [chatTitle, dismissActionBanner, loadTranscriptMessages, showActionBanner, feedback, t]);
 
-  const openRename = useCallback(() => {
-    setRenameText(chatTitle ?? "");
-    setRenameVisible(true);
-  }, [chatTitle]);
-
-  const confirmRename = useCallback(async () => {
-    const title = sanitizeManualChatTitle(renameText);
-    if (!title || !chatId || !token) {
-      setRenameVisible(false);
-      return;
-    }
-    const prevTitle = chatTitle;
-    setChatTitle(title);
-    patchChatGlobal(chatId, { title });
-    setRenameVisible(false);
-    try {
-      const u = await api.renameChat(token, chatId, title);
-      setChatTitle(u.title);
-      patchChatGlobal(chatId, { title: u.title });
-      showActionBanner(t("chat.renamed_toast"), "pencil-outline");
-    } catch {
-      setChatTitle(prevTitle);
-      patchChatGlobal(chatId, { title: prevTitle });
-      reportRecoverableError(feedback, t("chat.rename_failed"));
-    }
-  }, [renameText, chatId, chatTitle, token, setChatTitle, showActionBanner, feedback, t]);
-
-  const togglePin = useCallback(async () => {
-    if (!chatId || !token) return;
-    tap();
-    const next = !pinned;
-    setPinned(next);
-    try {
-      await api.setPin(token, chatId, next);
-      showActionBanner(
-        next ? t("chat.pinned_toast") : t("chat.unpinned_toast"),
-        next ? "pin" : "pin-outline",
-      );
-    } catch {
-      setPinned(!next);
-      reportRecoverableError(feedback, t("chat.pin_failed"));
-    }
-  }, [chatId, token, pinned, setPinned, showActionBanner, feedback, t]);
-
-  const toggleArchive = useCallback(async () => {
-    if (!chatId || !token) return;
-    tap();
-    const next = !archived;
-    setArchived(next);
-    moveChatArchiveGlobal(chatId, next);
-    try {
-      await api.setArchive(token, chatId, next);
-      showActionBanner(
-        next ? t("chat.archived_toast") : t("chat.unarchived_toast"),
-        next ? "archive-outline" : "arrow-undo-outline",
-      );
-    } catch {
-      setArchived(!next);
-      moveChatArchiveGlobal(chatId, !next);
-      reportRecoverableError(feedback, t("chat.archive_failed"));
-    }
-  }, [chatId, token, archived, setArchived, showActionBanner, feedback, t]);
-
-  const confirmDelete = useCallback(() => {
-    Alert.alert(
-      t("chat.delete_confirm_title"),
-      t("chat.delete_confirm_body"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: async () => {
-            if (!chatId || !token) return;
-            const snapshot: Chat = {
-              id: chatId,
-              title: chatTitle,
-              model:
-                [...messages].reverse().find((m) => m.model)?.model ??
-                FREE_CHAT_MODEL_ID,
-              pinned,
-              archived,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-            removeChatGlobal(chatId);
-            try {
-              await api.deleteChat(token, chatId);
-              void clearCachedChatMessages(chatId);
-              invalidateGalleryCache();
-              showActionBanner(t("chat.deleted_toast"), "trash-outline");
-              setTimeout(() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/");
-                }
-              }, 700);
-            } catch {
-              insertChatGlobal(snapshot);
-              reportRecoverableError(feedback, t("chat.delete_failed"));
-            }
-          },
-        },
-      ],
-    );
-  }, [archived, chatId, chatTitle, messages, pinned, token, router, showActionBanner, feedback, t]);
+  const {
+    renameVisible, setRenameVisible, renameText, setRenameText,
+    openRename, confirmRename, togglePin, toggleArchive, confirmDelete,
+  } = useChatManagementActions({
+    token, chatId, chatTitle, pinned, archived, setPinned, setArchived,
+    setChatTitle, closeMenu, dismissActionBanner, showActionBanner, t,
+  });
 
   const onShareFromMenu = useCallback(() => {
     tap();

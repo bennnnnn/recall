@@ -1,12 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
-from app.models.schemas import TodoCreate, TodoOut, TodoReorderBody, TodoUpdate
+from app.models.schemas import TodoCreate, TodoOut, TodoPageOut, TodoReorderBody, TodoUpdate
 from app.services.todos import crud as todos_crud
 
 router = APIRouter(prefix="/todos", tags=["todos"])
@@ -34,6 +34,19 @@ async def list_todos(
     offset = max(0, offset)
     items = await todos_crud.list_todos(session, user, limit=limit, offset=offset)
     return [TodoOut.model_validate(item) for item in items]
+
+
+@router.get("/page", response_model=TodoPageOut)
+async def list_todos_page(
+    limit: int = Query(default=_MAX_TODOS_PAGE, ge=1, le=_MAX_TODOS_PAGE),
+    cursor: UUID | None = None,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> TodoPageOut:
+    items, next_cursor = await todos_crud.list_todos_page(session, user, limit=limit, cursor=cursor)
+    return TodoPageOut(
+        items=[TodoOut.model_validate(item) for item in items], next_cursor=next_cursor
+    )
 
 
 @router.get("/topics", response_model=list[str])

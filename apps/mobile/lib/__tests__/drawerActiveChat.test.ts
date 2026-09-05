@@ -6,6 +6,8 @@ import {
   startNewChatGlobal,
 } from "@/lib/drawer";
 
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+
 describe("deletedIncludesActiveChat", () => {
   afterEach(() => {
     setActiveChatIdGlobal(null);

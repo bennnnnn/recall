@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +42,7 @@ async def list_for_user(
         select(Chat)
         .where(Chat.user_id == user_id)
         .where(has_messages)
-        .order_by(Chat.updated_at.desc())
+        .order_by(Chat.pinned.desc(), Chat.updated_at.desc(), Chat.id.desc())
     )
     if not include_archived:
         stmt = stmt.where(Chat.archived.is_(False))
@@ -60,7 +60,7 @@ async def list_archived_for_user(
         select(Chat)
         .where(Chat.user_id == user_id, Chat.archived.is_(True))
         .where(has_messages)
-        .order_by(Chat.updated_at.desc())
+        .order_by(Chat.updated_at.desc(), Chat.id.desc())
         .limit(limit)
     )
     return list(result.scalars().all())
@@ -170,17 +170,50 @@ async def set_title(session: AsyncSession, chat: Chat, title: str) -> Chat:
     return chat
 
 
+async def set_title_if_empty(
+    session: AsyncSession,
+    chat_id: UUID,
+    title: str,
+    *,
+    user_id: UUID | None = None,
+    commit: bool = True,
+) -> bool:
+    """Apply a generated title atomically so a concurrent rename always wins."""
+    stmt = (
+        update(Chat)
+        .where(Chat.id == chat_id, or_(Chat.title.is_(None), Chat.title == ""))
+        .values(title=title)
+        .execution_options(synchronize_session=False)
+    )
+    if user_id is not None:
+        stmt = stmt.where(Chat.user_id == user_id)
+    result = cast(CursorResult[Any], await session.execute(stmt))
+    if commit:
+        await session.commit()
+    return result.rowcount > 0
+
+
 async def set_pinned(session: AsyncSession, chat: Chat, pinned: bool) -> Chat:
-    chat.pinned = pinned
+    stmt = update(Chat).where(Chat.id == chat.id, Chat.user_id == chat.user_id)
+    if pinned:
+        stmt = stmt.where(Chat.archived.is_(False))
+    await session.execute(stmt.values(pinned=pinned).execution_options(synchronize_session=False))
     await session.commit()
     await session.refresh(chat)
     return chat
 
 
 async def set_archived(session: AsyncSession, chat: Chat, archived: bool) -> Chat:
-    chat.archived = archived
+    stmt = (
+        update(Chat)
+        .where(Chat.id == chat.id, Chat.user_id == chat.user_id)
+        .values(archived=archived)
+    )
     if archived:
-        chat.pinned = False
+        # Explicitly clear the database value even if this ORM object saw an
+        # unpinned chat before another request pinned it.
+        stmt = stmt.values(pinned=False)
+    await session.execute(stmt.execution_options(synchronize_session=False))
     await session.commit()
     await session.refresh(chat)
     return chat

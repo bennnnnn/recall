@@ -69,15 +69,10 @@ export function ChatActionsSheet({
         onPress: onExportPdf,
       });
     }
-    rows.push(
-      { key: "rename", icon: "create-outline", label: t("chat.rename"), onPress: onRename },
-      {
-        key: "pin",
-        icon: "pin-outline",
-        label: pinned ? t("chat.unpin") : t("chat.pin"),
-        onPress: onTogglePin,
-      },
-    );
+    rows.push({ key: "rename", icon: "create-outline", label: t("chat.rename"), onPress: onRename });
+    if (!archived) {
+      rows.push({ key: "pin", icon: "pin-outline", label: pinned ? t("chat.unpin") : t("chat.pin"), onPress: onTogglePin });
+    }
     if (onToggleArchive) {
       rows.push({
         key: "archive",

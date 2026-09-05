@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
+import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,7 +57,10 @@ export function ConversationList(_props: unknown) {
     hasSearchQuery,
     hasMore,
     loadingMore,
+    loadingMoreError,
     loadMore,
+    retrySearch,
+    isCurrentSearch,
     searchInputRef,
     openSearch,
     closeSearch,
@@ -110,12 +113,16 @@ export function ConversationList(_props: unknown) {
 
   const { bulkArchiveChats, bulkDeleteChats } = useChatBulkActions({
     token,
+    isDrawerOpen: isOpen,
+    patchChatInGroups,
     insertChatInGroups,
     moveChatArchiveState,
     removeChatFromGroupsById,
-    reloadChats: () => void load(),
+    reloadChats: () => void load(false, true),
     showActionBanner,
   });
+
+  const listedChats = useMemo(() => [...allChats, ...groups.archived], [allChats, groups.archived]);
 
   const {
     selectionMode,
@@ -126,8 +133,9 @@ export function ConversationList(_props: unknown) {
     toggleSelected,
     selectAllListed,
   } = useDrawerChatSelection({
+    token,
     isDrawerOpen: isOpen,
-    listedChats: allChats,
+    listedChats,
   });
 
   const { unseenCount, showIndicator } = useReminderBadgeCount({
@@ -141,6 +149,7 @@ export function ConversationList(_props: unknown) {
 
   const openChat = useCallback(
     (id: string, messageId?: string | null) => {
+      clearChatHighlightGlobal();
       closeDrawer();
       closeSearch();
       router.setParams({
@@ -149,6 +158,13 @@ export function ConversationList(_props: unknown) {
       });
     },
     [closeSearch, router],
+  );
+
+  const openSearchResult = useCallback(
+    (id: string, messageId?: string | null) => {
+      if (isCurrentSearch()) openChat(id, messageId);
+    },
+    [isCurrentSearch, openChat],
   );
 
   const newChat = useCallback(() => {
@@ -214,7 +230,7 @@ export function ConversationList(_props: unknown) {
   const activeChatId = isOpen ? getActiveChatIdGlobal() : null;
 
   const onRetryLoad = useCallback(() => {
-    void load();
+    void load(false, true);
   }, [load]);
 
   const listHeader = useMemo(
@@ -235,6 +251,7 @@ export function ConversationList(_props: unknown) {
           activeChatCount={allChats.length}
           searchOpen={searchOpen}
           onRetry={onRetryLoad}
+          onRetrySearch={retrySearch}
           hasSearchQuery={hasSearchQuery}
           searchLoading={searchLoading}
           searchError={searchError}
@@ -255,6 +272,7 @@ export function ConversationList(_props: unknown) {
       allChats.length,
       searchOpen,
       onRetryLoad,
+      retrySearch,
       hasSearchQuery,
       searchLoading,
       searchError,
@@ -312,6 +330,7 @@ export function ConversationList(_props: unknown) {
         highlightedIds={highlightedIds}
         activeChatId={activeChatId}
         onOpenChat={openChat}
+        onOpenSearchResult={openSearchResult}
         onShowRowMenu={onShowRowMenu}
         selectionMode={selectionMode}
         selectedIds={selectedIds}
@@ -325,6 +344,7 @@ export function ConversationList(_props: unknown) {
         searchResults={searchResults}
         searchHasMore={hasMore}
         searchLoadingMore={loadingMore}
+        searchLoadingMoreError={loadingMoreError}
         onSearchLoadMore={loadMore}
       />
 
@@ -364,6 +384,7 @@ export function ConversationList(_props: unknown) {
           theme={theme}
           paddingBottom={insets.bottom + 8}
           selectedCount={selectedCount}
+          archivableCount={selectedChats.filter((chat) => !chat.archived).length}
           onArchive={handleBulkArchive}
           onDelete={handleBulkDelete}
         />

@@ -5,8 +5,16 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.orm import TodoItem, User
+from app.models.orm import User
 from app.services import push_notifications as push_service
+
+
+@pytest.fixture
+def schedule_write():
+    with patch.object(
+        push_service, "update_schedule_if_current", AsyncMock(return_value=True)
+    ) as write:
+        yield write
 
 
 @pytest.mark.asyncio
@@ -602,7 +610,7 @@ async def test_run_push_cycle_sends_expo_in_production():
 
 
 @pytest.mark.asyncio
-async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok():
+async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write):
     session = AsyncMock()
     redis = AsyncMock()
     settings = Settings(
@@ -643,14 +651,14 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok():
     ):
         await push_service.run_push_cycle(session, redis, settings)
 
-    assert todo.notification_sent_at is not None
+    schedule_write.assert_awaited_once()
+    assert schedule_write.await_args.kwargs["notification_sent_at"] is not None
     session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_finalize_marks_todo_loaded_on_finalize_session():
-    """Production collect/finalize use different sessions — a detached
-    collect-session instance must not be the only write target."""
+async def test_finalize_conditionally_marks_delivered_snapshot(schedule_write):
+    """Persist the collected snapshot through the conditional repository write."""
     finalize_session = AsyncMock()
     redis = AsyncMock()
     now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
@@ -658,9 +666,6 @@ async def test_finalize_marks_todo_loaded_on_finalize_session():
     detached = MagicMock()
     detached.id = todo_id
     detached.notification_sent_at = None
-    attached = MagicMock()
-    attached.notification_sent_at = None
-    finalize_session.get = AsyncMock(return_value=attached)
 
     await push_service.finalize_push_deliveries(
         finalize_session,
@@ -675,15 +680,15 @@ async def test_finalize_marks_todo_loaded_on_finalize_session():
         now=now,
     )
 
-    finalize_session.get.assert_awaited_once()
-    assert finalize_session.get.await_args.args[1] == todo_id
-    assert attached.notification_sent_at == now
-    assert detached.notification_sent_at == now
+    schedule_write.assert_awaited_once()
+    assert schedule_write.await_args.args[1].id == todo_id
+    assert schedule_write.await_args.kwargs == {"notification_sent_at": now}
+    assert detached.notification_sent_at is None
     finalize_session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_finalize_skips_detached_write_when_session_get_misses():
+async def test_finalize_skips_when_delivered_snapshot_no_longer_matches(schedule_write):
     finalize_session = AsyncMock()
     redis = AsyncMock()
     now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
@@ -691,7 +696,7 @@ async def test_finalize_skips_detached_write_when_session_get_misses():
     detached = MagicMock()
     detached.id = todo_id
     detached.notification_sent_at = None
-    finalize_session.get = AsyncMock(return_value=None)
+    schedule_write.return_value = False
 
     await push_service.finalize_push_deliveries(
         finalize_session,
@@ -706,39 +711,25 @@ async def test_finalize_skips_detached_write_when_session_get_misses():
         now=now,
     )
 
-    finalize_session.get.assert_awaited_once()
+    schedule_write.assert_awaited_once()
     assert detached.notification_sent_at is None
     finalize_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_finalize_advances_recurring_todo_and_clears_sent():
+async def test_finalize_advances_recurring_todo_and_clears_sent(schedule_write):
     finalize_session = AsyncMock()
     redis = AsyncMock()
     now = datetime(2026, 8, 22, 12, 0, tzinfo=UTC)
     due = datetime(2026, 8, 22, 8, 0, tzinfo=UTC)
     todo_id = uuid4()
     user_id = uuid4()
-    attached = MagicMock()
-    attached.id = todo_id
-    attached.user_id = user_id
-    attached.due_at = due
-    attached.recurrence_rule = "daily"
-    attached.notification_sent_at = now
-    attached.email_sent_at = now
     user = MagicMock()
     user.timezone = "UTC"
-
-    async def session_get(model: object, ident: object) -> object:
-        if model is TodoItem:
-            return attached
-        if model is User:
-            return user
-        return None
-
-    finalize_session.get = AsyncMock(side_effect=session_get)
+    finalize_session.get = AsyncMock(return_value=user)
     detached = MagicMock()
     detached.id = todo_id
+    detached.user_id = user_id
     detached.due_at = due
     detached.recurrence_rule = "daily"
     detached.notification_sent_at = now
@@ -756,11 +747,13 @@ async def test_finalize_advances_recurring_todo_and_clears_sent():
         now=now,
     )
 
-    assert attached.due_at > due
-    assert attached.notification_sent_at is None
-    assert attached.email_sent_at is None
-    assert detached.due_at == attached.due_at
-    assert detached.notification_sent_at is None
+    finalize_session.get.assert_awaited_once_with(User, user_id)
+    schedule_write.assert_awaited_once()
+    fields = schedule_write.await_args.kwargs
+    assert fields["due_at"] > due
+    assert fields["notification_sent_at"] is None
+    assert fields["email_sent_at"] is None
+    assert detached.due_at == due
     finalize_session.commit.assert_awaited_once()
 
 
@@ -966,7 +959,7 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
 
 
 @pytest.mark.asyncio
-async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll():
+async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll(schedule_write):
     """Ticket accept marks delivery; receipt polling is deferred for token pruning only."""
     session = AsyncMock()
     redis = AsyncMock()
@@ -1013,7 +1006,8 @@ async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll():
     ):
         await push_service.run_push_cycle(session, redis, settings)
 
-    assert todo.notification_sent_at is not None
+    schedule_write.assert_awaited_once()
+    assert schedule_write.await_args.kwargs["notification_sent_at"] is not None
     enqueue_mock.assert_awaited_once()
     session.commit.assert_awaited()
 

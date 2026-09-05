@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from calendar import monthrange
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal, TypeGuard
 from zoneinfo import ZoneInfo
 
@@ -77,9 +77,26 @@ def next_recurring_due(
     """Advance *due_at* until it is strictly after *now* in the user's timezone."""
     local = _as_local(due_at, timezone)
     now_local = _as_local(now, timezone)
-    nxt = local
-    for _ in range(400):
-        if nxt > now_local:
-            return nxt.astimezone(due_at.tzinfo or _zone(timezone))
+    if local.astimezone(UTC) > now_local.astimezone(UTC):
+        return due_at
+    elapsed_days = max(0, (now_local.date() - local.date()).days)
+    if rule == "monthly":
+        months = max(0, (now_local.year - local.year) * 12 + now_local.month - local.month)
+        # Preserve existing sequential month-end clamping, including skipped
+        # Februarys, without walking every missed occurrence. Every 48-month
+        # interval includes a non-leap February (the shortest possible month).
+        day = local.day
+        for offset in range(1, min(months, 48) + 1):
+            index = local.year * 12 + local.month - 1 + offset
+            day = min(day, monthrange(index // 12, index % 12 + 1)[1])
+        index = local.year * 12 + local.month - 1 + months
+        nxt = local.replace(year=index // 12, month=index % 12 + 1, day=day)
+    else:
+        days = elapsed_days // 7 * 7 if rule == "weekly" else elapsed_days
+        nxt = local + timedelta(days=days)
+        if rule == "weekdays":
+            while nxt.weekday() >= 5:
+                nxt += timedelta(days=1)
+    if nxt.astimezone(UTC) <= now_local.astimezone(UTC):
         nxt = _step_local(nxt, rule)
     return nxt.astimezone(due_at.tzinfo or _zone(timezone))

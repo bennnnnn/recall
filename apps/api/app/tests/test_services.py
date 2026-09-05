@@ -28,6 +28,18 @@ def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_Fak
 
 
 @pytest.fixture(autouse=True)
+def _memory_persistence_gate_enabled():
+    with patch("app.repositories.memories.lock_memory_enabled", AsyncMock(return_value=True)):
+        yield
+
+
+@pytest.fixture
+def embedding_write():
+    with patch("app.repositories.memories.update_embedding_if_current", AsyncMock()) as write:
+        yield write
+
+
+@pytest.fixture(autouse=True)
 def _memory_write_lock_always_free():
     """extract_and_store_memories now acquires memwrite:{user_id} before its
     read-modify-write section (guards against a concurrent consolidation
@@ -409,7 +421,7 @@ async def test_extract_and_store_skips_when_write_lock_held():
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_reembeds_when_text_changed():
+async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
     """Stale-embedding fix: a section whose text changed must be re-embedded,
     even if it already had an embedding."""
     from app.background.memory_extraction import extract_and_store_memories
@@ -460,13 +472,19 @@ async def test_extract_and_store_reembeds_when_text_changed():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    # Phase 3 re-fetches the row by id and writes the vector — proves the
-    # embedding actually landed rather than the write silently no-op'ing.
-    assert session.get.await_count == 1
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        updated.id,
+        updated.text,
+        [0.9, 0.8],
+        "[0.9,0.8]",
+        embedding_text_hash(updated.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_reembeds_when_pgvector_missing():
+async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write):
     """A row with embedding_json present but the pgvector `embedding` column
     null must be re-embedded — the DB semantic search filters on `embedding`,
     so a null pgvector makes the memory invisible to DB-side recall even when
@@ -520,11 +538,21 @@ async def test_extract_and_store_reembeds_when_pgvector_missing():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    assert session.get.await_count == 1
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        updated.id,
+        updated.text,
+        [0.9, 0.8],
+        "[0.9,0.8]",
+        embedding_text_hash(updated.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass():
+async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass(
+    embedding_write,
+):
     """BUG FIX regression: if a prior embed attempt failed right after a text
     change, the embedding stays paired with the OLD text while the new text
     is already persisted. A later pass — where the text doesn't change again
@@ -553,19 +581,8 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
     updated.embedding_json = "[0.1,0.2]"
     updated.embedding_text_hash = "stale-hash-from-a-failed-embed"
 
-    # Phase-3 session.get(Memory, id) re-fetches the row; the fresh hash
-    # lands here, not on the phase-1 `updated` row (which is detached when
-    # phase 1 closes its session).
-    fetched = MagicMock()
-    fetched.type = "preference"
-    fetched.text = "likes TypeScript"
-    fetched.embedding = None
-    fetched.embedding_json = None
-    fetched.embedding_text_hash = None
-
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
     session, session_locals = _memory_extraction_sessions(count=3)
-    session.get = AsyncMock(return_value=fetched)
 
     with (
         patch(
@@ -592,7 +609,15 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    assert fetched.embedding_text_hash == embedding_text_hash("likes TypeScript")
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        updated.id,
+        updated.text,
+        [0.9, 0.8],
+        "[0.9,0.8]",
+        embedding_text_hash(updated.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
 
 
 @pytest.mark.asyncio
@@ -660,7 +685,7 @@ async def test_topic_service_skips_when_title_none():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.topic.chats_repo.set_title", mock_set),
+        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_set.assert_not_awaited()
@@ -668,17 +693,13 @@ async def test_topic_service_skips_when_title_none():
 
 @pytest.mark.asyncio
 async def test_topic_service_scopes_chat_by_user_id():
-    """A topic job carrying user_id must only title a chat owned by that
-    user — chats_repo.get_by_id(user_id) is used, not the unscoped
-    session.get, so a job injected with a known chat_id cannot set a
-    title on another user's chat."""
+    """The atomic title write retains the job owner's scope."""
     from app.services import topic as topic_service
 
     other_user_id = uuid4()
     chat_id = uuid4()
-    mock_set = AsyncMock()
+    mock_set = AsyncMock(return_value=False)
     session = AsyncMock()
-    session.commit = AsyncMock()
 
     with (
         patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
@@ -686,35 +707,24 @@ async def test_topic_service_scopes_chat_by_user_id():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Fresh title"),
         ),
-        patch(
-            "app.services.topic.chats_repo.get_by_id", AsyncMock(return_value=None)
-        ) as scoped_get,
-        patch("app.services.topic.chats_repo.set_title", mock_set),
+        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(
             Settings(), chat_id, "hi", "hello", user_id=other_user_id
         )
 
-    # Scoped lookup used the (chat_id, user_id) pair — chat not owned by that
-    # user returns None, so no title is set.
-    scoped_get.assert_awaited_once()
-    assert scoped_get.await_args.args[1] == chat_id
-    assert scoped_get.await_args.args[2] == other_user_id
-    mock_set.assert_not_awaited()
+    mock_set.assert_awaited_once_with(
+        session, chat_id, "Fresh title", user_id=other_user_id, commit=False
+    )
     session.get.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_topic_service_saves_when_title_returned():
-    from app.models.orm import Chat
     from app.services import topic as topic_service
 
-    mock_set = AsyncMock()
-    chat = MagicMock(spec=Chat)
-    chat.title = None
+    mock_set = AsyncMock(return_value=True)
     session = AsyncMock()
-    session.commit = AsyncMock()
-    session.get = AsyncMock(return_value=chat)
 
     with (
         patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
@@ -722,10 +732,12 @@ async def test_topic_service_saves_when_title_returned():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Cool chat title"),
         ),
-        patch("app.services.topic.chats_repo.set_title", mock_set),
+        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_set.assert_awaited_once()
+    assert mock_set.await_args.kwargs == {"user_id": None, "commit": False}
+    session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -738,7 +750,7 @@ async def test_topic_service_rejects_boring_title():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="New chat"),
         ),
-        patch("app.services.topic.chats_repo.set_title", mock_set),
+        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_set.assert_not_awaited()
@@ -758,15 +770,10 @@ async def test_topic_service_skips_empty_messages():
 
 @pytest.mark.asyncio
 async def test_topic_service_skips_when_chat_already_titled():
-    from app.models.orm import Chat
     from app.services import topic as topic_service
 
-    mock_set = AsyncMock()
-    chat = MagicMock(spec=Chat)
-    chat.title = "Existing title"
+    mock_set = AsyncMock(return_value=False)
     session = AsyncMock()
-    session.commit = AsyncMock()
-    session.get = AsyncMock(return_value=chat)
 
     with (
         patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
@@ -774,11 +781,14 @@ async def test_topic_service_skips_when_chat_already_titled():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Fresh title"),
         ) as mock_gen,
-        patch("app.services.topic.chats_repo.set_title", mock_set),
+        patch("app.services.topic.chats_repo.set_title_if_empty", mock_set),
+        patch("app.services.topic._release_topic_dedupe", AsyncMock()) as release,
     ):
-        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
+        chat_id = uuid4()
+        await topic_service.generate_chat_title(Settings(), chat_id, "hi", "hello")
     mock_gen.assert_awaited_once()
-    mock_set.assert_not_awaited()
+    mock_set.assert_awaited_once()
+    release.assert_awaited_once_with(chat_id)
 
 
 @pytest.mark.asyncio
@@ -814,8 +824,7 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(side_effect=fake_generate),
         ),
-        patch("app.services.topic.chats_repo.set_title", AsyncMock()),
-        patch.object(session, "get", AsyncMock(return_value=MagicMock(title=None))),
+        patch("app.services.topic.chats_repo.set_title_if_empty", AsyncMock()),
     ):
         await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
 

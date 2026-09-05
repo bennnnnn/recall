@@ -8,6 +8,7 @@ receipt emails stay on the Redis jobs stream and are not gated by
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from redis.asyncio import Redis
@@ -16,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
+from app.repositories.todo_email import TodoEmailSnapshot, mark_email_sent_if_current
 from app.services.learning import nudges as learning_nudges
 from app.services.notifications import transactional_email as tx_email
 from app.services.reminder_timing import (
@@ -29,6 +31,15 @@ from app.services.reminder_timing import (
 logger = logging.getLogger(__name__)
 
 LEARNING_EMAIL_REDIS_PREFIX = "recall:email:learning"
+
+
+@dataclass(frozen=True)
+class _TodoEmailDelivery:
+    occurrence: TodoEmailSnapshot
+    email: str
+    name: str | None
+    locale: str
+    title: str
 
 
 async def process_todo_reminder_emails(
@@ -48,6 +59,7 @@ async def process_todo_reminder_emails(
             TodoItem.checked.is_(False),
             TodoItem.due_at.isnot(None),
             TodoItem.email_sent_at.is_(None),
+            TodoItem.recurrence_rule.is_(None),
             User.email_reminders_enabled.is_(True),
             (
                 (TodoItem.due_at <= window_end)
@@ -55,43 +67,49 @@ async def process_todo_reminder_emails(
             ),
         )
     )
-    rows = list(result.all())
-    if not rows:
-        return 0
-
-    sent = 0
-    for todo, user in rows:
+    deliveries: list[_TodoEmailDelivery] = []
+    for todo, user in result.all():
         if todo.due_at is None or not user.email:
             continue
-        # BUG FIX (was cycle-fatal): this loop used to have no per-todo
-        # isolation, unlike its push-notification sibling in
-        # push_notifications.py (see that file's matching comment) — one bad
-        # row raised out of the loop, aborted the whole function, and since
-        # run_email_reminder_cycle calls this before
-        # process_learning_nudge_emails, silently skipped learning-nudge
-        # emails for the cycle too. Isolate and skip just this row.
         try:
             lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
             if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
                 continue
-            is_overdue = todo.due_at < now
-            title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
+            deliveries.append(
+                _TodoEmailDelivery(
+                    occurrence=TodoEmailSnapshot.from_todo(todo),
+                    email=user.email,
+                    name=user.name,
+                    locale=user.locale,
+                    title=reminder_title(is_overdue=todo.due_at < now, locale=user.locale),
+                )
+            )
+        except Exception:
+            logger.exception("Todo reminder email preparation failed todo_id=%s", todo.id)
+
+    # This worker owns its session. Release the read transaction before provider IO;
+    # copy every delivery first because rollback expires ORM rows, including users.
+    await session.rollback()
+    sent = 0
+    for delivery in deliveries:
+        occurrence = delivery.occurrence
+        try:
+            recipient = User(
+                id=occurrence.user_id,
+                email=delivery.email,
+                name=delivery.name,
+                locale=delivery.locale,
+            )
             ok = await tx_email.send_todo_reminder(
-                settings, user, title=title, content=todo.content
+                settings, recipient, title=delivery.title, content=occurrence.content
             )
             if ok:
-                # BUG FIX (was silent): email_sent_at used to only be
-                # committed once, in a single batch after the whole loop —
-                # a crash or exception partway through left every
-                # already-sent email's email_sent_at unpersisted, so the
-                # next cycle would resend them. Commit immediately after
-                # each successful send instead (a real email cannot be
-                # "un-sent", unlike a push notification).
-                todo.email_sent_at = now
+                await mark_email_sent_if_current(session, occurrence, now)
                 await session.commit()
                 sent += 1
         except Exception:
-            logger.exception("Todo reminder email failed todo_id=%s", todo.id)
+            await session.rollback()
+            logger.exception("Todo reminder email failed todo_id=%s", occurrence.id)
             continue
 
     return sent

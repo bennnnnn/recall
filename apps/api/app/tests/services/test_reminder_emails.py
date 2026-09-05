@@ -5,7 +5,16 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.repositories.todo_email import TodoEmailSnapshot
 from app.services import reminder_emails
+
+
+@pytest.fixture
+def email_write():
+    with patch.object(
+        reminder_emails, "mark_email_sent_if_current", AsyncMock(return_value=True)
+    ) as write:
+        yield write
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -35,11 +44,12 @@ def _todo(*, due_at: datetime, user_id=None) -> MagicMock:
     todo.due_at = due_at
     todo.checked = False
     todo.email_sent_at = None
+    todo.recurrence_rule = None
     return todo
 
 
 @pytest.mark.asyncio
-async def test_process_todo_reminder_emails_sends_and_marks():
+async def test_process_todo_reminder_emails_sends_and_marks(email_write):
     now = datetime.now(UTC)
     user = _user()
     todo = _todo(due_at=now + timedelta(minutes=5), user_id=user.id)
@@ -56,13 +66,13 @@ async def test_process_todo_reminder_emails_sends_and_marks():
         count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
 
     assert count == 1
-    assert todo.email_sent_at == now
+    email_write.assert_awaited_once_with(session, TodoEmailSnapshot.from_todo(todo), now)
     send.assert_awaited_once()
     session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_process_todo_reminder_emails_isolates_one_todo_failure():
+async def test_process_todo_reminder_emails_isolates_one_todo_failure(email_write):
     """BUG FIX (was cycle-fatal): one bad row must not prevent other users'
     todo reminder emails from being sent in the same cycle."""
     now = datetime.now(UTC)
@@ -95,13 +105,15 @@ async def test_process_todo_reminder_emails_isolates_one_todo_failure():
         count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
 
     assert count == 2
-    assert good_todo_1.email_sent_at == now
-    assert good_todo_2.email_sent_at == now
-    assert bad_todo.email_sent_at is None
+    assert [call.args[1].id for call in email_write.await_args_list] == [
+        good_todo_1.id,
+        good_todo_2.id,
+    ]
+    assert session.rollback.await_count == 2
 
 
 @pytest.mark.asyncio
-async def test_process_todo_reminder_emails_localizes_title():
+async def test_process_todo_reminder_emails_localizes_title(email_write):
     now = datetime.now(UTC)
     user = _user()
     user.locale = "es"

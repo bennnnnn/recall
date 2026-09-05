@@ -4,7 +4,6 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.models.orm import Chat
 from app.repositories import chats as chats_repo
 from app.services import chat_titles
 from app.services.chat_titles import normalize_chat_title
@@ -25,10 +24,10 @@ async def generate_chat_title(
         return
     if user_id is None:
         # Backward-compat: older in-flight job payloads may omit user_id.
-        # Fall back to the unscoped lookup rather than dropping the title,
+        # Fall back to an unscoped update rather than dropping the title,
         # but log so the missing scope is visible.
         logger.warning(
-            "Topic job missing user_id; falling back to unscoped chat lookup chat_id=%s",
+            "Topic job missing user_id; falling back to unscoped title update chat_id=%s",
             chat_id,
         )
     try:
@@ -42,18 +41,10 @@ async def generate_chat_title(
             # retry (e.g. list_messages backfill) can try again.
             await _release_topic_dedupe(chat_id)
             return
-        applied = False
         async with SessionLocal() as session:
-            if user_id is not None:
-                chat = await chats_repo.get_by_id(session, chat_id, user_id)
-                if chat and not chat.title:
-                    await chats_repo.set_title(session, chat, title)
-                    applied = True
-            else:
-                chat = await session.get(Chat, chat_id)
-                if chat and not chat.title:
-                    await chats_repo.set_title(session, chat, title)
-                    applied = True
+            applied = await chats_repo.set_title_if_empty(
+                session, chat_id, title, user_id=user_id, commit=False
+            )
             await session.commit()
         if not applied:
             # Chat already had a title (user renamed or a prior job won the

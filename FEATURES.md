@@ -45,6 +45,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   messages).
 - ✅ **Search** — full-text search across chats and messages via the drawer search bar
   (backend `/search` with debounce + pagination).
+- ✅ **Search reliability review (2026-09-04)** — account/query changes immediately
+  invalidate old results and requests; first-page and pagination failures offer Retry.
+  Results use stable ordering and a consistent page/count database snapshot, and opening
+  a message cancels obsolete navigation work. See [review and release checks](docs/SEARCH_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
@@ -78,6 +82,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
   **Delete** (with confirm).
+- ✅ **Chat management reliability review (2026-09-04)** — manual titles survive delayed
+  generation; pin/archive updates are atomic; drawer and header changes stay in sync.
+  Bulk partial failures preserve successful actions, and stale reads cannot restore
+  deleted chats. Saved history and title polling respect navigation and account changes.
+  See [review and release checks](docs/CHAT_MANAGEMENT_REVIEW_2026-09-04.md).
+- 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
@@ -272,6 +282,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   single fact rewrites that section rather than removing a separate row per bullet.
   `PATCH /memories/{id}` updates text, re-embeds, and invalidates caches.
 - ✅ **Memory toggle** — turn learning on/off in Settings.
+- ✅ **Memory management reliability review (2026-09-04)** — account and navigation
+  changes invalidate old dialogs, reads, and feedback; independent section edits compose,
+  and pending writes remain exclusive across screen visits. Failed refreshes retain saved
+  rows with Retry. Manual changes clear stale embeddings and invalidate derived caches;
+  delayed background writes cannot overwrite changed/deleted sections and recheck the
+  learning toggle before saving. See [review and release checks](docs/MEMORY_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
@@ -429,6 +445,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   or a failure line — it does not promise a change that has not happened. Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
+- ✅ **Schedule reliability review (2026-09-04)** — normal reminder saves use the
+  accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
+  list reads and row mutations, Android date-then-time selection, serialized local
+  notifications, and conditional server recurrence/delivery writes protect reminder state.
+  Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
+  existing reminders. Recurring reminders are excluded from email; one-shot email
+  finalization cannot mark a concurrently edited occurrence as delivered.
+  See [review and release checks](docs/SCHEDULE_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.

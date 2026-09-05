@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.models.orm import Memory
 from app.repositories import memories as memories_repo
 from app.services.memory.text import embedding_text_hash
 
@@ -26,6 +25,7 @@ async def apply_memory_section_rows(
     rows: list[tuple[str, str, float, UUID | None]],
     session_factory: MemorySessionFactory = SessionLocal,
     memories: Any = memories_repo,
+    expected_sections: dict[str, tuple[UUID, str]] | None = None,
 ) -> None:
     """Upsert section text, (re)embed stale rows, then invalidate caches.
 
@@ -50,11 +50,16 @@ async def apply_memory_section_rows(
     embed_needed: list[tuple[UUID, str]] = []
     async with session_factory() as session:
         try:
+            if expected_sections is not None and not await memories.lock_memory_enabled(
+                session, user_id
+            ):
+                return
             await memories.upsert_sections(
                 session,
                 user_id=user_id,
                 items=rows,
                 commit=False,
+                expected_sections=expected_sections,
             )
             updated = await memories.list_for_user(session, user_id)
             for memory in updated:
@@ -84,12 +89,13 @@ async def apply_memory_section_rows(
     vectors = await asyncio.gather(
         *(embedding_gateway.embed_text(settings, text) for _, text in embed_needed)
     )
-    to_write: list[tuple[UUID, list[float], str, str]] = []
+    to_write: list[tuple[UUID, str, list[float], str, str]] = []
     for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
         if vec:
             to_write.append(
                 (
                     memory_id,
+                    text,
                     vec,
                     embedding_gateway.serialize_embedding(vec),
                     embedding_text_hash(text),
@@ -100,13 +106,10 @@ async def apply_memory_section_rows(
     if to_write:
         async with session_factory() as session:
             try:
-                for memory_id, vec, vec_json, text_hash in to_write:
-                    row = await session.get(Memory, memory_id)
-                    if row is None:
-                        continue
-                    row.embedding = vec
-                    row.embedding_json = vec_json
-                    row.embedding_text_hash = text_hash
+                for memory_id, text, vec, vec_json, text_hash in to_write:
+                    await memories.update_embedding_if_current(
+                        session, user_id, memory_id, text, vec, vec_json, text_hash, commit=False
+                    )
                 await session.commit()
             except Exception:
                 await session.rollback()

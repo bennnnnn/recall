@@ -5,7 +5,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { type IoniconName } from "@/lib/icons";
 
-import { api, type Message } from "@/lib/api";
+import { api, type Chat, type Message } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/client";
+import { getSessionGeneration } from "@/lib/auth";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import {
   shouldForceForegroundChatRecovery,
@@ -15,6 +17,7 @@ import {
 } from "@/lib/chat/chatForegroundRefetch";
 import {
   cachedChatPageFetchedAt,
+  clearCachedChatMessages,
   readCachedChatMessages,
   writeCachedChatMessages,
 } from "@/lib/chatMessageCache";
@@ -28,6 +31,7 @@ import {
   shouldProbePreviousChat,
 } from "@/lib/chatDraftLogic";
 import { shouldInsertDrawerRowOnLeave } from "@/lib/chatTitleRefresh";
+import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
 import type { QuizVariant } from "@/lib/quizVariant";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/hooks/useChatHighlightScroll";
@@ -109,10 +113,30 @@ export function useChatRouteLoader({
   const [chatLoading, setChatLoading] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const viewRef = useRef({ token, routeChatId, version: 0 });
-  if (viewRef.current.token !== token || viewRef.current.routeChatId !== routeChatId) {
-    viewRef.current = { token, routeChatId, version: viewRef.current.version + 1 };
+  const session = getSessionGeneration();
+  const signedIn = Boolean(token);
+  const viewRef = useRef({ session, routeChatId, version: 0 });
+  if (viewRef.current.session !== session || viewRef.current.routeChatId !== routeChatId) {
+    viewRef.current = { session, routeChatId, version: viewRef.current.version + 1 };
   }
+  const viewVersion = viewRef.current.version;
+  const activeChatRef = useRef(chatId);
+  activeChatRef.current = chatId;
+  useEffect(() => subscribeChatChanges((id, patch) => {
+    if (session !== getSessionGeneration() || id !== activeChatRef.current || !patch) return;
+    if (patch.title !== undefined) setChatTitle(patch.title);
+    if (patch.pinned !== undefined) setPinned(patch.pinned);
+    if (patch.archived !== undefined) setArchived(Boolean(patch.archived));
+  }), [session]);
+
+  const applyMetadata = useCallback((chat: Chat | undefined) => {
+    if (!chat) return;
+    setChatTitle(chat.title);
+    setPinned(chat.pinned);
+    setArchived(Boolean(chat.archived));
+    draftProjectIdRef.current = chat.project_id ?? null;
+    setQuizVariant(resolveQuizVariant(chat.project_id));
+  }, [draftProjectIdRef, setQuizVariant, resolveQuizVariant]);
   const olderRequestRef = useRef<object | null>(null);
   useEffect(() => () => {
     viewRef.current.version += 1;
@@ -141,13 +165,70 @@ export function useChatRouteLoader({
     [imageGeneratingRef],
   );
 
+  const leaveOpenChat = useCallback(
+    (opts?: { force?: boolean }) => {
+      // Stop only when the open chat is being deleted. New chat / Home launch
+      // must leave the in-flight reply running so it can finish in the background.
+      if (opts?.force && turnBusy()) stopGeneration();
+      const leavingMessages = messagesRef.current;
+      if (!opts?.force && shouldInsertDrawerRowOnLeave(leavingMessages)) {
+        void handleFirstReply();
+      }
+      if (
+        shouldDiscardOnNewChat(routeChatId) &&
+        shouldProbeEmptyChat(chatHasThreadContent(leavingMessages))
+      ) {
+        discardEmptyChat(chatId);
+      }
+      clearDraftChat();
+    },
+    [
+      stopGeneration,
+      turnBusy,
+      handleFirstReply,
+      routeChatId,
+      discardEmptyChat,
+      chatId,
+      clearDraftChat,
+    ],
+  );
+
+  const startNewChat = useCallback(
+    (_opts?: { force?: boolean }) => {
+      viewRef.current.version++;
+      olderRequestRef.current = null;
+      leaveOpenChat(_opts);
+      setChatId(null);
+      setChatTitle(null);
+      setPinned(false);
+      setArchived(false);
+      setMessages([]);
+      setHasMoreOlder(false);
+      setLoadingOlder(false);
+      setChatLoading(false);
+      if (routeChatId != null) {
+        router.setParams({ chatId: undefined });
+      }
+    },
+    [
+      leaveOpenChat,
+      routeChatId,
+      router,
+      setMessages,
+      setChatId,
+    ],
+  );
+
+
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean, opts?: { force?: boolean }) => {
-      if (!token) return;
-      const version = viewRef.current.version;
+      if (!token || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
+          openChatId !== activeChatRef.current) return;
+      const version = viewVersion;
+      const ownerSession = getSessionGeneration();
       const previousMessages = messagesRef.current;
       const stale = () =>
-        cancelled() || version !== viewRef.current.version ||
+        cancelled() || ownerSession !== getSessionGeneration() || version !== viewRef.current.version ||
         turnBusy() || messagesRef.current !== previousMessages;
       if (
         shouldSkipSilentChatRefetch({
@@ -173,17 +254,14 @@ export function useChatRouteLoader({
       }
       try {
         const listed = getCachedChat(openChatId);
+        const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
           listed ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
         if (stale()) return;
         setChatId(chat.id);
-        setChatTitle(chat.title);
-        setPinned(chat.pinned);
-        setArchived(Boolean(chat.archived));
-        draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
-        setQuizVariant(resolveQuizVariant(chat.project_id));
+        applyMetadata(revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId));
         setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
         lastSilentFetchAtRef.current.set(openChatId, Date.now());
@@ -192,12 +270,13 @@ export function useChatRouteLoader({
         /* keep existing messages on silent refetch failure */
       }
     },
-    [token, setChatId, setMessages, draftProjectIdRef, setQuizVariant, resolveQuizVariant, turnBusy],
+    [token, session, viewVersion, setChatId, setMessages, applyMetadata, turnBusy],
   );
 
   useEffect(() => {
     let cancelled = false;
     const onAppState = (state: AppStateStatus) => {
+      if (session !== getSessionGeneration()) return;
       if (state === "background" || state === "inactive") {
         if (streamingRef.current || Boolean(imageGeneratingRef?.current)) {
           wasStreamingWhenBackgroundedRef.current = true;
@@ -250,6 +329,7 @@ export function useChatRouteLoader({
     clearDraftChat,
     draftChatIdRef,
     silentRefetchChat,
+    session,
     imageGeneratingRef,
   ]);
 
@@ -282,6 +362,8 @@ export function useChatRouteLoader({
     priorRouteChatIdRef.current = openChatId;
 
     let cancelled = false;
+    const version = viewRef.current.version;
+    const isCurrent = () => !cancelled && session === getSessionGeneration() && version === viewRef.current.version;
     (async () => {
       if (!openChatId) {
         setChatLoading(false);
@@ -313,51 +395,50 @@ export function useChatRouteLoader({
       setArchived(false);
       try {
         const cached = await readCachedChatMessages(openChatId);
-        if (cancelled) return;
+        if (!isCurrent()) return;
         const listed = getCachedChat(openChatId);
         if (cached) {
           setChatId(openChatId);
           setMessages((prev) => mergeLocalAttachmentUris(prev, cached.messages));
           setHasMoreOlder(cached.has_more);
           if (listed) {
-            setChatTitle(listed.title);
-            setPinned(listed.pinned);
-            setArchived(Boolean(listed.archived));
-            draftProjectIdRef.current = listed.project_id ?? draftProjectIdRef.current;
-            setQuizVariant(resolveQuizVariant(listed.project_id));
+            applyMetadata(listed);
           }
         }
+        const revision = getChatMutationRevision(openChatId);
         const [chat, page] = await Promise.all([
           listed ?? api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
         ]);
-        if (cancelled) return;
+        if (!isCurrent()) return;
         setChatId(chat.id);
-        setChatTitle(chat.title);
-        setPinned(chat.pinned);
-        setArchived(Boolean(chat.archived));
-        draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
-        setQuizVariant(resolveQuizVariant(chat.project_id));
+        const currentChat = revision === getChatMutationRevision(openChatId) ? chat : getCachedChat(openChatId);
+        applyMetadata(currentChat);
         setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
         lastSilentFetchAtRef.current.set(openChatId, Date.now());
         void writeCachedChatMessages(openChatId, page.messages, page.has_more);
-        if (!chat.title && page.messages.length > 0) {
+        if (currentChat && !currentChat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
         }
-      } catch {
-        if (!cancelled) {
+      } catch (error) {
+        if (isCurrent()) {
+          if (error instanceof ApiRequestError && error.status === 404) {
+            removeChatGlobal(openChatId);
+            void clearCachedChatMessages(openChatId);
+            startNewChat({ force: true });
+          }
           showActionBanner(t("common.error"), "alert-circle-outline");
         }
       } finally {
-        if (!cancelled) setChatLoading(false);
+        if (isCurrent()) setChatLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, routeChatId]);
+  }, [signedIn, session, routeChatId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -379,7 +460,8 @@ export function useChatRouteLoader({
 
   const loadOlderMessages = useCallback(async () => {
     if (
-      !token || !chatId || chatLoading || olderRequestRef.current ||
+      !token || !chatId || session !== getSessionGeneration() || viewVersion !== viewRef.current.version ||
+      chatId !== activeChatRef.current || chatLoading || olderRequestRef.current ||
       !hasMoreOlder || messages.length === 0
     ) return;
     const oldest = messages[0];
@@ -389,8 +471,9 @@ export function useChatRouteLoader({
 
     const request = {};
     const version = viewRef.current.version;
+    const ownerSession = getSessionGeneration();
     const isCurrent = () =>
-      version === viewRef.current.version && olderRequestRef.current === request;
+      ownerSession === getSessionGeneration() && version === viewRef.current.version && olderRequestRef.current === request;
     olderRequestRef.current = request;
     setLoadingOlder(true);
     try {
@@ -400,7 +483,7 @@ export function useChatRouteLoader({
       });
       if (!isCurrent()) return;
       setMessages((prev) => {
-        if (version !== viewRef.current.version) return prev;
+        if (ownerSession !== getSessionGeneration() || version !== viewRef.current.version) return prev;
         const knownIds = new Set(prev.map((message) => message.id));
         return [...page.messages.filter((message) => !knownIds.has(message.id)), ...prev];
       });
@@ -413,9 +496,11 @@ export function useChatRouteLoader({
         setLoadingOlder(false);
       }
     }
-  }, [token, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
+  }, [token, session, viewVersion, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
 
   const { highlightedMessageId } = useChatHighlightScroll({
+    chatLoading,
+    routeChatId,
     routeHighlightMessage,
     router,
     messages,
@@ -427,55 +512,6 @@ export function useChatRouteLoader({
     listRef,
   });
 
-  const leaveOpenChat = useCallback(
-    (opts?: { force?: boolean }) => {
-      // Stop only when the open chat is being deleted. New chat / Home launch
-      // must leave the in-flight reply running so it can finish in the background.
-      if (opts?.force && turnBusy()) stopGeneration();
-      const leavingMessages = messagesRef.current;
-      if (shouldInsertDrawerRowOnLeave(leavingMessages)) {
-        void handleFirstReply();
-      }
-      if (
-        shouldDiscardOnNewChat(routeChatId) &&
-        shouldProbeEmptyChat(chatHasThreadContent(leavingMessages))
-      ) {
-        discardEmptyChat(chatId);
-      }
-      clearDraftChat();
-    },
-    [
-      stopGeneration,
-      turnBusy,
-      handleFirstReply,
-      routeChatId,
-      discardEmptyChat,
-      chatId,
-      clearDraftChat,
-    ],
-  );
-
-  const startNewChat = useCallback(
-    (_opts?: { force?: boolean }) => {
-      leaveOpenChat(_opts);
-      setChatId(null);
-      setChatTitle(null);
-      setPinned(false);
-      setArchived(false);
-      setMessages([]);
-      setHasMoreOlder(false);
-      if (routeChatId != null) {
-        router.setParams({ chatId: undefined });
-      }
-    },
-    [
-      leaveOpenChat,
-      routeChatId,
-      router,
-      setMessages,
-      setChatId,
-    ],
-  );
 
   return {
     chatTitle,
