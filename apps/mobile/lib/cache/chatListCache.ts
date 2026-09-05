@@ -1,60 +1,84 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
+import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { clearKnownAssistantChats } from "@/lib/chatDraftLogic";
-import { allChatsFromGroups } from "@/lib/chat/chatListSections";
-import { StaleResourceCache } from "@/lib/cache/staleResource";
+import { allChatsFromGroups, emptyChatList } from "@/lib/chat/chatListSections";
 import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
 
-const CHAT_LIST_KEY = "chat-list";
-const resource = new StaleResourceCache<string, ChatList>(CHAT_LIST_STALE_MS);
+type ListUpdate = (groups: ChatList) => ChatList;
+type CacheState = {
+  session: number;
+  data?: ChatList;
+  fetchedAt?: number;
+  pending?: { task: Promise<ChatList | null>; updates: ListUpdate[] };
+  createdChat?: Chat;
+  skipCreatedSuggestions: boolean;
+};
+function newCache(): CacheState {
+  return { session: getSessionGeneration(), skipCreatedSuggestions: false };
+}
+let cache: CacheState = { session: -1, skipCreatedSuggestions: false };
+function currentCache(): CacheState {
+  if (cache.session !== getSessionGeneration()) cache = newCache();
+  return cache;
+}
 
 /** POST /chats body — first reply inserts the drawer row without GET /chats/{id}. */
-let createdChat: Chat | undefined;
-/** First post-turn chips GET is leftover — the suggestions job has not run yet. */
-let skipCreatedSuggestions = false;
-
 export function rememberCreatedChat(chat: Chat): void {
-  createdChat = chat;
-  skipCreatedSuggestions = true;
+  const state = currentCache();
+  state.createdChat = chat;
+  state.skipCreatedSuggestions = true;
 }
 
 export function peekCreatedChat(id: string): Chat | undefined {
-  return createdChat?.id === id ? createdChat : undefined;
+  const chat = currentCache().createdChat;
+  return chat?.id === id ? chat : undefined;
 }
 
 /** True once after Home create, so the first stream-end does not GET /suggestions. */
 export function consumeCreatedSuggestionSkip(id: string): boolean {
-  if (createdChat?.id !== id || !skipCreatedSuggestions) return false;
-  skipCreatedSuggestions = false;
+  const state = currentCache();
+  if (state.createdChat?.id !== id || !state.skipCreatedSuggestions) return false;
+  state.skipCreatedSuggestions = false;
   return true;
 }
 
 export function getCachedChatList(): ChatList | undefined {
-  return resource.get(CHAT_LIST_KEY);
+  return currentCache().data;
 }
 
 /** Drawer row already has title / pin / class id — skip GET /chats/{id}. */
 export function getCachedChat(id: string): Chat | undefined {
   const list = getCachedChatList();
-  if (!list) return undefined;
-  return allChatsFromGroups(list).find((chat) => chat.id === id);
+  return list ? allChatsFromGroups(list).find((chat) => chat.id === id) : undefined;
 }
 
 export function getChatListFetchedAt(): number | undefined {
-  return resource.getFetchedAt(CHAT_LIST_KEY);
+  return currentCache().fetchedAt;
 }
 
 export function isChatListFresh(): boolean {
-  return resource.isFresh(CHAT_LIST_KEY);
+  const state = currentCache();
+  return state.data != null && state.fetchedAt != null && Date.now() - state.fetchedAt < CHAT_LIST_STALE_MS;
 }
 
 export function setChatListCache(data: ChatList): void {
-  resource.set(CHAT_LIST_KEY, data);
+  const state = currentCache();
+  state.data = data;
+  state.fetchedAt = Date.now();
+  state.pending?.updates.push(() => data);
+}
+
+/** Replay edits over an already-running read so it cannot restore a deleted/old row. */
+export function updateChatListCache(update: ListUpdate): ChatList {
+  const state = currentCache();
+  state.data = update(state.data ?? emptyChatList());
+  state.pending?.updates.push(update);
+  return state.data;
 }
 
 export function invalidateChatListCache(): void {
-  resource.invalidate(CHAT_LIST_KEY);
-  createdChat = undefined;
-  skipCreatedSuggestions = false;
+  // Replacing ownership fences reads already in flight, including prefetches.
+  cache = newCache();
   clearKnownAssistantChats();
 }
 
@@ -62,33 +86,31 @@ export async function fetchChatList(
   token: string,
   opts?: { force?: boolean },
 ): Promise<ChatList | null> {
-  try {
-    return await resource.fetch(
-      CHAT_LIST_KEY,
-      async () => {
+  try { requireTokenSession(token); } catch { return null; }
+  const state = currentCache();
+  if (!opts?.force && isChatListFresh()) return state.data!;
+  if (state.pending) return state.pending.task;
+  const updates: ListUpdate[] = [];
+  const task = (async () => {
+    try {
       const data = await api.listChats(token);
-      const normalized: ChatList = {
-        pinned: data.pinned,
-        today: data.today,
-        yesterday: data.yesterday,
-        last_7_days: data.last_7_days,
-        this_month: data.this_month,
-        older: data.older,
-        archived: data.archived ?? [],
-      };
-      return normalized;
-      },
-      opts,
-    );
-  } catch {
-    return null;
-  }
+      if (currentCache() !== state) return null;
+      state.data = updates.reduce((groups, update) => update(groups), {
+        ...data, archived: data.archived ?? [],
+      });
+      state.fetchedAt = Date.now();
+      return state.data;
+    } catch {
+      return null;
+    }
+  })();
+  const pending = { task, updates };
+  state.pending = pending;
+  try { return await task; }
+  finally { if (state.pending === pending) state.pending = undefined; }
 }
 
 /** Warm GET /chats so the drawer can paint titles without a spinner. */
 export function prefetchChatList(token: string): void {
-  resource.prefetch(CHAT_LIST_KEY, async () => {
-    const data = await api.listChats(token);
-    return { ...data, archived: data.archived ?? [] };
-  });
+  void fetchChatList(token);
 }

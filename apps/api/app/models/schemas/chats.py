@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.core.validation import normalize_chat_title, validate_user_alias
+from app.core.validation import normalize_stored_chat_title, validate_user_alias
 from app.models.schemas.common import MessageFeedback, MessageRole, QuizMode
 
 
@@ -67,7 +67,7 @@ class ChatOut(BaseModel):
 
     @model_validator(mode="after")
     def sanitize_title(self) -> Self:
-        self.title = normalize_chat_title(self.title)
+        self.title = normalize_stored_chat_title(self.title)
         return self
 
 
@@ -152,7 +152,7 @@ class SearchResultItem(BaseModel):
 
     @model_validator(mode="after")
     def sanitize_chat_title(self) -> Self:
-        self.chat_title = normalize_chat_title(self.chat_title)
+        self.chat_title = normalize_stored_chat_title(self.chat_title)
         return self
 
 

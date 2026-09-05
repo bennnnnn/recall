@@ -103,14 +103,14 @@ async def test_set_title(fake_session):
 
 @pytest.mark.asyncio
 async def test_set_pinned(fake_session):
-    """set_pinned should update pinned flag, commit, and refresh."""
+    """set_pinned commits and refreshes the returned database state."""
     from app.repositories.chats import set_pinned
 
     mock_chat = MagicMock()
 
     _ = await set_pinned(fake_session, mock_chat, True)
 
-    assert mock_chat.pinned is True
+    fake_session.execute.assert_awaited_once()
     fake_session.commit.assert_awaited_once()
     fake_session.refresh.assert_awaited_once()
 

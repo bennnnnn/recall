@@ -86,6 +86,13 @@ describe("firstReplyTitlePlan", () => {
     });
   });
 
+  it("prefers a manual rename over the original untitled POST response", () => {
+    const listed = chat("new", "Chat");
+    expect(firstReplyTitlePlan(chat("new", null), listed)).toEqual({
+      insert: listed, fetch: false, poll: false,
+    });
+  });
+
   it("still polls when the stored title is Untitled", () => {
     const created = chat("new", "Untitled");
     expect(firstReplyTitlePlan(created, undefined)).toEqual({

@@ -78,6 +78,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
   **Delete** (with confirm).
+- ✅ **Chat management reliability review (2026-09-04)** — manual titles survive delayed
+  generation; pin/archive updates are atomic; drawer and header changes stay in sync.
+  Bulk partial failures preserve successful actions, and stale reads cannot restore
+  deleted chats. Saved history and title polling respect navigation and account changes.
+  See [review and release checks](docs/CHAT_MANAGEMENT_REVIEW_2026-09-04.md).
+- 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
+- 🔜 Search reliability review: clear result state across accounts and fence delayed
+  query/pagination responses by request identity.
 - 🔜 Folders.
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
