@@ -1,0 +1,22 @@
+{
+  "name": "Recall",
+  "user": "ubuntu",
+  "install": "bash scripts/cloud-agent-install.sh",
+  "start": "bash scripts/cloud-agent-start.sh",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "export PATH=\"$HOME/.local/bin:$PATH\"; cd apps/api && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000",
+      "description": "FastAPI backend (HTTP + WebSocket) on :8000. Dev auth + mock LLM are on, so no external API keys are required."
+    },
+    {
+      "name": "web",
+      "command": "cd apps/web && corepack pnpm dev --host",
+      "description": "Vite web client on :5173. Sign in with 'Continue (dev)' and chat against the mock LLM."
+    }
+  ],
+  "ports": [
+    { "name": "api", "port": 8000 },
+    { "name": "web", "port": 5173 }
+  ]
+}
