@@ -114,6 +114,7 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
       newly_mastered: true,
     } as Awaited<ReturnType<typeof api.recordProjectPractice>>);
   const screen = await render(<LessonPlay />);
+  expect(screen.queryByRole("header", { name: "dormir" })).toBeNull();
   expect(screen.getByText("Me despierto a las siete.")).toBeOnTheScreen();
   expect(screen.getByText("Ana se despierta temprano.")).toBeOnTheScreen();
   expect(record).not.toHaveBeenCalled();
@@ -129,4 +130,39 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   await fireEvent.press(screen.getByText("Back to lesson map"));
   expect(mockRouter.replace).toHaveBeenCalledWith("/projects/p/lesson");
   await act(() => screen.unmount());
+});
+
+it("shows the next entry only after answering the current entry's question", async () => {
+  const first = mockProject.lists[0].items[0];
+  const second = {
+    ...first,
+    id: "next-entry",
+    content: "estirarse",
+    definition: "Mover el cuerpo para alargar los músculos.",
+    example_sentences: ["Me estiro antes de correr.", "Ana se estira al levantarse."],
+  };
+  mockProject.lists[0].items.push(second);
+  const record = jest.mocked(api.recordProjectPractice);
+  record.mockReset();
+  record.mockResolvedValue({
+    item: first,
+    recorded: true,
+    newly_mastered: true,
+  } as Awaited<ReturnType<typeof api.recordProjectPractice>>);
+  try {
+    const screen = await render(<LessonPlay />);
+    expect(screen.getByRole("header", { name: "despertarse" })).toBeOnTheScreen();
+    expect(screen.queryByRole("header", { name: "estirarse" })).toBeNull();
+    expect(screen.queryByText(second.example_sentences[0])).toBeNull();
+    await fireEvent.press(screen.getByText("Continue"));
+    expect(screen.queryByRole("header", { name: "estirarse" })).toBeNull();
+    await fireEvent.press(screen.getByText(first.definition));
+    await fireEvent.press(screen.getByText("Continue"));
+    expect(screen.getByRole("header", { name: "estirarse" })).toBeOnTheScreen();
+    expect(screen.queryByRole("header", { name: "despertarse" })).toBeNull();
+    expect(screen.getByText(second.example_sentences[0])).toBeOnTheScreen();
+    await screen.unmount();
+  } finally {
+    mockProject.lists[0].items.pop();
+  }
 });

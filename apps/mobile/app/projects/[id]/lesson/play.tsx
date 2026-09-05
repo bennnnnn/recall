@@ -118,6 +118,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
         </Pressable>
       </View>
       <ScrollView
+        key={step ? `${step.itemId}:${step.kind}` : "summary"}
         contentContainerStyle={[s.body, quiz ? s.bodyQuiz : null]}
         keyboardShouldPersistTaps="handled"
       >

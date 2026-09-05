@@ -14,10 +14,11 @@ two examples. Questions follow teaching, with explicit correct/try-again
 feedback and a learned/reviewed completion summary. Naturally inflected
 examples remain intact instead of becoming ungrammatical cloze questions.
 
-The map also opens a read-only Vocabulary overview. Learners can browse chapters,
-search words and definitions, and read examples without starting a lesson or
-changing progress. The class card labels mastered words as learned, so an
-unstarted class does not misleadingly appear to contain zero words.
+Learning presents one entry at a time. The map starts a group; a single teaching
+card introduces the current entry, its definition, and two examples. Continue
+opens its question, and saved correct feedback leads to the next entry. The bulk
+vocabulary browser and its entry point are removed. The class card labels
+mastered words as learned.
 
 The active catalog contains only 40 English entries across four groups and 20
 Spanish entries across two groups. English teaches conversation expressions,
@@ -89,7 +90,8 @@ excludes live databases; PostgreSQL cases run in CI.
 Visual checks render the actual React Native components through React Native
 Web with fixture data, native audio disabled, and reduced motion. They cover
 English teaching, Spanish idioms, long proverbs, correct/incorrect answers,
-completion, the lesson map, and vocabulary browsing/search in light/dark themes at 393×852 and 320×568.
+completion, and the lesson map in light/dark themes at 393×852 and 320×568.
+The one-entry flow is also checked in the iPhone Simulator.
 This caught and fixed short glosses replacing full definitions and oversized
 proverb question text. The preview is not a native-device or live-provider test.
 

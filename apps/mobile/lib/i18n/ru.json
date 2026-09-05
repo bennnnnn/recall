@@ -749,13 +749,5 @@
   "lesson.kind.common": "Нарицательное существительное",
   "lesson.kind.proper": "Имя собственное",
   "lesson.kind.abstract": "Абстрактное существительное",
-  "lesson.kind.collective": "Собирательное существительное",
-  "vocabulary.title": "Словарь",
-  "vocabulary.search": "Поиск слов и значений",
-  "vocabulary.clear_search": "Очистить поиск",
-  "vocabulary.no_results": "Совпадений не найдено",
-  "vocabulary.empty": "Словарь пока недоступен.",
-  "vocabulary.entry_count": "Записей: {{count}}",
-  "vocabulary.entry_count_one": "Записей: {{count}}",
-  "vocabulary.entry_count_other": "Записей: {{count}}"
+  "lesson.kind.collective": "Собирательное существительное"
 }

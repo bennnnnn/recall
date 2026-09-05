@@ -26,7 +26,6 @@ export default function ProjectIdLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: t("projects.detail") }} />
-      <Stack.Screen name="vocabulary" options={{ title: t("vocabulary.title") }} />
       <Stack.Screen name="lesson" options={{ headerShown: false, title: t("lesson.lessons") }} />
     </Stack>
   );

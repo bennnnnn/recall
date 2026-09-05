@@ -22,14 +22,13 @@ type Props = {
   card: LessonVocabCard;
   language?: string;
   onSpeak?: () => void;
-  variant?: "lesson" | "overview";
 };
 
 const SPEAK = 56;
 const SECTION_GAP = 28;
 const AFTER_HERO = 8;
 
-export function VocabCard({ card, language = "en", onSpeak, variant = "lesson" }: Props) {
+export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const { t } = useTranslation();
@@ -38,7 +37,6 @@ export function VocabCard({ card, language = "en", onSpeak, variant = "lesson" }
   const ipa = card.ipa?.trim();
   const pos = card.partOfSpeech?.trim();
   const meaning = cardMeaning(card);
-  const compact = variant === "overview";
   const examples = card.examples?.length ? card.examples : exampleSentences(card.exampleSentence);
   const labels = [
     card.vocabularyKind && card.vocabularyKind !== "word"
@@ -62,15 +60,15 @@ export function VocabCard({ card, language = "en", onSpeak, variant = "lesson" }
   };
 
   return (
-    <View style={[s.root, compact && s.compactRoot]} accessibilityRole="summary">
+    <View style={s.root} accessibilityRole="summary">
       <View style={s.hero}>
         <View style={s.wordRow}>
-          <Text style={[s.word, compact && s.compactWord]} accessibilityRole="header">
+          <Text style={s.word} accessibilityRole="header">
             {word}
           </Text>
           <Pressable
             onPress={handleSpeak}
-            style={[s.speakBtn, compact && s.compactSpeak]}
+            style={s.speakBtn}
             accessibilityRole="button"
             accessibilityLabel={t("lesson.speak")}
           >
@@ -85,16 +83,16 @@ export function VocabCard({ card, language = "en", onSpeak, variant = "lesson" }
         ) : null}
       </View>
 
-      <View style={[s.block, s.afterHero, compact && s.compactBlock]}>
-        {!compact ? <Badge icon="book-outline" label={t("lesson.meaning")} theme={theme} /> : null}
-        <Text style={[s.meaning, compact && s.compactMeaning]}>{meaning}</Text>
+      <View style={[s.block, s.afterHero]}>
+        <Badge icon="book-outline" label={t("lesson.meaning")} theme={theme} />
+        <Text style={s.meaning}>{meaning}</Text>
       </View>
 
       {examples.length > 0 ? (
-        <View style={[s.block, compact && s.compactBlock]}>
+        <View style={s.block}>
           <Badge icon="pencil-outline" label={t("lesson.example")} theme={theme} />
           {examples.map((sentence) => (
-            <Text key={sentence} style={[s.example, compact && s.compactExample]}>
+            <Text key={sentence} style={s.example}>
               {highlightLemmaParts(sentence, word).map((part, index) =>
                 part.match ? (
                   <Text key={`${index}-m`} style={s.lemma}>
@@ -131,12 +129,6 @@ function Badge({ icon, label, theme }: { icon: IoniconName; label: string; theme
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    compactRoot: { gap: Space.md },
-    compactWord: { ...Type.title, fontSize: 24, lineHeight: 30 },
-    compactSpeak: { width: Space.minTouch, height: Space.minTouch, borderWidth: 1 },
-    compactBlock: { paddingTop: 0, gap: Space.sm },
-    compactMeaning: { ...Type.body },
-    compactExample: { ...Type.body },
     root: {
       alignSelf: "stretch",
       gap: SECTION_GAP,

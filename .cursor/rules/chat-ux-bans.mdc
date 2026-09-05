@@ -74,3 +74,9 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Long-press on a user bubble is copy only.
 
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.
+
+## 12. No bulk Learning vocabulary browser
+- Learning teaches **one entry at a time**: definition and examples, then a practice
+  question, feedback, and the next entry. The map may show groups and progress.
+- Do **not** add a searchable word catalog, page of vocabulary cards, or separate
+  Vocabulary browse button. Remove the route, component, and copy if replacing it.
