@@ -10,6 +10,8 @@ export type LiveTalkStatus = {
   refunded?: boolean;
 };
 
+/** Cap billed OpenAI Realtime minutes; server Redis TTL matches this. */
+export const LIVE_TALK_MAX_SESSION_MS = 15 * 60 * 1000;
 /** Local tail after `output_audio_buffer.stopped` before the mic reopens. */
 export const LIVE_TALK_PLAYBACK_TAIL_MS = 500;
 /** Ignore connect/track-start noise before the first real user utterance. */
@@ -66,6 +68,14 @@ export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean):
 /** Keep an in-flight WebRTC session only if this open() is still the current one. */
 export function liveTalkShouldAttachSession(startedGen: number, currentGen: number): boolean {
   return startedGen === currentGen;
+}
+
+/** Close Live Talk when the user opens a different chat from the drawer. */
+export function liveTalkShouldCloseOnChatChange(
+  boundChatId: string | null,
+  nextChatId: string | null,
+): boolean {
+  return Boolean(boundChatId) && nextChatId !== boundChatId;
 }
 
 /** react-native-webrtc may deliver data-channel payloads as a string or bytes. */

@@ -10,6 +10,7 @@ from app.services.memory import (
     exclude_sensitive_for_query,
     extract_consolidation_anchors,
     is_diet_health_memory_text,
+    is_explicit_forget_command,
     is_explicit_memory_command,
     is_food_or_diet_query,
     is_sensitive_memory_text,
@@ -73,6 +74,15 @@ def test_is_explicit_memory_command_detects_remember_and_forget():
     assert is_explicit_memory_command("Please forget that I live in Boston") is True
     assert is_explicit_memory_command("I remember when we first met") is False
     assert is_explicit_memory_command("I'm allergic to peanuts") is False
+
+
+def test_is_explicit_forget_command_ignores_dont_forget():
+    assert is_explicit_forget_command("Please forget that I live in Boston") is True
+    assert is_explicit_forget_command("forget this: I work at Hooh") is True
+    assert is_explicit_forget_command("don't forget I like tea") is False
+    assert is_explicit_forget_command("dont forget I like tea") is False
+    assert is_explicit_forget_command("Remember this: I like tea") is False
+    assert is_explicit_forget_command("don't forget my birthday, but forget my old address") is True
 
 
 def test_is_sensitive_memory_text_flags_health_and_finance():
@@ -209,6 +219,33 @@ def test_accept_memory_section_rewrite_keeps_expanding_rewrite():
             min_confidence=0.4,
         )
         == "Bini is a developer at Hooh building Recall"
+    )
+
+
+def test_accept_memory_section_rewrite_allow_clear_empties_on_forget():
+    prior = "User's name is Bini. User works at Hooh."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary="",
+            confidence=0.9,
+            min_confidence=0.4,
+            allow_clear=True,
+        )
+        == ""
+    )
+    shortened = "Bini lives in Seattle."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary=shortened,
+            confidence=0.9,
+            min_confidence=0.4,
+            allow_clear=True,
+        )
+        is None
     )
 
 

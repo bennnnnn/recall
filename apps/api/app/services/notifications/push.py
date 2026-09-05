@@ -49,6 +49,8 @@ from app.services.todos.recurrence import is_recurrence_rule, next_recurring_due
 logger = logging.getLogger(__name__)
 
 LEARNING_REDIS_PREFIX = "recall:push:learning"
+LEARNING_DEDUPE_TTL_SECONDS = 86_400
+PUSH_DEDUPE_INFLIGHT_TTL_SECONDS = 15 * 60
 RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
 # Cap pending email-suggestion scan so one cycle cannot load the whole table.
 # Token-less users are excluded via EXISTS so rows do not recycle forever.
@@ -65,6 +67,7 @@ class OutboundPush:
     suggestions: list[SuggestedReminder] = field(default_factory=list)
     learning_redis_key: str | None = None
     dedupe_redis_key: str | None = None
+    dedupe_ttl_seconds: int | None = None
 
 
 _PUSH_STRINGS: dict[str, dict[str, str]] = {
@@ -212,6 +215,7 @@ def _append_outbound(
     suggestions: list[SuggestedReminder] | None = None,
     learning_redis_key: str | None = None,
     dedupe_redis_key: str | None = None,
+    dedupe_ttl_seconds: int | None = None,
 ) -> None:
     seen_tokens: set[str] = set()
     for token in tokens:
@@ -231,6 +235,7 @@ def _append_outbound(
                 suggestions=list(suggestions or []),
                 learning_redis_key=learning_redis_key,
                 dedupe_redis_key=dedupe_redis_key,
+                dedupe_ttl_seconds=dedupe_ttl_seconds,
             )
         )
 
@@ -477,7 +482,8 @@ async def process_calendar_nudges(
             for event in due:
                 dedupe_key = calendar_nudge_service.calendar_nudge_redis_key(user.id, event.id)
                 ttl = calendar_nudge_service.nudge_ttl_seconds(event, now=now)
-                claimed = await redis.set(dedupe_key, "1", nx=True, ex=ttl)
+                inflight_ttl = max(60, min(ttl, PUSH_DEDUPE_INFLIGHT_TTL_SECONDS))
+                claimed = await redis.set(dedupe_key, "inflight", nx=True, ex=inflight_ttl)
                 if not claimed:
                     continue
                 title, body = calendar_nudge_service.format_calendar_nudge(
@@ -498,6 +504,7 @@ async def process_calendar_nudges(
                         "event_title": event.title,
                     },
                     dedupe_redis_key=dedupe_key,
+                    dedupe_ttl_seconds=ttl,
                 )
         except Exception:
             logger.exception("Calendar nudge failed user_id=%s", user.id)
@@ -539,6 +546,7 @@ async def _finalize_push_deliveries(
     suggestions_marked: set[UUID] = set()
     learning_success: dict[str, bool] = {}
     dedupe_success: dict[str, bool] = {}
+    dedupe_ttl: dict[str, int] = {}
 
     for item, ok in zip(outbound, delivered, strict=False):
         if item.learning_redis_key is not None:
@@ -547,6 +555,8 @@ async def _finalize_push_deliveries(
         if item.dedupe_redis_key is not None:
             key = item.dedupe_redis_key
             dedupe_success[key] = dedupe_success.get(key, False) or ok
+            if item.dedupe_ttl_seconds:
+                dedupe_ttl[key] = max(dedupe_ttl.get(key, 0), item.dedupe_ttl_seconds)
         if not ok:
             continue
         for todo in item.todos:
@@ -567,11 +577,17 @@ async def _finalize_push_deliveries(
             suggestions_marked.add(suggestion_id)
 
     for key, had_success in learning_success.items():
-        if not had_success:
+        if had_success:
+            await redis.set(key, "1", ex=LEARNING_DEDUPE_TTL_SECONDS)
+        else:
             await redis.delete(key)
 
     for key, had_success in dedupe_success.items():
-        if not had_success:
+        if had_success:
+            ttl = dedupe_ttl.get(key)
+            if ttl:
+                await redis.set(key, "1", ex=ttl)
+        else:
             await redis.delete(key)
 
     if todos_marked or suggestions_marked:

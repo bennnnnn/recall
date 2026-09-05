@@ -201,7 +201,7 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["places"],
     structured: true,
     neverCodeBlock: true,
-    owner: "server",
+    owner: "model",
     fallback: "places",
   },
   {

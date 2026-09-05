@@ -50,7 +50,7 @@ async def claim_learning_candidates(
             continue
         day_key = user_day_key(user, now=now)
         redis_key = learning_dedupe_key(redis_prefix, user.id, day_key)
-        if not await redis.set(redis_key, "1", nx=True, ex=86_400):
+        if not await redis.set(redis_key, "inflight", nx=True, ex=15 * 60):
             continue
         candidates.append((user, redis_key))
     return candidates

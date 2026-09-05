@@ -42,6 +42,20 @@ _MEMORY_COMMAND_MARKERS = (
     "forget this",
     "forget i ",
     "forget i'",
+    "forget my ",
+    "forget about",
+    "stop remembering",
+    "don't remember",
+    "do not remember",
+)
+
+_FORGET_MARKERS = (
+    "forget that",
+    "forget this",
+    "forget i ",
+    "forget i'",
+    "forget my ",
+    "forget about",
     "stop remembering",
     "don't remember",
     "do not remember",
@@ -54,6 +68,28 @@ def is_explicit_memory_command(text: str) -> bool:
     if not lowered:
         return False
     return any(marker in lowered for marker in _MEMORY_COMMAND_MARKERS)
+
+
+def is_explicit_forget_command(text: str) -> bool:
+    """True when the user asked to drop a stored fact, not to remember one."""
+    lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
+    if not lowered:
+        return False
+    for marker in _FORGET_MARKERS:
+        start = 0
+        while True:
+            index = lowered.find(marker, start)
+            if index < 0:
+                break
+            if not _forget_marker_is_negated(lowered, index):
+                return True
+            start = index + 1
+    return False
+
+
+def _forget_marker_is_negated(lowered: str, index: int) -> bool:
+    before = lowered[:index]
+    return before.endswith("don't ") or before.endswith("do not ") or before.endswith("dont ")
 
 
 def normalize_memory_text(text: str) -> str:

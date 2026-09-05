@@ -377,15 +377,17 @@ async def test_reserve_live_talk_blocks_free_plan(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_reserve_live_talk_enforces_pro_limit(fake_redis):
+async def test_live_talk_has_capacity_does_not_reserve(fake_redis):
     from uuid import uuid4
 
-    settings = Settings(daily_live_talk_pro=2)
     user_id = uuid4()
-    limit = quota_service.live_talk_limit_for_user(_pro_user(), settings)
-    for _ in range(limit):
-        assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit) is True
-    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit) is False
+    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is True
+    assert await quota_service.live_talk_used(fake_redis, user_id) == 0
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=2) is True
+    assert await quota_service.live_talk_used(fake_redis, user_id) == 1
+    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is True
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=2) is True
+    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is False
 
 
 @pytest.mark.asyncio
@@ -429,3 +431,11 @@ async def test_global_spend_redis_error_fails_closed():
             raise RedisError("down")
 
     assert await quota_service.global_spend_exceeded(_Boom(), settings) is True  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_record_voice_spend_counts_toward_global_cap(fake_redis):
+    settings = Settings(daily_global_spend_usd=0.05)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is False
+    await quota_service.record_voice_spend(fake_redis, 0.08)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is True

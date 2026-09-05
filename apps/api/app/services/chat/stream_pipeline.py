@@ -337,8 +337,10 @@ async def enrich_final_content(
             assistant_text = normalized
 
         from app.services.mermaid_sanitize import sanitize_mermaid_fences
+        from app.services.places_fence import sanitize_places_fences
 
         assistant_text = sanitize_mermaid_fences(assistant_text)
+        assistant_text = sanitize_places_fences(assistant_text)
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text

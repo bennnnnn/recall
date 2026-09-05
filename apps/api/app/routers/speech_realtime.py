@@ -125,8 +125,16 @@ async def _reserve_realtime_or_raise(user: User, settings: Settings):
                 detail=quota_service.LIVE_TALK_RATE_LIMIT_MESSAGE,
             )
 
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
+        )
+
     daily_limit = quota_service.live_talk_limit_for_user(user, settings)
-    if not await quota_service.reserve_live_talk(redis, user.id, limit=daily_limit):
+    # Session mint must not consume a turn slot — one open WebRTC call can
+    # cover many utterances. Reject only when today's persist budget is gone.
+    if not await quota_service.live_talk_has_capacity(redis, user.id, limit=daily_limit):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=quota_service.live_talk_limit_exceeded_message(user),
@@ -156,14 +164,13 @@ async def create_realtime_session(
         tools_enabled=body.tools_enabled,
     )
     if result is None:
-        await quota_service.refund_live_talk_if_pending(redis, user.id)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Could not start realtime voice",
         )
 
     session_id = await live_talk_service.issue_realtime_session(redis, user.id, body.chat_id)
-    await quota_service.clear_live_talk_pending(redis, user.id)
+    await quota_service.record_voice_spend(redis, quota_service.LIVE_TALK_SESSION_SPEND_USD)
     return RealtimeSessionOut(
         client_secret=result.value,
         expires_at=result.expires_at,
@@ -204,10 +211,25 @@ async def persist_realtime_turn(
         return Response(status_code=204)
 
     redis = get_redis_client()
-    if not await live_talk_service.realtime_session_is_active(redis, user.id, body.call_id):
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
+        )
+    bound_chat_id = await live_talk_service.realtime_session_bound_chat_id(
+        redis, user.id, body.call_id
+    )
+    if bound_chat_id is None or bound_chat_id != body.chat_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Realtime session is not active",
+        )
+
+    daily_limit = quota_service.live_talk_limit_for_user(user, settings)
+    if not await quota_service.reserve_live_talk(redis, user.id, limit=daily_limit):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.live_talk_limit_exceeded_message(user),
         )
 
     async with SessionLocal() as session:
@@ -217,6 +239,7 @@ async def persist_realtime_turn(
             user_id=user.id,
         )
     if loaded is None:
+        await quota_service.refund_live_talk_if_pending(redis, user.id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     _, untitled = loaded
 
@@ -227,16 +250,22 @@ async def persist_realtime_turn(
         if sources:
             assistant_text += "\n\n```sources\n" + json.dumps(sources) + "\n```"
 
-    user_message, assistant_message = await live_talk_service.persist_live_talk_turn(
-        user=user,
-        chat_id=body.chat_id,
-        user_text=user_text,
-        assistant_text=assistant_text,
-        untitled=untitled,
-        settings=settings,
-        redis=redis,
-        enqueue_jobs=True,
-    )
+    try:
+        user_message, assistant_message = await live_talk_service.persist_live_talk_turn(
+            user=user,
+            chat_id=body.chat_id,
+            user_text=user_text,
+            assistant_text=assistant_text,
+            untitled=untitled,
+            settings=settings,
+            redis=redis,
+            enqueue_jobs=True,
+        )
+    except Exception:
+        await quota_service.refund_live_talk_if_pending(redis, user.id)
+        raise
+    await quota_service.clear_live_talk_pending(redis, user.id)
+    await quota_service.record_voice_spend(redis, quota_service.LIVE_TALK_TURN_SPEND_USD)
     if body.return_messages:
         return JSONResponse(
             {

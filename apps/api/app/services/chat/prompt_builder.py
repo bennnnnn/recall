@@ -362,6 +362,7 @@ async def _augment_web_and_tools(
 class _PromptContextBlocks:
     memory_block: str
     todos_section: str | None
+    gmail_todos_section: str | None
     projects_block: str
     recent_all: list[Any]
     attachment_rag_block: str
@@ -423,6 +424,7 @@ async def _load_context_blocks(
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
+            gmail_todos_section=None,
             projects_block="",
             recent_all=recent_all,
             attachment_rag_block="",
@@ -460,6 +462,7 @@ async def _load_context_blocks(
         return _PromptContextBlocks(
             memory_block=_cap_advice_memory_block(memory_block),
             todos_section=None,
+            gmail_todos_section=None,
             projects_block="",
             recent_all=recent_all,
             attachment_rag_block="",
@@ -467,15 +470,22 @@ async def _load_context_blocks(
             history_rag_query_vec=None,
         )
 
-    async def _todos_section() -> str | None:
+    async def _todos_section() -> tuple[str | None, str | None]:
         async with db_slots, SessionLocal() as s:
-            return await todos_service.build_todos_system_section(
+            loaded = await todos_service.build_todos_system_section(
                 s,
                 user,
                 settings,
                 client_timezone=client_timezone,
                 query_text=query_text,
             )
+        if loaded is None:
+            return None, None
+        if isinstance(loaded, todos_service.TodosPromptSections):
+            return loaded.own, loaded.gmail
+        if isinstance(loaded, str):
+            return loaded, None
+        return None, None
 
     async def _projects_block() -> str:
         async with db_slots, SessionLocal() as s:
@@ -530,7 +540,7 @@ async def _load_context_blocks(
 
     (
         memory_block,
-        todos_section,
+        todos_payload,
         projects_block,
         recent_all,
         attachment_rag_block,
@@ -543,6 +553,7 @@ async def _load_context_blocks(
         _attachment_rag_block(),
         _history_rag_embed(),
     )
+    todos_section, gmail_todos_section = todos_payload
     if out is not None:
         labels = set(memory_service.SECTION_LABELS.values())
         hints = [
@@ -555,6 +566,7 @@ async def _load_context_blocks(
     return _PromptContextBlocks(
         memory_block=memory_block,
         todos_section=todos_section,
+        gmail_todos_section=gmail_todos_section,
         projects_block=projects_block,
         recent_all=recent_all,
         attachment_rag_block=attachment_rag_block,
@@ -735,6 +747,7 @@ def _integration_hints(
     memory_block: str,
     attachment_rag_block: str,
     todos_section: str | None,
+    gmail_todos_section: str | None = None,
     is_day_plan: bool,
     projects_block: str,
     summary: str | None,
@@ -764,6 +777,8 @@ def _integration_hints(
         parts.append(attachment_rag_block)
     if todos_section:
         parts.append(wrap_untrusted("schedule", todos_section, first_party=True))
+    if gmail_todos_section:
+        parts.append(wrap_untrusted("gmail reminders", gmail_todos_section))
     if not is_day_plan:
         parts.append(projects_service.PROJECT_HINT)
     if projects_block:
@@ -964,6 +979,7 @@ async def build_prompt_messages(
                 memory_block=blocks.memory_block,
                 attachment_rag_block=blocks.attachment_rag_block,
                 todos_section=blocks.todos_section,
+                gmail_todos_section=blocks.gmail_todos_section,
                 is_day_plan=is_day_plan,
                 projects_block=blocks.projects_block,
                 summary=summary,

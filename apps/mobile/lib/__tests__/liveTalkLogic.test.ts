@@ -6,6 +6,7 @@ import {
   liveTalkOrbAction,
   liveTalkOrbMode,
   liveTalkShouldAttachSession,
+  liveTalkShouldCloseOnChatChange,
   liveTalkDataChannelText,
   liveTalkMuteA11yKey,
   liveTalkShowsSideChrome,
@@ -48,6 +49,15 @@ describe("liveTalkShouldAttachSession", () => {
   it("drops the session when close or a newer open bumped the generation", () => {
     expect(liveTalkShouldAttachSession(3, 3)).toBe(true);
     expect(liveTalkShouldAttachSession(3, 4)).toBe(false);
+  });
+});
+
+describe("liveTalkShouldCloseOnChatChange", () => {
+  it("closes only when the bound chat is left", () => {
+    expect(liveTalkShouldCloseOnChatChange("chat-a", "chat-b")).toBe(true);
+    expect(liveTalkShouldCloseOnChatChange("chat-a", "chat-a")).toBe(false);
+    expect(liveTalkShouldCloseOnChatChange("chat-a", null)).toBe(true);
+    expect(liveTalkShouldCloseOnChatChange(null, "chat-b")).toBe(false);
   });
 });
 
