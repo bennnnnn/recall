@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
-from app.models.schemas.lists import ListItemCreate, ListItemUpdate
+from app.models.schemas.schedule import TodoCreate, TodoUpdate
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import home as home_service
@@ -33,28 +33,28 @@ def _session_local_side_effect(session: AsyncMock):
     return [_FakeSessionCM(session), _FakeSessionCM(session)]
 
 
-def test_list_item_create_requires_due_at():
+def test_todo_create_requires_due_at():
     with pytest.raises(ValidationError):
-        ListItemCreate(content="Call mom")
+        TodoCreate(content="Call mom")
 
 
-def test_list_item_create_rejects_project_id():
+def test_todo_create_rejects_project_id():
     with pytest.raises(ValidationError):
-        ListItemCreate(
+        TodoCreate(
             content="Call mom",
             due_at=datetime.now(UTC),
             project_id=uuid4(),
         )
 
 
-def test_list_item_update_rejects_project_id():
+def test_todo_update_rejects_project_id():
     with pytest.raises(ValidationError):
-        ListItemUpdate(project_id=uuid4())
+        TodoUpdate(project_id=uuid4())
 
 
-def test_list_item_update_rejects_cleared_due_at():
+def test_todo_update_rejects_cleared_due_at():
     with pytest.raises(ValidationError):
-        ListItemUpdate(due_at=None)
+        TodoUpdate(due_at=None)
 
 
 @pytest.mark.asyncio
@@ -1043,11 +1043,13 @@ async def test_list_todos_advances_past_due_daily():
     item.notification_sent_at = now
     item.email_sent_at = now
 
-    await todos_crud._advance_past_recurring(session, [item], timezone="UTC", now=now)
+    with patch.object(todos_crud, "advance_schedules_if_current", AsyncMock()) as advance:
+        assert await todos_crud._advance_past_recurring(session, [item], timezone="UTC", now=now)
 
-    assert item.due_at > now
-    assert item.notification_sent_at is None
-    assert item.email_sent_at is None
+    advance.assert_awaited_once()
+    snapshot, new_due = advance.await_args.args[1][0]
+    assert snapshot.due_at == past
+    assert new_due > now
     session.commit.assert_awaited_once()
 
 
@@ -1064,14 +1066,12 @@ async def test_update_todo_clears_sent_markers_when_due_changes():
 
     with (
         patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)),
-        patch.object(todos_crud.todos_repo, "update", AsyncMock(return_value=item)) as upd,
         patch.object(todos_crud.home_service, "invalidate_home_cache", AsyncMock()),
     ):
         await todos_crud.update_todo(session, user, uuid4(), {"due_at": new_due})
 
-    fields = upd.await_args.kwargs
-    assert fields["notification_sent_at"] is None
-    assert fields["email_sent_at"] is None
+    assert item.notification_sent_at is None
+    assert item.email_sent_at is None
 
 
 @pytest.mark.asyncio

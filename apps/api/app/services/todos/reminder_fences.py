@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.models.schemas import TodoActionItem
-from app.models.schemas.todos import RecurrenceRule
+from app.models.schemas.schedule import RecurrenceRule
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services import time_context as time_context_service

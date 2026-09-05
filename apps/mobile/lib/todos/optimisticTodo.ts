@@ -34,12 +34,13 @@ export function buildOptimisticTodo(fields: {
 
 export function replaceTodoById(todos: Todo[], id: string, next: Todo): Todo[] {
   let found = false;
-  const mapped = todos.map((item) => {
+  const mapped = todos.flatMap((item) => {
     if (item.id === id || item.id === next.id) {
+      if (found) return [];
       found = true;
-      return next;
+      return [next];
     }
-    return item;
+    return [item];
   });
   return found ? mapped : [...todos, next];
 }

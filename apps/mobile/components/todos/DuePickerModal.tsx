@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Platform, Text, View } from "react-native";
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -37,10 +38,11 @@ export function DuePickerModal({
 
   if (Platform.OS === "android") {
     return (
-      <DateTimePicker
+      <ReminderDateTimePicker
+        key={duePicker.todo.id}
         value={duePicker.date}
-        mode="datetime"
         onChange={onChange}
+        disabled={saving}
       />
     );
   }
@@ -64,10 +66,9 @@ export function DuePickerModal({
         saveLabel={t("todos.due_done")}
         saving={saving}
       />
-      <DateTimePicker
+      <ReminderDateTimePicker
+        key={duePicker.todo.id}
         value={duePicker.date}
-        mode="datetime"
-        display="spinner"
         onChange={onChange}
         disabled={saving}
       />

@@ -16,7 +16,7 @@ from app.services import home as home_service
 from app.services import time_context as time_context_service
 from app.services.action_dispatch import ActionHandler, apply_action_batch
 from app.services.todos.prompt_context import _normalize, _topic_key
-from app.services.todos.recurrence import snap_first_due
+from app.services.todos.recurrence import is_recurrence_rule, snap_first_due
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,11 @@ def _shift_due_date_preserving_time(
     return shifted_local.astimezone(UTC)
 
 
+def _rescheduled_due(item: TodoItem, due_at: datetime, timezone: str | None) -> datetime:
+    rule = item.recurrence_rule
+    return snap_first_due(due_at, rule if is_recurrence_rule(rule) else None, timezone=timezone)
+
+
 async def _apply_bulk_shift_due_today_to_tomorrow(
     session: AsyncSession,
     *,
@@ -104,6 +109,7 @@ async def _apply_bulk_shift_due_today_to_tomorrow(
             user_timezone=user_timezone,
             target_date=tomorrow,
         )
+        due_at = _rescheduled_due(item, due_at, user_timezone)
         await todos_repo.update(session, item, due_at=due_at, commit=False)
         applied += 1
     return applied
@@ -194,6 +200,8 @@ async def _todo_action_delete(state: _TodoApplyState, action: TodoActionItem) ->
 
 async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -> int:
     due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
+    if due_at is None:
+        return 0
     if action.content.strip() == "*":
         tz = time_context_service.resolve_timezone(state.user_timezone)
         today = datetime.now(tz).date()
@@ -203,12 +211,14 @@ async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -
                 continue
             if _due_local_date(open_item, state.user_timezone) != today:
                 continue
-            await todos_repo.update(state.session, open_item, due_at=due_at, commit=False)
+            effective_due = _rescheduled_due(open_item, due_at, state.user_timezone)
+            await todos_repo.update(state.session, open_item, due_at=effective_due, commit=False)
             applied += 1
         return applied
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item:
-        await todos_repo.update(state.session, item, due_at=due_at, commit=False)
+        effective_due = _rescheduled_due(item, due_at, state.user_timezone)
+        await todos_repo.update(state.session, item, due_at=effective_due, commit=False)
         return 1
     return 0
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,16 +12,14 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { useTodos } from "@/contexts/TodosContext";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { getSessionGeneration } from "@/lib/auth";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   getReminderLeadMinutes,
   REMINDER_LEAD_OPTIONS,
-  setReminderLeadMinutes,
-  syncReminderLeadFromServer,
 } from "@/lib/reminderPrefs";
 import { normalizeReminderLeadMinutes } from "@/lib/todos/reminderTiming";
-import { cancelAllTodoReminders, syncTodoReminders } from "@/lib/todos/todoReminders";
 import {
   ensureNotificationPermission,
   registerRemotePushToken,
@@ -30,9 +28,21 @@ import {
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
+let pending: { session: number; action: string } | null = null;
+const listeners = new Set<() => void>();
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+function notify() { listeners.forEach((listener) => listener()); }
+
 export default function NotificationsSettingsScreen() {
+  const view = useAccountViewOwner();
+  return <NotificationsSettingsContent key={view.key} isCurrentView={view.isCurrent} />;
+}
+
+function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token, user, updateUser } = useAuth();
-  const { todos } = useTodos();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
@@ -41,106 +51,85 @@ export default function NotificationsSettingsScreen() {
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
-  const [busyAction, setBusyAction] = useState<string | null>(null);
-  const busyRef = useRef(false);
+  const session = getSessionGeneration();
+  const busyAction = useSyncExternalStore(subscribe, () => pending?.session === session ? pending.action : null);
+  const sameAccount = useCallback(() => Boolean(token) && session === getSessionGeneration(), [token, session]);
+  const isCurrent = useCallback(() => isCurrentView() && sameAccount(), [isCurrentView, sameAccount]);
+  const begin = useCallback((action: string) => {
+    if (!token || !isCurrent() || pending?.session === session) return null;
+    const request = { session, action };
+    pending = request;
+    notify();
+    return request;
+  }, [token, isCurrent, session]);
+  const finish = useCallback((request: NonNullable<typeof pending>) => {
+    if (pending === request) { pending = null; notify(); }
+  }, []);
   const feedback = useActionFeedbackOptional();
 
+  const reportError = useCallback((key: string) => {
+    if (!isCurrent()) return;
+    if (feedback) feedback.error(t(key));
+    else Alert.alert(t("common.error"), t(key));
+  }, [isCurrent, feedback, t]);
+
   useEffect(() => {
+    if (!isCurrent()) return;
     if (user?.reminder_lead_minutes != null) {
-      const minutes = normalizeReminderLeadMinutes(user.reminder_lead_minutes);
-      setReminderLeadMinutesState(minutes);
-      void syncReminderLeadFromServer(minutes);
+      setReminderLeadMinutesState(normalizeReminderLeadMinutes(user.reminder_lead_minutes));
       return;
     }
-    void getReminderLeadMinutes().then(setReminderLeadMinutesState);
-  }, [user?.reminder_lead_minutes]);
+    let active = true;
+    void getReminderLeadMinutes().then((minutes) => {
+      if (active && isCurrent()) setReminderLeadMinutesState(minutes);
+    }).catch(() => { if (active) reportError("common.error"); });
+    return () => { active = false; };
+  }, [isCurrent, reportError, user?.reminder_lead_minutes]);
 
-  const saveReminderLead = useCallback(
-    async (minutes: number) => {
-      if (busyRef.current) return;
-      busyRef.current = true;
-      setBusyAction("lead");
-      const previous = reminderLeadMinutes;
-      const normalized = normalizeReminderLeadMinutes(minutes);
-      try {
-        setReminderLeadMinutesState(normalized);
-        await setReminderLeadMinutes(normalized);
-        await updateUser({ reminder_lead_minutes: normalized });
-        await syncTodoReminders(todos, {
-          pushEnabled: user?.push_notifications_enabled ?? true,
-        });
-      } catch {
-        setReminderLeadMinutesState(previous);
-        await setReminderLeadMinutes(previous).catch(() => {});
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("todos.error"), t("common.error"));
-      } finally {
-        busyRef.current = false;
-        setBusyAction(null);
-      }
-    },
-    [feedback, reminderLeadMinutes, t, todos, updateUser, user?.push_notifications_enabled],
-  );
+  const saveReminderLead = useCallback(async (minutes: number) => {
+    const request = begin("lead");
+    if (!request) return;
+    const previous = reminderLeadMinutes;
+    const normalized = normalizeReminderLeadMinutes(minutes);
+    try {
+      setReminderLeadMinutesState(normalized);
+      // Profile/bootstrap and TodosProvider own preference persistence and scheduling.
+      await updateUser({ reminder_lead_minutes: normalized });
+    } catch {
+      if (isCurrent()) setReminderLeadMinutesState(previous);
+      reportError("common.error");
+    } finally { finish(request); }
+  }, [begin, reminderLeadMinutes, updateUser, isCurrent, reportError, finish]);
 
-  const togglePush = useCallback(
-    async (v: boolean) => {
-      if (!token || busyRef.current) return;
-      busyRef.current = true;
-      setBusyAction("push");
-      try {
-        if (!v) {
-        // Disabling: flip the server flag AND unregister the Expo push token
-        // from the backend. Without the unregister, the backend keeps a live
-        // push token for a user who opted out and keeps sending them
-        // notifications until the token is overwritten or expires.
-          await updateUser({ push_notifications_enabled: false });
-          await unregisterRemotePushToken(token);
-          await cancelAllTodoReminders();
-          await syncTodoReminders(todos, { pushEnabled: false });
-          return;
-        }
-      // Enabling: the server flag alone does nothing on-device — we must also
-      // request OS notification permission and register the Expo push token.
-      // Without this the toggle silently lied "on" but no token was ever sent.
-        const granted = await ensureNotificationPermission(token);
-        if (!granted) {
-          Alert.alert(
-            t("settings.push_blocked_title"),
-            t("settings.push_blocked_message"),
-          );
-          return; // leave the toggle off — permission was denied
-        }
-        await registerRemotePushToken(token, true);
-        await updateUser({ push_notifications_enabled: true });
-        await cancelAllTodoReminders();
-      } catch {
-        if (feedback) feedback.error(t("settings.push_register_failed"));
-        else Alert.alert(t("common.error"), t("settings.push_register_failed"));
-      } finally {
-        busyRef.current = false;
-        setBusyAction(null);
+  const togglePush = useCallback(async (enabled: boolean) => {
+    if (!token) return;
+    const request = begin("push");
+    if (!request) return;
+    try {
+      if (!enabled) {
+        await updateUser({ push_notifications_enabled: false });
+        if (sameAccount()) await unregisterRemotePushToken(token);
+        return;
       }
-    },
-    [feedback, t, token, todos, updateUser],
-  );
+      const granted = await ensureNotificationPermission(token);
+      if (!sameAccount()) return;
+      if (!granted) {
+        if (isCurrent()) Alert.alert(t("settings.push_blocked_title"), t("settings.push_blocked_message"));
+        return;
+      }
+      await registerRemotePushToken(token, true);
+      if (sameAccount()) await updateUser({ push_notifications_enabled: true });
+    } catch { reportError("settings.push_register_failed"); }
+    finally { finish(request); }
+  }, [token, begin, updateUser, sameAccount, isCurrent, t, reportError, finish]);
 
-  const toggleEmailReminders = useCallback(
-    async (v: boolean) => {
-      if (busyRef.current) return;
-      busyRef.current = true;
-      setBusyAction("email");
-      try {
-        await updateUser({ email_reminders_enabled: v });
-      } catch {
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("common.error"), t("common.error"));
-      } finally {
-        busyRef.current = false;
-        setBusyAction(null);
-      }
-    },
-    [feedback, t, updateUser],
-  );
+  const toggleEmailReminders = useCallback(async (enabled: boolean) => {
+    const request = begin("email");
+    if (!request) return;
+    try { await updateUser({ email_reminders_enabled: enabled }); }
+    catch { reportError("common.error"); }
+    finally { finish(request); }
+  }, [begin, updateUser, reportError, finish]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -190,7 +179,7 @@ export default function NotificationsSettingsScreen() {
             expanded={leadOpen}
             disabled={busyAction !== null}
             busy={busyAction === "lead"}
-            onToggle={() => setLeadOpen((open) => !open)}
+            onToggle={() => { if (isCurrent()) setLeadOpen((open) => !open); }}
             onSelect={(key) => void saveReminderLead(Number(key))}
             styles={s}
             theme={theme}

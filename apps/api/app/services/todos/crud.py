@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import TodoItem, User
 from app.repositories import chats as chats_repo
 from app.repositories import todos as todos_repo
+from app.repositories.todo_schedules import TodoScheduleSnapshot, advance_schedules_if_current
 from app.services import home as home_service
 from app.services.time_context import normalize_due_at
 from app.services.todos.recurrence import (
@@ -31,7 +32,14 @@ async def list_todos(
     session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
 ) -> list[TodoItem]:
     items = await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
-    await _advance_past_recurring(session, items, timezone=user.timezone)
+    if not user.push_notifications_enabled and await _advance_past_recurring(
+        session, items, timezone=user.timezone
+    ):
+        # Reload both successful advances and concurrent edits/deletions.
+        items = await todos_repo.list_for_user(
+            session, user.id, limit=limit, offset=offset, populate_existing=True
+        )
+        await home_service.invalidate_home_cache(user.id)
     return items
 
 
@@ -103,9 +111,6 @@ async def update_todo(
         patch["due_at"] = normalize_due_at(patch["due_at"], user.timezone)
         if patch["due_at"] is None:
             raise TodosError("due_at cannot be cleared", status_code=422)
-        if patch["due_at"] != item.due_at:
-            patch["notification_sent_at"] = None
-            patch["email_sent_at"] = None
     rule = patch.get("recurrence_rule", item.recurrence_rule)
     due = patch["due_at"] if "due_at" in patch else item.due_at
     if due is not None and is_recurrence_rule(rule):
@@ -121,21 +126,30 @@ async def _advance_past_recurring(
     *,
     timezone: str | None,
     now: datetime | None = None,
-) -> None:
+) -> bool:
     when = now or datetime.now(UTC)
-    changed = False
+    advances = []
     for item in items:
         rule = item.recurrence_rule
         if item.checked or item.due_at is None or not is_recurrence_rule(rule):
             continue
         if item.due_at > when:
             continue
-        item.due_at = next_recurring_due(item.due_at, rule, now=when, timezone=timezone)
-        item.notification_sent_at = None
-        item.email_sent_at = None
-        changed = True
-    if changed:
+        advances.append(
+            (
+                TodoScheduleSnapshot.from_todo(item),
+                next_recurring_due(item.due_at, rule, now=when, timezone=timezone),
+            )
+        )
+    if not advances:
+        return False
+    try:
+        await advance_schedules_if_current(session, advances)
         await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    return True
 
 
 async def delete_todo(session: AsyncSession, user: User, todo_id: UUID) -> None:

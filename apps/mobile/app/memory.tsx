@@ -20,7 +20,7 @@ import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useMemoryActions } from "@/hooks/useMemoryActions";
-import { useMemoryViewOwner } from "@/hooks/useMemoryViewOwner";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
 import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/lib/memoryFacts";
@@ -31,7 +31,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
 export default function MemoryScreen() {
-  const view = useMemoryViewOwner();
+  const view = useAccountViewOwner();
   return <MemoryContent key={view.key} isCurrentView={view.isCurrent} />;
 }
 

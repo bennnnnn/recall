@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
 
-class ListItem(Base):
+class TodoItem(Base):
     __tablename__ = "todo_items"
     __table_args__ = (
         Index("ix_todo_user_created", "user_id", "created_at"),
