@@ -56,6 +56,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
     canAdvance,
     submitLetter,
     continueLesson,
+    groupDone,
   } = lesson;
   const audio = useLessonFeedback(answer, isCurrent, prefs.effectSound);
   const speakRef = useRef(audio.speak);
@@ -69,8 +70,8 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
     speakRef.current(teachWord, language);
   }, [language, prefs.readWords, teachWord]);
   useEffect(() => {
-    if (complete) celebrateRef.current();
-  }, [complete]);
+    if (complete && groupDone) celebrateRef.current();
+  }, [complete, groupDone]);
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
   const quiz = step && step.kind !== "teach" ? step : null;
@@ -120,7 +121,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
               <LessonCompleteCard
                 title={chapter}
                 reviewing={reviewing}
-                groupDone={lesson.groupDone}
+                groupDone={groupDone}
               />
             ) : null}
             {step?.kind === "teach" ? (

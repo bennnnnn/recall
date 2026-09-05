@@ -46,7 +46,10 @@ export function parseLessonPrefs(raw: string | null): LessonPrefs {
 
 export async function getLessonPrefs(): Promise<LessonPrefs> {
   if (cached) return cached;
-  cached = parseLessonPrefs(await readPrefFile(filePath()));
+  const parsed = parseLessonPrefs(await readPrefFile(filePath()));
+  // A setLessonPrefs() during the file read already owns the cache.
+  if (cached) return cached;
+  cached = parsed;
   return cached;
 }
 

@@ -33,3 +33,12 @@ it("names the group the learner just finished", async () => {
   await rerender(<LessonCompleteCard title="Greetings" reviewing groupDone />);
   expect(getByText("Greetings review complete")).toBeOnTheScreen();
 });
+
+it("keeps a quieter card when only today's sitting is done", async () => {
+  const { getByText, queryByTestId, getByTestId } = await render(
+    <LessonCompleteCard title="Greetings" reviewing={false} groupDone={false} />,
+  );
+  expect(getByText("Today's Greetings lesson")).toBeOnTheScreen();
+  expect(getByTestId("lesson-complete-mark")).toBeOnTheScreen();
+  expect(queryByTestId("lesson-complete-burst")).toBeNull();
+});

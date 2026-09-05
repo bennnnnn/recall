@@ -59,4 +59,28 @@ describe("lessonPrefs", () => {
       fontSize: "small",
     });
   });
+
+  it("keeps a write that lands while the file is still loading", async () => {
+    let finishRead: (value: { exists: boolean }) => void = () => {};
+    getInfoAsync.mockReturnValue(
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+    );
+
+    const loading = getLessonPrefs();
+    await setLessonPrefs({ effectSound: false, readWords: true, fontSize: "large" });
+    finishRead({ exists: false });
+
+    await expect(loading).resolves.toEqual({
+      effectSound: false,
+      readWords: true,
+      fontSize: "large",
+    });
+    await expect(getLessonPrefs()).resolves.toEqual({
+      effectSound: false,
+      readWords: true,
+      fontSize: "large",
+    });
+  });
 });

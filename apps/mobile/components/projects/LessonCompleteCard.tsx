@@ -76,8 +76,8 @@ export function LessonCompleteCard({
 
   return (
     <View style={s.wrap} accessibilityRole="summary" accessibilityLiveRegion="polite">
-      <View testID="lesson-complete-burst" style={s.burst}>
-        {reduceMotion ? null : (
+      <View testID={groupDone ? "lesson-complete-burst" : "lesson-complete-mark"} style={s.burst}>
+        {groupDone && !reduceMotion ? (
           <>
             <WooRing color={theme.success} delay={0} />
             <WooRing color={theme.primary} delay={90} />
@@ -89,7 +89,7 @@ export function LessonCompleteCard({
               />
             ))}
           </>
-        )}
+        ) : null}
         <Animated.View style={[s.iconWrap, iconAnim]}>
           <Icon name="checkmark-circle" size={56} color={theme.success} />
         </Animated.View>
