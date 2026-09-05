@@ -59,15 +59,17 @@ async def test_foreign_owner_and_mismatched_project_never_find_item(db_session):
     other = User(id=uuid4(), email=f"{uuid4()}@example.com")
     db_session.add_all([user, project, item, other])
     await db_session.commit()
+    # Expected authorization failures roll back and expire ORM instances.
+    user_id, item_id = user.id, item.id
     for owner, project_id in [(other.id, project.id), (user.id, uuid4())]:
         with pytest.raises(ProjectsError) as error:
-            await record_practice(db_session, owner, project_id, item.id, body())
+            await record_practice(db_session, owner, project_id, item_id, body())
         assert error.value.status_code == 404
     assert (
         await db_session.scalar(
             select(func.count())
             .select_from(LearningPracticeEvent)
-            .where(LearningPracticeEvent.user_id == user.id)
+            .where(LearningPracticeEvent.user_id == user_id)
         )
         == 0
     )
