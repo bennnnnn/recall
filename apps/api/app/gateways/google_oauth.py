@@ -63,11 +63,12 @@ async def refresh_access_token(settings: Settings, refresh_token: str) -> str:
 
     if response.status_code >= 400:
         permanent = _oauth_error_is_permanent(response)
-        logger.warning(
-            "Google OAuth token refresh rejected status=%s permanent=%s",
-            response.status_code,
-            permanent,
-        )
+        # Static messages only — the token response is tainted by client_secret
+        # (CodeQL py/clear-text-logging-sensitive-data).
+        if permanent:
+            logger.warning("Google OAuth token refresh rejected permanently")
+        else:
+            logger.warning("Google OAuth token refresh rejected")
         raise GoogleOAuthError("Google authorization expired.", permanent=permanent)
 
     data = response.json()
