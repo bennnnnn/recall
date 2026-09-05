@@ -4,12 +4,19 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
 from app.main import create_app
 from app.models.orm import User
+
+
+@pytest.fixture(autouse=True)
+def _empty_practice_events():
+    with patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])):
+        yield
 
 
 def _fake_user() -> User:
@@ -57,6 +64,12 @@ def _item(project_id, **kw):
     item.definition = kw.get("definition", "hello")
     item.example_sentence = None
     item.ipa = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.due_at = None
+    item.last_completed_at = None
+    item.last_incorrect_at = None
     item.part_of_speech = None
     item.simple_gloss = None
     item.note = None

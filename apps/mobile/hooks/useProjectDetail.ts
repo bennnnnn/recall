@@ -1,55 +1,81 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-
 import { useAuthToken } from "@/contexts/AuthContext";
-import { useHome } from "@/contexts/HomeContext";
-import type { ProjectDetail } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
 import {
   fetchProjectDetail,
   getCachedProjectDetail,
+  subscribeProjectDetailCache,
 } from "@/lib/cache/projectDetailCache";
 
 export function useProjectDetail(projectId: string | undefined) {
   const token = useAuthToken();
-  const { refresh: refreshHome } = useHome();
-  const initial = projectId ? getCachedProjectDetail(projectId) ?? null : null;
-  const [project, setProject] = useState<ProjectDetail | null>(initial);
-  const [loading, setLoading] = useState(!initial);
-  const [loadError, setLoadError] = useState(false);
-  const hasLoadedRef = useRef(Boolean(initial));
-  const projectRef = useRef(project);
-  projectRef.current = project;
-
-  const load = useCallback(
-    async (options?: { silent?: boolean; force?: boolean }) => {
-      if (!token || !projectId) return;
-      const firstLoad = !hasLoadedRef.current;
-      if (!options?.silent && firstLoad && !projectRef.current) setLoading(true);
-      setLoadError(false);
-      const data = await fetchProjectDetail(token, projectId, { force: options?.force });
-      if (data) {
-        setProject(data);
-      } else if (!projectRef.current) {
-        setProject(null);
-        setLoadError(true);
-      }
-      hasLoadedRef.current = true;
-      if (!options?.silent && firstLoad) setLoading(false);
-    },
-    [projectId, token],
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const session = getSessionGeneration();
+  const signedIn = Boolean(token);
+  const owner = useMemo(() => ({ session, projectId, signedIn }), [session, projectId, signedIn]);
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
+  const active = useRef(false);
+  const request = useRef(0);
+  const initial = signedIn && projectId ? (getCachedProjectDetail(projectId) ?? null) : null;
+  const [state, setState] = useState({
+    owner,
+    project: initial,
+    loading: !initial,
+    loadError: false,
+  });
+  const view =
+    state.owner === owner ? state : { project: initial, loading: !initial, loadError: false };
+  const isCurrentOwner = useCallback(
+    () =>
+      active.current &&
+      ownerRef.current === owner &&
+      owner.signedIn &&
+      owner.session === getSessionGeneration(),
+    [owner],
   );
-
+  const load = useCallback(
+    async (options?: { silent?: boolean; force?: boolean; afterPending?: boolean }) => {
+      if (!tokenRef.current || !owner.projectId || !isCurrentOwner()) return;
+      const ticket = ++request.current;
+      setState((prev) => ({
+        ...prev,
+        owner,
+        project: prev.owner === owner ? prev.project : null,
+        loading: prev.owner !== owner || !prev.project,
+        loadError: false,
+      }));
+      const data = await fetchProjectDetail(tokenRef.current, owner.projectId, options);
+      if (!isCurrentOwner() || request.current !== ticket) return;
+      setState((prev) => ({
+        owner,
+        project: data ?? (prev.owner === owner ? prev.project : null),
+        loading: false,
+        loadError: data === null,
+      }));
+    },
+    [owner, isCurrentOwner],
+  );
+  useEffect(
+    () =>
+      subscribeProjectDetailCache(() => {
+        if (!owner.projectId || !isCurrentOwner()) return;
+        const project = getCachedProjectDetail(owner.projectId);
+        if (project) setState((prev) => ({ ...prev, owner, project, loading: false }));
+      }),
+    [owner, isCurrentOwner],
+  );
   useFocusEffect(
     useCallback(() => {
-      if (!projectId) return;
-      const hasPaint = Boolean(projectRef.current || getCachedProjectDetail(projectId));
-      void load({
-        silent: hasPaint,
-        force: true,
-      });
-      void refreshHome({ silent: true });
-    }, [load, projectId, refreshHome]),
+      active.current = true;
+      void load({ force: true });
+      return () => {
+        active.current = false;
+        request.current += 1;
+      };
+    }, [load]),
   );
-
-  return { project, loading, loadError, load };
+  return { ...view, load, isCurrentOwner };
 }

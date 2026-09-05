@@ -3,22 +3,30 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-
 import { ActionShimmer } from "@/components/ActionShimmer";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
+import { StateView } from "@/components/StateView";
 import { VocabCard } from "@/components/VocabCard";
 import { LessonCompleteCard } from "@/components/projects/LessonCompleteCard";
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useLessonFeedback } from "@/hooks/useLessonFeedback";
 import { useLessonSession } from "@/hooks/useLessonSession";
 import { isLanguageProject } from "@/lib/languageLevels";
+import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 export default function LearningLessonPlayScreen() {
+  const owner = useAccountViewOwner();
+  return <LessonPlayContent key={owner.key} isCurrent={owner.isCurrent} />;
+}
+
+export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
@@ -26,13 +34,14 @@ export default function LearningLessonPlayScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = typeof id === "string" ? id : "";
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const lesson = useLessonSession(projectId, isCurrent);
   const {
     project,
     step,
+    answer,
     error,
     empty,
     complete,
-    sessionEndedEarly,
     reviewing,
     currentNumber,
     total,
@@ -40,83 +49,167 @@ export default function LearningLessonPlayScreen() {
     saving,
     canAdvance,
     submitLetter,
-    recordWrongAnswer,
     continueLesson,
-  } = useLessonSession(projectId);
-
+  } = lesson;
+  const audio = useLessonFeedback(answer, isCurrent);
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
-
   const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
-  const quizStep = step && (step.kind === "use" || step.kind === "meaning") ? step : null;
-
+  const quiz = step && step.kind !== "teach" ? step : null;
+  const back = () => {
+    if (isCurrent()) {
+      audio.stop();
+      router.replace(lessonMapPath(projectId));
+    }
+  };
+  const retryLoad = () => {
+    if (isCurrent()) void lesson.load({ force: true });
+  };
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
       <View style={s.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={back}
           accessibilityRole="button"
           accessibilityLabel={t("lesson.close")}
           hitSlop={8}
         >
           <Icon name="close" size={26} color={theme.text} />
         </Pressable>
-        <View style={s.progressTrack} accessibilityRole="progressbar">
+        <View
+          style={s.progressTrack}
+          accessibilityRole="progressbar"
+          accessibilityValue={{ min: 0, max: total, now: lesson.learned + lesson.reviewed }}
+        >
           <View style={[s.progressFill, { width: `${Math.round(progressFill * 100)}%` }]} />
         </View>
         <Text style={s.progressLabel}>
-          {t(reviewing ? "lesson.review_of" : "lesson.step_of", {
-            current: currentNumber,
-            total: Math.max(total, 1),
-          })}
+          {t(reviewing ? "lesson.review_of" : "lesson.step_of", { current: currentNumber, total })}
         </Text>
       </View>
-
+      <View style={s.audioRow}>
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityState={{ checked: audio.sound }}
+          accessibilityLabel={t("lesson.sound")}
+          onPress={audio.toggleSound}
+          style={s.audioControl}
+        >
+          <Icon
+            name={audio.sound ? "volume-medium-outline" : "volume-mute-outline"}
+            size={19}
+            color={theme.textSecondary}
+          />
+          <Text style={s.progressLabel}>{t("lesson.sound")}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityState={{ checked: audio.voice }}
+          accessibilityLabel={t("lesson.voice_feedback")}
+          onPress={audio.toggleVoice}
+          style={s.audioControl}
+        >
+          <Icon
+            name="chatbubble-ellipses-outline"
+            size={19}
+            color={audio.voice ? theme.primary : theme.textTertiary}
+          />
+          <Text style={s.progressLabel}>{t("lesson.voice_feedback")}</Text>
+        </Pressable>
+      </View>
       <ScrollView
-        contentContainerStyle={[
-          s.body,
-          step?.kind === "teach" ? s.bodyCard : null,
-          quizStep ? s.bodyQuiz : null,
-        ]}
+        contentContainerStyle={[s.body, quiz ? s.bodyQuiz : null]}
         keyboardShouldPersistTaps="handled"
       >
-        {empty ? <Text style={s.status}>{t("lesson.chapter_empty")}</Text> : null}
-        {complete ? <LessonCompleteCard /> : null}
-        {sessionEndedEarly ? (
-          <View style={s.pausedWrap}>
-            <Text style={s.status}>{t("lesson.more_to_learn")}</Text>
-            <Button title={t("common.done")} onPress={() => router.back()} />
-          </View>
-        ) : null}
-        {step?.kind === "teach" ? (
-          <VocabCard card={step.card} language={language} />
-        ) : null}
-        {quizStep ? <Text style={s.question}>{quizStep.question}</Text> : null}
-        {quizStep ? (
-          <LessonQuizCards
-            choices={quizStep.quiz.choices}
-            correctLetter={quizStep.quiz.correct}
-            disabled={saving}
-            resetToken={`${quizStep.itemId}:${quizStep.kind}`}
-            onSelect={submitLetter}
-            onWrongAnswer={recordWrongAnswer}
+        {lesson.loadError ? (
+          <StateView
+            compact
+            variant="error"
+            title={t("projects.load_failed")}
+            onRetry={retryLoad}
           />
         ) : null}
-        {!step && !empty && !complete && !sessionEndedEarly ? (
+        {empty ? (
+          <StateView
+            variant="empty"
+            icon="book-outline"
+            title={t("lesson.chapter_empty")}
+            onRetry={retryLoad}
+          />
+        ) : null}
+        {complete ? (
+          <LessonCompleteCard learned={lesson.learned} reviewed={lesson.reviewed} onBack={back} />
+        ) : null}
+        {step?.kind === "teach" ? (
+          <VocabCard
+            card={step.card}
+            language={language}
+            onSpeak={() => audio.speak(step.card.word, language)}
+          />
+        ) : null}
+        {quiz ? (
+          <>
+            <Text style={s.question}>{quiz.question}</Text>
+            {quiz.contextSentence ? (
+              <Text style={s.contextSentence}>{quiz.contextSentence}</Text>
+            ) : null}
+            <LessonQuizCards
+              choices={quiz.quiz.choices}
+              correctLetter={quiz.quiz.correct}
+              selectedLetter={answer?.letter}
+              disabled={saving || answer?.status === "failed"}
+              onSelect={submitLetter}
+            />
+            {answer ? (
+              <View
+                style={[
+                  s.feedback,
+                  { backgroundColor: answer.correct ? theme.successLight : theme.dangerLight },
+                ]}
+                accessibilityLiveRegion="polite"
+              >
+                <View style={s.feedbackTitle}>
+                  <Icon
+                    name={answer.correct ? "checkmark-circle" : "refresh-circle"}
+                    size={24}
+                    color={answer.correct ? theme.success : theme.danger}
+                  />
+                  <Text style={s.feedbackHeading}>
+                    {t(answer.correct ? "lesson.correct" : "lesson.try_again")}
+                  </Text>
+                </View>
+                <Text style={s.feedbackText}>{quiz.explanation}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+        {!step && !empty && !complete && !lesson.loadError ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
       </ScrollView>
-
-      {step && canAdvance ? (
+      {step ? (
         <View style={s.footer}>
-          {error ? <Text style={s.error}>{error}</Text> : null}
-          <Button
-            title={t("lesson.continue")}
-            onPress={continueLesson}
-            loading={saving}
-            disabled={saving}
-            style={s.nextBtn}
-          />
+          {error ? (
+            <>
+              <Text style={s.error} accessibilityLiveRegion="polite">
+                {error}
+              </Text>
+              <Button title={t("common.retry")} onPress={lesson.retryAnswer} />
+            </>
+          ) : canAdvance ? (
+            <Button
+              title={t("lesson.continue")}
+              onPress={() => {
+                audio.stop();
+                continueLesson();
+              }}
+              loading={saving}
+              disabled={saving}
+              style={s.nextBtn}
+            />
+          ) : saving ? (
+            <ActionShimmer label={t("lesson.saving")} color={theme.primary} />
+          ) : null}
         </View>
       ) : null}
     </SafeAreaView>
@@ -125,6 +218,19 @@ export default function LearningLessonPlayScreen() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    contextSentence: { ...Type.body, fontSize: 18, lineHeight: 28, color: theme.textSecondary },
+    audioRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "flex-end",
+      paddingHorizontal: Space.lg,
+      gap: Space.md,
+    },
+    audioControl: { flexDirection: "row", alignItems: "center", gap: Space.xs, minHeight: 44 },
+    feedback: { padding: Space.md, borderRadius: Radius.lg, gap: Space.sm },
+    feedbackTitle: { flexDirection: "row", gap: Space.sm, alignItems: "center" },
+    feedbackHeading: { ...Type.body, fontWeight: "700", color: theme.text },
+    feedbackText: { ...Type.body, color: theme.text, lineHeight: 26 },
     safe: { flex: 1, backgroundColor: theme.bg },
     header: {
       flexDirection: "row",
@@ -156,9 +262,6 @@ function makeStyles(theme: Theme) {
       gap: Space.md,
       flexGrow: 1,
     },
-    bodyCard: {
-      flexGrow: 1,
-    },
     bodyQuiz: {
       flexGrow: 1,
       justifyContent: "center",
@@ -169,19 +272,6 @@ function makeStyles(theme: Theme) {
       fontWeight: "700",
       color: theme.text,
       lineHeight: 28,
-    },
-    status: {
-      ...Type.body,
-      fontWeight: "700",
-      color: theme.text,
-      textAlign: "center",
-      marginTop: Space.lg,
-    },
-    pausedWrap: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.lg,
     },
     footer: {
       paddingHorizontal: Space.lg,

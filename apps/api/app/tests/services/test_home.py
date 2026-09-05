@@ -9,6 +9,12 @@ from app.core.config import Settings
 from app.services import home as home_service
 
 
+@pytest.fixture(autouse=True)
+def _empty_practice_history():
+    with patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])):
+        yield
+
+
 def _user(**kwargs):
     u = MagicMock()
     u.id = kwargs.get("id", uuid4())

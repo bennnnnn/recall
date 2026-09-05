@@ -8,7 +8,8 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.learning_policy import start_of_today_utc
-from app.models.orm import ProjectItem, QuizMissEvent
+from app.models.orm import LearningPracticeEvent, ProjectItem, QuizMissEvent
+from app.repositories.learning_activity import activity_columns, activity_values
 
 DEFAULT_LIST = "General"
 
@@ -333,7 +334,7 @@ async def count_stats_sql(
         func.count()
         .filter(
             and_(
-                _status_is("learning"),
+                or_(_status_is("learning"), _status_is("mastered")),
                 or_(
                     and_(
                         ProjectItem.due_at.is_(None),
@@ -375,6 +376,7 @@ async def count_stats_sql(
         )
         .label("pending_today"),
         func.max(ProjectItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
+        *activity_columns(start, mastered_cond),
     ).where(ProjectItem.user_id == user_id, ProjectItem.project_id == project_id)
     row = (await session.execute(stmt)).one()
     return {
@@ -388,6 +390,7 @@ async def count_stats_sql(
         "missed_today": row.missed_today or 0,
         "pending_today": row.pending_today or 0,
         "last_mastery_at": row.last_mastery_at,
+        **activity_values(row),
     }
 
 
@@ -439,7 +442,7 @@ async def count_stats_sql_for_project(
         func.count()
         .filter(
             and_(
-                _status_is("learning"),
+                or_(_status_is("learning"), _status_is("mastered")),
                 or_(
                     and_(
                         ProjectItem.due_at.is_(None),
@@ -481,6 +484,7 @@ async def count_stats_sql_for_project(
         )
         .label("pending_today"),
         func.max(ProjectItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
+        *activity_columns(start, mastered_cond),
     ).where(ProjectItem.project_id == project_id)
     row = (await session.execute(stmt)).one()
     return {
@@ -494,12 +498,15 @@ async def count_stats_sql_for_project(
         "missed_today": row.missed_today or 0,
         "pending_today": row.pending_today or 0,
         "last_mastery_at": row.last_mastery_at,
+        **activity_values(row),
     }
 
 
 async def list_miss_events_for_items(
     session: AsyncSession,
     item_ids: list[UUID],
+    *,
+    since: datetime | None = None,
 ) -> dict[UUID, list[datetime]]:
     """All logged miss events for the given items, grouped by item_id.
 
@@ -513,6 +520,8 @@ async def list_miss_events_for_items(
         .where(QuizMissEvent.item_id.in_(item_ids))
         .order_by(QuizMissEvent.occurred_at.asc())
     )
+    if since is not None:
+        stmt = stmt.where(QuizMissEvent.occurred_at >= since)
     rows = (await session.execute(stmt)).all()
     out: dict[UUID, list[datetime]] = {}
     for item_id, occurred_at in rows:
@@ -529,19 +538,36 @@ async def list_by_activity_date(
     end: datetime,
     limit: int = 50,
     offset: int = 0,
+    include_partial: bool = False,
 ) -> list[ProjectItem]:
+    activity = select(LearningPracticeEvent.id).where(
+        LearningPracticeEvent.item_id == ProjectItem.id,
+        LearningPracticeEvent.user_id == user_id,
+        LearningPracticeEvent.project_id == project_id,
+        LearningPracticeEvent.occurred_at >= start,
+        LearningPracticeEvent.occurred_at < end,
+    )
+    if not include_partial:
+        activity = activity.where(LearningPracticeEvent.completes_word.is_(True))
     stmt = (
         select(ProjectItem)
         .where(
             ProjectItem.user_id == user_id,
             ProjectItem.project_id == project_id,
-            ProjectItem.mastered.is_(True),
-            and_(
-                ProjectItem.mastered_at >= start,
-                ProjectItem.mastered_at < end,
+            or_(
+                activity.exists(),
+                and_(
+                    ProjectItem.mastered.is_(True),
+                    func.coalesce(ProjectItem.mastered_at, ProjectItem.created_at) >= start,
+                    func.coalesce(ProjectItem.mastered_at, ProjectItem.created_at) < end,
+                ),
             ),
         )
-        .order_by(ProjectItem.mastered_at.desc().nullslast(), ProjectItem.created_at.desc())
+        .order_by(
+            ProjectItem.mastered_at.desc().nullslast(),
+            ProjectItem.created_at.desc(),
+            ProjectItem.id,
+        )
         .offset(max(offset, 0))
         .limit(min(limit, 200))
     )
@@ -587,11 +613,23 @@ async def list_missed_by_activity_date(
         .where(
             ProjectItem.user_id == user_id,
             ProjectItem.project_id == project_id,
-            ProjectItem.mastered.is_(False),
+            or_(
+                ProjectItem.mastered.is_(False),
+                select(LearningPracticeEvent.id)
+                .where(
+                    LearningPracticeEvent.item_id == ProjectItem.id,
+                    LearningPracticeEvent.user_id == user_id,
+                    LearningPracticeEvent.was_correct.is_(False),
+                    LearningPracticeEvent.occurred_at >= start,
+                    LearningPracticeEvent.occurred_at < end,
+                )
+                .exists(),
+            ),
         )
         .order_by(
             day_misses.c.latest_occurred_at.desc(),
             ProjectItem.created_at.desc(),
+            ProjectItem.id,
         )
         .offset(max(offset, 0))
         .limit(min(limit, 200))

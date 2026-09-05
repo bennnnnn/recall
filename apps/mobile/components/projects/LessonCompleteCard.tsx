@@ -1,8 +1,14 @@
 import { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { notifySuccess } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
@@ -10,7 +16,15 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-export function LessonCompleteCard() {
+export function LessonCompleteCard({
+  learned = 0,
+  reviewed = 0,
+  onBack,
+}: {
+  learned?: number;
+  reviewed?: number;
+  onBack?: () => void;
+}) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -34,11 +48,17 @@ export function LessonCompleteCard() {
   }));
 
   return (
-    <Animated.View style={[s.wrap, anim]} accessibilityRole="summary" accessibilityLiveRegion="polite">
+    <Animated.View
+      style={[s.wrap, anim]}
+      accessibilityRole="summary"
+      accessibilityLiveRegion="polite"
+    >
       <View style={s.iconWrap}>
         <Icon name="checkmark-circle" size={56} color={theme.success} />
       </View>
-      <Text style={s.title}>{t("lesson.chapter_complete")}</Text>
+      <Text style={s.title}>{t("lesson.practice_complete")}</Text>
+      <Text style={s.summary}>{t("lesson.completion_summary", { learned, reviewed })}</Text>
+      {onBack ? <Button title={t("lesson.back_to_map")} onPress={onBack} /> : null}
     </Animated.View>
   );
 }
@@ -59,6 +79,12 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: theme.successLight,
+    },
+    summary: {
+      ...Type.body,
+      color: theme.textSecondary,
+      textAlign: "center",
+      marginBottom: Space.lg,
     },
     title: {
       ...Type.body,

@@ -20,7 +20,7 @@ _CHUNK = 500
 
 
 async def ensure_catalog_rows(session: AsyncSession) -> None:
-    """Insert any catalog decks/words missing from the DB. Existing rows stay."""
+    """Upsert catalog-owned content without replacing referenced row identities."""
     decks = _sync_decks()
     if not decks:
         return
@@ -41,7 +41,7 @@ async def ensure_catalog_rows(session: AsyncSession) -> None:
                 "sort_order": deck.sort_order,
             }
         )
-    await _insert_ignore(session, VocabDeck, deck_rows)
+    await _upsert_content(session, VocabDeck, deck_rows)
     entry_rows: list[dict[str, Any]] = []
     seen_words: set[Any] = set()
     for deck in decks:
@@ -60,22 +60,26 @@ async def ensure_catalog_rows(session: AsyncSession) -> None:
                     "ipa": word.ipa,
                     "part_of_speech": word.part_of_speech,
                     "simple_gloss": word.simple_gloss,
+                    "vocabulary_kind": word.vocabulary_kind,
+                    "verb_kind": word.verb_kind,
+                    "noun_kind": word.noun_kind,
                     "sort_order": index,
                 }
             )
-    await _insert_ignore(session, VocabEntry, entry_rows)
+    await _upsert_content(session, VocabEntry, entry_rows)
     await session.flush()
 
 
 def _sync_decks() -> list[Any]:
     """Source banks plus merged English path decks so extra lemmas get UUID5 rows."""
-    decks = list(all_catalog_decks())
-    decks.extend(path_decks_for_language("en"))
+    # Enriched path rows share some source UUIDs; the first occurrence wins.
+    decks = list(path_decks_for_language("en"))
     decks.extend(path_decks_for_language("es"))
+    decks.extend(all_catalog_decks())
     return decks
 
 
-async def _insert_ignore(
+async def _upsert_content(
     session: AsyncSession,
     table: type[Any],
     rows: list[dict[str, Any]],
@@ -84,4 +88,6 @@ async def _insert_ignore(
         return
     for offset in range(0, len(rows), _CHUNK):
         chunk = rows[offset : offset + _CHUNK]
-        await session.execute(pg_insert(table).values(chunk).on_conflict_do_nothing())
+        statement = pg_insert(table).values(chunk)
+        values = {key: getattr(statement.excluded, key) for key in chunk[0] if key != "id"}
+        await session.execute(statement.on_conflict_do_update(index_elements=["id"], set_=values))

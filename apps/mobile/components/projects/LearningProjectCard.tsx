@@ -35,7 +35,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
   const lifetimeTotal = stats?.mastered_count ?? 0;
   const masteredToday = stats?.mastered_today ?? 0;
   const missedToday = stats?.missed_today ?? 0;
-  const completedToday = masteredToday + missedToday;
+  const completedToday = stats?.completed_today ?? masteredToday + missedToday;
   const streakDays = stats?.streak_days ?? 0;
   const goalMet = stats != null && completedToday >= dailyGoal;
   const progressPct =
@@ -45,12 +45,12 @@ export const LearningProjectCard = memo(function LearningProjectCard({
 
   const lifetimeLine = t("projects.list.lifetime_words", { count: lifetimeTotal });
 
-  const chips = [`${dailyLabel}/day`];
+  const chips = [t("lesson.daily_goal", { count: Number(dailyLabel) })];
 
   return (
     <View style={s.section}>
       <View style={s.card}>
-        <Pressable style={s.mainTap} onPress={() => onOpen(project.id)}>
+        <Pressable accessibilityRole="button" style={s.mainTap} onPress={() => onOpen(project.id)}>
           <View style={s.header}>
             <View style={s.iconWrap}>
               <Icon name={icon} size={22} color={theme.primary} />
@@ -82,14 +82,16 @@ export const LearningProjectCard = memo(function LearningProjectCard({
                   </Text>
                 ) : null}
               </View>
-              <View style={s.track}>
-                <View
-                  style={[
-                    s.fill,
-                    goalMet && s.fillComplete,
-                    { width: `${progressPct}%` },
-                  ]}
-                />
+              <View
+                style={s.track}
+                accessibilityRole="progressbar"
+                accessibilityValue={{
+                  min: 0,
+                  max: dailyGoal,
+                  now: Math.min(completedToday, dailyGoal),
+                }}
+              >
+                <View style={[s.fill, goalMet && s.fillComplete, { width: `${progressPct}%` }]} />
               </View>
             </View>
           ) : null}
@@ -103,6 +105,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
                   </Text>
                 </View>
               ))}
+              <Text style={s.continueText}>{t("lesson.open_map")}</Text>
             </View>
           ) : null}
         </Pressable>
@@ -113,6 +116,13 @@ export const LearningProjectCard = memo(function LearningProjectCard({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    continueText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.primary,
+      paddingVertical: 5,
+      marginLeft: "auto",
+    },
     section: {
       marginBottom: 0,
     },

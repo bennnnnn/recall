@@ -17,9 +17,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.gateways.storage_gateway import StorageGateway, get_storage_gateway
-from app.models.orm import Chat, Memory, Message, ProductEvent, Project, ProjectItem, TodoItem, User
+from app.models.orm import (
+    Chat,
+    LearningPracticeEvent,
+    Memory,
+    Message,
+    ProductEvent,
+    Project,
+    ProjectItem,
+    TodoItem,
+    User,
+)
 from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
+from app.repositories import learning_export as learning_export_repo
 from app.repositories import memories as memories_repo
 from app.repositories import messages as messages_repo
 from app.repositories import product_events as product_events_repo
@@ -39,6 +50,8 @@ EXPORT_MAX_TODOS = 2_000
 EXPORT_TODO_PAGE_SIZE = 200
 EXPORT_MAX_PROJECTS = 100
 EXPORT_MAX_PROJECT_ITEMS = 20_000
+EXPORT_MAX_LEARNING_PRACTICE_EVENTS = 20_000
+EXPORT_LEARNING_PRACTICE_PAGE_SIZE = 200
 EXPORT_MAX_ATTACHMENTS = 2_000
 EXPORT_MAX_PRODUCT_EVENTS = 2_000
 
@@ -121,10 +134,16 @@ def _project_item_payload(item: ProjectItem) -> dict[str, Any]:
         "example_sentence": item.example_sentence,
         "ipa": item.ipa,
         "part_of_speech": item.part_of_speech,
+        "vocabulary_kind": item.vocabulary_kind,
+        "verb_kind": item.verb_kind,
+        "noun_kind": item.noun_kind,
         "simple_gloss": item.simple_gloss,
         "status": item.status,
         "mastered": item.mastered,
         "mastered_at": item.mastered_at.isoformat() if item.mastered_at is not None else None,
+        "last_completed_at": item.last_completed_at.isoformat()
+        if item.last_completed_at is not None
+        else None,
         "review_count": item.review_count,
         "quiz_attempts": item.quiz_attempts,
         "quiz_correct": item.quiz_correct,
@@ -145,6 +164,19 @@ def _product_event_payload(event: ProductEvent) -> dict[str, Any]:
     }
 
 
+def _practice_event_payload(event: LearningPracticeEvent) -> dict[str, Any]:
+    return {
+        "id": str(event.id),
+        "attempt_id": str(event.attempt_id),
+        "project_id": str(event.project_id),
+        "item_id": str(event.item_id),
+        "was_correct": event.was_correct,
+        "completes_word": event.completes_word,
+        "newly_mastered": event.newly_mastered,
+        "occurred_at": event.occurred_at.isoformat(),
+    }
+
+
 def _export_limits(settings: Settings) -> dict[str, int]:
     return {
         "max_chats": EXPORT_MAX_CHATS,
@@ -153,6 +185,7 @@ def _export_limits(settings: Settings) -> dict[str, int]:
         "max_todos": EXPORT_MAX_TODOS,
         "max_projects": EXPORT_MAX_PROJECTS,
         "max_project_items": EXPORT_MAX_PROJECT_ITEMS,
+        "max_learning_practice_events": EXPORT_MAX_LEARNING_PRACTICE_EVENTS,
         "max_attachments": EXPORT_MAX_ATTACHMENTS,
         "max_product_events": EXPORT_MAX_PRODUCT_EVENTS,
         "attachment_download_url_ttl_seconds": settings.r2_presign_expiry_seconds,
@@ -216,7 +249,8 @@ async def _iter_export_json(
 ) -> AsyncIterator[str]:
     # Open a session per repository call and close it before yielding so a
     # slow client download cannot pin a Neon connection for the stream lifetime.
-    exported_at = datetime.now(UTC).isoformat()
+    snapshot_time = datetime.now(UTC)
+    exported_at = snapshot_time.isoformat()
     yield "{"
     yield f'"exported_at":{json.dumps(exported_at)},'
     yield f'"export_limits":{json.dumps(_export_limits(settings))},'
@@ -339,6 +373,35 @@ async def _iter_export_json(
                 yield ","
             yield json.dumps(item_payload)
         yield "]}"
+
+    yield '],"learning_practice_events":['
+    practice_count = 0
+    practice_cursor: tuple[datetime, UUID] | None = None
+    while practice_count < EXPORT_MAX_LEARNING_PRACTICE_EVENTS:
+        page_size = min(
+            EXPORT_LEARNING_PRACTICE_PAGE_SIZE, EXPORT_MAX_LEARNING_PRACTICE_EVENTS - practice_count
+        )
+        async with session_factory() as session:
+            practice_events = await learning_export_repo.list_page(
+                session,
+                user.id,
+                through=snapshot_time,
+                limit=page_size,
+                after=practice_cursor,
+            )
+            practice_chunks = [
+                json.dumps(_practice_event_payload(event)) for event in practice_events
+            ]
+            if practice_events:
+                last = practice_events[-1]
+                practice_cursor = (last.occurred_at, last.id)
+        for chunk in practice_chunks:
+            if practice_count:
+                yield ","
+            yield chunk
+            practice_count += 1
+        if len(practice_chunks) < page_size:
+            break
 
     yield '],"attachments":['
     async with session_factory() as session:

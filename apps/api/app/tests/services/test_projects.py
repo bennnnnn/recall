@@ -18,7 +18,13 @@ from app.services.projects import sync as projects_sync
 def _utc_user_for_project_actions():
     user = MagicMock()
     user.timezone = "UTC"
-    with patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)):
+    with (
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
+        patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])),
+        patch(
+            "app.repositories.project_items.list_miss_events_for_items", AsyncMock(return_value={})
+        ),
+    ):
         yield
 
 
@@ -70,6 +76,8 @@ def _project(title: str, kind: str = "language"):
     p.description = "Learn daily"
     p.level = "level1"
     p.target_language = "en"
+    p.created_at = datetime.now(UTC)
+    p.daily_goal_history = None
     return p
 
 
@@ -88,6 +96,12 @@ def _item(
     item.definition = f"definition of {content}"
     item.example_sentence = None
     item.ipa = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.due_at = None
+    item.last_completed_at = None
+    item.last_incorrect_at = None
     item.part_of_speech = None
     item.simple_gloss = None
     item.status = "mastered" if mastered else "new"
@@ -1482,8 +1496,8 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     repo_stats = stats_from_items(items)
 
     assert prompt_stats["due_for_review"] == repo_stats["due_for_review"]
-    # Sanity: the API counts only the learning item with a past due_at.
-    assert repo_stats["due_for_review"] == 1
+    # Both the learning item and the mastered word with an overdue review count.
+    assert repo_stats["due_for_review"] == 2
 
 
 @pytest.mark.asyncio

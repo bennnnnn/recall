@@ -38,6 +38,14 @@ def _empty_product_events_for_exports():
         yield list_events
 
 
+@pytest.fixture(autouse=True)
+def _empty_learning_practice_for_exports():
+    with patch(
+        "app.services.export_service.learning_export_repo.list_page", AsyncMock(return_value=[])
+    ) as list_events:
+        yield list_events
+
+
 def test_delete_account_returns_204():
     user = _fake_user()
     app = _app_with_user(user)
@@ -217,7 +225,9 @@ async def test_delete_user_deletes_children_then_user():
 
 
 @pytest.mark.asyncio
-async def test_build_export_structure(_empty_product_events_for_exports):
+async def test_build_export_structure(
+    _empty_product_events_for_exports, _empty_learning_practice_for_exports
+):
     from app.services import export_service
 
     session = AsyncMock()
@@ -272,7 +282,11 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     item.definition = "hello"
     item.example_sentence = None
     item.ipa = None
-    item.part_of_speech = None
+    item.part_of_speech = "interjection"
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.last_completed_at = datetime(2024, 1, 2)
     item.simple_gloss = None
     item.status = "new"
     item.mastered = False
@@ -292,6 +306,17 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     event.client_at = datetime(2024, 1, 2)
     event.recorded_at = datetime(2024, 1, 2)
     _empty_product_events_for_exports.return_value = [event]
+    practice = MagicMock(
+        id=uuid4(),
+        attempt_id=uuid4(),
+        project_id=project.id,
+        item_id=item.id,
+        was_correct=True,
+        completes_word=True,
+        newly_mastered=True,
+        occurred_at=datetime(2024, 1, 2),
+    )
+    _empty_learning_practice_for_exports.return_value = [practice]
 
     with (
         patch(
@@ -333,6 +358,25 @@ async def test_build_export_structure(_empty_product_events_for_exports):
     assert data["projects"][0]["title"] == "Spanish"
     assert data["projects"][0]["items"][0]["content"] == "hola"
     assert data["attachments"] == []
+    assert data["projects"][0]["items"][0]["vocabulary_kind"] == "word"
+    assert data["projects"][0]["items"][0]["last_completed_at"] == "2024-01-02T00:00:00"
+    assert data["learning_practice_events"] == [
+        {
+            "id": str(practice.id),
+            "attempt_id": str(practice.attempt_id),
+            "project_id": str(project.id),
+            "item_id": str(item.id),
+            "was_correct": True,
+            "completes_word": True,
+            "newly_mastered": True,
+            "occurred_at": "2024-01-02T00:00:00",
+        }
+    ]
+    assert _empty_learning_practice_for_exports.await_args.args[1] == user.id
+    assert (
+        data["export_limits"]["max_learning_practice_events"]
+        == export_service.EXPORT_MAX_LEARNING_PRACTICE_EVENTS
+    )
     assert data["product_events"][0]["name"] == "paywall_viewed"
     assert data["product_events"][0]["properties"] == {"source": "settings"}
     assert data["export_limits"]["max_chats"] == export_service.EXPORT_MAX_CHATS

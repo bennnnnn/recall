@@ -239,17 +239,17 @@ def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
     daily_goal = daily_learning.resolve_daily_goal(project)
     mastered_today = int(stats.get("mastered_today") or 0)
     missed_today = int(stats.get("missed_today") or 0)
-    completed_today = mastered_today + missed_today
+    completed_today = int(stats.get("completed_today", mastered_today + missed_today) or 0)
     remaining = max(0, daily_goal - completed_today)
     if completed_today >= daily_goal:
         return (
             f"**Today:** {completed_today}/{daily_goal} done — daily goal complete "
-            f"({mastered_today} correct, {missed_today} failed). "
+            f"({mastered_today} newly mastered; {int(stats.get('attempted_today') or 0)} practiced). "
             "This is the authoritative progress line — do not restate or contradict it."
         )
     return (
         f"**Today:** {completed_today}/{daily_goal} done "
-        f"({mastered_today} correct, {missed_today} failed; {remaining} more needed). "
+        f"({mastered_today} newly mastered; {int(stats.get('attempted_today') or 0)} practiced; {remaining} more needed). "
         "This is the authoritative progress line — do not restate or contradict it."
     )
 
@@ -308,7 +308,10 @@ async def load_project_for_prompt(
             client_timezone,
         )
         stats = project_stats.stats_from_items(items, timezone_name=tz_name)
-        today_line = _format_today_session_line(project, stats)
+        from app.services.learning.practice_context import load_activity_context
+
+        activity = await load_activity_context(session, [project], items, timezone_name=tz_name)
+        today_line = f"{_format_today_session_line(project, stats)}\n{activity}"
     if _is_language_project(project):
         hint = _language_tutor_hint(quiz_mode, target_language=project.target_language)
         if today_line:
@@ -332,7 +335,7 @@ async def load_projects_for_prompt(
         session, user_id, limit=settings.project_inject_limit
     )
     if not projects:
-        return ""
+        return "The user has no active Learning class. Do not invent lessons, progress, words, or skipped practice."
     project_ids = [p.id for p in projects]
     items = await project_items_repo.list_for_user(
         session,
@@ -342,6 +345,14 @@ async def load_projects_for_prompt(
     )
     block = format_learning_overview_block(projects, items)
     if block:
+        from app.repositories import users as users_repo
+        from app.services.learning.practice_context import load_activity_context
+
+        user = await users_repo.get_by_id(session, user_id)
+        activity = await load_activity_context(
+            session, projects, items, timezone_name=user.timezone if user else "UTC"
+        )
+        block = f"{block}\n\n{activity}"
         block = f"{block}\n\n{CHAT_LEARNING_HANDOFF_HINT}"
     return block
 
@@ -390,7 +401,7 @@ async def load_daily_learning_summary_for_prompt(
         daily_goal = daily_learning.resolve_daily_goal(project)
         mastered_today = int(stats.get("mastered_today") or 0)
         missed_today = int(stats.get("missed_today") or 0)
-        completed_today = mastered_today + missed_today
+        completed_today = int(stats.get("completed_today", mastered_today + missed_today) or 0)
         quiz_label, _unit = _daily_learning_quiz_label(project)
         if completed_today >= daily_goal:
             complete_lines.append(
@@ -407,7 +418,7 @@ async def load_daily_learning_summary_for_prompt(
             status = f"{remaining} left for today's {quiz_label}"
         incomplete_lines.append(
             f"- {project.title} ({quiz_label}): {completed_today}/{daily_goal} done "
-            f"({mastered_today} correct, {missed_today} failed; {status})"
+            f"({mastered_today} newly mastered; {int(stats.get('attempted_today') or 0)} practiced; {status})"
         )
     absent: list[str] = []
     if not has_language:
@@ -450,7 +461,7 @@ async def load_today_learning_words_for_prompt(
     *,
     client_timezone: str | None = None,
 ) -> str:
-    """Today's mastered and missed lemmas — for 'what did I learn today'."""
+    """Today's actual practice, including unfinished questions and completed reviews."""
     from app.core.learning_policy import day_bounds_utc
     from app.services import time_context as time_context_service
 
@@ -477,6 +488,7 @@ async def load_today_learning_words_for_prompt(
             project.id,
             start=start,
             end=end,
+            include_partial=True,
         )
         missed = await project_items_repo.list_missed_by_activity_date(
             session,
@@ -493,9 +505,9 @@ async def load_today_learning_words_for_prompt(
         any_words = True
         parts: list[str] = []
         if mastered_names:
-            parts.append(f"learned/mastered: {mastered_names}")
+            parts.append(f"practiced (completed or in progress): {mastered_names}")
         if missed_names:
-            parts.append(f"still learning (missed): {missed_names}")
+            parts.append(f"answered incorrectly: {missed_names}")
         lines.append(f"- {project.title}: {'; '.join(parts)}")
     if not any_words:
         lines.append(

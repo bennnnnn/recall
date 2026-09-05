@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import {
+  updateProjectDetailCache,
   fetchProjectDetail,
   getCachedProjectDetail,
   invalidateProjectDetail,
@@ -12,6 +13,12 @@ jest.mock("@/lib/api", () => ({
   api: {
     getProject: jest.fn(),
   },
+}));
+
+let mockSession = 1;
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: () => mockSession,
+  requireTokenSession: jest.fn(),
 }));
 
 const getProject = api.getProject as jest.Mock;
@@ -48,6 +55,7 @@ const detail = {
 describe("projectDetailCache", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSession += 1;
     invalidateProjectDetail("proj-1");
   });
 
@@ -85,4 +93,60 @@ describe("projectDetailCache", () => {
     prefetchProjectDetail("token", "proj-1");
     expect(getProject).not.toHaveBeenCalled();
   });
+});
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockSession += 1;
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+it("rejects an old account result even before a new account fetch", async () => {
+  const request = deferred<typeof detail>();
+  getProject.mockReturnValue(request.promise);
+  const task = fetchProjectDetail("token", "account-race", { force: true });
+  mockSession += 1;
+  request.resolve(detail);
+  expect(await task).toBeNull();
+  expect(getCachedProjectDetail("account-race")).toBeUndefined();
+});
+it("invalidating a pending response keeps it from repopulating the entry", async () => {
+  const request = deferred<typeof detail>();
+  getProject.mockReturnValue(request.promise);
+  const task = fetchProjectDetail("token", "invalidated", { force: true });
+  invalidateProjectDetail("invalidated");
+  request.resolve(detail);
+  expect(await task).toBeNull();
+  expect(isProjectDetailFresh("invalidated")).toBe(false);
+});
+it("replays confirmed item edits over a pending GET and recovers after that GET", async () => {
+  const request = deferred<typeof detail>();
+  getProject
+    .mockReturnValueOnce(request.promise)
+    .mockResolvedValueOnce({ ...detail, total_count: 8 });
+  setProjectDetailCache("replay", detail);
+  const task = fetchProjectDetail("token", "replay", { force: true });
+  updateProjectDetailCache("replay", (row) => ({ ...row, total_count: 7 }));
+  const recovery = fetchProjectDetail("token", "replay", { afterPending: true });
+  request.resolve(detail);
+  expect(await task).toMatchObject({ total_count: 7 });
+  expect(await recovery).toMatchObject({ total_count: 8 });
+  expect(getProject).toHaveBeenCalledTimes(2);
+});
+it("an account change while waiting for recovery cannot issue a new request", async () => {
+  const request = deferred<typeof detail>();
+  getProject.mockReturnValue(request.promise);
+  const task = fetchProjectDetail("token", "recover-old", { force: true });
+  const recovery = fetchProjectDetail("token", "recover-old", { afterPending: true });
+  mockSession += 1;
+  request.resolve(detail);
+  await task;
+  expect(await recovery).toBeNull();
+  expect(getProject).toHaveBeenCalledTimes(1);
 });

@@ -1,4 +1,19 @@
-import { lessonPath, queueLessonLaunch, takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
+import {
+  peekQueuedLessonLaunch,
+  lessonPath,
+  queueLessonLaunch,
+  takeQueuedLessonLaunch,
+} from "@/lib/lessonLaunch";
+
+let mockSession = 1;
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
+
+it("drops a queued lesson on account changes", () => {
+  queueLessonLaunch({ projectId: "old" });
+  mockSession += 1;
+  expect(peekQueuedLessonLaunch()).toBeNull();
+  expect(takeQueuedLessonLaunch()).toBeNull();
+});
 
 describe("lessonLaunch", () => {
   beforeEach(() => {

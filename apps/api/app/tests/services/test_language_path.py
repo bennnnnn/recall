@@ -48,6 +48,11 @@ def _item(content: str, list_title: str, *, mastered: bool = False) -> MagicMock
     item.ipa = None
     item.part_of_speech = None
     item.simple_gloss = None
+    item.catalog_entry_id = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.last_completed_at = None
     item.note = None
     item.created_at = datetime(2024, 1, 1, tzinfo=UTC)
     item.mastered_at = None
@@ -186,9 +191,10 @@ async def test_seed_language_path_copies_catalog_words():
     ensure = AsyncMock()
     with (
         patch("app.core.db.SessionLocal", return_value=_CM()),
-        patch("app.repositories.projects.get_by_id", AsyncMock(return_value=project)),
-        patch("app.repositories.project_items.list_for_user", AsyncMock(return_value=[])),
-        patch("app.services.projects.items.create_item", created),
+        patch("app.repositories.learning_catalog.lock_project", AsyncMock(return_value=project)),
+        patch("app.repositories.learning_catalog.list_items", AsyncMock(return_value=[])),
+        patch("app.repositories.learning_catalog.insert_missing", created),
+        patch("app.repositories.learning_catalog.update_contents", AsyncMock()),
         patch("app.services.learning.path_seed.ensure_catalog_rows", ensure),
         patch("app.services.projects.common._invalidate_home_for_user", AsyncMock()),
     ):
@@ -197,8 +203,9 @@ async def test_seed_language_path_copies_catalog_words():
     ensure.assert_awaited_once()
     assert project.learning_path == catalog_path_titles("es")
     assert "Immediate family" in project.learning_path
-    assert created.await_count == catalog_word_count("es")
-    assert created.await_count > 0
+    created.assert_awaited_once()
+    assert len(created.await_args.kwargs["rows"]) == catalog_word_count("es")
+    assert all(row["catalog_entry_id"] is not None for row in created.await_args.kwargs["rows"])
 
 
 def test_needs_catalog_sync_when_path_is_old_llm_titles():
@@ -291,6 +298,7 @@ async def test_get_project_detail_enqueues_catalog_sync_without_blocking_get():
         patch.object(projects_repo, "get_by_id", AsyncMock(return_value=item)),
         patch.object(project_items_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(project_items_repo, "list_miss_events_for_items", AsyncMock(return_value={})),
+        patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])),
         patch("app.services.projects.crud.enqueue_language_path_job", enqueue),
         patch("app.services.learning.path_seed.seed_language_path", seed),
         patch("app.services.learning.path_seed.needs_catalog_sync", return_value=True),

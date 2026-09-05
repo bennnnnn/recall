@@ -1,6 +1,7 @@
 import type { ProjectItem } from "@/lib/api";
 import type { ParsedVocabQuiz, QuizChoice } from "@/lib/parseVocabQuiz";
 
+import { wholeWordIndex } from "@/lib/projects/wordBoundary";
 import { cardMeaning, itemToCard } from "@/lib/projects/chapterLesson";
 
 const LETTERS: QuizChoice["letter"][] = ["A", "B", "C", "D"];
@@ -11,6 +12,8 @@ export type DrillStep =
       kind: "use" | "meaning";
       itemId: string;
       question: string;
+      explanation: string;
+      contextSentence?: string;
       quiz: ParsedVocabQuiz;
     };
 
@@ -43,14 +46,22 @@ export function seededShuffle<T>(items: T[], seed: string): T[] {
   return next;
 }
 
-/** First case-insensitive occurrence of `word` → `_____`. Linear scan, no regex. */
-export function blankTargetWord(sentence: string, word: string): string {
-  const trimmed = sentence.trim() || word;
+/** Only exact whole words/phrases can be replaced with the uninflected answer. */
+export function blankTargetWord(sentence: string, word: string): string | null {
+  const trimmed = sentence.trim();
   const target = word.trim();
-  if (!target) return `${trimmed} (_____)`;
-  const at = trimmed.toLowerCase().indexOf(target.toLowerCase());
-  if (at === -1) return `${trimmed} (_____)`;
-  return `${trimmed.slice(0, at)}_____${trimmed.slice(at + target.length)}`;
+  if (!target || !trimmed) return null;
+  const at = wholeWordIndex(trimmed, target);
+  return at < 0 ? null : `${trimmed.slice(0, at)}_____${trimmed.slice(at + target.length)}`;
+}
+
+function choiceKey(text: string) {
+  return text
+    .trim()
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .replace(/[.!?…]+$/u, "");
 }
 
 export function pickTexts(
@@ -61,11 +72,11 @@ export function pickTexts(
 ): string[] {
   const answer = correct.trim();
   if (!answer) return [];
-  const seen = new Set<string>([answer.toLowerCase()]);
+  const seen = new Set<string>([choiceKey(answer)]);
   const extras: string[] = [];
   for (const text of [...pool, ...fallbacks]) {
     const trimmed = text.trim();
-    const key = trimmed.toLowerCase();
+    const key = choiceKey(trimmed);
     if (!trimmed || seen.has(key)) continue;
     seen.add(key);
     extras.push(trimmed);
@@ -85,8 +96,7 @@ function quizFromChoices(
     letter: LETTERS[index] ?? "A",
     text,
   }));
-  const correct =
-    choices.find((choice) => choice.text === correctText)?.letter ?? "A";
+  const correct = choices.find((choice) => choice.text === correctText)?.letter ?? "A";
   return { word, question, correct, choices, quizType: "vocab" };
 }
 
@@ -120,7 +130,6 @@ export function buildChapterDrills(
   pool: ProjectItem[],
   labels: DrillLabels,
 ): DrillStep[] {
-  const wordPool = pool.map((item) => item.content.trim()).filter(Boolean);
   const meaningPool = pool.map((item) => cardMeaning(itemToCard(item))).filter(Boolean);
   const drills: DrillStep[] = [];
   for (const item of items) {
@@ -128,31 +137,49 @@ export function buildChapterDrills(
     if (!word) continue;
     const card = itemToCard(item);
     const meaning = cardMeaning(card);
-    const example = item.example_sentence?.trim() || item.note?.trim() || word;
-    const gap = blankTargetWord(example, word);
-    drills.push({ kind: "teach", itemId: item.id, card });
-    const useQuestion = labels.useQuestion(gap);
-    const useQuiz = quizFromChoices(
-      word,
-      useQuestion,
-      pickTexts(wordPool, word, `${item.id}:use`, []),
-      word,
-    );
-    if (useQuiz) {
-      drills.push({ kind: "use", itemId: item.id, question: useQuestion, quiz: useQuiz });
-    }
-    const meaningQuestion = labels.meaningQuestion(gap);
+    const wordPool = pool
+      .filter(
+        (candidate) =>
+          candidate.id === item.id ||
+          choiceKey(cardMeaning(itemToCard(candidate))) !== choiceKey(meaning),
+      )
+      .map((candidate) => candidate.content.trim())
+      .filter(Boolean);
+    if (!item.definition?.trim() && !item.simple_gloss?.trim()) continue;
+    const examples = card.examples ?? [];
+    const explanation = `${word} — ${meaning}${examples[0] ? `\n${examples[0]}` : ""}`;
+    const gap = examples.map((text) => blankTargetWord(text, word)).find((text) => text != null);
+    const useQuestion = gap ? labels.useQuestion(gap) : "";
+    const useQuiz = gap
+      ? quizFromChoices(word, useQuestion, pickTexts(wordPool, word, `${item.id}:use`, []), word)
+      : null;
+    // An inflected example remains intact; ask about the taught meaning instead
+    // of making a cloze whose answer cannot fit the original sentence.
+    const meaningQuestion = labels.meaningQuestion(word);
     const meaningQuiz = quizFromChoices(
       word,
       meaningQuestion,
       pickTexts(meaningPool, meaning, `${item.id}:meaning`, []),
       meaning,
     );
+    // Never produce a teaching-only path that could award mastery without a check.
+    if (!useQuiz && !meaningQuiz) continue;
+    drills.push({ kind: "teach", itemId: item.id, card });
+    if (useQuiz)
+      drills.push({
+        kind: "use",
+        itemId: item.id,
+        question: useQuestion,
+        explanation,
+        quiz: useQuiz,
+      });
     if (meaningQuiz) {
       drills.push({
         kind: "meaning",
         itemId: item.id,
         question: meaningQuestion,
+        contextSentence: examples[0],
+        explanation,
         quiz: meaningQuiz,
       });
     }

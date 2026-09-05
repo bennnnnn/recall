@@ -1,5 +1,6 @@
 import type { ProjectDetail, ProjectItem } from "@/lib/api";
 import {
+  cardMeaning,
   chapterIsComplete,
   chapterItems,
   chapterQueue,
@@ -60,11 +61,7 @@ describe("chapterLesson", () => {
   });
 
   it("replays a finished chapter as an uncapped review", () => {
-    const items = [
-      item("a", "mastered"),
-      item("b", "mastered"),
-      item("c", "mastered"),
-    ];
+    const items = [item("a", "mastered"), item("b", "mastered"), item("c", "mastered")];
     expect(isChapterReview(items)).toBe(true);
     expect(chapterQueue(items, 2).map((row) => row.content)).toEqual(["a", "b", "c"]);
   });
@@ -72,9 +69,7 @@ describe("chapterLesson", () => {
   it("treats a chapter complete only when every word is mastered", () => {
     const items = chapterItems(project, "Greetings");
     expect(chapterIsComplete(items)).toBe(false);
-    expect(chapterIsComplete([item("hola", "mastered"), item("adios", "mastered")])).toBe(
-      true,
-    );
+    expect(chapterIsComplete([item("hola", "mastered"), item("adios", "mastered")])).toBe(true);
   });
 
   it("overlays in-session known marks without waiting on the server", () => {
@@ -90,7 +85,7 @@ describe("chapterLesson", () => {
   });
 
   it("maps an item onto a vocab card", () => {
-    expect(itemToCard(item("hola"))).toEqual({
+    expect(itemToCard(item("hola"))).toMatchObject({
       word: "hola",
       definition: "def hola",
       exampleSentence: "ex hola",
@@ -102,7 +97,7 @@ describe("chapterLesson", () => {
         part_of_speech: "adjective",
         simple_gloss: "you bounce back",
       }),
-    ).toEqual({
+    ).toMatchObject({
       word: "resilient",
       definition: "def resilient",
       exampleSentence: "ex resilient",
@@ -113,13 +108,11 @@ describe("chapterLesson", () => {
   });
 
   it("highlights the lemma inside an example", () => {
-    expect(highlightLemmaParts("She stayed resilient after losing her job.", "resilient")).toEqual(
-      [
-        { text: "She stayed ", match: false },
-        { text: "resilient", match: true },
-        { text: " after losing her job.", match: false },
-      ],
-    );
+    expect(highlightLemmaParts("She stayed resilient after losing her job.", "resilient")).toEqual([
+      { text: "She stayed ", match: false },
+      { text: "resilient", match: true },
+      { text: " after losing her job.", match: false },
+    ]);
   });
 
   it("splits at most two example sentences", () => {
@@ -131,13 +124,7 @@ describe("chapterLesson", () => {
   });
 
   it("counts progress against the group, not the daily batch", () => {
-    const items = [
-      item("a", "mastered"),
-      item("b", "mastered"),
-      item("c"),
-      item("d"),
-      item("e"),
-    ];
+    const items = [item("a", "mastered"), item("b", "mastered"), item("c"), item("d"), item("e")];
     expect(groupLessonProgress(items, "c")).toEqual({
       current: 3,
       total: 5,
@@ -151,15 +138,42 @@ describe("chapterLesson", () => {
   });
 
   it("uses place-in-group during review of a finished chapter", () => {
-    const items = [
-      item("a", "mastered"),
-      item("b", "mastered"),
-      item("c", "mastered"),
-    ];
+    const items = [item("a", "mastered"), item("b", "mastered"), item("c", "mastered")];
     expect(groupLessonProgress(items, "b")).toEqual({
       current: 2,
       total: 3,
       fill: 2 / 3,
     });
   });
+});
+
+it("shows the full definition even when a short gloss exists", () => {
+  expect(
+    cardMeaning({
+      word: "hello",
+      definition: "A greeting used when you meet someone.",
+      simpleGloss: "hi",
+    }),
+  ).toBe("A greeting used when you meet someone.");
+});
+
+it("does not highlight a short lemma inside another word", () => {
+  expect(highlightLemmaParts("He works at the hotel.", "he")).toEqual([
+    { text: "He", match: true },
+    { text: " works at the hotel.", match: false },
+  ]);
+});
+it("uses distinct structured examples instead of repeating the legacy example field", () => {
+  expect(
+    itemToCard({
+      ...item("hello"),
+      example_sentences: ["Hello, Ana.", "Hello, Ana.", "I said hello to my neighbor."],
+    }).examples,
+  ).toEqual(["Hello, Ana.", "I said hello to my neighbor."]);
+});
+
+it("retains a useful short gloss when legacy content has no full definition", () => {
+  expect(
+    cardMeaning(itemToCard({ ...item("hello"), definition: null, simple_gloss: "A greeting" })),
+  ).toBe("A greeting");
 });

@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Learning retries double-counted progress or mislabeled a review as newly learned.**
+  A question save needs an owner-scoped attempt UUID and immutable completion outcome;
+  keep failed answers for same-UUID retry and use the server result for the summary.
+- **Reviewed words disappeared when opening a daily history row.** Mastery grouping
+  omits empty days, so event merges must create qualifying keys within the explicit
+  requested day window instead of requiring the key to already exist.
+
 - **Library thumbs vanished on slow or flaky radios.** A 20s `Image` timeout and `onError` called `onMissing`, which dropped the row as if the file were gone; the full viewer then spun forever. Keep the tile, show Retry, and drop only after `GET /attachments/{id}/url` returns 404.
 - **Second Google product connect failed (“no refresh token”).** Google omits
   `refresh_token` on incremental grants; `getCurrentUser().serverAuthCode` is

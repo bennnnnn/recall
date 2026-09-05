@@ -31,10 +31,26 @@ const labels = {
 };
 
 describe("buildChapterDrills", () => {
+  it("never blanks a lemma inside another word", () => {
+    expect(blankTargetWord("The hotel is quiet.", "he")).toBeNull();
+  });
+
+  it("uses a meaning assessment when examples contain only an inflected form", () => {
+    const wake = {
+      ...item("1", "despertarse", "Dejar de dormir."),
+      example_sentence: "Me despierto temprano.",
+    };
+    const sleep = item("2", "dormir", "Descansar durante la noche.");
+    const steps = buildChapterDrills([wake], [wake, sleep], labels);
+    expect(steps.map((step) => step.kind)).toEqual(["teach", "meaning"]);
+    expect(steps[1]).toMatchObject({ question: expect.stringContaining("despertarse") });
+    expect(steps[1]).toMatchObject({ question: expect.not.stringContaining("_____") });
+  });
+
   it("blanks the target word in the example sentence", () => {
     expect(blankTargetWord("Hello, how are you?", "hello")).toBe("_____, how are you?");
     expect(blankTargetWord("See you later.", "see you later")).toBe("_____.");
-    expect(blankTargetWord("No match here.", "hola")).toBe("No match here. (_____)");
+    expect(blankTargetWord("No match here.", "hola")).toBeNull();
   });
 
   it("teaches a word, then quizzes a gapped sentence, then meaning in context", () => {
@@ -63,7 +79,7 @@ describe("buildChapterDrills", () => {
       use.quiz.choices.find((choice) => choice.text === "hola")?.letter,
     );
     expect(meaning.quiz.choices.map((choice) => choice.text)).toContain("hello");
-    expect(meaning.question).toContain("_____");
+    expect(meaning.contextSentence).toBe("Say hola.");
     expect(meaning.question).not.toMatch(/what does/i);
   });
 
@@ -90,9 +106,25 @@ describe("buildChapterDrills", () => {
     expect(isLastStepForWord(drills, 0)).toBe(false);
   });
 
-  it("skips a quiz when the chapter has no distractors", () => {
+  it("does not award a teaching-only completion when no assessment is possible", () => {
     const only = item("1", "hola", "hello");
     const drills = buildChapterDrills([only], [only], labels);
-    expect(drills.map((step) => step.kind)).toEqual(["teach"]);
+    expect(drills).toEqual([]);
   });
+});
+
+it("does not include punctuation/spacing variants of the answer as different meanings", () => {
+  expect(
+    pickTexts(["A greeting", "a   greeting.", "Farewell"], "A greeting.", "one", []),
+  ).toHaveLength(2);
+});
+it("does not use another word with the same definition as a cloze distractor", () => {
+  const hello = item("1", "hello", "A greeting.");
+  const hi = item("2", "hi", "a greeting");
+  const bye = item("3", "bye", "Farewell.");
+  const quiz = buildChapterDrills([hello], [hello, hi, bye], labels).find(
+    (step) => step.kind === "use",
+  );
+  if (quiz?.kind !== "use") throw new Error("Expected cloze");
+  expect(quiz.quiz.choices.map((choice) => choice.text)).not.toContain("hi");
 });

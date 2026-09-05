@@ -1,5 +1,4 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -9,7 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { notifySuccess, notifyWarning } from "@/lib/haptics";
+import { Icon } from "@/components/Icon";
 import { useReduceMotion } from "@/lib/motion";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
 import { Radius } from "@/lib/radius";
@@ -23,27 +22,18 @@ type Props = {
   disabled?: boolean;
   resetToken?: number | string;
   onSelect: (letter: QuizChoice["letter"]) => void;
-  onWrongAnswer?: () => void;
+  selectedLetter?: QuizChoice["letter"] | null;
 };
 
 export function LessonQuizCards({
   choices,
   correctLetter,
   disabled = false,
-  resetToken = 0,
+  selectedLetter = null,
   onSelect,
-  onWrongAnswer,
 }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
-  const [selectedLetter, setSelectedLetter] = useState<QuizChoice["letter"] | null>(null);
-  const [wrongLetter, setWrongLetter] = useState<QuizChoice["letter"] | null>(null);
-
-  useEffect(() => {
-    setSelectedLetter(null);
-    setWrongLetter(null);
-  }, [resetToken]);
-
   const answeredCorrectly =
     selectedLetter != null && correctLetter != null && selectedLetter === correctLetter;
 
@@ -53,7 +43,7 @@ export function LessonQuizCards({
         const isSelected = choice.letter === selectedLetter;
         const isCorrectChoice = correctLetter === choice.letter;
         const showCorrect = answeredCorrectly && isCorrectChoice;
-        const showWrong = wrongLetter === choice.letter && !answeredCorrectly;
+        const showWrong = selectedLetter === choice.letter && !answeredCorrectly;
         const isLocked = disabled || answeredCorrectly;
         return (
           <QuizCard
@@ -66,17 +56,7 @@ export function LessonQuizCards({
             isSelected={isSelected}
             styles={s}
             onPress={() => {
-              const correct = correctLetter != null && choice.letter === correctLetter;
-              if (correct) {
-                notifySuccess();
-                setWrongLetter(null);
-                setSelectedLetter(choice.letter);
-                onSelect(choice.letter);
-              } else {
-                notifyWarning();
-                setWrongLetter(choice.letter);
-                onWrongAnswer?.();
-              }
+              onSelect(choice.letter);
             }}
           />
         );
@@ -144,7 +124,7 @@ function QuizCard({
           s.card,
           showCorrect && s.cardCorrect,
           showWrong && s.cardWrong,
-          disabled && !showWrong && s.cardDisabled,
+          disabled && !showWrong && !showCorrect && s.cardDisabled,
         ]}
         disabled={disabled}
         accessibilityRole="button"
@@ -155,6 +135,13 @@ function QuizCard({
         <View style={s.row}>
           <Text style={s.letter}>{choice.letter}</Text>
           <Text style={s.text}>{choice.text}</Text>
+          {showCorrect || showWrong ? (
+            <Icon
+              name={showCorrect ? "checkmark-circle" : "close-circle"}
+              size={24}
+              color={showCorrect ? s.cardCorrect.borderColor : s.cardWrong.borderColor}
+            />
+          ) : null}
         </View>
       </Pressable>
     </Animated.View>

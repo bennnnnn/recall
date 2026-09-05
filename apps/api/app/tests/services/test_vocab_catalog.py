@@ -24,6 +24,7 @@ def test_spanish_catalog_is_a_domain_tree():
         "Travel",
         "Daily life",
         "Numbers and time",
+        "Idioms and Proverbs",
     ]
     family = [deck for deck in decks_for_language("es") if deck.domain == "Family"]
     assert len(family) == 12
@@ -59,6 +60,10 @@ def test_english_path_is_conversation_grouped():
         "Household actions",
         "Mouth and body sounds",
         "Casual expressions",
+        "Useful conversation expressions",
+        "Everyday phrasal verbs",
+        "Everyday idioms",
+        "Common proverbs",
     ]
     sat_decks = decks_for_language("en", include_sat=True)
     assert any(deck.kind == "sat" for deck in sat_decks)
@@ -71,14 +76,16 @@ def test_english_path_is_conversation_grouped():
     assert "Hotel services" in [deck.title for deck in decks_for_language("en")]
 
 
-def test_english_path_casual_register_is_last_and_clean():
-    """`Casual expressions` (formerly `American conversational`) is real,
-    useful register — but it's slang, not core vocabulary, so it belongs
-    after every functional category, not gating them. And the negative-
-    register / crude entries it used to carry ("sucks", "fart") should
-    never come back."""
+def test_english_path_casual_register_follows_core_topics_and_stays_clean():
+    """Keep the original core order; new advanced groups append after it."""
     domains = catalog_domains("en")
-    assert domains[-1] == "Casual expressions"
+    assert domains.index("Casual expressions") == 15
+    assert domains[16:] == [
+        "Useful conversation expressions",
+        "Everyday phrasal verbs",
+        "Everyday idioms",
+        "Common proverbs",
+    ]
     assert "American conversational" not in domains
     all_words = {
         word.content.casefold() for deck in path_decks_for_language("en") for word in deck.words
@@ -102,10 +109,13 @@ def test_english_path_practical_topics_have_study_fields_too():
 
 
 def test_english_path_words_have_study_fields():
-    for deck in path_decks_for_language("en"):
+    for index, deck in enumerate(path_decks_for_language("en")):
         assert deck.words
         for word in deck.words:
-            assert word.ipa
+            # New multiword groups use the existing device-pronunciation action.
+            # Keep verified IPA for every original core word.
+            if index < 16:
+                assert word.ipa
             assert word.part_of_speech
             assert word.simple_gloss
             assert word.example_sentence
@@ -123,9 +133,12 @@ def test_english_path_lemmas_are_unique():
 def test_english_path_is_one_group_per_theme():
     decks = path_decks_for_language("en")
     assert len(decks) == len({deck.domain for deck in decks})
-    for deck in decks:
+    for index, deck in enumerate(decks):
         assert deck.title == deck.domain
-        assert len(deck.words) >= 16
+        if index < 16:
+            assert len(deck.words) >= 16
+        else:
+            assert len(deck.words) == 10
 
 
 def test_catalog_leaf_titles_are_unique_per_language():

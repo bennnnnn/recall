@@ -1,188 +1,251 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { randomUUID } from "expo-crypto";
 import { useTranslation } from "react-i18next";
-
 import { useAuthToken } from "@/contexts/AuthContext";
-import { useHome } from "@/contexts/HomeContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { api } from "@/lib/api";
-import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
-import { takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
+import { getSessionGeneration } from "@/lib/auth";
+import { fetchProjectDetail, updateProjectDetailCache } from "@/lib/cache/projectDetailCache";
+import { peekQueuedLessonLaunch, takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
+import { buildChapterDrills, isLastStepForWord, type DrillStep } from "@/lib/projects/chapterDrill";
 import {
-  buildChapterDrills,
-  isLastStepForWord,
-  type DrillStep,
-} from "@/lib/projects/chapterDrill";
-import {
-  chapterIsComplete,
   chapterItems,
+  chapterIsComplete,
   chapterQueue,
-  groupLessonProgress,
-  overlayMasteredItems,
   resolveLessonChapter,
 } from "@/lib/projects/chapterLesson";
+import { branchAccess, domainAccess, groupPathByDomain } from "@/lib/projects/domainPath";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
+import { beginPractice, isPracticePending, subscribePractice } from "@/lib/projects/practiceState";
 
 export type { DrillStep };
+export type LessonAnswer = {
+  letter: QuizChoice["letter"];
+  correct: boolean;
+  attemptId: string;
+  itemId: string;
+  completesWord: boolean;
+  status: "saving" | "failed" | "saved";
+};
+type SessionState = {
+  drills: DrillStep[];
+  chapter: string | null;
+  index: number;
+  answer: LessonAnswer | null;
+  seeded: boolean;
+  reviewing: boolean;
+  learned: number;
+  reviewed: number;
+};
+const emptyState = (): SessionState => ({
+  drills: [],
+  chapter: null,
+  index: 0,
+  answer: null,
+  seeded: false,
+  reviewing: false,
+  learned: 0,
+  reviewed: 0,
+});
+const always = () => true;
 
-export function useLessonSession(projectId: string) {
+export function useLessonSession(projectId: string, isCurrentView: () => boolean = always) {
   const token = useAuthToken();
-  const { t } = useTranslation();
-  const { project, loading: projectLoading, load } = useProjectDetail(projectId);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const session = getSessionGeneration();
+  const owner = useMemo(() => ({ session, projectId }), [session, projectId]);
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
+  const { project, loading, loadError, load, isCurrentOwner } = useProjectDetail(projectId);
   const { refresh: refreshProjects } = useProjects();
-  const { refresh: refreshHome } = useHome();
-  const requestedRef = useRef<string | null>(null);
-  const seededRef = useRef(false);
-  const advancingRef = useRef(false);
-  if (requestedRef.current === null) {
-    const launch = takeQueuedLessonLaunch();
-    requestedRef.current =
-      launch?.projectId === projectId ? launch.chapter?.trim() || "" : "";
-  }
-  const [chapter, setChapter] = useState<string | null>(
-    requestedRef.current || null,
-  );
-  const [drills, setDrills] = useState<DrillStep[]>([]);
-  const [index, setIndex] = useState(0);
-  const [masteredIds, setMasteredIds] = useState<Record<string, true>>({});
-  const [quizSolved, setQuizSolved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
-
-  const labels = useMemo(
-    () => ({
-      useQuestion: (sentence: string) => t("lesson.quiz_use", { sentence }),
-      meaningQuestion: (sentence: string) => t("lesson.quiz_meaning", { sentence }),
-    }),
-    [t],
-  );
-
+  const { t } = useTranslation();
+  const requested = useMemo(() => peekQueuedLessonLaunch(owner.projectId)?.chapter, [owner]);
+  const [state, setState] = useState({ owner, ...emptyState() });
+  const view = state.owner === owner ? state : { owner, ...emptyState() };
+  const latest = useRef(view);
+  latest.current = view;
+  const mounted = useRef(true);
   useEffect(() => {
-    if (!project) return;
-    const title = resolveLessonChapter(project, requestedRef.current);
-    if (!title) return;
-    setChapter(title);
-    const chapterWords = chapterItems(project, title);
-    const isReview = chapterIsComplete(chapterWords);
-    const items = chapterQueue(
-      chapterWords,
-      isReview ? undefined : resolveDailyGoal(project.daily_goal),
-    );
-    if (!seededRef.current || (drills.length === 0 && items.length > 0)) {
-      setDrills(buildChapterDrills(items, chapterWords, labels));
-      setIndex(0);
-      setQuizSolved(false);
-      setReviewing(isReview);
-      seededRef.current = true;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const sameAccount = useCallback(() => owner.session === getSessionGeneration(), [owner]);
+  const canAct = useCallback(
+    () =>
+      mounted.current &&
+      ownerRef.current === owner &&
+      sameAccount() &&
+      isCurrentOwner() &&
+      isCurrentView(),
+    [owner, sameAccount, isCurrentOwner, isCurrentView],
+  );
+  const [, changed] = useState(0);
+  useEffect(
+    () =>
+      subscribePractice(() => {
+        if (canAct()) changed((value) => value + 1);
+      }),
+    [canAct],
+  );
+  const publish = useCallback(
+    (next: SessionState) => {
+      if (!canAct()) return;
+      const value = { ...next, owner };
+      latest.current = value;
+      setState(value);
+    },
+    [canAct, owner],
+  );
+  const seededProject = useRef(project);
+  useEffect(() => {
+    if (!project || !canAct()) return;
+    if (
+      latest.current.seeded &&
+      (latest.current.drills.length > 0 || seededProject.current === project)
+    )
+      return;
+    seededProject.current = project;
+    const chapter = resolveLessonChapter(project, requested);
+    if (!chapter) {
+      publish({ ...emptyState(), seeded: true });
+      return;
     }
-  }, [drills.length, labels, project]);
+    const domains = groupPathByDomain(project.path_progress ?? []);
+    const domain = domains.find((entry) => entry.chapters.some((row) => row.title === chapter));
+    const chapterRow = domain?.chapters.find((row) => row.title === chapter);
+    const locked = domain
+      ? domainAccess(domains, domain.title, project.up_next) === "locked"
+      : false;
+    if (chapterRow && branchAccess(chapterRow, project.up_next, locked) === "locked") {
+      publish({ ...emptyState(), seeded: true });
+      return;
+    }
+    const words = chapterItems(project, chapter);
+    const reviewing = chapterIsComplete(words);
+    const queue = chapterQueue(words, resolveDailyGoal(project.daily_goal));
+    const drills = buildChapterDrills(
+      queue,
+      project.lists.flatMap((group) => group.items),
+      {
+        useQuestion: (sentence) => t("lesson.quiz_use", { sentence }),
+        meaningQuestion: (word) => t("lesson.meaning_question", { word }),
+      },
+    );
+    publish({ ...emptyState(), chapter, drills, reviewing, seeded: true });
+    if (peekQueuedLessonLaunch(projectId)) takeQueuedLessonLaunch();
+  }, [project, projectId, requested, t, publish, canAct]);
+  const step = view.drills[view.index] ?? null;
 
-  const overlayItems = useMemo(() => {
-    if (!project || !chapter) return [];
-    return overlayMasteredItems(chapterItems(project, chapter), masteredIds);
-  }, [chapter, masteredIds, project]);
-
-  const step = drills[index] ?? null;
-  const words = groupLessonProgress(overlayItems, step?.itemId ?? null);
-  const currentNumber = words.current;
-  const total = words.total;
-  const progressFill = words.fill;
-  const empty = Boolean(project && seededRef.current && drills.length === 0);
-  const queueDone = Boolean(seededRef.current && drills.length > 0 && index >= drills.length);
-  const chapterDone = chapterIsComplete(overlayItems);
-  const complete = queueDone && chapterDone;
-  const sessionEndedEarly = queueDone && !chapterDone;
-  const canAdvance = step?.kind === "teach" || (step != null && quizSolved);
-
-  const refreshLearning = useCallback(() => {
-    invalidateProjectDetail(projectId);
-    void load({ silent: true, force: true });
-    void refreshProjects({ silent: true, force: true });
-    void refreshHome({ silent: true, force: true });
-  }, [load, projectId, refreshHome, refreshProjects]);
-
-  const recordWrongAnswer = useCallback(() => {
-    if (!token || !step) return;
-    void api
-      .updateProjectItem(token, projectId, step.itemId, {
-        status: "learning",
-        was_correct: false,
-      })
-      .catch(() => {
-        // Best-effort miss ledger — continue still saves mastered on the last step.
-      });
-  }, [projectId, step, token]);
-
-  const finishWord = useCallback(
-    async (itemId: string): Promise<boolean> => {
-      if (!token || !project || !chapter) return false;
-      const item = chapterItems(project, chapter).find((row) => row.id === itemId);
-      if (item?.status === "mastered" || item?.mastered) return true;
-      setSaving(true);
-      setError(null);
-      setMasteredIds((prev) => ({ ...prev, [itemId]: true }));
+  const saveAnswer = useCallback(
+    async (answer: LessonAnswer) => {
+      if (!tokenRef.current || !canAct()) return;
+      const release = beginPractice(answer.itemId, owner.session);
+      if (!release) return;
+      const savedToken = tokenRef.current;
+      const previous = latest.current;
+      publish({ ...previous, answer: { ...answer, status: "saving" } });
       try {
-        await api.updateProjectItem(token, projectId, itemId, { status: "mastered" });
-        refreshLearning();
-        return true;
-      } catch {
-        setMasteredIds((prev) => {
-          const next = { ...prev };
-          delete next[itemId];
-          return next;
+        const result = await api.recordProjectPractice(savedToken, projectId, answer.itemId, {
+          attempt_id: answer.attemptId,
+          was_correct: answer.correct,
+          completes_word: answer.completesWord,
         });
-        setError(t("lesson.save_failed"));
-        return false;
+        if (sameAccount()) {
+          updateProjectDetailCache(
+            projectId,
+            (detail) => ({
+              ...detail,
+              lists: detail.lists.map((group) => ({
+                ...group,
+                items: group.items.map((item) => (item.id === result.item.id ? result.item : item)),
+              })),
+            }),
+            owner.session,
+          );
+          void fetchProjectDetail(savedToken, projectId, { force: true, afterPending: true });
+          void refreshProjects({ silent: true, force: true, afterPending: true });
+        }
+        if (!canAct() || latest.current.answer?.attemptId !== answer.attemptId) return;
+        const next = latest.current;
+        publish({
+          ...next,
+          answer: { ...answer, status: "saved" },
+          learned: next.learned + (answer.completesWord && result.newly_mastered ? 1 : 0),
+          reviewed: next.reviewed + (answer.completesWord && !result.newly_mastered ? 1 : 0),
+        });
+      } catch {
+        if (canAct() && latest.current.answer?.attemptId === answer.attemptId)
+          publish({ ...latest.current, answer: { ...answer, status: "failed" } });
       } finally {
-        setSaving(false);
+        release();
       }
     },
-    [chapter, project, projectId, refreshLearning, t, token],
+    [canAct, owner, projectId, publish, sameAccount, refreshProjects],
   );
 
+  const submitLetter = useCallback(
+    (letter: QuizChoice["letter"]) => {
+      if (!canAct() || !step || step.kind === "teach" || latest.current.index !== view.index)
+        return;
+      const previous = latest.current.answer;
+      if (previous && (previous.status !== "saved" || previous.correct)) return;
+      if (
+        isPracticePending(step.itemId) ||
+        !step.quiz.choices.some((choice) => choice.letter === letter)
+      )
+        return;
+      const correct = letter === step.quiz.correct;
+      const answer: LessonAnswer = {
+        letter,
+        correct,
+        attemptId: randomUUID(),
+        itemId: step.itemId,
+        completesWord: correct && isLastStepForWord(view.drills, view.index),
+        status: "saving",
+      };
+      void saveAnswer(answer);
+    },
+    [canAct, step, view.index, view.drills, saveAnswer],
+  );
   const continueLesson = useCallback(() => {
-    if (!step || advancingRef.current) return;
-    if (step.kind !== "teach" && !quizSolved) return;
-    advancingRef.current = true;
-    const itemId = step.itemId;
-    const shouldSave = isLastStepForWord(drills, index);
-    void (async () => {
-      if (shouldSave) {
-        const saved = await finishWord(itemId);
-        if (!saved) {
-          advancingRef.current = false;
-          return;
-        }
-      }
-      setQuizSolved(false);
-      setIndex((value) => value + 1);
-      advancingRef.current = false;
-    })();
-  }, [drills, finishWord, index, quizSolved, step]);
-
-  const submitLetter = useCallback((_letter: QuizChoice["letter"]) => {
-    setQuizSolved(true);
-  }, []);
-
+    if (!canAct() || !step || latest.current.index !== view.index) return;
+    const answer = latest.current.answer;
+    if (step.kind !== "teach" && (!answer?.correct || answer.status !== "saved")) return;
+    publish({ ...latest.current, index: latest.current.index + 1, answer: null });
+  }, [canAct, step, view.index, publish]);
+  const retryAnswer = useCallback(() => {
+    const answer = latest.current.answer;
+    if (answer?.status === "failed") void saveAnswer(answer);
+  }, [saveAnswer]);
+  const total = new Set(view.drills.map((entry) => entry.itemId)).size;
+  const finished = view.seeded && total > 0 && view.index >= view.drills.length;
+  const finishedWords = view.learned + view.reviewed;
   return {
     project,
-    chapter,
     step,
-    error,
-    empty,
-    complete,
-    sessionEndedEarly,
-    reviewing,
-    currentNumber,
+    chapter: view.chapter,
+    answer: view.answer,
+    learned: view.learned,
+    reviewed: view.reviewed,
+    error: view.answer?.status === "failed" ? t("lesson.save_failed") : null,
+    loadError,
+    load,
+    empty: view.seeded && total === 0,
+    complete: finished,
+    reviewing: view.reviewing,
+    busy: loading && !project,
+    saving: Boolean(step && isPracticePending(step.itemId)),
+    currentNumber: Math.min(total, finishedWords + (finished ? 0 : 1)),
     total,
-    progressFill,
-    busy: projectLoading && !project,
-    saving,
-    canAdvance,
+    progressFill: total ? finishedWords / total : 0,
+    canAdvance: step?.kind === "teach" || (view.answer?.correct && view.answer.status === "saved"),
     submitLetter,
-    recordWrongAnswer,
     continueLesson,
+    retryAnswer,
   };
 }

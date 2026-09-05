@@ -31,6 +31,8 @@ class HomeProjectHighlight(BaseModel):
     target_language: str = "en"
     daily_goal: int = Field(ge=1, le=50)
     mastered_today: int = Field(ge=0)
+    completed_today: int = 0
+    attempted_today: int = 0
     missed_today: int = Field(ge=0, default=0)
     cue: Literal[
         "start",

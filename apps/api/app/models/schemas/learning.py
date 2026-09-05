@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 # Product learning kinds: vocabulary (one class per target language).
 # `vocabulary` is accepted as a write alias and normalized to `language`.
@@ -95,11 +95,15 @@ class LearningItemOut(BaseModel):
     example_sentence: str | None
     ipa: str | None = None
     part_of_speech: str | None = None
+    vocabulary_kind: str = "word"
+    verb_kind: str | None = None
+    noun_kind: str | None = None
     simple_gloss: str | None = None
     status: VocabStatus
     mastered: bool
     mastered_at: datetime | None
     last_reviewed_at: datetime | None
+    last_completed_at: datetime | None = None
     last_incorrect_at: datetime | None = None
     review_count: int
     ease_factor: float = 2.5
@@ -107,6 +111,33 @@ class LearningItemOut(BaseModel):
     due_at: datetime | None = None
     pronunciation_url: str | None
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def example_sentences(self) -> list[str]:
+        return [
+            line.strip()
+            for line in (self.example_sentence or self.note or "").splitlines()
+            if line.strip()
+        ]
+
+
+class LearningPracticeIn(BaseModel):
+    attempt_id: UUID
+    was_correct: bool
+    completes_word: bool
+
+    @model_validator(mode="after")
+    def validate_completion(self) -> Self:
+        if self.completes_word and not self.was_correct:
+            raise ValueError("Only a correct answer can complete a word")
+        return self
+
+
+class LearningPracticeOut(BaseModel):
+    item: LearningItemOut
+    recorded: bool
+    newly_mastered: bool
 
 
 class LearningStats(BaseModel):
@@ -119,6 +150,11 @@ class LearningStats(BaseModel):
     added_this_week: int = 0
     due_for_review: int = 0
     mastered_today: int = 0
+    newly_mastered_today: int = 0
+    completed_today: int = 0
+    attempted_today: int = 0
+    incorrect_today: int = 0
+    last_study_at: datetime | None = None
     missed_today: int = 0
     pending_today: int = 0
     last_mastery_at: datetime | None = None
@@ -146,6 +182,8 @@ class LearningDailyHistoryDay(BaseModel):
     weekday: int = Field(ge=0, le=6)
     mastered_count: int = Field(ge=0)
     missed_count: int = Field(ge=0, default=0)
+    completed_count: int = Field(ge=0, default=0)
+    attempted_count: int = Field(ge=0, default=0)
     daily_goal: int = Field(ge=1)
     goal_met: bool = False
     status: DailyHistoryStatus

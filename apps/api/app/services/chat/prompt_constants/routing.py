@@ -156,6 +156,9 @@ _PERSONAL_CONTEXT_CUE = re.compile(
 # Progress / "what did I learn" — not dictionary lookups like "another word for".
 _LEARNING_PROGRESS_CUE = re.compile(
     r"(?:"
+    r"\b(?:my|any|today'?s|this|the) (?:lessons?|reviews?|practice)\b|"
+    r"\b(?:lesson|review|practice) (?:progress|history|session)s?\b|"
+    r"\b(?:skip(?:ped)?|miss(?:ed)?) (?:my |the |a )?(?:lesson|review|practice)s?\b|"
     r"\bvocab(?:ulary)?\b|"
     r"\b(?:what|which) words?\b|"
     r"\bwords? (?:did|have) i\b|"

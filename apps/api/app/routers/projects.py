@@ -16,6 +16,7 @@ from app.models.schemas import (
     ProjectOut,
     ProjectUpdate,
 )
+from app.models.schemas.learning import LearningPracticeIn, LearningPracticeOut
 from app.repositories import projects as projects_repo
 from app.services import projects as projects_service
 from app.services import time_context as time_context_service
@@ -165,6 +166,25 @@ async def update_project_item(
     except projects_crud.ProjectsError as exc:
         raise _map_error(exc) from exc
     return ProjectItemOut.model_validate(updated)
+
+
+@router.post("/{project_id}/items/{item_id}/practice", response_model=LearningPracticeOut)
+async def record_practice(
+    project_id: UUID,
+    item_id: UUID,
+    body: LearningPracticeIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> LearningPracticeOut:
+    from app.services.learning.practice import record_practice as record
+
+    try:
+        item, recorded, newly_mastered = await record(session, user.id, project_id, item_id, body)
+    except projects_crud.ProjectsError as exc:
+        raise _map_error(exc) from exc
+    return LearningPracticeOut(
+        item=ProjectItemOut.model_validate(item), recorded=recorded, newly_mastered=newly_mastered
+    )
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)

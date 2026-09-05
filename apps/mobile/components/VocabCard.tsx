@@ -21,13 +21,14 @@ import {
 type Props = {
   card: LessonVocabCard;
   language?: string;
+  onSpeak?: () => void;
 };
 
 const SPEAK = 56;
-const SECTION_GAP = 40;
-const AFTER_HERO = 48;
+const SECTION_GAP = 28;
+const AFTER_HERO = 8;
 
-export function VocabCard({ card, language = "en" }: Props) {
+export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const { t } = useTranslation();
@@ -36,13 +37,25 @@ export function VocabCard({ card, language = "en" }: Props) {
   const ipa = card.ipa?.trim();
   const pos = card.partOfSpeech?.trim();
   const meaning = cardMeaning(card);
-  const examples = exampleSentences(card.exampleSentence);
+  const examples = card.examples?.length ? card.examples : exampleSentences(card.exampleSentence);
+  const labels = [
+    card.vocabularyKind && card.vocabularyKind !== "word"
+      ? t(`lesson.kind.${card.vocabularyKind}`)
+      : pos,
+    card.verbKind ? t(`lesson.kind.${card.verbKind}`) : null,
+    card.nounKind ? t(`lesson.kind.${card.nounKind}`) : null,
+  ].filter(Boolean);
 
   const handleSpeak = () => {
+    if (onSpeak) {
+      onSpeak();
+      return;
+    }
     tap();
     void speakWord(word, {
       language: language === "en" ? "en-US" : language,
       token,
+      pronunciationUrl: card.pronunciationUrl,
     });
   };
 
@@ -61,9 +74,9 @@ export function VocabCard({ card, language = "en" }: Props) {
           </Pressable>
         </View>
         {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
-        {pos ? (
+        {labels.length ? (
           <View style={s.posChip}>
-            <Text style={s.posText}>{pos.toLowerCase()}</Text>
+            <Text style={s.posText}>{labels.join(" · ")}</Text>
           </View>
         ) : null}
       </View>
@@ -102,15 +115,7 @@ function formatIpa(ipa: string): string {
   return `/${cleaned}/`;
 }
 
-function Badge({
-  icon,
-  label,
-  theme,
-}: {
-  icon: IoniconName;
-  label: string;
-  theme: Theme;
-}) {
+function Badge({ icon, label, theme }: { icon: IoniconName; label: string; theme: Theme }) {
   const s = makeBadge(theme);
   return (
     <View style={s.wrap}>
@@ -177,13 +182,13 @@ function makeStyles(t: Theme) {
       paddingTop: AFTER_HERO,
     },
     meaning: {
-      fontSize: 16,
-      lineHeight: 24,
+      fontSize: 21,
+      lineHeight: 30,
       color: t.text,
     },
     example: {
-      fontSize: 16,
-      lineHeight: 26,
+      fontSize: 18,
+      lineHeight: 28,
       color: t.text,
     },
     exampleRest: {

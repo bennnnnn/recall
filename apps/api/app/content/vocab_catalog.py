@@ -25,6 +25,9 @@ class CatalogWord:
     ipa: str | None = None
     part_of_speech: str | None = None
     simple_gloss: str | None = None
+    vocabulary_kind: str = "word"
+    verb_kind: str | None = None
+    noun_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -151,7 +154,19 @@ def all_catalog_decks() -> tuple[CatalogDeck, ...]:
     from app.content.vocab_banks_en import english_decks
     from app.content.vocab_banks_es import spanish_decks
 
-    return tuple([*spanish_decks(), *english_decks()])
+    # Old UUIDs remain valid for saved items. Active lessons own the content
+    # when their merged deck shares an ID with an older source chapter.
+    by_id = {deck.id: deck for deck in [*spanish_decks(), *english_decks()]}
+    for deck in [*path_decks_for_language("es"), *path_decks_for_language("en")]:
+        old = by_id.get(deck.id)
+        active_words = {word_id(deck, word) for word in deck.words}
+        legacy_words = (
+            tuple(word for word in old.words if word_id(old, word) not in active_words)
+            if old
+            else ()
+        )
+        by_id[deck.id] = replace(deck, words=(*deck.words, *legacy_words))
+    return tuple(by_id.values())
 
 
 def decks_for_language(
@@ -175,16 +190,13 @@ def decks_for_language(
 def path_decks_for_language(language: str) -> list[CatalogDeck]:
     """Decks that belong on the lesson map.
 
-    English uses the conversation-grouped path (not Hotel/SAT). Spanish keeps
-    the existing domain tree. Unknown codes fall back to the English path.
-    Class level does not hide later groups.
+    Curated content preserves existing chapter/word identities and appends new
+    groups. Unknown codes fall back to English; class level never hides groups.
     """
-    lang = (language or "en").strip().lower()
-    if lang == "es":
-        return decks_for_language("es", include_sat=False)
-    from app.content.vocab_banks_en import english_path_decks
+    from app.content.learning_catalog import load_path
 
-    return sorted(english_path_decks(), key=lambda deck: deck.sort_order)
+    lang = "es" if (language or "en").strip().lower() == "es" else "en"
+    return list(load_path(lang))
 
 
 def catalog_path_titles(language: str, *, include_sat: bool = False) -> list[str]:
@@ -195,7 +207,10 @@ def catalog_path_titles(language: str, *, include_sat: bool = False) -> list[str
 def catalog_domain_by_title(language: str, *, include_sat: bool = False) -> dict[str, str]:
     return {
         deck.title.casefold(): deck.domain
-        for deck in decks_for_language(language, include_sat=include_sat)
+        for deck in [
+            *decks_for_language(language, include_sat=include_sat),
+            *path_decks_for_language(language),
+        ]
     }
 
 
