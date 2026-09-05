@@ -499,6 +499,8 @@ export function useChatRouteLoader({
   }, [token, session, viewVersion, chatId, chatLoading, hasMoreOlder, messages, setMessages, showActionBanner, t]);
 
   const { highlightedMessageId } = useChatHighlightScroll({
+    chatLoading,
+    routeChatId,
     routeHighlightMessage,
     router,
     messages,

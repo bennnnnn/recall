@@ -32,6 +32,16 @@ export function startNewChatGlobal(opts?: StartNewChatOptions) {
   _newChat?.(opts);
 }
 
+// Selecting a title result can keep the same route/chat id. Explicitly cancel
+// the previous message target even when there is no route change to observe.
+let _clearChatHighlight: (() => void) | null = null;
+export function registerChatHighlightClearer(clear: (() => void) | null) {
+  _clearChatHighlight = clear;
+}
+export function clearChatHighlightGlobal() {
+  _clearChatHighlight?.();
+}
+
 /** Active chat id on the home screen — drawer deletes use this to avoid orphans. */
 let _activeChatId: string | null = null;
 

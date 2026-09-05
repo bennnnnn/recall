@@ -16,12 +16,10 @@ export const discoverApi = {
     limit = 20,
     init?: Pick<RequestInit, "signal">,
     offset = 0,
-  ) =>
-    request<{ results: SearchResult[]; total: number }>(
-      `/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`,
-      token,
-      init,
-    ),
+  ) => {
+    const params = new URLSearchParams({ q, limit: String(limit), offset: String(offset) });
+    return request<{ results: SearchResult[]; total: number }>(`/search?${params}`, token, init);
+  },
   listSuggestions: (token: string) => request<Suggestion[]>("/suggestions", token),
   dismissSuggestion: (token: string, id: string) =>
     request<void>(`/suggestions/${id}/dismiss`, token, { method: "POST" }),

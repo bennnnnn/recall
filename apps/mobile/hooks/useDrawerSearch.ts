@@ -2,172 +2,157 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import type { TextInput } from "react-native";
 
 import { api, type SearchResult } from "@/lib/api";
+import { getSessionGeneration } from "@/lib/auth";
 import {
   DRAWER_SEARCH_DEBOUNCE_MS,
+  DRAWER_SEARCH_PAGE_SIZE,
+  hasMoreDrawerSearchResults,
   isAbortError,
-  shouldApplyDrawerSearchResult,
+  isValidDrawerSearchQuery,
+  mergeDrawerSearchResults,
 } from "@/lib/drawerSearchLogic";
 
-type Options = {
-  token: string | null;
-  isDrawerOpen: boolean;
+type Options = { token: string | null; isDrawerOpen: boolean };
+type View = { session: number; signedIn: boolean; isDrawerOpen: boolean };
+type SearchCycle = {
+  view: View;
+  open: boolean;
+  query: string;
+  pending: boolean;
+  nextOffset: number;
+  hasMore: boolean;
+  results: SearchResult[];
 };
+function emptyCycle(view: View): SearchCycle {
+  return { view, open: false, query: "", pending: false, nextOffset: 0, hasMore: false, results: [] };
+}
+function emptySnapshot(cycle: SearchCycle) {
+  return { cycle, searchOpen: false, searchQuery: "", searchResults: [] as SearchResult[], searchLoading: false, searchError: false, loadingMore: false, loadingMoreError: false, hasMore: false };
+}
 
 export function useDrawerSearch({ token, isDrawerOpen }: Options) {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState(false);
-  const [resultTotal, setResultTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const session = getSessionGeneration();
+  const signedIn = Boolean(token);
+  const viewRef = useRef<View>({ session, signedIn, isDrawerOpen });
+  if (viewRef.current.session !== session || viewRef.current.signedIn !== signedIn || viewRef.current.isDrawerOpen !== isDrawerOpen) {
+    viewRef.current = { session, signedIn, isDrawerOpen };
+  }
+  const view = viewRef.current;
+  const cycleRef = useRef(emptyCycle(view));
+  const [snapshot, setSnapshot] = useState(() => emptySnapshot(cycleRef.current));
   const searchInputRef = useRef<TextInput>(null);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const searchGenerationRef = useRef(0);
-  // Stable refs so loadMore reads the latest query/results without being in
-  // doSearch's dependency array (which would reset pagination state).
-  const queryRef = useRef("");
-  const resultsRef = useRef<SearchResult[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
 
-  const cancelPendingSearch = useCallback(() => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-      searchTimerRef.current = null;
-    }
-    searchAbortRef.current?.abort();
-    searchAbortRef.current = null;
+  const currentView = useCallback(() => mountedRef.current && viewRef.current === view && view.session === getSessionGeneration() && view.signedIn && view.isDrawerOpen, [view]);
+  const current = useCallback((cycle: SearchCycle) => currentView() && cycleRef.current === cycle && cycle.view === view && cycle.open, [currentView, view]);
+  const cancelPending = useCallback(() => {
+    if (timerRef.current != null) clearTimeout(timerRef.current);
+    timerRef.current = null;
+    if (focusFrameRef.current != null) cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = null;
+    controllerRef.current?.abort();
+    controllerRef.current = null;
   }, []);
+  const reset = useCallback(() => {
+    cancelPending();
+    const cycle = emptyCycle(view);
+    cycleRef.current = cycle;
+    setSnapshot(emptySnapshot(cycle));
+  }, [cancelPending, view]);
+  useEffect(() => { reset(); }, [reset]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; cancelPending(); };
+  }, [cancelPending]);
 
   const closeSearch = useCallback(() => {
-    cancelPendingSearch();
-    searchGenerationRef.current += 1;
-    setSearchOpen(false);
-    setSearchQuery("");
-    queryRef.current = "";
-    resultsRef.current = [];
-    setSearchResults([]);
-    setResultTotal(0);
-    setSearchError(false);
-    setSearchLoading(false);
-    setLoadingMore(false);
-  }, [cancelPendingSearch]);
-
+    if (mountedRef.current && viewRef.current === view && session === getSessionGeneration()) reset();
+  }, [view, session, reset]);
   const openSearch = useCallback(() => {
-    setSearchOpen(true);
-    requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, []);
+    if (!currentView()) return;
+    const cycle = cycleRef.current;
+    cycle.open = true;
+    setSnapshot((prev) => ({ ...prev, searchOpen: true }));
+    if (focusFrameRef.current != null) cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      if (current(cycle)) searchInputRef.current?.focus();
+    });
+  }, [currentView, current]);
 
-  const doSearch = useCallback(
-    async (q: string, generation: number) => {
-      if (!token || !q.trim()) {
-        if (shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
-          setSearchResults([]);
-          setSearchError(false);
-          setSearchLoading(false);
-        }
-        return;
-      }
-
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
-      setSearchLoading(true);
-      setSearchError(false);
-
-      try {
-        const data = await api.search(token, q.trim(), 20, {
-          signal: controller.signal,
-        });
-        if (!shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
-          return;
-        }
-        queryRef.current = q.trim();
-        resultsRef.current = data.results;
-        setSearchResults(data.results);
-        setResultTotal(data.total);
-      } catch (error: unknown) {
-        if (isAbortError(error)) return;
-        if (!shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
-          return;
-        }
-        setSearchError(true);
-        setSearchResults([]);
-        resultsRef.current = [];
-        setResultTotal(0);
-      } finally {
-        if (shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
-          setSearchLoading(false);
-        }
-        if (searchAbortRef.current === controller) {
-          searchAbortRef.current = null;
-        }
-      }
-    },
-    [token],
-  );
-
-  const hasMore = searchResults.length < resultTotal && resultTotal > 0;
-
-  const loadMore = useCallback(async () => {
-    if (!token || loadingMore || searchLoading || !hasMore) return;
-    const q = queryRef.current;
-    if (!q) return;
-    const offset = resultsRef.current.length;
-    if (offset <= 0) return;
-    setLoadingMore(true);
+  const fetchPage = useCallback(async (cycle: SearchCycle, append: boolean) => {
+    const accessToken = tokenRef.current;
+    if (!accessToken || !current(cycle) || cycle.pending || !isValidDrawerSearchQuery(cycle.query)) return;
+    if (append && !cycle.hasMore) return;
+    const offset = append ? cycle.nextOffset : 0;
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    cycle.pending = true;
+    setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchLoading: !append, loadingMore: append, searchError: false, loadingMoreError: false } : prev);
     try {
-      const data = await api.search(token, q, 20, undefined, offset);
-      // Drop if the query changed while the load-more was in flight.
-      if (queryRef.current !== q) return;
-      const merged = [...resultsRef.current, ...data.results];
-      resultsRef.current = merged;
-      setSearchResults(merged);
-      setResultTotal(data.total);
-    } catch {
-      /* best-effort: leave the existing page intact */
+      const data = await api.search(accessToken, cycle.query, DRAWER_SEARCH_PAGE_SIZE, { signal: controller.signal }, offset);
+      if (!current(cycle)) return;
+      cycle.results = mergeDrawerSearchResults(append ? cycle.results : [], data.results);
+      cycle.nextOffset = offset + data.results.length;
+      cycle.hasMore = hasMoreDrawerSearchResults(cycle.nextOffset, data.total, data.results.length);
+      setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchResults: cycle.results, hasMore: cycle.hasMore } : prev);
+    } catch (error: unknown) {
+      if (current(cycle) && !isAbortError(error)) {
+        setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchError: !append, loadingMoreError: append } : prev);
+      }
     } finally {
-      setLoadingMore(false);
+      cycle.pending = false;
+      if (current(cycle)) setSnapshot((prev) => prev.cycle === cycle ? { ...prev, searchLoading: false, loadingMore: false } : prev);
+      if (controllerRef.current === controller) controllerRef.current = null;
     }
-  }, [token, loadingMore, searchLoading, hasMore]);
+  }, [current]);
 
-  const onSearchChange = useCallback(
-    (text: string) => {
-      setSearchQuery(text);
-      cancelPendingSearch();
-      searchTimerRef.current = setTimeout(() => {
-        const generation = ++searchGenerationRef.current;
-        void doSearch(text, generation);
-      }, DRAWER_SEARCH_DEBOUNCE_MS);
-    },
-    [cancelPendingSearch, doSearch],
-  );
+  const onSearchChange = useCallback((text: string) => {
+    if (!currentView() || !cycleRef.current.open) return;
+    cancelPending();
+    // Replace ownership now, before debounce, including when the text later repeats.
+    const cycle = { ...emptyCycle(view), open: true, query: text.trim() };
+    cycleRef.current = cycle;
+    const valid = isValidDrawerSearchQuery(cycle.query);
+    setSnapshot({ ...emptySnapshot(cycle), searchOpen: true, searchQuery: text, searchLoading: valid });
+    if (valid) {
+      timerRef.current = setTimeout(() => { timerRef.current = null; void fetchPage(cycle, false); }, DRAWER_SEARCH_DEBOUNCE_MS);
+    }
+  }, [currentView, cancelPending, view, fetchPage]);
 
-  useEffect(() => {
-    if (!isDrawerOpen) closeSearch();
-  }, [isDrawerOpen, closeSearch]);
+  const renderCycle = snapshot.cycle;
+  const isCurrentSearch = useCallback(() => current(renderCycle), [current, renderCycle]);
+  const loadMore = useCallback(async () => {
+    if (isCurrentSearch()) await fetchPage(renderCycle, true);
+  }, [isCurrentSearch, fetchPage, renderCycle]);
+  const retrySearch = useCallback(() => {
+    if (!isCurrentSearch() || renderCycle.pending || !snapshot.searchError) return;
+    cancelPending();
+    const cycle = { ...emptyCycle(view), open: true, query: renderCycle.query };
+    cycleRef.current = cycle;
+    setSnapshot({ ...emptySnapshot(cycle), searchOpen: true, searchQuery: snapshot.searchQuery, searchLoading: true });
+    void fetchPage(cycle, false);
+  }, [isCurrentSearch, renderCycle, snapshot.searchError, snapshot.searchQuery, cancelPending, view, fetchPage]);
 
-  useEffect(() => {
-    return () => {
-      cancelPendingSearch();
-      searchGenerationRef.current += 1;
-    };
-  }, [cancelPendingSearch]);
-
-  const hasSearchQuery = searchQuery.trim().length > 0;
-
+  // A changed account/drawer cannot display its predecessor's snapshot before effects reset it.
+  const visible = currentView() && snapshot.cycle.view === view;
   return {
-    searchOpen,
-    searchQuery,
-    searchResults,
-    searchLoading,
-    searchError,
-    hasSearchQuery,
-    hasMore,
-    loadingMore,
-    loadMore,
+    searchOpen: visible && snapshot.searchOpen,
+    searchQuery: visible ? snapshot.searchQuery : "",
+    searchResults: visible ? snapshot.searchResults : [],
+    searchLoading: visible && snapshot.searchLoading,
+    searchError: visible && snapshot.searchError,
+    hasSearchQuery: visible && isValidDrawerSearchQuery(snapshot.searchQuery),
+    hasMore: visible && snapshot.hasMore,
+    loadingMore: visible && snapshot.loadingMore,
+    loadingMoreError: visible && snapshot.loadingMoreError,
+    loadMore, retrySearch, isCurrentSearch,
     searchInputRef: searchInputRef as RefObject<TextInput>,
-    openSearch,
-    closeSearch,
-    onSearchChange,
+    openSearch, closeSearch, onSearchChange,
   };
 }

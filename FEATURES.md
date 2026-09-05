@@ -45,6 +45,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   messages).
 - ✅ **Search** — full-text search across chats and messages via the drawer search bar
   (backend `/search` with debounce + pagination).
+- ✅ **Search reliability review (2026-09-04)** — account/query changes immediately
+  invalidate old results and requests; first-page and pagination failures offer Retry.
+  Results use stable ordering and a consistent page/count database snapshot, and opening
+  a message cancels obsolete navigation work. See [review and release checks](docs/SEARCH_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
@@ -84,8 +88,6 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   deleted chats. Saved history and title polling respect navigation and account changes.
   See [review and release checks](docs/CHAT_MANAGEMENT_REVIEW_2026-09-04.md).
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
-- 🔜 Search reliability review: clear result state across accounts and fence delayed
-  query/pagination responses by request identity.
 - 🔜 Folders.
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 

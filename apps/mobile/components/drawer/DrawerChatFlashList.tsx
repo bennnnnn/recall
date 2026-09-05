@@ -49,6 +49,7 @@ type Props = {
   /** Chat currently open on the home screen (drawer active indicator). */
   activeChatId?: string | null;
   onOpenChat: (id: string, messageId?: string | null) => void;
+  onOpenSearchResult: (id: string, messageId?: string | null) => void;
   onShowRowMenu: (chat: Chat) => void;
   selectionMode?: boolean;
   selectedIds?: ReadonlySet<string>;
@@ -62,6 +63,7 @@ type Props = {
   searchResults?: SearchResult[];
   searchHasMore?: boolean;
   searchLoadingMore?: boolean;
+  searchLoadingMoreError?: boolean;
   onSearchLoadMore?: () => void;
 };
 
@@ -75,6 +77,7 @@ export function DrawerChatFlashList({
   highlightedIds,
   activeChatId = null,
   onOpenChat,
+  onOpenSearchResult,
   onShowRowMenu,
   selectionMode = false,
   selectedIds,
@@ -88,6 +91,7 @@ export function DrawerChatFlashList({
   searchResults = [],
   searchHasMore = false,
   searchLoadingMore = false,
+  searchLoadingMoreError = false,
   onSearchLoadMore,
 }: Props) {
   const { t } = useTranslation();
@@ -105,7 +109,7 @@ export function DrawerChatFlashList({
           : `search-title-${result.chat_id}`;
         items.push({ type: "searchRow", key, result });
       }
-      if (searchHasMore) {
+      if (searchHasMore || searchLoadingMoreError) {
         items.push({ type: "searchLoadMore", key: "search-load-more" });
       }
     }
@@ -138,6 +142,7 @@ export function DrawerChatFlashList({
     groups,
     isSectionCollapsed,
     searchHasMore,
+    searchLoadingMoreError,
     searchOpen,
     searchResults,
     t,
@@ -147,13 +152,14 @@ export function DrawerChatFlashList({
     ({ item }: { item: DrawerChatListItem }) => {
       if (item.type === "searchRow") {
         return (
-          <DrawerSearchResultRow result={item.result} onOpenChat={onOpenChat} />
+          <DrawerSearchResultRow result={item.result} onOpenChat={onOpenSearchResult} />
         );
       }
       if (item.type === "searchLoadMore") {
         return (
           <DrawerSearchLoadMore
             loadingMore={searchLoadingMore}
+            loadingMoreError={searchLoadingMoreError}
             onLoadMore={onSearchLoadMore}
           />
         );
@@ -206,11 +212,13 @@ export function DrawerChatFlashList({
       toggleSectionCollapsed,
       theme,
       onOpenChat,
+      onOpenSearchResult,
       onShowRowMenu,
       selectionMode,
       selectedIds,
       onToggleSelect,
       searchLoadingMore,
+      searchLoadingMoreError,
       onSearchLoadMore,
     ],
   );

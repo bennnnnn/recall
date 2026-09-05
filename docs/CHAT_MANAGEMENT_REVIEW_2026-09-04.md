@@ -58,7 +58,5 @@ production database migrations or storage calls were made.
   recovery, and account switching. Automated tests do not replace this device QA.
 - Chat-list pagination beyond the current 200-row limit remains deferred; pinned
   rows now take priority within that existing limit.
-- Search needs its own review. Existing search state can survive account changes
-  while the drawer stays open; pagination validates query text rather than request
-  identity, and query changes have a debounce window before invalidation. Search
-  code is unchanged in this feature.
+- Search was deferred from this feature and addressed in the subsequent
+  [search reliability review](SEARCH_RELIABILITY_REVIEW_2026-09-04.md).
