@@ -129,6 +129,10 @@ export type ProjectItem = {
   note: string | null;
   definition: string | null;
   example_sentence: string | null;
+  example_sentences?: string[];
+  vocabulary_kind?: "word" | "expression" | "phrasal_verb" | "idiom" | "proverb" | null;
+  verb_kind?: "action" | "state" | "auxiliary" | "modal" | null;
+  noun_kind?: "common" | "proper" | "abstract" | "collective" | null;
   ipa?: string | null;
   part_of_speech?: string | null;
   simple_gloss?: string | null;
@@ -150,6 +154,10 @@ export type ProjectStats = {
   added_this_week: number;
   due_for_review: number;
   mastered_today: number;
+  completed_today?: number;
+  attempted_today?: number;
+  newly_mastered_today?: number;
+  last_study_at?: string | null;
   missed_today?: number;
   pending_today: number;
   last_mastery_at?: string | null;
@@ -227,6 +235,8 @@ export type HomeProjectHighlight = {
   target_language?: string;
   daily_goal: number;
   mastered_today: number;
+  completed_today?: number;
+  attempted_today?: number;
   missed_today?: number;
   cue: "start" | "continue" | "not_started_today" | "missed_yesterday" | "finish_pending";
   streak_days?: number;

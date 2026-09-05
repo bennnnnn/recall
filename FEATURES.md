@@ -611,23 +611,29 @@ were removed. Programming help lives in main chat.
   `programming`.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
-  there). Compact stats, PDF export, and delete live in Settings/Learning.
+  there). Compact stats, daily goals, and PDF export live in Settings/Learning.
+  Recall manages lesson content; there are no manual content edit/delete controls.
 - ✅ **Project kinds** — create only offers `en` / `es` (English and Spanish vocab catalogs). Legacy kinds (`trivia`,
   `programming`, `math`, …) are rejected on create. Other languages and Anki SM-2 due-queue UI are not shipped.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
-- ✅ **Vocab items** — term, definition, example, IPA, part of speech, simple gloss,
-  status (new / learning / mastered), SM-2 fields.
-- ✅ **Mark as known** — progress per item; compact stats summary (learned / this week / streak)
+- ✅ **Vocabulary overview** — the lesson map opens a read-only, searchable vocabulary
+  view grouped by chapter. Browse definitions, examples, classifications, and
+  pronunciation without starting a lesson or changing progress.
+- ✅ **Vocab items** — term, definition, two or more example sentences, IPA where available,
+  part of speech, word/expression/phrasal-verb/idiom/proverb classification,
+  verb and noun subtypes, simple gloss, status (new / learning / mastered), SM-2 fields.
+- ✅ **Saved practice** — question attempts and completed words are recorded separately; compact stats summary (learned / this week / streak)
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
-  (word, IPA, POS, meaning, example), then the existing A–D **lesson choice cards**
-  (gapped sentence, then meaning in that sentence). A wrong tap PATCHes
-  `was_correct: false` (miss ledger / Failed metric). Continue is enabled after a correct
-  tap; that last check marks the word `mastered` (already-mastered review pages without a
-  PATCH). No per-word illustration. The next group stays locked until every word in the
+  (word, pronunciation, classification, meaning, examples), then A–D **lesson choice cards**.
+  Cloze questions match whole words; naturally inflected examples use an intact-sentence
+  meaning check. Each answer posts an idempotent practice event. Continue follows a
+  saved correct answer; only the final check completes the word. Completed-group
+  review also saves activity and updates its review schedule, retaining first mastery.
+  Wrong answers record a miss without demoting a mastered word. No per-word illustration. The next group stays locked until every word in the
   current chapter is mastered. Chat must not render A–D quiz chips, `vocab_card` study
   cards, or grade letter answers. Regular chat must not quiz in-bubble. Chat tutor prompts
   must not invent words.
@@ -640,33 +646,46 @@ were removed. Programming help lives in main chat.
 - ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
   (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
   There is no due-queue of old mastered words across groups. Reopening a
-  **completed** group on the map is a same-group review pass, not SM-2.
+  **completed** group on the map is a same-group review pass that updates scheduling;
+  it does not assemble a cross-group queue.
   Settings has PDF export, not a deck browser.
 - ❌ **Class CEFR level** — unused. Vocab is the full catalog for everyone;
-  Settings has daily goal + PDF + delete only. Chat extract `set_level` is a no-op.
+  Settings has daily goal + PDF; Recall manages lesson content. Chat extract `set_level` is a no-op.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
-  nudges show “inactive for N days” copy (streak count is not included in notification text).
-- ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch.
-- ✅ **Pronunciation** — play button per word tries `pronunciation_url` when set, then cloud TTS,
-  then on-device `expo-speech`.
+  nudges use actual study activity, including attempts and completed reviews. Partial
+  practice is not reported as a skipped day (streak count is not in notification text).
+- ✅ **Goal-aware learning nudges** — opt-in push/email prioritize finishing today's daily
+  batch and include mastered vocabulary due for review; delivery keeps timezone and
+  daily deduplication rules.
+- ✅ **Pronunciation and feedback** — lesson pronunciation uses device speech with
+  visit-owned cancellation. Optional bundled sound cues and spoken correct/try-again
+  feedback have per-user controls; they do not change the global recording mode.
+  The shared pronunciation helper outside the lesson retains URL/cloud/device fallback.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
-  update on vocab status changes. Due counts for the map are in-progress items, not a
-  mastered-word review queue.
+  update on word completion. Due counts include learning items and mastered words
+  scheduled for review; a dedicated cross-group review queue remains deferred.
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
   (`vocab_decks` / `vocab_entries`: domain → branch tree). English classes use
-  conversation-grouped chapters (Greetings, Numbers and time, Feelings, …,
-  Casual expressions last). Spanish
-  keeps the Greetings / Family / Food / … tree. Older English Hotel/SAT rows stay
-  in the catalog tables for existing `catalog_entry_id` links but are **not** on
-  the English lesson map. **Every class sees its full path.** Create is a
+  four focused groups (40 entries): conversation expressions, phrasal verbs,
+  idioms, and proverbs. Spanish has idioms and proverbs (two groups, 20 entries).
+  Every entry has a full definition and at least two target-language examples.
+  The old beginner words, custom rows, and legacy groups are retired. Migration
+  `0080_retire_legacy_vocab` deletes their saved items and practice history;
+  retained new catalog IDs preserve progress, and class IDs/daily goals remain.
+  Runtime reconciliation and reads enforce the active catalog so old words cannot
+  reappear. Catalog jobs retry failures, run independently of AI spending limits,
+  and include the content revision in job deduplication. **Every class sees its
+  full path.** Create is a
   full-screen flow: **language**, then **daily goal** (5/10/15). Create opens the
   **lesson map** (not a tutor chat that invents words). Main chat gets a progress overview (class, daily
-  counts, path checkmarks) and today’s lemmas when asked — not the full word dump.
+  counts, actual last study, due reviews, path checkmarks) and today’s lemmas when asked —
+  not the full word dump. Ordinary questions also distinguish no class from an existing
+  class with no practice yet.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived
   (mastered/total; a chapter is complete when every word is mastered). English
-  groups are one map row per theme (~16+ words). The lesson map is a vertical
+  groups are one map row per theme, with 10 entries each. The lesson map is a vertical
   list (status icon, title, counts) — not letter-in-a-circle nodes. Tap an
   unlocked group to open the word page; a completed group opens as review.
   Opening a group starts a **daily sitting** (5/10/15 words — the class daily
@@ -674,10 +693,11 @@ were removed. Programming help lives in main chat.
   word page shows “Today 1 of 10”.
   The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
-  screen). Compact stats, PDF export, and delete live in Settings/Learning. A
-  thin "today" progress line sits above the path tree. Locked chapters stay
+  screen). Compact stats, daily goals, and PDF export live in Settings/Learning.
+  Recall manages lesson content; there are no manual content edit/delete controls.
+  Today’s progress sits above the path tree. Locked chapters stay
   visible until the current one is complete. No generic `learning` kind, lesson
-  notes, certificates, or marketplace.
+  notes, certificates, or marketplace. See the [Learning review and release checks](docs/LEARNING_REVIEW_2026-09-04.md).
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt

@@ -18,7 +18,13 @@ from app.services.projects import sync as projects_sync
 def _utc_user_for_project_actions():
     user = MagicMock()
     user.timezone = "UTC"
-    with patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)):
+    with (
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
+        patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])),
+        patch(
+            "app.repositories.project_items.list_miss_events_for_items", AsyncMock(return_value={})
+        ),
+    ):
         yield
 
 
@@ -70,6 +76,8 @@ def _project(title: str, kind: str = "language"):
     p.description = "Learn daily"
     p.level = "level1"
     p.target_language = "en"
+    p.created_at = datetime.now(UTC)
+    p.daily_goal_history = None
     return p
 
 
@@ -88,6 +96,12 @@ def _item(
     item.definition = f"definition of {content}"
     item.example_sentence = None
     item.ipa = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.due_at = None
+    item.last_completed_at = None
+    item.last_incorrect_at = None
     item.part_of_speech = None
     item.simple_gloss = None
     item.status = "mastered" if mastered else "new"
@@ -98,6 +112,18 @@ def _item(
     item.last_incorrect_at = None
     item.review_count = 0
     item.pronunciation_url = None
+    return item
+
+
+def _catalog_item(project_id, *, language="en", chapter=0, index=0, mastered=False):
+    from app.content.vocab_catalog import path_decks_for_language
+    from app.services.learning.catalog_items import word_values
+
+    deck = path_decks_for_language(language)[chapter]
+    word = deck.words[index]
+    item = _item(word.content, project_id, list_title=deck.title, mastered=mastered)
+    for name, value in word_values(deck, word).items():
+        setattr(item, name, value)
     return item
 
 
@@ -915,8 +941,8 @@ async def test_load_today_learning_words_for_prompt():
     user.id = uuid4()
     user.timezone = "America/Los_Angeles"
     project = _project("English · Beginner")
-    mastered = _item("apple", project.id, mastered=True)
-    missed = _item("pear", project.id)
+    mastered = _catalog_item(project.id, mastered=True)
+    missed = _catalog_item(project.id, index=1)
 
     with (
         patch.object(
@@ -942,8 +968,8 @@ async def test_load_today_learning_words_for_prompt():
     mastered_mock.assert_awaited_once()
     missed_mock.assert_awaited_once()
     assert "Words from today's session" in block
-    assert "apple" in block
-    assert "pear" in block
+    assert mastered.content in block
+    assert missed.content in block
     assert "You ARE connected" in block
     assert "not connected to their learning app" in block
 
@@ -1008,7 +1034,8 @@ async def test_load_project_for_prompt_scoped():
     project_id = uuid4()
     project = _project("Spanish")
     project.id = project_id
-    item = _item("hola", project_id)
+    project.target_language = "es"
+    item = _catalog_item(project_id, language="es")
 
     with (
         patch.object(
@@ -1033,7 +1060,7 @@ async def test_load_project_for_prompt_scoped():
 
     assert "linked to ONE learning topic" in block
     assert "Spanish" in block
-    assert "hola" in block
+    assert item.content in block
     list_items.assert_awaited_once()
 
 
@@ -1044,9 +1071,9 @@ async def test_load_project_for_prompt_current_chapter_only():
     project_id = uuid4()
     project = _project("English")
     project.id = project_id
-    project.learning_path = ["Hello and goodbye", "Immediate family"]
-    hello = _item("hello", project_id, list_title="Hello and goodbye")
-    parent = _item("parent", project_id, list_title="Immediate family")
+    hello = _catalog_item(project_id)
+    parent = _catalog_item(project_id, chapter=1)
+    project.learning_path = [hello.list_title, parent.list_title]
 
     with (
         patch.object(
@@ -1064,9 +1091,9 @@ async def test_load_project_for_prompt_current_chapter_only():
             session, user_id, project_id, Settings()
         )
 
-    assert "hello" in block
-    assert "parent" not in block
-    assert "Now: Hello and goodbye" in block
+    assert hello.content in block
+    assert parent.content not in block
+    assert f"Now: {hello.list_title}" in block
 
 
 @pytest.mark.asyncio
@@ -1482,8 +1509,8 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     repo_stats = stats_from_items(items)
 
     assert prompt_stats["due_for_review"] == repo_stats["due_for_review"]
-    # Sanity: the API counts only the learning item with a past due_at.
-    assert repo_stats["due_for_review"] == 1
+    # Both the learning item and the mastered word with an overdue review count.
+    assert repo_stats["due_for_review"] == 2
 
 
 @pytest.mark.asyncio

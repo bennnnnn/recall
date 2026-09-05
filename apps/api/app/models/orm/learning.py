@@ -65,6 +65,11 @@ class VocabEntry(Base):
     example_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
     ipa: Mapped[str | None] = mapped_column(String(80), nullable=True)
     part_of_speech: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    vocabulary_kind: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="word", server_default="word"
+    )
+    verb_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    noun_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     simple_gloss: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     deck: Mapped[VocabDeck] = relationship(back_populates="entries")
@@ -147,11 +152,19 @@ class LearningItem(Base):
     example_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
     ipa: Mapped[str | None] = mapped_column(String(80), nullable=True)
     part_of_speech: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    vocabulary_kind: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="word", server_default="word"
+    )
+    verb_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    noun_kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     simple_gloss: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="new", server_default="new")
     mastered: Mapped[bool] = mapped_column(Boolean, default=False)
     mastered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     last_incorrect_at: Mapped[datetime | None] = mapped_column(

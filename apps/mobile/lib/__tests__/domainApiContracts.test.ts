@@ -4,7 +4,9 @@ import { removeCachedAttachmentFiles } from "@/lib/downloadChatAttachment";
 import { projectsApi } from "@/lib/api/projects";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
-jest.mock("@/lib/downloadChatAttachment", () => ({ removeCachedAttachmentFiles: jest.fn(async () => undefined) }));
+jest.mock("@/lib/downloadChatAttachment", () => ({
+  removeCachedAttachmentFiles: jest.fn(async () => undefined),
+}));
 jest.mock("@/lib/deviceTimezone", () => ({
   getDeviceTimezone: () => "America/Los_Angeles",
 }));
@@ -55,10 +57,7 @@ describe("domain API contracts", () => {
 
   it("encodes gallery search query", async () => {
     await attachmentsApi.listAttachments("token", { q: "see you later" });
-    expect(mockRequest).toHaveBeenCalledWith(
-      "/attachments?q=see+you+later",
-      "token",
-    );
+    expect(mockRequest).toHaveBeenCalledWith("/attachments?q=see+you+later", "token");
   });
 
   it("deletes a Library attachment", async () => {
@@ -76,7 +75,9 @@ describe("domain API contracts", () => {
   });
 
   it("does not turn successful remote deletion into an error if cache cleanup fails", async () => {
-    jest.mocked(removeCachedAttachmentFiles).mockRejectedValueOnce(new Error("Storage unavailable"));
+    jest
+      .mocked(removeCachedAttachmentFiles)
+      .mockRejectedValueOnce(new Error("Storage unavailable"));
     await expect(attachmentsApi.deleteAttachment("token", "att-1")).resolves.toBeUndefined();
   });
 
@@ -92,11 +93,15 @@ describe("domain API contracts", () => {
     await expect(attachmentRecordExists("token", "a")).resolves.toBeNull();
   });
 
-  it("uses PATCH for project item status updates", async () => {
-    await projectsApi.updateProjectItem("token", "p1", "i1", { status: "mastered" });
-    expect(mockRequest).toHaveBeenCalledWith("/projects/p1/items/i1", "token", {
-      method: "PATCH",
-      body: JSON.stringify({ status: "mastered" }),
+  it("records an idempotent question outcome instead of directly changing mastery", async () => {
+    await projectsApi.recordProjectPractice("token", "p1", "i1", {
+      attempt_id: "attempt",
+      was_correct: true,
+      completes_word: true,
+    });
+    expect(mockRequest).toHaveBeenCalledWith("/projects/p1/items/i1/practice", "token", {
+      method: "POST",
+      body: JSON.stringify({ attempt_id: "attempt", was_correct: true, completes_word: true }),
     });
   });
 });

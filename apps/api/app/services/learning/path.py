@@ -184,12 +184,13 @@ async def enqueue_language_path_job(user_id: UUID, project_id: UUID) -> None:
     try:
         from app.core import jobs
         from app.core.redis import get_redis_client
+        from app.services.learning.path_seed import catalog_seed_revision
 
         await jobs.enqueue(
             get_redis_client(),
             "language_path",
             {"user_id": str(user_id), "project_id": str(project_id)},
-            dedupe_key=f"language_path:{project_id}",
+            dedupe_key=f"language_path:{project_id}:{catalog_seed_revision()}",
         )
     except Exception:
         logger.exception(

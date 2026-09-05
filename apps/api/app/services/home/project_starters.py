@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Project
+from app.models.orm import LearningPracticeEvent, Project
 from app.models.schemas import HomeProjectHighlight, ProjectStats
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
@@ -32,6 +32,8 @@ def daily_home_kind(project: Project) -> Literal["language"]:
 
 
 def completed_today(stats: ProjectStats) -> int:
+    if "completed_today" in stats.model_fields_set:
+        return stats.completed_today
     return max(0, int(stats.mastered_today) + int(getattr(stats, "missed_today", 0) or 0))
 
 
@@ -42,11 +44,14 @@ def project_highlight(
     home_tz: ZoneInfo,
     project_items: list | None = None,
     miss_events_by_item: dict[Any, list[datetime]] | None = None,
+    practice_events: list[LearningPracticeEvent] | None = None,
 ) -> HomeProjectHighlight | None:
     if not is_daily_home_project(project):
         return None
     daily_goal = daily_learning.resolve_daily_goal(project)
     cue = daily_learning.daily_home_cue(
+        completed_words=completed_today(stats),
+        attempted_words=stats.attempted_today,
         total=stats.total,
         mastered_today=stats.mastered_today,
         missed_today=int(getattr(stats, "missed_today", 0) or 0),
@@ -54,26 +59,34 @@ def project_highlight(
         learning_count=stats.learning_count,
         due_for_review=stats.due_for_review,
         daily_goal=daily_goal,
-        last_mastery=stats.last_mastery_at,
+        last_mastery=stats.last_study_at or stats.last_mastery_at,
         home_tz=home_tz,
     )
     if cue is None:
         return None
+    from app.services.learning.practice_history import merge_practice_history
+
     enriched = learning_insights.enrich_learning_stats(
         stats.model_dump(),
         project=project,
         items=project_items or [],
         timezone_name=str(home_tz.key),
-        daily_history=daily_learning.build_daily_history(
-            project_items or [],
-            timezone_name=str(home_tz.key),
-            daily_goal=daily_goal,
-            active_since=project.created_at,
-            daily_goal_history=daily_learning.ensure_daily_goal_history(
-                project,
+        daily_history=merge_practice_history(
+            daily_learning.build_daily_history(
                 project_items or [],
                 timezone_name=str(home_tz.key),
+                daily_goal=daily_goal,
+                active_since=project.created_at,
+                daily_goal_history=daily_learning.ensure_daily_goal_history(
+                    project,
+                    project_items or [],
+                    timezone_name=str(home_tz.key),
+                ),
+                miss_events_by_item=miss_events_by_item,
             ),
+            project_items or [],
+            practice_events or [],
+            timezone_name=str(home_tz.key),
             miss_events_by_item=miss_events_by_item,
         )
         if project_items
@@ -87,6 +100,8 @@ def project_highlight(
         or "en",
         daily_goal=daily_goal,
         mastered_today=stats.mastered_today,
+        completed_today=completed_today(stats),
+        attempted_today=stats.attempted_today,
         missed_today=int(getattr(stats, "missed_today", 0) or 0),
         cue=cue,
         streak_days=int(enriched.get("streak_days") or 0),
@@ -136,6 +151,8 @@ async def load_project_home_content(
                 continue
             # Cue can be decided from stats alone; only enrich the first highlight.
             cue = daily_learning.daily_home_cue(
+                completed_words=completed_today(stats),
+                attempted_words=stats.attempted_today,
                 total=stats.total,
                 mastered_today=stats.mastered_today,
                 missed_today=int(getattr(stats, "missed_today", 0) or 0),
@@ -143,7 +160,7 @@ async def load_project_home_content(
                 learning_count=stats.learning_count,
                 due_for_review=stats.due_for_review,
                 daily_goal=daily_goal,
-                last_mastery=stats.last_mastery_at,
+                last_mastery=stats.last_study_at or stats.last_mastery_at,
                 home_tz=home_tz,
             )
             if cue is None:
@@ -153,12 +170,18 @@ async def load_project_home_content(
             # they occurred on, including items later mastered (LANG-BE-005/007).
             item_ids = [it.id for it in project_items if hasattr(it, "id")]
             miss_events = await project_items_repo.list_miss_events_for_items(session, item_ids)
+            from app.repositories import learning_practice as practice_repo
+
+            practice_events = await practice_repo.list_events(
+                session, [candidate.id], since=datetime.now(UTC) - timedelta(days=15)
+            )
             highlight = project_highlight(
                 candidate,
                 stats,
                 home_tz=home_tz,
                 project_items=project_items,
                 miss_events_by_item=miss_events,
+                practice_events=practice_events,
             )
             if highlight is not None:
                 # Project chip starters were removed — highlight card is the only

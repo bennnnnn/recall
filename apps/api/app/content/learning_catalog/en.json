@@ -1,0 +1,606 @@
+{
+  "schema_version": 1,
+  "language": "en",
+  "decks": [
+    {
+      "language": "en",
+      "slug": "conversation-expressions",
+      "title": "Useful conversation expressions",
+      "domain": "Useful conversation expressions",
+      "kind": "chapter",
+      "sort_order": 160,
+      "words": [
+        {
+          "content": "by the way",
+          "definition": "An expression used to introduce an additional point or a new topic in a conversation.",
+          "example_sentences": [
+            "By the way, your sister called while you were out.",
+            "We enjoyed the concert; by the way, have you heard the band's new album?"
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "change topic"
+        },
+        {
+          "content": "as far as I know",
+          "definition": "An expression meaning that something is true according to the information you currently have, though you may not know everything.",
+          "example_sentences": [
+            "As far as I know, the library is still open on Saturdays.",
+            "The meeting is in Room 4, as far as I know, but I'll check the email."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "what I know"
+        },
+        {
+          "content": "in my opinion",
+          "definition": "An expression used to make clear that you are giving your own view rather than stating a fact.",
+          "example_sentences": [
+            "In my opinion, the shorter route is safer for cyclists.",
+            "The film's ending was too sudden, in my opinion, although I enjoyed the rest."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "my view"
+        },
+        {
+          "content": "for example",
+          "definition": "An expression used to introduce a specific case that helps explain a general point.",
+          "example_sentences": [
+            "You can save energy in several ways; for example, turn off lights in empty rooms.",
+            "Some birds cannot fly; penguins, for example, move well through water instead."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "a specific case"
+        },
+        {
+          "content": "on the other hand",
+          "definition": "An expression used to introduce a contrasting fact or another way of considering a situation.",
+          "example_sentences": [
+            "The apartment is small; on the other hand, it's close to my office.",
+            "Driving would be faster, but on the other hand, the train would let us relax."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "another viewpoint"
+        },
+        {
+          "content": "to be honest",
+          "definition": "An expression used to introduce what you really think or feel, especially if it may be unexpected.",
+          "example_sentences": [
+            "To be honest, I found the instructions difficult to follow.",
+            "I said I was busy, but to be honest, I just needed a quiet evening at home."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "my honest view"
+        },
+        {
+          "content": "it depends",
+          "definition": "An expression meaning that your answer or decision changes according to the circumstances.",
+          "example_sentences": [
+            "It depends on the weather; if it rains, we'll have lunch indoors.",
+            "Can I finish the repair today? It depends on whether the replacement part arrives."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "changes with the situation"
+        },
+        {
+          "content": "that makes sense",
+          "definition": "An expression used to say that an explanation or idea is reasonable and understandable.",
+          "example_sentences": [
+            "That makes sense; leaving earlier should help us avoid the traffic.",
+            "Now you've explained why the price changed, that makes sense to me."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "seems reasonable"
+        },
+        {
+          "content": "I'm not sure",
+          "definition": "An expression used to say that you do not know something confidently or have not made a decision.",
+          "example_sentences": [
+            "I'm not sure which bus goes to the museum, so let's ask the driver.",
+            "I'm not sure I can attend on Friday; I need to check my work schedule."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "not certain"
+        },
+        {
+          "content": "could you repeat that",
+          "definition": "A polite request for someone to say something again because you did not hear or understand it.",
+          "example_sentences": [
+            "Could you repeat that more slowly? I missed the last part of the address.",
+            "Could you repeat that, please? The announcement was too loud for me to hear you."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "expression",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "say it again"
+        }
+      ]
+    },
+    {
+      "language": "en",
+      "slug": "everyday-phrasal-verbs",
+      "title": "Everyday phrasal verbs",
+      "domain": "Everyday phrasal verbs",
+      "kind": "chapter",
+      "sort_order": 170,
+      "words": [
+        {
+          "content": "bring up",
+          "definition": "To introduce a topic so that people can discuss it.",
+          "example_sentences": [
+            "I want to bring up the delivery delays at our next team meeting.",
+            "She did not want to bring up the disagreement during dinner."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "raise a topic"
+        },
+        {
+          "content": "carry out",
+          "definition": "To do a planned task or put a decision or instruction into action.",
+          "example_sentences": [
+            "The team will carry out a safety inspection before the building opens.",
+            "We need enough staff to carry out the changes we agreed on."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "perform a planned task"
+        },
+        {
+          "content": "come up with",
+          "definition": "To think of an idea, answer, or plan, especially when one is needed.",
+          "example_sentences": [
+            "Can you come up with a way to reduce costs without cutting staff?",
+            "We have until Friday to come up with a name for the new project."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "think of an idea"
+        },
+        {
+          "content": "find out",
+          "definition": "To discover a fact or obtain information that you did not know before.",
+          "example_sentences": [
+            "We need to find out what time the last train leaves.",
+            "You can find out whether the book is available by checking the library website."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "discover information"
+        },
+        {
+          "content": "give up",
+          "definition": "To stop trying to do something because it seems too difficult or is no longer worth the effort.",
+          "example_sentences": [
+            "Don't give up on the puzzle yet; you've nearly finished it.",
+            "After several unsuccessful attempts, we decided to give up and ask for help."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "stop trying"
+        },
+        {
+          "content": "put off",
+          "definition": "To delay an activity or move it to a later time.",
+          "example_sentences": [
+            "Let's not put off fixing the leak until it gets worse.",
+            "She decided to put off her trip until her exams were over."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "delay"
+        },
+        {
+          "content": "run out of",
+          "definition": "To use all of a supply so that none remains.",
+          "example_sentences": [
+            "We might run out of milk before breakfast, so I'll buy some now.",
+            "The printer will stop if we run out of paper during the job."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "have none left"
+        },
+        {
+          "content": "get along with",
+          "definition": "To have a friendly or comfortable relationship with someone.",
+          "example_sentences": [
+            "I get along with my new neighbors, and we often share gardening tips.",
+            "It's easier to get along with a roommate when you discuss chores early."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "state",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "have a friendly relationship"
+        },
+        {
+          "content": "look after",
+          "definition": "To take care of someone or something and make sure they have what they need.",
+          "example_sentences": [
+            "Could you look after my plants while I'm on holiday?",
+            "She helps look after her younger brother when their parents work late."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "take care of"
+        },
+        {
+          "content": "work out",
+          "definition": "To solve a problem or reach an answer by thinking, planning, or calculating.",
+          "example_sentences": [
+            "We need to work out how much paint the room will need.",
+            "Let's work out a schedule that gives everyone a fair share of the weekend shifts."
+          ],
+          "part_of_speech": "verb",
+          "vocabulary_kind": "phrasal_verb",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "solve"
+        }
+      ]
+    },
+    {
+      "language": "en",
+      "slug": "everyday-idioms",
+      "title": "Everyday idioms",
+      "domain": "Everyday idioms",
+      "kind": "chapter",
+      "sort_order": 180,
+      "words": [
+        {
+          "content": "break the ice",
+          "definition": "To do or say something that helps people feel more comfortable when they first meet.",
+          "example_sentences": [
+            "The teacher used a short guessing game to break the ice on the first day.",
+            "I asked about her dog to break the ice before our interview."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "help people relax"
+        },
+        {
+          "content": "a piece of cake",
+          "definition": "Something that is very easy to do; an informal expression.",
+          "example_sentences": [
+            "After practicing all week, the final exercise was a piece of cake.",
+            "Finding the station was a piece of cake because there were signs on every corner."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "very easy"
+        },
+        {
+          "content": "under the weather",
+          "definition": "Feeling slightly ill or less well than usual.",
+          "example_sentences": [
+            "I'm feeling under the weather, so I'll stay home and rest this evening.",
+            "She sounded under the weather on the phone and said she had a sore throat."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "slightly ill"
+        },
+        {
+          "content": "on the same page",
+          "definition": "Sharing the same understanding, information, or expectations about something.",
+          "example_sentences": [
+            "Before we book anything, let's make sure we're on the same page about the budget.",
+            "The team wasn't on the same page, so we wrote down the plan together."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "understand the same thing"
+        },
+        {
+          "content": "once in a blue moon",
+          "definition": "Very rarely or almost never.",
+          "example_sentences": [
+            "We only eat at that expensive restaurant once in a blue moon.",
+            "My old school friend lives abroad, so I see her once in a blue moon."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "very rarely"
+        },
+        {
+          "content": "in the long run",
+          "definition": "After a long period of time, when the overall result becomes clear.",
+          "example_sentences": [
+            "The stronger shoes cost more now, but they should save me money in the long run.",
+            "Learning to cook takes practice, but it makes everyday life easier in the long run."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "over time"
+        },
+        {
+          "content": "get the hang of",
+          "definition": "To learn how to do or use something through practice.",
+          "example_sentences": [
+            "It took me a few tries to get the hang of the new coffee machine.",
+            "You'll get the hang of riding a bike if you keep practicing in a quiet place."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "learn how"
+        },
+        {
+          "content": "keep an eye on",
+          "definition": "To watch someone or something carefully for a short time or check on it regularly.",
+          "example_sentences": [
+            "Could you keep an eye on my bag while I buy the tickets?",
+            "Please keep an eye on the soup so it doesn't boil over."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "watch carefully"
+        },
+        {
+          "content": "the ball is in your court",
+          "definition": "It is now your responsibility or opportunity to decide what happens next.",
+          "example_sentences": [
+            "I've sent you the proposal, so the ball is in your court now.",
+            "The landlord has offered a lower rent; the ball is in your court if you still want the apartment."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "your turn to decide"
+        },
+        {
+          "content": "miss the boat",
+          "definition": "To lose an opportunity because you act too late.",
+          "example_sentences": [
+            "Book soon if you want the discounted tickets; you don't want to miss the boat.",
+            "I kept delaying my application and missed the boat when the course filled up."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "lose an opportunity"
+        }
+      ]
+    },
+    {
+      "language": "en",
+      "slug": "common-proverbs",
+      "title": "Common proverbs",
+      "domain": "Common proverbs",
+      "kind": "chapter",
+      "sort_order": 190,
+      "words": [
+        {
+          "content": "practice makes perfect",
+          "definition": "A saying that encourages regular practice as a way to improve a skill.",
+          "example_sentences": [
+            "My piano teacher reminds me that practice makes perfect when a new piece feels difficult.",
+            "Practice makes perfect, so we rehearse the presentation a little every day."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "practice to improve"
+        },
+        {
+          "content": "better late than never",
+          "definition": "A saying that it is better to do something after the expected time than not to do it at all.",
+          "example_sentences": [
+            "I finally wrote the thank-you note a month after the party; better late than never.",
+            "He started learning to swim at sixty, saying that it was better late than never."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "late is better than never"
+        },
+        {
+          "content": "actions speak louder than words",
+          "definition": "A saying that what people do shows their intentions more clearly than what they say.",
+          "example_sentences": [
+            "She promised to help, but actions speak louder than words, so I waited to see whether she arrived.",
+            "He quietly repaired the fence instead of making another promise; actions speak louder than words."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "deeds show intent"
+        },
+        {
+          "content": "two heads are better than one",
+          "definition": "A saying that two people working together may solve a problem more effectively than one person alone.",
+          "example_sentences": [
+            "Let's check the timetable together; two heads are better than one.",
+            "I asked my colleague to review the design because two heads are better than one."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "solve it together"
+        },
+        {
+          "content": "don't count your chickens before they hatch",
+          "definition": "A warning not to rely on a good result before it is certain.",
+          "example_sentences": [
+            "Don't count your chickens before they hatch; wait for the job offer before planning how to spend the salary.",
+            "She told me not to count my chickens before they hatch when I assumed our team would win the final."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "wait until it is certain"
+        },
+        {
+          "content": "look before you leap",
+          "definition": "Advice to consider the possible risks and consequences before taking action.",
+          "example_sentences": [
+            "Look before you leap: read the rental agreement before you sign it.",
+            "My brother reminded me to look before I leap when I wanted to buy the first car I saw."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "think before acting"
+        },
+        {
+          "content": "where there's a will, there's a way",
+          "definition": "A saying that determination can help a person find a way through a difficult problem.",
+          "example_sentences": [
+            "She built a ramp from spare wood to solve the access problem, showing that where there's a will, there's a way.",
+            "“Where there's a will, there's a way,” he said as he looked for an evening course that fit around his job."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "determination helps"
+        },
+        {
+          "content": "all that glitters is not gold",
+          "definition": "A warning that something attractive or impressive may not be as valuable or good as it appears.",
+          "example_sentences": [
+            "The hotel photographs looked wonderful, but the rooms were dirty; all that glitters is not gold.",
+            "All that glitters is not gold, so compare the actual costs before choosing the most impressive offer."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "appearances can mislead"
+        },
+        {
+          "content": "a journey of a thousand miles begins with a single step",
+          "definition": "A saying that a large or difficult task starts with one small action.",
+          "example_sentences": [
+            "A journey of a thousand miles begins with a single step, so I began my study plan with ten minutes of reading.",
+            "When the project felt overwhelming, we remembered that a journey of a thousand miles begins with a single step."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "start with one action"
+        },
+        {
+          "content": "every cloud has a silver lining",
+          "definition": "A saying that an unpleasant situation may still have a positive side or lead to something good.",
+          "example_sentences": [
+            "Missing the train gave us time to explore a lovely village, so perhaps every cloud has a silver lining.",
+            "Every cloud has a silver lining: losing that job led her to a career she enjoyed much more."
+          ],
+          "part_of_speech": "phrase",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": "find a positive side"
+        }
+      ]
+    }
+  ]
+}

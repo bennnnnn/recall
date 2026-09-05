@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "language": "es",
+  "decks": [
+    {
+      "language": "es",
+      "slug": "everyday-idioms",
+      "title": "Everyday Idioms",
+      "domain": "Idioms and Proverbs",
+      "kind": "chapter",
+      "sort_order": 103,
+      "words": [
+        {
+          "content": "estar en las nubes",
+          "definition": "Estar distraído y prestar poca atención a lo que ocurre alrededor.",
+          "example_sentences": [
+            "Hoy estoy en las nubes y he olvidado las llaves otra vez.",
+            "Lucía estaba en las nubes durante la explicación y no oyó la pregunta."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "state",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "echar una mano",
+          "definition": "Ayudar a alguien a hacer una tarea o a resolver un problema.",
+          "example_sentences": [
+            "Mi vecino me echó una mano para subir el sofá por la escalera.",
+            "¿Puedes echarme una mano con estos ejercicios de español?"
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "meter la pata",
+          "definition": "Cometer un error por hablar o actuar sin cuidado, a menudo en una situación social.",
+          "example_sentences": [
+            "Metí la pata al hablar de la fiesta porque Clara todavía no estaba invitada.",
+            "Tomás metió la pata y envió el mensaje privado a todo el grupo."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "costar un ojo de la cara",
+          "definition": "Tener un precio muy alto o ser demasiado caro para quien lo paga.",
+          "example_sentences": [
+            "El hotel junto a la playa cuesta un ojo de la cara en agosto.",
+            "Reparar el coche nos costó un ojo de la cara, así que este mes gastaremos menos."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "state",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "ponerse las pilas",
+          "definition": "Empezar a actuar con más energía, atención o esfuerzo para conseguir algo.",
+          "example_sentences": [
+            "Me puse las pilas y terminé el trabajo antes del viernes.",
+            "Si queremos ganar el partido, tenemos que ponernos las pilas en la segunda parte."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "quedarse de piedra",
+          "definition": "Sentir tanta sorpresa que resulta difícil reaccionar en ese momento.",
+          "example_sentences": [
+            "Me quedé de piedra cuando anunciaron que había ganado el concurso.",
+            "Al ver el importe de la cuenta, los clientes se quedaron de piedra."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "state",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "romper el hielo",
+          "definition": "Hacer que las personas se sientan más cómodas y empiecen a hablar en una situación nueva.",
+          "example_sentences": [
+            "La profesora propuso un juego para romper el hielo el primer día de clase.",
+            "Una pregunta sobre el viaje rompió el hielo entre los nuevos compañeros."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "estar entre la espada y la pared",
+          "definition": "Encontrarse en una situación en la que es difícil elegir porque las opciones tienen consecuencias negativas.",
+          "example_sentences": [
+            "Si digo la verdad, mi amigo se enfadará, pero si callo, culparán a Ana; estoy entre la espada y la pared.",
+            "La empresa estaba entre la espada y la pared: debía subir los precios o reducir su actividad."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "state",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "tirar la toalla",
+          "definition": "Dejar de intentar conseguir algo porque parece demasiado difícil.",
+          "example_sentences": [
+            "Aunque suspendí el examen dos veces, no voy a tirar la toalla.",
+            "El equipo tiró la toalla cuando vio que no podía terminar el proyecto a tiempo."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "action",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "estar hecho polvo",
+          "definition": "Sentirse muy cansado y sin fuerzas, especialmente después de un esfuerzo.",
+          "example_sentences": [
+            "Después de caminar veinte kilómetros, estoy hecho polvo.",
+            "Elena estaba hecha polvo tras la mudanza y se acostó temprano."
+          ],
+          "part_of_speech": "verb phrase",
+          "vocabulary_kind": "idiom",
+          "verb_kind": "state",
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        }
+      ]
+    },
+    {
+      "language": "es",
+      "slug": "everyday-proverbs",
+      "title": "Everyday Proverbs",
+      "domain": "Idioms and Proverbs",
+      "kind": "chapter",
+      "sort_order": 113,
+      "words": [
+        {
+          "content": "Más vale tarde que nunca",
+          "definition": "Es mejor hacer algo útil aunque sea con retraso que dejarlo sin hacer.",
+          "example_sentences": [
+            "Por fin le pedí disculpas después de varios meses; más vale tarde que nunca.",
+            "Mi abuelo empezó a aprender a leer a los setenta años y decía: «Más vale tarde que nunca»."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "No hay mal que por bien no venga",
+          "definition": "Una situación desagradable puede traer también algo bueno; se dice para animar o expresar optimismo.",
+          "example_sentences": [
+            "Perdimos el autobús, pero conocimos a unos vecinos que nos llevaron; no hay mal que por bien no venga.",
+            "El curso se canceló y encontré otro que me gustó más, así que pensé: «No hay mal que por bien no venga»."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "A quien madruga, Dios le ayuda",
+          "definition": "Actuar pronto y con esfuerzo puede ayudar a conseguir lo que se busca.",
+          "example_sentences": [
+            "Salimos temprano y conseguimos las últimas entradas; a quien madruga, Dios le ayuda.",
+            "Sara preparó la solicitud en cuanto se abrió el plazo y recordó el consejo de su madre: «A quien madruga, Dios le ayuda»."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "Más vale pájaro en mano que ciento volando",
+          "definition": "Conviene valorar lo que ya se tiene con seguridad antes de arriesgarlo por algo mejor pero incierto.",
+          "example_sentences": [
+            "Acepté el empleo que me ofrecieron en vez de esperar una llamada que quizá no llegaría; más vale pájaro en mano que ciento volando.",
+            "Pablo conservó la reserva confirmada en lugar de apostar por una oferta sin plazas seguras: más vale pájaro en mano que ciento volando."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "En boca cerrada no entran moscas",
+          "definition": "A veces es mejor guardar silencio para evitar decir algo imprudente o causar problemas.",
+          "example_sentences": [
+            "Casi conté el secreto delante de todos, pero me detuve a tiempo; en boca cerrada no entran moscas.",
+            "Como no conocía los detalles de la discusión, preferí no opinar: en boca cerrada no entran moscas."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "A caballo regalado no le mires el diente",
+          "definition": "Conviene agradecer un regalo en vez de buscarle defectos o criticarlo.",
+          "example_sentences": [
+            "La bicicleta que me regaló mi tío tiene algunos años, pero funciona bien; a caballo regalado no le mires el diente.",
+            "Cuando Luis se quejó del color de la bufanda que le habían regalado, su hermana le recordó: «A caballo regalado no le mires el diente»."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "No dejes para mañana lo que puedas hacer hoy",
+          "definition": "Es mejor resolver las tareas pendientes cuando se puede, sin retrasarlas sin necesidad.",
+          "example_sentences": [
+            "Voy a enviar el formulario esta tarde; como dice el refrán: «No dejes para mañana lo que puedas hacer hoy».",
+            "Antes de cerrar el taller, Marta arregló la silla que quedaba y dijo: «No dejes para mañana lo que puedas hacer hoy»."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "Quien mucho abarca poco aprieta",
+          "definition": "Intentar hacer demasiadas cosas a la vez puede impedir que se hagan bien.",
+          "example_sentences": [
+            "Me apunté a cinco cursos y no podía seguir ninguno; comprendí que quien mucho abarca poco aprieta.",
+            "Para cuidar bien a nuestros clientes, aceptaremos solo dos proyectos nuevos: quien mucho abarca poco aprieta."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "No todo lo que brilla es oro",
+          "definition": "Las apariencias pueden engañar, y algo que parece muy bueno puede tener problemas o defectos.",
+          "example_sentences": [
+            "El apartamento parecía perfecto en las fotos, pero tenía goteras; no todo lo que brilla es oro.",
+            "El anuncio prometía un trabajo ideal, pero el contrato tenía malas condiciones: no todo lo que brilla es oro."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        },
+        {
+          "content": "A buen entendedor, pocas palabras bastan",
+          "definition": "Quien comprende bien una situación puede entender un mensaje con una explicación breve o una pequeña señal.",
+          "example_sentences": [
+            "Bastó con que dijera que era tarde para que los invitados empezaran a despedirse; a buen entendedor, pocas palabras bastan.",
+            "La entrenadora recordó que al día siguiente había partido y todos dejaron de trasnochar: a buen entendedor, pocas palabras bastan."
+          ],
+          "part_of_speech": "sentence",
+          "vocabulary_kind": "proverb",
+          "verb_kind": null,
+          "noun_kind": null,
+          "ipa": null,
+          "simple_gloss": null
+        }
+      ]
+    }
+  ]
+}

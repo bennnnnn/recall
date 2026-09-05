@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -16,6 +16,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useProjects } from "@/contexts/ProjectsContext";
+import { getSessionGeneration } from "@/lib/auth";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useProjectMutationLock } from "@/lib/projects/projectMutationLock";
 import { type Project } from "@/lib/api";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import {
@@ -25,40 +28,32 @@ import {
 } from "@/lib/projects/dailyGoals";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
-import {
-  exportProjectAsPdf,
-  projectHasExportableItems,
-} from "@/lib/exportProjectPdf";
+import { exportProjectAsPdf, projectHasExportableItems } from "@/lib/exportProjectPdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
-function mergeProjectRow(prev: Project[], updated: Project): Project[] {
-  return prev.map((row) =>
-    row.id === updated.id ? { ...updated, stats: row.stats ?? updated.stats } : row,
-  );
+export default function LearningSettingsScreen() {
+  const owner = useAccountViewOwner();
+  return <LearningSettingsView key={owner.key} owner={owner} />;
 }
 
-export default function LearningSettingsScreen() {
+function LearningSettingsView({ owner }: { owner: ReturnType<typeof useAccountViewOwner> }) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const { projects: allProjects, refresh, setProjects } = useProjects();
-  const { updateProject, deleteProject, getExportProject } = useProjectActions();
+  const { projects: allProjects, loading, error, refresh, setProjects } = useProjects();
+  const { updateProject, getExportProject } = useProjectActions();
   const feedback = useActionFeedbackOptional();
 
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const session = getSessionGeneration();
+  const mutations = useProjectMutationLock();
   const [openPicker, setOpenPicker] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [exportingId, setExportingId] = useState<string | null>(null);
 
-  const projects = useMemo(
-    () => allProjects.filter((p) => !p.archived),
-    [allProjects],
-  );
+  const projects = useMemo(() => allProjects.filter((p) => !p.archived), [allProjects]);
 
   useFocusEffect(
     useCallback(() => {
@@ -69,91 +64,78 @@ export default function LearningSettingsScreen() {
   const languageProjects = projects.filter((p) => isLanguageProject(p.kind));
 
   const saveDailyGoal = async (project: Project, nextGoal: number) => {
-    if (!token) return;
-    const key = `${project.id}-daily`;
-    if (savingKey === key) return;
-    setSavingKey(key);
-    setProjects((prev) => mergeProjectRow(prev, { ...project, daily_goal: nextGoal }));
+    if (!token || !owner.isCurrent()) return;
+    const release = mutations.begin(`goal:${project.id}`);
+    if (!release) return;
+    const patchGoal = (goal: Project["daily_goal"]) =>
+      setProjects((prev) =>
+        prev.map((row) => (row.id === project.id ? { ...row, daily_goal: goal } : row)),
+      );
+    patchGoal(nextGoal);
     try {
       const updated = await updateProject(project.id, { daily_goal: nextGoal });
-      setProjects((prev) => mergeProjectRow(prev, updated));
-      void refresh({ silent: true, force: true });
+      if (session !== getSessionGeneration()) return;
+      patchGoal(updated.daily_goal);
+      void refresh({ silent: true, force: true, afterPending: true });
     } catch {
-      setProjects((prev) => mergeProjectRow(prev, project));
-      if (feedback) feedback.error(t("settings.learning.save_failed"));
-      else Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+      if (session !== getSessionGeneration()) return;
+      setProjects((prev) =>
+        prev.map((row) =>
+          row.id === project.id && row.daily_goal === nextGoal
+            ? { ...row, daily_goal: project.daily_goal }
+            : row,
+        ),
+      );
+      void refresh({ silent: true, force: true, afterPending: true });
+      if (owner.isCurrent()) reportRecoverableError(feedback, t("settings.learning.save_failed"));
     } finally {
-      setSavingKey((cur) => (cur === key ? null : cur));
+      release();
     }
   };
 
-  const confirmDelete = (project: Project) => {
-    if (!token || deletingId) return;
-    Alert.alert(
-      t("projects.delete_title", { title: project.title }),
-      t("projects.delete_body"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: async () => {
-            setDeletingId(project.id);
-            try {
-              await deleteProject(project.id);
-              setProjects((prev) => prev.filter((p) => p.id !== project.id));
-              void refresh({ silent: true, force: true });
-            } catch {
-              if (feedback) feedback.error(t("projects.delete_failed"));
-              else Alert.alert(t("common.error"), t("projects.delete_failed"));
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ],
-    );
-  };
-
   const exportPdf = async (project: Project) => {
-    if (!token || exportingId) return;
-    setExportingId(project.id);
+    if (!token || !owner.isCurrent()) return;
+    const release = mutations.begin("export");
+    if (!release) return;
     try {
       const detail = await getExportProject(project.id);
+      if (!owner.isCurrent()) return;
       if (!projectHasExportableItems(detail)) {
-        Alert.alert(
-          t("projects.export_pdf_empty_title"),
-          t("projects.export_pdf_empty_body"),
-        );
+        Alert.alert(t("projects.export_pdf_empty_title"), t("projects.export_pdf_empty_body"));
         return;
       }
-      await exportProjectAsPdf(detail, {
-        mastered: t("projects.export_pdf.section_mastered"),
-        learning: t("projects.export_pdf.section_learning"),
-        new: t("projects.export_pdf.section_new"),
-        empty: t("projects.export_pdf.empty"),
-        definition: t("projects.export_pdf.definition"),
-        example: t("projects.export_pdf.example"),
-        topic: t("projects.export_pdf.topic"),
-        summary: ({ total, mastered, learning, newCount }) =>
-          t("projects.export_pdf.summary", {
-            total,
-            mastered,
-            learning,
-            new: newCount,
-          }),
-      });
+      await exportProjectAsPdf(
+        detail,
+        {
+          mastered: t("projects.export_pdf.section_mastered"),
+          learning: t("projects.export_pdf.section_learning"),
+          new: t("projects.export_pdf.section_new"),
+          empty: t("projects.export_pdf.empty"),
+          definition: t("projects.export_pdf.definition"),
+          example: t("projects.export_pdf.example"),
+          topic: t("projects.export_pdf.topic"),
+          summary: ({ total, mastered, learning, newCount }) =>
+            t("projects.export_pdf.summary", {
+              total,
+              mastered,
+              learning,
+              new: newCount,
+            }),
+        },
+        owner.isCurrent,
+      );
     } catch (error) {
-      if (isShareCancelled(error)) return;
+      if (!owner.isCurrent() || isShareCancelled(error)) return;
       reportRecoverableError(feedback, t("projects.export_pdf_failed"));
     } finally {
-      setExportingId(null);
+      release();
     }
   };
 
   if (!token) return <Redirect href="/login" />;
 
   const togglePicker = (id: string) => {
+    if (!owner.isCurrent()) return;
     setOpenPicker((cur) => (cur === id ? null : id));
   };
 
@@ -163,6 +145,18 @@ export default function LearningSettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
+        {error ? (
+          <StateView
+            variant="error"
+            compact
+            title={t("projects.load_failed")}
+            onRetry={() => {
+              if (owner.isCurrent()) void refresh({ force: true, afterPending: true });
+            }}
+            retryLabel={t("common.retry")}
+          />
+        ) : null}
+        {loading && languageProjects.length === 0 && !error ? <ActivityIndicator /> : null}
         {languageProjects.length > 0 ? (
           <>
             <Text style={s.sectionHint}>{t("settings.learning.hint")}</Text>
@@ -196,7 +190,7 @@ export default function LearningSettingsScreen() {
                     options={dailyGoalPickerOptions("language", t)}
                     selectedKey={String(resolveDailyGoal(languageProject.daily_goal))}
                     expanded={openPicker === `${languageProject.id}-daily`}
-                    busy={savingKey === `${languageProject.id}-daily`}
+                    busy={mutations.pending(`goal:${languageProject.id}`)}
                     onToggle={() => togglePicker(`${languageProject.id}-daily`)}
                     onSelect={(key) => {
                       const nextGoal = Number(key);
@@ -214,38 +208,22 @@ export default function LearningSettingsScreen() {
                     styles={s}
                     theme={theme}
                   />
-                  <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-                  <Pressable
-                    style={({ pressed }) => [s.menuRow, pressed && s.rowPressed]}
-                    onPress={() => confirmDelete(languageProject)}
-                    disabled={Boolean(deletingId)}
-                    accessibilityRole="button"
-                  >
-                    <View style={s.rowBody}>
-                      <Text style={[s.rowTitle, { color: theme.danger }]}>
-                        {deletingId === languageProject.id
-                          ? t("common.deleting")
-                          : t("settings.learning.delete_class")}
-                      </Text>
-                    </View>
-                    {deletingId === languageProject.id ? (
-                      <ActivityIndicator size="small" color={theme.danger} />
-                    ) : null}
-                  </Pressable>
                 </SettingsGroup>
               );
             })}
           </>
-        ) : (
+        ) : !loading && !error ? (
           <StateView
             variant="empty"
             compact
             icon="school-outline"
             title={t("settings.learning.empty")}
-            onRetry={() => router.push("/projects")}
+            onRetry={() => {
+              if (owner.isCurrent()) router.push("/projects");
+            }}
             retryLabel={t("settings.learning.create")}
           />
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );

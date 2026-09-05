@@ -48,6 +48,11 @@ def _item(content: str, list_title: str, *, mastered: bool = False) -> MagicMock
     item.ipa = None
     item.part_of_speech = None
     item.simple_gloss = None
+    item.catalog_entry_id = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.last_completed_at = None
     item.note = None
     item.created_at = datetime(2024, 1, 1, tzinfo=UTC)
     item.mastered_at = None
@@ -136,15 +141,18 @@ def test_sort_list_titles_puts_unknown_decks_last():
     ]
 
 
-def test_group_items_omits_lists_not_on_the_path():
+def test_group_items_omits_catalog_lists_not_on_the_requested_path():
+    from app.content.vocab_catalog import path_decks_for_language
+
+    first, second = path_decks_for_language("en")[:2]
     project_id = uuid4()
-    hello = _item("hi", "Hello")
-    hello.project_id = project_id
-    hotel = _item("lobby", "Hotel services")
-    hotel.project_id = project_id
-    groups = group_items([hello, hotel], learning_path=["Hello"], target_language="en")
-    assert [group.list_title for group in groups] == ["Hello"]
-    assert groups[0].items[0].content == "hi"
+    shown = _item(first.words[0].content, first.title)
+    shown.project_id = project_id
+    hidden = _item(second.words[0].content, second.title)
+    hidden.project_id = project_id
+    groups = group_items([shown, hidden], learning_path=[first.title], target_language="en")
+    assert [group.list_title for group in groups] == [first.title]
+    assert groups[0].items[0].content == shown.content
 
 
 def test_format_projects_block_includes_path():
@@ -186,9 +194,10 @@ async def test_seed_language_path_copies_catalog_words():
     ensure = AsyncMock()
     with (
         patch("app.core.db.SessionLocal", return_value=_CM()),
-        patch("app.repositories.projects.get_by_id", AsyncMock(return_value=project)),
-        patch("app.repositories.project_items.list_for_user", AsyncMock(return_value=[])),
-        patch("app.services.projects.items.create_item", created),
+        patch("app.repositories.learning_catalog.lock_project", AsyncMock(return_value=project)),
+        patch("app.repositories.learning_catalog.list_items", AsyncMock(return_value=[])),
+        patch("app.repositories.learning_catalog.insert_missing", created),
+        patch("app.repositories.learning_catalog.update_contents", AsyncMock()),
         patch("app.services.learning.path_seed.ensure_catalog_rows", ensure),
         patch("app.services.projects.common._invalidate_home_for_user", AsyncMock()),
     ):
@@ -196,9 +205,11 @@ async def test_seed_language_path_copies_catalog_words():
 
     ensure.assert_awaited_once()
     assert project.learning_path == catalog_path_titles("es")
-    assert "Immediate family" in project.learning_path
-    assert created.await_count == catalog_word_count("es")
-    assert created.await_count > 0
+    assert len(project.learning_path) == 2
+    assert "Immediate family" not in project.learning_path
+    created.assert_awaited_once()
+    assert len(created.await_args.kwargs["rows"]) == catalog_word_count("es")
+    assert all(row["catalog_entry_id"] is not None for row in created.await_args.kwargs["rows"])
 
 
 def test_needs_catalog_sync_when_path_is_old_llm_titles():
@@ -210,9 +221,15 @@ def test_needs_catalog_sync_when_path_is_old_llm_titles():
 
     project = _project(learning_path=catalog_path_titles("es"))
 
-    items = [
-        _item(word.content, deck.title) for deck in decks_for_language("es") for word in deck.words
-    ]
+    from app.services.learning.catalog_items import word_values
+
+    items = []
+    for deck in decks_for_language("es"):
+        for word in deck.words:
+            item = _item(word.content, deck.title)
+            for name, value in word_values(deck, word).items():
+                setattr(item, name, value)
+            items.append(item)
     assert needs_catalog_sync(project, items) is False
 
 
@@ -238,8 +255,8 @@ def test_apply_full_catalog_path_puts_every_group_on_the_map():
 
     project = _project(learning_path=["Hello and goodbye"])
     titles = apply_full_catalog_path(project)
-    assert "Immediate family" in titles
-    assert len(titles) > 10
+    assert "Immediate family" not in titles
+    assert len(titles) == 2
     assert project.learning_path == titles
 
 
@@ -291,6 +308,7 @@ async def test_get_project_detail_enqueues_catalog_sync_without_blocking_get():
         patch.object(projects_repo, "get_by_id", AsyncMock(return_value=item)),
         patch.object(project_items_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(project_items_repo, "list_miss_events_for_items", AsyncMock(return_value={})),
+        patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])),
         patch("app.services.projects.crud.enqueue_language_path_job", enqueue),
         patch("app.services.learning.path_seed.seed_language_path", seed),
         patch("app.services.learning.path_seed.needs_catalog_sync", return_value=True),

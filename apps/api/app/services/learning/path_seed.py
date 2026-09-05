@@ -1,37 +1,37 @@
-"""Copy curated chapter words onto a language project."""
+"""Reconcile curated chapter content while retaining each learner's progress."""
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from collections.abc import Sequence
-from typing import Any
+from dataclasses import asdict
+from functools import lru_cache
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from pydantic import BaseModel
-
-from app.content.vocab_catalog import (
-    path_decks_for_language,
-    word_id,
-)
+from app.content.vocab_catalog import path_decks_for_language, word_id
+from app.services.learning.catalog_items import active_catalog_items, plan_catalog_changes
 from app.services.learning.catalog_sync import ensure_catalog_rows
 from app.services.learning.path import parse_learning_path
-from app.services.projects.common import _is_language_project, _list_key
+
+if TYPE_CHECKING:
+    from app.models.orm import ProjectItem
 
 logger = logging.getLogger(__name__)
-
 _CATALOG_LANGUAGES = frozenset({"en", "es"})
 
 
-class _ProjectRow(BaseModel):
-    id: UUID
-    user_id: UUID
-    title: str
-    level: str
-    target_language: str
-    native_language: str | None
-    daily_goal: int | None
-    learning_path: list[str]
-    item_count: int
+@lru_cache(maxsize=1)
+def catalog_seed_revision() -> str:
+    """Keep old successful jobs from suppressing a changed catalog for 24 hours."""
+    content = [
+        asdict(deck)
+        for language in sorted(_CATALOG_LANGUAGES)
+        for deck in path_decks_for_language(language)
+    ]
+    return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()[:16]
 
 
 def apply_full_catalog_path(project: object) -> list[str]:
@@ -45,132 +45,106 @@ def apply_full_catalog_path(project: object) -> list[str]:
     return titles
 
 
+def current_catalog_items(project: object, items: Sequence[ProjectItem]) -> list[ProjectItem]:
+    """Hide retired rows and project retained identities into current chapters.
+
+    A duplicate current identity can retain its old physical chapter to preserve
+    history under the database's unique word/chapter constraint. Return detached
+    read copies when needed; assigning an ORM title here could autoflush a conflict.
+    """
+    from app.models.orm import ProjectItem
+
+    lang = (getattr(project, "target_language", None) or "en").strip().lower()
+    if (
+        getattr(project, "kind", "language") not in {"language", "vocabulary"}
+        or lang not in _CATALOG_LANGUAGES
+    ):
+        return list(items)
+    decks = path_decks_for_language(lang)
+    titles = {word_id(deck, word): deck.title for deck in decks for word in deck.words}
+    result = []
+    for item in items:
+        entry_id = item.catalog_entry_id
+        if entry_id is None or entry_id not in titles:
+            continue
+        title = titles[entry_id]
+        result.append(
+            item
+            if item.list_title == title
+            else ProjectItem(
+                **{
+                    column.key: title if column.key == "list_title" else getattr(item, column.key)
+                    for column in ProjectItem.__table__.columns
+                }
+            )
+        )
+    return result
+
+
 def needs_catalog_sync(project: object, items: Sequence[Any]) -> bool:
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if lang not in _CATALOG_LANGUAGES:
         return False
     decks = path_decks_for_language(lang)
-    titles = [deck.title for deck in decks]
-    if parse_learning_path(project) != titles:
-        return True
-    have_pairs = {
-        (_list_key(getattr(item, "list_title", "")), _list_key(getattr(item, "content", "")))
-        for item in items
-    }
-    for deck in decks:
-        for word in deck.words:
-            if (_list_key(deck.title), _list_key(word.content)) not in have_pairs:
-                return True
-    return False
-
-
-_STATUS_RANK = {"mastered": 2, "learning": 1, "new": 0}
-
-
-async def _load_seed_row(project_id: UUID, user_id: UUID) -> _ProjectRow | None:
-    from app.core.db import SessionLocal
-    from app.repositories import project_items as project_items_repo
-    from app.repositories import projects as projects_repo
-
-    async with SessionLocal() as session:
-        project = await projects_repo.get_by_id(session, project_id, user_id)
-        if project is None or not _is_language_project(project):
-            return None
-        items = await project_items_repo.list_for_user(
-            session, user_id, project_id=project_id, limit=5000
-        )
-        return _ProjectRow(
-            id=project.id,
-            user_id=project.user_id,
-            title=project.title,
-            level=project.level or "level1",
-            target_language=project.target_language or "en",
-            native_language=project.native_language,
-            daily_goal=project.daily_goal,
-            learning_path=parse_learning_path(project),
-            item_count=len(items),
-        )
+    current = active_catalog_items(decks, items)
+    return (
+        len(current) != len(items)
+        or parse_learning_path(project) != [deck.title for deck in decks]
+        or bool(plan_catalog_changes(decks, current))
+    )
 
 
 async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) -> None:
-    """Replace the path with catalog titles and insert missing words."""
+    """Commit content-only reconciliation, then invalidate dependent caches."""
     from app.core.db import SessionLocal
-    from app.repositories import project_items as project_items_repo
-    from app.repositories import projects as projects_repo
+    from app.repositories import learning_catalog as catalog_repo
     from app.services.projects.common import _invalidate_home_for_user
-    from app.services.projects.items import create_item
 
     del settings
     try:
-        row = await _load_seed_row(project_id, user_id)
-        if row is None:
-            return
-        lang = (row.target_language or "en").strip().lower()
-        if lang not in _CATALOG_LANGUAGES:
-            return
-        decks = path_decks_for_language(lang)
-        if not decks:
-            return
-        path = [deck.title for deck in decks]
-
         async with SessionLocal() as session:
-            project = await projects_repo.get_by_id(session, project_id, user_id)
-            if project is None or not _is_language_project(project):
+            project = await catalog_repo.lock_project(session, project_id, user_id)
+            if project is None:
                 return
-            existing = await project_items_repo.list_for_user(
-                session, user_id, project_id=project_id, limit=5000
-            )
-            if not needs_catalog_sync(project, existing):
+            lang = (project.target_language or "en").strip().lower()
+            if lang not in _CATALOG_LANGUAGES:
                 return
-            await ensure_catalog_rows(session)
-            await session.flush()
-            project.learning_path = path
-            catalog_lists = {_list_key(title) for title in path}
-            have_pairs = {
-                (_list_key(item.list_title), _list_key(item.content)) for item in existing
-            }
-            leftovers: dict[str, Any] = {}
-            leftover_ranks: dict[str, int] = {}
-            for item in existing:
-                content_key = _list_key(item.content)
-                if not content_key or _list_key(item.list_title) in catalog_lists:
-                    continue
-                rank = _STATUS_RANK.get(item.status or "", 0)
-                if content_key not in leftovers or rank > leftover_ranks.get(content_key, -1):
-                    leftovers[content_key] = item
-                    leftover_ranks[content_key] = rank
-            for deck in decks:
-                for word in deck.words:
-                    pair = (_list_key(deck.title), _list_key(word.content))
-                    if pair in have_pairs:
-                        continue
-                    leftover = leftovers.pop(_list_key(word.content), None)
-                    if leftover is not None:
-                        leftover.list_title = deck.title
-                        leftover.ipa = word.ipa
-                        leftover.part_of_speech = word.part_of_speech
-                        leftover.simple_gloss = word.simple_gloss
-                        if leftover.catalog_entry_id is None:
-                            leftover.catalog_entry_id = word_id(deck, word)
-                        have_pairs.add(pair)
-                        continue
-                    await create_item(
-                        session,
-                        user_id=user_id,
-                        project_id=project_id,
-                        content=word.content,
-                        list_title=deck.title,
-                        definition=word.definition,
-                        example_sentence=word.example_sentence,
-                        ipa=word.ipa,
-                        part_of_speech=word.part_of_speech,
-                        simple_gloss=word.simple_gloss,
-                        status="new",
-                        catalog_entry_id=word_id(deck, word),
-                        commit=False,
-                    )
-                    have_pairs.add(pair)
-            await session.commit()
+            decks = path_decks_for_language(lang)
+            if not decks:
+                return
+            existing = await catalog_repo.list_items(session, project_id, user_id)
+            path = [deck.title for deck in decks]
+            current = active_catalog_items(decks, existing)
+            retired = len(current) != len(existing)
+            changes = plan_catalog_changes(decks, current)
+            if retired or changes or parse_learning_path(project) != path:
+                await catalog_repo.delete_retired(
+                    session,
+                    user_id=user_id,
+                    project_id=project_id,
+                    active_ids=[word_id(deck, word) for deck in decks for word in deck.words],
+                )
+                await ensure_catalog_rows(session)
+                await catalog_repo.update_contents(
+                    session,
+                    user_id=user_id,
+                    project_id=project_id,
+                    changes=[
+                        (change.item, change.values)
+                        for change in changes
+                        if change.item is not None
+                    ],
+                )
+                await catalog_repo.insert_missing(
+                    session,
+                    user_id=user_id,
+                    project_id=project_id,
+                    rows=[change.values for change in changes if change.item is None],
+                )
+                project.learning_path = path
+                await session.commit()
+        # A previous attempt may have committed before cache invalidation failed.
         await _invalidate_home_for_user(user_id)
     except Exception:
         logger.exception("language_path seed failed project_id=%s", project_id)
+        raise

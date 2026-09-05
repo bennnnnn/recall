@@ -4,7 +4,7 @@ import type { ProjectDetail, ProjectItem } from "@/lib/api";
 import { escapeHtml, wrapPrintDocument } from "@/lib/printDocument";
 import { isLanguageProject } from "@/lib/languageLevels";
 
-const STATUS_ORDER: Array<ProjectItem["status"]> = ["mastered", "learning", "new"];
+const STATUS_ORDER: ProjectItem["status"][] = ["mastered", "learning", "new"];
 
 export type ProjectPdfLabels = {
   mastered: string;
@@ -47,7 +47,9 @@ function renderItemHtml(item: ProjectItem, labels: ProjectPdfLabels): string {
   const topic = item.list_title?.trim();
   const bits: string[] = [`<div class="item"><h3>${title}</h3>`];
   if (topic && topic.toLowerCase() !== "general") {
-    bits.push(`<p class="def"><strong>${escapeHtml(labels.topic)}:</strong> ${escapeHtml(topic)}</p>`);
+    bits.push(
+      `<p class="def"><strong>${escapeHtml(labels.topic)}:</strong> ${escapeHtml(topic)}</p>`,
+    );
   }
   if (def) {
     bits.push(
@@ -111,11 +113,13 @@ export function projectLearningToPrintHtml(
 export async function exportProjectAsPdf(
   project: ProjectDetail,
   labels: ProjectPdfLabels,
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
   const { printHtmlToSharedPdf } = await import("@/lib/exportPdf");
+  if (!isCurrent()) return;
   const html = projectLearningToPrintHtml(project, labels);
   const fileTitle = `${project.title.trim() || "learning"}-recall`;
-  await printHtmlToSharedPdf(html, fileTitle);
+  await printHtmlToSharedPdf(html, fileTitle, isCurrent);
 }
 
 export function projectHasExportableItems(project: ProjectDetail): boolean {

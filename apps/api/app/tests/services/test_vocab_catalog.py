@@ -1,6 +1,9 @@
 from collections import Counter
 
+import pytest
+
 from app.content.vocab_catalog import (
+    catalog_domain_by_title,
     catalog_domains,
     catalog_path_titles,
     catalog_word_count,
@@ -8,161 +11,81 @@ from app.content.vocab_catalog import (
     path_decks_for_language,
     word_id,
 )
+from app.services.learning.catalog_sync import _sync_decks
 
 
-def test_spanish_catalog_is_a_domain_tree():
-    titles = catalog_path_titles("es")
-    assert titles[0] == "Hello and goodbye"
-    assert "Immediate family" in titles
-    assert "SAT" not in titles
-    assert catalog_domains("es") == [
-        "Greetings",
-        "Family",
-        "Food",
-        "Home",
-        "Hotel",
-        "Travel",
-        "Daily life",
-        "Numbers and time",
+def test_spanish_catalog_contains_only_new_idioms_and_proverbs():
+    assert catalog_path_titles("es") == ["Everyday Idioms", "Everyday Proverbs"]
+    assert catalog_domains("es") == ["Idioms and Proverbs"]
+    assert catalog_word_count("es") == 20
+
+
+def test_english_catalog_contains_only_new_expression_groups():
+    expected = [
+        "Useful conversation expressions",
+        "Everyday phrasal verbs",
+        "Everyday idioms",
+        "Common proverbs",
     ]
-    family = [deck for deck in decks_for_language("es") if deck.domain == "Family"]
-    assert len(family) == 12
-    words = {word.content for deck in family for word in deck.words}
-    assert "madre" in words
-    assert "suegra" in words
-    assert catalog_word_count("es") == sum(len(deck.words) for deck in decks_for_language("es"))
+    assert catalog_path_titles("en") == catalog_domains("en") == expected
+    assert catalog_word_count("en") == 40
 
 
-def test_english_path_is_conversation_grouped():
-    titles = catalog_path_titles("en")
-    assert titles[0] == "Greetings"
-    assert titles == catalog_domains("en")
-    assert "Feelings" in titles
-    assert "Please and thanks" not in titles
-    assert "Get and give" not in titles
-    assert "Hotel services" not in titles
-    assert "SAT" not in titles
-    assert catalog_domains("en") == [
-        "Greetings",
-        "Numbers and time",
-        "Feelings",
-        "Everyday actions",
-        "Communication",
-        "Thinking",
-        "Describing",
-        "Conversation words",
-        "Face and eyes",
-        "Body movement",
-        "Hands",
-        "Body reactions",
-        "Eating and drinking",
-        "Household actions",
-        "Mouth and body sounds",
-        "Casual expressions",
-    ]
-    sat_decks = decks_for_language("en", include_sat=True)
-    assert any(deck.kind == "sat" for deck in sat_decks)
-    sat = next(deck for deck in sat_decks if deck.kind == "sat")
-    assert sat.domain == "SAT"
-    assert sat.words
-    entry = sat.words[0]
-    assert word_id(sat, entry) != sat.id
-    assert "SAT" not in catalog_domains("en")
-    assert "Hotel services" in [deck.title for deck in decks_for_language("en")]
-
-
-def test_english_path_casual_register_is_last_and_clean():
-    """`Casual expressions` (formerly `American conversational`) is real,
-    useful register — but it's slang, not core vocabulary, so it belongs
-    after every functional category, not gating them. And the negative-
-    register / crude entries it used to carry ("sucks", "fart") should
-    never come back."""
-    domains = catalog_domains("en")
-    assert domains[-1] == "Casual expressions"
-    assert "American conversational" not in domains
-    all_words = {
-        word.content.casefold() for deck in path_decks_for_language("en") for word in deck.words
+@pytest.mark.parametrize("language,count", [("en", 40), ("es", 20)])
+def test_include_sat_cannot_restore_retired_groups(language, count):
+    active = path_decks_for_language(language)
+    assert decks_for_language(language, include_sat=True) == active
+    assert catalog_domains(language, include_sat=True) == catalog_domains(language)
+    assert catalog_word_count(language, include_sat=True) == count
+    assert all(deck.kind == "chapter" for deck in active)
+    assert not {"Greetings", "Family", "Home", "SAT", "SAT words", "Hotel services"} & {
+        deck.title for deck in active
     }
-    assert "sucks" not in all_words
-    assert "fart" not in all_words
+    assert "hello and goodbye" not in catalog_domain_by_title(language, include_sat=True)
+    assert "please and thanks" not in catalog_domain_by_title(language, include_sat=True)
 
 
-def test_english_path_practical_topics_have_study_fields_too():
-    """Greetings and Numbers and time were promoted from the legacy,
-    unenriched tree — confirm they actually got the same ipa /
-    part_of_speech / simple_gloss treatment as the rest of the path, not
-    just a title on the map."""
-    for domain in ("Greetings", "Numbers and time"):
-        deck = next(d for d in path_decks_for_language("en") if d.domain == domain)
-        assert len(deck.words) >= 16
-        for word in deck.words:
-            assert word.ipa
-            assert word.part_of_speech
-            assert word.simple_gloss
+def test_catalog_sync_contains_exactly_active_ids_and_no_historical_source_rows():
+    active = [*path_decks_for_language("en"), *path_decks_for_language("es")]
+    synchronized = _sync_decks()
+    assert synchronized == active
+    assert len(synchronized) == 6
+    assert {word_id(deck, word) for deck in synchronized for word in deck.words} == {
+        word_id(deck, word) for deck in active for word in deck.words
+    }
 
 
-def test_english_path_words_have_study_fields():
+def test_english_expression_cards_have_study_fields():
     for deck in path_decks_for_language("en"):
-        assert deck.words
+        assert len(deck.words) == 10
+        assert deck.title == deck.domain
         for word in deck.words:
-            assert word.ipa
             assert word.part_of_speech
             assert word.simple_gloss
             assert word.example_sentence
 
 
-def test_english_path_lemmas_are_unique():
-    seen: dict[str, str] = {}
-    for deck in path_decks_for_language("en"):
-        for word in deck.words:
-            key = word.content.casefold()
-            assert key not in seen, f"{word.content!r} in {seen[key]} and {deck.slug}"
-            seen[key] = deck.slug
-
-
-def test_english_path_is_one_group_per_theme():
-    decks = path_decks_for_language("en")
-    assert len(decks) == len({deck.domain for deck in decks})
-    for deck in decks:
-        assert deck.title == deck.domain
-        assert len(deck.words) >= 16
-
-
-def test_catalog_leaf_titles_are_unique_per_language():
-    for lang in ("en", "es"):
-        titles = [deck.title.casefold() for deck in decks_for_language(lang)]
-        dupes = [title for title, count in Counter(titles).items() if count > 1]
-        assert dupes == []
-
-
-def test_catalog_words_are_unique_within_a_deck():
-    for deck in [*decks_for_language("en"), *decks_for_language("es")]:
-        contents = [word.content.casefold() for word in deck.words]
-        dupes = [word for word, count in Counter(contents).items() if count > 1]
-        assert dupes == [], deck.slug
-
-
-def test_unknown_language_falls_back_to_english():
-    assert catalog_path_titles("xx") == catalog_path_titles("en")
-
-
-def test_lesson_map_is_the_full_tree_not_level_gated():
-    assert "Family" in catalog_domains("es")
-    assert "Immediate family" in catalog_path_titles("es")
-    assert "Feelings" in catalog_domains("en")
-    assert "SAT" in catalog_domains("en", include_sat=True)
-    en_path = [deck.domain for deck in path_decks_for_language("en")]
-    assert "SAT" not in en_path
-    assert "Hotel" not in en_path
-    assert "Feelings" in en_path
-    es_path = [deck.domain for deck in path_decks_for_language("es")]
-    assert "SAT" not in es_path
-    assert "Family" in es_path
-
-
-def test_word_count_covers_the_path():
-    assert catalog_word_count("en") == sum(
-        len(deck.words) for deck in path_decks_for_language("en")
+def test_phrasal_group_teaches_nonliteral_actions_instead_of_device_controls():
+    deck = next(
+        deck for deck in path_decks_for_language("en") if deck.slug == "everyday-phrasal-verbs"
     )
-    assert catalog_word_count("en", include_sat=True) > catalog_word_count("en")
-    assert catalog_word_count("es") == sum(len(deck.words) for deck in decks_for_language("es"))
+    words = {word.content: word for word in deck.words}
+    assert {"bring up", "carry out", "come up with"} <= words.keys()
+    assert not {"turn on", "turn off", "look for"} & words.keys()
+    assert words["bring up"].simple_gloss == "raise a topic"
+    assert words["carry out"].simple_gloss == "perform a planned task"
+    assert words["come up with"].simple_gloss == "think of an idea"
+
+
+def test_catalog_words_and_titles_are_unique():
+    for language in ("en", "es"):
+        decks = decks_for_language(language)
+        titles = [deck.title.casefold() for deck in decks]
+        assert len(titles) == len(set(titles))
+        words = [word.content.casefold() for deck in decks for word in deck.words]
+        assert not [word for word, count in Counter(words).items() if count > 1]
+
+
+def test_unknown_language_falls_back_to_current_english_only():
+    assert catalog_path_titles("xx") == catalog_path_titles("en")
+    assert decks_for_language("xx", include_sat=True) == path_decks_for_language("en")

@@ -21,13 +21,15 @@ import {
 type Props = {
   card: LessonVocabCard;
   language?: string;
+  onSpeak?: () => void;
+  variant?: "lesson" | "overview";
 };
 
 const SPEAK = 56;
-const SECTION_GAP = 40;
-const AFTER_HERO = 48;
+const SECTION_GAP = 28;
+const AFTER_HERO = 8;
 
-export function VocabCard({ card, language = "en" }: Props) {
+export function VocabCard({ card, language = "en", onSpeak, variant = "lesson" }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const { t } = useTranslation();
@@ -36,24 +38,39 @@ export function VocabCard({ card, language = "en" }: Props) {
   const ipa = card.ipa?.trim();
   const pos = card.partOfSpeech?.trim();
   const meaning = cardMeaning(card);
-  const examples = exampleSentences(card.exampleSentence);
+  const compact = variant === "overview";
+  const examples = card.examples?.length ? card.examples : exampleSentences(card.exampleSentence);
+  const labels = [
+    card.vocabularyKind && card.vocabularyKind !== "word"
+      ? t(`lesson.kind.${card.vocabularyKind}`)
+      : pos,
+    card.verbKind ? t(`lesson.kind.${card.verbKind}`) : null,
+    card.nounKind ? t(`lesson.kind.${card.nounKind}`) : null,
+  ].filter(Boolean);
 
   const handleSpeak = () => {
+    if (onSpeak) {
+      onSpeak();
+      return;
+    }
     tap();
     void speakWord(word, {
       language: language === "en" ? "en-US" : language,
       token,
+      pronunciationUrl: card.pronunciationUrl,
     });
   };
 
   return (
-    <View style={s.root} accessibilityRole="summary">
+    <View style={[s.root, compact && s.compactRoot]} accessibilityRole="summary">
       <View style={s.hero}>
         <View style={s.wordRow}>
-          <Text style={s.word}>{word}</Text>
+          <Text style={[s.word, compact && s.compactWord]} accessibilityRole="header">
+            {word}
+          </Text>
           <Pressable
             onPress={handleSpeak}
-            style={s.speakBtn}
+            style={[s.speakBtn, compact && s.compactSpeak]}
             accessibilityRole="button"
             accessibilityLabel={t("lesson.speak")}
           >
@@ -61,23 +78,23 @@ export function VocabCard({ card, language = "en" }: Props) {
           </Pressable>
         </View>
         {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
-        {pos ? (
+        {labels.length ? (
           <View style={s.posChip}>
-            <Text style={s.posText}>{pos.toLowerCase()}</Text>
+            <Text style={s.posText}>{labels.join(" · ")}</Text>
           </View>
         ) : null}
       </View>
 
-      <View style={[s.block, s.afterHero]}>
-        <Badge icon="book-outline" label={t("lesson.meaning")} theme={theme} />
-        <Text style={s.meaning}>{meaning}</Text>
+      <View style={[s.block, s.afterHero, compact && s.compactBlock]}>
+        {!compact ? <Badge icon="book-outline" label={t("lesson.meaning")} theme={theme} /> : null}
+        <Text style={[s.meaning, compact && s.compactMeaning]}>{meaning}</Text>
       </View>
 
       {examples.length > 0 ? (
-        <View style={s.block}>
+        <View style={[s.block, compact && s.compactBlock]}>
           <Badge icon="pencil-outline" label={t("lesson.example")} theme={theme} />
           {examples.map((sentence) => (
-            <Text key={sentence} style={s.example}>
+            <Text key={sentence} style={[s.example, compact && s.compactExample]}>
               {highlightLemmaParts(sentence, word).map((part, index) =>
                 part.match ? (
                   <Text key={`${index}-m`} style={s.lemma}>
@@ -102,15 +119,7 @@ function formatIpa(ipa: string): string {
   return `/${cleaned}/`;
 }
 
-function Badge({
-  icon,
-  label,
-  theme,
-}: {
-  icon: IoniconName;
-  label: string;
-  theme: Theme;
-}) {
+function Badge({ icon, label, theme }: { icon: IoniconName; label: string; theme: Theme }) {
   const s = makeBadge(theme);
   return (
     <View style={s.wrap}>
@@ -122,6 +131,12 @@ function Badge({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
+    compactRoot: { gap: Space.md },
+    compactWord: { ...Type.title, fontSize: 24, lineHeight: 30 },
+    compactSpeak: { width: Space.minTouch, height: Space.minTouch, borderWidth: 1 },
+    compactBlock: { paddingTop: 0, gap: Space.sm },
+    compactMeaning: { ...Type.body },
+    compactExample: { ...Type.body },
     root: {
       alignSelf: "stretch",
       gap: SECTION_GAP,
@@ -177,13 +192,13 @@ function makeStyles(t: Theme) {
       paddingTop: AFTER_HERO,
     },
     meaning: {
-      fontSize: 16,
-      lineHeight: 24,
+      fontSize: 21,
+      lineHeight: 30,
       color: t.text,
     },
     example: {
-      fontSize: 16,
-      lineHeight: 26,
+      fontSize: 18,
+      lineHeight: 28,
       color: t.text,
     },
     exampleRest: {

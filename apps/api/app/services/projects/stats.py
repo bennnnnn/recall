@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.learning_policy import start_of_today_utc
 from app.models.orm import ProjectItem
 from app.repositories import project_items as project_items_repo
 
@@ -24,6 +25,7 @@ def stats_from_items(
     now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
     due_cutoff = now - REVIEW_INTERVAL
+    start = start_of_today_utc(timezone_name, now=now)
     stats: dict[str, Any] = {
         "total": len(items),
         "new_count": 0,
@@ -35,6 +37,10 @@ def stats_from_items(
         "missed_today": 0,
         "pending_today": 0,
         "last_mastery_at": None,
+        "completed_today": 0,
+        "attempted_today": 0,
+        "incorrect_today": 0,
+        "last_study_at": None,
     }
     for item in items:
         status = item.status or ("mastered" if item.mastered else "new")
@@ -49,7 +55,7 @@ def stats_from_items(
             created = created.replace(tzinfo=UTC)
         if created >= week_ago:
             stats["added_this_week"] += 1
-        if status == "learning":
+        if status in ("learning", "mastered"):
             due_at = item.due_at
             if due_at is None:
                 last = item.last_reviewed_at or item.created_at
@@ -62,11 +68,35 @@ def stats_from_items(
                     stats["due_for_review"] += 1
             elif due_at <= now:
                 stats["due_for_review"] += 1
+        mastery = (
+            (item.mastered_at or item.created_at) if status == "mastered" else item.mastered_at
+        )
+        times = [
+            value.replace(tzinfo=UTC) if value.tzinfo is None else value
+            for value in (item.last_reviewed_at, mastery, item.last_incorrect_at)
+            if isinstance(value, datetime)
+        ]
+        if times:
+            latest = max(times)
+            stats["last_study_at"] = max(stats["last_study_at"] or latest, latest)
+            stats["attempted_today"] += int(latest >= start)
+        completed = getattr(item, "last_completed_at", None)
+        completions = [
+            value.replace(tzinfo=UTC) if value.tzinfo is None else value
+            for value in (completed, mastery if status == "mastered" else None)
+            if isinstance(value, datetime)
+        ]
+        stats["completed_today"] += int(bool(completions) and max(completions) >= start)
+        incorrect = item.last_incorrect_at
+        if isinstance(incorrect, datetime):
+            incorrect = incorrect.replace(tzinfo=UTC) if incorrect.tzinfo is None else incorrect
+            stats["incorrect_today"] += int(incorrect >= start)
 
     mastered_today, missed_today, pending_today = count_today_vocab_stats(
         items, timezone_name=timezone_name
     )
     stats["mastered_today"] = mastered_today
+    stats["newly_mastered_today"] = mastered_today
     stats["missed_today"] = missed_today
     stats["pending_today"] = pending_today
     stats["last_mastery_at"] = last_mastery_at(items)

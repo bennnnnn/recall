@@ -13,6 +13,7 @@ from app.models.orm.integrations import (
     UserGmailConnection,
 )
 from app.models.orm.learning import Learning, LearningItem, QuizMissEvent, VocabDeck, VocabEntry
+from app.models.orm.learning_practice import LearningPracticeEvent
 from app.models.orm.memory import Memory
 from app.models.orm.schedule import TodoItem
 from app.models.orm.suggestions import Suggestion
@@ -28,6 +29,7 @@ __all__ = [
     "Chat",
     "Learning",
     "LearningItem",
+    "LearningPracticeEvent",
     "Memory",
     "Message",
     "MessageChunk",

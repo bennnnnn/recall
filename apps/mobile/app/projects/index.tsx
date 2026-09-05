@@ -8,13 +8,11 @@ import { AddFab } from "@/components/AddFab";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { type IoniconName } from "@/lib/icons";
-import {
-  formatDailyGoalShort,
-  resolveDailyGoal,
-} from "@/lib/projects/dailyGoals";
+import { formatDailyGoalShort, resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import { canAddLearningProject } from "@/lib/projects/projectCreateFlow";
 import { Space } from "@/lib/space";
@@ -26,20 +24,18 @@ function kindIcon(kind: string): IoniconName {
 }
 
 export default function ProjectsScreen() {
+  const owner = useAccountViewOwner();
+  return <ProjectsContent key={owner.key} isCurrent={owner.isCurrent} />;
+}
+function ProjectsContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const router = useRouter();
   const { projects, loading, error, refresh } = useProjects();
-  const visibleProjects = useMemo(
-    () => projects.filter((p) => !p.archived),
-    [projects],
-  );
-  const showAddLearning = useMemo(
-    () => canAddLearningProject(projects),
-    [projects],
-  );
+  const visibleProjects = useMemo(() => projects.filter((p) => !p.archived), [projects]);
+  const showAddLearning = useMemo(() => canAddLearningProject(projects), [projects]);
   const [pullRefreshing, setPullRefreshing] = useState(false);
 
   useFocusEffect(
@@ -51,14 +47,14 @@ export default function ProjectsScreen() {
   );
 
   const openCreate = useCallback(() => {
-    router.push("/projects/create");
-  }, [router]);
+    if (isCurrent()) router.push("/projects/create");
+  }, [router, isCurrent]);
 
   const openProject = useCallback(
     (projectId: string) => {
-      router.push(lessonMapPath(projectId));
+      if (isCurrent()) router.push(lessonMapPath(projectId));
     },
-    [router],
+    [router, isCurrent],
   );
 
   if (!token) return <Redirect href="/login" />;
@@ -78,9 +74,10 @@ export default function ProjectsScreen() {
             <RefreshControl
               refreshing={pullRefreshing}
               onRefresh={async () => {
+                if (!isCurrent()) return;
                 setPullRefreshing(true);
                 await refresh({ silent: true, force: true });
-                setPullRefreshing(false);
+                if (isCurrent()) setPullRefreshing(false);
               }}
               tintColor={C.primary}
             />
@@ -88,17 +85,15 @@ export default function ProjectsScreen() {
           ListHeaderComponent={
             <>
               {!error && visibleProjects.length === 0 ? (
-                <StateView
-                  variant="empty"
-                  icon="book-outline"
-                  title={t("projects.empty_title")}
-                />
+                <StateView variant="empty" icon="book-outline" title={t("projects.empty_title")} />
               ) : null}
               {error ? (
                 <StateView
                   variant="error"
                   title={t("common.error")}
-                  onRetry={() => void refresh()}
+                  onRetry={() => {
+                    if (isCurrent()) void refresh({ force: true });
+                  }}
                   retryLabel={t("common.retry")}
                 />
               ) : null}
@@ -119,10 +114,7 @@ export default function ProjectsScreen() {
       )}
 
       {showAddLearning ? (
-        <AddFab
-          onPress={openCreate}
-          accessibilityLabel={t("projects.add_learning_a11y")}
-        />
+        <AddFab onPress={openCreate} accessibilityLabel={t("projects.add_learning_a11y")} />
       ) : null}
     </View>
   );

@@ -72,7 +72,7 @@ def enrich_learning_stats(
         home_tz = ZoneInfo(timezone_name)
     except Exception:
         home_tz = ZoneInfo("UTC")
-    last_mastery = stats.get("last_mastery_at")
+    last_mastery = stats.get("last_study_at") or stats.get("last_mastery_at")
     if isinstance(last_mastery, datetime):
         stats["days_inactive"] = days_since_last_study(last_mastery, home_tz=home_tz)
     else:
@@ -98,20 +98,42 @@ def pick_learning_nudge(
 
     mastered_today = int(stats.get("mastered_today") or 0)
     missed_today = int(stats.get("missed_today") or 0)
-    completed_today = completed_today_count(mastered_today, missed_today)
+    completed_today = int(
+        stats.get("completed_today", completed_today_count(mastered_today, missed_today)) or 0
+    )
     days_inactive = stats.get("days_inactive")
     title = project.title.strip()
+
+    if all(key in stats for key in ("new_count", "learning_count", "due_for_review")) and not any(
+        int(stats.get(key) or 0) for key in ("new_count", "learning_count", "due_for_review")
+    ):
+        return None
 
     if completed_today < daily_goal:
         remaining = daily_goal - completed_today
         inactive_note = ""
         if isinstance(days_inactive, int) and days_inactive >= 2:
             inactive_note = f" — you have not studied in {days_inactive} days"
+        attempted = int(stats.get("attempted_today", completed_today) or 0)
+        word_label = "word" if attempted == 1 else "words"
         body = (
             f'Finish today\'s "{title}" session — '
             f"{completed_today}/{daily_goal} done "
-            f"({mastered_today} correct, {missed_today} failed){inactive_note}"
+            f"({attempted} {word_label} practiced){inactive_note}"
         )
+        due = int(stats.get("due_for_review") or 0)
+        if due and not int(stats.get("new_count") or 0):
+            body = f'Review "{title}" — {due} words are due for practice{inactive_note}'
+            return (
+                body,
+                55.0 + float(remaining),
+                "learning_review",
+                {
+                    "type": "learning_review",
+                    "screen": "project",
+                    "project_id": str(project.id),
+                },
+            )
         score = 55.0 + float(remaining)
         return (
             body,

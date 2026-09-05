@@ -1,5 +1,6 @@
 import type { PathChapterProgress, ProjectDetail, ProjectItem } from "@/lib/api";
 
+import { wholeWordIndex } from "@/lib/projects/wordBoundary";
 import { chapterKey } from "@/lib/projects/chapterAccess";
 
 export function chapterItems(project: ProjectDetail, title: string): ProjectItem[] {
@@ -45,9 +46,7 @@ export function groupLessonProgress(
   if (total === 0) return { current: 0, total: 0, fill: 0 };
   const mastered = items.filter(isItemMastered).length;
   if (chapterIsComplete(items)) {
-    const at = currentItemId
-      ? items.findIndex((item) => item.id === currentItemId)
-      : -1;
+    const at = currentItemId ? items.findIndex((item) => item.id === currentItemId) : -1;
     const current = at >= 0 ? at + 1 : total;
     return { current, total, fill: current / total };
   }
@@ -87,10 +86,7 @@ export function resolveLessonChapter(
   return project.path_progress?.[0]?.title ?? project.lists[0]?.list_title ?? null;
 }
 
-export function chapterProgress(
-  project: ProjectDetail,
-  title: string,
-): PathChapterProgress | null {
+export function chapterProgress(project: ProjectDetail, title: string): PathChapterProgress | null {
   const key = chapterKey(title);
   return project.path_progress?.find((entry) => chapterKey(entry.title) === key) ?? null;
 }
@@ -102,6 +98,11 @@ export type LessonVocabCard = {
   ipa?: string;
   partOfSpeech?: string;
   simpleGloss?: string;
+  examples?: string[];
+  pronunciationUrl?: string | null;
+  vocabularyKind?: ProjectItem["vocabulary_kind"];
+  verbKind?: ProjectItem["verb_kind"];
+  nounKind?: ProjectItem["noun_kind"];
 };
 
 export function itemToCard(item: ProjectItem): LessonVocabCard {
@@ -111,7 +112,18 @@ export function itemToCard(item: ProjectItem): LessonVocabCard {
   const simpleGloss = item.simple_gloss?.trim();
   return {
     word: item.content,
-    definition: item.definition?.trim() || item.content,
+    definition: item.definition?.trim() || item.simple_gloss?.trim() || item.content,
+    examples: [
+      ...new Set(
+        (item.example_sentences?.length ? item.example_sentences : exampleSentences(example))
+          .map((text) => text.trim())
+          .filter(Boolean),
+      ),
+    ],
+    pronunciationUrl: item.pronunciation_url,
+    vocabularyKind: item.vocabulary_kind,
+    verbKind: item.verb_kind,
+    nounKind: item.noun_kind,
     ...(example ? { exampleSentence: example } : {}),
     ...(ipa ? { ipa } : {}),
     ...(partOfSpeech ? { partOfSpeech } : {}),
@@ -121,10 +133,10 @@ export function itemToCard(item: ProjectItem): LessonVocabCard {
 
 /** Gloss shown on the teaching card and as the meaning-quiz answer. */
 export function cardMeaning(card: LessonVocabCard): string {
-  return card.simpleGloss?.trim() || card.definition.trim() || card.word.trim();
+  return card.definition.trim() || card.simpleGloss?.trim() || card.word.trim();
 }
 
-/** Split `sentence` so the lemma can be bolded. Linear scan — no regex. */
+/** Emphasize complete occurrences of the taught term, keeping examples intact. */
 export function highlightLemmaParts(
   sentence: string,
   lemma: string,
@@ -132,12 +144,10 @@ export function highlightLemmaParts(
   const target = lemma.trim();
   if (!sentence) return [];
   if (!target) return [{ text: sentence, match: false }];
-  const haystack = sentence.toLowerCase();
-  const needle = target.toLowerCase();
   const parts: { text: string; match: boolean }[] = [];
   let from = 0;
   while (from < sentence.length) {
-    const at = haystack.indexOf(needle, from);
+    const at = wholeWordIndex(sentence, target, from);
     if (at === -1) {
       parts.push({ text: sentence.slice(from), match: false });
       break;

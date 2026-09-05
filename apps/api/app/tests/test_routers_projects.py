@@ -4,12 +4,19 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
 from app.main import create_app
 from app.models.orm import User
+
+
+@pytest.fixture(autouse=True)
+def _empty_practice_events():
+    with patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])):
+        yield
 
 
 def _fake_user() -> User:
@@ -57,6 +64,12 @@ def _item(project_id, **kw):
     item.definition = kw.get("definition", "hello")
     item.example_sentence = None
     item.ipa = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.due_at = None
+    item.last_completed_at = None
+    item.last_incorrect_at = None
     item.part_of_speech = None
     item.simple_gloss = None
     item.note = None
@@ -321,12 +334,15 @@ def test_get_project_include_lists():
     project = _project(kind="language")
     project.daily_goal_history = [{"effective_from": "2024-01-01", "goal": 10}]
     project_id = project.id
+    from app.content.vocab_catalog import path_decks_for_language
+    from app.services.learning.catalog_items import word_values
+
+    deck = path_decks_for_language("en")[0]
     noun = _item(project_id)
-    noun.list_title = "General"
-    noun.content = "apple"
     verb = _item(project_id)
-    verb.list_title = "General"
-    verb.content = "run"
+    for item, word in zip((noun, verb), deck.words[:2], strict=True):
+        for name, value in word_values(deck, word).items():
+            setattr(item, name, value)
 
     with (
         patch(

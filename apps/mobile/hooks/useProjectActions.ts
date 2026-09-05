@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { api, type LanguageLevel, type Project, type ProjectKind, type VocabStatus } from "@/lib/api";
+import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
+import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 
 type CreateProjectInput = {
@@ -30,47 +31,45 @@ type UpdateProjectInput = Partial<
 
 export function useProjectActions() {
   const token = useAuthToken();
+  const session = getSessionGeneration();
+  const requireSession = useCallback(() => {
+    if (session !== getSessionGeneration()) throw new SessionChangedError();
+  }, [session]);
 
   const requireToken = useCallback(() => {
     if (!token) throw new Error("Authentication required");
+    requireSession();
+    requireTokenSession(token);
     return token;
-  }, [token]);
+  }, [token, requireSession]);
 
   const createProject = useCallback(
-    (input: CreateProjectInput) => api.createProject(requireToken(), input),
-    [requireToken],
+    async (input: CreateProjectInput) => {
+      const created = await api.createProject(requireToken(), input);
+      requireSession();
+      return created;
+    },
+    [requireToken, requireSession],
   );
 
   const updateProject = useCallback(
     async (projectId: string, patch: UpdateProjectInput) => {
       const updated = await api.updateProject(requireToken(), projectId, patch);
-      invalidateProjectDetail(projectId);
+      requireSession();
+      invalidateProjectDetail(projectId, session);
       return updated;
     },
-    [requireToken],
-  );
-
-  const updateProjectItem = useCallback(
-    async (projectId: string, itemId: string, status: VocabStatus) => {
-      const updated = await api.updateProjectItem(requireToken(), projectId, itemId, { status });
-      invalidateProjectDetail(projectId);
-      return updated;
-    },
-    [requireToken],
-  );
-
-  const deleteProject = useCallback(
-    async (projectId: string) => {
-      await api.deleteProject(requireToken(), projectId);
-      invalidateProjectDetail(projectId);
-    },
-    [requireToken],
+    [requireToken, requireSession, session],
   );
 
   const getExportProject = useCallback(
-    (projectId: string) => api.getProject(requireToken(), projectId, { includeLists: true }),
-    [requireToken],
+    async (projectId: string) => {
+      const detail = await api.getProject(requireToken(), projectId, { includeLists: true });
+      requireSession();
+      return detail;
+    },
+    [requireToken, requireSession],
   );
 
-  return { createProject, updateProject, updateProjectItem, deleteProject, getExportProject };
+  return { createProject, updateProject, getExportProject };
 }

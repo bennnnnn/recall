@@ -16,6 +16,8 @@ jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",
 }));
 
+jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+
 const choices: QuizChoice[] = [
   { letter: "A", text: "serendipity" },
   { letter: "B", text: "ephemeral" },
@@ -25,9 +27,7 @@ const choices: QuizChoice[] = [
 
 describe("LessonQuizCards", () => {
   it("renders lettered choices", async () => {
-    const { getByText } = await render(
-      <LessonQuizCards choices={choices} onSelect={jest.fn()} />,
-    );
+    const { getByText } = await render(<LessonQuizCards choices={choices} onSelect={jest.fn()} />);
 
     expect(getByText("A")).toBeOnTheScreen();
     expect(getByText("serendipity")).toBeOnTheScreen();
@@ -49,22 +49,15 @@ describe("LessonQuizCards", () => {
     );
   });
 
-    it("only reports a correct tap to onSelect", async () => {
+  it("reports every answer to the saving owner", async () => {
     const onSelect = jest.fn();
-    const onWrongAnswer = jest.fn();
     const { getByTestId } = await render(
-      <LessonQuizCards
-        choices={choices}
-        correctLetter="B"
-        onSelect={onSelect}
-        onWrongAnswer={onWrongAnswer}
-      />,
+      <LessonQuizCards choices={choices} correctLetter="B" onSelect={onSelect} />,
     );
 
-    fireEvent.press(getByTestId("lesson-choice-A"));
-    expect(onSelect).not.toHaveBeenCalled();
-    expect(onWrongAnswer).toHaveBeenCalledTimes(1);
-    fireEvent.press(getByTestId("lesson-choice-B"));
+    await fireEvent.press(getByTestId("lesson-choice-A"));
+    expect(onSelect).toHaveBeenCalledWith("A");
+    await fireEvent.press(getByTestId("lesson-choice-B"));
     expect(onSelect).toHaveBeenCalledWith("B");
   });
 });

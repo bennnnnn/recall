@@ -1,14 +1,10 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { domainIcon } from "@/lib/projects/domainIcons";
-import {
-  branchAccess,
-  domainAccess,
-  type DomainProgress,
-} from "@/lib/projects/domainPath";
+import { branchAccess, domainAccess, type DomainProgress } from "@/lib/projects/domainPath";
 import { Radius } from "@/lib/radius";
 import { shadowGlow, shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
@@ -35,7 +31,8 @@ export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
   const rows = domains.flatMap((domain) => {
     const domainState = domainAccess(domains, domain.title, upNext);
     const domainLocked = domainState === "locked";
-    return domain.chapters.map((chapter) => ({
+    return domain.chapters.map((chapter, index) => ({
+      firstInDomain: index === 0,
       chapter,
       access: branchAccess(chapter, upNext, domainLocked),
       hideDomain: domain.chapters.length === 1 && chapter.title === domain.title,
@@ -63,60 +60,59 @@ export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
             : 0;
 
         return (
-          <Pressable
-            key={chapter.title}
-            style={[s.card, done || current ? shadowRaised(theme) : null]}
-            onPress={() => {
-              if (locked) return;
-              onOpenChapter(chapter.title);
-            }}
-            disabled={locked}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: locked }}
-            accessibilityLabel={`${chapter.title}. ${wordsLabel}`}
-          >
-            <View
-              style={[
-                s.node,
-                done ? s.nodeDone : null,
-                current ? s.nodeCurrent : null,
-                locked ? s.nodeLocked : null,
-                current ? shadowGlow(theme, theme.primary) : null,
-              ]}
-            >
-              <Icon
-                name={done ? "checkmark" : domainIcon(row.domainTitle)}
-                size={done ? 22 : 24}
-                color={locked ? theme.textTertiary : theme.onPrimary}
-              />
-              {locked ? (
-                <View style={s.lockBadge}>
-                  <Icon name="lock-closed-outline" size={11} color={theme.textTertiary} />
-                </View>
-              ) : null}
-            </View>
-
-            <View style={s.copy}>
-              {!row.hideDomain ? (
-                <Text style={s.domain} numberOfLines={1}>
-                  {row.domainTitle}
-                </Text>
-              ) : null}
-              <Text style={[s.title, locked ? s.titleLocked : null]} numberOfLines={2}>
-                {chapter.title}
+          <Fragment key={chapter.title}>
+            {row.firstInDomain && !row.hideDomain ? (
+              <Text style={s.domainHeading} accessibilityRole="header">
+                {row.domainTitle}
               </Text>
-              <Text style={[s.meta, locked ? null : s.metaActive]}>{wordsLabel}</Text>
-              {current ? (
-                <View style={s.progressTrack}>
-                  <View style={[s.progressFill, { width: `${progressPct * 100}%` }]} />
-                </View>
-              ) : null}
-            </View>
+            ) : null}
+            <Pressable
+              style={[s.card, done || current ? shadowRaised(theme) : null]}
+              onPress={() => {
+                if (locked) return;
+                onOpenChapter(chapter.title);
+              }}
+              disabled={locked}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: locked }}
+              accessibilityLabel={`${chapter.title}. ${wordsLabel}`}
+            >
+              <View
+                style={[
+                  s.node,
+                  done ? s.nodeDone : null,
+                  current ? s.nodeCurrent : null,
+                  locked ? s.nodeLocked : null,
+                  current ? shadowGlow(theme, theme.primary) : null,
+                ]}
+              >
+                <Icon
+                  name={done ? "checkmark" : domainIcon(row.domainTitle)}
+                  size={done ? 22 : 24}
+                  color={locked ? theme.textTertiary : theme.onPrimary}
+                />
+                {locked ? (
+                  <View style={s.lockBadge}>
+                    <Icon name="lock-closed-outline" size={11} color={theme.textTertiary} />
+                  </View>
+                ) : null}
+              </View>
 
-            {locked ? null : (
-              <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
-            )}
-          </Pressable>
+              <View style={s.copy}>
+                <Text style={[s.title, locked ? s.titleLocked : null]} numberOfLines={2}>
+                  {chapter.title}
+                </Text>
+                <Text style={[s.meta, locked ? null : s.metaActive]}>{wordsLabel}</Text>
+                {current ? (
+                  <View style={s.progressTrack}>
+                    <View style={[s.progressFill, { width: `${progressPct * 100}%` }]} />
+                  </View>
+                ) : null}
+              </View>
+
+              {locked ? null : <Icon name="chevron-forward" size={18} color={theme.textTertiary} />}
+            </Pressable>
+          </Fragment>
         );
       })}
     </View>
@@ -125,6 +121,12 @@ export function LearningPathList({ domains, upNext, onOpenChapter }: Props) {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    domainHeading: {
+      ...Type.navTitle,
+      color: theme.text,
+      marginTop: Space.lg,
+      marginBottom: Space.sm,
+    },
     list: { gap: Space.sm },
     card: {
       flexDirection: "row",

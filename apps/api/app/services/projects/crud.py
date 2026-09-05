@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -345,11 +345,13 @@ async def get_project_detail(
     if _is_language_project(item):
         from app.services.learning.path_seed import (
             apply_full_catalog_path,
+            current_catalog_items,
             needs_catalog_sync,
         )
 
         if needs_catalog_sync(item, project_items):
             await enqueue_language_path_job(user_id, item.id)
+        project_items = current_catalog_items(item, project_items)
         apply_full_catalog_path(item)
     # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
     # mutable column, so a later miss on an item silently erased which day an earlier
@@ -368,6 +370,21 @@ async def get_project_detail(
         days=14,
         miss_events_by_item=miss_events_by_item,
     )
+    from app.repositories import learning_practice as practice_repo
+    from app.services.learning.practice_history import merge_practice_history, merge_practice_items
+
+    events = await practice_repo.list_events(
+        session, [project_id], since=datetime.now(UTC) - timedelta(days=15)
+    )
+    visible_item_ids = {word.id for word in project_items}
+    events = [event for event in events if event.item_id in visible_item_ids]
+    history_rows = merge_practice_history(
+        history_rows,
+        project_items,
+        events,
+        timezone_name=tz_name,
+        miss_events_by_item=miss_events_by_item,
+    )
     stats = _build_enriched_stats(
         item,
         project_items,
@@ -376,19 +393,36 @@ async def get_project_detail(
         daily_history=history_rows,
     )
     daily_history = [ProjectDailyHistoryDay.model_validate(row) for row in history_rows]
+    history_days = {day.date for day in daily_history}
     # Recent activity only (not the full deck) — cheap to serialize from items
     # already loaded for stats, and lets the detail screen paint without a
     # second /daily-items round trip.
     daily_items_by_date = {
         day_key: [ProjectItemOut.model_validate(i) for i in day_items]
-        for day_key, day_items in daily_learning.group_mastered_items_by_date(
-            project_items, timezone_name=tz_name, days=14
+        for day_key, day_items in merge_practice_items(
+            daily_learning.group_mastered_items_by_date(
+                project_items, timezone_name=tz_name, days=14
+            ),
+            project_items,
+            events,
+            timezone_name=tz_name,
+            allowed_days=history_days,
         ).items()
     }
     daily_missed_by_date = {
         day_key: [ProjectItemOut.model_validate(i) for i in day_items]
-        for day_key, day_items in daily_learning.group_missed_items_by_date(
-            project_items, timezone_name=tz_name, days=14, miss_events_by_item=miss_events_by_item
+        for day_key, day_items in merge_practice_items(
+            daily_learning.group_missed_items_by_date(
+                project_items,
+                timezone_name=tz_name,
+                days=14,
+                miss_events_by_item=miss_events_by_item,
+            ),
+            project_items,
+            events,
+            timezone_name=tz_name,
+            allowed_days=history_days,
+            missed=True,
         ).items()
     }
     lists: list[Any] = []

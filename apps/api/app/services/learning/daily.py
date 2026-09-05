@@ -273,14 +273,18 @@ def daily_home_cue(
     last_mastery: datetime | None,
     home_tz: ZoneInfo,
     missed_today: int = 0,
+    completed_words: int | None = None,
+    attempted_words: int = 0,
 ) -> HomeDailyCue | None:
     """Return a home-card cue, or None when today's daily goal is complete."""
-    completed_today = max(0, int(mastered_today) + int(missed_today))
+    completed_today = max(
+        0, int(mastered_today) + int(missed_today) if completed_words is None else completed_words
+    )
     if completed_today >= daily_goal:
         return None
     if total == 0:
         return "start"
-    if completed_today > 0:
+    if completed_today > 0 or attempted_words > 0:
         return "continue"
     if pending_today > 0:
         return "finish_pending"

@@ -7,7 +7,6 @@ import type {
   ProjectDetail,
   ProjectItem,
   ProjectKind,
-  VocabStatus,
 } from "@/lib/api/types";
 
 export const projectsApi = {
@@ -16,11 +15,7 @@ export const projectsApi = {
     const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
     return request<Project[]>(`/projects${qs}`, token);
   },
-  getProject: (
-    token: string,
-    id: string,
-    opts?: { includeLists?: boolean },
-  ) => {
+  getProject: (token: string, id: string, opts?: { includeLists?: boolean }) => {
     const tz = getDeviceTimezone();
     const params = new URLSearchParams();
     if (tz) params.set("client_timezone", tz);
@@ -45,10 +40,7 @@ export const projectsApi = {
     });
     if (options?.bucket) params.set("bucket", options.bucket);
     if (tz) params.set("client_timezone", tz);
-    return request<ProjectItem[]>(
-      `/projects/${projectId}/daily-items?${params.toString()}`,
-      token,
-    );
+    return request<ProjectItem[]>(`/projects/${projectId}/daily-items?${params.toString()}`, token);
   },
 
   createProject: (
@@ -88,16 +80,18 @@ export const projectsApi = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  updateProjectItem: (
+  recordProjectPractice: (
     token: string,
     projectId: string,
     itemId: string,
-    patch: { status?: VocabStatus; definition?: string | null; was_correct?: boolean },
+    outcome: { attempt_id: string; was_correct: boolean; completes_word: boolean },
   ) =>
-    request<ProjectItem>(`/projects/${projectId}/items/${itemId}`, token, {
-      method: "PATCH",
-      body: JSON.stringify(patch),
-    }),
-  deleteProject: (token: string, id: string) =>
-    request<void>(`/projects/${id}`, token, { method: "DELETE" }),
+    request<{ item: ProjectItem; recorded: boolean; newly_mastered: boolean }>(
+      `/projects/${projectId}/items/${itemId}/practice`,
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify(outcome),
+      },
+    ),
 };
