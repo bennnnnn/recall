@@ -56,7 +56,9 @@ def merge_practice_history(
             mastery = item.mastered_at or (item.created_at if mastered else None)
             if mastered and mastery is not None and _local_day(mastery, timezone) == day:
                 legacy_mastered.add(item.id)
-            if item.id in practiced:
+            # Practice misses also write QuizMissEvent. A correct practice
+            # question does not account for separate legacy/chat misses.
+            if item.id in incorrect:
                 continue
             misses = (miss_events_by_item or {}).get(item.id)
             if misses is None:
@@ -70,7 +72,10 @@ def merge_practice_history(
                     not mastered or mastery is None or _utc(missed) < _utc(mastery)
                 ):
                     legacy_missed.add(item.id)
-        row["completed_count"] = len(completed | legacy_mastered | legacy_missed)
+        # Keep old completion totals for legacy-only words, while mixed
+        # partial practice remains incomplete even when a legacy answer is wrong.
+        legacy_completed = legacy_missed - practiced
+        row["completed_count"] = len(completed | legacy_mastered | legacy_completed)
         row["attempted_count"] = len(practiced | legacy_mastered | legacy_missed)
         row["missed_count"] = len(incorrect | legacy_missed)
         row["goal_met"] = row["completed_count"] >= int(row["daily_goal"])

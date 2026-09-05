@@ -65,7 +65,7 @@ async def test_seed_refreshes_existing_adds_group_and_is_idempotent(catalog_sql,
     await path_seed.seed_language_path(None, user_id=user.id, project_id=project.id)
     assert {row.id for row in sync.scalars(select(ProjectItem))} == ids
     session.commit.assert_awaited_once()
-    invalidate.assert_awaited_once()
+    assert invalidate.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -88,7 +88,8 @@ async def test_seed_failure_rolls_back_and_never_invalidates(catalog_sql, monkey
     monkeypatch.setattr(
         catalog_repo, "insert_missing", AsyncMock(side_effect=RuntimeError("Write failed"))
     )
-    await path_seed.seed_language_path(None, user_id=user.id, project_id=project.id)
+    with pytest.raises(RuntimeError, match="Write failed"):
+        await path_seed.seed_language_path(None, user_id=user.id, project_id=project.id)
     sync.refresh(item)
     assert item.definition == _deck().words[0].definition
     session.commit.assert_not_awaited()

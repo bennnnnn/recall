@@ -65,8 +65,8 @@ def history(*, missed=0):
 
 
 def test_partial_and_wrong_only_practice_are_activity_not_completion_or_skipping():
-    word = item(last_incorrect_at=YESTERDAY)
     for correct in (True, False):
+        word = item(last_incorrect_at=YESTERDAY if not correct else None)
         rows = merge_practice_history(
             history(missed=int(not correct)),
             [word],

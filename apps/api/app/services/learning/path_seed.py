@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from collections.abc import Sequence
+from dataclasses import asdict
+from functools import lru_cache
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +18,17 @@ from app.services.learning.path import parse_learning_path
 
 logger = logging.getLogger(__name__)
 _CATALOG_LANGUAGES = frozenset({"en", "es"})
+
+
+@lru_cache(maxsize=1)
+def catalog_seed_revision() -> str:
+    """Keep old successful jobs from suppressing a changed catalog for 24 hours."""
+    content = [
+        asdict(deck)
+        for language in sorted(_CATALOG_LANGUAGES)
+        for deck in path_decks_for_language(language)
+    ]
+    return hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()[:16]
 
 
 def apply_full_catalog_path(project: object) -> list[str]:
@@ -58,25 +73,28 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
             existing = await catalog_repo.list_items(session, project_id, user_id)
             path = [deck.title for deck in decks]
             changes = plan_catalog_changes(decks, existing)
-            if not changes and parse_learning_path(project) == path:
-                return
-            await ensure_catalog_rows(session)
-            await catalog_repo.update_contents(
-                session,
-                user_id=user_id,
-                project_id=project_id,
-                changes=[
-                    (change.item, change.values) for change in changes if change.item is not None
-                ],
-            )
-            await catalog_repo.insert_missing(
-                session,
-                user_id=user_id,
-                project_id=project_id,
-                rows=[change.values for change in changes if change.item is None],
-            )
-            project.learning_path = path
-            await session.commit()
+            if changes or parse_learning_path(project) != path:
+                await ensure_catalog_rows(session)
+                await catalog_repo.update_contents(
+                    session,
+                    user_id=user_id,
+                    project_id=project_id,
+                    changes=[
+                        (change.item, change.values)
+                        for change in changes
+                        if change.item is not None
+                    ],
+                )
+                await catalog_repo.insert_missing(
+                    session,
+                    user_id=user_id,
+                    project_id=project_id,
+                    rows=[change.values for change in changes if change.item is None],
+                )
+                project.learning_path = path
+                await session.commit()
+        # A previous attempt may have committed before cache invalidation failed.
         await _invalidate_home_for_user(user_id)
     except Exception:
         logger.exception("language_path seed failed project_id=%s", project_id)
+        raise

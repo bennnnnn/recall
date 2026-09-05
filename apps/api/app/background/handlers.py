@@ -186,8 +186,7 @@ async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
+    # Curated catalog reconciliation has no provider calls or AI spending.
     from app.services.projects.path_seed import seed_language_path
 
     await seed_language_path(
