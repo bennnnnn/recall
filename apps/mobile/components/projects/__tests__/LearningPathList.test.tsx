@@ -1,11 +1,21 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { LearningPathList } from "@/components/projects/LearningPathList";
 import type { DomainProgress } from "@/lib/projects/domainPath";
+import { resetMapUnlockState } from "@/lib/projects/mapUnlock";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
+jest.mock("@/lib/motion", () => ({
+  useReduceMotion: () => true,
+  Motion: {
+    duration: { soft: 1 },
+    easing: { inOut: undefined },
+  },
 }));
+
+jest.mock("@/hooks/useResolvedColorScheme", () => ({
+  useResolvedColorScheme: () => "light",
+}));
+jest.mock("@/components/Icon", () => ({ Icon: () => null }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: { done?: number; total?: number; count?: number }) => {
@@ -39,6 +49,9 @@ const domains: DomainProgress[] = [
 ];
 
 describe("LearningPathList", () => {
+  beforeEach(() => {
+    resetMapUnlockState();
+  });
   it("renders nothing while domains are still seeding", async () => {
     const { queryByText } = await render(
       <LearningPathList domains={[]} onOpenChapter={jest.fn()} />,
@@ -86,5 +99,143 @@ describe("LearningPathList", () => {
     expect(getByText("16 words · Review")).toBeOnTheScreen();
     fireEvent.press(getByText("Hello"));
     expect(onOpenChapter).toHaveBeenCalledWith("Hello");
+  });
+
+  it("springs the check once when a group becomes done after the map was seeded", async () => {
+    const onOpenChapter = jest.fn();
+    const current: DomainProgress[] = [
+      {
+        title: "Hello",
+        mastered: 16,
+        total: 16,
+        complete: true,
+        chapters: [{ title: "Hello", domain: "Hello", mastered: 16, total: 16, complete: true }],
+      },
+      {
+        title: "Morning",
+        mastered: 4,
+        total: 10,
+        complete: false,
+        chapters: [
+          { title: "Morning", domain: "Morning", mastered: 4, total: 10, complete: false },
+        ],
+      },
+    ];
+    const finished: DomainProgress[] = [
+      current[0],
+      {
+        title: "Morning",
+        mastered: 10,
+        total: 10,
+        complete: true,
+        chapters: [
+          { title: "Morning", domain: "Morning", mastered: 10, total: 10, complete: true },
+        ],
+      },
+    ];
+    const screen = await render(
+      <LearningPathList
+        domains={current}
+        projectId="p"
+        upNext="Morning"
+        onOpenChapter={onOpenChapter}
+      />,
+    );
+    expect(screen.getByTestId("path-node-current")).toBeOnTheScreen();
+    expect(screen.queryByTestId("path-node-unlock")).toBeNull();
+
+    await screen.rerender(
+      <LearningPathList
+        domains={finished}
+        projectId="p"
+        upNext={null}
+        onOpenChapter={onOpenChapter}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("path-node-unlock")).toBeOnTheScreen();
+    });
+    await screen.unmount();
+
+    const again = await render(
+      <LearningPathList
+        domains={finished}
+        projectId="p"
+        upNext={null}
+        onOpenChapter={onOpenChapter}
+      />,
+    );
+    expect(again.queryByTestId("path-node-unlock")).toBeNull();
+    expect(again.queryByTestId("path-node-current")).toBeNull();
+  });
+
+  it("does not pulse any node when every group is already done", async () => {
+    const done: DomainProgress[] = [
+      {
+        title: "Useful conversation expressions",
+        mastered: 10,
+        total: 10,
+        complete: true,
+        chapters: [
+          {
+            title: "Useful conversation expressions",
+            domain: "Useful conversation expressions",
+            mastered: 10,
+            total: 10,
+            complete: true,
+          },
+        ],
+      },
+      {
+        title: "Everyday phrasal verbs",
+        mastered: 10,
+        total: 10,
+        complete: true,
+        chapters: [
+          {
+            title: "Everyday phrasal verbs",
+            domain: "Everyday phrasal verbs",
+            mastered: 10,
+            total: 10,
+            complete: true,
+          },
+        ],
+      },
+      {
+        title: "Everyday idioms",
+        mastered: 10,
+        total: 10,
+        complete: true,
+        chapters: [
+          {
+            title: "Everyday idioms",
+            domain: "Everyday idioms",
+            mastered: 10,
+            total: 10,
+            complete: true,
+          },
+        ],
+      },
+      {
+        title: "Common proverbs",
+        mastered: 10,
+        total: 10,
+        complete: true,
+        chapters: [
+          {
+            title: "Common proverbs",
+            domain: "Common proverbs",
+            mastered: 10,
+            total: 10,
+            complete: true,
+          },
+        ],
+      },
+    ];
+    const { queryByTestId } = await render(
+      <LearningPathList domains={done} projectId="p" upNext={null} onOpenChapter={jest.fn()} />,
+    );
+    expect(queryByTestId("path-node-current")).toBeNull();
+    expect(queryByTestId("path-node-unlock")).toBeNull();
   });
 });

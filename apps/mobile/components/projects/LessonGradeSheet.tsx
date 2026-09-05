@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
+  SlideOutDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -24,6 +25,7 @@ type Props = {
   explanation: string;
   error?: string | null;
   showContinue?: boolean;
+  textScale?: number;
   onContinue?: () => void;
   onRetry?: () => void;
 };
@@ -33,13 +35,14 @@ export function LessonGradeSheet({
   explanation,
   error,
   showContinue = false,
+  textScale = 1,
   onContinue,
   onRetry,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const s = makeStyles(theme);
+  const s = makeStyles(theme, textScale);
   const reduceMotion = useReduceMotion();
   const offset = useSharedValue(reduceMotion ? 0 : SLIDE);
   const opacity = useSharedValue(reduceMotion ? 1 : 0);
@@ -66,6 +69,11 @@ export function LessonGradeSheet({
 
   return (
     <Animated.View
+      exiting={
+        reduceMotion
+          ? undefined
+          : SlideOutDown.duration(Motion.duration.standard).easing(Motion.easing.in)
+      }
       style={[
         s.sheet,
         {
@@ -102,7 +110,8 @@ export function LessonGradeSheet({
   );
 }
 
-function makeStyles(theme: Theme) {
+function makeStyles(theme: Theme, scale: number) {
+  const n = (size: number) => Math.round(size * scale);
   return StyleSheet.create({
     sheet: {
       paddingHorizontal: Space.lg,
@@ -117,8 +126,8 @@ function makeStyles(theme: Theme) {
       gap: Space.sm,
     },
     copy: { flex: 1, gap: Space.xxs },
-    heading: { ...Type.body, fontWeight: "700" },
-    body: { ...Type.body, color: theme.text, lineHeight: 26 },
+    heading: { ...Type.body, fontWeight: "700", fontSize: n(16) },
+    body: { ...Type.body, color: theme.text, fontSize: n(16), lineHeight: n(26) },
     error: {
       ...Type.secondary,
       color: theme.danger,

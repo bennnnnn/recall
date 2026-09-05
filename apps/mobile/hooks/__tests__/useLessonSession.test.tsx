@@ -125,6 +125,8 @@ it("requires an assessment, ignores misses, and completes only the final correct
   expect(current.learned).toBe(1);
   await act(() => current.continueLesson());
   expect(current.complete).toBe(true);
+  expect(current.groupDone).toBe(true);
+  expect(current.progressFill).toBe(1);
 });
 it("keeps a failed answer and retries exactly the same attempt without accepting another choice", async () => {
   record.mockRejectedValueOnce(new Error("offline"));
@@ -221,6 +223,41 @@ it("counts a mastered chapter as a scan and records review on the final Continue
   expect(current.reviewed).toBe(1);
   expect(current.learned).toBe(0);
   expect(current.complete).toBe(true);
+});
+
+it("fills the review bar to match the word counter", async () => {
+  record.mockResolvedValue({ ...response(), newly_mastered: false });
+  mockProject.lists[0].items = [
+    { ...word("one", "hello"), mastered: true, status: "mastered" },
+    { ...word("two", "thanks"), mastered: true, status: "mastered" },
+  ];
+  await render(<Probe />);
+  expect(current.reviewing).toBe(true);
+  expect(current.currentNumber).toBe(1);
+  expect(current.total).toBe(2);
+  expect(current.progressFill).toBe(0.5);
+  while (current.step?.itemId === "one") {
+    await act(() => current.continueLesson());
+  }
+  expect(current.currentNumber).toBe(2);
+  expect(current.progressFill).toBe(1);
+});
+
+it("keeps saved group mastery on the bar when the lesson is reopened", async () => {
+  mockProject.daily_goal = 2;
+  mockProject.lists[0].items = [
+    { ...word("one", "hello"), mastered: true, status: "mastered" },
+    { ...word("two", "thanks"), mastered: true, status: "mastered" },
+    word("three", "please"),
+    word("four", "sorry"),
+    word("five", "bye"),
+  ];
+  await render(<Probe />);
+  expect(current.reviewing).toBe(false);
+  expect(current.step?.itemId).toBe("three");
+  expect(current.currentNumber).toBe(3);
+  expect(current.total).toBe(5);
+  expect(current.progressFill).toBe(2 / 5);
 });
 
 it("can prepare an empty lesson after a successful content retry", async () => {

@@ -22,19 +22,19 @@ type Props = {
   resetToken?: number | string;
   onSelect: (letter: QuizChoice["letter"]) => void;
   selectedLetter?: QuizChoice["letter"] | null;
+  textScale?: number;
 };
-
-const LETTER = 36;
 
 export function LessonQuizCards({
   choices,
   correctLetter,
   disabled = false,
   selectedLetter = null,
+  textScale = 1,
   onSelect,
 }: Props) {
   const theme = useTheme();
-  const s = makeStyles(theme);
+  const s = makeStyles(theme, textScale);
   const answeredCorrectly =
     selectedLetter != null && correctLetter != null && selectedLetter === correctLetter;
 
@@ -135,35 +135,17 @@ function QuizCard({
         disabled={disabled}
         accessibilityRole="button"
         accessibilityState={{ selected: isSelected, disabled }}
-        accessibilityLabel={`${choice.letter}. ${choice.text}`}
+        accessibilityLabel={choice.text}
         onPress={handlePress}
       >
-        <View style={s.row}>
-          <View
-            style={[
-              s.letterWrap,
-              showCorrect && s.letterCorrect,
-              showWrong && s.letterWrong,
-            ]}
-          >
-            <Text
-              style={[
-                s.letter,
-                showCorrect && s.letterOnFill,
-                showWrong && s.letterOnFill,
-              ]}
-            >
-              {choice.letter}
-            </Text>
-          </View>
-          <Text style={s.text}>{choice.text}</Text>
-        </View>
+        <Text style={s.text}>{choice.text}</Text>
       </Pressable>
     </Animated.View>
   );
 }
 
-function makeStyles(theme: Theme) {
+function makeStyles(theme: Theme, scale: number) {
+  const n = (size: number) => Math.round(size * scale);
   return StyleSheet.create({
     list: {
       gap: Space.sm,
@@ -189,41 +171,11 @@ function makeStyles(theme: Theme) {
       opacity: 0.4,
     },
     cardDisabled: { opacity: 0.55 },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.md,
-    },
-    letterWrap: {
-      width: LETTER,
-      height: LETTER,
-      borderRadius: LETTER / 2,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme.primaryLight,
-    },
-    letterCorrect: {
-      backgroundColor: theme.success,
-    },
-    letterWrong: {
-      backgroundColor: theme.danger,
-    },
-    letter: {
-      ...Type.body,
-      fontSize: 16,
-      fontWeight: "800",
-      lineHeight: 20,
-      color: theme.primary,
-    },
-    letterOnFill: {
-      color: theme.bg,
-    },
     text: {
       ...Type.body,
-      fontSize: 20,
-      lineHeight: 28,
+      fontSize: n(20),
+      lineHeight: n(28),
       color: theme.text,
-      flex: 1,
     },
   });
 }

@@ -77,7 +77,15 @@ jest.mock("@/lib/cache/projectDetailCache", () => ({
 jest.mock("@/hooks/useLessonFeedback", () => ({
   useLessonFeedback: () => ({
     speak: jest.fn(),
+    celebrate: jest.fn(),
     stop: jest.fn(),
+  }),
+}));
+jest.mock("@/hooks/useLessonPrefs", () => ({
+  useLessonPrefs: () => ({
+    prefs: { effectSound: true, readWords: false, fontSize: "medium" },
+    updatePrefs: jest.fn(),
+    textScale: 1,
   }),
 }));
 jest.mock("@/lib/pronunciation", () => ({ speakWord: jest.fn() }));
@@ -89,6 +97,15 @@ jest.mock("@/lib/haptics", () => ({
 }));
 jest.mock("@/lib/motion", () => ({ useReduceMotion: () => true }));
 jest.mock("@/hooks/useResolvedColorScheme", () => ({ useResolvedColorScheme: () => "light" }));
+jest.mock("@/components/AppSheet", () => ({
+  AppSheet: ({
+    visible,
+    children,
+  }: {
+    visible: boolean;
+    children: React.ReactNode;
+  }) => (visible ? children : null),
+}));
 jest.mock("@/components/ActionShimmer", () => ({
   ActionShimmer: ({ label }: { label: string }) =>
     jest.requireActual("react").createElement(jest.requireActual("react-native").Text, null, label),
@@ -113,6 +130,7 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   const screen = await render(<LessonPlay />);
   expect(screen.queryByRole("header", { name: "dormir" })).toBeNull();
   expect(screen.getByText("Me despierto a las siete.")).toBeOnTheScreen();
+  expect(screen.getByTestId("lesson-pane")).toBeOnTheScreen();
   expect(screen.getByText("Ana se despierta temprano.")).toBeOnTheScreen();
   expect(screen.queryByText("Sounds")).toBeNull();
   expect(screen.queryByText("Spoken feedback")).toBeNull();
@@ -121,7 +139,13 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   expect(screen.queryByText("Meaning")).toBeNull();
   expect(screen.queryByText("Example")).toBeNull();
   expect(screen.queryByText("Choose the word or phrase you just studied:")).toBeNull();
+  expect(screen.queryByText("What does this mean?")).toBeNull();
   expect(screen.queryByText("Saving your answer…")).toBeNull();
+  expect(screen.queryByText("Effect sounds")).toBeNull();
+  await fireEvent.press(screen.getByLabelText("Lesson options"));
+  expect(screen.getByText("Effect sounds")).toBeOnTheScreen();
+  expect(screen.getByText("Read words")).toBeOnTheScreen();
+  expect(screen.getByText("Font size")).toBeOnTheScreen();
   expect(record).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText("Continue"));
   await fireEvent.press(screen.getByText("Dejar de dormir."));
@@ -133,8 +157,12 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   expect(record.mock.calls[0][3]).toEqual(record.mock.calls[1][3]);
   expect(record.mock.calls[1][3]).toMatchObject({ was_correct: true, completes_word: true });
   await fireEvent.press(screen.getByText("Continue"));
-  expect(screen.getByText("1 learned · 0 reviewed")).toBeOnTheScreen();
-  await fireEvent.press(screen.getByText("Back to lesson map"));
+  expect(screen.getByTestId("lesson-pane")).toBeOnTheScreen();
+  expect(screen.getByText("Morning complete")).toBeOnTheScreen();
+  expect(screen.queryByText("Practice complete")).toBeNull();
+  expect(screen.queryByText("Back to lesson map")).toBeNull();
+  expect(screen.queryByText("1 learned · 0 reviewed")).toBeNull();
+  await fireEvent.press(screen.getByLabelText("Close"));
   expect(mockRouter.replace).toHaveBeenCalledWith("/projects/p/lesson");
   await act(() => screen.unmount());
 });
