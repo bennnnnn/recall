@@ -56,3 +56,13 @@ describe("useAttachmentIndexed", () => {
     await waitFor(() => expect(indexed).toBe(true));
   });
 });
+
+
+it("does not report the next attachment ready while its status request is pending", async () => {
+  mockGetAttachmentUrl.mockResolvedValueOnce({ indexed: true });
+  const view = await render(<Probe attachmentId="ready" />);
+  expect(indexed).toBe(true);
+  mockGetAttachmentUrl.mockReturnValueOnce(new Promise(() => {}));
+  await view.rerender(<Probe attachmentId="pending" />);
+  expect(indexed).toBe(false);
+});

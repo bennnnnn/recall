@@ -6,6 +6,8 @@ import { useChatActions } from "@/hooks/useChatActions";
 import { api, type Message } from "@/lib/api";
 import { insertChatGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+
 jest.mock("@/lib/api", () => ({
   api: {
     renameChat: jest.fn(),

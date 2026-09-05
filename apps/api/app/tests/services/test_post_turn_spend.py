@@ -28,6 +28,31 @@ def _ctx(*, prior_count: int, run_title: bool = True) -> StreamContext:
 
 
 @pytest.mark.asyncio
+async def test_library_reuse_in_another_chat_gets_an_independent_index_job():
+    ctx = _ctx(prior_count=2)
+    attachment_id = str(uuid4())
+    ctx.indexable_attachment_ids = [attachment_id]
+    first_chat = ctx.chat_id
+    with (
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue,
+        patch(
+            "app.services.chat.post_turn.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        settings = Settings(history_compression_enabled=False, chat_history_rag_enabled=False)
+        await enqueue_post_turn_jobs(AsyncMock(), settings, ctx, "ok")
+        ctx.chat_id = uuid4()
+        await enqueue_post_turn_jobs(AsyncMock(), settings, ctx, "ok")
+
+    calls = [call for call in enqueue.call_args_list if call.args[1] == "attachment_index"]
+    assert [call.kwargs["dedupe_key"] for call in calls] == [
+        f"attachment_index:{attachment_id}:{first_chat}",
+        f"attachment_index:{attachment_id}:{ctx.chat_id}",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_default_memory_interval_runs_turn_two():
     ctx = _ctx(prior_count=2)  # turn_number = 2
     with patch("app.core.jobs.enqueue", AsyncMock()) as enqueue:

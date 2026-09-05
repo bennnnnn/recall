@@ -63,7 +63,7 @@ async def test_delete_library_attachment_strips_message_and_does_not_refund():
     assert message.content == "Keep this"
     session.delete.assert_not_called()
     session.commit.assert_awaited_once()
-    chunks.assert_awaited_once()
+    chunks.assert_not_awaited()
     storage.assert_awaited_once_with(settings, ["user/key"])
 
 

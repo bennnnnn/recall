@@ -44,7 +44,7 @@ import { useLiveTalk } from "@/hooks/useLiveTalk";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
-import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
+import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
@@ -117,6 +117,7 @@ function ChatScreen() {
     sendMessage,
     rejectedSend,
     retryRejectedSend,
+    restoreRejectedAttachmentDraft,
     beginRegenerateUi,
     cancelRegenerateUi,
     regenerateResponse,
@@ -267,7 +268,7 @@ function ChatScreen() {
   const streamActive = llmBusy || imageGen.generating;
 
   useEffect(() => {
-    if (!streamActive) handleRejectedSendChange(Boolean(rejectedSend));
+    if (!streamActive) handleRejectedSendChange(rejectedSend?.reason ?? null);
   }, [streamActive, rejectedSend, handleRejectedSendChange]);
 
   const { turnRefreshKey, ...quotaNudge } = useChatStreamLifecycle({
@@ -316,6 +317,7 @@ function ChatScreen() {
     attachSheetOpen,
     setAttachSheetOpen,
     handleSend,
+    restoreComposerDraft,
     handlePickAttachment,
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
@@ -431,24 +433,16 @@ function ChatScreen() {
     beginRegenerateUi,
     cancelRegenerateUi,
   });
-  const retryChatError = useCallback(() => {
-    if (chatLoading || streamActive || regenerating) return;
-    dismissChatError();
-    if (chatError?.kind === "send_rejected") {
-      void retryRejectedSend();
-      return;
-    }
-    void handleRegenerate(selectedModel);
-  }, [
-    dismissChatError,
-    chatError?.kind,
-    chatLoading,
-    handleRegenerate,
-    regenerating,
+  const retryChatError = useChatErrorRecovery({
+    error: chatError,
+    blocked: chatLoading || streamActive || regenerating,
+    dismiss: dismissChatError,
     retryRejectedSend,
+    restoreRejectedAttachmentDraft,
+    restoreComposerDraft,
+    regenerate: handleRegenerate,
     selectedModel,
-    streamActive,
-  ]);
+  });
 
   const displayMessages = messages;
 

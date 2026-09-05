@@ -10,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import AttachmentChunk
+from app.models.orm import Attachment, AttachmentChunk, Chat, Message
 
 EMBEDDING_DIM = 1536
 
@@ -76,10 +76,41 @@ async def replace_chunks(
     attachment_id: UUID,
     chat_id: UUID | None,
     chunks: list[tuple[int, str, list[float] | None]],
-) -> None:
-    """Replace all chunks for an attachment with newly embedded ones."""
+) -> bool:
+    """Replace chunks only while the attachment still belongs to the queued chat.
+
+    Embedding runs outside the transaction, so deletion or Library reuse can
+    change this association before the worker returns. Lock the parent chat
+    before its attachment, matching the order used by cascading chat deletion.
+    """
+    if chat_id is not None:
+        current_chat = await session.scalar(
+            select(Chat.id)
+            .where(Chat.id == chat_id, Chat.user_id == user_id)
+            .with_for_update(read=True, key_share=True)
+        )
+        if current_chat is None:
+            return False
+    attachment = await session.scalar(
+        select(Attachment)
+        .where(Attachment.id == attachment_id, Attachment.user_id == user_id)
+        .with_for_update()
+    )
+    if attachment is None or attachment.verified_at is None:
+        return False
+    linked_chat = None
+    if attachment.message_id is not None:
+        linked_chat = await session.scalar(
+            select(Message.chat_id).where(
+                Message.id == attachment.message_id, Message.user_id == user_id
+            )
+        )
+    if linked_chat != chat_id:
+        return False
     await session.execute(
-        delete(AttachmentChunk).where(AttachmentChunk.attachment_id == attachment_id)
+        delete(AttachmentChunk).where(
+            AttachmentChunk.attachment_id == attachment_id, AttachmentChunk.user_id == user_id
+        )
     )
     for index, text, vec in chunks:
         row = AttachmentChunk(
@@ -93,6 +124,7 @@ async def replace_chunks(
         )
         session.add(row)
     await session.commit()
+    return True
 
 
 async def search_semantic(

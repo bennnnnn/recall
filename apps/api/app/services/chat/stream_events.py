@@ -12,6 +12,7 @@ from contextlib import suppress
 from typing import Any
 
 from app.exceptions import (
+    AttachmentValidationError,
     ChatBusyError,
     ChatServiceError,
     QuotaExceededError,
@@ -157,6 +158,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "unavailable", "message": exc.message}
     if isinstance(exc, ChatBusyError):
         return {"type": "error", "code": "busy", "message": exc.message}
+    if isinstance(exc, AttachmentValidationError):
+        return {"type": "error", "code": "attachment_rejected", "message": exc.message}
     if isinstance(exc, UnknownModelOverrideError):
         return {"type": "error", "code": "unknown_model", "message": exc.message}
     if isinstance(exc, ChatServiceError):

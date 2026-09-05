@@ -1,10 +1,11 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import { getInfoAsync } from "expo-file-system/legacy";
+import { File } from "expo-file-system";
 
 import { api } from "@/lib/api";
-import { getApiUrl } from "@/lib/config";
+import { uploadAttachmentBytes } from "@/lib/api/attachments";
+import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
 
 export type AttachmentKind = "image" | "file";
@@ -84,7 +85,8 @@ function normalizeContentType(mimeType: string | null | undefined, uri: string):
   if (ext === "png") return "image/png";
   if (ext === "webp") return "image/webp";
   if (ext === "gif") return "image/gif";
-  return "image/jpeg";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  return "application/octet-stream";
 }
 
 export class HeicUnsupportedError extends Error {
@@ -179,7 +181,7 @@ export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> 
     const asset = result.assets[0];
     return await assetToPending(
       asset.uri,
-      asset.mimeType ?? "image/jpeg",
+      asset.mimeType ?? "",
       asset.fileName ?? `photo-${Date.now()}.jpg`,
     );
   });
@@ -203,7 +205,7 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
     const asset = result.assets[0];
     return await assetToPending(
       asset.uri,
-      asset.mimeType ?? "image/jpeg",
+      asset.mimeType ?? "",
       asset.fileName ?? `camera-${Date.now()}.jpg`,
     );
   });
@@ -234,65 +236,35 @@ export async function uploadChatAttachment(
   token: string,
   pending: PendingAttachment,
 ): Promise<string> {
-  if (pending.existingAttachmentId) {
-    return pending.existingAttachmentId;
-  }
+  requireTokenSession(token);
+  const generation = getSessionGeneration();
+  const requireCurrent = () => {
+    if (generation !== getSessionGeneration()) throw new SessionChangedError();
+  };
+  if (pending.existingAttachmentId) return pending.existingAttachmentId;
 
-  const info = await getInfoAsync(pending.localUri);
-  if (!info.exists) throw new Error("Could not read the selected file.");
-
-  const sizeBytes = "size" in info && typeof info.size === "number" ? info.size : 0;
-  if (!sizeBytes || sizeBytes <= 0) {
+  const file = new File(pending.localUri);
+  if (!file.exists) throw new Error("Could not read the selected file.");
+  const sizeBytes = file.size;
+  if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0) {
     throw new Error("Could not determine file size.");
   }
-
   const presign = await api.presignAttachment(token, {
     content_type: pending.contentType,
     size_bytes: sizeBytes,
     filename: pending.fileName,
   });
-
   try {
-    const fileResponse = await fetch(pending.localUri);
-    if (!fileResponse.ok) {
-      throw new Error("Could not read the selected file.");
-    }
-    const bytes = await fileResponse.arrayBuffer();
-
-    const uploadPath = presign.api_upload
-      ? `/attachments/${presign.attachment_id}/upload`
-      : presign.upload_url;
-
-    const uploadUrl = uploadPath.startsWith("http")
-      ? uploadPath
-      : `${getApiUrl()}${uploadPath.startsWith("/") ? uploadPath : `/${uploadPath}`}`;
-
-    const headers: Record<string, string> = {
-      "Content-Type": pending.contentType,
-    };
-    // Prefer server-returned presign headers for R2 uploads — any future
-    // server-side normalization (e.g. Content-Type casing) the client doesn't
-    // mirror would cause an R2 signature mismatch. Fall back to the
-    // client-derived headers only when the server omits them.
-    if (presign.headers) {
-      Object.assign(headers, presign.headers);
-    }
-    if (presign.api_upload || uploadUrl.startsWith(getApiUrl())) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch(uploadUrl, {
-      method: "PUT",
-      headers,
-      body: bytes,
-    });
-
-    if (!response.ok) {
-      throw new Error("Upload failed.");
-    }
+    requireCurrent();
+    const bytes = await file.arrayBuffer();
+    requireCurrent();
+    if (bytes.byteLength !== sizeBytes) throw new Error("The selected file changed. Please attach it again.");
+    await uploadAttachmentBytes(token, presign, pending.contentType, bytes);
+    requireCurrent();
 
     if (!presign.api_upload) {
       await api.confirmAttachment(token, presign.attachment_id);
+      requireCurrent();
     }
 
     try {
@@ -302,6 +274,7 @@ export async function uploadChatAttachment(
       /* best-effort */
     }
 
+    requireCurrent();
     return presign.attachment_id;
   } catch (error) {
     try {

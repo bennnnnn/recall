@@ -1,6 +1,13 @@
 import type { Message } from "@/lib/api";
 import { messageTextForSend, type PendingAttachment } from "@/lib/attachments";
 
+import type { ClientGeo } from "@/lib/clientGeo";
+
+export type ComposerSendDraft = {
+  text: string;
+  attachment: PendingAttachment | null;
+};
+
 export function shouldBlockSend(options: {
   text: string;
   hasAttachment: boolean;
@@ -46,10 +53,9 @@ export function buildOptimisticUserMessage(options: {
   };
 }
 
-import type { ClientGeo } from "@/lib/clientGeo";
-
 export function buildPendingSendAfterCreate(options: {
   text: string;
+  composerText?: string;
   attached: PendingAttachment | null;
   attachmentIds?: string[];
   optimisticId: string;
@@ -57,6 +63,7 @@ export function buildPendingSendAfterCreate(options: {
   model: string;
 }): {
   text: string;
+  composerDraft: ComposerSendDraft;
   skipUserBubble: true;
   trackSendingMessageId: string;
   attachmentIds?: string[];
@@ -70,6 +77,7 @@ export function buildPendingSendAfterCreate(options: {
   const sendText = messageTextForSend(options.text, options.attached);
   return {
     text: sendText,
+    composerDraft: { text: options.composerText ?? options.text, attachment: options.attached ? { ...options.attached } : null },
     skipUserBubble: true,
     trackSendingMessageId: options.optimisticId,
     attachmentIds: options.attachmentIds,

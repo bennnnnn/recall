@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.exceptions import AttachmentValidationError
+from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
 from app.models.math_schemas import MathImageExtract
 
@@ -40,7 +40,12 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
     attachment_id = uuid4()
     user = MagicMock()
     user.id = user_id
+    from datetime import UTC, datetime
+
     row = MagicMock()
+    row.source = "upload"
+    row.library_visible = True
+    row.created_at = datetime.now(UTC)
     row.message_id = None
     row.id = attachment_id
     row.content_type = "image/png"
@@ -101,7 +106,8 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
 
 
 @pytest.mark.asyncio
-async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
+@pytest.mark.parametrize("linked_count", [1, 0])
+async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(linked_count):
     """End-to-end coverage for the camera-math OCR block (zero coverage
     before this test): attaching an image + the exact camera trigger
     phrase must invoke extract_equation_from_image and pass the resulting
@@ -209,7 +215,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
         ) as create_mock,
         patch(
             "app.repositories.attachments.link_to_message",
-            AsyncMock(),
+            AsyncMock(return_value=linked_count),
         ),
         patch(
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
@@ -220,6 +226,22 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
             AsyncMock(return_value=None),
         ),
     ):
+        if linked_count == 0:
+            with pytest.raises(ChatBusyError, match="changed while sending"):
+                await prepare_chat_turn(
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    content=camera_prompt,
+                    model_alias=None,
+                    settings=settings,
+                    redis=redis,
+                    reserved_tokens=100,
+                    attachment_ids=[attachment_id],
+                )
+            session.rollback.assert_awaited_once()
+            session.commit.assert_not_awaited()
+            assert create_mock.await_args.kwargs["commit"] is False
+            return
         await prepare_chat_turn(
             user_id=user_id,
             chat_id=chat_id,
@@ -341,7 +363,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
         ),
         patch(
             "app.repositories.attachments.link_to_message",
-            AsyncMock(),
+            AsyncMock(return_value=1),
         ),
         patch(
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",

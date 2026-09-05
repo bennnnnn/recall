@@ -1,13 +1,16 @@
+import { attachmentRecordExists, attachmentsApi } from "@/lib/api/attachments";
+import { request } from "@/lib/api/client";
+import { removeCachedAttachmentFiles } from "@/lib/downloadChatAttachment";
+import { projectsApi } from "@/lib/api/projects";
+
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+jest.mock("@/lib/downloadChatAttachment", () => ({ removeCachedAttachmentFiles: jest.fn(async () => undefined) }));
 jest.mock("@/lib/deviceTimezone", () => ({
   getDeviceTimezone: () => "America/Los_Angeles",
 }));
 jest.mock("@/lib/api/client", () => ({
   request: jest.fn(),
 }));
-
-import { attachmentRecordExists, attachmentsApi } from "@/lib/api/attachments";
-import { request } from "@/lib/api/client";
-import { projectsApi } from "@/lib/api/projects";
 
 const mockRequest = request as jest.Mock;
 
@@ -63,6 +66,18 @@ describe("domain API contracts", () => {
     expect(mockRequest).toHaveBeenCalledWith("/attachments/att-1", "token", {
       method: "DELETE",
     });
+    expect(removeCachedAttachmentFiles).toHaveBeenCalledWith("att-1");
+  });
+
+  it("retains cached files when server deletion fails", async () => {
+    mockRequest.mockRejectedValueOnce(new Error("Offline"));
+    await expect(attachmentsApi.deleteAttachment("token", "att-1")).rejects.toThrow("Offline");
+    expect(removeCachedAttachmentFiles).not.toHaveBeenCalled();
+  });
+
+  it("does not turn successful remote deletion into an error if cache cleanup fails", async () => {
+    jest.mocked(removeCachedAttachmentFiles).mockRejectedValueOnce(new Error("Storage unavailable"));
+    await expect(attachmentsApi.deleteAttachment("token", "att-1")).resolves.toBeUndefined();
   });
 
   it("probes GET /url to see if a Library record still exists", async () => {

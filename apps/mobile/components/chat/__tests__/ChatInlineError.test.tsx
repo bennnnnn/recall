@@ -11,6 +11,7 @@ jest.mock("react-i18next", () => ({
     t: (key: string) =>
       ({
         "common.retry": "Retry",
+        "chat.restore_draft": "Restore draft",
         "settings.model": "Models",
         "chat.error_dismiss_a11y": "Dismiss error",
       })[key] ?? key,
@@ -93,4 +94,17 @@ describe("ChatInlineError", () => {
     fireEvent.press(view.getByTestId("chat-error-change-model"));
     expect(onChangeModel).toHaveBeenCalledTimes(1);
   });
+});
+
+
+it("offers explicit draft restoration for an unsaved file with no generic Retry or Stop", async () => {
+  const onRetry = jest.fn();
+  const view = await render(<ChatInlineError
+    error={{ kind: "attachment_rejected", message: "Message wasn’t sent." }}
+    onRetry={onRetry} onStop={jest.fn()} onDismiss={jest.fn()} bottom={20}
+  />);
+  expect(view.queryByTestId("chat-error-retry")).toBeNull();
+  expect(view.queryByTestId("chat-busy-stop")).toBeNull();
+  fireEvent.press(view.getByRole("button", { name: "Restore draft" }));
+  expect(onRetry).toHaveBeenCalledTimes(1);
 });

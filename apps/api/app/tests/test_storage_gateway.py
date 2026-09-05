@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.gateways.storage_gateway import (
     LocalStorageGateway,
     R2StorageGateway,
+    StorageUnavailableError,
     UnconfiguredStorageGateway,
     get_storage_gateway,
     reset_storage_gateway_cache,
@@ -146,13 +147,16 @@ async def test_r2_read_bytes_downloads_object():
 
         data = await gateway.read_bytes("user-1/abc")
         assert data == b"pdf bytes"
+        body.close.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_r2_read_bytes_returns_none_on_failure():
+async def test_r2_read_bytes_returns_none_only_for_missing_object():
     with patch("boto3.client") as mock_client:
         s3 = MagicMock()
-        s3.get_object.side_effect = RuntimeError("no such key")
+        from botocore.exceptions import ClientError
+
+        s3.get_object.side_effect = ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
         mock_client.return_value = s3
         gateway = R2StorageGateway(_r2_settings())
         assert await gateway.read_bytes("user-1/missing") is None
@@ -191,12 +195,48 @@ async def test_r2_delete_prefix_batches_keys():
         }
         mock_client.return_value = s3
         gateway = R2StorageGateway(_r2_settings())
+        s3.delete_objects.return_value = {}
         deleted = await gateway.delete_prefix("uid/")
         assert deleted == 2
         s3.delete_objects.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_unconfigured_delete_prefix_is_noop():
+async def test_unconfigured_delete_prefix_reports_unavailable():
     gateway = UnconfiguredStorageGateway()
-    assert await gateway.delete_prefix("uid/") == 0
+    with pytest.raises(StorageUnavailableError):
+        await gateway.delete_prefix("uid/")
+
+
+@pytest.mark.asyncio
+async def test_r2_partial_batch_delete_failure_is_not_reported_as_success():
+    client = MagicMock()
+    client.list_objects_v2.return_value = {"Contents": [{"Key": "u/a"}], "IsTruncated": False}
+    client.delete_objects.return_value = {"Errors": [{"Key": "u/a", "Code": "AccessDenied"}]}
+    with patch("boto3.client", return_value=client):
+        gateway = R2StorageGateway(_r2_settings())
+    with pytest.raises(StorageUnavailableError):
+        await gateway.delete_prefix("u/")
+
+
+@pytest.mark.asyncio
+async def test_r2_body_read_failure_closes_response_and_preserves_outage_semantics():
+    client = MagicMock()
+    body = MagicMock()
+    body.read.side_effect = TimeoutError("read timeout")
+    client.get_object.return_value = {"Body": body}
+    with patch("boto3.client", return_value=client):
+        gateway = R2StorageGateway(_r2_settings())
+    with pytest.raises(StorageUnavailableError):
+        await gateway.read_bytes("u/a")
+    body.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_r2_clone_write_failure_uses_storage_outage_error():
+    client = MagicMock()
+    client.put_object.side_effect = TimeoutError("write timeout")
+    with patch("boto3.client", return_value=client):
+        gateway = R2StorageGateway(_r2_settings())
+    with pytest.raises(StorageUnavailableError):
+        await gateway.write_bytes("u/clone", b"data")

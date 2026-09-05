@@ -21,6 +21,10 @@ from app.core.config import Settings
 logger = logging.getLogger(__name__)
 
 
+class StorageUnavailableError(RuntimeError):
+    """Storage could not complete a request; this does not mean an object is missing."""
+
+
 @dataclass(frozen=True)
 class PresignedUpload:
     attachment_id: str
@@ -194,27 +198,38 @@ class R2StorageGateway:
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
         import asyncio
 
-        await asyncio.to_thread(
-            self._client.put_object,
-            Bucket=self._bucket,
-            Key=storage_key,
-            Body=data,
-        )
+        try:
+            await asyncio.to_thread(
+                self._client.put_object,
+                Bucket=self._bucket,
+                Key=storage_key,
+                Body=data,
+            )
+        except Exception as exc:
+            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
         # Used by attachment_content to extract text/vision bytes for the prompt.
         # get_object is a real network call — offload to a thread.
         import asyncio
 
+        from botocore.exceptions import ClientError
+
         try:
             resp = await asyncio.to_thread(
                 self._client.get_object, Bucket=self._bucket, Key=storage_key
             )
-            body = await asyncio.to_thread(lambda: resp["Body"].read())
-            return body
-        except Exception:
-            logger.debug("R2 get_object failed for %s", storage_key, exc_info=True)
-            return None
+            body = resp["Body"]
+            try:
+                return await asyncio.to_thread(body.read)
+            finally:
+                await asyncio.to_thread(body.close)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in {"NoSuchKey", "NotFound", "404"}:
+                return None
+            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
+        except Exception as exc:
+            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
 
     async def delete_bytes(self, storage_key: str) -> None:
         import asyncio
@@ -223,8 +238,8 @@ class R2StorageGateway:
             await asyncio.to_thread(
                 self._client.delete_object, Bucket=self._bucket, Key=storage_key
             )
-        except Exception:
-            logger.debug("R2 delete_object failed for %s", storage_key, exc_info=True)
+        except Exception as exc:
+            raise StorageUnavailableError("Attachment storage is temporarily unavailable") from exc
 
     async def delete_prefix(self, prefix: str) -> int:
         import asyncio
@@ -253,11 +268,13 @@ class R2StorageGateway:
                 if isinstance(obj, dict) and isinstance(obj.get("Key"), str)
             ]
             if keys:
-                await asyncio.to_thread(
+                deletion = await asyncio.to_thread(
                     self._client.delete_objects,
                     Bucket=self._bucket,
                     Delete={"Objects": [{"Key": key} for key in keys], "Quiet": True},
                 )
+                if deletion.get("Errors"):
+                    raise StorageUnavailableError("Some attachment objects could not be deleted")
                 deleted += len(keys)
             if not resp.get("IsTruncated"):
                 break
@@ -278,22 +295,22 @@ class UnconfiguredStorageGateway:
     async def presign_upload(
         self, *, user_id: str, content_type: str, size_bytes: int
     ) -> PresignedUpload:
-        raise RuntimeError(self._msg)
+        raise StorageUnavailableError(self._msg)
 
     async def presign_download(self, storage_key: str) -> str:
-        raise RuntimeError(self._msg)
+        raise StorageUnavailableError(self._msg)
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
-        raise RuntimeError(self._msg)
+        raise StorageUnavailableError(self._msg)
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
-        return None
+        raise StorageUnavailableError(self._msg)
 
     async def delete_bytes(self, storage_key: str) -> None:
-        return None
+        raise StorageUnavailableError(self._msg)
 
     async def delete_prefix(self, prefix: str) -> int:
-        return 0
+        raise StorageUnavailableError(self._msg)
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
         return None

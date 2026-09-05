@@ -489,11 +489,21 @@ async def purge_invalid_upload(
     *,
     attachment_id: UUID,
     storage_key: str,
-) -> None:
+) -> bool:
     from app.repositories import attachments as attachments_repo
 
-    await gateway.delete_bytes(storage_key)
-    await attachments_repo.delete_rows(session, [attachment_id])
+    removed = await attachments_repo.delete_rows(session, [attachment_id])
+    if not removed:
+        return False
+    # Commit row deletion before irreversible object removal. Failed storage
+    # cleanup must survive the loss of its attachment row.
+    try:
+        await gateway.delete_bytes(storage_key)
+    except Exception:
+        from app.services.attachment_lifecycle import enqueue_failed_storage_deletes
+
+        await enqueue_failed_storage_deletes([storage_key])
+    return True
 
 
 async def ensure_verified_or_purge(
@@ -504,17 +514,17 @@ async def ensure_verified_or_purge(
     content_type: str,
     storage_key: str,
     declared_size: int | None = None,
-) -> str | None:
+) -> tuple[str | None, bool]:
     """Verify R2/S3 bytes match declared type; purge row+object on failure.
 
     Local dev uploads are validated on PUT /upload — no-op for that backend.
-    Returns an error detail when verification fails (after purge).
+    Returns the error detail and whether this call actually purged the row.
     """
     from app.gateways.storage_gateway import LocalStorageGateway
     from app.repositories import attachments as attachments_repo
 
     if isinstance(gateway, LocalStorageGateway):
-        return None
+        return None, False
     _, error = await verify_uploaded_bytes(
         gateway,
         content_type=content_type,
@@ -522,15 +532,15 @@ async def ensure_verified_or_purge(
         declared_size=declared_size,
     )
     if error:
-        await purge_invalid_upload(
+        removed = await purge_invalid_upload(
             gateway,
             session,
             attachment_id=attachment_id,
             storage_key=storage_key,
         )
-        return error
+        return error, removed
     await attachments_repo.mark_verified(session, attachment_id)
-    return None
+    return None, False
 
 
 async def format_attachment_lines(

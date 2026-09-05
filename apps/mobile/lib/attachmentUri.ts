@@ -3,6 +3,24 @@ import { attachmentIdFromRef } from "@/lib/attachmentRef";
 
 export { attachmentIdFromRef };
 
+/** Only the configured API origin and base path may receive Recall credentials. */
+export function recallAttachmentPath(uri: string): string | null {
+  try {
+    const base = new URL(`${getApiUrl().replace(/\/+$/, "")}/`);
+    const url = new URL(uri);
+    const basePath = base.pathname.replace(/\/$/, "");
+    if (url.origin !== base.origin || url.username || url.password ||
+      !url.pathname.startsWith(`${basePath}/attachments/`)) return null;
+    return `${url.pathname.slice(basePath.length)}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+export function attachmentRequestHeaders(uri: string, token: string | null): Record<string, string> {
+  return token && recallAttachmentPath(uri) ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function resolveAttachmentUri(options: {
   attachmentId?: string | null;
   localUri?: string | null;
@@ -12,18 +30,19 @@ export function resolveAttachmentUri(options: {
   if (options.localUri) return options.localUri;
   let uri: string | null = null;
   if (options.attachmentId) {
-    uri = `${getApiUrl()}/attachments/${options.attachmentId}/file`;
+    uri = `${getApiUrl().replace(/\/+$/, "")}/attachments/${options.attachmentId}/file`;
   } else {
     const path = options.path?.trim();
     if (!path) return null;
     if (path.startsWith("http://") || path.startsWith("https://")) uri = path;
-    else if (path.startsWith("/attachments/")) uri = `${getApiUrl()}${path}`;
+    else if (path.startsWith("/attachments/")) uri = `${getApiUrl().replace(/\/+$/, "")}${path}`;
   }
   if (!uri) return null;
   const width = options.width;
-  if (width && width > 0) {
-    const sep = uri.includes("?") ? "&" : "?";
-    return `${uri}${sep}w=${Math.round(width)}`;
+  if (width && Number.isFinite(width) && width > 0 && recallAttachmentPath(uri)) {
+    const url = new URL(uri);
+    url.searchParams.set("w", String(Math.round(width)));
+    return url.toString();
   }
   return uri;
 }

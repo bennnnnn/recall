@@ -71,10 +71,15 @@ async def insert_verified_clone(
     return row
 
 
-async def get_by_id(session: AsyncSession, attachment_id: UUID, user_id: UUID) -> Attachment | None:
-    result = await session.execute(
-        select(Attachment).where(Attachment.id == attachment_id, Attachment.user_id == user_id)
+async def get_by_id(
+    session: AsyncSession, attachment_id: UUID, user_id: UUID, *, for_update: bool = False
+) -> Attachment | None:
+    statement = select(Attachment).where(
+        Attachment.id == attachment_id, Attachment.user_id == user_id
     )
+    if for_update:
+        statement = statement.with_for_update().execution_options(populate_existing=True)
+    result = await session.execute(statement)
     return result.scalar_one_or_none()
 
 
@@ -307,7 +312,7 @@ async def delete_rows(
     *,
     commit: bool = True,
 ) -> int:
-    """Delete attachment rows by id (the reaper deletes bytes first, then this)."""
+    """Delete attachment rows; callers remove stored bytes only after committing."""
     if not ids:
         return 0
     from sqlalchemy import delete as sql_delete
@@ -321,19 +326,22 @@ async def delete_rows(
     return result.rowcount or 0
 
 
-async def delete_unlinked_returning(session: AsyncSession, ids: list[UUID]) -> list[str]:
-    """Delete rows still unlinked; return storage keys removed from the DB."""
+async def delete_unlinked_returning(
+    session: AsyncSession, ids: list[UUID], *, orphan_only: bool = False
+) -> list[str]:
+    """Delete rows still eligible for cleanup; return committed storage keys."""
     if not ids:
         return []
     from sqlalchemy import delete as sql_delete
 
-    result = await session.execute(
-        sql_delete(Attachment)
-        .where(
-            Attachment.id.in_(ids),
-            Attachment.message_id.is_(None),
-        )
-        .returning(Attachment.storage_key)
+    statement = sql_delete(Attachment).where(
+        Attachment.id.in_(ids),
+        Attachment.message_id.is_(None),
     )
+    if orphan_only:
+        statement = statement.where(
+            or_(Attachment.verified_at.is_(None), Attachment.library_visible.is_(False))
+        )
+    result = await session.execute(statement.returning(Attachment.storage_key))
     await session.commit()
     return [row[0] for row in result.all()]

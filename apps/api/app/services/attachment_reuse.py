@@ -26,24 +26,43 @@ async def ensure_unlinked_copies(
         return []
     out: list[Attachment] = []
     gateway = None
-    for row in rows:
-        if row.message_id is None:
-            out.append(row)
-            continue
-        if gateway is None:
-            gateway = get_storage_gateway(settings)
-        data = await gateway.read_bytes(row.storage_key)
-        if not data:
-            raise AttachmentValidationError("Could not read the attached file.")
-        new_id = uuid4()
-        storage_key = f"{row.user_id}/{new_id}"
-        await gateway.write_bytes(storage_key, data)
-        out.append(
-            await attachments_repo.insert_verified_clone(
-                session,
-                src=row,
-                new_id=new_id,
-                storage_key=storage_key,
+    created_keys: list[str] = []
+    try:
+        for row in rows:
+            if row.message_id is None:
+                out.append(row)
+                continue
+            if row.verified_at is None:
+                raise AttachmentValidationError("The attached file has not finished uploading.")
+            if gateway is None:
+                gateway = get_storage_gateway(settings)
+            data = await gateway.read_bytes(row.storage_key)
+            if not data:
+                raise AttachmentValidationError("Could not read the attached file.")
+            new_id = uuid4()
+            storage_key = f"{row.user_id}/{new_id}"
+            created_keys.append(storage_key)
+            await gateway.write_bytes(storage_key, data)
+            out.append(
+                await attachments_repo.insert_verified_clone(
+                    session,
+                    src=row,
+                    new_id=new_id,
+                    storage_key=storage_key,
+                )
             )
-        )
+        if created_keys:
+            await session.commit()
+    except BaseException:
+        try:
+            await session.rollback()
+        finally:
+            from app.services.attachment_lifecycle import (
+                delete_storage_keys,
+                enqueue_failed_storage_deletes,
+            )
+
+            failed = await delete_storage_keys(settings, created_keys)
+            await enqueue_failed_storage_deletes(failed)
+        raise
     return out
