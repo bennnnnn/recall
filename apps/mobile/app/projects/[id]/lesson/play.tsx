@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { ActionShimmer } from "@/components/ActionShimmer";
 import { Button } from "@/components/Button";
@@ -9,6 +9,7 @@ import { Icon } from "@/components/Icon";
 import { StateView } from "@/components/StateView";
 import { VocabCard } from "@/components/VocabCard";
 import { LessonCompleteCard } from "@/components/projects/LessonCompleteCard";
+import { LessonGradeSheet } from "@/components/projects/LessonGradeSheet";
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -30,6 +31,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = typeof id === "string" ? id : "";
@@ -46,7 +48,6 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
     currentNumber,
     total,
     progressFill,
-    saving,
     canAdvance,
     submitLetter,
     continueLesson,
@@ -66,7 +67,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
     if (isCurrent()) void lesson.load({ force: true });
   };
   return (
-    <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
         <Pressable
           onPress={back}
@@ -127,39 +128,18 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
             <LessonQuizCards
               choices={quiz.quiz.choices}
               correctLetter={quiz.quiz.correct}
-              selectedLetter={answer?.letter}
-              disabled={saving || answer?.status === "failed"}
+              selectedLetter={reviewing ? quiz.quiz.correct : answer?.letter}
+              disabled={reviewing || answer?.status === "failed"}
               onSelect={submitLetter}
             />
-            {answer ? (
-              <View
-                style={[
-                  s.feedback,
-                  { backgroundColor: answer.correct ? theme.successLight : theme.dangerLight },
-                ]}
-                accessibilityLiveRegion="polite"
-              >
-                <Icon
-                  name={answer.correct ? "checkmark-circle" : "close-circle"}
-                  size={24}
-                  color={answer.correct ? theme.success : theme.danger}
-                />
-                <View style={s.feedbackCopy}>
-                  {answer.correct ? (
-                    <Text style={s.feedbackHeading}>{t("lesson.correct")}</Text>
-                  ) : null}
-                  <Text style={s.feedbackText}>{quiz.explanation}</Text>
-                </View>
-              </View>
-            ) : null}
           </>
         ) : null}
         {!step && !empty && !complete && !lesson.loadError ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
         ) : null}
       </ScrollView>
-      {step ? (
-        <View style={s.footer}>
+      {(step?.kind === "teach" || reviewing) && (error || canAdvance) ? (
+        <View style={[s.footer, { paddingBottom: Space.lg + insets.bottom }]}>
           {error ? (
             <>
               <Text style={s.error} accessibilityLiveRegion="polite">
@@ -167,21 +147,30 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
               </Text>
               <Button title={t("common.retry")} onPress={lesson.retryAnswer} />
             </>
-          ) : canAdvance ? (
+          ) : (
             <Button
               title={t("lesson.continue")}
               onPress={() => {
                 audio.stop();
-                continueLesson();
+                void continueLesson();
               }}
-              loading={saving}
-              disabled={saving}
               style={s.nextBtn}
             />
-          ) : saving ? (
-            <ActionShimmer label={t("lesson.saving")} color={theme.primary} />
-          ) : null}
+          )}
         </View>
+      ) : null}
+      {quiz && answer && !reviewing ? (
+        <LessonGradeSheet
+          correct={answer.correct}
+          explanation={quiz.explanation}
+          error={error}
+          showContinue={canAdvance}
+          onContinue={() => {
+            audio.stop();
+            void continueLesson();
+          }}
+          onRetry={lesson.retryAnswer}
+        />
       ) : null}
     </SafeAreaView>
   );
@@ -190,16 +179,6 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     contextSentence: { ...Type.body, fontSize: 20, lineHeight: 30, color: theme.textSecondary },
-    feedback: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      padding: Space.md,
-      borderRadius: Radius.xl,
-      gap: Space.sm,
-    },
-    feedbackCopy: { flex: 1, gap: Space.xxs },
-    feedbackHeading: { ...Type.body, fontWeight: "700", color: theme.text },
-    feedbackText: { ...Type.body, color: theme.text, lineHeight: 26 },
     safe: { flex: 1, backgroundColor: theme.bg },
     header: {
       flexDirection: "row",

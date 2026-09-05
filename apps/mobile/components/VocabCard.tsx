@@ -24,6 +24,7 @@ type Props = {
 };
 
 const SPEAK = 52;
+const COMPACT_WORD = 18;
 
 export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const theme = useTheme();
@@ -34,6 +35,7 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const ipa = card.ipa?.trim();
   const meaning = cardMeaning(card);
   const examples = card.examples?.length ? card.examples : exampleSentences(card.exampleSentence);
+  const compactWord = word.length > COMPACT_WORD;
 
   const handleSpeak = () => {
     if (onSpeak) {
@@ -50,41 +52,42 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
 
   return (
     <View style={s.root} accessibilityRole="summary">
-      <View style={s.hero}>
-        <Pressable onPress={handleSpeak} style={s.heroText} accessible={false}>
-          <Text style={s.word} accessibilityRole="header">
-            {word}
-          </Text>
-          {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
-        </Pressable>
-        <Pressable
-          onPress={handleSpeak}
-          style={s.speakBtn}
-          accessibilityRole="button"
-          accessibilityLabel={t("lesson.speak")}
-        >
-          <Icon name="volume-medium-outline" size={22} color={theme.onPrimary} />
-        </Pressable>
+      <View style={s.entry}>
+        <View style={s.hero}>
+          <Pressable onPress={handleSpeak} style={s.heroText} accessible={false}>
+            <Text style={[s.word, compactWord && s.wordCompact]} accessibilityRole="header">
+              {word}
+            </Text>
+            {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
+          </Pressable>
+          <Pressable
+            onPress={handleSpeak}
+            style={s.speakBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t("lesson.speak")}
+          >
+            <Icon name="volume-medium-outline" size={22} color={theme.onPrimary} />
+          </Pressable>
+        </View>
+        <Text style={s.meaning}>{meaning}</Text>
       </View>
-
-      <Text style={s.meaning}>{meaning}</Text>
 
       {examples.length > 0 ? (
         <View style={s.examples}>
           {examples.map((sentence) => (
-            <Text key={sentence} style={s.example}>
-              {highlightLemmaParts(sentence, word).map((part, index) =>
-                part.match ? (
-                  <Text key={`${index}-m`} style={s.lemma}>
-                    {part.text}
-                  </Text>
-                ) : (
-                  <Text key={`${index}-r`} style={s.exampleRest}>
-                    {part.text}
-                  </Text>
-                ),
-              )}
-            </Text>
+            <View key={sentence} style={s.quote}>
+              <Text style={s.example}>
+                {highlightLemmaParts(sentence, word).map((part, index) =>
+                  part.match ? (
+                    <Text key={`${index}-m`} style={s.lemma}>
+                      {part.text}
+                    </Text>
+                  ) : (
+                    <Text key={`${index}-r`}>{part.text}</Text>
+                  ),
+                )}
+              </Text>
+            </View>
           ))}
         </View>
       ) : null}
@@ -102,6 +105,9 @@ function makeStyles(t: Theme) {
     root: {
       alignSelf: "stretch",
       gap: Space.lg,
+    },
+    entry: {
+      gap: Space.md,
       padding: Space.lg,
       borderRadius: Radius.sheet,
       backgroundColor: t.surface,
@@ -117,10 +123,14 @@ function makeStyles(t: Theme) {
     },
     word: {
       ...Type.display,
-      fontSize: 36,
-      lineHeight: 42,
+      fontSize: 30,
+      lineHeight: 36,
       fontWeight: "800",
       color: t.text,
+    },
+    wordCompact: {
+      fontSize: 26,
+      lineHeight: 32,
     },
     speakBtn: {
       width: SPEAK,
@@ -136,23 +146,27 @@ function makeStyles(t: Theme) {
       color: t.textSecondary,
     },
     meaning: {
-      fontSize: 22,
-      lineHeight: 32,
+      fontSize: 20,
+      lineHeight: 28,
       color: t.text,
     },
     examples: {
-      gap: Space.xs,
+      gap: Space.sm,
+    },
+    quote: {
+      paddingVertical: Space.md,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.lg,
+      backgroundColor: t.bg,
+      borderWidth: 1,
+      borderColor: t.border,
     },
     example: {
-      fontSize: 20,
-      lineHeight: 30,
+      fontSize: 18,
+      lineHeight: 26,
       color: t.textSecondary,
     },
-    exampleRest: {
-      fontStyle: "italic",
-    },
     lemma: {
-      fontStyle: "normal",
       fontWeight: "700",
       color: t.text,
     },
