@@ -13,7 +13,7 @@ Extraction prompts, recall ranking, and unrelated product features are unchanged
 - Independent section mutations update only their own rows. Same-section writes remain
   exclusive across screen remounts, and completions reconcile the current account's
   cache even after the initiating screen closes. In-flight reads replay intervening
-  mutations; failed fact deletion refreshes authoritative data after older reads settle.
+  mutations; failed edits and deletions refresh authoritative data after older reads settle.
 - Failed refreshes retain saved rows and show Retry. Settings counts track cache changes
   and returning from the memory screen. The learning toggle cannot issue overlapping
   writes after navigation; stale completions cannot clear another account's busy state
@@ -39,7 +39,7 @@ responses, long fact selectors, and retry after an offscreen failure. Database t
 exercise manual/background write conflicts, disabled learning, deleted rows, stale
 embeddings, ownership, and account-deletion lock ordering.
 
-All 2,454 mobile tests passed across 281 suites. The full local backend suite passed
+All 2,456 mobile tests passed across 282 suites. The full local backend suite passed
 3,393 tests with 85.82% coverage. Ruff, formatting, mypy, mobile TypeScript, and ESLint
 passed; changed mobile files have no lint warnings. The 62 real PostgreSQL tests,
 including 13 new conditional-memory-write cases, run against CI's isolated database.

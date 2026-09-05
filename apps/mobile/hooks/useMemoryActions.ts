@@ -100,7 +100,6 @@ export function useMemoryActions(token: string | null) {
     optimistic: MemoryUpdate,
     rollback: MemoryUpdate,
     request: () => Promise<MemoryUpdate>,
-    refreshOnFailure = false,
   ): Promise<boolean> => {
     if (!isCurrentOwner() || owner.pending.has(type)) return false;
     owner.pending.add(type);
@@ -112,9 +111,9 @@ export function useMemoryActions(token: string | null) {
       return isCurrentOwner();
     } catch {
       applyUpdate(rollback);
-      if (refreshOnFailure && token && isSameOwner()) {
-        // A failed selector can mean the fact changed on the server. Settle
-        // reads carrying optimism/rollback before requesting authoritative rows.
+      if (token && isSameOwner()) {
+        // A failed response can hide a committed write or a concurrent change.
+        // Settle reads carrying rollback before requesting authoritative rows.
         void fetchMemories(token, { force: true, afterPending: true }).then((data) => {
           if (isSameOwner()) notifyMutation(data === null);
         });
@@ -172,7 +171,7 @@ export function useMemoryActions(token: string | null) {
     return mutate(snapshot.type, remove, restore, async () => {
       await api.deleteMemoryFact(token, snapshot.id, targetIndex, factText);
       return remove;
-    }, true);
+    });
   }, [token, isCurrentOwner, mutate]);
 
   const updateMemoryText = useCallback(async (memoryId: string, nextText: string): Promise<boolean> => {
