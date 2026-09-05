@@ -20,7 +20,9 @@ features. This pass does not add undated lists or Learning-project linking.
   refresh preserves the active draft. Android uses separate date and time dialogs and
   commits only a complete selection; cancellation and stale native callbacks cannot save
   partial dates. iOS retains its combined picker.
-- The list loads every page before treating it as authoritative. Failed refreshes keep
+- The list loads every page using immutable reminder IDs before treating it as authoritative.
+  Checking, reordering or changing a reminder's topic between pages cannot hide another
+  existing reminder. Failed refreshes keep
   existing rows with Retry. Account changes reject old reads and setters; list/mutation
   coordination prevents older reads from undoing active changes.
 - Calendar and suggestion failures retain useful rows and expose Retry. Opening a
@@ -41,6 +43,24 @@ features. This pass does not add undated lists or Learning-project linking.
   push-off reads catch up local recurrence without overwriting concurrent edits.
   Long catch-up spans no longer stop after 400 occurrences; timezone/DST behavior and
   the existing monthly clamping policy are preserved.
+- Recurring reminders are excluded from email delivery, matching the push-only product
+  policy. One-shot email finalization uses the occurrence captured before sending, so a
+  concurrent edit, completion or reschedule cannot mark the new state as emailed. An
+  independent successful push does not prevent the matching email stamp. Failed database
+  saves roll back before processing later reminders.
+
+## API compatibility
+
+The mobile client uses `GET /todos/page?limit=1000` and follows the returned
+`next_cursor` until it is null. The endpoint orders by immutable UUID, applies account
+ownership to every page, and retains the selected boundary when a reminder disappears
+during recurrence catch-up. The existing array/offset `GET /todos` remains available for
+older clients. Deploy the API with the new endpoint before releasing the updated mobile
+client.
+
+Pagination preserves traversal of existing IDs across edits; it is not a point-in-time
+snapshot of reminder contents. A new reminder inserted behind the cursor appears on the
+next refresh. Schedule applies its display ordering after loading the data.
 
 ## Validation
 
@@ -50,9 +70,10 @@ requests and native callbacks. Backend tests use local SQL for CRUD/chat/deliver
 integration and PostgreSQL cases for conditional writes and ownership. Native services
 and external providers are replaced by fixtures.
 
-All 2,540 mobile tests passed across 290 suites. TypeScript and ESLint passed; changed
+All 2,544 mobile tests passed across 290 suites. TypeScript and ESLint passed; changed
 mobile files have no lint warnings, with 146 existing warnings elsewhere. The full
-local API suite passed 3,415 tests with 85.87% coverage. Ruff, formatting and mypy passed. The 71 PostgreSQL tests, including nine new Schedule persistence cases,
+local API suite passed 3,445 tests with 85.92% coverage. Ruff, formatting and mypy passed.
+The 81 PostgreSQL tests, including ten email-finalization cases and nine Schedule persistence cases,
 run against CI's isolated database. Final CI results are recorded in the PR.
 Local backend tests use a sanitized environment with live services blocked. No schema
 migration or web code change is required.
@@ -65,5 +86,4 @@ migration or web code change is required.
 - Verify local alerts and server pushes under real OS permission states, foreground and
   background transitions, lead-time changes, timezones and recurring occurrences.
   Automated tests cannot establish native delivery behavior on a particular device.
-- Review this PR after its prerequisite feature PRs. This feature pass does not certify
-  the entire app as production-ready or error-free.
+- This feature pass does not certify the entire app as production-ready or error-free.

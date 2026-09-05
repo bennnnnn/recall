@@ -449,6 +449,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
   list reads and row mutations, Android date-then-time selection, serialized local
   notifications, and conditional server recurrence/delivery writes protect reminder state.
+  Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
+  existing reminders. Recurring reminders are excluded from email; one-shot email
+  finalization cannot mark a concurrently edited occurrence as delivered.
   See [review and release checks](docs/SCHEDULE_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
