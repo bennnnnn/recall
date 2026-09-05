@@ -3,7 +3,7 @@
  *
  * When the rich markdown renderer throws, `FallbackMarkdown` renders a
  * best-effort view. Callouts stay as labeled prose. Geometry/graph keep their
- * SVG renderers. Server transport (sources/places/answer) and heavy visuals
+ * SVG renderers. Server transport (sources/answer), model places, and heavy visuals
  * degrade to a short human summary — never raw JSON or SDF dumps.
  */
 import { parseGraphSpec } from "@/lib/graphBlock";

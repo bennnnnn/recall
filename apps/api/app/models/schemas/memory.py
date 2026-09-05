@@ -27,7 +27,7 @@ class MemoryUpdate(BaseModel):
 
 class MemorySectionItem(BaseModel):
     type: MemoryType
-    summary: str = Field(min_length=3, max_length=MEMORY_TEXT_MAX_LENGTH)
+    summary: str = Field(default="", max_length=MEMORY_TEXT_MAX_LENGTH)
     confidence: float = Field(ge=0.0, le=1.0)
 
 

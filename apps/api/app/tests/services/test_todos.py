@@ -1100,17 +1100,56 @@ async def test_build_todos_system_section_returns_hint_and_block():
     user.timezone = "UTC"
     dated = _item("Task")
     dated.due_at = datetime.now(UTC) + timedelta(hours=2)
-    with patch.object(
-        todos_repo,
-        "list_for_user",
-        AsyncMock(return_value=[dated]),
+    with (
+        patch.object(
+            todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=[dated]),
+        ),
+        patch(
+            "app.services.todos.prompt_context.suggested_repo.added_todo_ids_for_user",
+            AsyncMock(return_value=set()),
+        ),
     ):
         section = await todos_service.build_todos_system_section(
             session, user, Settings(), query_text="Show my tasks"
         )
     assert section is not None
-    assert "Schedule" in section
-    assert "shopping-list" in section or "checklist" in section
-    assert "two todo features" not in section
-    assert "Never call this feature todos, tasks, or lists" in section
-    assert "Task" in section
+    assert section.own is not None
+    assert section.gmail is None
+    assert "Schedule" in section.own
+    assert "shopping-list" in section.own or "checklist" in section.own
+    assert "two todo features" not in section.own
+    assert "Never call this feature todos, tasks, or lists" in section.own
+    assert "Task" in section.own
+
+
+@pytest.mark.asyncio
+async def test_build_todos_system_section_splits_gmail_sourced_reminders():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    own = _item("Buy milk")
+    own.due_at = datetime.now(UTC) + timedelta(hours=2)
+    gmail = _item("Invoice due")
+    gmail.due_at = datetime.now(UTC) + timedelta(hours=3)
+    with (
+        patch.object(
+            todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=[own, gmail]),
+        ),
+        patch(
+            "app.services.todos.prompt_context.suggested_repo.added_todo_ids_for_user",
+            AsyncMock(return_value={gmail.id}),
+        ),
+    ):
+        section = await todos_service.build_todos_system_section(
+            session, user, Settings(), query_text="Show my tasks"
+        )
+    assert section is not None
+    assert section.own is not None and "Buy milk" in section.own
+    assert "Invoice due" not in (section.own or "")
+    assert section.gmail is not None and "Invoice due" in section.gmail
+    assert "Buy milk" not in section.gmail

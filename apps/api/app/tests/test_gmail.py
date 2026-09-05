@@ -86,6 +86,47 @@ async def test_sync_gmail_skips_when_not_connected():
 
 
 @pytest.mark.asyncio
+async def test_sync_gmail_disconnects_on_permanent_oauth_error():
+    from app.gateways.google_gmail_gateway import GoogleGmailError
+    from app.services import email as email_service
+
+    session = MagicMock()
+    settings = Settings()
+    redis = AsyncMock()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    disconnect = AsyncMock()
+
+    with (
+        patch(
+            "app.services.email.gmail_gateway.is_configured",
+            return_value=True,
+        ),
+        patch(
+            "app.services.email.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch(
+            "app.services.email.decrypt_refresh_token",
+            return_value="refresh",
+        ),
+        patch(
+            "app.services.email.gmail_gateway.list_recent_messages",
+            AsyncMock(side_effect=GoogleGmailError("expired", permanent=True)),
+        ),
+        patch(
+            "app.services.google_integrations.disconnect_gmail",
+            disconnect,
+        ),
+    ):
+        count = await email_service.sync_gmail_for_user(session, settings, user_id, redis=redis)
+
+    assert count == (0, 0)
+    disconnect.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_dismiss_suggested_reminder():
     from app.models.orm import SuggestedReminder
     from app.services import email as email_service

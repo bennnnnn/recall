@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 _LIVE_TALK_RECENT = 12
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
-_REALTIME_SESSION_TTL_SECONDS = 2 * 60 * 60
+# Cap billed OpenAI Realtime minutes. Persist also rejects after this TTL.
+_REALTIME_SESSION_TTL_SECONDS = 15 * 60
 # Match text-chat advice inject (`_ADVICE_MEMORY_MAX_CHARS` in prompt_builder).
 _LIVE_TALK_MEMORY_MAX_CHARS = 1000
 _REALTIME_HISTORY_MAX = 10
@@ -62,6 +63,23 @@ async def realtime_session_is_active(redis: Redis, user_id: UUID, session_id: st
     if not token:
         return False
     return bool(await redis.get(_realtime_session_key(user_id, token)))
+
+
+async def realtime_session_bound_chat_id(
+    redis: Redis, user_id: UUID, session_id: str
+) -> UUID | None:
+    """Chat this WebRTC session may persist into, or None if the session is gone."""
+    token = (session_id or "").strip()
+    if not token:
+        return None
+    raw = await redis.get(_realtime_session_key(user_id, token))
+    if raw is None:
+        return None
+    text = raw.decode() if isinstance(raw, bytes | bytearray) else str(raw)
+    try:
+        return UUID(text)
+    except ValueError:
+        return None
 
 
 async def load_live_talk_history(

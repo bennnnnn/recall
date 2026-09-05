@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
+from app.repositories import suggested_reminders as suggested_repo
 from app.repositories import todos as todos_repo
 from app.repositories.todos import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
@@ -19,6 +21,14 @@ from app.services.todos.prompt_hint import TODO_HINT
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
+
+
+@dataclass(frozen=True)
+class TodosPromptSections:
+    """Schedule inject split so Gmail-sourced rows keep untrusted framing."""
+
+    own: str | None = None
+    gmail: str | None = None
 
 
 def _topic_key(topic: str) -> str:
@@ -194,8 +204,12 @@ async def build_todos_system_section(
     *,
     client_timezone: str | None = None,
     query_text: str | None = None,
-) -> str | None:
-    """Todo hint + snapshot block, or None when the turn is unrelated."""
+) -> TodosPromptSections | None:
+    """Todo hint + snapshot blocks, or None when the turn is unrelated.
+
+    Gmail-confirmed reminders stay in a separate block so prompt_builder can
+    wrap them as third-party untrusted content instead of first-party notes.
+    """
     tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     probe: list[TodoItem] = []
     text_hit = bool(
@@ -208,7 +222,14 @@ async def build_todos_system_section(
         return None
     items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
-    block = format_todos_block(selected, user_timezone=tz)
-    if block:
-        return f"{TODO_HINT}\n\n{block}"
-    return TODO_HINT
+    gmail_ids = await suggested_repo.added_todo_ids_for_user(
+        session, user.id, [item.id for item in selected]
+    )
+    own_items = [item for item in selected if item.id not in gmail_ids]
+    gmail_items = [item for item in selected if item.id in gmail_ids]
+    own_block = format_todos_block(own_items, user_timezone=tz)
+    gmail_block = format_todos_block(gmail_items, user_timezone=tz)
+    own_section = (
+        f"{TODO_HINT}\n\n{own_block}" if own_block else (TODO_HINT if not gmail_block else None)
+    )
+    return TodosPromptSections(own=own_section, gmail=gmail_block or None)

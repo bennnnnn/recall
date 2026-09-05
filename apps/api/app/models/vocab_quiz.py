@@ -6,6 +6,8 @@ import json
 import re
 from dataclasses import dataclass
 
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
+
 VOCAB_QUIZ_FENCE_RE = re.compile(r"```vocab_quiz[^\n]*\n([\s\S]*?)```", re.IGNORECASE)
 VOCAB_SESSION_JSON_FENCE_RE = re.compile(r"```json\s*\n([\s\S]*?)```", re.IGNORECASE)
 VOCAB_SESSION_JSON_PARTIAL_RE = re.compile(r"```json[\s\S]*$", re.IGNORECASE)
@@ -30,6 +32,28 @@ _SESSION_METADATA_KEYS = frozenset(
         "dailyGoalMet",
     }
 )
+
+
+class VocabQuizChoiceIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    letter: str = Field(min_length=1, max_length=4)
+    text: str = Field(min_length=1, max_length=500)
+
+
+class VocabQuizFenceIn(BaseModel):
+    """Pydantic gate for model-authored ```vocab_quiz JSON (golden rule 6)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    word: str = ""
+    question: str = ""
+    quiz_type: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("quiz_type", "quizType"),
+    )
+    correct: str
+    choices: list[VocabQuizChoiceIn]
 
 
 @dataclass(frozen=True)
@@ -160,43 +184,36 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         return None
     try:
         data = json.loads(match.group(1).strip())
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(data, dict):
+        fence = VocabQuizFenceIn.model_validate(data)
+    except (json.JSONDecodeError, ValidationError):
         return None
 
-    quiz_type_raw = str(data.get("quiz_type") or data.get("quizType") or "").lower()
+    quiz_type_raw = (fence.quiz_type or "").lower()
     quiz_type = quiz_type_raw if quiz_type_raw in ("vocab", "trivia") else None
 
-    word = _clean_word(str(data.get("word") or ""))
-    question = str(data.get("question") or "").strip() or None
+    word = _clean_word(fence.word)
+    question = fence.question.strip() or None
     if quiz_type == "trivia":
         if not question and not word:
             return None
     elif not word:
         return None
 
-    choices = data.get("choices")
-    # Require 4 choices to match the mobile parser (parseVocabQuiz.ts rejects
-    # < 4). Without this, the backend would accept a 2-3 choice quiz the mobile
-    # refuses to render, leaving the user stuck on an un-answerable card.
-    if not isinstance(choices, list) or len(choices) < 4:
+    if len(fence.choices) < 4:
         return None
 
-    correct_raw = str(data.get("correct") or "").upper()
+    correct_raw = fence.correct.upper()
     if not re.fullmatch(r"[A-D]", correct_raw):
         return None
     correct = correct_raw
 
     correct_text: str | None = None
     choice_pairs: list[tuple[str, str]] = []
-    for choice in choices:
-        if not isinstance(choice, dict):
-            continue
-        letter = str(choice.get("letter") or "").upper()
+    for choice in fence.choices:
+        letter = choice.letter.upper()
         if not re.fullmatch(r"[A-D]", letter):
             continue
-        text = str(choice.get("text") or "").strip()
+        text = choice.text.strip()
         if not text:
             continue
         choice_pairs.append((letter, text))

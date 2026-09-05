@@ -37,7 +37,9 @@ DEFAULT_TIMEOUT = 15.0
 
 
 class GoogleCalendarError(Exception):
-    pass
+    def __init__(self, message: str, *, permanent: bool = False) -> None:
+        super().__init__(message)
+        self.permanent = permanent
 
 
 @dataclass(frozen=True)
@@ -79,7 +81,10 @@ async def _access_token(settings: Settings, refresh_token: str) -> str:
     try:
         return await google_oauth.refresh_access_token(settings, refresh_token)
     except google_oauth.GoogleOAuthError as exc:
-        raise GoogleCalendarError("Google Calendar authorization expired.") from exc
+        raise GoogleCalendarError(
+            "Google Calendar authorization expired.",
+            permanent=exc.permanent,
+        ) from exc
 
 
 def _parse_event_time(raw: dict[str, Any], tz_name: str) -> datetime | None:

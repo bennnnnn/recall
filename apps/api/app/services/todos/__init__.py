@@ -16,6 +16,7 @@ from app.services.todos.classification import (
     transcript_implies_todo_sync,
 )
 from app.services.todos.prompt_context import (
+    TodosPromptSections,
     build_todos_system_section,
     format_todos_block,
     select_todos_for_prompt,
@@ -35,6 +36,7 @@ __all__ = [
     "REMINDER_TOPIC",
     "TODO_HINT",
     "TODO_SYNC_RECENT_MESSAGES",
+    "TodosPromptSections",
     "apply_todo_actions",
     "build_todo_sync_transcript",
     "build_todos_system_section",

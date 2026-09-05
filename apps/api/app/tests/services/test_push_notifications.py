@@ -1186,3 +1186,57 @@ async def test_process_calendar_nudges_sends_once_per_event():
     assert "Standup" in messages[0].message["body"]
     assert messages[0].message["data"]["type"] == "calendar_nudge"
     redis.set.assert_awaited()
+    set_args = redis.set.await_args
+    assert set_args.args[1] == "inflight"
+    assert set_args.kwargs["ex"] <= push_service.PUSH_DEDUPE_INFLIGHT_TTL_SECONDS
+    assert messages[0].dedupe_ttl_seconds is not None
+    assert messages[0].dedupe_ttl_seconds >= set_args.kwargs["ex"]
+
+
+@pytest.mark.asyncio
+async def test_finalize_replaces_inflight_calendar_dedupe_on_success():
+    session = AsyncMock()
+    redis = AsyncMock()
+    outbound = [
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[cal]"},
+            dedupe_redis_key="recall:push:calendar:u:evt",
+            dedupe_ttl_seconds=3600,
+        )
+    ]
+    await push_service.finalize_push_deliveries(session, redis, outbound, [True])
+    redis.set.assert_awaited_with("recall:push:calendar:u:evt", "1", ex=3600)
+
+
+@pytest.mark.asyncio
+async def test_finalize_releases_inflight_calendar_dedupe_on_failure():
+    session = AsyncMock()
+    redis = AsyncMock()
+    outbound = [
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[cal]"},
+            dedupe_redis_key="recall:push:calendar:u:evt",
+            dedupe_ttl_seconds=3600,
+        )
+    ]
+    await push_service.finalize_push_deliveries(session, redis, outbound, [False])
+    redis.delete.assert_awaited_with("recall:push:calendar:u:evt")
+    redis.set.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_finalize_keeps_learning_dedupe_for_a_day_after_send():
+    session = AsyncMock()
+    redis = AsyncMock()
+    outbound = [
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[learn]"},
+            learning_redis_key="recall:push:learning:u:day",
+        )
+    ]
+    await push_service.finalize_push_deliveries(session, redis, outbound, [True])
+    redis.set.assert_awaited_with(
+        "recall:push:learning:u:day",
+        "1",
+        ex=push_service.LEARNING_DEDUPE_TTL_SECONDS,
+    )

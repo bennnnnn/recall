@@ -20,7 +20,9 @@ DEFAULT_TIMEOUT = 15.0
 
 
 class GoogleGmailError(Exception):
-    pass
+    def __init__(self, message: str, *, permanent: bool = False) -> None:
+        super().__init__(message)
+        self.permanent = permanent
 
 
 @dataclass(frozen=True)
@@ -47,7 +49,10 @@ async def _access_token(settings: Settings, refresh_token: str) -> str:
     try:
         return await google_oauth.refresh_access_token(settings, refresh_token)
     except google_oauth.GoogleOAuthError as exc:
-        raise GoogleGmailError("Could not refresh Gmail access.") from exc
+        raise GoogleGmailError(
+            "Could not refresh Gmail access.",
+            permanent=exc.permanent,
+        ) from exc
 
 
 def _decode_body(data: str) -> str:

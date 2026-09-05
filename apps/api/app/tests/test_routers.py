@@ -2107,6 +2107,35 @@ def test_speech_transcribe_ok():
     assert r.json()["text"] == "hello world"
 
 
+def test_speech_transcribe_global_spend_cap():
+    import fakeredis.aioredis
+
+    from app.services.quota import VOICE_SPEND_CAP_MESSAGE
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="hello"),
+        ) as transcribe,
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+    assert r.status_code == 429
+    assert r.json()["detail"] == VOICE_SPEND_CAP_MESSAGE
+    transcribe.assert_not_awaited()
+
+
 def test_speech_transcribe_json_ok():
     import base64
 
@@ -2717,7 +2746,7 @@ def test_speech_live_turn_gone():
     client = TestClient(_app_with_user(user))
     r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 410
-    assert "session" in r.json()["detail"].lower()
+    assert "persist" in r.json()["detail"].lower()
 
 
 def test_speech_live_turn_pro_also_gone():

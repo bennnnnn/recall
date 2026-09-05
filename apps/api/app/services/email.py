@@ -472,7 +472,16 @@ async def sync_gmail_for_user(
     except OAuthTokenDecryptError:
         logger.exception("Gmail token decrypt failed for user_id=%s", user_id)
         raise
-    except gmail_gateway.GoogleGmailError:
+    except gmail_gateway.GoogleGmailError as exc:
+        if exc.permanent:
+            from app.services import google_integrations as google_integrations_service
+
+            logger.warning("Revoked Gmail grant; disconnecting user_id=%s", user_id)
+            if redis is not None:
+                await google_integrations_service.disconnect_gmail(
+                    session, redis, settings, user_id
+                )
+            return 0, 0
         logger.exception("Gmail fetch failed for user_id=%s", user_id)
         raise
 

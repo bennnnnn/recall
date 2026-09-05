@@ -78,18 +78,16 @@ export async function registerRemotePushToken(
   if (!granted) return;
 
   const expoPushToken = await resolveExpoPushToken();
-  if (!expoPushToken) return;
-
-  try {
-    const deviceId = await getInstallationId();
-    await api.registerPushToken(apiToken, {
-      expo_push_token: expoPushToken,
-      platform: Platform.OS,
-      device_id: deviceId ?? undefined,
-    });
-  } catch {
-    /* best-effort */
+  if (!expoPushToken) {
+    throw new Error("push_token_unavailable");
   }
+
+  const deviceId = await getInstallationId();
+  await api.registerPushToken(apiToken, {
+    expo_push_token: expoPushToken,
+    platform: Platform.OS,
+    device_id: deviceId ?? undefined,
+  });
 }
 
 /** Unregister the Expo push token from the backend.
@@ -119,7 +117,7 @@ export function attachPushForegroundSync(
   // Register when enabled, unregister when disabled — so toggling the pref
   // actually stops (or starts) backend delivery, not just OS permission.
   if (pushNotificationsEnabled) {
-    void registerRemotePushToken(apiToken, true);
+    void registerRemotePushToken(apiToken, true).catch(() => {});
   } else {
     void unregisterRemotePushToken(apiToken);
   }
@@ -127,7 +125,7 @@ export function attachPushForegroundSync(
   const onChange = (state: AppStateStatus) => {
     if (state === "active") {
       if (pushNotificationsEnabled) {
-        void registerRemotePushToken(apiToken, true);
+        void registerRemotePushToken(apiToken, true).catch(() => {});
       } else {
         void unregisterRemotePushToken(apiToken);
       }
