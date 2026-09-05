@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.content.vocab_catalog import all_catalog_decks, path_decks_for_language, word_id
+from app.content.vocab_catalog import all_catalog_decks, word_id
 from app.models.orm import VocabDeck, VocabEntry
 
 _CHUNK = 500
@@ -71,12 +71,8 @@ async def ensure_catalog_rows(session: AsyncSession) -> None:
 
 
 def _sync_decks() -> list[Any]:
-    """Source banks plus merged English path decks so extra lemmas get UUID5 rows."""
-    # Enriched path rows share some source UUIDs; the first occurrence wins.
-    decks = list(path_decks_for_language("en"))
-    decks.extend(path_decks_for_language("es"))
-    decks.extend(all_catalog_decks())
-    return decks
+    """Never reinsert retired source-bank rows during catalog reconciliation."""
+    return list(all_catalog_decks())
 
 
 async def _upsert_content(

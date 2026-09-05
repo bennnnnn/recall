@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A successful old Learning job hid new catalog content.** Project-only dedupe
+  keys survived content updates; include the catalog revision and propagate seed
+  failures so the worker retries instead of recording false success.
+- **A correct partial lesson erased a separate chat miss that day.** Merge legacy
+  misses unless a wrong lesson event already mirrors them; only final correct
+  answers count as word completion.
+
 - **Learning retries double-counted progress or mislabeled a review as newly learned.**
   A question save needs an owner-scoped attempt UUID and immutable completion outcome;
   keep failed answers for same-UUID retry and use the server result for the summary.

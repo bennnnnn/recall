@@ -334,12 +334,15 @@ def test_get_project_include_lists():
     project = _project(kind="language")
     project.daily_goal_history = [{"effective_from": "2024-01-01", "goal": 10}]
     project_id = project.id
+    from app.content.vocab_catalog import path_decks_for_language
+    from app.services.learning.catalog_items import word_values
+
+    deck = path_decks_for_language("en")[0]
     noun = _item(project_id)
-    noun.list_title = "General"
-    noun.content = "apple"
     verb = _item(project_id)
-    verb.list_title = "General"
-    verb.content = "run"
+    for item, word in zip((noun, verb), deck.words[:2], strict=True):
+        for name, value in word_values(deck, word).items():
+            setattr(item, name, value)
 
     with (
         patch(

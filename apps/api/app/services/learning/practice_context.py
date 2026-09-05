@@ -28,6 +28,8 @@ async def load_activity_context(
     events = await practice_repo.list_events(
         session, [project.id for project in projects], since=since
     )
+    visible_item_ids = {item.id for item in items}
+    events = [event for event in events if event.item_id in visible_item_ids]
     misses = await items_repo.list_miss_events_for_items(
         session, [item.id for item in items], since=since
     )

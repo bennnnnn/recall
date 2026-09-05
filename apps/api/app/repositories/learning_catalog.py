@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Table, bindparam, select, update
+from sqlalchemy import Table, bindparam, delete, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,48 +64,56 @@ async def update_contents(
     changes: list[tuple[ProjectItem, dict[str, Any]]],
 ) -> None:
     # Executemany batches by shape, avoiding a round trip per vocabulary item.
-    groups: dict[tuple[tuple[str, ...], bool], list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
     for item, values in changes:
-        legacy = item.catalog_entry_id is None
+        if item.catalog_entry_id is None:
+            continue
         parameters = {
             "_item_id": item.id,
             "_catalog_id": item.catalog_entry_id,
             **{"_value_" + name: value for name, value in values.items()},
         }
-        if legacy:
-            parameters.update(
-                {
-                    "_old_" + name: getattr(item, name)
-                    for name in (
-                        "list_title",
-                        "content",
-                        "definition",
-                        "example_sentence",
-                    )
-                }
-            )
-        groups[(tuple(sorted(values)), legacy)].append(parameters)
+        groups[tuple(sorted(values))].append(parameters)
     table = cast(Table, ProjectItem.__table__)
-    for (fields, legacy), batch in groups.items():
+    for fields, batch in groups.items():
         statement = update(table).where(
             table.c.id == bindparam("_item_id"),
             table.c.user_id == user_id,
             table.c.project_id == project_id,
         )
-        if legacy:
-            # Do not adopt a row edited by chat after the fingerprint read.
-            statement = statement.where(
-                table.c.catalog_entry_id.is_(None),
-                *(
-                    getattr(table.c, name).is_not_distinct_from(bindparam("_old_" + name))
-                    for name in ("list_title", "content", "definition", "example_sentence")
-                ),
-            )
-        else:
-            statement = statement.where(table.c.catalog_entry_id == bindparam("_catalog_id"))
+        statement = statement.where(table.c.catalog_entry_id == bindparam("_catalog_id"))
         statement = statement.values(**{name: bindparam("_value_" + name) for name in fields})
         for offset in range(0, len(batch), _CHUNK):
             await session.execute(statement, batch[offset : offset + _CHUNK])
+
+
+async def delete_retired(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    active_ids: Sequence[UUID],
+) -> None:
+    """Remove retired language content inside the caller's locked transaction."""
+    owner = exists().where(
+        Project.id == project_id,
+        Project.user_id == user_id,
+        Project.kind.in_(("language", "vocabulary")),
+        func.lower(func.trim(func.coalesce(Project.target_language, "en"))).in_(("en", "es")),
+    )
+    await session.execute(
+        delete(ProjectItem)
+        .where(
+            ProjectItem.user_id == user_id,
+            ProjectItem.project_id == project_id,
+            owner,
+            or_(
+                ProjectItem.catalog_entry_id.is_(None),
+                ProjectItem.catalog_entry_id.not_in(active_ids),
+            ),
+        )
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def insert_missing(

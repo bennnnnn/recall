@@ -85,7 +85,7 @@ async def test_transient_seed_failure_retries_before_success_ack(catalog_sql, mo
 
     assert attempts == 2
     rows = sync.scalars(select(ProjectItem)).all()
-    assert len(rows) == sum(len(deck.words) for deck in decks) == 387
+    assert len(rows) == sum(len(deck.words) for deck in decks) == 40
     assert {row.user_id for row in rows} == {user_id}
     assert {row.project_id for row in rows} == {project_id}
     redis.expire.assert_awaited_once()
@@ -95,9 +95,9 @@ async def test_transient_seed_failure_retries_before_success_ack(catalog_sql, mo
         session, sync.get(User, user_id), project_id, include_lists=True
     )
     assert detail is not None
-    assert len(detail["path_progress"]) == len(detail["lists"]) == 20
-    assert sum(group.total for group in detail["path_progress"]) == 387
-    assert sum(len(group.items) for group in detail["lists"]) == 387
+    assert len(detail["path_progress"]) == len(detail["lists"]) == 4
+    assert sum(group.total for group in detail["path_progress"]) == 40
+    assert sum(len(group.items) for group in detail["lists"]) == 40
     assert detail["up_next"] == decks[0].title
 
 
@@ -135,7 +135,7 @@ async def test_cache_failure_retries_invalidation_without_replacing_seeded_rows(
     redis = await dispatch_seed(monkeypatch, user_id, project_id)
 
     assert invalidation.await_count == 2
-    assert len(saved_ids) == 387
+    assert len(saved_ids) == 40
     session.commit.assert_awaited_once()
     redis.expire.assert_awaited_once()
 

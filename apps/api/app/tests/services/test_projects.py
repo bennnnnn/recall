@@ -115,6 +115,18 @@ def _item(
     return item
 
 
+def _catalog_item(project_id, *, language="en", chapter=0, index=0, mastered=False):
+    from app.content.vocab_catalog import path_decks_for_language
+    from app.services.learning.catalog_items import word_values
+
+    deck = path_decks_for_language(language)[chapter]
+    word = deck.words[index]
+    item = _item(word.content, project_id, list_title=deck.title, mastered=mastered)
+    for name, value in word_values(deck, word).items():
+        setattr(item, name, value)
+    return item
+
+
 def _patch_count_stats_by_project(stats: dict):
     async def _mock(_session, project_ids, *, timezone_by_project=None):
         return {pid: stats for pid in project_ids}
@@ -929,8 +941,8 @@ async def test_load_today_learning_words_for_prompt():
     user.id = uuid4()
     user.timezone = "America/Los_Angeles"
     project = _project("English · Beginner")
-    mastered = _item("apple", project.id, mastered=True)
-    missed = _item("pear", project.id)
+    mastered = _catalog_item(project.id, mastered=True)
+    missed = _catalog_item(project.id, index=1)
 
     with (
         patch.object(
@@ -956,8 +968,8 @@ async def test_load_today_learning_words_for_prompt():
     mastered_mock.assert_awaited_once()
     missed_mock.assert_awaited_once()
     assert "Words from today's session" in block
-    assert "apple" in block
-    assert "pear" in block
+    assert mastered.content in block
+    assert missed.content in block
     assert "You ARE connected" in block
     assert "not connected to their learning app" in block
 
@@ -1022,7 +1034,8 @@ async def test_load_project_for_prompt_scoped():
     project_id = uuid4()
     project = _project("Spanish")
     project.id = project_id
-    item = _item("hola", project_id)
+    project.target_language = "es"
+    item = _catalog_item(project_id, language="es")
 
     with (
         patch.object(
@@ -1047,7 +1060,7 @@ async def test_load_project_for_prompt_scoped():
 
     assert "linked to ONE learning topic" in block
     assert "Spanish" in block
-    assert "hola" in block
+    assert item.content in block
     list_items.assert_awaited_once()
 
 
@@ -1058,9 +1071,9 @@ async def test_load_project_for_prompt_current_chapter_only():
     project_id = uuid4()
     project = _project("English")
     project.id = project_id
-    project.learning_path = ["Hello and goodbye", "Immediate family"]
-    hello = _item("hello", project_id, list_title="Hello and goodbye")
-    parent = _item("parent", project_id, list_title="Immediate family")
+    hello = _catalog_item(project_id)
+    parent = _catalog_item(project_id, chapter=1)
+    project.learning_path = [hello.list_title, parent.list_title]
 
     with (
         patch.object(
@@ -1078,9 +1091,9 @@ async def test_load_project_for_prompt_current_chapter_only():
             session, user_id, project_id, Settings()
         )
 
-    assert "hello" in block
-    assert "parent" not in block
-    assert "Now: Hello and goodbye" in block
+    assert hello.content in block
+    assert parent.content not in block
+    assert f"Now: {hello.list_title}" in block
 
 
 @pytest.mark.asyncio

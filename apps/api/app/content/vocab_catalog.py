@@ -1,5 +1,5 @@
 # ruff: noqa: E501, RUF001
-"""Curated vocabulary banks — source of truth for language chapter words.
+"""Current expression groups — source of truth for language lessons.
 
 The model teaches from these lists only. It does not invent words.
 English and Spanish only for now.
@@ -7,7 +7,7 @@ English and Spanish only for now.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 from uuid import UUID, uuid5
@@ -49,124 +49,10 @@ def word_id(deck: CatalogDeck, word: CatalogWord) -> UUID:
     return uuid5(CATALOG_NS, f"word:{deck.language}:{deck.slug}:{word.content.casefold()}")
 
 
-def _w(
-    content: str,
-    definition: str,
-    example: str | None = None,
-    *,
-    example2: str | None = None,
-    ipa: str | None = None,
-    pos: str | None = None,
-    simple: str | None = None,
-) -> CatalogWord:
-    examples = [part.strip() for part in (example, example2) if part and part.strip()]
-    example_sentence = "\n".join(examples) if examples else None
-    return CatalogWord(
-        content=content,
-        definition=definition,
-        example_sentence=example_sentence,
-        ipa=ipa,
-        part_of_speech=pos,
-        simple_gloss=simple,
-    )
-
-
-def _deck(
-    language: str,
-    slug: str,
-    title: str,
-    words: list[CatalogWord],
-    *,
-    domain: str,
-    kind: DeckKind = "chapter",
-    sort_order: int,
-) -> CatalogDeck:
-    return CatalogDeck(
-        language=language,
-        slug=slug,
-        title=title,
-        domain=domain,
-        kind=kind,
-        words=tuple(words),
-        sort_order=sort_order,
-    )
-
-
-def merge_decks_by_domain(decks: list[CatalogDeck]) -> list[CatalogDeck]:
-    """One lesson-map node per domain. Keeps the first deck's slug (UUID5 identity)."""
-    groups: dict[str, list[CatalogDeck]] = {}
-    order: list[str] = []
-    for deck in decks:
-        if deck.domain not in groups:
-            order.append(deck.domain)
-            groups[deck.domain] = []
-        groups[deck.domain].append(deck)
-    merged: list[CatalogDeck] = []
-    for domain in order:
-        group = sorted(groups[domain], key=lambda item: item.sort_order)
-        first = group[0]
-        seen: set[str] = set()
-        words: list[CatalogWord] = []
-        for deck in group:
-            for word in deck.words:
-                key = word.content.casefold()
-                if key in seen:
-                    continue
-                seen.add(key)
-                words.append(word)
-        merged.append(
-            _deck(
-                first.language,
-                first.slug,
-                domain,
-                words,
-                domain=domain,
-                kind=first.kind,
-                sort_order=first.sort_order,
-            )
-        )
-    return merged
-
-
-def dedupe_words_across_decks(decks: list[CatalogDeck]) -> list[CatalogDeck]:
-    """First occurrence wins. Combining several curated sources into one path
-    (e.g. practical topic decks + conversation-grouped decks) can repeat a
-    lemma across chapters (`already` as both a time word and a discourse
-    marker). Keeps deck order and each deck's own word order; only drops a
-    later duplicate of a lemma already taught earlier in the sequence.
-    """
-    seen: set[str] = set()
-    out: list[CatalogDeck] = []
-    for deck in decks:
-        words: list[CatalogWord] = []
-        for word in deck.words:
-            key = word.content.casefold()
-            if key in seen:
-                continue
-            seen.add(key)
-            words.append(word)
-        out.append(replace(deck, words=tuple(words)))
-    return out
-
-
 @lru_cache(maxsize=1)
 def all_catalog_decks() -> tuple[CatalogDeck, ...]:
-    from app.content.vocab_banks_en import english_decks
-    from app.content.vocab_banks_es import spanish_decks
-
-    # Old UUIDs remain valid for saved items. Active lessons own the content
-    # when their merged deck shares an ID with an older source chapter.
-    by_id = {deck.id: deck for deck in [*spanish_decks(), *english_decks()]}
-    for deck in [*path_decks_for_language("es"), *path_decks_for_language("en")]:
-        old = by_id.get(deck.id)
-        active_words = {word_id(deck, word) for word in deck.words}
-        legacy_words = (
-            tuple(word for word in old.words if word_id(old, word) not in active_words)
-            if old
-            else ()
-        )
-        by_id[deck.id] = replace(deck, words=(*deck.words, *legacy_words))
-    return tuple(by_id.values())
+    """Only the current expression groups may be served or synchronized."""
+    return tuple([*path_decks_for_language("en"), *path_decks_for_language("es")])
 
 
 def decks_for_language(
@@ -174,7 +60,7 @@ def decks_for_language(
     *,
     include_sat: bool = False,
 ) -> list[CatalogDeck]:
-    """All curated decks for a language. Later chapters lock in the lesson map."""
+    """Current curated groups; retired beginner and SAT banks are excluded."""
     lang = (language or "en").strip().lower()
     found = [deck for deck in all_catalog_decks() if deck.language == lang]
     if not include_sat:
@@ -190,8 +76,8 @@ def decks_for_language(
 def path_decks_for_language(language: str) -> list[CatalogDeck]:
     """Decks that belong on the lesson map.
 
-    Curated content preserves existing chapter/word identities and appends new
-    groups. Unknown codes fall back to English; class level never hides groups.
+    Current groups retain their identities. Unknown codes fall back to English;
+    class level never hides groups.
     """
     from app.content.learning_catalog import load_path
 

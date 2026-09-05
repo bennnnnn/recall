@@ -618,6 +618,9 @@ were removed. Programming help lives in main chat.
 
 ### Phase 2 — Vocabulary (language learning)
 - ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
+- ✅ **Vocabulary overview** — the lesson map opens a read-only, searchable vocabulary
+  view grouped by chapter. Browse definitions, examples, classifications, and
+  pronunciation without starting a lesson or changing progress.
 - ✅ **Vocab items** — term, definition, two or more example sentences, IPA where available,
   part of speech, word/expression/phrasal-verb/idiom/proverb classification,
   verb and noun subtypes, simple gloss, status (new / learning / mastered), SM-2 fields.
@@ -664,14 +667,16 @@ were removed. Programming help lives in main chat.
 - ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
   (decks). Create enqueues a `language_path` job that copies a curated catalog
   (`vocab_decks` / `vocab_entries`: domain → branch tree). English classes use
-  20 conversation/topic groups (387 entries): the original core order is preserved,
-  followed by expressions, phrasal verbs, idioms, and proverbs. Spanish keeps its
-  Greetings / Family / Food / … tree and appends idioms/proverbs (43 groups, 519 entries).
-  Every entry has at least two target-language examples. Content updates retain
-  existing UUIDs and practice history; known catalog rows refresh without replacing
-  user items. Unrecognized older custom content is preserved. Older English Hotel/SAT rows stay
-  in the catalog tables for existing `catalog_entry_id` links but are **not** on
-  the English lesson map. **Every class sees its full path.** Create is a
+  four focused groups (40 entries): conversation expressions, phrasal verbs,
+  idioms, and proverbs. Spanish has idioms and proverbs (two groups, 20 entries).
+  Every entry has a full definition and at least two target-language examples.
+  The old beginner words, custom rows, and legacy groups are retired. Migration
+  `0080_retire_legacy_vocab` deletes their saved items and practice history;
+  retained new catalog IDs preserve progress, and class IDs/daily goals remain.
+  Runtime reconciliation and reads enforce the active catalog so old words cannot
+  reappear. Catalog jobs retry failures, run independently of AI spending limits,
+  and include the content revision in job deduplication. **Every class sees its
+  full path.** Create is a
   full-screen flow: **language**, then **daily goal** (5/10/15). Create opens the
   **lesson map** (not a tutor chat that invents words). Main chat gets a progress overview (class, daily
   counts, actual last study, due reviews, path checkmarks) and today’s lemmas when asked —
@@ -680,7 +685,7 @@ were removed. Programming help lives in main chat.
   A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
   ○ / ◐ words. The model must not invent or add words. Progress is derived
   (mastered/total; a chapter is complete when every word is mastered). English
-  groups are one map row per theme (core groups have 16+ words; new focused groups have 10). The lesson map is a vertical
+  groups are one map row per theme, with 10 entries each. The lesson map is a vertical
   list (status icon, title, counts) — not letter-in-a-circle nodes. Tap an
   unlocked group to open the word page; a completed group opens as review.
   Opening a group starts a **daily sitting** (5/10/15 words — the class daily

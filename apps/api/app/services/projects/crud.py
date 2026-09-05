@@ -345,11 +345,13 @@ async def get_project_detail(
     if _is_language_project(item):
         from app.services.learning.path_seed import (
             apply_full_catalog_path,
+            current_catalog_items,
             needs_catalog_sync,
         )
 
         if needs_catalog_sync(item, project_items):
             await enqueue_language_path_job(user_id, item.id)
+        project_items = current_catalog_items(item, project_items)
         apply_full_catalog_path(item)
     # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
     # mutable column, so a later miss on an item silently erased which day an earlier
@@ -374,6 +376,8 @@ async def get_project_detail(
     events = await practice_repo.list_events(
         session, [project_id], since=datetime.now(UTC) - timedelta(days=15)
     )
+    visible_item_ids = {word.id for word in project_items}
+    events = [event for event in events if event.item_id in visible_item_ids]
     history_rows = merge_practice_history(
         history_rows,
         project_items,

@@ -8,13 +8,16 @@ import logging
 from collections.abc import Sequence
 from dataclasses import asdict
 from functools import lru_cache
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from app.content.vocab_catalog import path_decks_for_language
-from app.services.learning.catalog_items import plan_catalog_changes
+from app.content.vocab_catalog import path_decks_for_language, word_id
+from app.services.learning.catalog_items import active_catalog_items, plan_catalog_changes
 from app.services.learning.catalog_sync import ensure_catalog_rows
 from app.services.learning.path import parse_learning_path
+
+if TYPE_CHECKING:
+    from app.models.orm import ProjectItem
 
 logger = logging.getLogger(__name__)
 _CATALOG_LANGUAGES = frozenset({"en", "es"})
@@ -42,13 +45,52 @@ def apply_full_catalog_path(project: object) -> list[str]:
     return titles
 
 
+def current_catalog_items(project: object, items: Sequence[ProjectItem]) -> list[ProjectItem]:
+    """Hide retired rows and project retained identities into current chapters.
+
+    A duplicate current identity can retain its old physical chapter to preserve
+    history under the database's unique word/chapter constraint. Return detached
+    read copies when needed; assigning an ORM title here could autoflush a conflict.
+    """
+    from app.models.orm import ProjectItem
+
+    lang = (getattr(project, "target_language", None) or "en").strip().lower()
+    if (
+        getattr(project, "kind", "language") not in {"language", "vocabulary"}
+        or lang not in _CATALOG_LANGUAGES
+    ):
+        return list(items)
+    decks = path_decks_for_language(lang)
+    titles = {word_id(deck, word): deck.title for deck in decks for word in deck.words}
+    result = []
+    for item in items:
+        entry_id = item.catalog_entry_id
+        if entry_id is None or entry_id not in titles:
+            continue
+        title = titles[entry_id]
+        result.append(
+            item
+            if item.list_title == title
+            else ProjectItem(
+                **{
+                    column.key: title if column.key == "list_title" else getattr(item, column.key)
+                    for column in ProjectItem.__table__.columns
+                }
+            )
+        )
+    return result
+
+
 def needs_catalog_sync(project: object, items: Sequence[Any]) -> bool:
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if lang not in _CATALOG_LANGUAGES:
         return False
     decks = path_decks_for_language(lang)
-    return parse_learning_path(project) != [deck.title for deck in decks] or bool(
-        plan_catalog_changes(decks, items)
+    current = active_catalog_items(decks, items)
+    return (
+        len(current) != len(items)
+        or parse_learning_path(project) != [deck.title for deck in decks]
+        or bool(plan_catalog_changes(decks, current))
     )
 
 
@@ -72,8 +114,16 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
                 return
             existing = await catalog_repo.list_items(session, project_id, user_id)
             path = [deck.title for deck in decks]
-            changes = plan_catalog_changes(decks, existing)
-            if changes or parse_learning_path(project) != path:
+            current = active_catalog_items(decks, existing)
+            retired = len(current) != len(existing)
+            changes = plan_catalog_changes(decks, current)
+            if retired or changes or parse_learning_path(project) != path:
+                await catalog_repo.delete_retired(
+                    session,
+                    user_id=user_id,
+                    project_id=project_id,
+                    active_ids=[word_id(deck, word) for deck in decks for word in deck.words],
+                )
                 await ensure_catalog_rows(session)
                 await catalog_repo.update_contents(
                     session,

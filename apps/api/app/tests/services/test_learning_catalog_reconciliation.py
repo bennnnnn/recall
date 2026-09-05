@@ -101,19 +101,12 @@ async def test_catalog_updates_existing_content_without_replacing_id(catalog_sql
 
 
 @pytest.mark.asyncio
-async def test_canonical_path_wins_shared_source_id(catalog_sql, monkeypatch):
+async def test_sync_publishes_only_active_catalog(catalog_sql, monkeypatch):
     sync, session = catalog_sql
-    source = _deck("Unenriched source")
     current = replace(_deck(), title="Updated title")
-    monkeypatch.setattr(catalog_sync, "all_catalog_decks", lambda: [source])
-    monkeypatch.setattr(
-        catalog_sync, "path_decks_for_language", lambda lang: [current] if lang == "es" else []
-    )
+    monkeypatch.setattr(catalog_sync, "all_catalog_decks", lambda: [current])
     await catalog_sync.ensure_catalog_rows(session)
-    assert (
-        sync.get(VocabEntry, word_id(current, current.words[0])).definition
-        == current.words[0].definition
-    )
+    assert sync.query(VocabEntry).count() == 1
     assert sync.get(VocabDeck, current.id).title == "Updated title"
 
 
@@ -135,25 +128,12 @@ def test_each_content_field_triggers_refresh(monkeypatch, field, value):
     assert catalog_items.plan_catalog_changes([deck], [_item(deck, **{field: value})])
 
 
-def test_known_legacy_row_is_adopted_but_custom_pair_is_preserved(monkeypatch):
+def test_legacy_row_is_not_adopted_even_when_content_matches():
     deck = _deck()
-    legacy = _item(
-        deck, catalog_entry_id=None, definition="Original", example_sentence="Original example."
-    )
-    monkeypatch.setattr(
-        catalog_items,
-        "_legacy_fingerprints",
-        lambda: frozenset(
-            {
-                ("words", "casa", "Original", "Original example."),
-            }
-        ),
-    )
+    legacy = _item(deck, catalog_entry_id=None)
     changes = catalog_items.plan_catalog_changes([deck], [legacy])
-    assert len(changes) == 1 and changes[0].item.id == legacy.id
+    assert len(changes) == 1 and changes[0].item is None
     assert changes[0].values["catalog_entry_id"] == word_id(deck, deck.words[0])
-    legacy.definition = "My personal definition"
-    assert catalog_items.plan_catalog_changes([deck], [legacy]) == []
 
 
 def test_word_alone_never_moves_an_unrelated_user_item():
@@ -260,7 +240,7 @@ async def test_content_update_rejects_other_account_and_project(catalog_sql):
 
 
 @pytest.mark.asyncio
-async def test_legacy_adoption_rechecks_content_after_concurrent_edit(catalog_sql):
+async def test_content_write_does_not_adopt_null_catalog_row(catalog_sql):
     sync, session = catalog_sql
     user, project, item = _saved_item(sync, _deck())
     item.catalog_entry_id = None

@@ -141,15 +141,18 @@ def test_sort_list_titles_puts_unknown_decks_last():
     ]
 
 
-def test_group_items_omits_lists_not_on_the_path():
+def test_group_items_omits_catalog_lists_not_on_the_requested_path():
+    from app.content.vocab_catalog import path_decks_for_language
+
+    first, second = path_decks_for_language("en")[:2]
     project_id = uuid4()
-    hello = _item("hi", "Hello")
-    hello.project_id = project_id
-    hotel = _item("lobby", "Hotel services")
-    hotel.project_id = project_id
-    groups = group_items([hello, hotel], learning_path=["Hello"], target_language="en")
-    assert [group.list_title for group in groups] == ["Hello"]
-    assert groups[0].items[0].content == "hi"
+    shown = _item(first.words[0].content, first.title)
+    shown.project_id = project_id
+    hidden = _item(second.words[0].content, second.title)
+    hidden.project_id = project_id
+    groups = group_items([shown, hidden], learning_path=[first.title], target_language="en")
+    assert [group.list_title for group in groups] == [first.title]
+    assert groups[0].items[0].content == shown.content
 
 
 def test_format_projects_block_includes_path():
@@ -202,7 +205,8 @@ async def test_seed_language_path_copies_catalog_words():
 
     ensure.assert_awaited_once()
     assert project.learning_path == catalog_path_titles("es")
-    assert "Immediate family" in project.learning_path
+    assert len(project.learning_path) == 2
+    assert "Immediate family" not in project.learning_path
     created.assert_awaited_once()
     assert len(created.await_args.kwargs["rows"]) == catalog_word_count("es")
     assert all(row["catalog_entry_id"] is not None for row in created.await_args.kwargs["rows"])
@@ -217,9 +221,15 @@ def test_needs_catalog_sync_when_path_is_old_llm_titles():
 
     project = _project(learning_path=catalog_path_titles("es"))
 
-    items = [
-        _item(word.content, deck.title) for deck in decks_for_language("es") for word in deck.words
-    ]
+    from app.services.learning.catalog_items import word_values
+
+    items = []
+    for deck in decks_for_language("es"):
+        for word in deck.words:
+            item = _item(word.content, deck.title)
+            for name, value in word_values(deck, word).items():
+                setattr(item, name, value)
+            items.append(item)
     assert needs_catalog_sync(project, items) is False
 
 
@@ -245,8 +255,8 @@ def test_apply_full_catalog_path_puts_every_group_on_the_map():
 
     project = _project(learning_path=["Hello and goodbye"])
     titles = apply_full_catalog_path(project)
-    assert "Immediate family" in titles
-    assert len(titles) > 10
+    assert "Immediate family" not in titles
+    assert len(titles) == 2
     assert project.learning_path == titles
 
 

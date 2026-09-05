@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import Any
+from typing import Any, TypeVar
 
 from app.content.vocab_catalog import CatalogDeck, CatalogWord, word_id
 
@@ -37,31 +36,22 @@ def word_values(deck: CatalogDeck, word: CatalogWord) -> dict[str, Any]:
     }
 
 
-@lru_cache(maxsize=1)
-def _legacy_fingerprints() -> frozenset[tuple[str, str, str, str | None]]:
-    from app.content.vocab_banks_en import english_decks, english_path_decks
-    from app.content.vocab_banks_es import spanish_decks
-    from app.services.projects.common import _list_key
+_Item = TypeVar("_Item")
 
-    return frozenset(
-        (_list_key(deck.title), _list_key(word.content), word.definition, word.example_sentence)
-        for deck in [*spanish_decks(), *english_decks(), *english_path_decks()]
-        for word in deck.words
-    )
+
+def active_catalog_items(decks: Sequence[CatalogDeck], items: Sequence[_Item]) -> list[_Item]:
+    """Only explicit current catalog identities survive content retirement."""
+    active_ids = {word_id(deck, word) for deck in decks for word in deck.words}
+    return [item for item in items if getattr(item, "catalog_entry_id", None) in active_ids]
 
 
 def plan_catalog_changes(decks: Sequence[CatalogDeck], items: Sequence[Any]) -> list[CatalogChange]:
-    """Preserve unrecognized user rows and every existing practice identity.
-
-    Catalog IDs identify owned content even after a chapter title changes. A
-    null-ID legacy row is adopted only with an exact old source fingerprint.
-    Unknown rows occupying a canonical pair stay intact and count as present.
-    """
+    """Refresh current identities; never adopt retired or unrecognized rows."""
     from app.services.projects.common import _list_key
 
     by_catalog: dict[Any, list[Any]] = defaultdict(list)
     pairs: dict[tuple[str, str], Any] = {}
-    for item in items:
+    for item in active_catalog_items(decks, items):
         by_catalog[getattr(item, "catalog_entry_id", None)].append(item)
         pairs.setdefault((_list_key(item.list_title), _list_key(item.content)), item)
     changes = []
@@ -71,15 +61,6 @@ def plan_catalog_changes(decks: Sequence[CatalogDeck], items: Sequence[Any]) -> 
             pair = (_list_key(deck.title), _list_key(word.content))
             linked = by_catalog.get(values["catalog_entry_id"], [])
             occupant = pairs.get(pair)
-            if not linked and occupant is not None:
-                fingerprint = (*pair, occupant.definition, occupant.example_sentence)
-                if (
-                    getattr(occupant, "catalog_entry_id", None) is None
-                    and fingerprint in _legacy_fingerprints()
-                ):
-                    linked = [occupant]
-                else:
-                    continue
             if not linked:
                 changes.append(CatalogChange(None, values))
                 continue

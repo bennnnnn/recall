@@ -281,6 +281,10 @@ async def load_project_for_prompt(
         limit=max(settings.project_item_inject_limit, _PROGRESS_ITEM_LIMIT),
     )
     if _is_language_project(project):
+        from app.services.learning.path_seed import apply_full_catalog_path, current_catalog_items
+
+        items = current_catalog_items(project, items)
+        apply_full_catalog_path(project)
         block = format_current_chapter_block(project, items)
         current = up_next_chapter(project, items)
         chapter_items = items_in_chapter(items, current)
@@ -343,6 +347,16 @@ async def load_projects_for_prompt(
         project_ids=project_ids,
         limit=max(settings.project_item_inject_limit, _PROGRESS_ITEM_LIMIT),
     )
+    from app.services.learning.path_seed import apply_full_catalog_path, current_catalog_items
+
+    by_project: dict[UUID, list[ProjectItem]] = {}
+    for item in items:
+        by_project.setdefault(item.project_id, []).append(item)
+    items = []
+    for project in projects:
+        items.extend(current_catalog_items(project, by_project.get(project.id, [])))
+        if _is_language_project(project):
+            apply_full_catalog_path(project)
     block = format_learning_overview_block(projects, items)
     if block:
         from app.repositories import users as users_repo
@@ -497,6 +511,10 @@ async def load_today_learning_words_for_prompt(
             start=start,
             end=end,
         )
+        from app.services.learning.path_seed import current_catalog_items
+
+        mastered = current_catalog_items(project, mastered)
+        missed = current_catalog_items(project, missed)
         mastered_names = _format_today_word_names(mastered)
         missed_names = _format_today_word_names(missed)
         if not mastered_names and not missed_names:
