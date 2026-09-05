@@ -10,8 +10,10 @@ type Options = { userId?: string; leadMinutes?: number; todos: Todo[]; retainedO
 /** Serialize seen/nudge updates so a slow load cannot undo a newer dismissal. */
 export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenIds, getTodos, isCurrentSession }: Options) {
   const owner = useMemo(() => ({ isCurrentSession }), [isCurrentSession]);
-  const resource = useRef({ owner, seen: new Set<string>(), dismissed: new Set<string>(), hydrated: false, queue: Promise.resolve() });
-  if (resource.current.owner !== owner) resource.current = { owner, seen: new Set(), dismissed: new Set(), hydrated: false, queue: Promise.resolve() };
+  const resource = useRef({ owner, seen: new Set<string>(), dismissed: new Set<string>(),
+    seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() });
+  if (resource.current.owner !== owner) resource.current = { owner, seen: new Set(), dismissed: new Set(),
+    seenDirty: false, dismissedDirty: false, hydrated: false, queue: Promise.resolve() };
   const latest = useRef({ retainedOpenIds, leadMinutes });
   latest.current = { retainedOpenIds, leadMinutes };
   const empty = { owner, seen: new Set<string>(), dismissed: new Set<string>(), ready: false };
@@ -39,11 +41,17 @@ export function useTodoReminderState({ userId, leadMinutes, todos, retainedOpenI
         store.dismissed = pruneHomeNudgeState({ dismissed: store.dismissed }, openIds).dismissed;
       }
       if (!isCurrentSession()) return;
-      await Promise.all([
-        previousSeen !== [...store.seen].join("\n") ? saveSeenReminderIds(userId, store.seen) : undefined,
-        previousDismissed !== [...store.dismissed].join("\n")
-          ? saveHomeNudgeState(userId, { dismissed: store.dismissed }) : undefined,
+      store.seenDirty ||= previousSeen !== [...store.seen].join("\n");
+      store.dismissedDirty ||= previousDismissed !== [...store.dismissed].join("\n");
+      // Wait for both writes before releasing the queue, and retry only failed storage.
+      const writes = await Promise.allSettled([
+        store.seenDirty ? saveSeenReminderIds(userId, store.seen)
+          .then(() => { store.seenDirty = false; }) : undefined,
+        store.dismissedDirty ? saveHomeNudgeState(userId, { dismissed: store.dismissed })
+          .then(() => { store.dismissedDirty = false; }) : undefined,
       ]);
+      const failed = writes.find((result) => result.status === "rejected");
+      if (failed?.status === "rejected") throw failed.reason;
       if (isCurrentSession()) setState((previous) => isCurrentSession()
         ? { owner, seen: new Set(store.seen), dismissed: new Set(store.dismissed), ready: true } : previous);
     }).catch(() => {

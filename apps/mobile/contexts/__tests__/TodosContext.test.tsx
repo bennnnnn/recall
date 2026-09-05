@@ -4,7 +4,7 @@ import { TodosProvider, useTodos } from "@/contexts/TodosContext";
 import { api, type Todo } from "@/lib/api";
 import { syncTodoReminders } from "@/lib/todos/todoReminders";
 import { loadSeenReminderIds, markReminderIdsSeen, saveSeenReminderIds } from "@/lib/reminderSeen";
-import { loadHomeNudgeState } from "@/lib/homeReminderNudges";
+import { loadHomeNudgeState, saveHomeNudgeState } from "@/lib/homeReminderNudges";
 import { beginTodoMutation, getTodoMutationState } from "@/lib/todos/todoMutationState";
 
 let mockSession = 1;
@@ -12,6 +12,7 @@ let mockToken = "token-a";
 let mockUserId = "account-a";
 let mockLead = 60;
 let mockSeen = new Set<string>();
+let mockDismissed = new Set<string>();
 let mockValue: ReturnType<typeof useTodos>;
 const now = new Date("2026-09-04T12:00:00Z").getTime();
 const todo: Todo = { id: "t1", content: "Flight", topic: "Reminders", checked: false,
@@ -31,8 +32,10 @@ jest.mock("@/lib/reminderSeen", () => ({
 }));
 jest.mock("@/lib/homeReminderNudges", () => ({
   ...jest.requireActual("@/lib/homeReminderNudges"),
-  loadHomeNudgeState: jest.fn(async () => ({ dismissed: new Set<string>() })),
-  saveHomeNudgeState: jest.fn(async () => {}),
+  loadHomeNudgeState: jest.fn(async () => ({ dismissed: new Set(mockDismissed) })),
+  saveHomeNudgeState: jest.fn(async (_id: string, state: { dismissed: Set<string> }) => {
+    mockDismissed = new Set(state.dismissed);
+  }),
 }));
 
 function Probe() { const value = useTodos(); useEffect(() => { mockValue = value; }, [value]); return null; }
@@ -44,7 +47,7 @@ function deferred() {
 }
 beforeEach(() => {
   jest.clearAllMocks(); mockSession = 1; mockToken = "token-a"; mockUserId = "account-a";
-  mockLead = 60; mockSeen = new Set();
+  mockLead = 60; mockSeen = new Set(); mockDismissed = new Set();
   jest.useFakeTimers({ now });
   jest.mocked(api.listTodos).mockResolvedValue([todo]);
   jest.mocked(api.updateTodo).mockResolvedValue(todo);
@@ -161,6 +164,31 @@ it("preserves seen and dismissed state if an optimistic deletion rolls back", as
   await act(() => { mockValue.setTodos([todo]); });
   expect(mockValue.seenReminderIds.has(todo.id)).toBe(true);
   expect(mockValue.homeNudgeDismissed.has(todo.id)).toBe(true);
+});
+
+it.each(["seen", "dismissed"] as const)("retries a failed %s write on the next synchronization", async (failed) => {
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  const ui = await render(<Screen />);
+  await waitFor(() => expect(mockValue.todos).toEqual([todo]));
+  if (failed === "seen") jest.mocked(saveSeenReminderIds).mockRejectedValueOnce(new Error("storage"));
+  else jest.mocked(saveHomeNudgeState).mockRejectedValueOnce(new Error("storage"));
+  await act(async () => { await mockValue.dismissReminderNudge(todo.id); });
+  expect(mockValue.homeNudgeDismissed.has(todo.id)).toBe(true);
+  expect(mockValue.seenReminderIds.has(todo.id)).toBe(true);
+  expect((failed === "seen" ? mockSeen : mockDismissed).has(todo.id)).toBe(false);
+
+  // A list synchronization must retry storage even though the in-memory IDs agree.
+  await act(() => { mockValue.setTodos((rows) => [...rows]); });
+  await waitFor(() => {
+    expect(mockSeen.has(todo.id)).toBe(true);
+    expect(mockDismissed.has(todo.id)).toBe(true);
+  });
+  expect(saveSeenReminderIds).toHaveBeenCalledTimes(failed === "seen" ? 2 : 1);
+  expect(saveHomeNudgeState).toHaveBeenCalledTimes(failed === "dismissed" ? 2 : 1);
+  await ui.unmount();
+  await render(<Screen />);
+  await waitFor(() => expect(mockValue.homeNudgeDismissed.has(todo.id)).toBe(true));
+  expect(mockValue.seenReminderIds.has(todo.id)).toBe(true);
 });
 
 it("releases a mutation wait immediately when its account owner changes", async () => {

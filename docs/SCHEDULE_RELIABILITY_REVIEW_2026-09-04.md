@@ -33,7 +33,8 @@ features. This pass does not add undated lists or Learning-project linking.
   Native writes run in order, and newer full-list intent supersedes older scheduling.
   Sign-out and cancellation wait for in-flight native work; background refresh does not
   prompt for notification permission. Seen/dismissed state is serialized and uses the
-  configured reminder lead time.
+  configured reminder lead time. Failed device-storage writes retain dirty state and
+  retry on the next synchronization without repeating successful sibling writes.
 - The API rejects null values for required fields and blank reminder text. Rescheduling
   resets delivery markers only when the final due date changes, including weekday
   snapping and chat/bulk edits. Equal timestamps have deterministic pagination order.
@@ -70,7 +71,7 @@ requests and native callbacks. Backend tests use local SQL for CRUD/chat/deliver
 integration and PostgreSQL cases for conditional writes and ownership. Native services
 and external providers are replaced by fixtures.
 
-All 2,544 mobile tests passed across 290 suites. TypeScript and ESLint passed; changed
+All 2,546 mobile tests passed across 290 suites. TypeScript and ESLint passed; changed
 mobile files have no lint warnings, with 146 existing warnings elsewhere. The full
 local API suite passed 3,445 tests with 85.92% coverage. Ruff, formatting and mypy passed.
 The 81 PostgreSQL tests, including ten email-finalization cases and nine Schedule persistence cases,
