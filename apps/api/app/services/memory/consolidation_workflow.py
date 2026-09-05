@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class _ConsolidationSnapshot:
     sections: dict[str, str]
+    existing_rows: dict[str, tuple[UUID, str]]
 
 
 async def _load_consolidation_snapshot(
@@ -46,7 +47,10 @@ async def _load_consolidation_snapshot(
     sections = {memory.type: memory.text for memory in existing}
     if not sections_need_consolidation(sections):
         return None
-    return _ConsolidationSnapshot(sections=sections)
+    return _ConsolidationSnapshot(
+        sections=sections,
+        existing_rows={memory.type: (memory.id, memory.text) for memory in existing},
+    )
 
 
 async def _merge_one_section(
@@ -141,6 +145,7 @@ async def consolidate_user_memory_sections(
                 rows=rows,
                 session_factory=SessionLocal,
                 memories=memories_repo,
+                expected_sections=snapshot.existing_rows,
             )
             return True
         finally:

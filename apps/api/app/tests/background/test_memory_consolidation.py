@@ -6,7 +6,6 @@ import pytest
 
 from app.background.memory_consolidation import consolidate_user_memory_sections
 from app.core.config import Settings
-from app.models.orm import Memory
 from app.models.schemas import MemorySectionItem
 from app.services.memory import embedding_text_hash
 
@@ -26,6 +25,18 @@ def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSes
     session = AsyncMock()
     session.commit = AsyncMock()
     return session, [_FakeSessionCM(session) for _ in range(count)]
+
+
+@pytest.fixture(autouse=True)
+def _memory_persistence_gate_enabled():
+    with patch("app.repositories.memories.lock_memory_enabled", AsyncMock(return_value=True)):
+        yield
+
+
+@pytest.fixture
+def embedding_write():
+    with patch("app.repositories.memories.update_embedding_if_current", AsyncMock()) as write:
+        yield write
 
 
 @pytest.fixture(autouse=True)
@@ -393,7 +404,7 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
 
 
 @pytest.mark.asyncio
-async def test_consolidate_stores_embedding_when_vector_present():
+async def test_consolidate_stores_embedding_when_vector_present(embedding_write):
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
@@ -408,16 +419,6 @@ async def test_consolidate_stores_embedding_when_vector_present():
         embedding_json=None,
         embedding_text_hash=None,
     )
-    # Phase-3 session.get(Memory, id) re-fetches the row; the vector lands here.
-    fetched = SimpleNamespace(
-        id=memory_id,
-        type="profile",
-        text=listed.text,
-        embedding=None,
-        embedding_json=None,
-        embedding_text_hash=None,
-    )
-
     merged = MemorySectionItem(
         type="profile",
         summary=listed.text,
@@ -426,7 +427,6 @@ async def test_consolidate_stores_embedding_when_vector_present():
     vector = [0.1, 0.2, 0.3]
 
     session, session_locals = _consolidation_sessions(count=3)
-    session.get = AsyncMock(return_value=fetched)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -464,17 +464,21 @@ async def test_consolidate_stores_embedding_when_vector_present():
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is True
-    session.get.assert_awaited_with(Memory, memory_id)
-    assert fetched.embedding == vector
-    assert fetched.embedding_json == "[0.1,0.2,0.3]"
-    assert fetched.embedding_text_hash == embedding_text_hash(fetched.text)
-    # The phase-1 list row is detached when phase 1 closes its session — the
-    # vector lands on the phase-3 re-fetch, not on `listed`.
+    embedding_write.assert_awaited_once_with(
+        session,
+        user_id,
+        memory_id,
+        listed.text,
+        vector,
+        "[0.1,0.2,0.3]",
+        embedding_text_hash(listed.text),
+        commit=False,
+    )
     assert listed.embedding is None
 
 
 @pytest.mark.asyncio
-async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
+async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass(embedding_write):
     """BUG FIX regression: a section that consolidation didn't merge this pass
     (e.g. because a prior embed attempt failed after its own text change) must
     still be caught by the embedding_text_hash mismatch check, not left stale
@@ -516,21 +520,9 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
         embedding_json="[0.4,0.5,0.6]",
         embedding_text_hash="stale-hash-from-a-failed-embed",
     )
-    # Phase-3 re-fetches by id; the vector lands here (only the stale
-    # preference needs re-embedding — the profile's hash already matches).
-    fetched_preference = SimpleNamespace(
-        id=preference_id,
-        type="preference",
-        text=listed_preference.text,
-        embedding=None,
-        embedding_json=None,
-        embedding_text_hash=None,
-    )
-
     vector = [0.7, 0.8, 0.9]
 
     session, session_locals = _consolidation_sessions(count=3)
-    session.get = AsyncMock(return_value=fetched_preference)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -573,12 +565,16 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is True
-    # The stale preference section got re-embedded even though it wasn't
-    # part of this pass's merge output.
-    assert fetched_preference.embedding == vector
-    assert fetched_preference.embedding_json == "[0.7,0.8,0.9]"
-    assert fetched_preference.embedding_text_hash == embedding_text_hash(preference.text)
-    # The phase-1 list rows are detached; vectors land on the phase-3 re-fetches.
+    embedding_write.assert_awaited_once_with(
+        session,
+        user_id,
+        preference_id,
+        preference.text,
+        vector,
+        "[0.7,0.8,0.9]",
+        embedding_text_hash(preference.text),
+        commit=False,
+    )
     assert listed_preference.embedding == [0.4, 0.5, 0.6]
 
 

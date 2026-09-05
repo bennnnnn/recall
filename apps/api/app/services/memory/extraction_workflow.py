@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 class _MemoryExtractionSnapshot:
     memory_enabled: bool
     existing_sections: dict[str, str]
+    existing_rows: dict[str, tuple[UUID, str]]
 
 
 async def _load_memory_extraction_snapshot(
@@ -38,11 +39,14 @@ async def _load_memory_extraction_snapshot(
 ) -> _MemoryExtractionSnapshot:
     user = await users_repo.get_by_id(session, user_id)
     if user is None or not getattr(user, "memory_enabled", True):
-        return _MemoryExtractionSnapshot(memory_enabled=False, existing_sections={})
+        return _MemoryExtractionSnapshot(
+            memory_enabled=False, existing_sections={}, existing_rows={}
+        )
     existing = await memories_repo.list_for_user(session, user_id)
     return _MemoryExtractionSnapshot(
         memory_enabled=True,
         existing_sections={memory.type: memory.text for memory in existing},
+        existing_rows={memory.type: (memory.id, memory.text) for memory in existing},
     )
 
 
@@ -111,6 +115,7 @@ async def extract_and_store_memories(
                     rows=rows,
                     session_factory=SessionLocal,
                     memories=memories_repo,
+                    expected_sections=snapshot.existing_rows,
                 )
             if newest_cursor:
                 await stamp_extract_cursor(user_id, chat_id, newest_cursor)

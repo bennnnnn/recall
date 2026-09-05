@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -9,11 +8,11 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { MemorySectionCard } from "@/components/memory/MemorySectionCard";
 import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { SkeletonList } from "@/components/SkeletonLoader";
@@ -21,146 +20,22 @@ import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useMemoryActions } from "@/hooks/useMemoryActions";
+import { useMemoryViewOwner } from "@/hooks/useMemoryViewOwner";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
-import { splitMemoryFacts } from "@/lib/memoryFacts";
-import { Radius } from "@/lib/radius";
+import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/lib/memoryFacts";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
-const COLLAPSED_LINES = 3;
-
-function memoryTypeLabel(type: string, t: (key: string) => string): string {
-  const key = `memory.type.${type}`;
-  const label = t(key);
-  return label === key ? type : label;
-}
-
-function sectionNeedsCollapse(text: string): boolean {
-  return text.trim().length > 120 || text.trim().split(/\n/).length > COLLAPSED_LINES;
-}
-
-type MemorySectionCardProps = {
-  section: Memory;
-  expanded: boolean;
-  onToggle: () => void;
-  onEditSection: () => void;
-  onDeleteSection: () => void;
-  onDeleteFact: (factIndex: number, factText: string) => void;
-};
-
-function MemorySectionCard({
-  section,
-  expanded,
-  onToggle,
-  onEditSection,
-  onDeleteSection,
-  onDeleteFact,
-  styles: s,
-  theme,
-}: MemorySectionCardProps & {
-  styles: ReturnType<typeof makeStyles>;
-  theme: Theme;
-}) {
-  const { t } = useTranslation();
-  const facts = useMemo(() => splitMemoryFacts(section.text), [section.text]);
-  const showFacts = facts.length > 1;
-  const collapsible = !showFacts && sectionNeedsCollapse(section.text);
-  const visibleFacts = expanded || !collapsible ? facts : facts.slice(0, COLLAPSED_LINES);
-
-  return (
-    <View style={s.group}>
-      <View style={s.groupHeader}>
-        <Pressable
-          style={s.groupHeaderMain}
-          onPress={collapsible || (showFacts && facts.length > COLLAPSED_LINES) ? onToggle : undefined}
-          disabled={!collapsible && !(showFacts && facts.length > COLLAPSED_LINES)}
-        >
-          <Text style={s.groupTitle}>{memoryTypeLabel(section.type, t)}</Text>
-          {collapsible || (showFacts && facts.length > COLLAPSED_LINES) ? (
-            <Icon
-              name={expanded ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={theme.textSecondary}
-            />
-          ) : null}
-        </Pressable>
-        <View style={s.groupHeaderActions}>
-          <Pressable
-            hitSlop={14}
-            onPress={onEditSection}
-            accessibilityRole="button"
-            accessibilityLabel={t("memory.edit_section_a11y")}
-          >
-            <Icon name="create-outline" size={16} color={theme.textTertiary} />
-          </Pressable>
-          <Pressable
-            hitSlop={14}
-            onPress={onDeleteSection}
-            accessibilityRole="button"
-            accessibilityLabel={t("memory.delete_section_a11y")}
-          >
-            <Icon name="trash-outline" size={16} danger />
-          </Pressable>
-        </View>
-      </View>
-      <View style={s.card}>
-        {showFacts ? (
-          visibleFacts.map((fact, index) => (
-            <View key={`${section.id}-${index}`} style={s.factRow}>
-              <Text style={s.factText}>{fact}</Text>
-              <Pressable
-                hitSlop={8}
-                onPress={() => onDeleteFact(index, fact)}
-                accessibilityRole="button"
-                accessibilityLabel={t("memory.delete_fact_a11y")}
-              >
-                <Icon name="close-circle-outline" size={18} danger />
-              </Pressable>
-            </View>
-          ))
-        ) : (
-          <Pressable
-            onPress={collapsible ? onToggle : undefined}
-            disabled={!collapsible}
-          >
-            <Text
-              style={s.cardText}
-              numberOfLines={collapsible && !expanded ? COLLAPSED_LINES : undefined}
-            >
-              {section.text}
-            </Text>
-          </Pressable>
-        )}
-        {showFacts && facts.length > COLLAPSED_LINES ? (
-          <Pressable onPress={onToggle}>
-            <Text style={s.expandHint}>
-              {expanded ? t("common.show_less") : t("common.show_more")}
-            </Text>
-          </Pressable>
-        ) : collapsible ? (
-          <Pressable onPress={onToggle}>
-            <Text style={s.expandHint}>
-              {expanded ? t("common.show_less") : t("common.show_more")}
-            </Text>
-          </Pressable>
-        ) : null}
-        {section.confidence != null ? (
-          <Text style={s.conf}>
-            {t("memory.confidence", {
-              percent: Math.round(section.confidence * 100),
-            })}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
 export default function MemoryScreen() {
+  const view = useMemoryViewOwner();
+  return <MemoryContent key={view.key} isCurrentView={view.isCurrent} />;
+}
+
+function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -177,12 +52,15 @@ export default function MemoryScreen() {
     deleteSection,
     deleteFact,
     updateMemoryText,
+    pendingTypes,
   } = useMemoryActions(token);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Memory | null>(null);
   const [draftText, setDraftText] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const savingRef = useRef(false);
+  const refreshingRef = useRef(false);
 
   const toggleSection = useCallback((type: string) => {
     setExpandedTypes((prev) => {
@@ -193,14 +71,13 @@ export default function MemoryScreen() {
     });
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load({
-        silent: hasLoaded() || Boolean(getCachedMemories()),
-        force: false,
-      });
-    }, [load, hasLoaded]),
-  );
+  useEffect(() => {
+    if (!isCurrentView()) return;
+    void load({
+      silent: hasLoaded() || Boolean(getCachedMemories()),
+      force: false,
+    });
+  }, [isCurrentView, load, hasLoaded]);
 
   const sections = useMemo(() => {
     const byType = new Map<string, Memory>();
@@ -211,20 +88,23 @@ export default function MemoryScreen() {
   }, [memories]);
 
   const closeEdit = useCallback(() => {
-    if (savingEdit) return;
+    if (!isCurrentView() || savingRef.current) return;
     setEditing(null);
     setDraftText("");
-  }, [savingEdit]);
+  }, [isCurrentView]);
 
   const saveEdit = useCallback(async () => {
-    if (!editing) return;
-    const nextText = draftText.trim();
-    if (!nextText) {
+    if (!isCurrentView() || !editing || savingRef.current || pendingTypes.has(editing.type)) return;
+    const nextText = stripMemoryAsOf(draftText);
+    if (!nextText || Array.from(nextText).length > MEMORY_TEXT_MAX_LENGTH) {
       Alert.alert(t("common.error"), t("memory.edit_failed"));
       return;
     }
+    savingRef.current = true;
     setSavingEdit(true);
     const ok = await updateMemoryText(editing.id, nextText);
+    if (!isCurrentView()) return;
+    savingRef.current = false;
     setSavingEdit(false);
     if (ok) {
       setEditing(null);
@@ -232,7 +112,7 @@ export default function MemoryScreen() {
     } else {
       Alert.alert(t("common.error"), t("memory.edit_failed"));
     }
-  }, [editing, draftText, updateMemoryText, t]);
+  }, [isCurrentView, editing, draftText, updateMemoryText, pendingTypes, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -246,7 +126,7 @@ export default function MemoryScreen() {
         <StateView
           variant="error"
           title={t("common.error")}
-          onRetry={() => void load()}
+          onRetry={() => { if (isCurrentView()) void load({ force: true }); }}
           retryLabel={t("common.retry")}
         />
       </View>
@@ -261,7 +141,7 @@ export default function MemoryScreen() {
           icon="sparkles-outline"
           title={t("memory.empty_title")}
           message={t("memory.empty_body")}
-          onRetry={() => router.replace("/")}
+          onRetry={() => { if (isCurrentView()) router.replace("/"); }}
           retryLabel={t("chat.new_chat")}
         />
       </View>
@@ -277,8 +157,12 @@ export default function MemoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={async () => {
+              if (!isCurrentView() || refreshingRef.current) return;
+              refreshingRef.current = true;
               setRefreshing(true);
               await load({ silent: true, force: true });
+              if (!isCurrentView()) return;
+              refreshingRef.current = false;
               setRefreshing(false);
             }}
           />
@@ -286,20 +170,26 @@ export default function MemoryScreen() {
       >
         <Text style={s.heading}>{t("memory.heading")}</Text>
         <Text style={s.subheading}>{t("memory.section_hint")}</Text>
+        {error ? <StateView
+          variant="error"
+          title={t("common.error")}
+          onRetry={() => { if (isCurrentView()) void load({ force: true }); }}
+          retryLabel={t("common.retry")}
+        /> : null}
         {sections.map((section) => (
           <MemorySectionCard
             key={section.type}
             section={section}
+            pending={pendingTypes.has(section.type)}
             expanded={expandedTypes.has(section.type)}
             onToggle={() => toggleSection(section.type)}
-            styles={s}
-            theme={theme}
             onEditSection={() => {
+              if (!isCurrentView() || pendingTypes.has(section.type)) return;
               setEditing(section);
-              setDraftText(section.text);
+              setDraftText(stripMemoryAsOf(section.text));
             }}
             onDeleteSection={() => {
-              if (!token) return;
+              if (!token || !isCurrentView()) return;
               Alert.alert(
                 t("memory.delete_confirm_title"),
                 t("memory.delete_confirm_body"),
@@ -309,12 +199,14 @@ export default function MemoryScreen() {
                     text: t("common.delete"),
                     style: "destructive",
                     onPress: async () => {
+                      if (!isCurrentView()) return;
                       setExpandedTypes((prev) => {
                         const next = new Set(prev);
                         next.delete(section.type);
                         return next;
                       });
-                      if (!(await deleteSection(section.type))) {
+                      const ok = await deleteSection(section.type);
+                      if (isCurrentView() && !ok) {
                         reportRecoverableError(feedback, t("memory.delete_failed"));
                       }
                     },
@@ -323,7 +215,7 @@ export default function MemoryScreen() {
               );
             }}
             onDeleteFact={(factIndex, factText) => {
-              if (!token) return;
+              if (!token || !isCurrentView()) return;
               Alert.alert(
                 t("memory.delete_fact_title"),
                 t("memory.delete_fact_body"),
@@ -333,7 +225,9 @@ export default function MemoryScreen() {
                     text: t("common.delete"),
                     style: "destructive",
                     onPress: async () => {
-                      if (!(await deleteFact(section, factIndex, factText))) {
+                      if (!isCurrentView()) return;
+                      const ok = await deleteFact(section, factIndex, factText);
+                      if (isCurrentView() && !ok) {
                         reportRecoverableError(feedback, t("memory.delete_failed"));
                       }
                     },
@@ -361,11 +255,13 @@ export default function MemoryScreen() {
           cancelLabel={t("common.cancel")}
           saveLabel={t("common.save")}
           saving={savingEdit}
+          saveDisabled={!stripMemoryAsOf(draftText) || Array.from(stripMemoryAsOf(draftText)).length > MEMORY_TEXT_MAX_LENGTH}
         />
         <View style={s.editBody}>
           <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
           <TextInput
             style={s.editInput}
+            accessibilityLabel={t("memory.edit_title")}
             value={draftText}
             onChangeText={setDraftText}
             multiline
@@ -381,90 +277,44 @@ export default function MemoryScreen() {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.bg,
-  },
-  root: { flex: 1, backgroundColor: theme.bg },
-  content: { padding: Space.md },
-  heading: { ...Type.title, color: theme.text, marginBottom: Space.xs },
-  subheading: {
-    ...Type.label,
-    fontWeight: "400",
-    color: theme.textSecondary,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  group: { marginBottom: 20 },
-  groupHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: Space.xs,
-    gap: Space.xs,
-  },
-  groupHeaderMain: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Space.xs,
-  },
-  groupHeaderActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Space.sm,
-  },
-  groupTitle: {
-    ...Type.caption,
-    fontWeight: "700",
-    color: theme.text,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  card: {
-    backgroundColor: theme.surfaceAlt,
-    borderRadius: Radius.lg,
-    padding: Space.md,
-  },
-  factRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    marginBottom: 10,
-  },
-  factText: { flex: 1, ...Type.body, color: theme.text },
-  cardText: { ...Type.secondary, color: theme.text },
-  expandHint: {
-    ...Type.caption,
-    color: theme.primary,
-    marginTop: Space.xs,
-  },
-  conf: { ...Type.meta, color: theme.textTertiary, marginTop: Space.xs },
-  editSheet: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-  },
-  editBody: { padding: Space.md },
-  editHint: {
-    ...Type.label,
-    fontWeight: "400",
-    color: theme.textSecondary,
-    lineHeight: 20,
-    marginBottom: Space.sm,
-  },
-  editInput: {
-    minHeight: 140,
-    maxHeight: 240,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.border,
-    borderRadius: 12,
-    padding: Space.sm,
-    ...Type.secondary,
-    color: theme.text,
-    backgroundColor: theme.bg,
-  },
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.bg,
+    },
+    root: { flex: 1, backgroundColor: theme.bg },
+    content: { padding: Space.md },
+    heading: { ...Type.title, color: theme.text, marginBottom: Space.xs },
+    subheading: {
+      ...Type.label,
+      fontWeight: "400",
+      color: theme.textSecondary,
+      marginBottom: 20,
+      lineHeight: 20,
+    },
+    editSheet: {
+      paddingHorizontal: 0,
+      paddingTop: 0,
+    },
+    editBody: { padding: Space.md },
+    editHint: {
+      ...Type.label,
+      fontWeight: "400",
+      color: theme.textSecondary,
+      lineHeight: 20,
+      marginBottom: Space.sm,
+    },
+    editInput: {
+      minHeight: 140,
+      maxHeight: 240,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      borderRadius: 12,
+      padding: Space.sm,
+      ...Type.secondary,
+      color: theme.text,
+      backgroundColor: theme.bg,
+    },
   });
 }

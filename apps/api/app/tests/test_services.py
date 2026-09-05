@@ -28,6 +28,18 @@ def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_Fak
 
 
 @pytest.fixture(autouse=True)
+def _memory_persistence_gate_enabled():
+    with patch("app.repositories.memories.lock_memory_enabled", AsyncMock(return_value=True)):
+        yield
+
+
+@pytest.fixture
+def embedding_write():
+    with patch("app.repositories.memories.update_embedding_if_current", AsyncMock()) as write:
+        yield write
+
+
+@pytest.fixture(autouse=True)
 def _memory_write_lock_always_free():
     """extract_and_store_memories now acquires memwrite:{user_id} before its
     read-modify-write section (guards against a concurrent consolidation
@@ -409,7 +421,7 @@ async def test_extract_and_store_skips_when_write_lock_held():
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_reembeds_when_text_changed():
+async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
     """Stale-embedding fix: a section whose text changed must be re-embedded,
     even if it already had an embedding."""
     from app.background.memory_extraction import extract_and_store_memories
@@ -460,13 +472,19 @@ async def test_extract_and_store_reembeds_when_text_changed():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    # Phase 3 re-fetches the row by id and writes the vector — proves the
-    # embedding actually landed rather than the write silently no-op'ing.
-    assert session.get.await_count == 1
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        updated.id,
+        updated.text,
+        [0.9, 0.8],
+        "[0.9,0.8]",
+        embedding_text_hash(updated.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_reembeds_when_pgvector_missing():
+async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write):
     """A row with embedding_json present but the pgvector `embedding` column
     null must be re-embedded — the DB semantic search filters on `embedding`,
     so a null pgvector makes the memory invisible to DB-side recall even when
@@ -520,11 +538,21 @@ async def test_extract_and_store_reembeds_when_pgvector_missing():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    assert session.get.await_count == 1
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        updated.id,
+        updated.text,
+        [0.9, 0.8],
+        "[0.9,0.8]",
+        embedding_text_hash(updated.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass():
+async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass(
+    embedding_write,
+):
     """BUG FIX regression: if a prior embed attempt failed right after a text
     change, the embedding stays paired with the OLD text while the new text
     is already persisted. A later pass — where the text doesn't change again
@@ -553,19 +581,8 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
     updated.embedding_json = "[0.1,0.2]"
     updated.embedding_text_hash = "stale-hash-from-a-failed-embed"
 
-    # Phase-3 session.get(Memory, id) re-fetches the row; the fresh hash
-    # lands here, not on the phase-1 `updated` row (which is detached when
-    # phase 1 closes its session).
-    fetched = MagicMock()
-    fetched.type = "preference"
-    fetched.text = "likes TypeScript"
-    fetched.embedding = None
-    fetched.embedding_json = None
-    fetched.embedding_text_hash = None
-
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
     session, session_locals = _memory_extraction_sessions(count=3)
-    session.get = AsyncMock(return_value=fetched)
 
     with (
         patch(
@@ -592,7 +609,15 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    assert fetched.embedding_text_hash == embedding_text_hash("likes TypeScript")
+    embedding_write.assert_awaited_once()
+    assert embedding_write.await_args.args[2:] == (
+        updated.id,
+        updated.text,
+        [0.9, 0.8],
+        "[0.9,0.8]",
+        embedding_text_hash(updated.text),
+    )
+    assert embedding_write.await_args.kwargs == {"commit": False}
 
 
 @pytest.mark.asyncio

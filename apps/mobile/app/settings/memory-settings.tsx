@@ -12,30 +12,52 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { StateView } from "@/components/StateView";
+import { useMemoryViewOwner } from "@/hooks/useMemoryViewOwner";
+import { useMemoryToggle } from "@/hooks/useMemoryToggle";
 import {
   fetchMemories,
+  getCachedMemories,
   prefetchMemories,
+  subscribeMemoriesCache,
 } from "@/lib/cache/memoryListCache";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function MemorySettingsScreen() {
-  const { token, user, updateUser } = useAuth();
+  const view = useMemoryViewOwner();
+  return <MemorySettingsContent key={view.key} isCurrentView={view.isCurrent} />;
+}
+
+function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean }) {
+  const { token, user } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [memCount, setMemCount] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false);
+  const [loadError, setLoadError] = useState(false);
+  const requestRef = useRef(0);
   const feedback = useActionFeedbackOptional();
+  const { saving, toggle } = useMemoryToggle(isCurrentView, useCallback(() => {
+    if (feedback) feedback.error(t("common.error"));
+    else Alert.alert(t("common.error"), t("common.error"));
+  }, [feedback, t]));
 
-  const loadMemories = useCallback(async () => {
-    if (!token) return;
-    const memories = await fetchMemories(token);
-    if (memories) setMemCount(memories.length);
-  }, [token]);
+  const loadMemories = useCallback(async (force = false) => {
+    if (!token || !isCurrentView()) return;
+    const request = ++requestRef.current;
+    setLoadError(false);
+    const memories = await fetchMemories(token, { force });
+    if (!isCurrentView() || request !== requestRef.current) return;
+    if (memories) setMemCount((getCachedMemories() ?? memories).length);
+    else setLoadError(true);
+  }, [token, isCurrentView]);
+
+  useEffect(() => subscribeMemoriesCache(() => {
+    if (isCurrentView()) setMemCount(getCachedMemories()?.length ?? 0);
+  }), [isCurrentView]);
 
   useEffect(() => {
     void loadMemories();
@@ -56,20 +78,7 @@ export default function MemorySettingsScreen() {
           value={user?.memory_enabled ?? true}
           disabled={saving}
           busy={saving}
-          onValueChange={(v) => {
-            if (savingRef.current) return;
-            savingRef.current = true;
-            setSaving(true);
-            void updateUser({ memory_enabled: v })
-              .catch(() => {
-                if (feedback) feedback.error(t("common.error"));
-                else Alert.alert(t("common.error"), t("common.error"));
-              })
-              .finally(() => {
-                savingRef.current = false;
-                setSaving(false);
-              });
-          }}
+          onValueChange={toggle}
           styles={s}
           theme={theme}
         />
@@ -84,6 +93,7 @@ export default function MemorySettingsScreen() {
               : undefined
           }
           onPress={() => {
+            if (!isCurrentView()) return;
             if (token) prefetchMemories(token);
             router.push("/memory");
           }}
@@ -91,6 +101,12 @@ export default function MemorySettingsScreen() {
           theme={theme}
         />
       </SettingsGroup>
+      {loadError ? <StateView
+        variant="error"
+        title={t("common.error")}
+        onRetry={() => void loadMemories(true)}
+        retryLabel={t("common.retry")}
+      /> : null}
     </ScrollView>
   );
 }

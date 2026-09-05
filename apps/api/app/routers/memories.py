@@ -9,6 +9,7 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import MemoryOut, MemoryType, MemoryUpdate
+from app.models.schemas.memory import MEMORY_FACT_TEXT_MAX_LENGTH
 from app.services import memory as memory_service
 from app.services.memory import enqueue_policy
 
@@ -100,7 +101,7 @@ async def delete_memory(
 async def delete_memory_fact(
     memory_id: UUID,
     fact_index: int,
-    fact_text: str | None = Query(default=None, max_length=2000),
+    fact_text: str | None = Query(default=None, max_length=MEMORY_FACT_TEXT_MAX_LENGTH),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),

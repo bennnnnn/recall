@@ -4,6 +4,11 @@ import { act, render, waitFor } from "@testing-library/react-native";
 
 import { useMemoryActions } from "@/hooks/useMemoryActions";
 
+import { api } from "@/lib/api";
+import { fetchMemories, getCachedMemories, updateMemoriesCache } from "@/lib/cache/memoryListCache";
+
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+
 jest.mock("@/lib/api", () => ({
   api: {
     deleteMemorySection: jest.fn(),
@@ -15,11 +20,8 @@ jest.mock("@/lib/api", () => ({
 jest.mock("@/lib/cache/memoryListCache", () => ({
   fetchMemories: jest.fn(),
   getCachedMemories: jest.fn(),
-  setMemoriesCache: jest.fn(),
+  updateMemoriesCache: jest.fn(),
 }));
-
-import { api } from "@/lib/api";
-import { fetchMemories, getCachedMemories } from "@/lib/cache/memoryListCache";
 
 const mockApi = api as unknown as {
   deleteMemorySection: jest.Mock;
@@ -59,8 +61,13 @@ async function mount(token: string | null = "tok") {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockCached.mockReturnValue([SECTION]);
-  mockFetch.mockResolvedValue([SECTION]);
+  let cached = [SECTION];
+  mockCached.mockImplementation(() => cached);
+  jest.mocked(updateMemoriesCache).mockImplementation((update) => {
+    cached = update(cached) as typeof cached;
+    return cached;
+  });
+  mockFetch.mockImplementation(async () => cached);
 });
 
 describe("useMemoryActions", () => {
@@ -114,7 +121,7 @@ describe("useMemoryActions", () => {
 
     expect(ok).toBe(false);
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith("tok", { force: true });
+      expect(mockFetch).toHaveBeenCalledWith("tok", { force: true, afterPending: true });
     });
   });
 
