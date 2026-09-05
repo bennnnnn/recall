@@ -57,6 +57,32 @@ async def list_for_user(
     return list(result.scalars().all())
 
 
+async def list_after_id(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int,
+    cursor: UUID | None = None,
+) -> list[TodoItem]:
+    """Traverse immutable IDs so edits cannot move rows across page boundaries."""
+    statement = select(TodoItem).where(TodoItem.user_id == user_id)
+    if cursor is not None:
+        statement = statement.where(TodoItem.id > cursor)
+    result = await session.execute(statement.order_by(TodoItem.id.asc()).limit(limit))
+    return list(result.scalars().all())
+
+
+async def list_by_ids(session: AsyncSession, user_id: UUID, ids: list[UUID]) -> list[TodoItem]:
+    """Reload a selected page after schedule writes without filling deleted slots."""
+    result = await session.execute(
+        select(TodoItem)
+        .where(TodoItem.user_id == user_id, TodoItem.id.in_(ids))
+        .order_by(TodoItem.id.asc())
+        .execution_options(populate_existing=True)
+    )
+    return list(result.scalars().all())
+
+
 async def next_sort_order(
     session: AsyncSession, user_id: UUID, topic: str, *, list_only: bool = True
 ) -> int:

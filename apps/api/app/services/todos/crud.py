@@ -43,6 +43,27 @@ async def list_todos(
     return items
 
 
+async def list_todos_page(
+    session: AsyncSession,
+    user: User,
+    *,
+    limit: int = 1000,
+    cursor: UUID | None = None,
+) -> tuple[list[TodoItem], UUID | None]:
+    user_id = user.id
+    selected = await todos_repo.list_after_id(session, user_id, limit=limit + 1, cursor=cursor)
+    items = selected[:limit]
+    page_ids = [item.id for item in items]
+    # Preserve this boundary even when catch-up races a deletion of the last row.
+    next_cursor = page_ids[-1] if len(selected) > limit else None
+    if not user.push_notifications_enabled and await _advance_past_recurring(
+        session, items, timezone=user.timezone
+    ):
+        items = await todos_repo.list_by_ids(session, user_id, page_ids)
+        await home_service.invalidate_home_cache(user_id)
+    return items, next_cursor
+
+
 async def list_topics(session: AsyncSession, user: User) -> list[str]:
     return await todos_repo.list_topics(session, user.id)
 

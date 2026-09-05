@@ -3,14 +3,20 @@ import type { Todo } from "@/lib/api/types";
 
 const TODO_PAGE_SIZE = 1000;
 
+type TodoPage = { items: Todo[]; next_cursor: string | null };
+
 async function listTodos(token: string, options?: { signal?: AbortSignal }): Promise<Todo[]> {
   const rows = new Map<string, Todo>();
-  for (let offset = 0; ; offset += TODO_PAGE_SIZE) {
-    const page = await request<Todo[]>(`/todos?limit=${TODO_PAGE_SIZE}&offset=${offset}`, token, options);
-    const previousSize = rows.size;
-    page.forEach((row) => rows.set(row.id, row));
-    if (page.length < TODO_PAGE_SIZE) return [...rows.values()];
-    if (rows.size === previousSize) throw new Error("Todo pagination did not advance");
+  const visitedCursors = new Set<string>();
+  let cursor: string | null = null;
+  for (;;) {
+    const suffix: string = cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`;
+    const page: TodoPage = await request<TodoPage>(`/todos/page?limit=${TODO_PAGE_SIZE}${suffix}`, token, options);
+    page.items.forEach((row) => rows.set(row.id, row));
+    if (page.next_cursor === null) return [...rows.values()];
+    if (visitedCursors.has(page.next_cursor)) throw new Error("Todo pagination did not advance");
+    visitedCursors.add(page.next_cursor);
+    cursor = page.next_cursor;
   }
 }
 

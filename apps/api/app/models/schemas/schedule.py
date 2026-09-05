@@ -32,6 +32,11 @@ class TodoOut(BaseModel):
         return None
 
 
+class TodoPageOut(BaseModel):
+    items: list[TodoOut]
+    next_cursor: UUID | None
+
+
 class TodoCreate(BaseModel):
     model_config = ConfigDict(title="TodoCreate")
 
