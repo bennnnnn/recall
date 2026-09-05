@@ -39,3 +39,14 @@ async def test_refresh_server_error_is_transient():
         with pytest.raises(GoogleOAuthError) as exc:
             await refresh_access_token(_settings(), "rt")
     assert exc.value.permanent is False
+
+
+@pytest.mark.asyncio
+async def test_refresh_invalid_client_is_not_permanent():
+    with patch(
+        "app.gateways.google_oauth.get_pooled_client",
+        return_value=_client(400, {"error": "invalid_client"}),
+    ):
+        with pytest.raises(GoogleOAuthError) as exc:
+            await refresh_access_token(_settings(), "rt")
+    assert exc.value.permanent is False

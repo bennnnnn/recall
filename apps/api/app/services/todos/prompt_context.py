@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
-from app.repositories import suggested_reminders as suggested_repo
 from app.repositories import todos as todos_repo
 from app.repositories.todos import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
@@ -29,6 +28,11 @@ class TodosPromptSections:
 
     own: str | None = None
     gmail: str | None = None
+
+
+def _todo_source(item: TodoItem) -> str:
+    source = getattr(item, "source", "user")
+    return source if source in {"user", "gmail"} else "user"
 
 
 def _topic_key(topic: str) -> str:
@@ -222,11 +226,8 @@ async def build_todos_system_section(
         return None
     items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
-    gmail_ids = await suggested_repo.added_todo_ids_for_user(
-        session, user.id, [item.id for item in selected]
-    )
-    own_items = [item for item in selected if item.id not in gmail_ids]
-    gmail_items = [item for item in selected if item.id in gmail_ids]
+    own_items = [item for item in selected if _todo_source(item) != "gmail"]
+    gmail_items = [item for item in selected if _todo_source(item) == "gmail"]
     own_block = format_todos_block(own_items, user_timezone=tz)
     gmail_block = format_todos_block(gmail_items, user_timezone=tz)
     own_section = (

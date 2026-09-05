@@ -111,15 +111,14 @@ def accept_memory_section_rewrite(
     Rejects low confidence, empty text, catastrophic shortening, and rewrites
     that drop too many prior fact anchors — so a flaky LLM pass cannot silently
     erase stable facts (name, employer, allergy, …). Explicit forget commands
-    pass ``allow_clear`` so a requested wipe is not blocked by those guards.
+    pass ``allow_clear`` only so an empty summary can wipe that section; nonempty
+    rewrites still go through the shortening and anchor checks.
     """
     if confidence < min_confidence:
         return None
     clean = normalize_memory_text(summary)
     if not clean:
         return "" if allow_clear else None
-    if allow_clear:
-        return clean
     # Exact-sentence dedupe can shrink well below 50%; only LLM merges use the floor.
     if enforce_length_floor and prior and len(clean) < len(prior) * 0.5:
         logger.warning(

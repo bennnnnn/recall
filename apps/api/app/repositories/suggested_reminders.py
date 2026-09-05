@@ -96,24 +96,6 @@ async def create(
     return row
 
 
-async def added_todo_ids_for_user(
-    session: AsyncSession,
-    user_id: UUID,
-    todo_ids: list[UUID],
-) -> set[UUID]:
-    """Todo ids that were created by confirming a Gmail suggested reminder."""
-    if not todo_ids:
-        return set()
-    result = await session.execute(
-        select(SuggestedReminder.todo_id).where(
-            SuggestedReminder.user_id == user_id,
-            SuggestedReminder.status == "added",
-            SuggestedReminder.todo_id.in_(todo_ids),
-        )
-    )
-    return {row[0] for row in result.all() if row[0] is not None}
-
-
 async def mark_added(
     session: AsyncSession, row: SuggestedReminder, todo_id: UUID
 ) -> SuggestedReminder:

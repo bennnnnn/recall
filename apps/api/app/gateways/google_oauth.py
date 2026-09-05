@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 DEFAULT_TIMEOUT = 15.0
-_PERMANENT_OAUTH_ERRORS = frozenset({"invalid_grant", "invalid_client", "unauthorized_client"})
+_PERMANENT_OAUTH_ERRORS = frozenset({"invalid_grant"})
 
 
 class GoogleOAuthError(Exception):

@@ -96,6 +96,7 @@ def _item(content: str, topic: str = "Groceries", checked: bool = False):
     item.content = content
     item.checked = checked
     item.due_at = None
+    item.source = "user"
     return item
 
 
@@ -1106,10 +1107,6 @@ async def test_build_todos_system_section_returns_hint_and_block():
             "list_for_user",
             AsyncMock(return_value=[dated]),
         ),
-        patch(
-            "app.services.todos.prompt_context.suggested_repo.added_todo_ids_for_user",
-            AsyncMock(return_value=set()),
-        ),
     ):
         section = await todos_service.build_todos_system_section(
             session, user, Settings(), query_text="Show my tasks"
@@ -1134,15 +1131,12 @@ async def test_build_todos_system_section_splits_gmail_sourced_reminders():
     own.due_at = datetime.now(UTC) + timedelta(hours=2)
     gmail = _item("Invoice due")
     gmail.due_at = datetime.now(UTC) + timedelta(hours=3)
+    gmail.source = "gmail"
     with (
         patch.object(
             todos_repo,
             "list_for_user",
             AsyncMock(return_value=[own, gmail]),
-        ),
-        patch(
-            "app.services.todos.prompt_context.suggested_repo.added_todo_ids_for_user",
-            AsyncMock(return_value={gmail.id}),
         ),
     ):
         section = await todos_service.build_todos_system_section(

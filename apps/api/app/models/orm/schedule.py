@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -34,6 +35,7 @@ class TodoItem(Base):
             "due_at",
             postgresql_where=text("checked = false AND due_at IS NOT NULL"),
         ),
+        CheckConstraint("source IN ('user', 'gmail')", name="ck_todo_items_source"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -56,6 +58,9 @@ class TodoItem(Base):
         DateTime(timezone=True), nullable=True
     )
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="user", default="user"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

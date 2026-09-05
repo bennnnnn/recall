@@ -221,6 +221,7 @@ async def test_add_suggested_reminder_defaults_due_when_missing():
     due_at = create_mock.await_args.kwargs["due_at"]
     assert due_at is not None
     assert due_at.tzinfo is not None
+    assert create_mock.await_args.kwargs["source"] == "gmail"
 
 
 @pytest.mark.asyncio
@@ -257,6 +258,7 @@ async def test_add_suggested_reminder_keeps_extracted_due():
     ):
         await email_service.add_suggested_reminder(session, Settings(), user, reminder_id)
     assert create_mock.await_args.kwargs["due_at"] == extracted_due
+    assert create_mock.await_args.kwargs["source"] == "gmail"
 
 
 def test_format_not_connected_answer_mentions_settings():

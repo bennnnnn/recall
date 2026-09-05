@@ -557,6 +557,7 @@ async def add_suggested_reminder(
         content=content[:2000],
         topic=REMINDER_TOPIC,
         due_at=suggested_reminder_due_at(row.due_at, user.timezone),
+        source="gmail",
     )
     await suggested_repo.mark_added(session, row, todo.id)
     await home_service.invalidate_home_cache(user.id)
