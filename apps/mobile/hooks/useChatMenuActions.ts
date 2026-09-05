@@ -133,7 +133,7 @@ export function useChatMenuActions({
       const saved = await api.setPin(token, chat.id, next);
       if (!current()) return;
       patchChatInGroups(chat.id, { pinned: saved.pinned, archived: saved.archived });
-      showActionBanner(next ? t("chat.pinned_toast") : t("chat.unpinned_toast"), next ? "pin" : "pin-outline");
+      showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-outline");
     } catch {
       if (!current()) return;
       moveChatPinState(chat.id, chat.pinned);
@@ -153,7 +153,7 @@ export function useChatMenuActions({
       const saved = await api.setArchive(token, chat.id, next);
       if (!current()) return;
       patchChatInGroups(chat.id, { archived: saved.archived, pinned: saved.pinned });
-      showActionBanner(next ? t("chat.archived_toast") : t("chat.unarchived_toast"), next ? "archive-outline" : "arrow-undo-outline");
+      showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive-outline" : "arrow-undo-outline");
     } catch {
       if (!current()) return;
       patchChatInGroups(chat.id, { archived: chat.archived ?? false, pinned: chat.pinned });

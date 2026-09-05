@@ -117,3 +117,17 @@ it("reaffirms successful deletion after a concurrent list read", async () => {
   expect(remove).toHaveBeenCalledTimes(2);
   expect(insert).not.toHaveBeenCalled();
 });
+
+it.each(["pin", "archive"])("uses the returned state for the drawer %s confirmation", async (kind) => {
+  (api.setPin as jest.Mock).mockResolvedValueOnce(chat);
+  (api.setArchive as jest.Mock).mockResolvedValueOnce(chat);
+  await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => {
+    if (kind === "pin") await current.togglePinChat();
+    else await current.toggleArchiveChat();
+  });
+  expect(current.actionBanner).toEqual(kind === "pin"
+    ? { message: "chat.pinned_toast", icon: "pin" }
+    : { message: "chat.unarchived_toast", icon: "arrow-undo-outline" });
+});
