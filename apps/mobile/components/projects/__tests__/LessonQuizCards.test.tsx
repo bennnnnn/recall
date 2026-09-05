@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
@@ -59,5 +60,24 @@ describe("LessonQuizCards", () => {
     expect(onSelect).toHaveBeenCalledWith("A");
     await fireEvent.press(getByTestId("lesson-choice-B"));
     expect(onSelect).toHaveBeenCalledWith("B");
+  });
+
+  it("recedes other choices after a correct answer", async () => {
+    const { getByTestId } = await render(
+      <LessonQuizCards
+        choices={choices}
+        correctLetter="B"
+        selectedLetter="B"
+        onSelect={jest.fn()}
+      />,
+    );
+
+    const flatA = StyleSheet.flatten(getByTestId("lesson-choice-A").props.style);
+    const flatB = StyleSheet.flatten(getByTestId("lesson-choice-B").props.style);
+    expect(flatA.opacity).toBe(0.4);
+    expect(getByTestId("lesson-choice-A").props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true }),
+    );
+    expect(flatB.opacity).toBeUndefined();
   });
 });

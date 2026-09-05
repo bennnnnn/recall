@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -22,9 +23,7 @@ type Props = {
   onSpeak?: () => void;
 };
 
-const SPEAK = 56;
-const SECTION_GAP = 28;
-const AFTER_HERO = 8;
+const SPEAK = 52;
 
 export function VocabCard({ card, language = "en", onSpeak }: Props) {
   const theme = useTheme();
@@ -52,30 +51,26 @@ export function VocabCard({ card, language = "en", onSpeak }: Props) {
   return (
     <View style={s.root} accessibilityRole="summary">
       <View style={s.hero}>
-        <View style={s.wordRow}>
+        <Pressable onPress={handleSpeak} style={s.heroText} accessible={false}>
           <Text style={s.word} accessibilityRole="header">
             {word}
           </Text>
-          <Pressable
-            onPress={handleSpeak}
-            style={s.speakBtn}
-            accessibilityRole="button"
-            accessibilityLabel={t("lesson.speak")}
-          >
-            <Icon name="volume-medium-outline" size={24} color={theme.primary} />
-          </Pressable>
-        </View>
-        {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
+          {ipa ? <Text style={s.ipa}>{formatIpa(ipa)}</Text> : null}
+        </Pressable>
+        <Pressable
+          onPress={handleSpeak}
+          style={s.speakBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t("lesson.speak")}
+        >
+          <Icon name="volume-medium-outline" size={22} color={theme.onPrimary} />
+        </Pressable>
       </View>
 
-      <View style={[s.block, s.afterHero]}>
-        <Text style={s.sectionTitle}>{t("lesson.meaning")}</Text>
-        <Text style={s.meaning}>{meaning}</Text>
-      </View>
+      <Text style={s.meaning}>{meaning}</Text>
 
       {examples.length > 0 ? (
-        <View style={s.block}>
-          <Text style={s.sectionTitle}>{t("lesson.example")}</Text>
+        <View style={s.examples}>
           {examples.map((sentence) => (
             <Text key={sentence} style={s.example}>
               {highlightLemmaParts(sentence, word).map((part, index) =>
@@ -106,22 +101,24 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     root: {
       alignSelf: "stretch",
-      gap: SECTION_GAP,
+      gap: Space.lg,
+      padding: Space.lg,
+      borderRadius: Radius.sheet,
+      backgroundColor: t.surface,
     },
     hero: {
-      gap: Space.md,
-    },
-    wordRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
       gap: Space.md,
+    },
+    heroText: {
+      flex: 1,
+      gap: Space.xs,
     },
     word: {
       ...Type.display,
-      flex: 1,
-      fontSize: 38,
-      lineHeight: 44,
+      fontSize: 36,
+      lineHeight: 42,
       fontWeight: "800",
       color: t.text,
     },
@@ -131,24 +128,11 @@ function makeStyles(t: Theme) {
       borderRadius: SPEAK / 2,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: t.bg,
-      borderWidth: 2,
-      borderColor: t.primary,
+      backgroundColor: t.primary,
     },
     ipa: {
       ...Type.secondary,
       fontSize: 17,
-      color: t.textSecondary,
-    },
-    block: {
-      gap: Space.sm,
-    },
-    afterHero: {
-      paddingTop: AFTER_HERO,
-    },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: "700",
       color: t.textSecondary,
     },
     meaning: {
@@ -156,10 +140,13 @@ function makeStyles(t: Theme) {
       lineHeight: 32,
       color: t.text,
     },
+    examples: {
+      gap: Space.xs,
+    },
     example: {
       fontSize: 20,
       lineHeight: 30,
-      color: t.text,
+      color: t.textSecondary,
     },
     exampleRest: {
       fontStyle: "italic",
@@ -167,7 +154,7 @@ function makeStyles(t: Theme) {
     lemma: {
       fontStyle: "normal",
       fontWeight: "700",
-      color: t.success,
+      color: t.text,
     },
   });
 }

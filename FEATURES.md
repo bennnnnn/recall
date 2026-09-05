@@ -628,7 +628,8 @@ were removed. Programming help lives in main chat.
   lives in Settings/Learning, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
-  (word, pronunciation, meaning, examples), then A–D **lesson choice cards**.
+  (word, pronunciation, meaning, examples) as a tap-to-hear dictionary card,
+  then A–D **lesson choice cards** that fill on select.
   Cloze questions match whole words; naturally inflected examples use an intact-sentence
   meaning check. Each answer posts an idempotent practice event. Continue follows a
   saved correct answer; only the final check completes the word. Completed-group

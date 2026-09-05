@@ -117,6 +117,8 @@ it("mounts through actual focus ownership, teaches two examples, saves/retries a
   expect(screen.queryByText("Spoken feedback")).toBeNull();
   expect(screen.queryByText("Action verb")).toBeNull();
   expect(screen.queryByText("Try again")).toBeNull();
+  expect(screen.queryByText("Meaning")).toBeNull();
+  expect(screen.queryByText("Example")).toBeNull();
   expect(record).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByText("Continue"));
   await fireEvent.press(screen.getByText("Dejar de dormir."));

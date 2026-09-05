@@ -139,15 +139,17 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
                 ]}
                 accessibilityLiveRegion="polite"
               >
-                {answer.correct ? (
-                  <View style={s.feedbackTitle}>
-                    <Icon name="checkmark-circle" size={24} color={theme.success} />
+                <Icon
+                  name={answer.correct ? "checkmark-circle" : "close-circle"}
+                  size={24}
+                  color={answer.correct ? theme.success : theme.danger}
+                />
+                <View style={s.feedbackCopy}>
+                  {answer.correct ? (
                     <Text style={s.feedbackHeading}>{t("lesson.correct")}</Text>
-                  </View>
-                ) : (
-                  <Icon name="close-circle" size={24} color={theme.danger} />
-                )}
-                <Text style={s.feedbackText}>{quiz.explanation}</Text>
+                  ) : null}
+                  <Text style={s.feedbackText}>{quiz.explanation}</Text>
+                </View>
               </View>
             ) : null}
           </>
@@ -188,8 +190,14 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     contextSentence: { ...Type.body, fontSize: 20, lineHeight: 30, color: theme.textSecondary },
-    feedback: { padding: Space.md, borderRadius: Radius.lg, gap: Space.sm },
-    feedbackTitle: { flexDirection: "row", gap: Space.sm, alignItems: "center" },
+    feedback: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      padding: Space.md,
+      borderRadius: Radius.xl,
+      gap: Space.sm,
+    },
+    feedbackCopy: { flex: 1, gap: Space.xxs },
     feedbackHeading: { ...Type.body, fontWeight: "700", color: theme.text },
     feedbackText: { ...Type.body, color: theme.text, lineHeight: 26 },
     safe: { flex: 1, backgroundColor: theme.bg },
