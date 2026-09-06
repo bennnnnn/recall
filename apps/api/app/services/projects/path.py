@@ -72,5 +72,8 @@ from app.services.learning.path import (
 from app.services.learning.path import (
     up_next_chapter as up_next_chapter,
 )
+from app.services.learning.path import (
+    with_learning_path as with_learning_path,
+)
 
 sys.modules[__name__] = _impl

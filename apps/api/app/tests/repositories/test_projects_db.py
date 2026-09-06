@@ -4,6 +4,7 @@ A mocked `AsyncSession` can't exercise a real DB constraint, so these use
 the `db_session` fixture from conftest.py.
 """
 
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -11,8 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.models.orm import Project
+from app.models.schemas import ProjectOut
 from app.repositories import projects as projects_repo
 from app.repositories import users as users_repo
+from app.services.projects.crud import get_project_detail
 
 
 async def _make_user(session):
@@ -106,3 +109,27 @@ async def test_legacy_project_kinds_rejected_by_check_constraint(db_session):
             db_session, user_id=user_id, title="General knowledge", kind="trivia"
         )
     await db_session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_get_project_detail_does_not_greenlet_after_catalog_titles(db_session):
+    """Assigning learning_path on GET autoflushes; updated_at expires; ProjectOut 500s."""
+    from app.content.vocab_catalog import path_decks_for_language
+
+    user = await _make_user(db_session)
+    project = await projects_repo.create(
+        db_session, user_id=user.id, title="English", kind="language", target_language="en"
+    )
+    stored = list(project.learning_path or [])
+    with patch(
+        "app.services.projects.crud.enqueue_language_path_job",
+        AsyncMock(),
+    ):
+        detail = await get_project_detail(db_session, user, project.id)
+
+    assert detail is not None
+    ProjectOut.model_validate(project)
+    assert list(project.learning_path or []) == stored
+    catalog = [deck.title for deck in path_decks_for_language("en")]
+    assert detail["learning_path"] == catalog
+    assert len(detail["path_progress"]) == len(catalog)

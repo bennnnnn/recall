@@ -49,6 +49,24 @@ def parse_learning_path(project: object) -> list[str]:
     return normalize_path_titles(raw)
 
 
+class _LearningPathOverlay:
+    """Read view with catalog titles that must not dirty the ORM row."""
+
+    __slots__ = ("_project", "learning_path")
+
+    def __init__(self, project: object, path: list[str]) -> None:
+        object.__setattr__(self, "_project", project)
+        object.__setattr__(self, "learning_path", list(path))
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(object.__getattribute__(self, "_project"), name)
+
+
+def with_learning_path(project: object, path: list[str]) -> object:
+    """Use ``path`` for map/progress without assigning ``project.learning_path``."""
+    return _LearningPathOverlay(project, path)
+
+
 def chapter_is_complete(*, mastered: int, total: int, daily_goal: int) -> bool:
     """True when every word in the chapter is mastered.
 

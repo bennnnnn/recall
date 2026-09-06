@@ -254,10 +254,12 @@ def test_apply_full_catalog_path_puts_every_group_on_the_map():
     from app.services.learning.path_seed import apply_full_catalog_path
 
     project = _project(learning_path=["Hello and goodbye"])
+    stored = list(project.learning_path)
     titles = apply_full_catalog_path(project)
     assert "Immediate family" not in titles
     assert len(titles) == 2
-    assert project.learning_path == titles
+    assert project.learning_path == stored
+    assert titles != stored
 
 
 def test_needs_catalog_sync_when_path_was_level_gated():
@@ -317,6 +319,8 @@ async def test_get_project_detail_enqueues_catalog_sync_without_blocking_get():
 
     assert detail is not None
     assert detail["id"] == project_id
+    assert item.learning_path == ["Greetings"]
+    assert len(detail["learning_path"]) > 1
     enqueue.assert_awaited_once_with(user_id, project_id)
     seed.assert_not_called()
     session.expire_all.assert_not_called()
