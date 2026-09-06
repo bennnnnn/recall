@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -18,6 +19,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import type { PendingAttachment } from "@/lib/attachments";
+import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import {
   clampScanRegion,
   defaultScanRegion,
@@ -208,8 +210,21 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   ) : !permission.granted ? (
     <View style={s.center}>
       <Text style={s.permissionText}>{t("chat.math_scan_permission")}</Text>
-      <Pressable style={s.permissionBtn} onPress={() => void requestPermission()}>
-        <Text style={s.permissionBtnText}>{t("chat.math_scan_allow_camera")}</Text>
+      <Pressable
+        style={s.permissionBtn}
+        onPress={() => {
+          if (cameraPermissionNeedsSettings(permission)) {
+            void Linking.openSettings();
+            return;
+          }
+          void requestPermission();
+        }}
+      >
+        <Text style={s.permissionBtnText}>
+          {cameraPermissionNeedsSettings(permission)
+            ? t("chat.location_open_settings")
+            : t("chat.math_scan_allow_camera")}
+        </Text>
       </Pressable>
     </View>
   ) : (
