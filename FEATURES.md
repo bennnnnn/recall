@@ -60,14 +60,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (not started; do not assume we have them).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
 - ✅ **Library** — drawer **Library** → paginated grid of the user’s verified attachments
-  (generated images, uploaded images, and files). Tabs: All / Generated / Uploaded / Files.
+  (generated images, uploaded images, and files — not web lookup / reference photos,
+  which stay on the chat). Tabs: All / Generated / Uploaded / Files.
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
   `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
   still linked and **Use in chat** to attach it to the composer; tap a file
   to share (no in-library preview). The attach sheet also opens Library. Deleting a chat leaves
-  its files in Library (Open chat hides when the thread is gone). Explicit Library
+  its uploads and generated files in Library (Open chat hides when the thread is gone). Lookup
+  photos stay on the chat only. Explicit Library
   delete removes the file. A failed thumbnail stays with Retry; the row is dropped
   only after the server confirms the file is gone. Opening Library warms the All page
   from the drawer tap (20s cache, same window as Memory); tab snapshots avoid a
@@ -933,8 +935,8 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
-| Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
-| Library (drawer grid of generated + uploaded images and files) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
+| Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
+| Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |

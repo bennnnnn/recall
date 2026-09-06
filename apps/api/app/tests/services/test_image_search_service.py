@@ -196,6 +196,7 @@ async def test_successful_lookup_persists_attachment_and_message():
         created_asst_msg.content = content
         return created_asst_msg
 
+    create_pending = AsyncMock()
     with (
         patch(
             "app.services.image_search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
@@ -215,7 +216,7 @@ async def test_successful_lookup_persists_attachment_and_message():
             "app.services.image_search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.services.image_search.attachments_repo.create_pending", AsyncMock()),
+        patch("app.services.image_search.attachments_repo.create_pending", create_pending),
         patch("app.services.image_search.attachments_repo.mark_verified", AsyncMock()),
         patch(
             "app.services.image_search.attachments_repo.link_to_message",
@@ -235,6 +236,9 @@ async def test_successful_lookup_persists_attachment_and_message():
     assert "Source:" not in asst_msg.content
     gateway.write_bytes.assert_awaited_once()
     refund.assert_not_awaited()
+    create_pending.assert_awaited()
+    assert create_pending.await_args.kwargs["source"] == "search"
+    assert create_pending.await_args.kwargs["library_visible"] is False
 
 
 @pytest.mark.asyncio

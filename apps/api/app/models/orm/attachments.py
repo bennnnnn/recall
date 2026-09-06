@@ -46,8 +46,8 @@ class Attachment(Base):
     # Set once bytes have been verified against the declared type/size.
     # Subsequent /file and /url reads skip the full-object download.
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # False for send-clones of a Library item (same file, new chat). Gallery
-    # lists only the original so reuse does not duplicate the archive.
+    # False for send-clones of a Library item (same file, new chat) and for
+    # reference-photo lookup copies (chat-only; not listed in Library).
     library_visible: Mapped[bool] = mapped_column(
         Boolean(),
         nullable=False,

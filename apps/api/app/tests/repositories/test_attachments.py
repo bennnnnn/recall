@@ -28,6 +28,30 @@ async def test_create_pending_attachment(fake_session):
     fake_session.add.assert_called_once()
     fake_session.commit.assert_awaited_once()
     assert row.id == attachment_id
+    assert row.library_visible is True
+
+
+@pytest.mark.asyncio
+async def test_create_pending_can_hide_from_library(fake_session):
+    from app.repositories.attachments import create_pending
+
+    row = await create_pending(
+        fake_session,
+        attachment_id=uuid4(),
+        user_id=uuid4(),
+        storage_key="lookups/a",
+        content_type="image/jpeg",
+        size_bytes=64,
+        source="search",
+        library_visible=False,
+        commit=False,
+    )
+
+    fake_session.add.assert_called_once()
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_called()
+    assert row.source == "search"
+    assert row.library_visible is False
 
 
 @pytest.mark.asyncio
@@ -171,7 +195,7 @@ async def test_list_for_gallery_files_category(fake_session):
 
 @pytest.mark.asyncio
 async def test_list_for_gallery_all_no_filters(fake_session):
-    """When category and source are None, no content/source filters are applied."""
+    """All still lists only the Library archive (upload + generated)."""
     from app.repositories.attachments import list_for_gallery
 
     rows = [MagicMock()]
@@ -217,6 +241,32 @@ async def test_list_for_gallery_excludes_unverified(fake_session):
     assert "library_visible" in sql
     assert "IS NOT NULL" in sql.upper() or "is not" in sql.lower()
     assert "message_id is not null" not in sql.lower()
+
+
+@pytest.mark.asyncio
+async def test_list_for_gallery_excludes_search_source(fake_session):
+    """Lookup photos (`source='search'`) must not appear in Library All."""
+    from sqlalchemy.dialects import postgresql
+
+    from app.repositories.attachments import list_for_gallery
+
+    captured: dict = {}
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        return MagicMock(scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[]))))
+
+    fake_session.execute = _capture
+    await list_for_gallery(fake_session, uuid4(), limit=30, offset=0)
+
+    compiled = captured["stmt"].compile(
+        dialect=postgresql.dialect(),
+        compile_kwargs={"literal_binds": True},
+    )
+    sql = str(compiled).lower()
+    assert "upload" in sql
+    assert "generated" in sql
+    assert "search" not in sql
 
 
 @pytest.mark.asyncio

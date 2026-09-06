@@ -49,7 +49,7 @@ def _storage_http_error() -> HTTPException:
 @router.get("", response_model=AttachmentListOut)
 async def list_attachments(
     category: str | None = Query(default=None, pattern="^(images|files)$"),
-    source: str | None = Query(default=None, pattern="^(upload|generated|search)$"),
+    source: str | None = Query(default=None, pattern="^(upload|generated)$"),
     q: str | None = Query(default=None, max_length=80),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
