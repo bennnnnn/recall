@@ -130,6 +130,9 @@ class Settings(BaseSettings):
     math_tools_enabled: bool = True
     chemistry_enabled: bool = True
     math_max_expr_length: int = 256
+    # Polynomial solve shape bound — refuse before the 5s SymPy pool, not
+    # only by character length (x^40 is short and still pathological).
+    math_max_poly_degree: int = 8
     # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
     # chat bubbles and FallbackMarkdown when the rich renderer dies.
     math_graph_max_points: int = 96
@@ -195,6 +198,17 @@ class Settings(BaseSettings):
     image_generation_model: str = ""
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
+
+    # Real reference-photo lookup ("show me an ear" / "what does X look like")
+    # — separate from AI generation. Reuses Tavily (image_search_enabled also
+    # requires tavily_api_key, same as web_search). Available to free users
+    # (lower cap) since it costs one Tavily query + one image fetch, not a
+    # 120s image-gen provider call.
+    image_search_enabled: bool = True
+    image_search_max_results: int = 3
+    daily_image_searches: int = 15
+    daily_image_searches_pro: int = 60
+    image_search_fetch_timeout_seconds: float = 8.0
 
     push_enabled: bool = True
     push_learning_hour: int = 9

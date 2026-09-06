@@ -947,6 +947,180 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
 
 
 @pytest.mark.asyncio
+async def test_try_image_lookup_returns_false_when_disabled():
+    from app.services.chat.stream import _try_image_lookup_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    with patch("app.services.chat.stream.extract_image_lookup_query", return_value="ear"):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=False),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_returns_false_when_no_query_match():
+    from app.services.chat.stream import _try_image_lookup_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    with patch("app.services.chat.stream.extract_image_lookup_query", return_value=None):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="what's the weather",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_succeeds_and_populates_result():
+    from app.services.chat.stream import _try_image_lookup_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    chat_id = uuid4()
+    user_msg = MagicMock()
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-search-model"
+
+    search_and_attach = AsyncMock(return_value=(user_msg, asst_msg))
+    result: dict = {}
+
+    with (
+        patch("app.services.chat.stream.extract_image_lookup_query", return_value="human ear"),
+        patch(
+            "app.services.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+    ):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=chat_id,
+            content="show me an ear",
+            result=result,
+            create_user_message=True,
+        )
+
+    assert handled is True
+    assert result["message_id"] == str(asst_msg.id)
+    assert result["final_content"] == asst_msg.content
+    assert result["resolved_model"] == "image-search-model"
+    search_and_attach.assert_awaited_once()
+    _args, kwargs = search_and_attach.call_args
+    assert kwargs["query"] == "human ear"
+    assert kwargs["chat_id"] == chat_id
+    assert kwargs["create_user_message"] is True
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_quota_exceeded_raises():
+    from app.exceptions import QuotaExceededError
+    from app.services.chat.stream import _try_image_lookup_for_turn
+    from app.services.image_search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    search_and_attach = AsyncMock(side_effect=ImageSearchError("limit reached", status_code=429))
+
+    with (
+        patch("app.services.chat.stream.extract_image_lookup_query", return_value="ear"),
+        patch(
+            "app.services.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+        pytest.raises(QuotaExceededError),
+    ):
+        await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [404, 502, 503])
+async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int):
+    """No-results / provider-down lookups fall through to a normal LLM answer."""
+    from app.services.chat.stream import _try_image_lookup_for_turn
+    from app.services.image_search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    search_and_attach = AsyncMock(
+        side_effect=ImageSearchError("not found", status_code=status_code)
+    )
+
+    with (
+        patch("app.services.chat.stream.extract_image_lookup_query", return_value="ear"),
+        patch(
+            "app.services.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+    ):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_other_error_raises_chat_service_error():
+    from app.exceptions import ChatServiceError
+    from app.services.chat.stream import _try_image_lookup_for_turn
+    from app.services.image_search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    search_and_attach = AsyncMock(side_effect=ImageSearchError("boom", status_code=500))
+
+    with (
+        patch("app.services.chat.stream.extract_image_lookup_query", return_value="ear"),
+        patch(
+            "app.services.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+        pytest.raises(ChatServiceError),
+    ):
+        await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+
+@pytest.mark.asyncio
 async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
     """WS/SSE CancelledError after tokens must persist like soft stop (no full refund)."""
     import asyncio

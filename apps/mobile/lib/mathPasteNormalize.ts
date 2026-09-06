@@ -87,6 +87,60 @@ export function restoreCopiedFractions(raw: string): string {
   return s;
 }
 
+function rewriteUnicodeSqrts(s: string): string {
+  // Convert √9 / √x / √{9} / √(x) before leftover √ becomes \sqrt{}.
+  let out = "";
+  let i = 0;
+  const n = s.length;
+  while (i < n) {
+    if (s[i] !== "√") {
+      out += s[i];
+      i += 1;
+      continue;
+    }
+    i += 1;
+    while (i < n && (s[i] === " " || s[i] === "\t")) i += 1;
+    if (i >= n) {
+      out += "\\sqrt{}";
+      break;
+    }
+    if (s[i] === "(" || s[i] === "{") {
+      const closer = s[i] === "(" ? ")" : "}";
+      const start = i + 1;
+      const close = s.indexOf(closer, start);
+      if (close < 0) {
+        out += "\\sqrt{}";
+        continue;
+      }
+      out += `\\sqrt{${s.slice(start, close)}}`;
+      i = close + 1;
+      continue;
+    }
+    if (s[i] >= "0" && s[i] <= "9") {
+      let j = i + 1;
+      while (j < n && s[j] >= "0" && s[j] <= "9") j += 1;
+      if (j < n && s[j] === ".") {
+        let k = j + 1;
+        if (k < n && s[k] >= "0" && s[k] <= "9") {
+          while (k < n && s[k] >= "0" && s[k] <= "9") k += 1;
+          j = k;
+        }
+      }
+      out += `\\sqrt{${s.slice(i, j)}}`;
+      i = j;
+      continue;
+    }
+    const ch = s[i];
+    if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")) {
+      out += `\\sqrt{${ch}}`;
+      i += 1;
+      continue;
+    }
+    out += "\\sqrt{}";
+  }
+  return out;
+}
+
 function formatPastedExpr(expr: string): string {
   return formatMathExpr(restoreCopiedFractions(expr));
 }
@@ -98,8 +152,7 @@ export function normalizePastedMath(delta: string): string {
   for (const [glyph, latex] of Object.entries(VULGAR_FRACTIONS)) {
     s = s.split(glyph).join(latex);
   }
-  s = s.replace(/√\s*\(([^()]*)\)/g, "\\sqrt{$1}");
-  s = s.replace(/√/g, "\\sqrt{}");
+  s = rewriteUnicodeSqrts(s);
   for (const [glyph, latex] of OP_GLYPHS) {
     s = s.split(glyph).join(latex);
   }

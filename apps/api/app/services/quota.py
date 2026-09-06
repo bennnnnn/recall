@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 
 from redis.asyncio import Redis
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, ResponseError
 
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
@@ -46,6 +46,14 @@ IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
     "You've reached today's image generation limit. Try again after midnight UTC."
 )
 IMAGE_GENERATION_SPEND_CAP_MESSAGE = "Image generation is temporarily unavailable. Try again later."
+
+IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE = (
+    "You've reached today's photo lookup limit. Go Pro for more — or try again after midnight UTC."
+)
+IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PRO = (
+    "You've reached today's photo lookup limit. Try again after midnight UTC."
+)
+IMAGE_SEARCH_SPEND_CAP_MESSAGE = "Photo lookup is temporarily unavailable. Try again later."
 
 LIVE_TALK_REQUIRES_PRO_MESSAGE = "Live talk is a Pro feature. Upgrade to talk with Recall out loud."
 LIVE_TALK_LIMIT_EXCEEDED_MESSAGE = (
@@ -90,6 +98,14 @@ def image_generation_limit_exceeded_message(user: User) -> str:
     )
 
 
+def image_search_limit_exceeded_message(user: User) -> str:
+    return _plan_message(
+        user,
+        free=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE,
+        pro=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PRO,
+    )
+
+
 def speech_tts_limit_exceeded_message(user: User) -> str:
     return _plan_message(
         user,
@@ -111,8 +127,29 @@ def _usage_key(user_id: str, day: date) -> str:
     return _daily_key("usage", user_id, day)
 
 
+def _heal_flag_key(user_id: str, day: date) -> str:
+    return _daily_key("usage:heal", user_id, day)
+
+
 # Daily counters outlive their day by enough to read yesterday, then expire.
 _DAILY_TTL = 60 * 60 * 48
+
+# Raise Redis to db_total only when missing or behind. Never lower a live counter.
+_HEAL_USAGE_LUA = """
+local db = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local cur = redis.call('GET', KEYS[1])
+if not cur then
+  redis.call('SET', KEYS[1], ARGV[1], 'NX', 'EX', ttl)
+  return db
+end
+local n = tonumber(cur)
+if n < db then
+  redis.call('SET', KEYS[1], ARGV[1], 'EX', ttl)
+  return db
+end
+return n
+"""
 
 
 # Floor the daily usage counter at 0 so a buggy double-refund can never drive it
@@ -191,6 +228,53 @@ async def seed_usage_if_missing(
     await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
 
 
+async def mark_usage_needs_heal(
+    redis: Redis,
+    user_id: str,
+    *,
+    day: date | None = None,
+) -> None:
+    """Remember that post-commit ``adjust_usage`` failed so the next turn can heal."""
+    try:
+        await redis.set(_heal_flag_key(user_id, day or utc_today()), "1", ex=_DAILY_TTL)
+    except RedisError:
+        logger.warning("mark_usage_needs_heal failed user_id=%s", user_id, exc_info=True)
+
+
+async def usage_needs_heal(
+    redis: Redis,
+    user_id: str,
+    *,
+    day: date | None = None,
+) -> bool:
+    try:
+        return bool(await redis.exists(_heal_flag_key(user_id, day or utc_today())))
+    except RedisError:
+        logger.warning("usage_needs_heal failed user_id=%s", user_id, exc_info=True)
+        return False
+
+
+async def clear_usage_needs_heal(
+    redis: Redis,
+    user_id: str,
+    *,
+    day: date | None = None,
+) -> None:
+    try:
+        await redis.delete(_heal_flag_key(user_id, day or utc_today()))
+    except RedisError:
+        logger.warning("clear_usage_needs_heal failed user_id=%s", user_id, exc_info=True)
+
+
+async def _heal_usage_drift_cas(redis: Redis, key: str, db_total: int) -> None:
+    current = await redis.get(key)
+    if current is None:
+        await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
+        return
+    if int(current) < db_total:
+        await redis.set(key, db_total, ex=_DAILY_TTL)
+
+
 async def heal_usage_drift(
     redis: Redis,
     user_id: str,
@@ -204,22 +288,21 @@ async def heal_usage_drift(
     holds a stale value *lower* than the DB total (repeated ``adjust_usage``
     failures, partial outages, manual key edits), seeding is skipped forever
     for that UTC day and the user can exceed daily limits. This compares the
-    two and raises Redis to ``max(redis, db_total)`` when DB is ahead. Atomic
-    via a Lua compare-and-set so concurrent turns can't double-count.
+    two and raises Redis to ``max(redis, db_total)`` when DB is ahead. Never
+    lowers a live counter. Atomic via Lua; GET+SET fallback when EVAL is
+    unavailable (some fakeredis setups).
     """
     if db_total <= 0:
         return
     key = _usage_key(user_id, day or utc_today())
     try:
-        current = await redis.get(key)
-        if current is None:
-            await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
-            return
-        current_int = int(current)
-        if current_int < db_total:
-            await redis.set(key, db_total, ex=_DAILY_TTL)
+        try:
+            await redis.eval(_HEAL_USAGE_LUA, 1, key, str(db_total), str(_DAILY_TTL))
+        except ResponseError:
+            await _heal_usage_drift_cas(redis, key, db_total)
     except RedisError:
         logger.warning("heal_usage_drift failed user_id=%s", user_id, exc_info=True)
+        raise
 
 
 async def reserve_usage(
@@ -417,6 +500,27 @@ async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
 
 IMAGE_GEN_SPEND_USD = 0.03
 WEB_SEARCH_CLASSIFIER_SPEND_USD = 0.001
+# Tavily image search + one SSRF-safe fetch (cheaper than image-gen, still billed).
+IMAGE_SEARCH_SPEND_USD = 0.01
+
+
+# ── Reference-photo lookup caps (free + pro; not Pro-gated like generation) ──
+
+
+def image_search_limit_for_user(user: User, settings: Settings) -> int:
+    return _plan_limit(
+        user,
+        free=settings.daily_image_searches,
+        pro=settings.daily_image_searches_pro,
+    )
+
+
+async def reserve_image_search(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    return await _reserve_daily_slot(redis, _daily_key("imgsearch", user_id), limit=limit)
+
+
+async def refund_image_search(redis: Redis, user_id: UUID) -> None:
+    await _refund_daily(redis, _daily_key("imgsearch", user_id))
 
 
 # ── Live talk turns (Pro-only via limit=0 for free) ──────────────────────────

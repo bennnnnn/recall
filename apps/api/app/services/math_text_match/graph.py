@@ -11,6 +11,7 @@ from app.services.math_text_match.scan import (
     VIZ_COMMANDS,
     _alpha_run_end,
     has_viz_command,
+    split_glued_viz_runs,
     strip_inline_math_delims,
 )
 
@@ -307,29 +308,61 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
 
 
 def vertical_line_x(text: str) -> float | None:
+    """``x = 4`` after a graph cue — not ``3x=9`` and not when ``y=`` is present.
+
+    Glued ``X=6graph`` / ``graphx=4`` / ``X=$6$graph`` still count: viz
+    commands are tokens, not multiplied letters.
+    """
     if not has_viz_command(text):
         return None
-    lower = strip_inline_math_delims(text).lower().replace(" ", "")
-    # x=<num> after a graph/plot/draw/vertical cue
-    if "x=" not in lower:
+    lower = split_glued_viz_runs(strip_inline_math_delims(text).lower())
+    if _standalone_equals(lower, "y") is not None:
         return None
-    idx = lower.find("x=")
-    m = _NUM.match(lower, idx + 2)
-    if m is None:
-        return None
-    # "x=2y" / "x=2*y" are functions (y = x/2), not a vertical line at x=2.
-    # "X=6graph" is x=6 plus a glued command — still a vertical line.
-    end = m.end()
-    rest = lower[end:]
-    if rest:
-        if rest[0] in "*/^(":
+    idx = 0
+    while True:
+        hit = _standalone_equals(lower, "x", start=idx)
+        if hit is None:
             return None
-        if rest[0].isalnum():
-            token_end = _alpha_run_end(rest, 0)
-            token = rest[:token_end]
-            if len(token) < 3 or token not in VIZ_COMMANDS:
-                return None
-            leftover = rest[token_end:].lstrip(".,!?")
-            if leftover and (leftover[0].isalnum() or leftover[0] in "*/^("):
-                return None
-    return float(m.group(0))
+        eq_at, after_eq = hit
+        m = _NUM.match(lower, after_eq)
+        if m is None:
+            idx = eq_at + 1
+            continue
+        end = m.end()
+        rest = lower[end:].lstrip()
+        if rest:
+            if rest[0] in "*/^(":
+                idx = end
+                continue
+            if rest[0].isalnum():
+                token_end = _alpha_run_end(rest, 0)
+                token = rest[:token_end]
+                if token not in VIZ_COMMANDS:
+                    idx = end
+                    continue
+                leftover = rest[token_end:].lstrip(".,!? ")
+                if leftover and (leftover[0].isalnum() or leftover[0] in "*/^("):
+                    idx = end
+                    continue
+        return float(m.group(0))
+
+
+def _standalone_equals(lower: str, letter: str, start: int = 0) -> tuple[int, int] | None:
+    """Index of ``letter =`` not preceded by a digit/letter; scan from ``start``.
+
+    Returns ``(equals_index, index_after_optional_spaces)`` for the number scan.
+    """
+    n = len(lower)
+    i = start
+    while i < n:
+        if lower[i] == letter and (i == 0 or not lower[i - 1].isalnum()):
+            j = i + 1
+            while j < n and lower[j] in " \t":
+                j += 1
+            if j < n and lower[j] == "=":
+                k = j + 1
+                while k < n and lower[k] in " \t":
+                    k += 1
+                return j, k
+        i += 1
+    return None

@@ -121,6 +121,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Attachments + RAG | `routers/attachments.py`, `attachment_*.py`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
 | Image gen (Pro) | `routers/images.py`, `image_generation.py`, `image_gen_intent.py` | composer send only (no prompt sheet) |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `image_search.py`, `image_lookup_intent.py`, MCP `search_image` adapter | `lib/imageLookupIntent.ts` (checked before image-gen intent in `useChatSend`) |
 | Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `math_tools/`, `math_service/`, `math_fence.py`, `sympy_executor.py` | `MathText` / `MathView` / `geometry` / `graph` |
@@ -153,7 +154,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -161,7 +162,7 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
-3. Image-generation intent interception (Pro; may return without an LLM turn)
+3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation
 4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)

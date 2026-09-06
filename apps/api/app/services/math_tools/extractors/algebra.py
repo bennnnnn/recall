@@ -58,6 +58,10 @@ def _requested_variable(cleaned: str, equation_text: str) -> str | None:
     tokens = re.findall(r"[a-zA-Z]+", equation_text)
     kept = [t for t in tokens if t.lower() not in _LEADIN_WORDS]
     letters = {c for t in kept for c in t if c.isalpha()}
+    # ``e``/``E`` are Euler's number in guess_variables — still honor an
+    # explicit "solve for e" when that letter is actually in the equation.
+    if var in {"e", "E"}:
+        return var if var in letters else None
     letters.discard("e")
     letters.discard("E")
     return var if var in letters else None

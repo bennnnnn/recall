@@ -85,6 +85,32 @@ def test_kinematics_position_op_uses_requested_time() -> None:
     assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
 
 
+def test_kinematics_position_past_impact_is_not_verified() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="position",
+        physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81, "t": 10.0},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"},
+        operation="solve",
+    )
+    with pytest.raises(MathServiceError, match="already on the ground"):
+        physics_solver.solve_kinematics(intent)
+    settings = Settings()
+    assert physics_block._build_physics_block(intent, settings, []) is None
+
+
+def test_kinematics_velocity_past_impact_is_not_verified() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="velocity",
+        physics_params={"h0": 100.0, "v0": 0.0, "g": 9.81, "t": 10.0},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"},
+        operation="solve",
+    )
+    with pytest.raises(MathServiceError, match="already on the ground"):
+        physics_solver.solve_kinematics(intent)
+
+
 def test_kinematics_acceleration_is_constant() -> None:
     intent = MathIntent(
         kind="kinematics",

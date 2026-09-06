@@ -24,6 +24,7 @@ from sympy import (
     solve,
 )
 
+from app.core.config import get_settings
 from app.models.math_schemas import (
     EquationInput,
     MathExprResult,
@@ -258,8 +259,29 @@ def _classify_no_solution(lhs: Any, rhs: Any) -> Literal["none", "infinite"]:
     return "infinite" if diff_expr.is_zero else "none"
 
 
+def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
+    """Refuse high-degree polynomials before ``solve()`` occupies the 5s pool."""
+    max_degree = get_settings().math_max_poly_degree
+    expr = lhs - rhs
+    for name in variables:
+        poly = expr.as_poly(Symbol(name))
+        if poly is None:
+            continue
+        deg = poly.degree()
+        # Identities like x = x have degree -oo.
+        if deg == -oo:
+            continue
+        try:
+            degree = int(deg)
+        except TypeError:
+            continue
+        if degree > max_degree:
+            raise MathServiceError("Polynomial degree too high")
+
+
 def solve_equation(data: EquationInput) -> MathSolveResult:
     equation, lhs, rhs = parse_equation(data)
+    _reject_high_degree(lhs, rhs, data.variables)
     real = _expr_needs_real_domain(data.lhs, data.rhs)
     syms = [Symbol(v, real=True) if real else Symbol(v) for v in data.variables]
     try:
@@ -336,6 +358,7 @@ def solve_system(data: SystemOfEquationsInput) -> MathSystemSolveResult:
     for i, (lhs_raw, rhs_raw) in enumerate(data.equations, start=1):
         lhs = _parse_expression(lhs_raw, data.variables)
         rhs = _parse_expression(rhs_raw, data.variables)
+        _reject_high_degree(lhs, rhs, data.variables)
         equations.append(Eq(lhs, rhs))
         parsed_pairs.append((lhs, rhs))
         step_lines.append(f"Equation {i}: {latex(lhs)} = {latex(rhs)}")

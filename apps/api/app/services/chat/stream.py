@@ -33,6 +33,7 @@ from app.services import attachment_lifecycle as attachment_lifecycle
 from app.services import (
     calendar,
     image_generation,
+    image_search,
     math_fence,
     plan,
     quota,
@@ -101,12 +102,16 @@ from app.services.image_gen_intent import (
 from app.services.image_gen_intent import (
     image_gen_revision_context as image_gen_revision_context,
 )
+from app.services.image_lookup_intent import (
+    extract_image_lookup_query as extract_image_lookup_query,
+)
 
 chats_repo = chats
 messages_repo = messages
 users_repo = users
 calendar_service = calendar
 image_generation_service = image_generation
+image_search_service = image_search
 math_fence_service = math_fence
 plan_service = plan
 quota_service = quota
@@ -232,6 +237,28 @@ async def reserve_turn_quota(
         max_output=max_output,
         vision_extra=vision_extra,
         seed=seed,
+    )
+
+
+async def _try_image_lookup_for_turn(
+    settings: Settings,
+    *,
+    user: User,
+    chat_id: UUID,
+    content: str,
+    result: dict[str, Any] | None,
+    create_user_message: bool,
+    replace_assistant_id: UUID | None = None,
+) -> bool:
+    return await _entry.try_image_lookup_for_turn(
+        _seams(),
+        settings,
+        user=user,
+        chat_id=chat_id,
+        content=content,
+        result=result,
+        create_user_message=create_user_message,
+        replace_assistant_id=replace_assistant_id,
     )
 
 

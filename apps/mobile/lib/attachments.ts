@@ -1,3 +1,4 @@
+import { Linking } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -6,6 +7,7 @@ import { File } from "expo-file-system";
 import { api } from "@/lib/api";
 import { uploadAttachmentBytes } from "@/lib/api/attachments";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
+import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
 
 export type AttachmentKind = "image" | "file";
@@ -189,8 +191,14 @@ export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> 
 
 export async function pickFromCamera(): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    let permission = await ImagePicker.getCameraPermissionsAsync();
+    if (!permission.granted && !cameraPermissionNeedsSettings(permission)) {
+      permission = await ImagePicker.requestCameraPermissionsAsync();
+    }
     if (!permission.granted) {
+      if (cameraPermissionNeedsSettings(permission)) {
+        void Linking.openSettings();
+      }
       throw new Error("Camera permission is required to take photos.");
     }
 
