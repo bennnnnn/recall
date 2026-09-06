@@ -16,6 +16,7 @@ from app.models.math_schemas import (
     SystemOfEquationsInput,
 )
 from app.services import math_service
+from app.services.math_service import MathServiceError
 
 
 @pytest.mark.parametrize(
@@ -181,6 +182,11 @@ def test_canonical_sixth_roots_group_conjugates() -> None:
     assert r"\pm 1" in joined
     assert r"\pm" in joined
     assert " i" in joined
+
+
+def test_solve_rejects_polynomial_above_degree_cap() -> None:
+    with pytest.raises(MathServiceError, match="degree"):
+        math_service.solve_equation(EquationInput(lhs="x**40", rhs="1", variables=["x"]))
 
 
 def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
