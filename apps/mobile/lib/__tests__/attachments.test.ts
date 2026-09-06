@@ -1,3 +1,10 @@
+// lib/ tests run under ts-jest/node — react-native is ESM and cannot load
+// as CJS. pickFromCamera opens Settings via Linking; this suite does not
+// exercise that path but still imports the module.
+jest.mock("react-native", () => ({
+  Linking: { openSettings: jest.fn() },
+}));
+
 import { File } from "expo-file-system";
 import { api } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
