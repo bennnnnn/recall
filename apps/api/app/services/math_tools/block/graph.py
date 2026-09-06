@@ -25,10 +25,7 @@ def _verified_block_point(
         points=[[px, py]],
     )
     lines.append(f"Point: ({px:g}, {py:g})")
-    lines.append(
-        "Do NOT invent a function or extra points through this marker — "
-        "Recall attaches the verified plot."
-    )
+    lines.append("Do NOT invent a function or extra points through this marker.")
     return _diagram_block(lines, point_spec, f"({px:g}, {py:g})")
 
 
@@ -47,8 +44,13 @@ def _verified_block_vertical(
         expr=f"x = {vx:g}",
         title=f"x = {vx:g}",
     )
-    lines.append(f"Vertical line: x = {vx:g} (from y = {y_min:g} to y = {y_max:g})")
-    return _diagram_block(lines, vert_spec, f"{vx:g}")
+    lines.append(f"Vertical line: x = {vx:g}.")
+    lines.append(
+        "At most one short sentence naming the line. Do not list intercepts, "
+        "example points, or parallel/perpendicular facts — the plot shows that."
+    )
+    # No numeric ```answer pill: this turn is the diagram, not "x equals 6".
+    return _diagram_block(lines, vert_spec)
 
 
 def _verified_block_graph(

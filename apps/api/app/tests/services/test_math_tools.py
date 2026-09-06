@@ -42,6 +42,57 @@ def test_extract_equation_intent() -> None:
     assert intent.variable == "x"
 
 
+def test_glued_graph_command_is_vertical_line_not_multiplied_letters() -> None:
+    """``X=6graph`` is ``graph x=6`` (vertical line), not 6·g·r·a·p·h."""
+    intent = math_tools.extract_math_intent("X=6graph")
+    assert intent is not None
+    assert intent.kind == "vertical"
+    assert intent.point_x == 6.0
+
+
+def test_composer_dollar_wrap_still_vertical_line() -> None:
+    """Math keyboard wraps the 6 in ``$...$``; that must not hide the plot."""
+    intent = math_tools.extract_math_intent("X=$6$graph")
+    assert intent is not None
+    assert intent.kind == "vertical"
+    assert intent.point_x == 6.0
+
+
+def test_glued_english_on_equation_is_not_implicit_product() -> None:
+    """Trailing English on a bare equation is stripped, not multiplied letters."""
+    intent = math_tools.extract_math_intent("2x+3=7please")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "2x+3"
+    assert intent.rhs == "7"
+
+
+def test_paragraph_is_not_a_graph_keyword() -> None:
+    assert math_tools.needs_symbolic_math("write a paragraph about trees") is False
+
+
+def test_glued_please_is_equation_not_graph() -> None:
+    intent = math_tools.extract_math_intent("X=6please")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "X"
+    assert intent.rhs == "6"
+
+
+def test_glued_graph_is_not_a_vega_chart_question() -> None:
+    from app.services.chat.prompt_constants.format import is_chart_question
+
+    assert is_chart_question("X=6graph") is False
+
+
+def test_mass_energy_equation_is_not_peeled() -> None:
+    energy = math_tools.extract_math_intent("E=mc^2")
+    assert energy is not None
+    assert energy.kind == "equation"
+    assert energy.lhs == "E"
+    assert energy.rhs == "mc^2"
+
+
 @pytest.mark.parametrize(
     "text, expected_var",
     [
@@ -1367,6 +1418,59 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "vertical"
     assert verified.canonical_fence["x"] == 4.0
+    assert verified.canonical_answer is None
+    # Sample window stays on the fence; don't give the model y=±10 to parrot.
+    assert "from y" not in verified.text.lower()
+    assert "y = -10" not in verified.text
+    assert "Recall will attach" not in verified.text
+    assert "Do not mention attaching" in verified.text
+    assert verified.canonical_fence["x_min"] == 0.0
+    assert verified.canonical_fence["x_max"] == 10.0
+    assert verified.canonical_fence["y_min"] == -10.0
+    assert verified.canonical_fence["y_max"] == 10.0
+
+
+@pytest.mark.asyncio
+async def test_glued_graph_command_injects_vertical_fence_not_chart() -> None:
+    """``X=6graph`` is graph-the-line x=6 (```graph), not Vega ```chart."""
+    settings = Settings(math_tools_enabled=True)
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "X=6graph"}],
+        "X=6graph",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "vertical"
+    assert verified.canonical_fence["x"] == 6.0
+    assert verified.canonical_answer is None
+    assert verified.canonical_fence["x_min"] == 0.0
+    assert verified.canonical_fence["x_max"] == 12.0
+    joined = " ".join(m["content"] for m in out)
+    assert "```chart" not in joined
+    assert '"type":"bar"' not in joined
+
+
+@pytest.mark.asyncio
+async def test_composer_dollar_wrap_injects_vertical_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "X=$6$graph"}],
+        "X=$6$graph",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "vertical"
+    assert verified.canonical_fence["x"] == 6.0
+    import json
+
+    from app.services.math_fence import validate_math_fences
+
+    prose = "$X = 6$ is a **vertical line** on the Cartesian plane.\n\n$X = 6$"
+    out = validate_math_fences(prose, verified=verified)
+    assert "```graph" in out
+    assert json.loads(out.split("```graph")[1].split("```")[0].strip())["type"] == "vertical"
 
 
 @pytest.mark.asyncio
@@ -1429,7 +1533,8 @@ async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     assert verified is not None
     assert verified.canonical_fence is not None
     assert len(verified.canonical_fence["points"]) == 220
-    assert "Recall will attach the verified diagram" in verified.text
+    assert "Do not mention attaching" in verified.text
+    assert "Recall will attach" not in verified.text
     assert "```graph\n" not in verified.text
 
 

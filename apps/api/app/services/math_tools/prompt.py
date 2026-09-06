@@ -158,8 +158,7 @@ async def build_math_augmentation(
             "The user attached an image that may contain a math problem. "
             "Extract the equation as lhs/rhs if possible, then explain carefully. "
             "Do NOT claim SymPy verification unless a verified system block is present. "
-            "Use $...$ for formulas. Do not emit ```geometry / ```graph — "
-            "Recall attaches verified diagrams when measures are known. "
+            "Use $...$ for formulas. Do not emit ```geometry / ```graph. "
             "Never invent measures."
         ]
         return "\n".join(lines), None

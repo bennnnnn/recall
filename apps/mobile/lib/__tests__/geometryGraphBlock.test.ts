@@ -372,6 +372,8 @@ describe("graphBlock", () => {
     );
     expect(spec?.type).toBe("vertical");
     expect(spec?.x).toBe(4);
+    expect(spec?.x_min).toBe(0);
+    expect(spec?.x_max).toBe(10);
     expect(spec?.points).toEqual([
       [4, -5],
       [4, 5],
@@ -661,6 +663,14 @@ describe("graphBlock", () => {
       yMax: 12,
     });
     expect(view).toEqual({ xMin: -12, xMax: 12, yMin: -10, yMax: 14 });
+  });
+
+  it("expandBoundsForAxes pad:false keeps the sample window", () => {
+    const view = expandBoundsForAxes(
+      { xMin: 0, xMax: 12, yMin: -10, yMax: 10 },
+      { pad: false },
+    );
+    expect(view).toEqual({ xMin: 0, xMax: 12, yMin: -10, yMax: 10 });
   });
 
   it("formatAxisNumber is always a whole number", () => {

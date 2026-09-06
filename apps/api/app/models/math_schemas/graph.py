@@ -122,8 +122,19 @@ class GraphBlockSpec(BaseModel):
                 raise ValueError("vertical graph requires y_max > y_min")
             self.y_min = y_lo
             self.y_max = y_hi
-            self.x_min = float(self.x) - 5.0
-            self.x_max = float(self.x) + 5.0
+            vx = float(self.x)
+            # Include the origin and keep x = c in the middle of the view
+            # (x=6 → 0..12). A ±5 window around x left 0 off-center and the
+            # 8% axis pad then labeled ±12.
+            if vx > 0:
+                self.x_min = 0.0
+                self.x_max = max(2.0 * vx, 10.0)
+            elif vx < 0:
+                self.x_min = min(2.0 * vx, -10.0)
+                self.x_max = 0.0
+            else:
+                self.x_min = -5.0
+                self.x_max = 5.0
             if not self.expr.strip():
                 self.expr = f"x = {float(self.x):g}"
             if not self.title:

@@ -582,6 +582,23 @@ def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
     assert math_service.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
 
 
+def test_try_extract_equations_strips_glued_english() -> None:
+    assert math_service.try_extract_equations_from_text("X=6graph") == [("X", "6")]
+    assert math_service.try_extract_equations_from_text("2x+3=7please") == [("2x+3", "7")]
+    assert math_service.try_extract_equations_from_text("velocity=12") == [("velocity", "12")]
+    assert math_service.try_extract_equations_from_text("E=mc^2") == [("E", "mc^2")]
+
+
+def test_guess_variables_does_not_split_unknown_letter_runs() -> None:
+    eq = math_service.try_extract_equation_from_text("X=6graph")
+    assert eq is not None
+    assert eq.lhs == "X"
+    assert eq.rhs == "6"
+    assert eq.variables == ["X"]
+    assert math_service.guess_variables("X=6graph") == ["X"]
+    assert math_service.guess_variables("6graph") == ["x"]
+
+
 def test_try_extract_equations_from_text_no_equation() -> None:
     assert math_service.try_extract_equations_from_text("what's the weather") == []
 

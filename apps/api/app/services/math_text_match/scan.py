@@ -17,8 +17,8 @@ _DIM_SEPS = ("\u00d7", "by", "x", "*")
 _DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
 
 # Multi-letter tokens SymPy already treats as one name. Any other 3+ letter
-# run in a candidate expr is English (or a command) — never s*i*n products,
-# and never ``squared``/``plus`` slipping into letter-products.
+# run is English or a command — never g*r*a*p*h, and never ``squared``/``plus``
+# slipping into letter-products.
 MATH_MULTI_LETTER = frozenset(
     {
         "sin",
@@ -51,6 +51,129 @@ MATH_MULTI_LETTER = frozenset(
         "mod",
     }
 )
+VIZ_COMMANDS = frozenset(
+    {
+        "graph",
+        "plot",
+        "draw",
+        "show",
+        "sketch",
+        "visualize",
+        "visualise",
+        "vertical",
+    }
+)
+# Only these may glue onto a following 1-letter variable (``graphx=4``).
+# ``show``/``draw`` are too common as English prefixes (``shown``, ``drawn``).
+_GLUEABLE_VIZ = frozenset({"graph", "plot"})
+
+
+def _alpha_run_end(s: str, start: int) -> int:
+    j = start
+    n = len(s)
+    while j < n and s[j].isalpha():
+        j += 1
+    return j
+
+
+def _looks_like_math_core(s: str) -> bool:
+    if not s:
+        return False
+    if any(ch.isdigit() for ch in s):
+        return True
+    if any(ch in "+-*/^()" for ch in s):
+        return True
+    letters = [ch for ch in s if ch.isalpha()]
+    return len(letters) == 1
+
+
+def peel_edge_english(side: str) -> str:
+    """Trim unknown 3+ letter runs glued to an equation side.
+
+    ``X=6graph`` → RHS ``6``. ``velocity=12`` stays (the whole side is the
+    name). ``E=mc^2`` is untouched (2-letter ``mc`` is implicit product).
+    """
+    s = side.strip()
+    i = len(s)
+    while i > 0 and s[i - 1].isalpha():
+        i -= 1
+    run = s[i:]
+    rest = s[:i].rstrip()
+    if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER and _looks_like_math_core(rest):
+        s = rest
+    j = 0
+    while j < len(s) and s[j].isalpha():
+        j += 1
+    run = s[:j]
+    rest = s[j:].lstrip()
+    if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER and _looks_like_math_core(rest):
+        s = rest
+    return s
+
+
+def _alpha_run_is_viz(run: str, *, commands: frozenset[str], glueable: frozenset[str]) -> bool:
+    low = run.lower()
+    if low in commands:
+        return True
+    for cmd in glueable:
+        if len(low) > len(cmd) and low.startswith(cmd) and _looks_like_math_core(low[len(cmd) :]):
+            return True
+    return False
+
+
+def _text_has_command(
+    text: str,
+    commands: frozenset[str],
+    glueable: frozenset[str] | None = None,
+) -> bool:
+    glue = glueable or frozenset()
+    lower = text.lower()
+    start = 0
+    n = len(lower)
+    while start < n:
+        if lower[start].isalpha():
+            end = _alpha_run_end(lower, start)
+            if _alpha_run_is_viz(lower[start:end], commands=commands, glueable=glue):
+                return True
+            start = end
+        else:
+            start += 1
+    return False
+
+
+def has_viz_command(text: str) -> bool:
+    """True when the user asked to graph/plot/draw — whole word or glued.
+
+    Substring ``graph`` must not match ``paragraph``. Glued ``X=6graph``
+    still counts: ``graph`` is its own letter-run, not five variables.
+    ``graphx=4`` counts because ``graph`` is a prefix of the run and ``x``
+    is a 1-letter variable.
+    """
+    lower = text.lower()
+    if "visuali" in lower:
+        return True
+    return _text_has_command(text, VIZ_COMMANDS, _GLUEABLE_VIZ)
+
+
+def mask_unknown_letter_runs(text: str) -> str:
+    """Replace unknown 3+ letter runs with spaces so they are not split into
+    per-letter variables (``6graph`` must not guess g,r,a,p,h)."""
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i].isalpha():
+            j = _alpha_run_end(text, i)
+            run = text[i:j]
+            if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER:
+                out.append(" ")
+            else:
+                out.append(run)
+            i = j
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
 
 
 def has_unknown_english_run(text: str) -> bool:
@@ -58,11 +181,8 @@ def has_unknown_english_run(text: str) -> bool:
     i = 0
     n = len(text)
     while i < n:
-        ch = text[i]
-        if ch.isalpha():
-            j = i + 1
-            while j < n and text[j].isalpha():
-                j += 1
+        if text[i].isalpha():
+            j = _alpha_run_end(text, i)
             if (j - i) >= 3 and text[i:j].lower() not in MATH_MULTI_LETTER:
                 return True
             i = j
@@ -112,6 +232,38 @@ def ddx_expr_after(text: str) -> str | None:
     return text[idx + _DDX_LEN :]
 
 
+def split_glued_viz_runs(text: str) -> str:
+    """``graphx=4`` → ``graph x=4`` so ``x`` is a standalone variable."""
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i].isalpha():
+            end = _alpha_run_end(text, i)
+            run = text[i:end]
+            low = run.lower()
+            split_at: int | None = None
+            for cmd in _GLUEABLE_VIZ:
+                if (
+                    len(low) > len(cmd)
+                    and low.startswith(cmd)
+                    and _looks_like_math_core(low[len(cmd) :])
+                ):
+                    split_at = len(cmd)
+                    break
+            if split_at is not None:
+                out.append(run[:split_at])
+                out.append(" ")
+                out.append(run[split_at:])
+            else:
+                out.append(run)
+            i = end
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
+
+
 def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
     """Parse ``digits`` or ``digits.digits`` / ``digits,digits`` at ``start``.
 
@@ -137,6 +289,23 @@ def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
         return None
 
 
+def strip_inline_math_delims(text: str) -> str:
+    """Composer/math keyboard wraps numbers in ``$...$`` / ``\\(...\\)``.
+
+    ``X=$6$graph`` must be seen as ``X=6graph`` — a ``$`` after ``x=`` used
+    to hide the 6 from the vertical-line matcher, so we solved the equation
+    in words and never attached the plot.
+    """
+    return (
+        text.replace("$$", "")
+        .replace("$", "")
+        .replace("\\(", "")
+        .replace("\\)", "")
+        .replace("\\[", "")
+        .replace("\\]", "")
+    )
+
+
 def word_index(lower: str, phrase: str) -> int:
     """First index of ``phrase`` not glued inside a longer letter-run."""
     start = 0
@@ -154,7 +323,7 @@ def word_index(lower: str, phrase: str) -> int:
 
 
 def prepare(text: str) -> str | None:
-    cleaned = collapse_ws(text)
+    cleaned = collapse_ws(strip_inline_math_delims(text))
     if len(cleaned) > _MAX:
         return None
     return cleaned
@@ -169,6 +338,11 @@ def has_draw_shape(lower: str, shape: str) -> bool:
 def has_math_keyword(lower: str) -> bool:
     compact = lower.replace(" ", "")
     if "y=" in compact:
+        return True
+    # ``graph``/``plot`` are whole tokens (or glued onto a variable), not
+    # substrings — ``paragraph`` must not look like a graph ask. ``show`` /
+    # ``draw`` stay out of this gate so "show me the weather" is not math.
+    if _text_has_command(lower, _GLUEABLE_VIZ, _GLUEABLE_VIZ):
         return True
     for phrase in (
         "solve",
@@ -192,8 +366,6 @@ def has_math_keyword(lower: str) -> bool:
         "radius",
         "diameter",
         "circumference",
-        "graph",
-        "plot",
         "function",
         "sqrt",
         "square root",

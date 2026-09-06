@@ -12,6 +12,19 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Assistant said “Recall will attach the verified diagram.”** That sentence
+  was a system instruction (`DIAGRAM_OWNED_NOTE`) in declarative voice; the
+  model copied it into the chat. Phrase as “do not mention attaching / fences”;
+  never tell the user the app will attach anything.
+- **`X=6graph` became 6·g·r·a·p·h then a broken Vega chart.** Equation walk +
+  implicit multiplication split unknown 3+ letter tokens; `"graph" in text`
+  also matched `paragraph` (`"graph "` inside `"paragraph "`). Peel/mask
+  whole alpha-runs; viz commands are tokens (or `graph`/`plot` glued onto a
+  1-letter variable), not substrings. Composer `$` around the 6 (`X=$6$graph`)
+  hid the number from `vertical_line_x`, so we explained x=6 in prose and
+  never attached the plot. Unwrap `$`/`\\(...\\)` in `prepare`. `x=6` + graph
+  cue is a vertical ```graph, not ```chart. `x=2y` stays y=x/2.
+
 - **Lesson loop felt like stacked pages.** Play keyed the whole `ScrollView` on
   `item:kind`, remounting teach/quiz/complete so Reanimated exiting never ran.
   Keep one ScrollView and slide the inner pane; Reduce Motion stays an instant swap.

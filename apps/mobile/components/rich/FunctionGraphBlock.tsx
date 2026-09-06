@@ -77,27 +77,37 @@ export function FunctionGraphBlock({ content }: Props) {
   }
 
   const hasCurve2 = spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
+  const verticalX = spec.type === "vertical" ? spec.x : undefined;
+  const isVerticalLine = verticalX != null;
   const title = formatGraphExpr(
     spec.title ??
       (spec.type === "vertical" ? spec.expr : `y = ${formatGraphExpr(spec.expr)}`),
   );
-  const bounds =
-    spec.type === "vertical" && spec.x != null
-      ? expandBoundsForAxes({
-          xMin: spec.x_min ?? spec.x - 5,
-          xMax: spec.x_max ?? spec.x + 5,
+  const bounds = isVerticalLine
+    ? expandBoundsForAxes(
+        {
+          xMin: spec.x_min ?? 0,
+          xMax: spec.x_max ?? Math.max(Math.abs(2 * verticalX), 10),
           yMin: spec.y_min ?? Math.min(...spec.points.map((p) => p[1])),
           yMax: spec.y_max ?? Math.max(...spec.points.map((p) => p[1])),
-        })
-      : expandBoundsForAxes(
-          graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
-        );
+        },
+        { pad: false },
+      )
+    : expandBoundsForAxes(
+        graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
+      );
   // A single point (or points sharing an x) has no line to draw — a
   // Polyline needs 2+ points to render anything visible. Vertical lines
-  // intentionally share an x and still draw between the two endpoints.
+  // run the full axis height so they read as x = c, not a capped segment.
+  const linePoints: [number, number][] = isVerticalLine
+    ? [
+        [verticalX, bounds.yMin],
+        [verticalX, bounds.yMax],
+      ]
+    : spec.points;
   const polyline =
-    spec.points.length >= 2
-      ? graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT, bounds)
+    linePoints.length >= 2
+      ? graphPolylinePoints(linePoints, chartWidth, CHART_HEIGHT, bounds)
       : null;
   // When the backend detected a discontinuity (e.g. a tan(x) vertical
   // asymptote), render each segment as its own Polyline against the SAME
@@ -123,11 +133,11 @@ export function FunctionGraphBlock({ content }: Props) {
           .map((seg) => graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds))
       : null;
   const markers =
-    spec.points.length <= MAX_MARKED_POINTS
-      ? spec.points.map(([x, y]) =>
+    isVerticalLine || spec.points.length > MAX_MARKED_POINTS
+      ? []
+      : spec.points.map(([x, y]) =>
           mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
-        )
-      : [];
+        );
   const markers2 =
     hasCurve2 && points2.length <= MAX_MARKED_POINTS
       ? points2.map(([x, y]) => mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT))

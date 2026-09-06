@@ -5,7 +5,27 @@ from __future__ import annotations
 import math
 import re
 
-from app.services.math_text_match.scan import _BARE_COORD, _NUM
+from app.services.math_text_match.scan import (
+    _BARE_COORD,
+    _NUM,
+    VIZ_COMMANDS,
+    _alpha_run_end,
+    has_viz_command,
+    split_glued_viz_runs,
+    strip_inline_math_delims,
+)
+
+
+def _find_unprefixed_phrase(lower: str, phrase: str) -> int:
+    """``graph `` inside ``paragraph `` must not count as a graph command."""
+    start = 0
+    while True:
+        idx = lower.find(phrase, start)
+        if idx == -1:
+            return -1
+        if idx == 0 or not lower[idx - 1].isalpha():
+            return idx
+        start = idx + 1
 
 
 def _parse_bound(token: str) -> float | None:
@@ -117,7 +137,8 @@ def plot_point(text: str) -> tuple[float, float] | None:
     lower = text.lower()
     if "point" not in lower:
         return None
-    if not any(v in lower for v in ("plot ", "mark ", "graph ", "show ", "mark point")):
+    cues = ("plot ", "mark ", "graph ", "show ", "mark point")
+    if not any(_find_unprefixed_phrase(lower, v) != -1 for v in cues):
         return None
     idx = lower.find("point")
     rest = text[idx + len("point") :].strip()
@@ -181,7 +202,7 @@ def _bare_y_equals_rhs(text: str) -> str | None:
 def graph_expr(text: str) -> str | None:
     lower = text.lower()
     for prefix in ("graph ", "plot "):
-        idx = lower.find(prefix)
+        idx = _find_unprefixed_phrase(lower, prefix)
         if idx == -1:
             continue
         expr = text[idx + len(prefix) :].strip()
@@ -266,7 +287,7 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
     as a second function."""
     lower = text.lower()
     for prefix in _GRAPH_PAIR_PREFIXES:
-        idx = lower.find(prefix)
+        idx = _find_unprefixed_phrase(lower, prefix)
         if idx == -1:
             continue
         rest = text[idx + len(prefix) :].strip()
@@ -287,16 +308,17 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
 
 
 def vertical_line_x(text: str) -> float | None:
-    """``x = 4`` after a graph cue — not ``3x=9`` and not when ``y=`` is present."""
-    lower = text.lower()
-    if not any(
-        k in lower for k in ("graph", "plot", "draw", "show", "sketch", "visuali", "vertical")
-    ):
+    """``x = 4`` after a graph cue — not ``3x=9`` and not when ``y=`` is present.
+
+    Glued ``X=6graph`` / ``graphx=4`` / ``X=$6$graph`` still count: viz
+    commands are tokens, not multiplied letters.
+    """
+    if not has_viz_command(text):
         return None
+    lower = split_glued_viz_runs(strip_inline_math_delims(text).lower())
     if _standalone_equals(lower, "y") is not None:
         return None
     idx = 0
-    n = len(lower)
     while True:
         hit = _standalone_equals(lower, "x", start=idx)
         if hit is None:
@@ -307,9 +329,21 @@ def vertical_line_x(text: str) -> float | None:
             idx = eq_at + 1
             continue
         end = m.end()
-        if end < n and (lower[end].isalnum() or lower[end] in "*/^("):
-            idx = end
-            continue
+        rest = lower[end:].lstrip()
+        if rest:
+            if rest[0] in "*/^(":
+                idx = end
+                continue
+            if rest[0].isalnum():
+                token_end = _alpha_run_end(rest, 0)
+                token = rest[:token_end]
+                if token not in VIZ_COMMANDS:
+                    idx = end
+                    continue
+                leftover = rest[token_end:].lstrip(".,!? ")
+                if leftover and (leftover[0].isalnum() or leftover[0] in "*/^("):
+                    idx = end
+                    continue
         return float(m.group(0))
 
 
