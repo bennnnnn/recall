@@ -17,6 +17,7 @@ from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
 from app.models.tool_schemas import CalendarConflictsInput
 from app.services import calendar as calendar_service
+from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
 
@@ -155,5 +156,8 @@ class CalendarAdapter:
             if not conflicts:
                 return ToolResult(name=self.name, content="No conflicts.")
             lines = [f"- {e.title} at {e.start.isoformat()}" for e in conflicts]
-            return ToolResult(name=self.name, content="\n".join(lines))
+            return ToolResult(
+                name=self.name,
+                content=wrap_untrusted("calendar", "\n".join(lines)),
+            )
         return ToolResult(name=self.name, content=f"Unknown action: {action}")

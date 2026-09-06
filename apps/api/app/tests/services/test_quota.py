@@ -185,6 +185,41 @@ async def test_seed_usage_from_db_does_not_heal_warm_redis(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_heal_usage_drift_raises_stale_redis_to_db_total(fake_redis):
+    await fake_redis.set(f"usage:u1:{quota_service.utc_today().isoformat()}", 200)
+    await quota_service.heal_usage_drift(fake_redis, "u1", 500)
+    assert int(await fake_redis.get(f"usage:u1:{quota_service.utc_today().isoformat()}")) == 500
+
+
+@pytest.mark.asyncio
+async def test_heal_usage_drift_does_not_lower_live_redis(fake_redis):
+    await fake_redis.set(f"usage:u1:{quota_service.utc_today().isoformat()}", 800)
+    await quota_service.heal_usage_drift(fake_redis, "u1", 500)
+    assert int(await fake_redis.get(f"usage:u1:{quota_service.utc_today().isoformat()}")) == 800
+
+
+@pytest.mark.asyncio
+async def test_seed_usage_from_db_heals_when_flag_set(fake_redis):
+    from unittest.mock import AsyncMock, patch
+    from uuid import uuid4
+
+    from app.services.chat.post_turn import seed_usage_from_db
+
+    session = AsyncMock()
+    user_id = uuid4()
+    key = f"usage:{user_id}:{quota_service.utc_today().isoformat()}"
+    await fake_redis.set(key, 200)
+    await quota_service.mark_usage_needs_heal(fake_redis, str(user_id))
+    with patch(
+        "app.repositories.usage.get_total_for_date", AsyncMock(return_value=500)
+    ) as get_total:
+        await seed_usage_from_db(fake_redis, session, user_id)
+    get_total.assert_awaited_once()
+    assert int(await fake_redis.get(key)) == 500
+    assert await quota_service.usage_needs_heal(fake_redis, str(user_id)) is False
+
+
+@pytest.mark.asyncio
 async def test_seed_usage_if_missing_seeds_from_db_when_key_absent(fake_redis):
     """After a Redis flush the counter is gone; seeding restores the DB total."""
     from datetime import UTC, datetime
@@ -377,15 +412,17 @@ async def test_reserve_live_talk_blocks_free_plan(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_reserve_live_talk_enforces_pro_limit(fake_redis):
+async def test_live_talk_has_capacity_does_not_reserve(fake_redis):
     from uuid import uuid4
 
-    settings = Settings(daily_live_talk_pro=2)
     user_id = uuid4()
-    limit = quota_service.live_talk_limit_for_user(_pro_user(), settings)
-    for _ in range(limit):
-        assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit) is True
-    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit) is False
+    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is True
+    assert await quota_service.live_talk_used(fake_redis, user_id) == 0
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=2) is True
+    assert await quota_service.live_talk_used(fake_redis, user_id) == 1
+    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is True
+    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=2) is True
+    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is False
 
 
 @pytest.mark.asyncio
@@ -429,3 +466,11 @@ async def test_global_spend_redis_error_fails_closed():
             raise RedisError("down")
 
     assert await quota_service.global_spend_exceeded(_Boom(), settings) is True  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_record_voice_spend_counts_toward_global_cap(fake_redis):
+    settings = Settings(daily_global_spend_usd=0.05)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is False
+    await quota_service.record_voice_spend(fake_redis, 0.08)
+    assert await quota_service.global_spend_exceeded(fake_redis, settings) is True

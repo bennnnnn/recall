@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -230,6 +231,37 @@ def _tool_loop_completion_alias(model_alias: str) -> str:
     return model_alias
 
 
+def _has_whole_word(lower: str, word: str) -> bool:
+    start = 0
+    n = len(word)
+    length = len(lower)
+    while True:
+        idx = lower.find(word, start)
+        if idx == -1:
+            return False
+        before_ok = idx == 0 or not lower[idx - 1].isalpha()
+        after_ok = idx + n == length or not lower[idx + n].isalpha()
+        if before_ok and after_ok:
+            return True
+        start = idx + 1
+
+
+def leftover_math_after_verified(content: str) -> bool:
+    """Heuristic SymPy took one clause; the user still asked for another.
+
+    Skip the MCP loop only for a single-clause verified ask. Graph + solve
+    (or a second ``=`` next to a graph cue) still needs tools.
+    """
+    lower = content.lower()
+    has_viz = any(_has_whole_word(lower, w) for w in ("graph", "plot", "sketch"))
+    has_solve = _has_whole_word(lower, "solve")
+    if has_viz and has_solve:
+        return True
+    if has_viz and lower.count("=") >= 2:
+        return True
+    return False
+
+
 def turn_needs_tool_loop(
     content: str,
     *,
@@ -253,10 +285,12 @@ def turn_needs_tool_loop(
     """
     if settings is not None and not settings.mcp_tool_loop_enabled:
         return False
-    if has_instant_reply or lightweight or has_verified_math:
+    if has_instant_reply or lightweight:
         return False
     text = content.strip() if isinstance(content, str) else ""
     if not text:
+        return False
+    if has_verified_math and not leftover_math_after_verified(text):
         return False
 
     from app.services.image_gen_intent import extract_image_gen_prompt
@@ -416,13 +450,33 @@ async def _run_tool_rounds_bound(
         }
         working.append(assistant_msg)
 
-        for call in tool_calls:
+        max_calls = max(1, settings.mcp_tool_loop_max_calls_per_round)
+        invoke_deadline = time.monotonic() + max(0.0, settings.mcp_tool_loop_invoke_timeout_seconds)
+        for index, call in enumerate(tool_calls):
             if should_cancel and should_cancel():
                 break
             fn = call.get("function") or {}
             name = str(fn.get("name") or "")
             raw_args = fn.get("arguments") or "{}"
             call_id = str(call.get("id") or name)
+            if index >= max_calls:
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": "Too many tool calls in one round.",
+                    }
+                )
+                continue
+            if time.monotonic() >= invoke_deadline:
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": "Tool round timed out.",
+                    }
+                )
+                continue
             phase = _status_for_tool(name) if name else None
             if on_status is not None and phase is not None:
                 await on_status(phase, _status_detail_for_tool(name, raw_args))

@@ -27,10 +27,12 @@ const choices: QuizChoice[] = [
 ];
 
 describe("LessonQuizCards", () => {
-  it("renders lettered choices", async () => {
-    const { getByText } = await render(<LessonQuizCards choices={choices} onSelect={jest.fn()} />);
+  it("renders choice text without letter labels", async () => {
+    const { getByText, queryByText } = await render(
+      <LessonQuizCards choices={choices} onSelect={jest.fn()} />,
+    );
 
-    expect(getByText("A")).toBeOnTheScreen();
+    expect(queryByText("A")).toBeNull();
     expect(getByText("serendipity")).toBeOnTheScreen();
     expect(getByText("ephemeral")).toBeOnTheScreen();
     expect(getByText("ubiquitous")).toBeOnTheScreen();

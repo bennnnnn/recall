@@ -78,6 +78,13 @@ async def run_tool_loop_path(
     has_verified = ctx.verified_math is not None
     has_sources = bool(sources)
     web_search_flag: bool | None = None
+    if await seams.quota_service.global_spend_exceeded(redis, settings):
+        logger.warning(
+            "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
+            ctx.user_id,
+            ctx.chat_id,
+        )
+        return
     # Sync heuristic first (math / news / calendar). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
     if not tool_loop_service.turn_needs_tool_loop(
@@ -114,13 +121,6 @@ async def run_tool_loop_path(
             user=ctx.user,
         ):
             return
-    if await seams.quota_service.global_spend_exceeded(redis, settings):
-        logger.warning(
-            "skipping MCP tool loop: global spend cap user_id=%s chat_id=%s",
-            ctx.user_id,
-            ctx.chat_id,
-        )
-        return
     (
         ctx.prompt_messages,
         tool_verified,
@@ -337,8 +337,10 @@ async def enrich_final_content(
             assistant_text = normalized
 
         from app.services.mermaid_sanitize import sanitize_mermaid_fences
+        from app.services.places_fence import sanitize_places_fences
 
         assistant_text = sanitize_mermaid_fences(assistant_text)
+        assistant_text = sanitize_places_fences(assistant_text)
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text

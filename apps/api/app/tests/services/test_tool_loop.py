@@ -154,6 +154,76 @@ async def test_tool_loop_max_rounds(web_search_registered):
 
 
 @pytest.mark.asyncio
+async def test_tool_loop_caps_calls_per_round(web_search_registered):
+    messages = [{"role": "user", "content": "search a lot"}]
+    tool_calls = [
+        {
+            "id": f"c{i}",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": '{"query": "x"}'},
+        }
+        for i in range(6)
+    ]
+    complete = AsyncMock(return_value={"content": None, "tool_calls": tool_calls})
+    invoke = AsyncMock(return_value=MagicMock(content="ok", data=None))
+
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+    ):
+        out, _verified, _terminal, _hits = await tool_loop.run_tool_rounds(
+            settings=_settings(
+                mcp_tool_loop_enabled=True,
+                mcp_tool_loop_max_calls_per_round=4,
+            ),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+
+    assert invoke.await_count == 4
+    skipped = [m for m in out if m.get("content") == "Too many tool calls in one round."]
+    assert len(skipped) == 2
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
+    messages = [{"role": "user", "content": "search"}]
+    tool_calls = [
+        {
+            "id": "c1",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": '{"query": "a"}'},
+        },
+        {
+            "id": "c2",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": '{"query": "b"}'},
+        },
+    ]
+    complete = AsyncMock(return_value={"content": None, "tool_calls": tool_calls})
+    invoke = AsyncMock(return_value=MagicMock(content="ok", data=None))
+
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.services.tool_loop.time.monotonic", side_effect=[0.0, 0.0, 30.0]),
+    ):
+        out, _verified, _terminal, _hits = await tool_loop.run_tool_rounds(
+            settings=_settings(
+                mcp_tool_loop_enabled=True,
+                mcp_tool_loop_invoke_timeout_seconds=1.0,
+            ),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+
+    assert invoke.await_count == 1
+    assert any(m.get("content") == "Tool round timed out." for m in out)
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
     """When sympy returns a diagram fence in ToolResult.data, surface it as
     VerifiedMathBlock so post-stream validate_math_fences can overwrite."""
@@ -492,6 +562,11 @@ async def test_tools_for_user_omits_search_image_when_disabled():
         ("Explain photosynthesis in two sentences.", {"web_search": True}, True),
         ("differentiate x^2", {}, True),
         ("differentiate x^2", {"has_verified_math": True}, False),
+        (
+            "graph y=x**2 and also solve 3x=9",
+            {"has_verified_math": True},
+            True,
+        ),
         ("schedule a meeting with Sam tomorrow at 3", {}, False),
     ],
 )
@@ -887,3 +962,43 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
             should_cancel=None,
         )
     classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_skips_classifier_when_spend_capped():
+    from uuid import uuid4
+
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "Who is the CEO of Anthropic?"
+    ctx.search_sources = []
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.model = "free-chat"
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
+        patch(
+            "app.services.web_search.detection.should_web_search",
+            AsyncMock(side_effect=AssertionError("spend cap must skip classifier")),
+        ) as classify,
+        patch(
+            "app.services.tool_loop.run_tool_rounds",
+            AsyncMock(side_effect=AssertionError("spend cap must skip tool loop")),
+        ) as run,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            _settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    classify.assert_not_awaited()
+    run.assert_not_awaited()

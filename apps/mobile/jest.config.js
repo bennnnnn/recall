@@ -21,11 +21,13 @@ module.exports = {
       ],
       preset: "ts-jest",
       testEnvironment: "node",
+      extensionsToTreatAsEsm: ['.ts', '.tsx'],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/$1",
       },
       globals: {
         "ts-jest": {
+          useESM: true,
           tsconfig: {
             types: ["jest"],
             paths: { "@/*": ["./*"] },

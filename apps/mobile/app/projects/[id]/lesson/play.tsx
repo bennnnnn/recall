@@ -1,23 +1,25 @@
-import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { ActionShimmer } from "@/components/ActionShimmer";
 import { Button } from "@/components/Button";
-import { Icon } from "@/components/Icon";
 import { StateView } from "@/components/StateView";
 import { VocabCard } from "@/components/VocabCard";
 import { LessonCompleteCard } from "@/components/projects/LessonCompleteCard";
 import { LessonGradeSheet } from "@/components/projects/LessonGradeSheet";
+import { LessonOptionsSheet } from "@/components/projects/LessonOptionsSheet";
+import { LessonPlayHeader } from "@/components/projects/LessonPlayHeader";
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
+import { LessonStepTransition } from "@/components/projects/LessonStepTransition";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useLessonFeedback } from "@/hooks/useLessonFeedback";
+import { useLessonPrefs } from "@/hooks/useLessonPrefs";
 import { useLessonSession } from "@/hooks/useLessonSession";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -37,6 +39,8 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
   const projectId = typeof id === "string" ? id : "";
   const s = useMemo(() => makeStyles(theme), [theme]);
   const lesson = useLessonSession(projectId, isCurrent);
+  const { prefs, updatePrefs, textScale } = useLessonPrefs();
+  const [menuOpen, setMenuOpen] = useState(false);
   const {
     project,
     step,
@@ -45,18 +49,33 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
     empty,
     complete,
     reviewing,
+    chapter,
     currentNumber,
     total,
     progressFill,
     canAdvance,
     submitLetter,
     continueLesson,
+    groupDone,
   } = lesson;
-  const audio = useLessonFeedback(answer, isCurrent);
+  const audio = useLessonFeedback(answer, isCurrent, prefs.effectSound);
+  const speakRef = useRef(audio.speak);
+  speakRef.current = audio.speak;
+  const celebrateRef = useRef(audio.celebrate);
+  celebrateRef.current = audio.celebrate;
+  const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
+  const teachWord = step?.kind === "teach" ? step.card.word : null;
+  useEffect(() => {
+    if (!prefs.readWords || !teachWord) return;
+    speakRef.current(teachWord, language);
+  }, [language, prefs.readWords, teachWord]);
+  useEffect(() => {
+    if (complete && groupDone) celebrateRef.current();
+  }, [complete, groupDone]);
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
-  const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
   const quiz = step && step.kind !== "teach" ? step : null;
+  const paneKey = complete ? "complete" : step ? `${step.itemId}:${step.kind}` : null;
   const back = () => {
     if (isCurrent()) {
       audio.stop();
@@ -68,28 +87,15 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
   };
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      <View style={s.header}>
-        <Pressable
-          onPress={back}
-          accessibilityRole="button"
-          accessibilityLabel={t("lesson.close")}
-          hitSlop={8}
-        >
-          <Icon name="close" size={26} color={theme.text} />
-        </Pressable>
-        <View
-          style={s.progressTrack}
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 0, max: total, now: lesson.learned + lesson.reviewed }}
-        >
-          <View style={[s.progressFill, { width: `${Math.round(progressFill * 100)}%` }]} />
-        </View>
-        <Text style={s.progressLabel}>
-          {t(reviewing ? "lesson.review_of" : "lesson.step_of", { current: currentNumber, total })}
-        </Text>
-      </View>
+      <LessonPlayHeader
+        current={currentNumber}
+        total={total}
+        fill={progressFill}
+        reviewing={reviewing}
+        onClose={back}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
       <ScrollView
-        key={step ? `${step.itemId}:${step.kind}` : "summary"}
         contentContainerStyle={[s.body, quiz ? s.bodyQuiz : null]}
         keyboardShouldPersistTaps="handled"
       >
@@ -109,30 +115,51 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
             onRetry={retryLoad}
           />
         ) : null}
-        {complete ? (
-          <LessonCompleteCard learned={lesson.learned} reviewed={lesson.reviewed} onBack={back} />
-        ) : null}
-        {step?.kind === "teach" ? (
-          <VocabCard
-            card={step.card}
-            language={language}
-            onSpeak={() => audio.speak(step.card.word, language)}
-          />
-        ) : null}
-        {quiz ? (
-          <>
-            <Text style={s.question}>{quiz.question}</Text>
-            {quiz.contextSentence ? (
-              <Text style={s.contextSentence}>{quiz.contextSentence}</Text>
+        {paneKey ? (
+          <LessonStepTransition stepKey={paneKey} fill={Boolean(quiz || complete)}>
+            {complete ? (
+              <LessonCompleteCard
+                title={chapter}
+                reviewing={reviewing}
+                groupDone={groupDone}
+              />
             ) : null}
-            <LessonQuizCards
-              choices={quiz.quiz.choices}
-              correctLetter={quiz.quiz.correct}
-              selectedLetter={reviewing ? quiz.quiz.correct : answer?.letter}
-              disabled={reviewing || answer?.status === "failed"}
-              onSelect={submitLetter}
-            />
-          </>
+            {step?.kind === "teach" ? (
+              <VocabCard
+                card={step.card}
+                language={language}
+                textScale={textScale}
+                onSpeak={() => audio.speak(step.card.word, language)}
+              />
+            ) : null}
+            {quiz ? (
+              <>
+                <Text
+                  style={[s.question, { fontSize: 24 * textScale, lineHeight: 32 * textScale }]}
+                >
+                  {quiz.question}
+                </Text>
+                {quiz.contextSentence ? (
+                  <Text
+                    style={[
+                      s.contextSentence,
+                      { fontSize: 20 * textScale, lineHeight: 30 * textScale },
+                    ]}
+                  >
+                    {quiz.contextSentence}
+                  </Text>
+                ) : null}
+                <LessonQuizCards
+                  choices={quiz.quiz.choices}
+                  correctLetter={quiz.quiz.correct}
+                  selectedLetter={reviewing ? quiz.quiz.correct : answer?.letter}
+                  disabled={reviewing || answer?.status === "failed"}
+                  textScale={textScale}
+                  onSelect={submitLetter}
+                />
+              </>
+            ) : null}
+          </LessonStepTransition>
         ) : null}
         {!step && !empty && !complete && !lesson.loadError ? (
           <ActionShimmer label={t("lesson.loading")} color={theme.primary} />
@@ -165,6 +192,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
           explanation={quiz.explanation}
           error={error}
           showContinue={canAdvance}
+          textScale={textScale}
           onContinue={() => {
             audio.stop();
             void continueLesson();
@@ -172,37 +200,19 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
           onRetry={lesson.retryAnswer}
         />
       ) : null}
+      <LessonOptionsSheet
+        visible={menuOpen}
+        prefs={prefs}
+        onClose={() => setMenuOpen(false)}
+        onChange={updatePrefs}
+      />
     </SafeAreaView>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    contextSentence: { ...Type.body, fontSize: 20, lineHeight: 30, color: theme.textSecondary },
     safe: { flex: 1, backgroundColor: theme.bg },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      paddingHorizontal: Space.lg,
-      paddingTop: Space.sm,
-      paddingBottom: Space.md,
-    },
-    progressTrack: {
-      flex: 1,
-      height: 5,
-      borderRadius: Radius.full,
-      backgroundColor: theme.border,
-      overflow: "hidden",
-    },
-    progressFill: {
-      height: "100%",
-      backgroundColor: theme.primary,
-    },
-    progressLabel: {
-      ...Type.caption,
-      color: theme.textSecondary,
-    },
     body: {
       paddingHorizontal: Space.lg,
       paddingTop: Space.xl,
@@ -215,6 +225,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       gap: Space.xl,
     },
+    contextSentence: { ...Type.body, color: theme.textSecondary },
     question: {
       fontSize: 24,
       fontWeight: "700",

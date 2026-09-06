@@ -1021,6 +1021,11 @@ def test_parse_vocab_quiz_rejects_correct_letter_not_in_choices():
     assert vocab_quiz_service.parse_vocab_quiz(fence) is None
 
 
+def test_parse_vocab_quiz_rejects_non_object_json():
+    fence = '```vocab_quiz\n[{"word":"cat"}]\n```'
+    assert vocab_quiz_service.parse_vocab_quiz(fence) is None
+
+
 def test_parse_vocab_quiz_rejects_duplicate_letters():
     """Duplicate letters (A, A, C, D) produce only 3 unique pairs → reject."""
     fence = (

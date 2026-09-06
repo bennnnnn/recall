@@ -3,12 +3,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
-import type { RecurrenceRule } from "@/lib/api";
+import { RECURRENCE_RULES, type RecurrenceRule } from "@/lib/api/types";
 import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { RECURRENCE_RULES } from "@/lib/todos/recurrence";
 
 export const REPEAT_PICKER_VALUES: readonly (RecurrenceRule | null)[] = [
   null,

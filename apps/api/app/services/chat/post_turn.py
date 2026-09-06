@@ -37,9 +37,10 @@ _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
     """Re-seed the Redis daily usage counter from the DB total.
 
-    Also heals Redis/DB drift — if Redis holds a stale value lower than the DB
-    total (repeated adjust_usage failures, partial outages), raise Redis to
-    max(redis, db_total) so quota enforcement is correct.
+    Also heals Redis/DB drift when a previous ``adjust_usage`` failed after
+    commit (Redis flag). If Redis holds a stale value lower than the DB total,
+    raise Redis to max(redis, db_total). Warm Redis with no heal flag skips
+    Neon — do not pay get_total_for_date on every send.
 
     M9: errors are logged at warning (not debug) — a failed seed after Redis
     eviction means the turn proceeds with Redis at 0 despite prior usage in
@@ -49,8 +50,14 @@ async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID)
     try:
         # Hot path: Redis already has today's counter. Skip Neon so every turn
         # does not pay get_total_for_date. Missing key (eviction / new day)
-        # still seeds from DB. Drift heal is not worth a round-trip on each send.
+        # still seeds from DB. Drift heal only runs when adjust_usage failed
+        # after a commit and left a flag — not on every send.
         if await quota_service.has_daily_usage_key(redis, str(user_id)):
+            if not await quota_service.usage_needs_heal(redis, str(user_id)):
+                return
+            db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
+            await quota_service.heal_usage_drift(redis, str(user_id), db_total)
+            await quota_service.clear_usage_needs_heal(redis, str(user_id))
             return
         db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
         await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
@@ -242,10 +249,17 @@ async def finalize_stream_turn_db(
                     await asyncio.sleep(0.1 * (_attempt + 1))
         except Exception:
             logger.warning(
-                "adjust_usage failed after finalize commit; Redis may be inflated "
-                "— heal_usage_drift on next turn will correct from DB total",
+                "adjust_usage failed after finalize commit; Redis may drift "
+                "from the DB total — heal_usage_drift on next turn will correct",
                 exc_info=True,
             )
+            try:
+                await quota_service.mark_usage_needs_heal(redis, str(ctx.user_id))
+            except Exception:
+                logger.warning(
+                    "mark_usage_needs_heal failed after adjust_usage; heal may not run",
+                    exc_info=True,
+                )
         if est_cost:
             try:
                 await quota_service.record_global_spend(redis, est_cost)

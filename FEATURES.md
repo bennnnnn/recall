@@ -629,20 +629,24 @@ were removed. Programming help lives in main chat.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
   (word, pronunciation, meaning, examples) as a tap-to-hear dictionary card,
-  then A–D **lesson choice cards** that fill on select.
+  then four **lesson choice cards** that fill on select (no A–D letter badges).
+  Close sits above a thicker progress bar; a ⋮ menu toggles effect sounds, auto-reading
+  the word, and lesson type size. A small spark marks the bar tip when you advance.
+  Teach, the question, and group-complete swap with a short slide (instant with Reduce Motion).
+  Finishing a group plays a short woo (when effect sounds are on) with a larger confetti burst.
   Cloze questions match whole words; naturally inflected examples use an intact-sentence
   meaning check. A correct answer posts an idempotent practice event in the background
   (no saving spinner). Continue is available as soon as the answer is right; only the
   final check completes the word. Reopening a completed group is a scan: the correct
-  A–D choice is already marked, and Continue records the review and updates its
+  choice is already marked, and Continue records the review and updates its
   schedule, retaining first mastery.
   Wrong answers stay on device until the learner picks the right choice; they are not
   saved and they do not demote a mastered word. No per-word illustration. The next group stays locked until every word in the
   current chapter is mastered. Chat must not render A–D quiz chips, `vocab_card` study
   cards, or grade letter answers. Regular chat must not quiz in-bubble. Chat tutor prompts
   must not invent words.
-- ✅ **Lesson A–D check after teaching** — restored `LessonQuizCards` (the old tappable
-  A/B/C/D cards). Typed-answer lessons and chat MCQ chips are not the study path.
+- ✅ **Lesson choice-card check after teaching** — restored `LessonQuizCards` (tappable
+  answer cards, no letter badges). Typed-answer lessons and chat MCQ chips are not the study path.
 - ❌ **Chat A–D quiz UI / `vocab_quiz` as the lesson product** — removed. Hidden
   project-scoped chats no longer emit `vocab_quiz` / `vocab_card` for study. The lesson
   window reuses the old choice-card UI; it is not a new in-card “What does this mean?”
@@ -690,11 +694,15 @@ were removed. Programming help lives in main chat.
   ○ / ◐ words. The model must not invent or add words. Progress is derived
   (mastered/total; a chapter is complete when every word is mastered). English
   groups are one map row per theme, with 10 entries each. The lesson map is a vertical
-  list (status icon, title, counts) — not letter-in-a-circle nodes. Tap an
-  unlocked group to open the word page; a completed group opens as review.
+  list with 52px circular nodes (theme icon, green check, or lock) plus title and
+  counts — not a winding path. The current node pulses; a group that just finished
+  springs to the check once. There is no duplicate “Next lesson” hero — tap the
+  unlocked row. Tap an unlocked group to open the word page; a completed group opens
+  as review.
   Opening a group starts a **daily sitting** (5/10/15 words — the class daily
-  goal), not the full chapter. Map counts (15/43) are chapter progress; the
-  word page shows “Today 1 of 10”.
+  goal), not the full chapter. Map counts are chapter progress; the word page
+  header is chapter mastery (4 of 10), not “Today 1 of 10”. When today’s goal is
+  met, the map today bar uses the same success fill as the class list card.
   The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
   screen). Compact stats, daily goals, and PDF export live in Settings/Learning.
@@ -925,6 +933,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
+| Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
 | Library (drawer grid of generated + uploaded images and files) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
@@ -1089,7 +1098,8 @@ weakness. No video generation. Native share is enough unless we later decide we 
 ### Done (this product pass)
 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
-   `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
+   `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on),
+   `search_image` (if image search on).
    The calendar adapter conflict-checks **Google Calendar** (plus optional caller
    stubs); it does not create on Google. Heuristic SymPy still runs. Web search is
    the owned tool loop (source chips + wrap); a skipped `web_search` still runs

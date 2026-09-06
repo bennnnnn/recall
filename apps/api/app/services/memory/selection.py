@@ -41,12 +41,12 @@ def select_memories_for_prompt(
     *,
     omit_project_memory: bool = False,
 ) -> list[Memory]:
-    """Non-semantic fallback: profile/preference only (no off-topic dump)."""
-    filtered = [
-        memory
-        for memory in memories
-        if _eligible_memory(memory, settings) and memory.type in _ALWAYS_INJECT_TYPES
-    ]
+    """Non-semantic fallback: all eligible types, type-priority order, inject cap.
+
+    Used when embeddings are unavailable. Semantic ranking still gates
+    project/fact/focus on similarity when a query vector exists.
+    """
+    filtered = [memory for memory in memories if _eligible_memory(memory, settings)]
     if omit_project_memory:
         filtered = [memory for memory in filtered if memory.type != "project"]
     filtered.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))

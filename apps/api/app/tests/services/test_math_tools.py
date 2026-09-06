@@ -72,6 +72,38 @@ def test_extract_equation_solve_for_unknown_variable_falls_back() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, expected_var",
+    [
+        ("Solve for e: e + 1 = 5", "e"),
+        ("solve for E in E - 2 = 3", "E"),
+    ],
+)
+def test_extract_equation_honors_explicit_solve_for_e(text: str, expected_var: str) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == expected_var
+
+
+def test_solve_for_e_produces_verified_answer() -> None:
+    intent = math_tools.extract_math_intent("Solve for e: e + 1 = 5")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "4" in block.canonical_answer
+    assert "no solution" not in block.canonical_answer.lower()
+
+
+def test_extract_equation_sin_pi_x_still_solves_for_x() -> None:
+    """Default guess still excludes e so Euler's number is not a free variable."""
+    intent = math_tools.extract_math_intent("solve sin(pi*x) = 0")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == "x"
+
+
+@pytest.mark.parametrize(
     "text, expected",
     [
         ("2x+3=7", True),
@@ -128,6 +160,25 @@ def test_extract_roots_of_rewrites_to_equation(text: str, expected_lhs: str) -> 
     assert intent.kind == "equation"
     assert intent.lhs == expected_lhs
     assert intent.rhs == "0"
+
+
+def test_english_calculus_does_not_verify() -> None:
+    """``x squared plus 3x`` must not be letter-producted into a derivative."""
+    text = "what's the derivative of x squared plus 3x"
+    assert math_tools.extract_math_intent(text) is None
+
+
+def test_symbolic_calculus_still_extracts() -> None:
+    intent = math_tools.extract_math_intent("d/dx x**2 + 3x")
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "differentiate"
+    assert intent.expr == "x**2 + 3x"
+
+
+def test_english_roots_of_does_not_solve_a_equals_zero() -> None:
+    intent = math_tools.extract_math_intent("roots of my hair are 2 inches long")
+    assert intent is None
 
 
 def test_extract_system_intent_for_multiple_equations() -> None:
@@ -660,6 +711,15 @@ def test_extract_graph_intent_solves_equation_for_y(text: str, expected_expr: st
     assert intent.expr == expected_expr
 
 
+def test_graph_and_solve_does_not_become_vertical_line() -> None:
+    """``3x=9`` after a graph cue is not ``x=9``; first-match vertical must lose."""
+    text = "graph y=x**2 and also solve 3x=9"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind != "vertical"
+    assert intent.point_x != 9.0
+
+
 @pytest.mark.parametrize(
     "text, expected_expr",
     [
@@ -880,6 +940,39 @@ async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
     assert "2" in verified.canonical_fence["content"]
     assert "```answer\n" not in verified.text
     assert verified.canonical_answer is not None
+
+
+@pytest.mark.asyncio
+async def test_english_calculus_does_not_produce_verified_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "what's the derivative of x squared plus 3x"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is None
+
+
+@pytest.mark.asyncio
+async def test_ddx_calculus_still_produces_verified_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "d/dx x**2 + 3x"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    compact = verified.canonical_answer.replace(" ", "")
+    assert "2*x" in compact or "2x" in compact
+
+
+@pytest.mark.asyncio
+async def test_english_roots_does_not_produce_verified_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "roots of my hair are 2 inches long"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is None
 
 
 @pytest.mark.asyncio

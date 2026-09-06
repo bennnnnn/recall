@@ -116,6 +116,7 @@ async def try_image_lookup_for_turn(
     content: str,
     result: dict[str, Any] | None,
     create_user_message: bool,
+    replace_assistant_id: UUID | None = None,
 ) -> bool:
     """Deterministic reference-photo lookup intercept ("show me an ear").
 
@@ -146,6 +147,14 @@ async def try_image_lookup_for_turn(
             return False
         raise ChatServiceError(exc.detail) from exc
 
+    if replace_assistant_id is not None:
+        async with seams.SessionLocal() as session:
+            old = await seams.messages_repo.get_by_id(session, replace_assistant_id, chat_id)
+            if old is not None and old.role == "assistant":
+                await seams.attachment_lifecycle.purge_attachments_for_messages(
+                    session, settings, [old.id]
+                )
+                await seams.messages_repo.delete_message(session, old)
     if result is not None:
         result["message_id"] = str(asst_msg.id)
         result["final_content"] = asst_msg.content
@@ -391,6 +400,17 @@ async def stream_regenerate_response(
             turn_mode = await _classify_turn_mode(session, chat, user_message_content)
 
         image_regenerate_content = user_message_content
+        if regenerate_backup is not None and regenerate_backup.model == "image-search-model":
+            if await seams._try_image_lookup_for_turn(
+                settings,
+                user=user,
+                chat_id=chat_id,
+                content=user_message_content,
+                result=result,
+                create_user_message=False,
+                replace_assistant_id=regenerate_backup.message_id,
+            ):
+                return
         if regenerate_backup is not None and regenerate_backup.model == "image-gen-model":
             # Regenerate the recorded input, not the latest generated output.
             # Edit wording need not contain "image" or satisfy short-revision

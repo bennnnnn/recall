@@ -2,6 +2,7 @@
 
 from app.background import (
     attachment_orphan_reaper,
+    billing_reconcile_scheduler,
     email_reminder_scheduler,
     gmail_periodic_sync,
     push_scheduler,
@@ -45,6 +46,7 @@ async def start_worker_runtime(settings: Settings) -> None:
     await email_reminder_scheduler.start_email_reminder_scheduler(settings)
     await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
     await attachment_orphan_reaper.start_orphan_reaper(settings)
+    await billing_reconcile_scheduler.start_billing_reconcile_scheduler(settings)
 
 
 async def stop_worker_runtime() -> None:
@@ -53,6 +55,7 @@ async def stop_worker_runtime() -> None:
     await email_reminder_scheduler.stop_email_reminder_scheduler()
     await gmail_periodic_sync.stop_gmail_periodic_scheduler()
     await attachment_orphan_reaper.stop_orphan_reaper()
+    await billing_reconcile_scheduler.stop_billing_reconcile_scheduler()
 
 
 async def shutdown_process(

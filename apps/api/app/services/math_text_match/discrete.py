@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.services.math_text_match.scan import _NUM
+from app.services.math_text_match.scan import _NUM, word_index
 from app.services.math_text_match.types import CombinatoricsOp, MatrixOp, NumberTheoryOp, StatsOp
 
 # Longest/most-specific phrase first so e.g. "standard deviation" is found
@@ -39,7 +39,7 @@ def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
     lower = text.lower()
     best: tuple[int, StatsOp] | None = None
     for phrase, op in _STATS_WORDS:
-        idx = lower.find(phrase)
+        idx = word_index(lower, phrase)
         if idx != -1 and (best is None or idx < best[0]):
             best = (idx, op)
     if best is None:

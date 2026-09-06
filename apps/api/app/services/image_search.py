@@ -40,6 +40,8 @@ logger = logging.getLogger(__name__)
 _IMAGE_SEARCH_MODEL_ALIAS = "image-search-model"
 _USER_MESSAGE_PREFIX = "Show me: "
 _FETCH_MAX_REDIRECTS = 5
+_MAX_SOURCE_CHARS = 80
+_SOURCE_STRIP_CHARS = frozenset("*_`[]()")
 
 
 class ImageSearchError(Exception):
@@ -49,6 +51,26 @@ class ImageSearchError(Exception):
         self.detail = detail
         self.status_code = status_code
         super().__init__(detail)
+
+
+def _source_caption(title: str, url: str) -> str:
+    """Plain-text credit. Tavily titles are untrusted — no markdown, no newlines."""
+    raw = title.strip()
+    if not raw and url.lower().startswith("https://"):
+        raw = url.strip()
+    cleaned: list[str] = []
+    for ch in raw.replace("\n", " ").replace("\r", " "):
+        if ch.isprintable() and ch not in _SOURCE_STRIP_CHARS:
+            cleaned.append(ch)
+    text = "".join(cleaned).strip()
+    words = text.split()
+    safe_words = [w for w in words if "://" not in w and "www." not in w.lower()]
+    text = " ".join(safe_words)
+    if len(text) > _MAX_SOURCE_CHARS:
+        text = text[:_MAX_SOURCE_CHARS].rstrip()
+    if not text:
+        return ""
+    return f"\n\nSource: {text}"
 
 
 async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[str]) -> None:
@@ -151,6 +173,11 @@ async def search_and_attach_for_chat(
         raise ImageSearchError("Attachment storage is not configured", status_code=503)
 
     redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise ImageSearchError(
+            quota_service.IMAGE_SEARCH_SPEND_CAP_MESSAGE,
+            status_code=429,
+        )
     daily_limit = quota_service.image_search_limit_for_user(user, settings)
     if not await quota_service.reserve_image_search(redis, user.id, limit=daily_limit):
         raise ImageSearchError(
@@ -215,16 +242,13 @@ async def search_and_attach_for_chat(
             else:
                 existing = await messages_repo.get_last_user(session, chat_id)
                 if existing is None:
-                    raise ImageSearchError(
-                        "No user message to attach image to", status_code=404
-                    )
+                    raise ImageSearchError("No user message to attach image to", status_code=404)
                 user_message = existing
 
             markers = "\n".join(
                 f"[Image: /attachments/{attachment_id}/file]" for attachment_id in attachment_ids
             )
-            attribution = source_title or source_url
-            caption = f"\n\n_Source: {attribution}_" if attribution else ""
+            caption = _source_caption(source_title, source_url)
             assistant_message = await messages_repo.create(
                 session,
                 chat_id=chat_id,
@@ -253,10 +277,15 @@ async def search_and_attach_for_chat(
         await _rollback_written_bytes(gateway, written_keys)
         await quota_service.refund_image_search(redis, user.id)
         raise
-    except Exception:
+    except BaseException:
         await _rollback_written_bytes(gateway, written_keys)
         await quota_service.refund_image_search(redis, user.id)
         raise
+
+    try:
+        await quota_service.record_global_spend(redis, quota_service.IMAGE_SEARCH_SPEND_USD)
+    except Exception:
+        logger.exception("record_global_spend failed after photo lookup")
 
     return user_message, assistant_message
 

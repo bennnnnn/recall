@@ -39,6 +39,10 @@ class SubscriberBusyError(Exception):
     """Another RevenueCat event is updating the same subscriber."""
 
 
+class SubscriberFetchError(Exception):
+    """RevenueCat REST lookup failed; the webhook must 503 so RC retries."""
+
+
 ReceiptEnqueuer = Callable[..., Awaitable[Any]]
 ProcessedCheck = Callable[[Redis, str], Awaitable[bool]]
 EventClaim = Callable[[Redis, str], Awaitable[bool]]
@@ -109,6 +113,15 @@ def _expiration(payload: dict[str, Any]) -> str | None:
         return None
 
 
+def _cancellation_is_refund(payload: dict[str, Any]) -> bool:
+    """Store/support refunds use cancel_reason=CUSTOMER_SUPPORT.
+
+    Refunds can land without turning auto-renew off, so callers must re-check
+    the subscriber API instead of assuming an immediate downgrade.
+    """
+    return _string_field(payload, "cancel_reason") == "CUSTOMER_SUPPORT"
+
+
 def _cancellation_should_downgrade(payload: dict[str, Any]) -> bool:
     milliseconds = _int_field(payload, "expiration_at_ms")
     if milliseconds is None:
@@ -158,18 +171,21 @@ async def _dispatch_event(
     if event_type == "TRANSFER":
         event = _event(payload)
         if event is None:
-            return False
+            return True
         new_id = event.get("app_user_id")
         old_ids = event.get("transferred_from") or []
         if not isinstance(new_id, str) or not new_id.strip():
-            return False
+            return True
         from_list = old_ids if isinstance(old_ids, list) else []
-        return await subscription_service.handle_revenuecat_transfer(
+        transferred = await subscription_service.handle_revenuecat_transfer(
             session,
             settings,
             new_app_user_id=new_id,
             transferred_from=[old_id for old_id in from_list if isinstance(old_id, str)],
         )
+        if not transferred:
+            raise SubscriberFetchError(app_user_id)
+        return True
     if event_type in _PRO_EVENTS:
         plan = await subscription_service.resolve_plan_from_revenuecat(settings, app_user_id)
         if plan is None:
@@ -178,7 +194,7 @@ async def _dispatch_event(
                 event_type,
                 app_user_id,
             )
-            return False
+            raise SubscriberFetchError(app_user_id)
         applied = await subscription_service.apply_plan_for_app_user_id(
             session, app_user_id, plan=plan
         )
@@ -193,6 +209,17 @@ async def _dispatch_event(
             )
         return True
     if event_type == "CANCELLATION":
+        if _cancellation_is_refund(payload):
+            plan = await subscription_service.resolve_plan_from_revenuecat(settings, app_user_id)
+            if plan is None:
+                logger.warning(
+                    "RevenueCat CANCELLATION refund deferred; subscriber fetch failed "
+                    "app_user_id=%s",
+                    app_user_id,
+                )
+                raise SubscriberFetchError(app_user_id)
+            await subscription_service.apply_plan_for_app_user_id(session, app_user_id, plan=plan)
+            return True
         if not _cancellation_should_downgrade(payload):
             logger.info(
                 "RevenueCat CANCELLATION ignored until period end app_user_id=%s",
@@ -204,7 +231,7 @@ async def _dispatch_event(
     if event_type in _FREE_EVENTS:
         await subscription_service.apply_plan_for_app_user_id(session, app_user_id, plan="free")
         return True
-    return False
+    return True
 
 
 async def _advance_transfer_watermarks(
@@ -251,7 +278,7 @@ async def process_event(
         claimed = await event_claim(redis, event_id)
         if not claimed:
             logger.info("RevenueCat webhook in-flight ignored event_id=%s", event_id)
-            return
+            raise SubscriberBusyError(event_id)
 
     app_user_id = _app_user_id(payload)
     if not app_user_id:

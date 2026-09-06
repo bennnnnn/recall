@@ -7,6 +7,16 @@ const { jest: jestGlobals } = require("@jest/globals");
 jestGlobals.mock("react-native-reanimated", () => {
   const { View: RNView } = require("react-native");
   const id = (value) => value;
+  const layoutAnim = () => {
+    const api = {};
+    api.duration = () => api;
+    api.easing = () => api;
+    api.delay = () => api;
+    api.springify = () => api;
+    api.damping = () => api;
+    api.stiffness = () => api;
+    return api;
+  };
   return {
     __esModule: true,
     default: { View: RNView },
@@ -25,7 +35,12 @@ jestGlobals.mock("react-native-reanimated", () => {
     withSpring: id,
     withTiming: id,
     withRepeat: id,
+    withSequence: id,
+    withDelay: id,
     cancelAnimation: jestGlobals.fn(),
+    SlideInRight: layoutAnim(),
+    SlideOutLeft: layoutAnim(),
+    SlideOutDown: layoutAnim(),
   };
 });
 

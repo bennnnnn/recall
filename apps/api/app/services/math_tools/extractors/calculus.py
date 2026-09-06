@@ -10,6 +10,7 @@ from app.services.math_tools.helpers import (
     _normalize_latex_expr,
     _strip_series_prefix,
     _strip_trailing_filler,
+    math_expr_or_none,
 )
 
 
@@ -29,13 +30,16 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     elif op_word == "expand":
         calc_op = "expand"
     tail = _calc_expr_tail(cleaned)
-    expr = _strip_trailing_filler(tail) if tail is not None else cleaned
+    raw = _strip_trailing_filler(tail) if tail is not None else cleaned
     integral_lower: str | None = None
     integral_upper: str | None = None
     if calc_op == "integrate":
-        bounds = mtm.integral_bounds(expr)
+        bounds = mtm.integral_bounds(raw)
         if bounds is not None:
-            expr, integral_lower, integral_upper = bounds
+            raw, integral_lower, integral_upper = bounds
+    expr = math_expr_or_none(raw)
+    if expr is None:
+        return None
     return MathIntent(
         kind="calculus",
         expr=expr,
@@ -53,11 +57,12 @@ def _extract_limit_intent(cleaned: str) -> MathIntent | None:
         return None
     expr = _normalize_latex_expr(_strip_trailing_filler(limit_hit.expr)).replace("^", "**")
     limit_point = limit_hit.point.lstrip("\\")
-    if not expr:
+    guarded = math_expr_or_none(expr)
+    if guarded is None:
         return None
     return MathIntent(
         kind="limit",
-        expr=expr,
+        expr=guarded,
         variable=limit_hit.var,
         limit_point=limit_point,
         operation="limit",
@@ -74,11 +79,12 @@ def _extract_series_intent(cleaned: str) -> MathIntent | None:
         _strip_series_prefix(_strip_trailing_filler(series_hit.expr))
     ).replace("^", "**")
     end = series_hit.end.lstrip("\\")
-    if not expr:
+    guarded = math_expr_or_none(expr)
+    if guarded is None:
         return None
     return MathIntent(
         kind="series",
-        expr=expr,
+        expr=guarded,
         variable=series_hit.var,
         series_start=series_hit.start,
         series_end=end,

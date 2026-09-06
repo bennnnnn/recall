@@ -77,7 +77,7 @@ def _reject_oversized_webhook_body(content_length: str | None, body_len: int) ->
         )
 
 
-@router.post("/revenuecat", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/revenuecat", status_code=status.HTTP_200_OK)
 async def revenuecat_webhook(
     request: Request,
     session: AsyncSession = Depends(get_db),
@@ -119,4 +119,9 @@ async def revenuecat_webhook(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="RevenueCat webhook busy for subscriber",
+        ) from exc
+    except webhook_service.SubscriberFetchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="RevenueCat subscriber lookup failed",
         ) from exc

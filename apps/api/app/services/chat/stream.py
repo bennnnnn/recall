@@ -248,6 +248,7 @@ async def _try_image_lookup_for_turn(
     content: str,
     result: dict[str, Any] | None,
     create_user_message: bool,
+    replace_assistant_id: UUID | None = None,
 ) -> bool:
     return await _entry.try_image_lookup_for_turn(
         _seams(),
@@ -257,6 +258,7 @@ async def _try_image_lookup_for_turn(
         content=content,
         result=result,
         create_user_message=create_user_message,
+        replace_assistant_id=replace_assistant_id,
     )
 
 

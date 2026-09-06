@@ -199,7 +199,9 @@ def places_payload_from_hits(hits: list[WebSearchHit]) -> list[dict[str, str]]:
 
 
 def format_places_fence(hits: list[WebSearchHit]) -> str:
-    payload = places_payload_from_hits(hits)
+    from app.services.places_fence import parse_places_payload, places_payload_dicts
+
+    payload = places_payload_dicts(parse_places_payload(places_payload_from_hits(hits)))
     if not payload:
         return ""
     return f"\n\n```places\n{json.dumps(payload, ensure_ascii=False)}\n```"

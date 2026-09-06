@@ -30,6 +30,10 @@ async def semantic_memories_from_vec(
     )
     if semantic:
         return semantic
+    logger.warning(
+        "Semantic memory ranking empty; using type-priority fallback user_id=%s",
+        user.id,
+    )
     return seams.select_memories_for_prompt(
         all_memories, settings, omit_project_memory=omit_project_memory
     )
@@ -223,6 +227,10 @@ async def get_memory_block(
             await seams._write_query_block_cache(query_key, block, settings)
             return block
 
+        logger.warning(
+            "Memory query embed unavailable; using type-priority fallback user_id=%s",
+            user.id,
+        )
         memories = await seams.load_relevant_memories(
             session,
             user,

@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     mcp_tool_loop_enabled: bool = True
     mcp_tool_loop_max_rounds: int = 3
     mcp_tool_loop_timeout_seconds: float = 30.0
+    mcp_tool_loop_max_calls_per_round: int = 4
+    mcp_tool_loop_invoke_timeout_seconds: float = 20.0
 
     # Attachment RAG (chunk + embed PDF/doc text; retrieve into prompt).
     attachment_rag_enabled: bool = True
@@ -128,6 +130,9 @@ class Settings(BaseSettings):
     math_tools_enabled: bool = True
     chemistry_enabled: bool = True
     math_max_expr_length: int = 256
+    # Polynomial solve shape bound — refuse before the 5s SymPy pool, not
+    # only by character length (x^40 is short and still pathological).
+    math_max_poly_degree: int = 8
     # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
     # chat bubbles and FallbackMarkdown when the rich renderer dies.
     math_graph_max_points: int = 96
@@ -212,6 +217,9 @@ class Settings(BaseSettings):
     revenuecat_secret_key: str = ""
     revenuecat_webhook_auth: str = ""
     revenuecat_entitlement_id: str = "pro"
+    billing_reconcile_enabled: bool = True
+    billing_reconcile_interval_seconds: int = 3600
+    billing_reconcile_batch_size: int = 25
 
     # Transactional email (welcome / receipts). Provider is Resend when
     # `resend_api_key` is set; otherwise a mock that logs the message so dev

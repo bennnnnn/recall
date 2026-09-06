@@ -97,18 +97,30 @@ def map_closed_fences(
     replace: Callable[[str], str],
     *,
     max_count: int | None = None,
+    leftover: Callable[[str], str] | None = None,
 ) -> str:
-    """Rewrite up to max_count closed ```lang fences. Linear scan."""
+    """Rewrite closed ```lang fences. Linear scan.
+
+    ``max_count`` limits how many fences ``replace`` sees. Further closed
+    fences of this lang stay as-is unless ``leftover`` is set (then each
+    extra fence is rewritten with that callback — used to fail-closed
+    geometry/graph JSON beyond the per-kind cap).
+    """
     pieces: list[str] = []
     cursor = 0
     count = 0
     for start, end, body in iter_closed_fences(text, lang):
-        if max_count is not None and count >= max_count:
-            break
-        pieces.append(text[cursor:start])
-        pieces.append(replace(body))
+        over_cap = max_count is not None and count >= max_count
+        if over_cap:
+            if leftover is None:
+                break
+            pieces.append(text[cursor:start])
+            pieces.append(leftover(body))
+        else:
+            pieces.append(text[cursor:start])
+            pieces.append(replace(body))
+            count += 1
         cursor = end
-        count += 1
     pieces.append(text[cursor:])
     return "".join(pieces)
 

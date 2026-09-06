@@ -90,3 +90,84 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
         assert all(call.kwargs["commit"] is False for call in create.await_args_list)
         assert all(call.kwargs["commit"] is False for call in link.await_args_list)
         assert clone.await_count == int(not regenerate)
+
+
+@pytest.mark.asyncio
+async def test_generate_for_chat_refunds_on_cancelled_error():
+    """Hard cancel (CancelledError) must refund — except Exception would miss it."""
+    import asyncio
+
+    user = SimpleNamespace(id=uuid4())
+    chat_id = uuid4()
+    refund = AsyncMock()
+    session = AsyncMock()
+    session.__aenter__.return_value = session
+    gateway = AsyncMock()
+
+    async def boom(*_args: object, **_kwargs: object) -> None:
+        raise asyncio.CancelledError()
+
+    with (
+        patch("app.services.image_generation.SessionLocal", return_value=session),
+        patch("app.services.image_generation.plan_service.is_pro", return_value=True),
+        patch(
+            "app.services.image_generation.chats_repo.get_by_id",
+            AsyncMock(return_value=object()),
+        ),
+        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
+        patch("app.services.image_generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.image_generation.load_reference_images", AsyncMock(return_value=[])),
+        patch(
+            "app.services.image_generation.quota_service.image_generation_limit_for_user",
+            return_value=10,
+        ),
+        patch(
+            "app.services.image_generation.quota_service.reserve_image_generation",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.image_generation.quota_service.refund_image_generation", refund),
+        patch("app.services.image_generation.generate_image", boom),
+    ):
+        with pytest.raises(asyncio.CancelledError):
+            await generate_for_chat(
+                Settings(),
+                user=user,
+                chat_id=chat_id,
+                prompt="a cat",
+            )
+    refund.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_generate_for_chat_skips_reserve_when_spend_capped():
+    user = SimpleNamespace(id=uuid4())
+    chat_id = uuid4()
+    reserve = AsyncMock()
+    session = AsyncMock()
+    session.__aenter__.return_value = session
+    gateway = AsyncMock()
+
+    with (
+        patch("app.services.image_generation.SessionLocal", return_value=session),
+        patch("app.services.image_generation.plan_service.is_pro", return_value=True),
+        patch(
+            "app.services.image_generation.chats_repo.get_by_id",
+            AsyncMock(return_value=object()),
+        ),
+        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
+        patch("app.services.image_generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.image_generation.load_reference_images", AsyncMock(return_value=[])),
+        patch(
+            "app.services.image_generation.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.image_generation.quota_service.reserve_image_generation", reserve),
+    ):
+        with pytest.raises(ImageGenerationError, match="temporarily unavailable"):
+            await generate_for_chat(
+                Settings(daily_global_spend_usd=1.0),
+                user=user,
+                chat_id=chat_id,
+                prompt="a cat",
+            )
+    reserve.assert_not_awaited()

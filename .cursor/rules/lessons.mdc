@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Lesson loop felt like stacked pages.** Play keyed the whole `ScrollView` on
+  `item:kind`, remounting teach/quiz/complete so Reanimated exiting never ran.
+  Keep one ScrollView and slide the inner pane; Reduce Motion stays an instant swap.
 - **A successful old Learning job hid new catalog content.** Project-only dedupe
   keys survived content updates; include the catalog revision and propagate seed
   failures so the worker retries instead of recording false success.

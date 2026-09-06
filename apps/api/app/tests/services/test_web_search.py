@@ -1023,6 +1023,55 @@ async def test_should_web_search_falls_back_when_classifier_fails():
 
 
 @pytest.mark.asyncio
+async def test_classify_web_search_need_skips_llm_when_spend_capped():
+    from app.services.web_search.classify import classify_web_search_need
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        web_search_classifier_enabled=True,
+        daily_global_spend_usd=1.0,
+    )
+    with (
+        patch(
+            "app.services.web_search.classify.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.web_search.classify.litellm_gateway.complete_structured",
+            AsyncMock(),
+        ) as complete,
+        patch("app.services.web_search.classify.get_redis_client", return_value=AsyncMock()),
+    ):
+        assert await classify_web_search_need(settings, "Who is the CEO of Anthropic?") is None
+    complete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_classify_web_search_need_records_global_spend():
+    from app.models.schemas import WebSearchClassification
+    from app.services.web_search.classify import classify_web_search_need
+
+    settings = Settings(mock_llm_enabled=False, web_search_classifier_enabled=True)
+    classification = WebSearchClassification(needs_search=True, query="anthropic ceo")
+    record = AsyncMock()
+    with (
+        patch(
+            "app.services.web_search.classify.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.services.web_search.classify.litellm_gateway.complete_structured",
+            AsyncMock(return_value=classification),
+        ),
+        patch("app.services.web_search.classify.quota_service.record_global_spend", record),
+        patch("app.services.web_search.classify.get_redis_client", return_value=AsyncMock()),
+    ):
+        result = await classify_web_search_need(settings, "Who is the CEO of Anthropic?")
+    assert result == classification
+    record.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_classifier_routes_factual_lookup(fake_redis):
     settings = Settings(
         mock_llm_enabled=True,
