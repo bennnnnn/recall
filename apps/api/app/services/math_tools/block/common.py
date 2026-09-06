@@ -92,8 +92,13 @@ def _format_equation_answer(
         return r"\text{no solution}"
     if len(solutions_latex) == 1:
         return solutions_latex[0]
-    # One root per line in a display environment so the gray answer pill
-    # uses KaTeX and wraps. A comma-joined native MathText run clips.
+    # Two real roots in an aligned KaTeX pill: the gray box was 48px tall
+    # (one stacked frac) and overflow:hidden clipped the second row — live
+    # "x = 1/2" with "x = 3" hidden. Join with "or" so both stay on native
+    # MathText and wrap. Three+ compact roots (x^6=1) still need aligned
+    # so they don't clip off the side of the box.
+    if len(solutions_latex) == 2:
+        return r" \text{ or } ".join(solutions_latex)
     rows: list[str] = []
     for item in solutions_latex:
         if " = " in item:

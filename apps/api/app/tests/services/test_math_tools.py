@@ -272,6 +272,22 @@ def test_worked_quadratic_paste_is_not_a_no_solution_system() -> None:
     assert "no solution" not in block.canonical_answer.lower()
     assert "1}{2}" in block.canonical_answer or "1/2" in block.canonical_answer
     assert "3" in block.canonical_answer
+    assert r"\text{ or }" in block.canonical_answer
+    assert r"\begin{aligned}" not in block.canonical_answer
+
+
+def test_two_real_roots_format_with_or_not_aligned_stack() -> None:
+    """Live: aligned + 48px KaTeX pill hid the second row (x=3) under x=1/2."""
+    out = math_tools._format_equation_answer(
+        [r"x = \frac{1}{2}", "x = 3"],
+        "finite",
+    )
+    assert out == r"x = \frac{1}{2} \text{ or } x = 3"
+    many = math_tools._format_equation_answer(
+        ["x = 1", "x = 2", "x = 3"],
+        "finite",
+    )
+    assert r"\begin{aligned}" in many
 
 
 @pytest.mark.asyncio

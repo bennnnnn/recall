@@ -77,7 +77,6 @@ export function AnswerBlock({ content }: Props) {
           <MathFormulaWebView
             latex={text}
             displayMode
-            minHeight={48}
             textColor={theme.text}
             bgColor={theme.surfaceAlt}
           />
