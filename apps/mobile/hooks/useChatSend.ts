@@ -27,6 +27,7 @@ import {
   extractImageRevisionPrompt,
   imageGenRevisionContext,
 } from "@/lib/imageGenIntent";
+import { extractImageLookupQuery } from "@/lib/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
@@ -296,11 +297,23 @@ export function useChatSend({
       tap();
       if (onBeforeSend?.(text) === true) return;
 
+      // Reference-photo lookup ("show me an ear") wants a real photo, not AI
+      // art — checked first so generation's bare colloquial fallback can't
+      // misclassify "show me a picture of X" as a draw request. A match
+      // here skips the generate-image intercept below and falls through to
+      // the normal send; the backend's image_search tool/intercept attaches
+      // the photo as an ordinary assistant message.
+      const isImageLookup = !pendingAttachment && Boolean(extractImageLookupQuery(text));
+
       // Image-gen intent → /images/generate from the composer (no sheet, no LLM stub).
       // Do not gate on client isPro — plan can be stale while the API still knows Pro;
       // submitPrompt / the API open upgrade or generate. Never let the model invent
       // "the app will attach an image shortly" without calling generate.
-      if (onGenerateImage && (!pendingAttachment || pendingAttachment.kind === "image")) {
+      if (
+        !isImageLookup &&
+        onGenerateImage &&
+        (!pendingAttachment || pendingAttachment.kind === "image")
+      ) {
         const revisionContext = imageGenRevisionContext(messages);
         const revision = pendingAttachment?.kind === "image"
           ? extractAttachedImageEditPrompt(text)

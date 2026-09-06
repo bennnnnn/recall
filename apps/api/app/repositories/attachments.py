@@ -185,7 +185,8 @@ async def list_for_gallery(
     * ``"files"``  — ``content_type NOT LIKE 'image/%'``
     * ``None``     — all attachments
 
-    Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
+    Optional ``source`` filter narrows to ``'upload'``, ``'generated'``, or
+    ``'search'`` (reference-photo lookup).
     Verified items stay listed after their chat is deleted (``message_id``
     SET NULL); Open chat is omitted when no chat remains. Optional ``q``
     matches original filename, content type, the linked message body, or
@@ -202,7 +203,7 @@ async def list_for_gallery(
         stmt = stmt.where(Attachment.content_type.like("image/%"))
     elif category == "files":
         stmt = stmt.where(Attachment.content_type.notlike("image/%"))
-    if source in ("upload", "generated"):
+    if source in ("upload", "generated", "search"):
         stmt = stmt.where(Attachment.source == source)
     if q:
         linked = aliased(Message)

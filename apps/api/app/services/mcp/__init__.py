@@ -4,6 +4,7 @@ from app.core.config import Settings
 from app.gateways.mcp.registry import register
 from app.services.mcp.calendar_adapter import CalendarAdapter
 from app.services.mcp.image_gen_adapter import ImageGenAdapter
+from app.services.mcp.image_search_adapter import ImageSearchAdapter
 from app.services.mcp.sympy_adapter import SympyAdapter
 from app.services.mcp.web_search_adapter import WebSearchAdapter
 
@@ -15,3 +16,5 @@ def setup_mcp_adapters(settings: Settings) -> None:
         register(SympyAdapter(settings))
     if settings.image_generation_enabled:
         register(ImageGenAdapter(settings))
+    if settings.image_search_enabled:
+        register(ImageSearchAdapter(settings))

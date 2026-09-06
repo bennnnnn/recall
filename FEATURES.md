@@ -933,6 +933,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
+| Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
 | Library (drawer grid of generated + uploaded images and files) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
@@ -1097,7 +1098,8 @@ weakness. No video generation. Native share is enough unless we later decide we 
 ### Done (this product pass)
 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
-   `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on).
+   `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on),
+   `search_image` (if image search on).
    The calendar adapter conflict-checks **Google Calendar** (plus optional caller
    stubs); it does not create on Google. Heuristic SymPy still runs. Web search is
    the owned tool loop (source chips + wrap); a skipped `web_search` still runs

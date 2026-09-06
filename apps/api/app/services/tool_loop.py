@@ -37,6 +37,7 @@ from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math_tools import VerifiedMathBlock
 from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
+from app.services.mcp.image_search_adapter import bind_image_search_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context
 from app.services.model_catalog import auto_fast_alias, is_reasoning_alias
 
@@ -57,7 +58,7 @@ def _status_for_tool(name: str) -> str | None:
         return "searching"
     if name == "sympy":
         return "calculating"
-    if name == "generate_image":
+    if name in ("generate_image", "search_image"):
         return "image_gen"
     return None
 
@@ -203,7 +204,7 @@ def _terminal_image_from_tool_result(result: Any) -> TerminalImageResult | None:
 
 def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
     """Surface the tool's subject (e.g. the search query) for the status label."""
-    if name == "web_search":
+    if name in ("web_search", "search_image"):
         key = "query"
     elif name == "generate_image":
         key = "prompt"
@@ -293,6 +294,7 @@ def turn_needs_tool_loop(
         return False
 
     from app.services.image_gen_intent import extract_image_gen_prompt
+    from app.services.image_lookup_intent import extract_image_lookup_query
     from app.services.math_tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
 
@@ -302,6 +304,13 @@ def turn_needs_tool_loop(
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
+        return True
+    # Reference-photo lookup ("show me an ear") is checked before generation
+    # so its disjoint trigger phrasing (show / let … see / what does … look
+    # like) never competes with generation's own verbs — see
+    # image_lookup_intent's module docstring.
+    lookup_on = settings is None or settings.image_search_enabled
+    if lookup_on and extract_image_lookup_query(text):
         return True
     image_on = settings is None or settings.image_generation_enabled
     if (
@@ -317,6 +326,8 @@ def turn_needs_tool_loop(
 def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any]]:
     """OpenAI tool payloads; omit image gen for free users / when disabled."""
     tools = mcp_registry.build_openai_tools()
+    if not settings.image_search_enabled:
+        tools = [t for t in tools if (t.get("function") or {}).get("name") != "search_image"]
     if settings.image_generation_enabled and user is not None and plan_service.is_pro(user):
         return tools
     return [t for t in tools if (t.get("function") or {}).get("name") != "generate_image"]
@@ -356,6 +367,7 @@ async def run_tool_rounds(
     with (
         bind_search_quota_context(user=user, redis=redis, settings=settings),
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
+        bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),
     ):
         working, verified, terminal, hits = await _run_tool_rounds_bound(

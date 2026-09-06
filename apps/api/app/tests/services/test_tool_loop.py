@@ -15,8 +15,20 @@ def test_status_for_tool_omits_generic_thinking():
     assert tool_loop._status_for_tool("web_search") == "searching"
     assert tool_loop._status_for_tool("sympy") == "calculating"
     assert tool_loop._status_for_tool("generate_image") == "image_gen"
+    assert tool_loop._status_for_tool("search_image") == "image_gen"
     assert tool_loop._status_for_tool("calendar") is None
     assert tool_loop._status_for_tool("") is None
+
+
+def test_status_detail_for_tool_uses_query_for_search_image():
+    assert (
+        tool_loop._status_detail_for_tool("search_image", '{"query": "human ear"}')
+        == "human ear"
+    )
+    assert (
+        tool_loop._status_detail_for_tool("generate_image", '{"prompt": "a fox"}')
+        == "a fox"
+    )
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -421,6 +433,80 @@ async def test_tool_loop_generate_image_is_terminal():
 
 
 @pytest.mark.asyncio
+async def test_tool_loop_search_image_is_terminal():
+    """Successful search_image (reference-photo lookup) stops further rounds."""
+    from app.gateways.mcp.base import ToolResult
+    from app.services.mcp.image_search_adapter import ImageSearchAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(ImageSearchAdapter(_settings(image_search_enabled=True)))
+    try:
+        messages = [{"role": "user", "content": "show me an ear"}]
+        marker = "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+        complete = AsyncMock(
+            return_value={
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "img1",
+                        "type": "function",
+                        "function": {
+                            "name": "search_image",
+                            "arguments": '{"query": "human ear"}',
+                        },
+                    }
+                ],
+            }
+        )
+        invoke = AsyncMock(
+            return_value=ToolResult(
+                name="search_image",
+                content="ok",
+                data={
+                    "terminal": True,
+                    "image_marker": marker,
+                    "assistant_message_id": "01900000-0000-7000-8000-000000000002",
+                    "resolved_model": "image-search-model",
+                },
+            )
+        )
+        statuses: list[tuple[str, str | None]] = []
+
+        async def on_status(phase: str, detail: str | None = None) -> None:
+            statuses.append((phase, detail))
+
+        free_user = MagicMock()
+        with (
+            patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+            patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+            patch("app.services.tool_loop.plan_service.is_pro", return_value=False),
+        ):
+            _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
+                settings=_settings(
+                    mcp_tool_loop_enabled=True,
+                    mcp_tool_loop_max_rounds=3,
+                    image_search_enabled=True,
+                ),
+                model_alias="free-chat",
+                messages=messages,
+                usage={},
+                on_status=on_status,
+                user=free_user,
+            )
+
+        # Free users get the lookup tool even though generate_image is Pro-only.
+        assert complete.await_count == 1
+        invoke.assert_awaited_once()
+        assert statuses == [("image_gen", "human ear")]
+        assert verified is None
+        assert terminal is not None
+        assert terminal.final_content == marker
+        assert terminal.message_id == "01900000-0000-7000-8000-000000000002"
+    finally:
+        mcp_registry.clear()
+
+
+@pytest.mark.asyncio
 async def test_tools_for_user_omits_image_gen_for_free():
     from app.services.mcp.image_gen_adapter import ImageGenAdapter
 
@@ -431,6 +517,36 @@ async def test_tools_for_user_omits_image_gen_for_free():
             tools = tool_loop._tools_for_user(_settings(image_generation_enabled=True), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "generate_image" not in names
+    finally:
+        mcp_registry.clear()
+
+
+@pytest.mark.asyncio
+async def test_tools_for_user_keeps_search_image_for_free():
+    """Unlike generate_image, search_image is not Pro-gated."""
+    from app.services.mcp.image_search_adapter import ImageSearchAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(ImageSearchAdapter(_settings(image_search_enabled=True)))
+    try:
+        with patch("app.services.tool_loop.plan_service.is_pro", return_value=False):
+            tools = tool_loop._tools_for_user(_settings(image_search_enabled=True), MagicMock())
+        names = [(t.get("function") or {}).get("name") for t in tools]
+        assert "search_image" in names
+    finally:
+        mcp_registry.clear()
+
+
+@pytest.mark.asyncio
+async def test_tools_for_user_omits_search_image_when_disabled():
+    from app.services.mcp.image_search_adapter import ImageSearchAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(ImageSearchAdapter(_settings(image_search_enabled=True)))
+    try:
+        tools = tool_loop._tools_for_user(_settings(image_search_enabled=False), MagicMock())
+        names = [(t.get("function") or {}).get("name") for t in tools]
+        assert "search_image" not in names
     finally:
         mcp_registry.clear()
 
@@ -462,6 +578,50 @@ def test_turn_needs_tool_loop_gates_ordinary_chat(text: str, kwargs: dict, expec
             **kwargs,
         )
         is expected
+    )
+
+
+def test_turn_needs_tool_loop_image_lookup_needs_no_pro_user():
+    """Reference-photo lookup is free-tier — unlike generate_image it needs no user/plan check."""
+    assert (
+        tool_loop.turn_needs_tool_loop(
+            "show me an ear",
+            settings=_settings(
+                mcp_tool_loop_enabled=True, math_tools_enabled=True, image_search_enabled=True
+            ),
+            user=None,
+        )
+        is True
+    )
+
+
+def test_turn_needs_tool_loop_image_lookup_respects_disabled_flag():
+    assert (
+        tool_loop.turn_needs_tool_loop(
+            "show me an ear",
+            settings=_settings(
+                mcp_tool_loop_enabled=True, math_tools_enabled=True, image_search_enabled=False
+            ),
+            user=None,
+        )
+        is False
+    )
+
+
+def test_turn_needs_tool_loop_draw_request_does_not_trigger_lookup_path():
+    """'draw me a fox' is generation phrasing; only Pro users get the tool-loop nod for it."""
+    assert (
+        tool_loop.turn_needs_tool_loop(
+            "draw me a fox",
+            settings=_settings(
+                mcp_tool_loop_enabled=True,
+                math_tools_enabled=True,
+                image_search_enabled=True,
+                image_generation_enabled=True,
+            ),
+            user=None,
+        )
+        is False
     )
 
 
