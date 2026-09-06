@@ -11,18 +11,25 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageStage, type AttachmentViewerImage } from "@/components/AttachmentImageStage";
 import { Icon } from "@/components/Icon";
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
 import { saveChatAttachmentToLibrary, shareChatAttachment } from "@/lib/downloadChatAttachment";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
+import { Radius } from "@/lib/radius";
+import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 
 const LIGHTBOX_BG = "#000000";
 const LIGHTBOX_FG = "#FFFFFF";
+/** Circular chip behind each header icon so they read on the photo. */
+const ICON_CHIP_BG = "rgba(255, 255, 255, 0.18)";
 
 type Props = {
   visible: boolean;
@@ -61,6 +68,8 @@ export function AttachmentImageViewer({
   const token = useAuthToken();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const reduceMotion = useReduceMotion();
+  const { pan, panStyle, translateY } = useSheetPanDismiss(true, reduceMotion, onClose);
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
   const [pageIndex, setPageIndex] = useState(initialIndex);
 
@@ -72,8 +81,13 @@ export function AttachmentImageViewer({
   const safeIndex = Math.min(Math.max(0, initialIndex), Math.max(0, items.length - 1));
 
   useEffect(() => {
-    if (visible) setPageIndex(safeIndex);
-  }, [visible, safeIndex]);
+    if (!visible) return;
+    setPageIndex(safeIndex);
+    // Reanimated shared values are designed to be mutated from effects —
+    // reset so a leftover drag doesn't reopen mid-slide.
+    // eslint-disable-next-line react-hooks/immutability
+    translateY.value = 0;
+  }, [visible, safeIndex, translateY]);
 
   const current = items[Math.min(pageIndex, items.length - 1)] ?? items[0];
   const remoteUri = resolveAttachmentUri({
@@ -132,20 +146,27 @@ export function AttachmentImageViewer({
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="fade"
-      presentationStyle="fullScreen"
+      presentationStyle="overFullScreen"
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View testID="attachment-image-viewer" style={s.root}>
+      <GestureHandlerRootView style={s.flex}>
+        <GestureDetector gesture={pan}>
+          <Animated.View
+            testID="attachment-image-viewer"
+            collapsable={false}
+            style={[s.root, panStyle]}
+          >
         <View style={[s.header, { paddingTop: Math.max(insets.top, Space.xs) }]}>
           <Pressable
             style={s.iconBtn}
             onPress={onClose}
-            hitSlop={12}
+            hitSlop={8}
             accessibilityLabel={t("preview.close")}
           >
-            <Icon name="close" size={28} color={LIGHTBOX_FG} />
+            <Icon name="close" size={22} color={LIGHTBOX_FG} />
           </Pressable>
 
           <View style={s.headerActions}>
@@ -153,56 +174,56 @@ export function AttachmentImageViewer({
               <Pressable
                 style={s.iconBtn}
                 onPress={onUseInChat}
-                hitSlop={12}
+                hitSlop={8}
                 accessibilityLabel={t("gallery.use_in_chat")}
               >
-                <Icon name="attach-outline" size={24} color={LIGHTBOX_FG} />
+                <Icon name="attach-outline" size={22} color={LIGHTBOX_FG} />
               </Pressable>
             ) : null}
             {onOpenChat ? (
               <Pressable
                 style={s.iconBtn}
                 onPress={onOpenChat}
-                hitSlop={12}
+                hitSlop={8}
                 accessibilityLabel={t("gallery.open_chat_a11y")}
               >
-                <Icon name="chatbubble-outline" size={24} color={LIGHTBOX_FG} />
+                <Icon name="chatbubble-outline" size={22} color={LIGHTBOX_FG} />
               </Pressable>
             ) : null}
             <Pressable
               style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
               onPress={() => void handleShare()}
               disabled={!remoteUri || busy != null}
-              hitSlop={12}
+              hitSlop={8}
               accessibilityLabel={t("preview.share")}
             >
               {busy === "share" ? (
                 <ActivityIndicator color={LIGHTBOX_FG} size="small" />
               ) : (
-                <Icon name="share-outline" size={24} color={LIGHTBOX_FG} />
+                <Icon name="share-outline" size={22} color={LIGHTBOX_FG} />
               )}
             </Pressable>
             <Pressable
               style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
               onPress={() => void handleDownload()}
               disabled={!remoteUri || busy != null}
-              hitSlop={12}
+              hitSlop={8}
               accessibilityLabel={t("common.download")}
             >
               {busy === "download" ? (
                 <ActivityIndicator color={LIGHTBOX_FG} size="small" />
               ) : (
-                <Icon name="download-outline" size={24} color={LIGHTBOX_FG} />
+                <Icon name="download-outline" size={22} color={LIGHTBOX_FG} />
               )}
             </Pressable>
             {onDelete ? (
               <Pressable
                 style={s.iconBtn}
                 onPress={onDelete}
-                hitSlop={12}
+                hitSlop={8}
                 accessibilityLabel={t("common.delete")}
               >
-                <Icon name="trash-outline" size={24} danger />
+                <Icon name="trash-outline" size={22} danger />
               </Pressable>
             ) : null}
           </View>
@@ -251,12 +272,17 @@ export function AttachmentImageViewer({
         ) : (
           <View style={{ height: Math.max(insets.bottom, Space.sm) }} />
         )}
-      </View>
+          </Animated.View>
+        </GestureDetector>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   root: {
     flex: 1,
     backgroundColor: LIGHTBOX_BG,
@@ -268,18 +294,21 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 8,
-    paddingBottom: 4,
+    paddingHorizontal: Space.sm,
+    paddingBottom: Space.xs,
   },
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Space.xs,
   },
   iconBtn: {
-    width: 44,
-    height: 44,
+    width: Space.minTouch,
+    height: Space.minTouch,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: Radius.full,
+    backgroundColor: ICON_CHIP_BG,
   },
   iconBtnDisabled: {
     opacity: 0.45,
