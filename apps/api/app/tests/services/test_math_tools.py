@@ -72,6 +72,38 @@ def test_extract_equation_solve_for_unknown_variable_falls_back() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, expected_var",
+    [
+        ("Solve for e: e + 1 = 5", "e"),
+        ("solve for E in E - 2 = 3", "E"),
+    ],
+)
+def test_extract_equation_honors_explicit_solve_for_e(text: str, expected_var: str) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == expected_var
+
+
+def test_solve_for_e_produces_verified_answer() -> None:
+    intent = math_tools.extract_math_intent("Solve for e: e + 1 = 5")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "4" in block.canonical_answer
+    assert "no solution" not in block.canonical_answer.lower()
+
+
+def test_extract_equation_sin_pi_x_still_solves_for_x() -> None:
+    """Default guess still excludes e so Euler's number is not a free variable."""
+    intent = math_tools.extract_math_intent("solve sin(pi*x) = 0")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == "x"
+
+
+@pytest.mark.parametrize(
     "text, expected",
     [
         ("2x+3=7", True),
