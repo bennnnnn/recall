@@ -26,12 +26,12 @@ const user: User = {
   location_enabled: false,
 } as User;
 
-function msg(role: "user" | "assistant", content: string, id: string): Message {
+function msg(role: "user" | "assistant", content: string, id: string, model?: string | null): Message {
   return {
     id,
     role,
     content,
-    model: role === "assistant" ? "free-chat" : null,
+    model: model ?? (role === "assistant" ? "free-chat" : null),
     created_at: "2026-01-01T00:00:00Z",
   } as Message;
 }
@@ -121,6 +121,32 @@ describe("useChatRegenerate", () => {
 
     expect(regenerateImage).toHaveBeenCalledWith("Generate image: a cat");
     expect(regenerateResponse).not.toHaveBeenCalled();
+  });
+
+  it("does not route lookup photos through image-gen regenerate", async () => {
+    const messages: Message[] = [
+      msg("user", "Show me a car.", "u1"),
+      msg("assistant", "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]", "a1", "image-search-model"),
+    ];
+    const regenerateResponse = jest.fn();
+    const regenerateImage = jest.fn();
+
+    await act(async () => {
+      render(
+        <Probe
+          messages={messages}
+          regenerateResponse={regenerateResponse}
+          regenerateImage={regenerateImage}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await currentRegenerate("free-chat");
+    });
+
+    expect(regenerateImage).not.toHaveBeenCalled();
+    expect(regenerateResponse).toHaveBeenCalled();
   });
 
   it("falls back to regenerateResponse for normal text replies", async () => {

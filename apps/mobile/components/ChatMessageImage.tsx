@@ -36,6 +36,8 @@ type Props = {
   /** Override the default ~1/3-screen thumb. Used by the multi-image strip. */
   width?: number;
   height?: number;
+  /** If set, tap opens this instead of the built-in single-image viewer. */
+  onOpen?: () => void;
 };
 
 /** ~1/3 screen width, slightly portrait — matches Claude-style chat thumbnails. */
@@ -121,6 +123,7 @@ export function ChatMessageImage({
   animatedReveal = true,
   width: widthOverride,
   height: heightOverride,
+  onOpen,
 }: Props) {
   const { t } = useTranslation();
   const token = useAuthToken();
@@ -170,7 +173,13 @@ export function ChatMessageImage({
   return (
     <>
       <Pressable
-        onPress={() => setViewerOpen(true)}
+        onPress={() => {
+          if (onOpen) {
+            onOpen();
+            return;
+          }
+          setViewerOpen(true);
+        }}
         accessibilityLabel={t("chat.image_view_a11y")}
         accessibilityRole="button"
       >
@@ -204,15 +213,17 @@ export function ChatMessageImage({
         </View>
       </Pressable>
 
-      <AttachmentImageViewer
-        visible={viewerOpen}
-        onClose={() => setViewerOpen(false)}
-        attachmentId={attachmentId}
-        localUri={localUri}
-        path={path}
-        fileName={fileName}
-        previewUri={remoteUri}
-      />
+      {onOpen ? null : (
+        <AttachmentImageViewer
+          visible={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+          attachmentId={attachmentId}
+          localUri={localUri}
+          path={path}
+          fileName={fileName}
+          previewUri={remoteUri}
+        />
+      )}
     </>
   );
 }

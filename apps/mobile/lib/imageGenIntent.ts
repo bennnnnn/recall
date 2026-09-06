@@ -8,6 +8,7 @@ import { parseMessageImages } from "@/lib/messageAttachments";
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
 export const IMAGE_GEN_FAILED_ASSISTANT_ID = "image-gen-failed";
 export const IMAGE_GEN_USER_PREFIX = "Generate image: ";
+const IMAGE_SEARCH_MODEL_ALIAS = "image-search-model";
 
 /** Subject from a prior image-gen user bubble (legacy prefix or natural wording). */
 export function subjectFromImageGenUserMessage(content: string): string | null {
@@ -22,6 +23,11 @@ export function subjectFromImageGenUserMessage(content: string): string | null {
 export function isImageOnlyAssistantContent(content: string): boolean {
   const { images, textWithoutImages } = parseMessageImages(content);
   return images.length > 0 && textWithoutImages.trim().length === 0;
+}
+
+function isImageGenAssistantRow(row: { content: string; model?: string | null }): boolean {
+  if (row.model === IMAGE_SEARCH_MODEL_ALIAS) return false;
+  return isImageOnlyAssistantContent(row.content);
 }
 
 const REVISION_LEAD_IN =
@@ -99,7 +105,7 @@ export function extractImageRevisionPrompt(
 
 /** Walk newest→oldest for image-gen context used by revision intercept. */
 export function imageGenRevisionContext(
-  messages: ReadonlyArray<{ id: string; role: string; content: string }>,
+  messages: ReadonlyArray<{ id: string; role: string; content: string; model?: string | null }>,
 ): { lastAssistantIsImageOnly: boolean; previousSubject: string | null; referenceAttachmentId?: string } {
   let lastAssistantIsImageOnly = false;
   let previousSubject: string | null = null;
@@ -115,10 +121,10 @@ export function imageGenRevisionContext(
       continue;
     }
     if (!lastAssistantIsImageOnly && row.role === "assistant") {
-      lastAssistantIsImageOnly = isImageOnlyAssistantContent(row.content);
+      lastAssistantIsImageOnly = isImageGenAssistantRow(row);
       referenceAttachmentId = parseMessageImages(row.content).images[0]?.attachmentId ?? undefined;
       if (!lastAssistantIsImageOnly) {
-        // Latest assistant isn't an image — don't treat follow-ups as revisions.
+        // Latest assistant isn't an image-gen reply — don't treat follow-ups as revisions.
         break;
       }
       continue;

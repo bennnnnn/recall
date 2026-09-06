@@ -40,8 +40,6 @@ logger = logging.getLogger(__name__)
 _IMAGE_SEARCH_MODEL_ALIAS = "image-search-model"
 _USER_MESSAGE_PREFIX = "Show me: "
 _FETCH_MAX_REDIRECTS = 5
-_MAX_SOURCE_CHARS = 80
-_SOURCE_STRIP_CHARS = frozenset("*_`[]()")
 
 
 class ImageSearchError(Exception):
@@ -51,26 +49,6 @@ class ImageSearchError(Exception):
         self.detail = detail
         self.status_code = status_code
         super().__init__(detail)
-
-
-def _source_caption(title: str, url: str) -> str:
-    """Plain-text credit. Tavily titles are untrusted — no markdown, no newlines."""
-    raw = title.strip()
-    if not raw and url.lower().startswith("https://"):
-        raw = url.strip()
-    cleaned: list[str] = []
-    for ch in raw.replace("\n", " ").replace("\r", " "):
-        if ch.isprintable() and ch not in _SOURCE_STRIP_CHARS:
-            cleaned.append(ch)
-    text = "".join(cleaned).strip()
-    words = text.split()
-    safe_words = [w for w in words if "://" not in w and "www." not in w.lower()]
-    text = " ".join(safe_words)
-    if len(text) > _MAX_SOURCE_CHARS:
-        text = text[:_MAX_SOURCE_CHARS].rstrip()
-    if not text:
-        return ""
-    return f"\n\nSource: {text}"
 
 
 async def _rollback_written_bytes(gateway: StorageGateway, storage_keys: list[str]) -> None:
@@ -200,9 +178,6 @@ async def search_and_attach_for_chat(
         if not fetched:
             raise ImageSearchError("Could not find a usable reference photo", status_code=502)
 
-        source_title = hits[0].source_title
-        source_url = hits[0].source_url
-
         attachment_ids: list[UUID] = []
         async with SessionLocal() as session:
             for data, content_type in fetched:
@@ -248,13 +223,12 @@ async def search_and_attach_for_chat(
             markers = "\n".join(
                 f"[Image: /attachments/{attachment_id}/file]" for attachment_id in attachment_ids
             )
-            caption = _source_caption(source_title, source_url)
             assistant_message = await messages_repo.create(
                 session,
                 chat_id=chat_id,
                 user_id=user.id,
                 role="assistant",
-                content=f"{markers}{caption}",
+                content=markers,
                 model=_IMAGE_SEARCH_MODEL_ALIAS,
                 commit=False,
             )

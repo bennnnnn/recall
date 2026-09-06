@@ -24,7 +24,7 @@ import {
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
-import { parseMessageImages, type ParsedMessageImage } from "@/lib/messageAttachments";
+import { parseMessageImages, stripLookupSourceCaption, type ParsedMessageImage } from "@/lib/messageAttachments";
 import {
   assistantReplyIsTimeAnswer,
   extractClockTimezone,
@@ -172,9 +172,13 @@ export function deriveAssistantMessageContent(
 
   const parsedImages = !isUser && hasContent ? parseMessageImages(content) : { images: [], textWithoutImages: content };
   const showImages = parsedImages.images.length > 0 && !layoutFrozen;
+  const proseWithoutImages =
+    parsedImages.images.length > 0
+      ? stripLookupSourceCaption(parsedImages.textWithoutImages)
+      : parsedImages.textWithoutImages;
 
   const markdownContent = buildMarkdownContent({
-    content: parsedImages.textWithoutImages,
+    content: proseWithoutImages,
     hideCardFenceInMarkdown,
     hideQuizFenceInMarkdown,
     quizForStrip,

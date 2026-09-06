@@ -48,7 +48,7 @@ async def test_invoke_persists_and_returns_terminal_marker():
     user = MagicMock()
     chat_id = uuid4()
     asst_id = uuid4()
-    marker = f"[Image: /attachments/{uuid4()}/file]\n\n_Source: Ear - Wikipedia_"
+    marker = f"[Image: /attachments/{uuid4()}/file]"
     asst = MagicMock(id=asst_id, content=marker, model="image-search-model")
     search = AsyncMock(return_value=(MagicMock(), asst))
 

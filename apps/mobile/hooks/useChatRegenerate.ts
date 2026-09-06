@@ -47,6 +47,7 @@ export function useChatRegenerate({
       if (
         regenerateImage &&
         lastAssistant &&
+        lastAssistant.model !== "image-search-model" &&
         isImageOnlyAssistantContent(lastAssistant.content)
       ) {
         const lastUser = [...messages].reverse().find((m) => m.role === "user");

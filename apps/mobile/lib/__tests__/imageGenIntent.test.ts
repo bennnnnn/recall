@@ -177,4 +177,22 @@ describe("image revision follow-ups", () => {
       ]),
     ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "cat", referenceAttachmentId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" });
   });
+
+  it("imageGenRevisionContext does not treat lookup photos as image-gen", () => {
+    expect(
+      imageGenRevisionContext([
+        {
+          id: "u1",
+          role: "user",
+          content: "Show me a car.",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+          model: "image-search-model",
+        },
+      ]),
+    ).toEqual({ lastAssistantIsImageOnly: false, previousSubject: null, referenceAttachmentId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" });
+  });
 });

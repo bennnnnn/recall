@@ -2,32 +2,33 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  FlatList,
   Modal,
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { AttachmentImageStage, type AttachmentViewerImage } from "@/components/AttachmentImageStage";
 import { Icon } from "@/components/Icon";
-import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
-import {
-  ensureLocalAttachmentFile,
-  getCachedAttachmentFile,
-  invalidateCachedAttachmentFile,
-  saveChatAttachmentToLibrary,
-  shareChatAttachment,
-} from "@/lib/downloadChatAttachment";
-import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
-import { getSessionGeneration } from "@/lib/auth";
-import { Theme, useTheme } from "@/lib/theme";
+import { saveChatAttachmentToLibrary, shareChatAttachment } from "@/lib/downloadChatAttachment";
+import { resolveAttachmentUri } from "@/lib/attachmentUri";
+import { Space } from "@/lib/space";
+
+const LIGHTBOX_BG = "#000000";
+const LIGHTBOX_FG = "#FFFFFF";
 
 type Props = {
   visible: boolean;
   onClose: () => void;
+  images?: AttachmentViewerImage[];
+  initialIndex?: number;
   attachmentId?: string | null;
   localUri?: string | null;
   path?: string | null;
@@ -42,11 +43,11 @@ type Props = {
   onDelete?: () => void;
 };
 
-const SHEET_RADIUS = 26;
-
 export function AttachmentImageViewer({
   visible,
   onClose,
+  images,
+  initialIndex = 0,
   attachmentId,
   localUri,
   path,
@@ -56,64 +57,31 @@ export function AttachmentImageViewer({
   onUseInChat,
   onDelete,
 }: Props) {
-  const C = useTheme();
   const { t } = useTranslation();
-  const s = useMemo(() => makeStyles(C), [C]);
   const token = useAuthToken();
   const insets = useSafeAreaInsets();
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
-  const [cachedFile, setCachedFile] = useState<{ key: object; uri: string } | null>(null);
+  const [pageIndex, setPageIndex] = useState(initialIndex);
 
-  const remoteUri = useMemo(() => {
-    return resolveAttachmentUri({ attachmentId, localUri, path });
-  }, [attachmentId, localUri, path]);
+  const items = useMemo((): AttachmentViewerImage[] => {
+    if (images && images.length > 0) return images;
+    return [{ attachmentId, localUri, path, fileName, previewUri }];
+  }, [images, attachmentId, localUri, path, fileName, previewUri]);
 
-  const sessionGeneration = getSessionGeneration();
-  const fileKey = useMemo(() => ({ remoteUri, sessionGeneration }), [remoteUri, sessionGeneration]);
-  const cachedUri = cachedFile?.key === fileKey ? cachedFile.uri : null;
-
-  // Prefer local file / in-memory cache / thumbnail URI so the large view
-  // paints immediately instead of waiting on a second authenticated fetch.
-  const displayUri =
-    cachedUri ||
-    (remoteUri ? getCachedAttachmentFile(remoteUri) : null) ||
-    localUri ||
-    previewUri ||
-    remoteUri;
+  const safeIndex = Math.min(Math.max(0, initialIndex), Math.max(0, items.length - 1));
 
   useEffect(() => {
-    if (!visible) return;
-    setFailed(false);
-    if (!remoteUri && !localUri && !previewUri) {
-      setFailed(true);
-      return;
-    }
-    if (!remoteUri) return;
+    if (visible) setPageIndex(safeIndex);
+  }, [visible, safeIndex]);
 
-    let cancelled = false;
-    void ensureLocalAttachmentFile({
-      uri: remoteUri,
-      token,
-      fileName,
-    })
-      .then((uri) => {
-        if (!cancelled) setCachedFile({ key: fileKey, uri });
-      })
-      .catch(() => {
-        // Keep showing previewUri / remote; download/share will surface errors.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, remoteUri, localUri, previewUri, token, fileName, attempt, fileKey]);
-
-  const source = useMemo(() => {
-    if (!displayUri) return null;
-    const headers = attachmentRequestHeaders(displayUri, token);
-    return Object.keys(headers).length ? { uri: displayUri, headers } : { uri: displayUri };
-  }, [displayUri, token]);
+  const current = items[Math.min(pageIndex, items.length - 1)] ?? items[0];
+  const remoteUri = resolveAttachmentUri({
+    attachmentId: current?.attachmentId,
+    localUri: current?.localUri,
+    path: current?.path,
+  });
+  const currentName = current?.fileName ?? fileName;
 
   const handleDownload = async () => {
     if (!remoteUri || busy) return;
@@ -122,7 +90,7 @@ export function AttachmentImageViewer({
       const result = await saveChatAttachmentToLibrary({
         uri: remoteUri,
         token,
-        fileName,
+        fileName: currentName,
       });
       if (result === "saved") {
         Alert.alert(t("common.saved"), t("common.saved_to_photos"));
@@ -144,7 +112,7 @@ export function AttachmentImageViewer({
       await shareChatAttachment({
         uri: remoteUri,
         token,
-        fileName,
+        fileName: currentName,
       });
     } catch (error) {
       Alert.alert(
@@ -156,165 +124,180 @@ export function AttachmentImageViewer({
     }
   };
 
+  const onPageScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+    if (next >= 0 && next < items.length) setPageIndex(next);
+  };
+
   return (
     <Modal
       visible={visible}
-      transparent
-      animationType="slide"
+      animationType="fade"
+      presentationStyle="fullScreen"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={s.backdrop}>
-        <Pressable
-          style={[s.scrim, { height: Math.max(insets.top + 10, 28) }]}
-          onPress={onClose}
-          accessibilityLabel={t("preview.close")}
-        />
+      <View testID="attachment-image-viewer" style={s.root}>
+        <View style={[s.header, { paddingTop: Math.max(insets.top, Space.xs) }]}>
+          <Pressable
+            style={s.iconBtn}
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityLabel={t("preview.close")}
+          >
+            <Icon name="close" size={28} color={LIGHTBOX_FG} />
+          </Pressable>
 
-        <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
-          <View style={s.header}>
+          <View style={s.headerActions}>
+            {onUseInChat ? (
+              <Pressable
+                style={s.iconBtn}
+                onPress={onUseInChat}
+                hitSlop={12}
+                accessibilityLabel={t("gallery.use_in_chat")}
+              >
+                <Icon name="attach-outline" size={24} color={LIGHTBOX_FG} />
+              </Pressable>
+            ) : null}
+            {onOpenChat ? (
+              <Pressable
+                style={s.iconBtn}
+                onPress={onOpenChat}
+                hitSlop={12}
+                accessibilityLabel={t("gallery.open_chat_a11y")}
+              >
+                <Icon name="chatbubble-outline" size={24} color={LIGHTBOX_FG} />
+              </Pressable>
+            ) : null}
             <Pressable
-              style={s.iconBtn}
-              onPress={onClose}
+              style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
+              onPress={() => void handleShare()}
+              disabled={!remoteUri || busy != null}
               hitSlop={12}
-              accessibilityLabel={t("preview.close")}
+              accessibilityLabel={t("preview.share")}
             >
-              <Icon name="close" size={28} color={C.text} />
+              {busy === "share" ? (
+                <ActivityIndicator color={LIGHTBOX_FG} size="small" />
+              ) : (
+                <Icon name="share-outline" size={24} color={LIGHTBOX_FG} />
+              )}
             </Pressable>
-
-            <View style={s.headerActions}>
-              {onUseInChat ? (
-                <Pressable
-                  style={s.iconBtn}
-                  onPress={onUseInChat}
-                  hitSlop={12}
-                  accessibilityLabel={t("gallery.use_in_chat")}
-                >
-                  <Icon name="attach-outline" size={24} color={C.text} />
-                </Pressable>
-              ) : null}
-              {onOpenChat ? (
-                <Pressable
-                  style={s.iconBtn}
-                  onPress={onOpenChat}
-                  hitSlop={12}
-                  accessibilityLabel={t("gallery.open_chat_a11y")}
-                >
-                  <Icon name="chatbubble-outline" size={24} color={C.text} />
-                </Pressable>
-              ) : null}
+            <Pressable
+              style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
+              onPress={() => void handleDownload()}
+              disabled={!remoteUri || busy != null}
+              hitSlop={12}
+              accessibilityLabel={t("common.download")}
+            >
+              {busy === "download" ? (
+                <ActivityIndicator color={LIGHTBOX_FG} size="small" />
+              ) : (
+                <Icon name="download-outline" size={24} color={LIGHTBOX_FG} />
+              )}
+            </Pressable>
+            {onDelete ? (
               <Pressable
-                style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
-                onPress={() => void handleShare()}
-                disabled={!remoteUri || busy != null}
+                style={s.iconBtn}
+                onPress={onDelete}
                 hitSlop={12}
-                accessibilityLabel={t("preview.share")}
+                accessibilityLabel={t("common.delete")}
               >
-                {busy === "share" ? (
-                  <ActivityIndicator color={C.text} size="small" />
-                ) : (
-                  <Icon name="share-outline" size={24} color={C.text} />
-                )}
+                <Icon name="trash-outline" size={24} danger />
               </Pressable>
-              <Pressable
-                style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
-                onPress={() => void handleDownload()}
-                disabled={!remoteUri || busy != null}
-                hitSlop={12}
-                accessibilityLabel={t("common.download")}
-              >
-                {busy === "download" ? (
-                  <ActivityIndicator color={C.text} size="small" />
-                ) : (
-                  <Icon name="download-outline" size={24} color={C.text} />
-                )}
-              </Pressable>
-              {onDelete ? (
-                <Pressable
-                  style={s.iconBtn}
-                  onPress={onDelete}
-                  hitSlop={12}
-                  accessibilityLabel={t("common.delete")}
-                >
-                  <Icon name="trash-outline" size={24} danger />
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-
-          <View style={s.stage}>
-            {failed ? (
-              <MediaLoadRetry
-                onRetry={() => {
-                  if (remoteUri) invalidateCachedAttachmentFile(remoteUri);
-                  setCachedFile(null);
-                  setFailed(false);
-                  setAttempt((n) => n + 1);
-                }}
-              />
-            ) : source ? (
-              <Image
-                key={`${displayUri}:${attempt}`}
-                testID="attachment-viewer-image"
-                source={source}
-                style={s.image}
-                resizeMode="contain"
-                onError={() => setFailed(true)}
-              />
-            ) : (
-              <ActivityIndicator color={C.textTertiary} size="large" />
-            )}
+            ) : null}
           </View>
         </View>
+
+        {items.length > 1 ? (
+          <FlatList
+            testID="attachment-viewer-pager"
+            style={s.pager}
+            data={items}
+            key={visible ? `open-${safeIndex}` : "closed"}
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) =>
+              `${item.attachmentId ?? item.path ?? item.localUri ?? "img"}-${index}`
+            }
+            getItemLayout={(_, index) => ({
+              length: screenWidth,
+              offset: screenWidth * index,
+              index,
+            })}
+            initialScrollIndex={safeIndex}
+            onScrollToIndexFailed={() => undefined}
+            onMomentumScrollEnd={onPageScrollEnd}
+            renderItem={({ item, index }) => (
+              <View style={{ width: screenWidth, height: "100%" }}>
+                <AttachmentImageStage item={item} active={visible && Math.abs(index - pageIndex) <= 1} />
+              </View>
+            )}
+          />
+        ) : (
+          <AttachmentImageStage item={items[0] ?? { previewUri }} active={visible} />
+        )}
+
+        {items.length > 1 ? (
+          <View style={[s.dots, { paddingBottom: Math.max(insets.bottom, Space.sm) }]}>
+            {items.map((item, index) => (
+              <View
+                key={`${item.attachmentId ?? item.path ?? index}-dot`}
+                style={[s.dot, index === pageIndex && s.dotActive]}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={{ height: Math.max(insets.bottom, Space.sm) }} />
+        )}
       </View>
     </Modal>
   );
 }
 
-function makeStyles(C: Theme) {
-  return StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: C.scrim,
-    },
-    scrim: {
-      width: "100%",
-    },
-    sheet: {
-      flex: 1,
-      backgroundColor: C.bg,
-      borderTopLeftRadius: SHEET_RADIUS,
-      borderTopRightRadius: SHEET_RADIUS,
-      overflow: "hidden",
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 12,
-      paddingTop: 8,
-      paddingBottom: 4,
-    },
-    headerActions: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    iconBtn: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    iconBtnDisabled: {
-      opacity: 0.45,
-    },
-    stage: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    image: {
-      width: "100%",
-      height: "100%",
-    },
-  });
-}
+const s = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: LIGHTBOX_BG,
+  },
+  pager: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingBottom: 4,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtnDisabled: {
+    opacity: 0.45,
+  },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: Space.xs,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+  dotActive: {
+    backgroundColor: LIGHTBOX_FG,
+  },
+});

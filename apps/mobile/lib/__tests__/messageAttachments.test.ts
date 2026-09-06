@@ -1,4 +1,4 @@
-import { isAttachmentBoilerplate, parseUserMessageContent, isPdfContentType } from "@/lib/messageAttachments";
+import { isAttachmentBoilerplate, parseUserMessageContent, isPdfContentType, stripLookupSourceCaption } from "@/lib/messageAttachments";
 import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
 
 describe("messageAttachments", () => {
@@ -25,5 +25,11 @@ describe("messageAttachments", () => {
     );
     expect(parsed.caption).toBe("");
     expect(parsed.images).toHaveLength(1);
+  });
+
+  it("strips leftover lookup Source credits", () => {
+    expect(stripLookupSourceCaption("Source: Car - Wikipedia")).toBe("");
+    expect(stripLookupSourceCaption("_Source: Ear - Wikipedia_")).toBe("");
+    expect(stripLookupSourceCaption("Here is a car.\n\nSource: Wikipedia")).toBe("Here is a car.");
   });
 });

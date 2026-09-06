@@ -81,4 +81,20 @@ describe("AttachmentImageViewer", () => {
     expect(view.getByTestId("attachment-viewer-image").props.source.uri).toBe("http://test.local/first");
   });
 
+  it("pages across photos from the same generation", async () => {
+    const { getByTestId } = await render(
+      <AttachmentImageViewer
+        visible
+        images={[
+          { attachmentId: "a", path: "/attachments/a/file" },
+          { attachmentId: "b", path: "/attachments/b/file" },
+        ]}
+        initialIndex={0}
+      />,
+    );
+    const pager = getByTestId("attachment-viewer-pager");
+    expect(pager.props.horizontal).toBe(true);
+    expect(pager.props.pagingEnabled).toBe(true);
+    expect(getByTestId("attachment-image-viewer")).toBeTruthy();
+  });
 });

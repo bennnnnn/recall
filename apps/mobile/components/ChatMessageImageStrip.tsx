@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
+import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { Space } from "@/lib/space";
 
@@ -32,6 +34,7 @@ type Props = {
  */
 export function ChatMessageImageStrip({ images, animatedReveal = true }: Props) {
   const { width: screenWidth } = useWindowDimensions();
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   if (images.length === 0) {
     return null;
@@ -56,37 +59,46 @@ export function ChatMessageImageStrip({ images, animatedReveal = true }: Props) 
   const snapInterval = tileWidth + IMAGE_STRIP_GAP;
 
   return (
-    <ScrollView
-      testID="chat-image-strip"
-      horizontal
-      nestedScrollEnabled
-      directionalLockEnabled
-      disableIntervalMomentum
-      snapToInterval={snapInterval}
-      snapToAlignment="start"
-      decelerationRate="fast"
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={s.content}
-      style={s.scroller}
-    >
-      {images.map((image, index) => (
-        <View
-          key={`${image.attachmentId ?? image.path ?? image.localUri}-${index}`}
-          style={index === images.length - 1 ? undefined : s.tileGap}
-        >
-          <ChatMessageImage
-            attachmentId={image.attachmentId}
-            path={image.path}
-            localUri={image.localUri}
-            fileName={image.fileName}
-            animatedReveal={animatedReveal}
-            width={tileWidth}
-            height={tileHeight}
-          />
-        </View>
-      ))}
-    </ScrollView>
+    <>
+      <ScrollView
+        testID="chat-image-strip"
+        horizontal
+        nestedScrollEnabled
+        directionalLockEnabled
+        disableIntervalMomentum
+        snapToInterval={snapInterval}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={s.content}
+        style={s.scroller}
+      >
+        {images.map((image, index) => (
+          <View
+            key={`${image.attachmentId ?? image.path ?? image.localUri}-${index}`}
+            style={index === images.length - 1 ? undefined : s.tileGap}
+          >
+            <ChatMessageImage
+              attachmentId={image.attachmentId}
+              path={image.path}
+              localUri={image.localUri}
+              fileName={image.fileName}
+              animatedReveal={animatedReveal}
+              width={tileWidth}
+              height={tileHeight}
+              onOpen={() => setOpenIndex(index)}
+            />
+          </View>
+        ))}
+      </ScrollView>
+      <AttachmentImageViewer
+        visible={openIndex !== null}
+        onClose={() => setOpenIndex(null)}
+        images={images}
+        initialIndex={openIndex ?? 0}
+      />
+    </>
   );
 }
 
