@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 from uuid import UUID
 
 from redis.asyncio import Redis
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, ResponseError
 
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
@@ -111,8 +111,29 @@ def _usage_key(user_id: str, day: date) -> str:
     return _daily_key("usage", user_id, day)
 
 
+def _heal_flag_key(user_id: str, day: date) -> str:
+    return _daily_key("usage:heal", user_id, day)
+
+
 # Daily counters outlive their day by enough to read yesterday, then expire.
 _DAILY_TTL = 60 * 60 * 48
+
+# Raise Redis to db_total only when missing or behind. Never lower a live counter.
+_HEAL_USAGE_LUA = """
+local db = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local cur = redis.call('GET', KEYS[1])
+if not cur then
+  redis.call('SET', KEYS[1], ARGV[1], 'NX', 'EX', ttl)
+  return db
+end
+local n = tonumber(cur)
+if n < db then
+  redis.call('SET', KEYS[1], ARGV[1], 'EX', ttl)
+  return db
+end
+return n
+"""
 
 
 # Floor the daily usage counter at 0 so a buggy double-refund can never drive it
@@ -191,6 +212,53 @@ async def seed_usage_if_missing(
     await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
 
 
+async def mark_usage_needs_heal(
+    redis: Redis,
+    user_id: str,
+    *,
+    day: date | None = None,
+) -> None:
+    """Remember that post-commit ``adjust_usage`` failed so the next turn can heal."""
+    try:
+        await redis.set(_heal_flag_key(user_id, day or utc_today()), "1", ex=_DAILY_TTL)
+    except RedisError:
+        logger.warning("mark_usage_needs_heal failed user_id=%s", user_id, exc_info=True)
+
+
+async def usage_needs_heal(
+    redis: Redis,
+    user_id: str,
+    *,
+    day: date | None = None,
+) -> bool:
+    try:
+        return bool(await redis.exists(_heal_flag_key(user_id, day or utc_today())))
+    except RedisError:
+        logger.warning("usage_needs_heal failed user_id=%s", user_id, exc_info=True)
+        return False
+
+
+async def clear_usage_needs_heal(
+    redis: Redis,
+    user_id: str,
+    *,
+    day: date | None = None,
+) -> None:
+    try:
+        await redis.delete(_heal_flag_key(user_id, day or utc_today()))
+    except RedisError:
+        logger.warning("clear_usage_needs_heal failed user_id=%s", user_id, exc_info=True)
+
+
+async def _heal_usage_drift_cas(redis: Redis, key: str, db_total: int) -> None:
+    current = await redis.get(key)
+    if current is None:
+        await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
+        return
+    if int(current) < db_total:
+        await redis.set(key, db_total, ex=_DAILY_TTL)
+
+
 async def heal_usage_drift(
     redis: Redis,
     user_id: str,
@@ -204,22 +272,21 @@ async def heal_usage_drift(
     holds a stale value *lower* than the DB total (repeated ``adjust_usage``
     failures, partial outages, manual key edits), seeding is skipped forever
     for that UTC day and the user can exceed daily limits. This compares the
-    two and raises Redis to ``max(redis, db_total)`` when DB is ahead. Atomic
-    via a Lua compare-and-set so concurrent turns can't double-count.
+    two and raises Redis to ``max(redis, db_total)`` when DB is ahead. Never
+    lowers a live counter. Atomic via Lua; GET+SET fallback when EVAL is
+    unavailable (some fakeredis setups).
     """
     if db_total <= 0:
         return
     key = _usage_key(user_id, day or utc_today())
     try:
-        current = await redis.get(key)
-        if current is None:
-            await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
-            return
-        current_int = int(current)
-        if current_int < db_total:
-            await redis.set(key, db_total, ex=_DAILY_TTL)
+        try:
+            await redis.eval(_HEAL_USAGE_LUA, 1, key, str(db_total), str(_DAILY_TTL))
+        except ResponseError:
+            await _heal_usage_drift_cas(redis, key, db_total)
     except RedisError:
         logger.warning("heal_usage_drift failed user_id=%s", user_id, exc_info=True)
+        raise
 
 
 async def reserve_usage(

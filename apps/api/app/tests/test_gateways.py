@@ -797,6 +797,66 @@ async def test_stream_chat_completion_retries_when_primary_yields_whitespace_onl
 
 
 @pytest.mark.asyncio
+async def test_stream_chat_completion_fallback_does_not_keep_discarded_usage():
+    """Whitespace-only primary usage must not land on the caller's daily quota."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    async def fake_stream_once(**kwargs):
+        usage = kwargs["usage"]
+        alias = kwargs["model_alias"]
+        if alias == "smart-chat":
+            usage["input"] = usage.get("input", 0) + 100
+            usage["output"] = usage.get("output", 0) + 5
+            yield "\n"
+            return
+        usage["input"] = usage.get("input", 0) + 50
+        usage["output"] = usage.get("output", 0) + 10
+        yield "ok"
+
+    caller_usage = {"input": 7, "output": 1}
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        tokens = [
+            t
+            async for t in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+                usage=caller_usage,
+                fallback_aliases=["free-chat"],
+            )
+        ]
+    assert tokens == ["ok"]
+    assert caller_usage == {"input": 57, "output": 11}
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_completion_exhausted_blames_last_alias():
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    async def fake_stream_once(**kwargs):
+        raise ModelUnavailableError("down", failed_alias=kwargs["model_alias"])
+        yield  # pragma: no cover
+
+    stream_meta: dict[str, str] = {}
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        with pytest.raises(ModelUnavailableError) as exc_info:
+            async for _ in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+                fallback_aliases=["free-chat"],
+                stream_meta=stream_meta,
+            ):
+                pass
+    assert exc_info.value.failed_alias == "free-chat"
+    assert stream_meta["model_alias"] == "free-chat"
+
+
+@pytest.mark.asyncio
 async def test_stream_chat_completion_raises_when_all_aliases_empty():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 

@@ -49,6 +49,7 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
 
     refund = AsyncMock()
     adjust = AsyncMock(side_effect=RuntimeError("redis blip"))
+    mark_heal = AsyncMock()
 
     with (
         patch("app.services.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
@@ -60,6 +61,7 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
         patch("app.services.chat.post_turn.usage_repo.add_tokens", AsyncMock()),
         patch("app.services.chat.post_turn.quota_service.adjust_usage", adjust),
         patch("app.services.chat.post_turn.quota_service.refund_usage", refund),
+        patch("app.services.chat.post_turn.quota_service.mark_usage_needs_heal", mark_heal),
         patch(
             "app.services.chat.post_turn.quota_service.daily_limit_for_user",
             return_value=100_000,
@@ -78,6 +80,7 @@ async def test_adjust_usage_failure_after_commit_does_not_refund():
     # H2: adjust_usage retries 3 times on failure before giving up.
     assert adjust.await_count == 3
     refund.assert_not_awaited()
+    mark_heal.assert_awaited_once()
 
 
 @pytest.mark.asyncio

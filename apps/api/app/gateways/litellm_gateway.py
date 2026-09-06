@@ -319,6 +319,10 @@ async def stream_chat_completion(
         # to the next alias instead of locking in an empty reply.
         pending: list[str] = []
         started = False
+        # Discarded attempts must not add provider tokens onto the caller's
+        # daily quota. Tool-loop usage already lives on `usage`; only merge
+        # the attempt that actually produced content.
+        attempt_usage: dict[str, int] = {}
         try:
             if stream_meta is not None:
                 stream_meta.pop("finish_reason", None)
@@ -327,7 +331,7 @@ async def stream_chat_completion(
                 model_alias=alias,
                 messages=messages,
                 max_tokens=max_tokens,
-                usage=usage,
+                usage=attempt_usage,
                 on_reasoning=on_reasoning,
                 stream_meta=stream_meta,
             ):
@@ -342,6 +346,9 @@ async def stream_chat_completion(
                     continue
                 yield token
             if started:
+                if usage is not None:
+                    usage["input"] = usage.get("input", 0) + attempt_usage.get("input", 0)
+                    usage["output"] = usage.get("output", 0) + attempt_usage.get("output", 0)
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
@@ -361,6 +368,9 @@ async def stream_chat_completion(
             # Mid-stream failure: client already has partial tokens — falling
             # back would concatenate partial + full into one persisted reply.
             if started:
+                if usage is not None:
+                    usage["input"] = usage.get("input", 0) + attempt_usage.get("input", 0)
+                    usage["output"] = usage.get("output", 0) + attempt_usage.get("output", 0)
                 raise
             if index < len(aliases) - 1:
                 logger.warning(
@@ -369,9 +379,12 @@ async def stream_chat_completion(
                     aliases[index + 1],
                 )
                 continue
+            failed = exc.failed_alias or alias
+            if stream_meta is not None:
+                stream_meta["model_alias"] = failed
             raise ModelUnavailableError(
                 _CHAT_MODEL_UNAVAILABLE_MSG,
-                failed_alias=model_alias,
+                failed_alias=failed,
             ) from exc
 
     if last_error is not None:
