@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BackHandler } from "react-native";
+import { AppState, BackHandler } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -12,6 +12,7 @@ import {
   liveTalkErrorGate,
   liveTalkGate,
   liveTalkShouldAttachSession,
+  liveTalkShouldCloseOnAppState,
   liveTalkShouldCloseOnChatChange,
   type LiveTalkGate,
   type LiveTalkPhase,
@@ -446,6 +447,14 @@ export function useLiveTalk({
     if (!liveTalkShouldCloseOnChatChange(turnChatIdRef.current, chatId)) return;
     close();
   }, [chatId, close]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (liveTalkShouldCloseOnAppState(state)) closeRef.current();
+    });
+    return () => sub.remove();
+  }, [visible]);
 
   useEffect(() => {
     // Fast Refresh preserves `visible` and drops the native peer. A leftover

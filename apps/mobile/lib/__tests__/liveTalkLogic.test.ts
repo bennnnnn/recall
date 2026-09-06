@@ -7,6 +7,7 @@ import {
   liveTalkOrbMode,
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnChatChange,
+  liveTalkShouldCloseOnAppState,
   liveTalkDataChannelText,
   liveTalkMuteA11yKey,
   liveTalkShowsSideChrome,
@@ -58,6 +59,14 @@ describe("liveTalkShouldCloseOnChatChange", () => {
     expect(liveTalkShouldCloseOnChatChange("chat-a", "chat-a")).toBe(false);
     expect(liveTalkShouldCloseOnChatChange("chat-a", null)).toBe(true);
     expect(liveTalkShouldCloseOnChatChange(null, "chat-b")).toBe(false);
+  });
+});
+
+describe("liveTalkShouldCloseOnAppState", () => {
+  it("closes when the app leaves the foreground", () => {
+    expect(liveTalkShouldCloseOnAppState("background")).toBe(true);
+    expect(liveTalkShouldCloseOnAppState("inactive")).toBe(true);
+    expect(liveTalkShouldCloseOnAppState("active")).toBe(false);
   });
 });
 

@@ -2,16 +2,9 @@
 
 import katex from "katex";
 
+import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/markdownPreprocess";
-
-const MATH_FENCE_LANGS = new Set([
-  "math",
-  "latex",
-  "tex",
-  "katex",
-  "asciimath",
-]);
 
 export function escapeHtml(text: string): string {
   return text
@@ -67,8 +60,9 @@ export function renderPrintMathHtml(latex: string, displayMode: boolean): string
   }
 }
 
-function isMathFenceLang(lang: string): boolean {
-  return MATH_FENCE_LANGS.has(lang.trim().toLowerCase());
+function isPrintMathFenceLang(lang: string): boolean {
+  const l = lang.trim().toLowerCase();
+  return isMathFenceLang(l) || l === "katex" || l === "asciimath";
 }
 
 export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
@@ -124,7 +118,7 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
       }
       i += 1; // closing fence
       const body = codeLines.join("\n");
-      if (isMathFenceLang(lang)) {
+      if (isPrintMathFenceLang(lang)) {
         parts.push(renderPrintMathHtml(body, true));
       } else {
         const code = escapeHtml(body);

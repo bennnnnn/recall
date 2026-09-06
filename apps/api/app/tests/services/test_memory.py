@@ -273,6 +273,27 @@ def test_select_memories_respects_limit_and_priority():
     assert selected[1].type == "preference"
 
 
+def test_select_memories_for_prompt_includes_project_fact_focus():
+    settings = Settings(memory_min_confidence=0.0, memory_inject_limit=10)
+    memories = [
+        _memory("focus", "Ship the quiz this week", 0.8),
+        _memory("fact", "Works at Hooh", 0.9),
+        _memory("project", "Building Recall", 0.9),
+        _memory("profile", "Name is Sam", 0.7),
+        _memory("preference", "Short answers", 0.6),
+    ]
+    selected = select_memories_for_prompt(memories, settings)
+    assert [m.type for m in selected] == [
+        "profile",
+        "preference",
+        "project",
+        "fact",
+        "focus",
+    ]
+    omitted = select_memories_for_prompt(memories, settings, omit_project_memory=True)
+    assert [m.type for m in omitted] == ["profile", "preference", "fact", "focus"]
+
+
 def test_select_memories_semantic_ranks_by_similarity():
     settings = Settings(
         memory_min_confidence=0.0, memory_inject_limit=2, memory_min_similarity=0.15
@@ -507,8 +528,8 @@ async def test_load_relevant_memories_priority_fallback_when_no_query():
     ):
         result = await load_relevant_memories(session, user, settings, query_text=None)
 
-    # No query → always-inject types only; DB search never called.
-    assert [m.type for m in result] == ["profile"]
+    # No query → type-priority fallback (includes fact/project/focus); DB search never called.
+    assert [m.type for m in result] == ["profile", "fact"]
     db_search.assert_not_awaited()
 
 

@@ -294,3 +294,55 @@ export function isMathDiagramLang(lang: string): boolean {
   const id = fenceIdForLang(lang);
   return id === "math" || id === "geometry" || id === "graph";
 }
+
+export function isAnswerFenceLang(lang: string): boolean {
+  return fenceIdForLang(lang) === "answer";
+}
+
+export function isChartFenceLang(lang: string): boolean {
+  return fenceIdForLang(lang) === "chart";
+}
+
+/** Geometry / mermaid / chemistry visuals — not charts (those speak as "a chart"). */
+export function isVisualDiagramFenceLang(lang: string): boolean {
+  const id = fenceIdForLang(lang);
+  return (
+    id === "geometry" ||
+    id === "graph" ||
+    id === "mermaid" ||
+    id === "chemistry" ||
+    id === "molecule" ||
+    id === "molecule3d"
+  );
+}
+
+export function isDiagramFenceId(id: FenceId | undefined): boolean {
+  return (
+    id === "geometry" ||
+    id === "graph" ||
+    id === "chart" ||
+    id === "mermaid" ||
+    id === "chemistry" ||
+    id === "molecule" ||
+    id === "molecule3d"
+  );
+}
+
+/** Prompt-control JSON plus registry transport fences — never copy or speak. */
+export function isControlFenceLang(lang: string): boolean {
+  const id = fenceIdForLang(lang);
+  if (id === "sources" || id === "places" || id === "learning_launch") return true;
+  const l = normalize(lang);
+  return (
+    l === "reminder" ||
+    l === "calendar_proposal" ||
+    l === "settings_proposal" ||
+    l === "vocab_quiz"
+  );
+}
+
+/** Lift these out of list items so CommonMark treats them as real fences. */
+export function shouldLiftFenceOutOfList(lang: string): boolean {
+  const id = fenceIdForLang(lang);
+  return id === "math" || id === "answer" || id === "geometry" || id === "graph";
+}

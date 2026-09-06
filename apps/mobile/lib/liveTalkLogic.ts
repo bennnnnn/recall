@@ -78,6 +78,11 @@ export function liveTalkShouldCloseOnChatChange(
   return Boolean(boundChatId) && nextChatId !== boundChatId;
 }
 
+/** Background / inactive: flush and hang up so Realtime billing cannot continue. */
+export function liveTalkShouldCloseOnAppState(state: string): boolean {
+  return state !== "active";
+}
+
 /** react-native-webrtc may deliver data-channel payloads as a string or bytes. */
 export function liveTalkDataChannelText(data: unknown): string | null {
   if (typeof data === "string") return data;

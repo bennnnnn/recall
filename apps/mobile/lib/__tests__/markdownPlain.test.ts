@@ -82,6 +82,12 @@ describe("markdownPlain", () => {
     expect(markdownToCopyText(src)).not.toContain("Pay rent");
   });
 
+  it("labels diagrams for speech and omits smiles JSON from Copy", () => {
+    const src = 'Water\n\n```smiles\nO\n```\n';
+    expect(markdownToCopyText(src)).toBe("Water");
+    expect(markdownToSpeechText(src)).toContain("a diagram");
+  });
+
   it("preserves ordered markers and nested indentation when copying", () => {
     const src = [
       "1. Open Settings",
