@@ -33,6 +33,9 @@ type Props = {
    * doesn't flash gray/blur again.
    */
   animatedReveal?: boolean;
+  /** Override the default ~1/3-screen thumb. Used by the multi-image strip. */
+  width?: number;
+  height?: number;
 };
 
 /** ~1/3 screen width, slightly portrait — matches Claude-style chat thumbnails. */
@@ -116,12 +119,16 @@ export function ChatMessageImage({
   path,
   fileName,
   animatedReveal = true,
+  width: widthOverride,
+  height: heightOverride,
 }: Props) {
   const { t } = useTranslation();
   const token = useAuthToken();
   const C = useTheme();
   const reduceMotion = useReduceMotion();
-  const { width, height } = useThumbnailSize();
+  const thumb = useThumbnailSize();
+  const width = widthOverride ?? thumb.width;
+  const height = heightOverride ?? thumb.height;
   const s = useMemo(() => makeStyles(C, width, height), [C, width, height]);
   const [failed, setFailed] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
