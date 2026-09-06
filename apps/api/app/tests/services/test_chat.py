@@ -481,6 +481,10 @@ def test_math_formula_shape_rule_is_unified():
     assert "F + 3 - 3 = 3 - 3" in MATH_INTENT_HINT
     assert "empty bullet" in MATH_INTENT_HINT
     assert "SAME line as the `-`" in MATH_INTENT_HINT
+    assert "one long" in MATH_INTENT_HINT
+    assert "never omit the colon" in MATH_INTENT_HINT
+    assert r"\pm" in MATH_INTENT_HINT
+    assert "finished" in MATH_INTENT_HINT
 
 
 def test_math_solver_hint_does_not_overclaim_unverified_scope():

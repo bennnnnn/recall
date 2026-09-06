@@ -935,7 +935,11 @@ export function layoutCheckVerificationLines(content: string): string {
     (_m, label: string, formula: string) => `$${label.trim()}$: $${formula.trim()}$`,
   );
   out = out.replace(/\$:\s*/g, "$: ");
-  return out.split("\n").map(splitPackedCheckLine).join("\n");
+  out = out
+    .split("\n")
+    .map((line) => splitPackedCheckLine(normalizeCheckLabelLine(line)))
+    .join("\n");
+  return splitChainedEqualsInCheckMath(out);
 }
 
 /**
@@ -1043,7 +1047,48 @@ function splitPackedCheckLine(line: string): string {
   const after = line.slice(colon + 1).trim();
   if (!after || !looksLikeCheckComputation(after)) return line;
   const before = line.slice(0, colon + 1).trimEnd();
-  return `${before}\n  ${after}`;
+  // A single `\n  ` is a CommonMark softbreak. RN renders that as a space, so
+  // `For x = 3:` stuck to the substitution. A blank line is a list paragraph.
+  return `${before}\n\n  ${after}`;
+}
+
+function isForExampleAt(line: string, forAt: number): boolean {
+  return line.slice(forAt, forAt + 11).toLowerCase() === "for example";
+}
+
+/**
+ * Live checks omit `:` on one root (`For $x = 1/2$`) and keep it on the other
+ * (`For $x = 3:`). Put a colon on every For-x label so both match.
+ */
+function normalizeCheckLabelLine(line: string): string {
+  const forAt = line.toLowerCase().indexOf("for ");
+  if (forAt < 0 || isForExampleAt(line, forAt)) return line;
+  const afterForRaw = line.slice(forAt + 4);
+  if (!afterForRaw.includes("=") || indexOfCheckLabelColon(line) >= 0) return line;
+
+  const afterFor = afterForRaw.trimStart();
+  const leadWs = afterForRaw.length - afterFor.length;
+  const prefix = line.slice(0, forAt + 4 + leadWs);
+  const parts = splitInlineMath(afterFor);
+  if (parts[0]?.type === "math") {
+    const segs = splitTopLevelEquals(parts[0].value);
+    if (segs.length !== 2) return line;
+    if (parts.length === 1) return `${line.replace(/\s+$/, "")}:`;
+    let tail = "";
+    for (let i = 1; i < parts.length; i += 1) {
+      const p = parts[i]!;
+      tail += p.type === "math" ? `$${p.value}$` : p.value;
+    }
+    if (!tail.trim()) return `${line.replace(/\s+$/, "")}:`;
+    return `${prefix}$${parts[0].value}$: ${tail.trim()}`;
+  }
+  if (parts.length === 1 && parts[0]?.type === "text") {
+    const segs = splitTopLevelEquals(parts[0].value);
+    if (segs.length === 2 && afterFor.length < 80) {
+      return `${line.replace(/\s+$/, "")}:`;
+    }
+  }
+  return line;
 }
 
 /** Colon that closes `For x = 2:` / `For $F = 0$:` — not "for example:". */
@@ -1061,6 +1106,138 @@ function indexOfCheckLabelColon(line: string): number {
 function looksLikeCheckComputation(s: string): boolean {
   if (s.length < 3) return false;
   return /[\d$=+\-]/.test(s);
+}
+
+function isCheckLabelOnlyLine(line: string): boolean {
+  const colon = indexOfCheckLabelColon(line);
+  if (colon >= 0) return line.slice(colon + 1).trim() === "";
+  const forAt = line.toLowerCase().indexOf("for ");
+  if (forAt < 0 || isForExampleAt(line, forAt)) return false;
+  const afterFor = line.slice(forAt + 4).trim();
+  if (!afterFor.includes("=") || afterFor.length >= 80) return false;
+  const latex = joinCheckLatex(afterFor) ?? afterFor;
+  return splitTopLevelEquals(latex).length <= 2;
+}
+
+/** Top-level `=` only — skip `\{…\}` and `\neq` / `\leq` command tails. */
+function splitTopLevelEquals(latex: string): string[] {
+  const parts: string[] = [];
+  let buf = "";
+  let brace = 0;
+  for (let i = 0; i < latex.length; i += 1) {
+    const ch = latex[i]!;
+    if (ch === "\\") {
+      buf += ch;
+      i += 1;
+      while (i < latex.length && /[A-Za-z]/.test(latex[i]!)) {
+        buf += latex[i]!;
+        i += 1;
+      }
+      i -= 1;
+      continue;
+    }
+    if (ch === "{") {
+      brace += 1;
+      buf += ch;
+      continue;
+    }
+    if (ch === "}" && brace > 0) {
+      brace -= 1;
+      buf += ch;
+      continue;
+    }
+    if (ch === "=" && brace === 0) {
+      parts.push(buf.trim());
+      buf = "";
+      continue;
+    }
+    buf += ch;
+  }
+  const last = buf.trim();
+  if (last) parts.push(last);
+  return parts.filter((p) => p.length > 0);
+}
+
+/** Join `$a$ = $b$ = $c$` (or one `$a = b = c$`) into one latex string. */
+function joinCheckLatex(body: string): string | null {
+  const parts = splitInlineMath(body);
+  let latex = "";
+  for (const p of parts) {
+    if (p.type === "math") {
+      latex += p.value;
+      continue;
+    }
+    for (let j = 0; j < p.value.length; j += 1) {
+      const c = p.value[j]!;
+      if (c === " " || c === "\t") continue;
+      if (c === "=") {
+        latex += "=";
+        continue;
+      }
+      return null;
+    }
+  }
+  const t = latex.trim();
+  return t.length > 0 ? t : null;
+}
+
+function splitCheckComputationLine(line: string): string[] {
+  const indent = line.match(/^\s*/)?.[0] ?? "";
+  const body = line.trim();
+  if (!body) return [line];
+
+  let latex = joinCheckLatex(body);
+  if (latex == null) {
+    if (splitInlineMath(body).some((p) => p.type === "math")) return [line];
+    latex = body;
+  }
+
+  let mark = "";
+  if (latex.endsWith("✓") || latex.endsWith("✔")) {
+    mark = latex.slice(-1);
+    latex = latex.slice(0, -1).trim();
+  }
+
+  const segs = splitTopLevelEquals(latex);
+  if (segs.length < 3) return [line];
+  const lines: string[] = [];
+  segs.forEach((seg, i) => {
+    if (i > 0) lines.push("");
+    const inner = i === 0 ? seg : `= ${seg}`;
+    const suffix = i === segs.length - 1 && mark ? ` ${mark}` : "";
+    lines.push(`${indent}$${inner}$${suffix}`);
+  });
+  return lines;
+}
+
+/**
+ * Check substitutions like `$a = b = c = 0$` clip the last `= 0` on a phone.
+ * One equality per line, only after a `For x =` label — not homework steps.
+ */
+function splitChainedEqualsInCheckMath(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let pendingCheck = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (isCheckLabelOnlyLine(trimmed)) {
+      out.push(line);
+      pendingCheck = true;
+      continue;
+    }
+    if (pendingCheck && trimmed === "") {
+      out.push(line);
+      continue;
+    }
+    if (pendingCheck && looksLikeCheckComputation(trimmed)) {
+      out.push(...splitCheckComputationLine(line));
+      pendingCheck = false;
+      continue;
+    }
+    pendingCheck = false;
+    out.push(line);
+  }
+  return out.join("\n");
 }
 
 // A backslash immediately followed by an ASCII punctuation character —
