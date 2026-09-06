@@ -57,6 +57,7 @@ export function galleryListParams(filter: GalleryFilter): GalleryListParams {
   if (filter === "files") return { category: "files" };
   if (filter === "generated") return { category: "images", source: "generated" };
   if (filter === "uploaded") return { category: "images", source: "upload" };
+  // All: API lists only upload + generated (lookup photos stay on the chat).
   return {};
 }
 

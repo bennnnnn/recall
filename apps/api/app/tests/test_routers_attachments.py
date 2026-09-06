@@ -1251,6 +1251,17 @@ def test_list_attachments_source_filter():
     assert kwargs.get("source") == "generated"
 
 
+def test_list_attachments_rejects_search_source():
+    """Lookup photos are chat-only; Library cannot filter to source=search."""
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    r = client.get(
+        "/attachments?source=search",
+        headers={"Authorization": "Bearer tok"},
+    )
+    assert r.status_code == 422
+
+
 def test_list_attachments_q_filter():
     """GET /attachments?q= is forwarded after stripping."""
     user = _fake_user()

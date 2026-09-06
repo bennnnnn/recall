@@ -198,6 +198,7 @@ async def search_and_attach_for_chat(
                     size_bytes=len(data),
                     source="search",
                     original_filename=(cleaned.replace("\n", " ").strip()[:255] or None),
+                    library_visible=False,
                     commit=False,
                 )
                 attachment_ids.append(attachment_id)

@@ -9,6 +9,10 @@ from sqlalchemy.orm import aliased
 
 from app.models.orm import Attachment, Chat, Message
 
+# Library is the user's archive. Reference-photo lookup copies (`search`)
+# stay on the chat and are never listed.
+_LIBRARY_SOURCES = ("upload", "generated")
+
 
 def _contains(column: Any, query: str) -> Any:
     """Case-insensitive substring match with LIKE wildcards escaped."""
@@ -26,6 +30,7 @@ async def create_pending(
     size_bytes: int,
     source: str = "upload",
     original_filename: str | None = None,
+    library_visible: bool = True,
     commit: bool = True,
 ) -> Attachment:
     row = Attachment(
@@ -36,6 +41,7 @@ async def create_pending(
         size_bytes=size_bytes,
         source=source,
         original_filename=original_filename,
+        library_visible=library_visible,
     )
     session.add(row)
     if commit:
@@ -183,10 +189,10 @@ async def list_for_gallery(
 
     * ``"images"`` — ``content_type LIKE 'image/%'``
     * ``"files"``  — ``content_type NOT LIKE 'image/%'``
-    * ``None``     — all attachments
+    * ``None``     — uploads and generated files (not lookup photos)
 
-    Optional ``source`` filter narrows to ``'upload'``, ``'generated'``, or
-    ``'search'`` (reference-photo lookup).
+    Optional ``source`` filter narrows to ``'upload'`` or ``'generated'``.
+    Reference-photo lookup copies (``source='search'``) are never listed.
     Verified items stay listed after their chat is deleted (``message_id``
     SET NULL); Open chat is omitted when no chat remains. Optional ``q``
     matches original filename, content type, the linked message body, or
@@ -198,12 +204,13 @@ async def list_for_gallery(
         Attachment.user_id == user_id,
         Attachment.verified_at.is_not(None),
         Attachment.library_visible.is_(True),
+        Attachment.source.in_(_LIBRARY_SOURCES),
     )
     if category == "images":
         stmt = stmt.where(Attachment.content_type.like("image/%"))
     elif category == "files":
         stmt = stmt.where(Attachment.content_type.notlike("image/%"))
-    if source in ("upload", "generated", "search"):
+    if source in _LIBRARY_SOURCES:
         stmt = stmt.where(Attachment.source == source)
     if q:
         linked = aliased(Message)
@@ -271,8 +278,8 @@ async def list_orphans(
 
     Verified Library items that lost their chat (``message_id`` SET NULL,
     ``library_visible`` still true) are not orphans — they stay until the
-    user deletes them from Library. Hidden copies created for a later chat
-    are reaped once that chat is gone.
+    user deletes them from Library. Hidden copies (Library reuse clones,
+    reference-photo lookups) are reaped once that chat is gone.
 
     Bounded so one reap cannot load every orphan in the system; the scheduler
     re-runs and drains remaining rows over time.
