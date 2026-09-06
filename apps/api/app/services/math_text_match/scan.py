@@ -196,8 +196,25 @@ def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
         return None
 
 
+def strip_inline_math_delims(text: str) -> str:
+    """Composer/math keyboard wraps numbers in ``$...$`` / ``\\(...\\)``.
+
+    ``X=$6$graph`` must be seen as ``X=6graph`` — a ``$`` after ``x=`` used
+    to hide the 6 from the vertical-line matcher, so we solved the equation
+    in words and never attached the plot.
+    """
+    return (
+        text.replace("$$", "")
+        .replace("$", "")
+        .replace("\\(", "")
+        .replace("\\)", "")
+        .replace("\\[", "")
+        .replace("\\]", "")
+    )
+
+
 def prepare(text: str) -> str | None:
-    cleaned = collapse_ws(text)
+    cleaned = collapse_ws(strip_inline_math_delims(text))
     if len(cleaned) > _MAX:
         return None
     return cleaned

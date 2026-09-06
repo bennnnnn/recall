@@ -50,6 +50,14 @@ def test_glued_graph_command_is_vertical_line_not_multiplied_letters() -> None:
     assert intent.point_x == 6.0
 
 
+def test_composer_dollar_wrap_still_vertical_line() -> None:
+    """Math keyboard wraps the 6 in ``$...$``; that must not hide the plot."""
+    intent = math_tools.extract_math_intent("X=$6$graph")
+    assert intent is not None
+    assert intent.kind == "vertical"
+    assert intent.point_x == 6.0
+
+
 def test_glued_english_on_equation_is_not_implicit_product() -> None:
     """Trailing English on a bare equation is stripped, not multiplied letters."""
     intent = math_tools.extract_math_intent("2x+3=7please")
@@ -1317,6 +1325,7 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "vertical"
     assert verified.canonical_fence["x"] == 4.0
+    assert verified.canonical_answer is None
 
 
 @pytest.mark.asyncio
@@ -1332,9 +1341,32 @@ async def test_glued_graph_command_injects_vertical_fence_not_chart() -> None:
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "vertical"
     assert verified.canonical_fence["x"] == 6.0
+    assert verified.canonical_answer is None
     joined = " ".join(m["content"] for m in out)
     assert "```chart" not in joined
     assert '"type":"bar"' not in joined
+
+
+@pytest.mark.asyncio
+async def test_composer_dollar_wrap_injects_vertical_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "X=$6$graph"}],
+        "X=$6$graph",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "vertical"
+    assert verified.canonical_fence["x"] == 6.0
+    import json
+
+    from app.services.math_fence import validate_math_fences
+
+    prose = "$X = 6$ is a **vertical line** on the Cartesian plane.\n\n$X = 6$"
+    out = validate_math_fences(prose, verified=verified)
+    assert "```graph" in out
+    assert json.loads(out.split("```graph")[1].split("```")[0].strip())["type"] == "vertical"
 
 
 @pytest.mark.asyncio

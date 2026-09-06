@@ -48,7 +48,12 @@ def _verified_block_vertical(
         title=f"x = {vx:g}",
     )
     lines.append(f"Vertical line: x = {vx:g} (from y = {y_min:g} to y = {y_max:g})")
-    return _diagram_block(lines, vert_spec, f"{vx:g}")
+    lines.append(
+        "At most one short sentence naming the line. Do not list intercepts, "
+        "example points, or parallel/perpendicular facts — the plot shows that."
+    )
+    # No numeric ```answer pill: this turn is the diagram, not "x equals 6".
+    return _diagram_block(lines, vert_spec)
 
 
 def _verified_block_graph(

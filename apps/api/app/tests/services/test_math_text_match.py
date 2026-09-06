@@ -285,6 +285,9 @@ class TestVerticalLine:
             ("X=6graph", 6.0),
             ("x=6graph", 6.0),
             ("graphx=4", 4.0),
+            ("X=$6$graph", 6.0),
+            ("graph x=$6$", 6.0),
+            (r"graph \(x=6\)", 6.0),
         ],
     )
     def test_vertical_line_x(self, text, expected):

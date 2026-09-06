@@ -11,6 +11,7 @@ from app.services.math_text_match.scan import (
     VIZ_COMMANDS,
     _alpha_run_end,
     has_viz_command,
+    strip_inline_math_delims,
 )
 
 
@@ -308,7 +309,7 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
 def vertical_line_x(text: str) -> float | None:
     if not has_viz_command(text):
         return None
-    lower = text.lower().replace(" ", "")
+    lower = strip_inline_math_delims(text).lower().replace(" ", "")
     # x=<num> after a graph/plot/draw/vertical cue
     if "x=" not in lower:
         return None
