@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
@@ -53,10 +54,27 @@ describe("MathText", () => {
     );
     expect(getByTestId("math-frac")).toBeOnTheScreen();
     expect(getByTestId("math-vinculum")).toBeOnTheScreen();
-    // Numerator is parenthesized (has "+"); den "2a" stays bare. Sqrt
-    // radicand uses combining overline in the flattened plain path.
-    expect(getByText("(-b + √2̅)")).toBeOnTheScreen();
+    expect(getByTestId("math-sqrt")).toBeOnTheScreen();
+    expect(getByText("2")).toBeOnTheScreen();
     expect(getByText("2a")).toBeOnTheScreen();
+  });
+
+  it("BUG FIX regression: sqrt inside a fraction keeps one bar over b^2 - 4ac", async () => {
+    // Live quadratic formula: flattened combining overlines turned `-` into a
+    // fake `=` and sized the vinculum from those extra marks so it ran under
+    // the following prose.
+    const { getByTestId, getByText, queryByText } = await render(
+      <MathText latex={String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`} />,
+    );
+    expect(getByTestId("math-sqrt")).toBeOnTheScreen();
+    expect(getByTestId("math-sqrt-radicand")).toBeOnTheScreen();
+    expect(queryByText(/̅/)).toBeNull();
+    expect(getByText("b")).toBeOnTheScreen();
+    expect(getByText(/4ac/)).toBeOnTheScreen();
+    const frac = getByTestId("math-frac");
+    const width = StyleSheet.flatten(frac.props.style).width as number;
+    expect(width).toBeGreaterThan(40);
+    expect(width).toBeLessThan(200);
   });
 
   it("BUG FIX regression: \\pm immediately followed by a digit does not become a false superscript", async () => {
