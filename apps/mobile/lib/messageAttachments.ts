@@ -135,6 +135,29 @@ export function parseMessageImages(content: string): {
   return { images, textWithoutImages: kept.join("\n").trim() };
 }
 
+const SOURCE_LINE_PREFIX = "Source:";
+const ITALIC_SOURCE_PREFIX = "_Source:";
+
+/** Hide leftover lookup credits ("Source: Wikipedia") under chat photos. */
+export function stripLookupSourceCaption(text: string): string {
+  const kept: string[] = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith(SOURCE_LINE_PREFIX) && trimmed.length > SOURCE_LINE_PREFIX.length) {
+      continue;
+    }
+    if (
+      trimmed.startsWith(ITALIC_SOURCE_PREFIX) &&
+      trimmed.endsWith("_") &&
+      trimmed.length > ITALIC_SOURCE_PREFIX.length + 1
+    ) {
+      continue;
+    }
+    kept.push(line);
+  }
+  return kept.join("\n").trim();
+}
+
 export function isPdfContentType(contentType: string | null | undefined): boolean {
   return (contentType ?? "").split(";")[0].trim().toLowerCase() === "application/pdf";
 }

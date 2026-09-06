@@ -232,8 +232,7 @@ async def test_successful_lookup_persists_attachment_and_message():
 
     assert user_msg is created_user_msg
     assert asst_msg.content.startswith("[Image: /attachments/")
-    assert "Source: Ear - Wikipedia" in asst_msg.content
-    assert "_Source:" not in asst_msg.content
+    assert "Source:" not in asst_msg.content
     gateway.write_bytes.assert_awaited_once()
     refund.assert_not_awaited()
 
@@ -313,7 +312,7 @@ async def test_spend_cap_skips_reserve_and_provider():
 
 
 @pytest.mark.asyncio
-async def test_source_caption_strips_markdown_from_untrusted_title():
+async def test_lookup_reply_is_image_markers_only():
     settings = Settings(image_search_enabled=True, daily_image_searches=10)
     user = MagicMock(id=uuid4(), plan="free")
     gateway = _fake_gateway()
@@ -370,7 +369,7 @@ async def test_source_caption_strips_markdown_from_untrusted_title():
             settings, user=user, chat_id=uuid4(), query="an ear"
         )
 
-    assert "\n\n" in asst_msg.content
-    assert "**" not in asst_msg.content
-    assert "https://evil.test" not in asst_msg.content
-    assert "Ignore previous instructions" in asst_msg.content
+    assert asst_msg.content.startswith("[Image: /attachments/")
+    assert "Source:" not in asst_msg.content
+    assert "Ignore previous" not in asst_msg.content
+    assert "evil.test" not in asst_msg.content

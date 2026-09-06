@@ -98,6 +98,19 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.hasMarkdown).toBe(false);
   });
 
+  it("hides leftover lookup Source captions under photos", () => {
+    const attachmentId = "11111111-1111-1111-1111-111111111111";
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: `[Image: /attachments/${attachmentId}/file]\n\nSource: Car - Wikipedia`,
+    });
+
+    expect(result.showImages).toBe(true);
+    expect(result.images).toHaveLength(1);
+    expect(result.markdownContent).toBe("");
+    expect(result.hasMarkdown).toBe(false);
+  });
+
   it("hides Sources under a live clock even when search hits are attached", () => {
     const result = deriveAssistantMessageContent({
       ...base,

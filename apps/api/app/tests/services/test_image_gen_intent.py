@@ -167,3 +167,18 @@ def test_image_gen_revision_context_reads_original_wording() -> None:
     )
     assert last_only is True
     assert subject == "cat"
+
+
+def test_image_gen_revision_context_skips_lookup_photos() -> None:
+    last_only, subject = image_gen_revision_context(
+        [
+            {"role": "user", "content": "Show me a car."},
+            {
+                "role": "assistant",
+                "content": "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+                "model": "image-search-model",
+            },
+        ]
+    )
+    assert last_only is False
+    assert subject is None

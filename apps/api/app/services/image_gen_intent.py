@@ -582,6 +582,13 @@ def image_gen_revision_context(
         if not isinstance(content, str):
             content = ""
         if not last_assistant_is_image_only and role == "assistant":
+            model = getattr(row, "model", None)
+            if model is None and isinstance(row, dict):
+                model = row.get("model")
+            # Reference-photo lookup is image-only content but must not be
+            # treated as an AI-image revision target.
+            if model == "image-search-model":
+                break
             last_assistant_is_image_only = is_image_only_assistant_content(content)
             if not last_assistant_is_image_only:
                 break
