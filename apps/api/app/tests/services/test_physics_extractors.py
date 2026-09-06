@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.services.math_tools.physics import (
     _extract_energy_intent,
     _extract_force_intent,
@@ -27,6 +29,46 @@ def test_kinematics_dropped_from_height() -> None:
     assert intent.physics_params["g"] == 9.81
 
 
+def test_kinematics_what_does_not_bind_height_as_v0() -> None:
+    intent = _extract_kinematics_intent(
+        "A ball is dropped from 20m. What is the time to hit the ground?"
+    )
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+    assert intent.physics_params["v0"] == 0.0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A ball is thrown down at 15 m/s from 20 m, how long to hit the ground?",
+        "A ball is thrown downward at 15 m/s from 20 m, how long to hit the ground?",
+        "A ball is launched downward at 15 m/s from 20 m, how long to hit the ground?",
+    ],
+)
+def test_kinematics_downward_negates_v0(text: str) -> None:
+    intent = _extract_kinematics_intent(text)
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["v0"] == -15.0
+    assert intent.physics_params["h0"] == 20.0
+
+
+def test_kinematics_mass_is_not_drop_height() -> None:
+    assert _extract_kinematics_intent("A 5 kg mass is dropped from rest, how long to fall?") is None
+
+
+def test_kinematics_mass_does_not_override_length_height() -> None:
+    intent = _extract_kinematics_intent(
+        "A 5 kg ball is dropped from 20 m, how long until it hits the ground?"
+    )
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+    assert intent.physics_params["v0"] == 0.0
+
+
 def test_kinematics_thrown_upward() -> None:
     intent = _extract_kinematics_intent(
         "A ball is thrown upward at 15 m/s, how long to reach the ground?"
@@ -48,6 +90,8 @@ def test_kinematics_free_fall_velocity_after() -> None:
     assert intent.physics_units is not None
     assert intent.physics_params["t"] == 3.0
     assert intent.physics_units["t"] == "seconds"
+    assert intent.physics_params["v0"] == 0.0
+    assert intent.physics_params["h0"] == 100.0
 
 
 def test_kinematics_position_after_duration() -> None:
