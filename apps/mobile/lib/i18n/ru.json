@@ -425,6 +425,7 @@
   "preview.expo_go_banner": "На этой странице есть JavaScript — переключитесь на Запуск с dev-сборкой для живого превью или Поделитесь, чтобы открыть в Safari.",
   "preview.load_error": "Не удалось загрузить эту страницу. Попробуйте «Поделиться», чтобы открыть её в Safari.",
   "preview.loading": "Loading preview…",
+  "preview.more_a11y": "More",
   "preview.open_in_browser": "Открыть в браузере",
   "preview.preview_html": "Предпросмотр HTML",
   "preview.preview_html_bundled": "Предпросмотр HTML с CSS/JS из этого ответа",
