@@ -70,9 +70,38 @@ function renderMathRun(
   );
 }
 
-function fracStackSize(num: string, den: string): { width: number; height: number } {
-  const chars = Math.max(num.length, den.length, 1);
-  return { width: chars * FRAC_CHAR_PX + FRAC_PAD_PX, height: FRAC_STACK_HEIGHT };
+function visualLength(s: string): number {
+  let n = 0;
+  for (const ch of s) {
+    const c = ch.charCodeAt(0);
+    // Combining marks (√ overlines, accents) must not inflate the frac box.
+    if (c >= 0x0300 && c <= 0x036f) continue;
+    n += 1;
+  }
+  return n;
+}
+
+function estimateSegmentsWidth(segments: MathSegment[]): number {
+  let width = 0;
+  for (const seg of segments) {
+    if (seg.type === "frac") {
+      width +=
+        Math.max(estimateSegmentsWidth(seg.num), estimateSegmentsWidth(seg.den)) +
+        FRAC_PAD_PX;
+    } else if (seg.type === "sqrt") {
+      width += 12 + (seg.degree ? 8 : 0) + estimateSegmentsWidth(seg.body);
+    } else {
+      width += Math.max(visualLength(seg.value), 1) * FRAC_CHAR_PX;
+    }
+  }
+  return width;
+}
+
+function fracStackSize(num: MathSegment[], den: MathSegment[]): { width: number; height: number } {
+  const inner = Math.max(estimateSegmentsWidth(num), estimateSegmentsWidth(den), FRAC_CHAR_PX);
+  const numPlain = segmentsToPlain(num).replace(/[\u0300-\u036f]/g, "");
+  const parenPad = isAtomicToken(numPlain) ? 0 : 2 * FRAC_CHAR_PX;
+  return { width: inner + FRAC_PAD_PX + parenPad, height: FRAC_STACK_HEIGHT };
 }
 
 function estimateMathTextSize(segments: MathSegment[]): { width: number; height: number } {
@@ -80,14 +109,14 @@ function estimateMathTextSize(segments: MathSegment[]): { width: number; height:
   let height = FRAC_STACK_HEIGHT;
   for (const seg of segments) {
     if (seg.type === "frac") {
-      const box = fracStackSize(segmentsToPlain(seg.num), segmentsToPlain(seg.den));
+      const box = fracStackSize(seg.num, seg.den);
       width += box.width + 6;
       height = Math.max(height, box.height);
     } else if (seg.type === "sqrt") {
-      width += 14 + (seg.degree ? 10 : 0) + segmentsToPlain(seg.body).length * FRAC_CHAR_PX;
+      width += 14 + (seg.degree ? 10 : 0) + estimateSegmentsWidth(seg.body);
       height = Math.max(height, SQRT_LINE_HEIGHT);
     } else {
-      width += Math.max(seg.value.length, 1) * FRAC_CHAR_PX;
+      width += Math.max(visualLength(seg.value), 1) * FRAC_CHAR_PX;
     }
   }
   return { width: Math.max(width, 24), height };
@@ -119,10 +148,9 @@ function renderFracSide(
   styles: Styles,
   paren: boolean,
 ): ReactNode {
-  // Nested fraction → recurse with a View row. Everything else (text, sqrt,
-  // scripts) flattens to one compact Text so we never put a bare string
-  // under a View (RN invariant) and numerator/denominator stay fraction-sized.
-  if (segments.some((s) => s.type === "frac")) {
+  // Nested fraction OR a radical: keep real Views. Flattening `\sqrt{b^2 - 4ac}`
+  // to combining overlines made the minus look like `=` and inflated the bar.
+  if (segments.some((s) => s.type === "frac" || s.type === "sqrt")) {
     return (
       <View style={styles.fracSideRow}>
         {paren ? <Text style={styles.fracPart}>(</Text> : null}
@@ -142,8 +170,8 @@ function renderFracSide(
 /**
  * Radicand keeps the surrounding text size. Reusing the fraction-sized side
  * renderer made `\sqrt{8}` read as a subscript, and its plain-text flattening
- * leaked scripts as literal `8^3`. Nested stacks still take the flattened /
- * View path — a View cannot live inside the Text that gives the tight box.
+ * leaked scripts as literal `8^3`. Nested stacks still take the View path (a
+ * View cannot live in that Text).
  */
 function renderRadicand(
   segments: MathSegment[],
@@ -152,14 +180,16 @@ function renderRadicand(
 ): ReactNode {
   const { styles } = ctx;
   const nested = segments.some((s) => s.type === "frac" || s.type === "sqrt");
-  if (ctx.inFrac || nested) {
+  if (nested) {
     return renderFracSide(segments, keyPrefix, styles, false);
   }
+  const bodyStyle = ctx.inFrac ? styles.fracPart : styles.sqrtBody;
   return (
-    <Text style={styles.sqrtBody}>
+    <Text style={bodyStyle}>
       {renderSegments(segments, keyPrefix, {
         styles,
-        textStyle: styles.sqrtBody,
+        inFrac: ctx.inFrac,
+        textStyle: bodyStyle,
       })}
     </Text>
   );
@@ -194,9 +224,9 @@ function renderSegments(
     if (seg.type === "frac") {
       // True stacked fraction with a vinculum. Sized View — the paragraph
       // Text treats it as a character. Do not wrap this in another Text.
-      const numPlain = segmentsToPlain(seg.num);
-      const denPlain = segmentsToPlain(seg.den);
-      const box = fracStackSize(numPlain, denPlain);
+      const numPlain = segmentsToPlain(seg.num).replace(/[\u0300-\u036f]/g, "");
+      const denPlain = segmentsToPlain(seg.den).replace(/[\u0300-\u036f]/g, "");
+      const box = fracStackSize(seg.num, seg.den);
       return (
         <View
           key={key}
@@ -305,9 +335,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false) => {
     },
     fracStack: {
       alignItems: "center",
+      alignSelf: "flex-start",
       justifyContent: "center",
       marginHorizontal: 3,
       overflow: "visible",
+      flexShrink: 0,
     },
     fracSideRow: {
       flexDirection: "row",
