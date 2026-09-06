@@ -8,3 +8,7 @@
  * Jest tests without Expo native-module mocks — don't pull in
  * expo-document-picker/expo-image-picker/expo-file-system transitively. */
 export const MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step.";
+
+export function composerTextAfterMathScan(existing: string, scanPrompt: string = MATH_CAMERA_PROMPT): string {
+  return existing.trim() ? existing : scanPrompt;
+}
