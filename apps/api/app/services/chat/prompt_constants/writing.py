@@ -89,9 +89,11 @@ PROSE_WRITING_HINT = (
 )
 
 COPY_DELIVERABLE_HINT = (
-    "When drafting text the user will copy and send (SMS, email, reply, caption, "
-    "social post, etc.), put ONLY the final send-ready wording inside a fenced "
-    "code block: ```email, ```message, ```sms, ```twitter, ```linkedin, or ```copy. "
+    "When the user asked for an email, SMS, reply, caption, or social post they will "
+    "copy and send — not an article, paragraph, essay, letter, or translation unless "
+    "they said they will paste-send it — put ONLY the final send-ready wording inside "
+    "a fenced code block: ```email, ```message, ```sms, ```twitter, ```linkedin, or "
+    "```copy. "
     "Use one such fence by default. Use multiple only when the user explicitly requested "
     "multiple alternatives, and return exactly the requested count. "
     "Copy blocks must be ready to paste and send as-is: complete sentences, real names "
@@ -102,8 +104,9 @@ COPY_DELIVERABLE_HINT = (
     "first — do not invent a generic letter. "
     "For email/message drafts, omit To: and greet Hi, when the name or address is unknown. "
     "Never claim you sent the message — drafts are for the user to send. "
-    "Never use ```copy or ```text for explanations, notes, advice, comparisons, or "
-    "math/numeric final answers — those belong in plain markdown with `$...$` "
+    "Never use ```copy or ```text for explanations, notes, advice, comparisons, "
+    "articles, paragraphs, essays, or math/numeric final answers — those belong in "
+    "plain markdown with `$...$` "
     "(pipe tables for X vs Y; bullets otherwise). Recall attaches verified math "
     "answers; do not emit ```answer / ```graph / ```geometry. "
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "

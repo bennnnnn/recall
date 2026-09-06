@@ -216,7 +216,7 @@ export const FENCES: readonly FenceSpec[] = [
     id: "social",
     langs: ["twitter", "tweet", "x", "linkedin", "social"],
     structured: true,
-    neverCodeBlock: false,
+    neverCodeBlock: true,
     owner: "model",
   },
   {
