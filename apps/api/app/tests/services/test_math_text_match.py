@@ -22,6 +22,8 @@ class TestNeedsSymbolic:
             "solve x^2 + 2 = 6",
             "what is the derivative of x^2",
             "graph y = x^2",
+            "X=6graph",
+            "x=6graph",
             "draw a rectangle 8 by 5",
             "draw a circle radius 4",
             "find the mean of 1, 2, 3, 4",
@@ -63,6 +65,8 @@ class TestNeedsSymbolic:
         "text",
         [
             "hello there",
+            "write a paragraph about trees",
+            "show me the weather",
             "what do you mean by that",
             "the tech sector is growing",  # "sector" alone is not geometry
             "what is a trapezoid",  # bare shape name, no measures/draw cue
@@ -232,6 +236,7 @@ class TestGraphExpr:
 
     def test_graph_expr_none_without_trigger(self):
         assert mtm.graph_expr("x^2") is None
+        assert mtm.graph_expr("write a paragraph about trees") is None
 
     @pytest.mark.parametrize(
         "text, expected",
@@ -277,6 +282,9 @@ class TestVerticalLine:
             ("graph x=4", 4.0),
             ("plot x = 7", 7.0),
             ("draw vertical x=3", 3.0),
+            ("X=6graph", 6.0),
+            ("x=6graph", 6.0),
+            ("graphx=4", 4.0),
         ],
     )
     def test_vertical_line_x(self, text, expected):
@@ -285,6 +293,38 @@ class TestVerticalLine:
     def test_vertical_line_none_without_cue(self):
         # Bare "x=4" with no graph/plot/draw/show cue is not a vertical-line ask.
         assert mtm.vertical_line_x("x=4") is None
+
+    def test_vertical_line_not_function_of_y(self):
+        assert mtm.vertical_line_x("graph x=2y") is None
+        assert mtm.vertical_line_x("x=2ygraph") is None
+
+    def test_glued_english_without_viz_is_not_vertical(self):
+        assert mtm.vertical_line_x("X=6please") is None
+
+
+class TestGluedVizCommands:
+    """Unknown 3+ letter tokens are commands or noise, never g*r*a*p*h."""
+
+    def test_paragraph_is_not_a_graph_keyword(self):
+        assert not mtm.has_math_keyword("write a paragraph about trees")
+
+    def test_show_me_is_not_a_math_keyword(self):
+        assert not mtm.has_math_keyword("show me the weather")
+
+    def test_glued_graph_is_a_math_keyword(self):
+        assert mtm.has_math_keyword("x=6graph")
+
+    def test_has_viz_command_whole_run_not_substring(self):
+        from app.services.math_text_match.scan import has_viz_command, peel_edge_english
+
+        assert has_viz_command("X=6graph")
+        assert has_viz_command("graphx=4")
+        assert not has_viz_command("paragraph")
+        assert not has_viz_command("photograph")
+        assert peel_edge_english("6graph") == "6"
+        assert peel_edge_english("6please") == "6"
+        assert peel_edge_english("velocity") == "velocity"
+        assert peel_edge_english("mc^2") == "mc^2"
 
 
 class TestTriangleSidesSignal:

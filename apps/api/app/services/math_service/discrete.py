@@ -19,6 +19,7 @@ from app.models.math_schemas import (
     StatisticsResult,
 )
 from app.services.math_service.parse import MathServiceError
+from app.services.math_text_match.scan import mask_unknown_letter_runs
 
 _FUNCTION_NAME_RE = re.compile(
     r"\b(?:sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|abs)\b",
@@ -43,6 +44,7 @@ def guess_variables(text: str) -> list[str]:
     extracting letters, so "sin(pi*x) = 0" guesses 'x' not 'i'/'p'."""
     stripped = _FUNCTION_NAME_RE.sub(" ", text)
     stripped = _CONSTANT_NAMES_RE.sub(" ", stripped)
+    stripped = mask_unknown_letter_runs(stripped)
     found = sorted(set(re.findall(r"[a-zA-Z]", stripped)))
     # Exclude single-letter constants: e (Euler's number), i (imaginary unit
     # in some contexts, though commonly a variable index -- keep it for now

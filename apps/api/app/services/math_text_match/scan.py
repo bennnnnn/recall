@@ -16,6 +16,164 @@ _CALC_OP = re.compile(
 _DIM_SEPS = ("\u00d7", "by", "x", "*")
 _DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
 
+# Multi-letter tokens SymPy already treats as one name. Everything else of
+# length >= 3 is English or a command — never g*r*a*p*h.
+MATH_MULTI_LETTER = frozenset(
+    {
+        "sin",
+        "cos",
+        "tan",
+        "sec",
+        "csc",
+        "cot",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "sinh",
+        "cosh",
+        "tanh",
+        "log",
+        "ln",
+        "sqrt",
+        "exp",
+        "abs",
+        "min",
+        "max",
+        "pi",
+        "oo",
+        "inf",
+        "infinity",
+        "nan",
+        "det",
+        "gcd",
+        "lcm",
+        "mod",
+    }
+)
+VIZ_COMMANDS = frozenset(
+    {
+        "graph",
+        "plot",
+        "draw",
+        "show",
+        "sketch",
+        "visualize",
+        "visualise",
+        "vertical",
+    }
+)
+# Only these may glue onto a following 1-letter variable (``graphx=4``).
+# ``show``/``draw`` are too common as English prefixes (``shown``, ``drawn``).
+_GLUEABLE_VIZ = frozenset({"graph", "plot"})
+
+
+def _alpha_run_end(s: str, start: int) -> int:
+    j = start
+    n = len(s)
+    while j < n and s[j].isalpha():
+        j += 1
+    return j
+
+
+def _looks_like_math_core(s: str) -> bool:
+    if not s:
+        return False
+    if any(ch.isdigit() for ch in s):
+        return True
+    if any(ch in "+-*/^()" for ch in s):
+        return True
+    letters = [ch for ch in s if ch.isalpha()]
+    return len(letters) == 1
+
+
+def peel_edge_english(side: str) -> str:
+    """Trim unknown 3+ letter runs glued to an equation side.
+
+    ``X=6graph`` → RHS ``6``. ``velocity=12`` stays (the whole side is the
+    name). ``E=mc^2`` is untouched (2-letter ``mc`` is implicit product).
+    """
+    s = side.strip()
+    i = len(s)
+    while i > 0 and s[i - 1].isalpha():
+        i -= 1
+    run = s[i:]
+    rest = s[:i].rstrip()
+    if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER and _looks_like_math_core(rest):
+        s = rest
+    j = 0
+    while j < len(s) and s[j].isalpha():
+        j += 1
+    run = s[:j]
+    rest = s[j:].lstrip()
+    if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER and _looks_like_math_core(rest):
+        s = rest
+    return s
+
+
+def _alpha_run_is_viz(run: str, *, commands: frozenset[str], glueable: frozenset[str]) -> bool:
+    low = run.lower()
+    if low in commands:
+        return True
+    for cmd in glueable:
+        if len(low) > len(cmd) and low.startswith(cmd) and _looks_like_math_core(low[len(cmd) :]):
+            return True
+    return False
+
+
+def _text_has_command(
+    text: str,
+    commands: frozenset[str],
+    glueable: frozenset[str] | None = None,
+) -> bool:
+    glue = glueable or frozenset()
+    lower = text.lower()
+    start = 0
+    n = len(lower)
+    while start < n:
+        if lower[start].isalpha():
+            end = _alpha_run_end(lower, start)
+            if _alpha_run_is_viz(lower[start:end], commands=commands, glueable=glue):
+                return True
+            start = end
+        else:
+            start += 1
+    return False
+
+
+def has_viz_command(text: str) -> bool:
+    """True when the user asked to graph/plot/draw — whole word or glued.
+
+    Substring ``graph`` must not match ``paragraph``. Glued ``X=6graph``
+    still counts: ``graph`` is its own letter-run, not five variables.
+    ``graphx=4`` counts because ``graph`` is a prefix of the run and ``x``
+    is a 1-letter variable.
+    """
+    lower = text.lower()
+    if "visuali" in lower:
+        return True
+    return _text_has_command(text, VIZ_COMMANDS, _GLUEABLE_VIZ)
+
+
+def mask_unknown_letter_runs(text: str) -> str:
+    """Replace unknown 3+ letter runs with spaces so they are not split into
+    per-letter variables (``6graph`` must not guess g,r,a,p,h)."""
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i].isalpha():
+            j = _alpha_run_end(text, i)
+            run = text[i:j]
+            if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER:
+                out.append(" ")
+            else:
+                out.append(run)
+            i = j
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
+
 
 def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
     """Parse ``digits`` or ``digits.digits`` at ``start``; return (value, end)."""
@@ -55,6 +213,11 @@ def has_math_keyword(lower: str) -> bool:
     compact = lower.replace(" ", "")
     if "y=" in compact:
         return True
+    # ``graph``/``plot`` are whole tokens (or glued onto a variable), not
+    # substrings — ``paragraph`` must not look like a graph ask. ``show`` /
+    # ``draw`` stay out of this gate so "show me the weather" is not math.
+    if _text_has_command(lower, _GLUEABLE_VIZ, _GLUEABLE_VIZ):
+        return True
     for phrase in (
         "solve",
         "simplify",
@@ -77,8 +240,6 @@ def has_math_keyword(lower: str) -> bool:
         "radius",
         "diameter",
         "circumference",
-        "graph",
-        "plot",
         "function",
         "sqrt",
         "square root",

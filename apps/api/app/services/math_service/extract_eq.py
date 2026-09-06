@@ -7,6 +7,7 @@ from itertools import pairwise
 from app.models.math_schemas import EquationInput
 from app.services.math_service.discrete import guess_variables
 from app.services.math_service.parse import _normalize_latex_to_sympy
+from app.services.math_text_match.scan import peel_edge_english
 
 _EQUATION_SIDE_CHARS = frozenset(
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
@@ -116,8 +117,8 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
         right = eq + 1
         while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
             right += 1
-        lhs = cleaned[left:eq].strip()
-        rhs = cleaned[eq + 1 : right].strip()
+        lhs = peel_edge_english(cleaned[left:eq].strip())
+        rhs = peel_edge_english(cleaned[eq + 1 : right].strip())
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             pairs.append((lhs, rhs))
         start = right if right > eq + 1 else eq + 1
