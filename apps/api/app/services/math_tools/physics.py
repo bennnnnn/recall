@@ -18,6 +18,13 @@ from app.services import math_text_match as mtm
 
 logger = logging.getLogger(__name__)
 
+# Length units for drop height — ``m`` is last so ``mm``/``cm`` win first.
+_LENGTH_UNIT_PATTERN = (
+    r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
+    r"meters?|metres?|m|feet|ft|yards?|yd|inches?|in|miles?|mi"
+)
+_VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s"
+
 # Default gravitational acceleration (m/s^2). Earth gravity unless the user
 # says otherwise ("on the moon", "g = 1.6").
 _G_DEFAULT = 9.81
@@ -63,6 +70,23 @@ def _find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, 
             val = float(m.group(1))
             unit = (m.group(2) or "").strip()
             return val, unit
+    return None
+
+
+def _find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
+    """Number immediately after a keyword — never the window before it.
+
+    ``What`` / a preceding height must not bind as v0.
+    """
+    lower = text.lower()
+    for kw in keywords:
+        idx = lower.find(kw)
+        if idx == -1:
+            continue
+        after = text[idx + len(kw) : idx + len(kw) + 40]
+        m = _VALUE_UNIT_RE.match(after.strip())
+        if m:
+            return float(m.group(1)), (m.group(2) or "").strip()
     return None
 
 
@@ -182,24 +206,37 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
 
-    # Initial height (h0): "from 20m", "height of 20m", "20m high", "dropped from 20m"
+    # Initial height (h0): length units only so "5 kg" is not a drop height.
     h0: float | None = None
     h0_unit = "m"
-    hu = _find_value_with_unit(
+    hu = _find_value_with_specific_unit(
         cleaned,
+        _LENGTH_UNIT_PATTERN,
         ("from", "initial height", "height of", "high", "above", "cliff"),
     )
     if hu is not None:
         h0, h0_unit = hu
 
-    # Initial velocity (v0): "thrown upward at 15 m/s", "velocity of 15 m/s", "at 15 m/s"
+    # Initial velocity (v0): velocity words or a velocity unit — never the
+    # substring "at" inside "What" / "with".
     v0: float = 0.0
     v0_unit = "m/s"
-    vu = _find_value_with_unit(
-        cleaned, ("velocity of", "velocity", "speed of", "speed", "at", "with", "initial")
+    vu = _find_value_with_specific_unit(
+        cleaned,
+        _VELOCITY_UNIT_PATTERN,
+        ("velocity of", "speed of", "velocity", "speed", "initial velocity"),
     )
+    if vu is None:
+        vu = _find_value_after_keyword(
+            cleaned,
+            ("velocity of", "speed of", "initial velocity", "velocity", "speed"),
+        )
     if vu is not None:
         v0, v0_unit = vu
+    if v0 > 0 and any(
+        cue in lower for cue in ("thrown down", "thrown downward", "launched downward")
+    ):
+        v0 = -v0
 
     # If we found no height and no nonzero velocity, this isn't a solvable
     # kinematics problem — let the next extractor try.
