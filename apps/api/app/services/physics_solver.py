@@ -87,13 +87,26 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
     t = Symbol("t", positive=True, real=True)
     h_sym = h0 + v0 * t - 0.5 * g * t**2
 
-    if op == "time_to_ground":
-        # Solve h(t) = 0 for t > 0.
+    def _time_to_ground() -> float | None:
         solutions = solve(Eq(h_sym, 0), t)
         valid = [s for s in solutions if s.is_real and s > 0] if solutions else []
         if not valid:
+            return None
+        return float(valid[0])
+
+    # Past impact, h(t) is negative and v(t) is still "in air" — not a fact.
+    if op in ("position", "velocity"):
+        t_asked = p.get("t")
+        t_land = _time_to_ground()
+        if t_asked is not None and t_land is not None and float(t_asked) > t_land:
+            raise MathServiceError("already on the ground")
+
+    if op == "time_to_ground":
+        # Solve h(t) = 0 for t > 0.
+        landed = _time_to_ground()
+        if landed is None:
             raise MathServiceError("no positive real time to ground")
-        t_val = float(valid[0])
+        t_val = landed
         answer_latex = (
             r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g} = "
             rf"\frac{{{v0:g} + \sqrt{{{v0:g}^2 + 2 \cdot {g:g} \cdot {h0:g}}}}}"
@@ -105,11 +118,10 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
         # Need a time — look for a time param, else use time_to_ground.
         t_param = p.get("t")
         if t_param is None:
-            solutions = solve(Eq(h_sym, 0), t)
-            valid = [s for s in solutions if s.is_real and s > 0] if solutions else []
-            if not valid:
+            landed = _time_to_ground()
+            if landed is None:
                 raise MathServiceError("no positive real time to ground")
-            t_param = float(valid[0])
+            t_param = landed
         t_val = float(t_param)
         v_val = float(v0 - g * t_val)
         answer_latex = rf"v = v_0 - g \cdot t \approx {v_val:.2f} \text{{ m/s}}"
