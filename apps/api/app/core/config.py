@@ -130,6 +130,9 @@ class Settings(BaseSettings):
     math_tools_enabled: bool = True
     chemistry_enabled: bool = True
     math_max_expr_length: int = 256
+    # Polynomial solve shape bound — refuse before the 5s SymPy pool, not
+    # only by character length (x^40 is short and still pathological).
+    math_max_poly_degree: int = 8
     # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
     # chat bubbles and FallbackMarkdown when the rich renderer dies.
     math_graph_max_points: int = 96
