@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     mcp_tool_loop_enabled: bool = True
     mcp_tool_loop_max_rounds: int = 3
     mcp_tool_loop_timeout_seconds: float = 30.0
+    mcp_tool_loop_max_calls_per_round: int = 4
+    mcp_tool_loop_invoke_timeout_seconds: float = 20.0
 
     # Attachment RAG (chunk + embed PDF/doc text; retrieve into prompt).
     attachment_rag_enabled: bool = True
@@ -201,6 +203,9 @@ class Settings(BaseSettings):
     revenuecat_secret_key: str = ""
     revenuecat_webhook_auth: str = ""
     revenuecat_entitlement_id: str = "pro"
+    billing_reconcile_enabled: bool = True
+    billing_reconcile_interval_seconds: int = 3600
+    billing_reconcile_batch_size: int = 25
 
     # Transactional email (welcome / receipts). Provider is Resend when
     # `resend_api_key` is set; otherwise a mock that logs the message so dev

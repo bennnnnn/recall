@@ -38,6 +38,10 @@ async def test_start_worker_runtime_registers_before_consumer_and_schedulers():
             "app.process_bootstrap.attachment_orphan_reaper.start_orphan_reaper",
             AsyncMock(),
         ),
+        patch(
+            "app.process_bootstrap.billing_reconcile_scheduler.start_billing_reconcile_scheduler",
+            AsyncMock(),
+        ),
     ):
         await process_bootstrap.start_worker_runtime(settings)
 

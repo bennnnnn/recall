@@ -106,3 +106,23 @@ async def test_delete_user_deletes_all_related(fake_session):
     assert fake_session.execute.await_count >= 4
     fake_session.delete.assert_awaited_once_with(fake_user)
     fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_ids_by_plan_pages_by_id(fake_session):
+    from app.repositories.users import list_ids_by_plan
+
+    first = uuid4()
+    second = uuid4()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [first, second]
+    fake_session.execute.return_value = result
+
+    ids = await list_ids_by_plan(fake_session, plan="pro", after_id=first, limit=25)
+
+    assert ids == [first, second]
+    stmt = fake_session.execute.await_args.args[0]
+    compiled = stmt.compile(dialect=postgresql.dialect())
+    sql = str(compiled)
+    assert "users.plan" in sql
+    assert "users.id >" in sql

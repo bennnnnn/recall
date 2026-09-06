@@ -45,6 +45,7 @@ IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE = (
 IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
     "You've reached today's image generation limit. Try again after midnight UTC."
 )
+IMAGE_GENERATION_SPEND_CAP_MESSAGE = "Image generation is temporarily unavailable. Try again later."
 
 LIVE_TALK_REQUIRES_PRO_MESSAGE = "Live talk is a Pro feature. Upgrade to talk with Recall out loud."
 LIVE_TALK_LIMIT_EXCEEDED_MESSAGE = (
@@ -412,6 +413,10 @@ async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -
 
 async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
     await _refund_daily(redis, _daily_key("imggen", user_id))
+
+
+IMAGE_GEN_SPEND_USD = 0.03
+WEB_SEARCH_CLASSIFIER_SPEND_USD = 0.001
 
 
 # ── Live talk turns (Pro-only via limit=0 for free) ──────────────────────────

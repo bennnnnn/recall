@@ -41,6 +41,21 @@ async def get_by_email(session: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
+async def list_ids_by_plan(
+    session: AsyncSession,
+    *,
+    plan: str,
+    after_id: UUID | None = None,
+    limit: int = 25,
+) -> list[UUID]:
+    """Keyset page of user ids on *plan*, ordered by id. Never fetch-all."""
+    stmt = select(User.id).where(User.plan == plan).order_by(User.id).limit(max(1, limit))
+    if after_id is not None:
+        stmt = stmt.where(User.id > after_id)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def create(
     session: AsyncSession,
     *,

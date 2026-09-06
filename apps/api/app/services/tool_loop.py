@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -404,13 +405,33 @@ async def _run_tool_rounds_bound(
         }
         working.append(assistant_msg)
 
-        for call in tool_calls:
+        max_calls = max(1, settings.mcp_tool_loop_max_calls_per_round)
+        invoke_deadline = time.monotonic() + max(0.0, settings.mcp_tool_loop_invoke_timeout_seconds)
+        for index, call in enumerate(tool_calls):
             if should_cancel and should_cancel():
                 break
             fn = call.get("function") or {}
             name = str(fn.get("name") or "")
             raw_args = fn.get("arguments") or "{}"
             call_id = str(call.get("id") or name)
+            if index >= max_calls:
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": "Too many tool calls in one round.",
+                    }
+                )
+                continue
+            if time.monotonic() >= invoke_deadline:
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": "Tool round timed out.",
+                    }
+                )
+                continue
             phase = _status_for_tool(name) if name else None
             if on_status is not None and phase is not None:
                 await on_status(phase, _status_detail_for_tool(name, raw_args))
