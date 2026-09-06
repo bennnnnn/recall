@@ -1,5 +1,6 @@
 from app.services.md_fence_scan import (
     close_unclosed_fences,
+    map_closed_fences,
     replace_first_closed_fence_body,
     strip_closed_fences,
 )
@@ -33,3 +34,31 @@ def test_replace_first_closed_fence_body_keeps_surrounding_prose() -> None:
 
 def test_replace_first_closed_fence_body_returns_none_without_fence() -> None:
     assert replace_first_closed_fence_body("plain", "email", "Hi") is None
+
+
+def test_map_closed_fences_leftover_rewrites_past_cap() -> None:
+    text = "```graph\na\n```\n```graph\nb\n```\n"
+    out = map_closed_fences(
+        text,
+        "graph",
+        lambda body: f"KEEP:{body.strip()}",
+        max_count=1,
+        leftover=lambda _body: "DROP",
+    )
+    assert "KEEP:a" in out
+    assert "DROP" in out
+    assert "```graph" not in out
+    assert "KEEP:b" not in out
+
+
+def test_map_closed_fences_without_leftover_leaves_tail_past_cap() -> None:
+    text = "```graph\na\n```\n```graph\nb\n```\n"
+    out = map_closed_fences(
+        text,
+        "graph",
+        lambda body: f"KEEP:{body.strip()}",
+        max_count=1,
+    )
+    assert "KEEP:a" in out
+    assert "```graph" in out
+    assert "b" in out
