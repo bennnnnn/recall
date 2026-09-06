@@ -100,6 +100,17 @@ def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
     return MathIntent(kind="matrix", matrix_op=op, matrix_rows=rows, operation="solve")
 
 
+def _primary_equation_pair(eq_pairs: list[tuple[str, str]]) -> tuple[str, str]:
+    """Pick the problem statement from a worked solution (steps + roots).
+
+    A paste like ``2x^2-7x+3=0`` then ``2x-1=0`` / ``x-3=0`` is one quadratic,
+    not three simultaneous equations. Prefer the longest ``= 0`` polynomial.
+    """
+    zeros = [(lhs, rhs) for lhs, rhs in eq_pairs if rhs.strip() in {"0", "0.0"}]
+    pool = zeros or eq_pairs
+    return max(pool, key=lambda pair: (pair[0].count("^"), len(pair[0])))
+
+
 def _extract_system_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
     if len(eq_pairs) < 2:
@@ -111,6 +122,11 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
     # response — silently discarding every other equation in the system.
     all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
     variables = math_service.guess_variables(all_text)
+    # One variable + several =0 lines is factoring / "set each factor to 0",
+    # not a simultaneous system. Treating 2x-1=0 AND x-3=0 as a system
+    # attaches ```answer no solution while the quadratic is solved.
+    if len(variables) < 2:
+        return None
     return MathIntent(
         kind="system",
         system_equations=eq_pairs[:4],
@@ -121,9 +137,9 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
-    if len(eq_pairs) != 1:
+    if not eq_pairs:
         return None
-    lhs, rhs = eq_pairs[0]
+    lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
     variables = math_service.guess_variables(lhs + rhs)
     requested = _requested_variable(cleaned, lhs + rhs)
     variable = requested or (variables[0] if variables else "x")

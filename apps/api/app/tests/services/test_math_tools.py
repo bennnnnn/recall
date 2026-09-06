@@ -244,6 +244,36 @@ def test_extract_system_intent_for_multiple_equations() -> None:
     assert set(intent.system_variables) >= {"x", "y"}
 
 
+_WORKED_QUADRATIC_PASTE = r"""\[ 2x^2-7x+3=0 \]
+Factor it:
+ \[ 2x^2-6x-x+3=0 \]
+Group terms:
+ \[ 2x(x-3)-1(x-3)=0 \] \[ (2x-1)(x-3)=0 \]
+So:
+ \[ 2x-1=0 \Rightarrow x=\frac12 \]
+or
+ \[ x-3=0 \Rightarrow x=3 \]
+**Final answer:**
+ \[ \boxed{x=\frac12,\ 3} \]"""
+
+
+def test_worked_quadratic_paste_is_not_a_no_solution_system() -> None:
+    """Live: a pasted factoring write-up was extracted as a simultaneous
+    system (2x-1=0 AND x-3=0) and the gray pill said 'no solution'."""
+    intent = math_tools.extract_math_intent(_WORKED_QUADRATIC_PASTE)
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.variable == "x"
+    compact = (intent.lhs or "").replace(" ", "")
+    assert "x^2" in compact
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "no solution" not in block.canonical_answer.lower()
+    assert "1}{2}" in block.canonical_answer or "1/2" in block.canonical_answer
+    assert "3" in block.canonical_answer
+
+
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_system_solve_block() -> None:
     settings = Settings(math_tools_enabled=True)

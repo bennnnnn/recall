@@ -227,6 +227,12 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\boxed{28}`))).toBe("28");
   });
 
+  it("BUG FIX regression: a bar between two x= roots reads as or, not a pipe", () => {
+    const plain = segmentsToPlain(parseSimpleLatex(String.raw`x = \frac{1}{2} | x = 3`));
+    expect(plain).toContain("or");
+    expect(plain).not.toContain("|");
+  });
+
   it("BUG FIX regression: \\overline{...} draws a real combining overline, not raw backslash text", () => {
     // Reported live (screenshot): "0.\overline{714285}" (a repeating
     // decimal) rendered as the literal raw text "0.\overline{714285}" —

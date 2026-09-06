@@ -6,6 +6,7 @@ import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
+import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { useTheme } from "@/lib/theme";
 
@@ -16,7 +17,9 @@ export function MathInline({ latex }: { latex: string }) {
 
 export const MathBlock = React.memo(function MathBlock({ latex }: { latex: string }) {
   const theme = useTheme();
-  const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
+  const trimmed = rewriteSolutionSeparatorBars(
+    stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim())),
+  );
   if (!trimmed) return null;
 
   // A fence body with multiple independent equations (one per line) must

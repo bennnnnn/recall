@@ -164,6 +164,11 @@ export function normalizePastedMath(delta: string): string {
       return "```math\n" + formatPastedExpr(String(body).trim()) + "\n```";
     });
   }
+  // Already display math — wrapping the whole homework write-up in one `$`
+  // made the sent bubble a composer MathDraftPreview (empty slots, huge).
+  if (trimmed.includes("\\[") || trimmed.includes("\\]") || trimmed.includes("$$")) {
+    return s;
+  }
   if (trimmed.includes("$")) {
     return s.replace(/\$([^$\n]+)\$/g, (_m, inner: string) => `$${formatPastedExpr(inner)}$`);
   }
