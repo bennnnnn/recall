@@ -460,6 +460,12 @@ _ENERGY_CUES = (
 )
 
 
+def _has_work_angle(text: str) -> bool:
+    """True when work is at an angle (W = Fd cos θ) — unsupported."""
+    lower = text.lower()
+    return "degrees" in lower or "at an angle" in lower or "°" in text
+
+
 def _extract_energy_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not any(cue in lower for cue in _ENERGY_CUES):
@@ -529,6 +535,9 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
         if mass is None or height is None:
             return None
     elif "work" in lower:
+        # W = Fd cos θ is unsupported — same refusal as friction/tension.
+        if _has_work_angle(cleaned):
+            return None
         op = "work"
         if force is None or distance is None:
             return None
@@ -543,6 +552,8 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
         elif mass is not None and height is not None:
             op = "potential_energy"
         elif force is not None and distance is not None:
+            if _has_work_angle(cleaned):
+                return None
             op = "work"
         else:
             return None
