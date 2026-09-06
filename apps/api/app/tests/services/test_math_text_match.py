@@ -469,3 +469,23 @@ class TestHasEquation:
     )
     def test_no_equation(self, text):
         assert not mtm.has_equation(text)
+
+
+class TestLooksLikeMathExpr:
+    @pytest.mark.parametrize(
+        "text",
+        ["x**2 + 3x", "x^2 - 4", "sin(x)/x", "1/n**2"],
+    )
+    def test_math(self, text: str) -> None:
+        assert mtm.looks_like_math_expr(text)
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "x squared plus 3x",
+            "my hair are 2 inches long",
+            "the tree are deep",
+        ],
+    )
+    def test_english(self, text: str) -> None:
+        assert not mtm.looks_like_math_expr(text)

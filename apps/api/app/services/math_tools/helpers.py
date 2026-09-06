@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
+from app.services.math_text_match.scan import ddx_cue_at, ddx_expr_after, looks_like_math_expr
 from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,49 @@ def _strip_trailing_filler(expr: str) -> str:
     return s
 
 
+_EXPR_LEADINS = (
+    "the polynomial ",
+    "the expression ",
+    "the function ",
+    "the equation ",
+    "polynomial ",
+    "expression ",
+    "function ",
+    "equation ",
+    "of ",
+    "the ",
+)
+
+
+def _strip_expr_leadins(expr: str) -> str:
+    """Drop scaffolding words so ``factor the polynomial x^3 - 1`` keeps ``x^3 - 1``."""
+    s = collapse_ws(expr)
+    if len(s) > _MAX_MATH_INPUT:
+        return s[:_MAX_MATH_INPUT]
+    prev = None
+    while prev != s:
+        prev = s
+        lower = s.lower()
+        for prefix in _EXPR_LEADINS:
+            if lower.startswith(prefix):
+                s = s[len(prefix) :].strip()
+                break
+        else:
+            break
+    wrt = s.lower().find(" with respect to ")
+    if wrt != -1:
+        s = s[:wrt].rstrip()
+    return s
+
+
+def math_expr_or_none(expr: str) -> str | None:
+    """Return ``expr`` only when it looks like math, not leftover English."""
+    stripped = _strip_expr_leadins(expr)
+    if not looks_like_math_expr(stripped):
+        return None
+    return stripped
+
+
 def _calc_expr_tail(cleaned: str) -> str | None:
     """Text after the first calculus verb (index scan — avoids poly regex)."""
     lower = cleaned.lower()
@@ -129,6 +173,11 @@ def _calc_expr_tail(cleaned: str) -> str | None:
         if idx != -1 and (best_at is None or idx < best_at):
             best_at = idx
             best_end = idx + len(needle)
+    ddx_tail = ddx_expr_after(cleaned)
+    if ddx_tail is not None:
+        ddx = ddx_cue_at(cleaned)
+        if ddx is not None and (best_at is None or ddx < best_at):
+            return ddx_tail
     if best_at is None:
         return None
     return cleaned[best_end:]

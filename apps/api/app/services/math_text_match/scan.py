@@ -16,6 +16,101 @@ _CALC_OP = re.compile(
 _DIM_SEPS = ("\u00d7", "by", "x", "*")
 _DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
 
+# Multi-letter tokens SymPy already treats as one name. Any other 3+ letter
+# run in a candidate expr is English (or a command) — never s*i*n products,
+# and never ``squared``/``plus`` slipping into letter-products.
+MATH_MULTI_LETTER = frozenset(
+    {
+        "sin",
+        "cos",
+        "tan",
+        "sec",
+        "csc",
+        "cot",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "sinh",
+        "cosh",
+        "tanh",
+        "log",
+        "ln",
+        "sqrt",
+        "exp",
+        "abs",
+        "min",
+        "max",
+        "pi",
+        "oo",
+        "inf",
+        "infinity",
+        "nan",
+        "det",
+        "gcd",
+        "lcm",
+        "mod",
+    }
+)
+
+
+def has_unknown_english_run(text: str) -> bool:
+    """True when an alpha-run of length >= 3 is not a known math token."""
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch.isalpha():
+            j = i + 1
+            while j < n and text[j].isalpha():
+                j += 1
+            if (j - i) >= 3 and text[i:j].lower() not in MATH_MULTI_LETTER:
+                return True
+            i = j
+        else:
+            i += 1
+    return False
+
+
+def looks_like_math_expr(text: str) -> bool:
+    """Candidate is an expression, not leftover English with a digit in it."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if has_unknown_english_run(stripped):
+        return False
+    return any(ch.isalnum() or ch in "+-*/^=()." for ch in stripped)
+
+
+def ddx_cue_at(text: str) -> int | None:
+    """Index of a ``d/dx`` derivative cue (not ``and/or``)."""
+    lower = text.lower()
+    start = 0
+    n = len(lower)
+    while True:
+        idx = lower.find("d/d", start)
+        if idx == -1:
+            return None
+        prev_ok = idx == 0 or not lower[idx - 1].isalpha()
+        var_i = idx + 3
+        if (
+            prev_ok
+            and var_i < n
+            and lower[var_i].isalpha()
+            and (var_i + 1 == n or not lower[var_i + 1].isalpha())
+        ):
+            return idx
+        start = idx + 1
+
+
+_DDX_LEN = 4  # ``d/dx``
+
+
+def ddx_expr_after(text: str) -> str | None:
+    idx = ddx_cue_at(text)
+    if idx is None:
+        return None
+    return text[idx + _DDX_LEN :]
+
 
 def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
     """Parse ``digits`` or ``digits.digits`` at ``start``; return (value, end)."""

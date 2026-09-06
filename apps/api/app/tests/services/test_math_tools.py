@@ -130,6 +130,25 @@ def test_extract_roots_of_rewrites_to_equation(text: str, expected_lhs: str) -> 
     assert intent.rhs == "0"
 
 
+def test_english_calculus_does_not_verify() -> None:
+    """``x squared plus 3x`` must not be letter-producted into a derivative."""
+    text = "what's the derivative of x squared plus 3x"
+    assert math_tools.extract_math_intent(text) is None
+
+
+def test_symbolic_calculus_still_extracts() -> None:
+    intent = math_tools.extract_math_intent("d/dx x**2 + 3x")
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "differentiate"
+    assert intent.expr == "x**2 + 3x"
+
+
+def test_english_roots_of_does_not_solve_a_equals_zero() -> None:
+    intent = math_tools.extract_math_intent("roots of my hair are 2 inches long")
+    assert intent is None
+
+
 def test_extract_system_intent_for_multiple_equations() -> None:
     """BUG FIX (most severe correctness bug found in the audit): before this
     fix, a message with 2+ equations fell through to the single-equation
@@ -880,6 +899,39 @@ async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
     assert "2" in verified.canonical_fence["content"]
     assert "```answer\n" not in verified.text
     assert verified.canonical_answer is not None
+
+
+@pytest.mark.asyncio
+async def test_english_calculus_does_not_produce_verified_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "what's the derivative of x squared plus 3x"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is None
+
+
+@pytest.mark.asyncio
+async def test_ddx_calculus_still_produces_verified_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "d/dx x**2 + 3x"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    compact = verified.canonical_answer.replace(" ", "")
+    assert "2*x" in compact or "2x" in compact
+
+
+@pytest.mark.asyncio
+async def test_english_roots_does_not_produce_verified_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "roots of my hair are 2 inches long"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is None
 
 
 @pytest.mark.asyncio

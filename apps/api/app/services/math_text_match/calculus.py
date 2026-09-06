@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.services.math_text_match.scan import _CALC_OP, _parse_unsigned_number
+from app.services.math_text_match.scan import _CALC_OP, _parse_unsigned_number, ddx_cue_at
 
 
 def calc_op(text: str) -> str | None:
     m = _CALC_OP.search(text)
-    return m.group(1).lower() if m else None
+    if m:
+        return m.group(1).lower()
+    if ddx_cue_at(text) is not None:
+        return "differentiate"
+    return None
 
 
 def _match_limit_point(s: str) -> tuple[str, int] | None:
