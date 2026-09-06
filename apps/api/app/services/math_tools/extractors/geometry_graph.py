@@ -331,7 +331,7 @@ def _extract_triangle_angles_intent(cleaned: str) -> MathIntent | None:
     """AAA (and angle-sum) triangles — law of sines with relative side units.
 
     Must run before the generic draw-a-triangle default (base=8, height=5)
-    so "triangle with 120, 40, 20" is not an invented isosceles.
+    so "triangle with angles 120, 40, 20" is not an invented isosceles.
     """
     from app.services import math_service
     from app.services import math_text_match as mtm
