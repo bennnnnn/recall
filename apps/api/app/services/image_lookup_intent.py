@@ -194,7 +194,7 @@ def _clean_subject(raw: str) -> str | None:
 
 
 def _strip_reference_noun_prefix(tokens: list[str]) -> list[str]:
-    """"[a/an/the]? picture/photo/image of SUBJECT" -> SUBJECT tokens."""
+    """ "[a/an/the]? picture/photo/image of SUBJECT" -> SUBJECT tokens."""
     i = 0
     if i < len(tokens) and tokens[i].lower() in _ARTICLES:
         i += 1
@@ -213,7 +213,7 @@ def _strip_leading_article(tokens: list[str]) -> list[str]:
 
 
 def _match_show_me(tokens: list[str]) -> str | None:
-    """"show me [a/an/the]? [picture/photo/image of]? SUBJECT" """
+    """ "show me [a/an/the]? [picture/photo/image of]? SUBJECT" """
     if len(tokens) < 2 or tokens[0].lower() != "show":
         return None
     i = 1
@@ -228,7 +228,7 @@ def _match_show_me(tokens: list[str]) -> str | None:
 
 
 def _match_let_me_see(tokens: list[str]) -> str | None:
-    """"let me see [a/an/the]? SUBJECT" """
+    """ "let me see [a/an/the]? SUBJECT" """
     if len(tokens) < 4:
         return None
     if tokens[0].lower() != "let" or tokens[1].lower() != "me" or tokens[2].lower() != "see":
@@ -242,7 +242,7 @@ def _match_let_me_see(tokens: list[str]) -> str | None:
 
 
 def _match_look_like(tokens: list[str]) -> str | None:
-    """"what does/do [a/an/the]? SUBJECT look like" """
+    """ "what does/do [a/an/the]? SUBJECT look like" """
     if len(tokens) < 5 or tokens[0].lower() != "what":
         return None
     if tokens[1].lower() not in {"does", "do"}:
