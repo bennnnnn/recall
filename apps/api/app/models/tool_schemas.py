@@ -90,3 +90,9 @@ class GenerateImageToolInput(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
     aspect_ratio: Literal["1:1", "16:9", "9:16", "4:3", "3:4"] | None = None
     reference_attachment_ids: list[UUID] | None = Field(default=None, max_length=2)
+
+
+class ImageSearchToolInput(BaseModel):
+    """Model-initiated reference-photo lookup (free + pro; tool loop only)."""
+
+    query: str = Field(min_length=1, max_length=200)

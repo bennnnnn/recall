@@ -24,7 +24,9 @@ class Attachment(Base):
     __tablename__ = "attachments"
     __table_args__ = (
         Index("ix_attachments_user", "user_id"),
-        CheckConstraint("source IN ('upload', 'generated')", name="ck_attachments_source"),
+        CheckConstraint(
+            "source IN ('upload', 'generated', 'search')", name="ck_attachments_source"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -107,6 +107,52 @@ async def try_image_gen_for_turn(
     return True
 
 
+async def try_image_lookup_for_turn(
+    seams: Any,
+    settings: Settings,
+    *,
+    user: User,
+    chat_id: UUID,
+    content: str,
+    result: dict[str, Any] | None,
+    create_user_message: bool,
+) -> bool:
+    """Deterministic reference-photo lookup intercept ("show me an ear").
+
+    Free + Pro (unlike ``try_image_gen_for_turn``, which is Pro-only). Checked
+    before it in ``stream_chat_response`` — see ``image_lookup_intent``'s
+    module docstring for why the two never compete for the same input.
+    Failures that aren't quota-related fall through to a normal LLM answer
+    instead of erroring the turn (a missing photo is not worth breaking chat).
+    """
+    if not settings.image_search_enabled:
+        return False
+    query = seams.extract_image_lookup_query(content)
+    if not query:
+        return False
+    try:
+        _user_msg, asst_msg = await seams.image_search_service.search_and_attach_for_chat(
+            settings,
+            user=user,
+            chat_id=chat_id,
+            query=query,
+            user_message_content=(content.strip() if create_user_message else None),
+            create_user_message=create_user_message,
+        )
+    except seams.image_search_service.ImageSearchError as exc:
+        if exc.status_code == 429:
+            raise QuotaExceededError(exc.detail) from exc
+        if exc.status_code in (404, 502, 503):
+            return False
+        raise ChatServiceError(exc.detail) from exc
+
+    if result is not None:
+        result["message_id"] = str(asst_msg.id)
+        result["final_content"] = asst_msg.content
+        result["resolved_model"] = asst_msg.model or "image-search-model"
+    return True
+
+
 async def stream_chat_response(
     seams: Any,
     redis: Redis,
@@ -196,6 +242,16 @@ async def stream_chat_response(
         )
         timing.mark_phase("user_quota")
 
+        if not attachment_ids and await seams._try_image_lookup_for_turn(
+            settings,
+            user=user,
+            chat_id=chat_id,
+            content=content,
+            result=result,
+            create_user_message=True,
+        ):
+            await res.refund()
+            return
         if not attachment_ids and await seams._try_image_gen_for_turn(
             settings,
             user=user,

@@ -78,6 +78,19 @@ def test_mcp_registry_setup():
     clear()
 
 
+def test_mcp_registry_registers_image_search_when_enabled():
+    from app.gateways.mcp.registry import clear
+
+    clear()
+    setup_mcp_adapters(Settings(image_search_enabled=True))
+    assert get("search_image") is not None
+    clear()
+
+    setup_mcp_adapters(Settings(image_search_enabled=False))
+    assert get("search_image") is None
+    clear()
+
+
 def test_mcp_registry_sympy_absent_when_math_tools_disabled():
     """PR 5: math_tools_enabled=False must unregister the model-callable
     "sympy" MCP tool — without this gate, the model could still reach SymPy

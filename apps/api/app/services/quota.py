@@ -46,6 +46,14 @@ IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
     "You've reached today's image generation limit. Try again after midnight UTC."
 )
 
+IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE = (
+    "You've reached today's photo lookup limit. "
+    "Go Pro for more — or try again after midnight UTC."
+)
+IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PRO = (
+    "You've reached today's photo lookup limit. Try again after midnight UTC."
+)
+
 LIVE_TALK_REQUIRES_PRO_MESSAGE = "Live talk is a Pro feature. Upgrade to talk with Recall out loud."
 LIVE_TALK_LIMIT_EXCEEDED_MESSAGE = (
     "You've reached today's live talk limit. Try again after midnight UTC."
@@ -86,6 +94,14 @@ def image_generation_limit_exceeded_message(user: User) -> str:
         user,
         free=IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE,
         pro=IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO,
+    )
+
+
+def image_search_limit_exceeded_message(user: User) -> str:
+    return _plan_message(
+        user,
+        free=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE,
+        pro=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PRO,
     )
 
 
@@ -412,6 +428,25 @@ async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -
 
 async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
     await _refund_daily(redis, _daily_key("imggen", user_id))
+
+
+# ── Reference-photo lookup caps (free + pro; not Pro-gated like generation) ──
+
+
+def image_search_limit_for_user(user: User, settings: Settings) -> int:
+    return _plan_limit(
+        user,
+        free=settings.daily_image_searches,
+        pro=settings.daily_image_searches_pro,
+    )
+
+
+async def reserve_image_search(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    return await _reserve_daily_slot(redis, _daily_key("imgsearch", user_id), limit=limit)
+
+
+async def refund_image_search(redis: Redis, user_id: UUID) -> None:
+    await _refund_daily(redis, _daily_key("imgsearch", user_id))
 
 
 # ── Live talk turns (Pro-only via limit=0 for free) ──────────────────────────

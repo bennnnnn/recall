@@ -194,6 +194,17 @@ class Settings(BaseSettings):
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
 
+    # Real reference-photo lookup ("show me an ear" / "what does X look like")
+    # — separate from AI generation. Reuses Tavily (image_search_enabled also
+    # requires tavily_api_key, same as web_search). Available to free users
+    # (lower cap) since it costs one Tavily query + one image fetch, not a
+    # 120s image-gen provider call.
+    image_search_enabled: bool = True
+    image_search_max_results: int = 3
+    daily_image_searches: int = 15
+    daily_image_searches_pro: int = 60
+    image_search_fetch_timeout_seconds: float = 8.0
+
     push_enabled: bool = True
     push_learning_hour: int = 9
     server_todo_push_enabled: bool = True  # server owns due-at; skip local when push is on
