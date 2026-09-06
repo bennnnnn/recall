@@ -2,23 +2,40 @@ import {
   COLUMN_THUMB_SIZE,
   galleryEmptyKey,
   galleryFileName,
+  galleryImageIndex,
+  galleryImageItems,
   galleryListCacheKey,
   galleryListParams,
   galleryPressAction,
   galleryThumbSize,
   isGalleryImage,
+  isReadableTextContentType,
   libraryOpenChatHref,
   mergeGalleryItems,
   shouldSkipGalleryFocusReload,
 } from "@/lib/gallery";
 
 describe("gallery helpers", () => {
-  it("opens images in the viewer and files in the action sheet", () => {
+  it("opens images in the viewer and files for reading", () => {
     expect(isGalleryImage("image/png")).toBe(true);
     expect(isGalleryImage("application/pdf")).toBe(false);
     expect(galleryPressAction("image/jpeg")).toBe("view-image");
-    expect(galleryPressAction("application/pdf")).toBe("file-actions");
-    expect(galleryPressAction("text/plain")).toBe("file-actions");
+    expect(galleryPressAction("application/pdf")).toBe("open-file");
+    expect(galleryPressAction("text/plain")).toBe("open-file");
+  });
+
+  it("pages Library photos without including files", () => {
+    const items = [
+      { id: "doc", content_type: "application/pdf" },
+      { id: "one", content_type: "image/png" },
+      { id: "two", content_type: "image/jpeg" },
+    ] as never;
+    const images = galleryImageItems(items);
+    expect(images.map((item) => item.id)).toEqual(["one", "two"]);
+    expect(galleryImageIndex(images, "two")).toBe(1);
+    expect(isReadableTextContentType("text/plain")).toBe(true);
+    expect(isReadableTextContentType("application/json")).toBe(true);
+    expect(isReadableTextContentType("application/pdf")).toBe(false);
   });
 
   it("pushes open-chat so Back returns to Library", () => {

@@ -99,6 +99,30 @@ describe("AttachmentImageViewer", () => {
     expect(getByTestId("attachment-image-viewer")).toBeTruthy();
   });
 
+  it("hides Open chat when the visible photo is not linked to a chat", async () => {
+    const { queryByLabelText } = await render(
+      <AttachmentImageViewer
+        visible
+        images={[{ attachmentId: "a" }]}
+        onOpenChat={jest.fn()}
+      />,
+    );
+    expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+  });
+
+  it("opens chat for the visible Library photo", async () => {
+    const onOpenChat = jest.fn();
+    const { getByLabelText } = await render(
+      <AttachmentImageViewer
+        visible
+        images={[{ attachmentId: "a", chatId: "c1" }]}
+        onOpenChat={onOpenChat}
+      />,
+    );
+    await fireEvent.press(getByLabelText("gallery.open_chat_a11y"));
+    expect(onOpenChat).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: "a", chatId: "c1" }));
+  });
+
   it("puts each header icon on its own circular chip", async () => {
     const { getByLabelText } = await render(
       <AttachmentImageViewer visible attachmentId="a" />,

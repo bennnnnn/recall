@@ -330,6 +330,8 @@
   "gallery.delete_confirm_title": "Kütüphaneden silinsin mi?",
   "gallery.delete_failed": "Bu öğe silinemedi.",
   "gallery.file_actions_a11y": "Dosya işlemleri",
+  "gallery.file_preview_failed": "Could not open this file.",
+  "gallery.open_file_a11y": "Open file",
   "gallery.layout_column_a11y": "Sütun görünümü",
   "gallery.layout_grid_a11y": "Izgara görünümü",
   "gallery.open_chat": "Sohbeti aç",

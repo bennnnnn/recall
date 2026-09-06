@@ -330,6 +330,8 @@
   "gallery.delete_confirm_title": "ከቤተ-መጻሕፍት ይጥፋ?",
   "gallery.delete_failed": "ይህንን ማስወገድ አልተቻለም።",
   "gallery.file_actions_a11y": "የፋይል እርምጃዎች",
+  "gallery.file_preview_failed": "Could not open this file.",
+  "gallery.open_file_a11y": "Open file",
   "gallery.layout_column_a11y": "የአምድ እይታ",
   "gallery.layout_grid_a11y": "የፍርግርግ እይታ",
   "gallery.open_chat": "ውይይት ክፈት",

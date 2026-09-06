@@ -17,8 +17,22 @@ export function isGalleryImage(contentType: string): boolean {
   return contentType.startsWith("image/");
 }
 
-export function galleryPressAction(contentType: string): "view-image" | "file-actions" {
-  return isGalleryImage(contentType) ? "view-image" : "file-actions";
+export function galleryPressAction(contentType: string): "view-image" | "open-file" {
+  return isGalleryImage(contentType) ? "view-image" : "open-file";
+}
+
+export function isReadableTextContentType(contentType: string): boolean {
+  const base = contentType.split(";")[0].trim().toLowerCase();
+  return base.startsWith("text/") || base === "application/json";
+}
+
+export function galleryImageItems(items: AttachmentListItem[]): AttachmentListItem[] {
+  return items.filter((item) => isGalleryImage(item.content_type));
+}
+
+export function galleryImageIndex(images: AttachmentListItem[], id: string): number {
+  const index = images.findIndex((item) => item.id === id);
+  return index >= 0 ? index : 0;
 }
 
 export function libraryOpenChatHref(

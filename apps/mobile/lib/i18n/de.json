@@ -330,6 +330,8 @@
   "gallery.delete_confirm_title": "Aus der Bibliothek löschen?",
   "gallery.delete_failed": "Element konnte nicht gelöscht werden.",
   "gallery.file_actions_a11y": "Dateiaktionen",
+  "gallery.file_preview_failed": "Could not open this file.",
+  "gallery.open_file_a11y": "Open file",
   "gallery.layout_column_a11y": "Spaltenansicht",
   "gallery.layout_grid_a11y": "Rasteransicht",
   "gallery.open_chat": "Chat öffnen",

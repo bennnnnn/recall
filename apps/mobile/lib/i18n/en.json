@@ -330,6 +330,8 @@
   "gallery.delete_confirm_title": "Delete from Library?",
   "gallery.delete_failed": "Could not delete this item.",
   "gallery.file_actions_a11y": "File actions",
+  "gallery.file_preview_failed": "Could not open this file.",
+  "gallery.open_file_a11y": "Open file",
   "gallery.layout_column_a11y": "Column view",
   "gallery.layout_grid_a11y": "Grid view",
   "gallery.open_chat": "Open chat",

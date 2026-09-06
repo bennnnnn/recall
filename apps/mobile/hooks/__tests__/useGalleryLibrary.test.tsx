@@ -72,3 +72,36 @@ it("delivers a successful Library pick to its originating composer", async () =>
   expect(queueComposerAttachment).toHaveBeenCalledWith(pending, "origin");
   expect(mockBack).toHaveBeenCalledTimes(1);
 });
+
+it("opens a PDF for reading instead of the action sheet", async () => {
+  const pdf = { id: "doc", content_type: "application/pdf" } as AttachmentListItem;
+  function FileProbe() {
+    const result = useGalleryLibrary([pdf], jest.fn());
+    React.useLayoutEffect(() => { current = result; }, [result]);
+    return <Text>Library</Text>;
+  }
+  await render(<FileProbe />);
+  await act(async () => { current.openFile(pdf); });
+  expect(current.fileItem?.id).toBe("doc");
+  expect(current.actionItem).toBeNull();
+});
+
+it("shares a spreadsheet on tap because it cannot be previewed in-app", async () => {
+  const { shareChatAttachment } = jest.requireMock("@/lib/downloadChatAttachment") as {
+    shareChatAttachment: jest.Mock;
+  };
+  const sheet = {
+    id: "xlsx",
+    content_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    download_url: "/attachments/xlsx/file",
+  } as AttachmentListItem;
+  function FileProbe() {
+    const result = useGalleryLibrary([sheet], jest.fn());
+    React.useLayoutEffect(() => { current = result; }, [result]);
+    return <Text>Library</Text>;
+  }
+  await render(<FileProbe />);
+  await act(async () => { await current.openFile(sheet); });
+  expect(shareChatAttachment).toHaveBeenCalled();
+  expect(current.fileItem).toBeNull();
+});
