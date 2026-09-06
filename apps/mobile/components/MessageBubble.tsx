@@ -7,7 +7,7 @@ import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/components/UserMessageContent";
-import { ChatMessageImage } from "@/components/ChatMessageImage";
+import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
 import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/components/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
@@ -425,15 +425,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </View>
               )
             ) : null}
-            {showImages
-              ? images.map((image, index) => (
-                  <ChatMessageImage
-                    key={`${image.attachmentId ?? image.path}-${index}`}
-                    attachmentId={image.attachmentId}
-                    path={image.path}
-                  />
-                ))
-              : null}
+            {showImages ? <ChatMessageImageStrip images={images} /> : null}
             {showLiveClock ? (
               <CircularClockBlock content={clockTimezone} />
             ) : null}
