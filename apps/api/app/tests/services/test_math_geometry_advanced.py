@@ -132,7 +132,7 @@ class TestAugmentPromptMessagesForNewShapes:
         settings = Settings(
             mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
         )
-        text = "A triangle with 120, 40, 20"
+        text = "A triangle with angles 120, 40, 20"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         out, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None

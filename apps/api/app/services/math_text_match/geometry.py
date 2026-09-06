@@ -9,6 +9,7 @@ from app.services.math_text_match.scan import (
     first_dim_pair,
     first_dim_triple,
     number_after,
+    word_index,
 )
 from app.services.math_text_match.types import SolidShape
 
@@ -227,10 +228,10 @@ def triangle_sides_signal(text: str) -> tuple[float, float, float] | None:
 
 
 def triangle_angles_signal(text: str) -> tuple[float, float, float] | None:
-    """ "triangle with 120, 40, 20" → interior degrees.
+    """AAA triangle — needs an angle cue, not just three numbers that sum to 180.
 
-    Requires the word triangle, three numbers in (0, 180) that sum to 180°,
-    and no SSS "sides" cue — so "triangle with sides 3, 4, 5" stays SSS.
+    ``"triangle with angles 120, 40, 20"`` / degrees / ``°``. ``"triangle"``
+    contains the letters ``angle`` so the cue must be a whole word.
     """
     lower = text.lower()
     if "triangle" not in lower:
@@ -238,6 +239,15 @@ def triangle_angles_signal(text: str) -> tuple[float, float, float] | None:
     if any(p in lower for p in ("sides ", "side lengths", "side lengths of")):
         return None
     if "base" in lower or "height" in lower:
+        return None
+    has_angle_cue = (
+        "°" in text
+        or word_index(lower, "degree") != -1
+        or word_index(lower, "degrees") != -1
+        or word_index(lower, "angle") != -1
+        or word_index(lower, "angles") != -1
+    )
+    if not has_angle_cue:
         return None
     candidates: list[float] = []
     for match in _NUM.finditer(text):

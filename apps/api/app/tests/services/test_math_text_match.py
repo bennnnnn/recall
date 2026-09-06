@@ -161,6 +161,8 @@ class TestFirstDimPair:
             ("8 × 5 cm", (8.0, 5.0, "cm")),
             ("8 * 5 units", (8.0, 5.0, "units")),
             ("rectangle 4 by 3", (4.0, 3.0, "cm")),
+            ("3,5 by 8", (3.5, 8.0, "cm")),
+            ("3,5x4", (3.5, 4.0, "cm")),
         ],
     )
     def test_first_dim_pair(self, text, expected):
@@ -168,6 +170,9 @@ class TestFirstDimPair:
 
     def test_first_dim_pair_none_when_no_pair(self):
         assert mtm.first_dim_pair("just some text") is None
+
+    def test_first_dim_pair_comma_decimal_is_not_two_ints(self):
+        assert mtm.first_dim_pair("3,5") is None
 
 
 class TestFirstDimTriple:
@@ -303,16 +308,28 @@ class TestTriangleSidesSignal:
         assert mtm.triangle_sides_signal("sides 3, 4, 5") is None
 
     def test_triangle_angles_signal_aaa(self):
-        assert mtm.triangle_angles_signal("A triangle with 120, 40, 20") == (
+        assert mtm.triangle_angles_signal("A triangle with angles 120, 40, 20") == (
             120.0,
             40.0,
             20.0,
         )
+        assert mtm.triangle_angles_signal("A triangle with 120°, 40°, 20°") == (
+            120.0,
+            40.0,
+            20.0,
+        )
+        assert mtm.triangle_angles_signal("triangle with 120, 40 and 20 degrees") == (
+            120.0,
+            40.0,
+            20.0,
+        )
+        assert mtm.triangle_angles_signal("A triangle with 120, 40, 20") is None
         assert mtm.triangle_angles_signal("triangle with sides 3, 4, 5") is None
         assert mtm.triangle_angles_signal("triangle base 8 height 5") is None
 
     def test_needs_symbolic_angle_only_triangle(self):
-        assert mtm.needs_symbolic("A triangle with 120, 40, 20")
+        assert mtm.needs_symbolic("A triangle with angles 120, 40, 20")
+        assert not mtm.needs_symbolic("A triangle with 120, 40, 20")
 
 
 class TestStatsSignal:
@@ -340,6 +357,12 @@ class TestStatsSignal:
     def test_stats_signal_requires_two_plus_numbers(self):
         # "what do you mean by X" — no data list → no match.
         assert mtm.stats_signal("what do you mean by that") is None
+
+    def test_stats_signal_mode_is_not_model(self):
+        assert mtm.stats_signal("evaluate the model on 1, 2, 3, 4") is None
+        op, numbers = mtm.stats_signal("mode of 1, 2, 3, 4")
+        assert op == "mode"
+        assert numbers == [1.0, 2.0, 3.0, 4.0]
 
 
 class TestCombinatoricsSignal:

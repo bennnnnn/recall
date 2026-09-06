@@ -113,14 +113,18 @@ def ddx_expr_after(text: str) -> str | None:
 
 
 def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
-    """Parse ``digits`` or ``digits.digits`` at ``start``; return (value, end)."""
+    """Parse ``digits`` or ``digits.digits`` / ``digits,digits`` at ``start``.
+
+    A comma with no space before the fraction (``3,5``) is a decimal, not a
+    thousands/list split.
+    """
     n = len(s)
     i = start
     if i >= n or not s[i].isdigit():
         return None
     while i < n and s[i].isdigit():
         i += 1
-    if i < n and s[i] == ".":
+    if i < n and s[i] in ".,":
         j = i + 1
         if j >= n or not s[j].isdigit():
             return None
@@ -128,9 +132,25 @@ def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
             j += 1
         i = j
     try:
-        return float(s[start:i]), i
+        return float(s[start:i].replace(",", ".")), i
     except ValueError:
         return None
+
+
+def word_index(lower: str, phrase: str) -> int:
+    """First index of ``phrase`` not glued inside a longer letter-run."""
+    start = 0
+    n = len(phrase)
+    while True:
+        idx = lower.find(phrase, start)
+        if idx == -1:
+            return -1
+        before_ok = idx == 0 or not lower[idx - 1].isalpha()
+        after = idx + n
+        after_ok = after >= len(lower) or not lower[after].isalpha()
+        if before_ok and after_ok:
+            return idx
+        start = idx + 1
 
 
 def prepare(text: str) -> str | None:
