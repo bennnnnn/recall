@@ -1326,6 +1326,13 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     assert verified.canonical_fence["type"] == "vertical"
     assert verified.canonical_fence["x"] == 4.0
     assert verified.canonical_answer is None
+    # Sample window stays on the fence; don't give the model y=±10 to parrot.
+    assert "from y" not in verified.text.lower()
+    assert "y = -10" not in verified.text
+    assert verified.canonical_fence["x_min"] == 0.0
+    assert verified.canonical_fence["x_max"] == 10.0
+    assert verified.canonical_fence["y_min"] == -10.0
+    assert verified.canonical_fence["y_max"] == 10.0
 
 
 @pytest.mark.asyncio
@@ -1342,6 +1349,8 @@ async def test_glued_graph_command_injects_vertical_fence_not_chart() -> None:
     assert verified.canonical_fence["type"] == "vertical"
     assert verified.canonical_fence["x"] == 6.0
     assert verified.canonical_answer is None
+    assert verified.canonical_fence["x_min"] == 0.0
+    assert verified.canonical_fence["x_max"] == 12.0
     joined = " ".join(m["content"] for m in out)
     assert "```chart" not in joined
     assert '"type":"bar"' not in joined

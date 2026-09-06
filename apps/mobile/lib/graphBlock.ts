@@ -86,6 +86,20 @@ function parseVerticalGraph(row: Record<string, unknown>): GraphSpec | null {
       .filter((p): p is [number, number] => p != null);
     if (parsed.length >= 2) points = parsed;
   }
+  let xMin = Number(row.x_min);
+  let xMax = Number(row.x_max);
+  if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xMax <= xMin) {
+    if (x > 0) {
+      xMin = 0;
+      xMax = Math.max(2 * x, 10);
+    } else if (x < 0) {
+      xMin = Math.min(2 * x, -10);
+      xMax = 0;
+    } else {
+      xMin = -5;
+      xMax = 5;
+    }
+  }
   return {
     type: "vertical",
     expr,
@@ -93,8 +107,8 @@ function parseVerticalGraph(row: Record<string, unknown>): GraphSpec | null {
     x,
     y_min: yMin,
     y_max: yMax,
-    x_min: Number(row.x_min ?? x - 5),
-    x_max: Number(row.x_max ?? x + 5),
+    x_min: xMin,
+    x_max: xMax,
     title: row.title != null ? String(row.title) : expr,
     points,
   };
@@ -357,21 +371,28 @@ const AXIS_PAD_RATIO = 0.08;
 
 Whole-number edges: the 8% pad used to leak into labels as ``-11.6`` /
 ``13.6``. Snap out to integers so school graphs show ``-12`` / ``14``.
+
+Pass ``pad: false`` for vertical lines — the sample window already includes
+the origin, and padding ±10 to ±12 makes the axis labels look like the
+line's endpoints.
  */
 export function expandBoundsForAxes(
   bounds: ReturnType<typeof graphBounds>,
+  options?: { pad?: boolean },
 ): ReturnType<typeof graphBounds> {
   let { xMin, xMax, yMin, yMax } = bounds;
   if (xMin > 0) xMin = 0;
   if (xMax < 0) xMax = 0;
   if (yMin > 0) yMin = 0;
   if (yMax < 0) yMax = 0;
-  const xSpan = xMax - xMin || 1;
-  const ySpan = yMax - yMin || 1;
-  xMin = Math.floor(xMin - xSpan * AXIS_PAD_RATIO);
-  xMax = Math.ceil(xMax + xSpan * AXIS_PAD_RATIO);
-  yMin = Math.floor(yMin - ySpan * AXIS_PAD_RATIO);
-  yMax = Math.ceil(yMax + ySpan * AXIS_PAD_RATIO);
+  if (options?.pad !== false) {
+    const xSpan = xMax - xMin || 1;
+    const ySpan = yMax - yMin || 1;
+    xMin = Math.floor(xMin - xSpan * AXIS_PAD_RATIO);
+    xMax = Math.ceil(xMax + xSpan * AXIS_PAD_RATIO);
+    yMin = Math.floor(yMin - ySpan * AXIS_PAD_RATIO);
+    yMax = Math.ceil(yMax + ySpan * AXIS_PAD_RATIO);
+  }
   if (xMin >= xMax) xMax = xMin + 1;
   if (yMin >= yMax) yMax = yMin + 1;
   return { xMin, xMax, yMin, yMax };

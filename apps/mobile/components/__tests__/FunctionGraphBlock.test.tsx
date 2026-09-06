@@ -28,9 +28,11 @@ describe("FunctionGraphBlock", () => {
         [1, 1],
       ],
     });
-    const { getByText } = await render(<FunctionGraphBlock content={content} />);
+    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
 
     expect(getByText("Parabola")).toBeOnTheScreen();
+    // A 2-point scatter still gets markers; vertical lines (below) do not.
+    expect(JSON.stringify(toJSON())).toContain("RNSVGCircle");
   });
 
   it("renders one polyline per segment for a discontinuous (segmented) function", async () => {
@@ -78,6 +80,8 @@ describe("FunctionGraphBlock", () => {
     const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
     expect(getByText("x = 4")).toBeOnTheScreen();
     expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    // Endpoint caps would make x = c look like a finite segment.
+    expect(JSON.stringify(toJSON())).not.toContain("RNSVGCircle");
   });
 
   it("renders x > 3 as a 1D number line, not a 2D half-plane", async () => {

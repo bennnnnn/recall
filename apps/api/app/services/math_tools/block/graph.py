@@ -47,7 +47,7 @@ def _verified_block_vertical(
         expr=f"x = {vx:g}",
         title=f"x = {vx:g}",
     )
-    lines.append(f"Vertical line: x = {vx:g} (from y = {y_min:g} to y = {y_max:g})")
+    lines.append(f"Vertical line: x = {vx:g}.")
     lines.append(
         "At most one short sentence naming the line. Do not list intercepts, "
         "example points, or parallel/perpendicular facts — the plot shows that."
