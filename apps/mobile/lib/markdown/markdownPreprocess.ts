@@ -1056,6 +1056,26 @@ function isForExampleAt(line: string, forAt: number): boolean {
   return line.slice(forAt, forAt + 11).toLowerCase() === "for example";
 }
 
+function stripTrailingCheckTick(s: string): { text: string; mark: string } {
+  let i = s.length;
+  while (i > 0 && (s[i - 1] === " " || s[i - 1] === "\t")) i -= 1;
+  if (i === 0) return { text: s, mark: "" };
+  const last = s[i - 1]!;
+  if (last !== "✓" && last !== "✔" && last !== "✅") return { text: s, mark: "" };
+  let j = i - 1;
+  while (j > 0 && (s[j - 1] === " " || s[j - 1] === "\t")) j -= 1;
+  return { text: s.slice(0, j), mark: last };
+}
+
+function unwrapInlineDollars(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i += 1) {
+    if (s[i] === "$") continue;
+    out += s[i]!;
+  }
+  return out.trim();
+}
+
 /**
  * Live checks omit `:` on one root (`For $x = 1/2$`) and keep it on the other
  * (`For $x = 3:`). Put a colon on every For-x label so both match.
@@ -1069,11 +1089,16 @@ function normalizeCheckLabelLine(line: string): string {
   const afterFor = afterForRaw.trimStart();
   const leadWs = afterForRaw.length - afterFor.length;
   const prefix = line.slice(0, forAt + 4 + leadWs);
+  const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
+  const segs = splitTopLevelEquals(latex);
+  // `$x$ = $\frac{1}{2}$` is two math spans — the first has no `=`, so do not
+  // require parts[0] to be the whole assignment.
+  if (latex.includes("=") && segs.length <= 2) {
+    return `${line.replace(/\s+$/, "")}:`;
+  }
+
   const parts = splitInlineMath(afterFor);
-  if (parts[0]?.type === "math") {
-    const segs = splitTopLevelEquals(parts[0].value);
-    if (segs.length !== 2) return line;
-    if (parts.length === 1) return `${line.replace(/\s+$/, "")}:`;
+  if (parts[0]?.type === "math" && splitTopLevelEquals(parts[0].value).length === 2 && parts.length > 1) {
     let tail = "";
     for (let i = 1; i < parts.length; i += 1) {
       const p = parts[i]!;
@@ -1081,12 +1106,6 @@ function normalizeCheckLabelLine(line: string): string {
     }
     if (!tail.trim()) return `${line.replace(/\s+$/, "")}:`;
     return `${prefix}$${parts[0].value}$: ${tail.trim()}`;
-  }
-  if (parts.length === 1 && parts[0]?.type === "text") {
-    const segs = splitTopLevelEquals(parts[0].value);
-    if (segs.length === 2 && afterFor.length < 80) {
-      return `${line.replace(/\s+$/, "")}:`;
-    }
   }
   return line;
 }
@@ -1114,9 +1133,23 @@ function isCheckLabelOnlyLine(line: string): boolean {
   const forAt = line.toLowerCase().indexOf("for ");
   if (forAt < 0 || isForExampleAt(line, forAt)) return false;
   const afterFor = line.slice(forAt + 4).trim();
-  if (!afterFor.includes("=") || afterFor.length >= 80) return false;
-  const latex = joinCheckLatex(afterFor) ?? afterFor;
+  const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
+  if (!latex.includes("=") || afterFor.length >= 100) return false;
   return splitTopLevelEquals(latex).length <= 2;
+}
+
+function isYouCanCheckHeading(line: string): boolean {
+  let t = line.trim().toLowerCase();
+  let compact = "";
+  for (let i = 0; i < t.length; i += 1) {
+    if (t[i] !== "*") compact += t[i]!;
+  }
+  return compact.startsWith("you can check");
+}
+
+function isCheckTickLine(line: string): boolean {
+  const t = line.trim();
+  return t === "✓" || t === "✔" || t === "✅" || t === "- [x]" || t === "* [x]";
 }
 
 /** Top-level `=` only — skip `\{…\}` and `\neq` / `\leq` command tails. */
@@ -1158,46 +1191,13 @@ function splitTopLevelEquals(latex: string): string[] {
   return parts.filter((p) => p.length > 0);
 }
 
-/** Join `$a$ = $b$ = $c$` (or one `$a = b = c$`) into one latex string. */
-function joinCheckLatex(body: string): string | null {
-  const parts = splitInlineMath(body);
-  let latex = "";
-  for (const p of parts) {
-    if (p.type === "math") {
-      latex += p.value;
-      continue;
-    }
-    for (let j = 0; j < p.value.length; j += 1) {
-      const c = p.value[j]!;
-      if (c === " " || c === "\t") continue;
-      if (c === "=") {
-        latex += "=";
-        continue;
-      }
-      return null;
-    }
-  }
-  const t = latex.trim();
-  return t.length > 0 ? t : null;
-}
-
 function splitCheckComputationLine(line: string): string[] {
   const indent = line.match(/^\s*/)?.[0] ?? "";
   const body = line.trim();
-  if (!body) return [line];
+  if (!body || isCheckTickLine(body)) return [line];
 
-  let latex = joinCheckLatex(body);
-  if (latex == null) {
-    if (splitInlineMath(body).some((p) => p.type === "math")) return [line];
-    latex = body;
-  }
-
-  let mark = "";
-  if (latex.endsWith("✓") || latex.endsWith("✔")) {
-    mark = latex.slice(-1);
-    latex = latex.slice(0, -1).trim();
-  }
-
+  const { text: peeled, mark } = stripTrailingCheckTick(body);
+  const latex = unwrapInlineDollars(peeled);
   const segs = splitTopLevelEquals(latex);
   if (segs.length < 3) return [line];
   const lines: string[] = [];
@@ -1212,24 +1212,33 @@ function splitCheckComputationLine(line: string): string[] {
 
 /**
  * Check substitutions like `$a = b = c = 0$` clip the last `= 0` on a phone.
- * One equality per line, only after a `For x =` label — not homework steps.
+ * One equality per line after a `For x =` label or inside "You can check:" —
+ * not numbered homework steps.
  */
 function splitChainedEqualsInCheckMath(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
   let pendingCheck = false;
+  let inCheck = false;
   for (const line of lines) {
     const trimmed = line.trim();
+    if (isYouCanCheckHeading(trimmed)) {
+      inCheck = true;
+      pendingCheck = false;
+      out.push(line);
+      continue;
+    }
+    if (trimmed.startsWith("#")) inCheck = false;
     if (isCheckLabelOnlyLine(trimmed)) {
       out.push(line);
       pendingCheck = true;
       continue;
     }
-    if (pendingCheck && trimmed === "") {
+    if ((pendingCheck || inCheck) && (trimmed === "" || isCheckTickLine(trimmed))) {
       out.push(line);
       continue;
     }
-    if (pendingCheck && looksLikeCheckComputation(trimmed)) {
+    if ((pendingCheck || inCheck) && looksLikeCheckComputation(trimmed)) {
       out.push(...splitCheckComputationLine(line));
       pendingCheck = false;
       continue;
@@ -1483,7 +1492,6 @@ export function preprocessMarkdown(
   out = unwrapNonCodeFences(out);
 
   out = protectMathEscapes(out);
-  out = layoutCheckVerificationLines(out);
   out = mergeStrandedColons(out);
   out = breakMidlineAtxHeadings(out);
   out = breakAttachedMathFences(out);
@@ -1492,6 +1500,9 @@ export function preprocessMarkdown(
   out = unwrapProseMathBackticks(out);
   out = collapseAdjacentMoleculeFences(out);
   out = dropRedundantMolecule3dFences(out);
+  // After fence inlining: a trailing ✓ used to abort the = split, and
+  // inlineShortMathFences can glue `$...$` back onto `For x = 3:`.
+  out = layoutCheckVerificationLines(out);
   return out;
 }
 

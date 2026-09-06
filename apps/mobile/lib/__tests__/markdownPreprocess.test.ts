@@ -297,6 +297,31 @@ $)
     expect(mixedOut).toContain("$= 0$");
   });
 
+  it("BUG FIX regression: live You can check with ✓ and For $x$ = frac still splits", () => {
+    const live =
+      "You can check:\n" +
+      "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$ ✓\n" +
+      "- For $x$ = $\\frac{1}{2}$\n" +
+      "$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = -3 + 3 = 0$\n" +
+      "✓";
+    const out = preprocessMarkdown(live);
+    expect(out).toMatch(/For \$x = 3\$:\n\n/);
+    expect(out).toMatch(/For \$x\$ = \$\\frac\{1\}\{2\}\$:/);
+    expect(out).toContain("$2(3)^2 - 7(3) + 3$");
+    expect(out).toContain("$= 18 - 21 + 3$");
+    expect(out).toContain("$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3$");
+    expect(out).toContain("$= \\frac{1}{2} - \\frac{7}{2} + 3$");
+    expect(out).toContain("$= -3 + 3$");
+    expect(out.split("\n").filter((l) => l.includes("$= 0$")).length).toBeGreaterThanOrEqual(2);
+    expect(out).not.toMatch(/18 - 21 \+ 3 = 0/);
+
+    const withTick = layoutCheckVerificationLines(
+      "- For $x = 3$:\n$2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$ ✓",
+    );
+    expect(withTick).toContain("$= 0$ ✓");
+    expect(withTick).not.toMatch(/18 - 21 \+ 3 = 0/);
+  });
+
   it("preprocess keeps math adjacent to bold labels", () => {
     const out = preprocessMarkdown("**Final Answer:** $x = 2 or x = -2$");
     expect(out).toContain("**Final Answer:**");

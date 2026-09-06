@@ -146,9 +146,10 @@ describe("MarkdownContent math rendering", () => {
       <MarkdownContent
         content={
           "You can check:\n" +
-          "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$\n" +
-          "- For $x = 1/2$\n" +
-          "$2(1/2)^2 - 7(1/2) + 3 = 1/2 - 7/2 + 3 = 0$"
+          "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$ ✓\n" +
+          "- For $x$ = $\\frac{1}{2}$\n" +
+          "$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = -3 + 3 = 0$\n" +
+          "✓"
         }
       />,
     );
