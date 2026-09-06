@@ -711,6 +711,15 @@ def test_extract_graph_intent_solves_equation_for_y(text: str, expected_expr: st
     assert intent.expr == expected_expr
 
 
+def test_graph_and_solve_does_not_become_vertical_line() -> None:
+    """``3x=9`` after a graph cue is not ``x=9``; first-match vertical must lose."""
+    text = "graph y=x**2 and also solve 3x=9"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind != "vertical"
+    assert intent.point_x != 9.0
+
+
 @pytest.mark.parametrize(
     "text, expected_expr",
     [

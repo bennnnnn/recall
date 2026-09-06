@@ -230,6 +230,37 @@ def _tool_loop_completion_alias(model_alias: str) -> str:
     return model_alias
 
 
+def _has_whole_word(lower: str, word: str) -> bool:
+    start = 0
+    n = len(word)
+    length = len(lower)
+    while True:
+        idx = lower.find(word, start)
+        if idx == -1:
+            return False
+        before_ok = idx == 0 or not lower[idx - 1].isalpha()
+        after_ok = idx + n == length or not lower[idx + n].isalpha()
+        if before_ok and after_ok:
+            return True
+        start = idx + 1
+
+
+def leftover_math_after_verified(content: str) -> bool:
+    """Heuristic SymPy took one clause; the user still asked for another.
+
+    Skip the MCP loop only for a single-clause verified ask. Graph + solve
+    (or a second ``=`` next to a graph cue) still needs tools.
+    """
+    lower = content.lower()
+    has_viz = any(_has_whole_word(lower, w) for w in ("graph", "plot", "sketch"))
+    has_solve = _has_whole_word(lower, "solve")
+    if has_viz and has_solve:
+        return True
+    if has_viz and lower.count("=") >= 2:
+        return True
+    return False
+
+
 def turn_needs_tool_loop(
     content: str,
     *,
@@ -253,10 +284,12 @@ def turn_needs_tool_loop(
     """
     if settings is not None and not settings.mcp_tool_loop_enabled:
         return False
-    if has_instant_reply or lightweight or has_verified_math:
+    if has_instant_reply or lightweight:
         return False
     text = content.strip() if isinstance(content, str) else ""
     if not text:
+        return False
+    if has_verified_math and not leftover_math_after_verified(text):
         return False
 
     from app.services.image_gen_intent import extract_image_gen_prompt

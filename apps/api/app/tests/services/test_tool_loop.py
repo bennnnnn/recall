@@ -446,6 +446,11 @@ async def test_tools_for_user_omits_image_gen_for_free():
         ("Explain photosynthesis in two sentences.", {"web_search": True}, True),
         ("differentiate x^2", {}, True),
         ("differentiate x^2", {"has_verified_math": True}, False),
+        (
+            "graph y=x**2 and also solve 3x=9",
+            {"has_verified_math": True},
+            True,
+        ),
         ("schedule a meeting with Sam tomorrow at 3", {}, False),
     ],
 )
