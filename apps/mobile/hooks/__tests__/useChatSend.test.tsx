@@ -149,6 +149,19 @@ describe("useChatSend", () => {
     );
   });
 
+  it("routes reference-photo lookup phrasing to a normal send, not generation", async () => {
+    inputRef.current = "show me an ear";
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      await current.handleSend();
+    });
+    expect(onGenerateImage).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith("show me an ear", expect.anything());
+  });
+
   it("blocks duplicate sends while preparation is in flight", async () => {
     const sendMessage = jest.fn();
     await act(async () => {
