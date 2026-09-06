@@ -1,4 +1,5 @@
 import { Component, ReactNode } from "react";
+import { Text } from "react-native";
 
 import { FallbackMarkdown } from "@/components/FallbackMarkdown";
 
@@ -9,6 +10,24 @@ type Props = {
 };
 
 type State = { failed: boolean; resetKey: string };
+
+type PlainState = { failed: boolean };
+
+/** Last resort if FallbackMarkdown itself throws — keep the crash in the bubble. */
+class PlainTextErrorBoundary extends Component<{ content: string; children: ReactNode }, PlainState> {
+  state: PlainState = { failed: false };
+
+  static getDerivedStateFromError(): PlainState {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <Text>{this.props.content}</Text>;
+    }
+    return this.props.children;
+  }
+}
 
 export class MarkdownErrorBoundary extends Component<Props, State> {
   state: State = { failed: false, resetKey: this.props.resetKey };
@@ -32,7 +51,11 @@ export class MarkdownErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.failed) {
-      return <FallbackMarkdown content={this.props.content} />;
+      return (
+        <PlainTextErrorBoundary key={this.props.resetKey} content={this.props.content}>
+          <FallbackMarkdown content={this.props.content} />
+        </PlainTextErrorBoundary>
+      );
     }
     return this.props.children;
   }
