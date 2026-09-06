@@ -1038,9 +1038,7 @@ async def test_try_image_lookup_quota_exceeded_raises():
     user = MagicMock()
     user.id = uuid4()
 
-    search_and_attach = AsyncMock(
-        side_effect=ImageSearchError("limit reached", status_code=429)
-    )
+    search_and_attach = AsyncMock(side_effect=ImageSearchError("limit reached", status_code=429))
 
     with (
         patch("app.services.chat.stream.extract_image_lookup_query", return_value="ear"),
@@ -1102,9 +1100,7 @@ async def test_try_image_lookup_other_error_raises_chat_service_error():
     user = MagicMock()
     user.id = uuid4()
 
-    search_and_attach = AsyncMock(
-        side_effect=ImageSearchError("boom", status_code=500)
-    )
+    search_and_attach = AsyncMock(side_effect=ImageSearchError("boom", status_code=500))
 
     with (
         patch("app.services.chat.stream.extract_image_lookup_query", return_value="ear"),

@@ -22,13 +22,9 @@ def test_status_for_tool_omits_generic_thinking():
 
 def test_status_detail_for_tool_uses_query_for_search_image():
     assert (
-        tool_loop._status_detail_for_tool("search_image", '{"query": "human ear"}')
-        == "human ear"
+        tool_loop._status_detail_for_tool("search_image", '{"query": "human ear"}') == "human ear"
     )
-    assert (
-        tool_loop._status_detail_for_tool("generate_image", '{"prompt": "a fox"}')
-        == "a fox"
-    )
+    assert tool_loop._status_detail_for_tool("generate_image", '{"prompt": "a fox"}') == "a fox"
 
 
 def _settings(**kwargs: object) -> Settings:
