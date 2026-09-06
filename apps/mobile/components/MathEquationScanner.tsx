@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   StyleSheet,
@@ -50,11 +51,19 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const cameraRef = useRef<CameraView>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PendingAttachment | null>(null);
   const [region, setRegion] = useState<ScanRegion>(defaultScanRegion());
   const regionRef = useRef(region);
   regionRef.current = region;
   const pinchBaseRef = useRef(region);
   const panBaseRef = useRef(region);
+
+  useEffect(() => {
+    if (!visible) {
+      setPreview(null);
+      setError(null);
+    }
+  }, [visible]);
 
   const beginPinch = useCallback(() => {
     pinchBaseRef.current = regionRef.current;
@@ -132,13 +141,12 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       const imageHeight = photo.height ?? 0;
       if (!imageWidth || !imageHeight) {
         // Fallback: use the full photo if dimensions are missing.
-        onCaptured({
+        setPreview({
           localUri: photo.uri,
           contentType: "image/jpeg",
           fileName: `math-scan-${Date.now()}.jpg`,
           kind: "image",
         });
-        onClose();
         return;
       }
 
@@ -158,19 +166,36 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
       );
 
-      onCaptured({
+      setPreview({
         localUri: result.uri,
         contentType: "image/jpeg",
         fileName: `math-scan-${Date.now()}.jpg`,
         kind: "image",
       });
-      onClose();
     } catch {
       setError(t("chat.math_scan_failed"));
     } finally {
       setBusy(false);
     }
-  }, [busy, onCaptured, onClose, t, windowWidth, windowHeight]);
+  }, [busy, t, windowWidth, windowHeight]);
+
+  const closeScanner = useCallback(() => {
+    setPreview(null);
+    setError(null);
+    onClose();
+  }, [onClose]);
+
+  const confirmPreview = useCallback(() => {
+    if (!preview) return;
+    onCaptured(preview);
+    setPreview(null);
+    onClose();
+  }, [onCaptured, onClose, preview]);
+
+  const retakePreview = useCallback(() => {
+    setPreview(null);
+    setError(null);
+  }, []);
 
   const resetRegion = useCallback(() => {
     setRegion(clampScanRegion(defaultScanRegion()));
@@ -232,7 +257,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     <>
       <Pressable
         style={[s.close, { top: insets.top + 8 }]}
-        onPress={onClose}
+        onPress={closeScanner}
         hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={t("common.close")}
@@ -273,12 +298,40 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={closeScanner}>
       <GestureHandlerRootView style={s.root}>
-        <View style={s.cameraLayer}>{cameraLayer}</View>
-        <View style={s.overlayLayer} pointerEvents="box-none">
-          {overlay}
-        </View>
+        {preview ? (
+          <View style={s.previewRoot}>
+            <Image source={{ uri: preview.localUri }} style={s.previewImage} resizeMode="contain" />
+            <Pressable
+              style={[s.close, { top: insets.top + 8 }]}
+              onPress={closeScanner}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t("common.close")}
+            >
+              <Icon name="close" size={28} color={theme.onMedia} />
+            </Pressable>
+            <View style={[s.hintWrap, { top: insets.top + 56 }]}>
+              <Text style={s.hint}>{t("chat.math_scan_confirm_hint")}</Text>
+            </View>
+            <View style={[s.previewActions, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
+              <Pressable style={s.previewSecondary} onPress={retakePreview}>
+                <Text style={s.previewSecondaryText}>{t("chat.math_scan_retake")}</Text>
+              </Pressable>
+              <Pressable style={s.previewPrimary} onPress={confirmPreview}>
+                <Text style={s.previewPrimaryText}>{t("chat.math_scan_use_photo")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <>
+            <View style={s.cameraLayer}>{cameraLayer}</View>
+            <View style={s.overlayLayer} pointerEvents="box-none">
+              {overlay}
+            </View>
+          </>
+        )}
       </GestureHandlerRootView>
     </Modal>
   );
@@ -417,6 +470,50 @@ function makeStyles(theme: Theme) {
       borderRadius: 12,
     },
     permissionBtnText: {
+      color: theme.onPrimary,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    previewRoot: {
+      flex: 1,
+      backgroundColor: theme.mediaScrim,
+    },
+    previewImage: {
+      flex: 1,
+      width: "100%",
+      marginTop: 72,
+      marginBottom: 96,
+    },
+    previewActions: {
+      position: "absolute",
+      left: 16,
+      right: 16,
+      bottom: 0,
+      flexDirection: "row",
+      gap: 12,
+    },
+    previewSecondary: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: withAlpha(theme.onMedia, 0.18),
+    },
+    previewSecondaryText: {
+      color: theme.onMedia,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    previewPrimary: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: theme.primary,
+    },
+    previewPrimaryText: {
       color: theme.onPrimary,
       fontSize: 16,
       fontWeight: "700",
