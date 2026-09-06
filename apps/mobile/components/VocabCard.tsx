@@ -20,15 +20,16 @@ import {
 type Props = {
   card: LessonVocabCard;
   language?: string;
+  textScale?: number;
   onSpeak?: () => void;
 };
 
 const SPEAK = 52;
 const COMPACT_WORD = 18;
 
-export function VocabCard({ card, language = "en", onSpeak }: Props) {
+export function VocabCard({ card, language = "en", textScale = 1, onSpeak }: Props) {
   const theme = useTheme();
-  const s = makeStyles(theme);
+  const s = makeStyles(theme, textScale);
   const { t } = useTranslation();
   const token = useAuthToken();
   const word = cleanQuizWord(card.word);
@@ -100,7 +101,8 @@ function formatIpa(ipa: string): string {
   return `/${cleaned}/`;
 }
 
-function makeStyles(t: Theme) {
+function makeStyles(t: Theme, scale: number) {
+  const n = (size: number) => Math.round(size * scale);
   return StyleSheet.create({
     root: {
       alignSelf: "stretch",
@@ -123,14 +125,14 @@ function makeStyles(t: Theme) {
     },
     word: {
       ...Type.display,
-      fontSize: 30,
-      lineHeight: 36,
+      fontSize: n(30),
+      lineHeight: n(36),
       fontWeight: "800",
       color: t.text,
     },
     wordCompact: {
-      fontSize: 26,
-      lineHeight: 32,
+      fontSize: n(26),
+      lineHeight: n(32),
     },
     speakBtn: {
       width: SPEAK,
@@ -142,12 +144,12 @@ function makeStyles(t: Theme) {
     },
     ipa: {
       ...Type.secondary,
-      fontSize: 17,
+      fontSize: n(17),
       color: t.textSecondary,
     },
     meaning: {
-      fontSize: 20,
-      lineHeight: 28,
+      fontSize: n(20),
+      lineHeight: n(28),
       color: t.text,
     },
     examples: {
@@ -162,8 +164,8 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
     },
     example: {
-      fontSize: 18,
-      lineHeight: 26,
+      fontSize: n(18),
+      lineHeight: n(26),
       color: t.textSecondary,
     },
     lemma: {

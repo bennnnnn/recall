@@ -4,6 +4,20 @@ import { loadExpoAudio } from "@/lib/voiceAudio";
 type Player = ReturnType<NonNullable<ReturnType<typeof loadExpoAudio>>["createAudioPlayer"]>;
 let active: object | null = null;
 
+export type LessonSound = boolean | "complete";
+
+const GRADE_HOLD_MS = 380;
+const COMPLETE_HOLD_MS = 800;
+const GRADE_VOLUME = 0.3;
+const COMPLETE_VOLUME = 0.48;
+
+function cueSource(sound: LessonSound) {
+  if (sound === "complete") return require("@/assets/audio/lesson-complete.wav");
+  return sound
+    ? require("@/assets/audio/lesson-correct.wav")
+    : require("@/assets/audio/lesson-incorrect.wav");
+}
+
 /** One lesson owns effects and pronunciation together. No queued speech survives a visit.
  * Effects inherit the active device audio mode; never reconfigure a recording/WebRTC session. */
 export function createLessonAudio(isCurrent: () => boolean) {
@@ -27,7 +41,7 @@ export function createLessonAudio(isCurrent: () => boolean) {
       stopSpeaking();
     }
   };
-  const start = async (text: string, language: string, sound?: boolean) => {
+  const start = async (text: string, language: string, sound?: LessonSound) => {
     if (!isCurrent() || (sound === undefined && !text.trim())) return;
     stop();
     stopSpeaking();
@@ -38,7 +52,7 @@ export function createLessonAudio(isCurrent: () => boolean) {
       const audio = loadExpoAudio();
       if (!current()) return;
       const speak = () => {
-        if (!current() || !text) return;
+        if (!current() || !text || sound === "complete") return;
         try {
           // A synchronous guarded require works in Expo Go and native builds.
           // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -49,24 +63,23 @@ export function createLessonAudio(isCurrent: () => boolean) {
         }
       };
       if (sound !== undefined && audio) {
-        player = audio.createAudioPlayer(
-          sound
-            ? require("@/assets/audio/lesson-correct.wav")
-            : require("@/assets/audio/lesson-incorrect.wav"),
-        );
-        player.volume = 0.3;
+        player = audio.createAudioPlayer(cueSource(sound));
+        player.volume = sound === "complete" ? COMPLETE_VOLUME : GRADE_VOLUME;
         player.play();
-        timer = setTimeout(() => {
-          timer = null;
-          if (!current()) return;
-          try {
-            player?.remove();
-          } catch {
-            /* Already released. */
-          }
-          player = null;
-          speak();
-        }, 380);
+        timer = setTimeout(
+          () => {
+            timer = null;
+            if (!current()) return;
+            try {
+              player?.remove();
+            } catch {
+              /* Already released. */
+            }
+            player = null;
+            speak();
+          },
+          sound === "complete" ? COMPLETE_HOLD_MS : GRADE_HOLD_MS,
+        );
       } else speak();
     } catch {
       /* Optional audio never blocks practice. */

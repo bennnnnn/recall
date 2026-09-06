@@ -7,6 +7,7 @@ jest.mock("@/lib/voiceAudio", () => ({ loadExpoAudio: jest.fn() }));
 jest.mock("expo-speech", () => ({ speak: jest.fn() }));
 jest.mock("@/assets/audio/lesson-correct.wav", () => 1);
 jest.mock("@/assets/audio/lesson-incorrect.wav", () => 2);
+jest.mock("@/assets/audio/lesson-complete.wav", () => 3);
 const player = { pause: jest.fn(), remove: jest.fn(), play: jest.fn(), volume: 1 };
 const audio = {
   createAudioPlayer: jest.fn(() => player),
@@ -27,6 +28,19 @@ it("plays a right-or-wrong cue without speaking when feedback text is empty", as
   await owner.start("", "en", false);
   expect(player.play).toHaveBeenCalledTimes(1);
   jest.advanceTimersByTime(380);
+  expect(Speech.speak).not.toHaveBeenCalled();
+  owner.stop();
+});
+it("plays a longer woo cue when a group is finished", async () => {
+  const owner = createLessonAudio(() => true);
+  await owner.start("", "en", "complete");
+  expect(audio.createAudioPlayer).toHaveBeenCalledWith(3);
+  expect(player.volume).toBe(0.48);
+  expect(player.play).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(380);
+  expect(player.remove).not.toHaveBeenCalled();
+  jest.advanceTimersByTime(420);
+  expect(player.remove).toHaveBeenCalledTimes(1);
   expect(Speech.speak).not.toHaveBeenCalled();
   owner.stop();
 });

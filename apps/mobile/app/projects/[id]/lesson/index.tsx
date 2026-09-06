@@ -3,7 +3,6 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/Button";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { LearningPathList } from "@/components/projects/LearningPathList";
 import { SkeletonList } from "@/components/SkeletonLoader";
@@ -91,19 +90,9 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           onRetry={() => void load({ force: true })}
         />
       ) : null}
-      {project.up_next ? (
-        <View style={s.nextCard}>
-          <Text style={s.nextLabel}>{t("lesson.next_lesson")}</Text>
-          <Text style={s.nextTitle}>{project.up_next}</Text>
-          <Button
-            title={t("lesson.start_practice")}
-            onPress={() => startChapter(project.up_next!)}
-          />
-        </View>
-      ) : null}
       {stats && dailyGoal > 0 ? (
         <View style={s.todayCard}>
-          <Text style={s.todayLabel}>
+          <Text style={[s.todayLabel, completedToday >= dailyGoal && s.todayLabelComplete]}>
             {completedToday >= dailyGoal
               ? t("projects.list.goal_met_today")
               : t("projects.list.today_progress", { done: completedToday, goal: dailyGoal })}
@@ -117,7 +106,13 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
               now: Math.min(completedToday, dailyGoal),
             }}
           >
-            <View style={[s.todayFill, { width: `${todayPct}%` }]} />
+            <View
+              style={[
+                s.todayFill,
+                completedToday >= dailyGoal && s.todayFillComplete,
+                { width: `${todayPct}%` },
+              ]}
+            />
           </View>
         </View>
       ) : null}
@@ -130,22 +125,18 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           onRetry={() => void load({ force: true })}
         />
       ) : null}
-      <LearningPathList domains={domains} upNext={project.up_next} onOpenChapter={startChapter} />
+      <LearningPathList
+        domains={domains}
+        projectId={project.id}
+        upNext={project.up_next}
+        onOpenChapter={startChapter}
+      />
     </ScrollView>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    nextCard: {
-      backgroundColor: theme.primaryLight,
-      borderRadius: 20,
-      padding: Space.lg,
-      gap: Space.md,
-      marginBottom: Space.lg,
-    },
-    nextLabel: { ...Type.overline, color: theme.primary },
-    nextTitle: { ...Type.navTitle, color: theme.text, fontSize: 24, lineHeight: 32 },
     root: { flex: 1, backgroundColor: theme.bg },
     content: { padding: Space.lg, paddingBottom: 48 },
     todayCard: {
@@ -157,6 +148,9 @@ function makeStyles(theme: Theme) {
       fontWeight: "600",
       color: theme.textSecondary,
     },
+    todayLabelComplete: {
+      color: theme.success,
+    },
     todayTrack: {
       height: 6,
       borderRadius: 3,
@@ -167,6 +161,9 @@ function makeStyles(theme: Theme) {
       height: 6,
       borderRadius: 3,
       backgroundColor: theme.primary,
+    },
+    todayFillComplete: {
+      backgroundColor: theme.success,
     },
   });
 }
