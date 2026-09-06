@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
@@ -96,5 +97,25 @@ describe("AttachmentImageViewer", () => {
     expect(pager.props.horizontal).toBe(true);
     expect(pager.props.pagingEnabled).toBe(true);
     expect(getByTestId("attachment-image-viewer")).toBeTruthy();
+  });
+
+  it("puts each header icon on its own circular chip", async () => {
+    const { getByLabelText } = await render(
+      <AttachmentImageViewer visible attachmentId="a" />,
+    );
+    const close = StyleSheet.flatten(getByLabelText("preview.close").props.style);
+    expect(close.backgroundColor).toBeTruthy();
+    expect(close.borderRadius).toBeGreaterThan(20);
+    const share = StyleSheet.flatten(getByLabelText("preview.share").props.style);
+    expect(share.backgroundColor).toBe(close.backgroundColor);
+  });
+
+  it("slides the lightbox so a downward pull can dismiss it", async () => {
+    const { getByTestId } = await render(
+      <AttachmentImageViewer visible attachmentId="a" />,
+    );
+    const root = getByTestId("attachment-image-viewer");
+    expect(root.props.collapsable).toBe(false);
+    expect(StyleSheet.flatten(root.props.style).transform).toEqual([{ translateY: 0 }]);
   });
 });
