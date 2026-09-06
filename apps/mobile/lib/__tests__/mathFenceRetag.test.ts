@@ -2,6 +2,7 @@ import {
   isHeavyInlineMath,
   looksLikeLatexFence,
   retagMathAndDiagramFences,
+  shouldInlineMathFenceOnBareListMarker,
   shouldRenderMathFenceInline,
   stripEmbeddedDollarWraps,
   stripRedundantDollarWrap,
@@ -30,6 +31,19 @@ describe("mathFenceRetag", () => {
     expect(shouldRenderMathFenceInline(String.raw`\begin{aligned}x&=1\end{aligned}`)).toBe(
       false,
     );
+  });
+
+  it("shouldInlineMathFenceOnBareListMarker: one-line equations, not environments", () => {
+    expect(shouldInlineMathFenceOnBareListMarker("x - 3 = 0 \\rightarrow x = 3")).toBe(
+      true,
+    );
+    expect(shouldInlineMathFenceOnBareListMarker("x = 0")).toBe(true);
+    expect(
+      shouldInlineMathFenceOnBareListMarker(
+        String.raw`\begin{aligned}x&=1\end{aligned}`,
+      ),
+    ).toBe(false);
+    expect(shouldInlineMathFenceOnBareListMarker("a\nb")).toBe(false);
   });
 
   it("retags latex fence to math", () => {

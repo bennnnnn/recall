@@ -418,6 +418,31 @@ x = 5
     expect(out).not.toMatch(/```math\n\s+x = 5/);
   });
 
+  it("BUG FIX regression: empty solve bullet + math fence keeps x = 3 on the marker", () => {
+    // Live vs ChatGPT: "Solve for x" showed `$2x-1=0 → x=1/2$` then a purple
+    // dot with no text — the second root was ```math / \[ \] after a lone `-`,
+    // which streams blank and never reaches MathText.
+    const fenced = `4. **Solve for x**:
+   - $2x - 1 = 0 \\rightarrow x = 1/2$
+   -
+
+\`\`\`math
+x - 3 = 0 \\rightarrow x = 3
+\`\`\``;
+    const fromFence = preprocessMarkdown(fenced);
+    expect(fromFence).toMatch(/-\s+\$x - 3 = 0 \\rightarrow x = 3\$/);
+    expect(fromFence).not.toMatch(/```math/);
+
+    const fromDisplay = preprocessMarkdown(
+      "4. **Solve for x**:\n   - $2x - 1 = 0$\n   - \\[ x - 3 = 0 \\rightarrow x = 3 \\]",
+    );
+    expect(fromDisplay).toMatch(/-\s+\$x - 3 = 0 \\rightarrow x = 3\$/);
+
+    const standalone = preprocessMarkdown("The roots are\n\n```math\nx = 0\n```");
+    expect(standalone).toContain("```math");
+    expect(standalone).toContain("x = 0");
+  });
+
   it("keeps 2 + Y / Y in the sentence instead of a math card", () => {
     const input = `**Solve an equation** involving
 \`\`\`math
