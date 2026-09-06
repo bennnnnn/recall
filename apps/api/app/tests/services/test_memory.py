@@ -10,6 +10,7 @@ from app.services.memory import (
     exclude_sensitive_for_query,
     extract_consolidation_anchors,
     is_diet_health_memory_text,
+    is_explicit_forget_command,
     is_explicit_memory_command,
     is_food_or_diet_query,
     is_sensitive_memory_text,
@@ -73,6 +74,15 @@ def test_is_explicit_memory_command_detects_remember_and_forget():
     assert is_explicit_memory_command("Please forget that I live in Boston") is True
     assert is_explicit_memory_command("I remember when we first met") is False
     assert is_explicit_memory_command("I'm allergic to peanuts") is False
+
+
+def test_is_explicit_forget_command_ignores_dont_forget():
+    assert is_explicit_forget_command("Please forget that I live in Boston") is True
+    assert is_explicit_forget_command("forget this: I work at Hooh") is True
+    assert is_explicit_forget_command("don't forget I like tea") is False
+    assert is_explicit_forget_command("dont forget I like tea") is False
+    assert is_explicit_forget_command("Remember this: I like tea") is False
+    assert is_explicit_forget_command("don't forget my birthday, but forget my old address") is True
 
 
 def test_is_sensitive_memory_text_flags_health_and_finance():
@@ -212,6 +222,33 @@ def test_accept_memory_section_rewrite_keeps_expanding_rewrite():
     )
 
 
+def test_accept_memory_section_rewrite_allow_clear_empties_on_forget():
+    prior = "User's name is Bini. User works at Hooh."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary="",
+            confidence=0.9,
+            min_confidence=0.4,
+            allow_clear=True,
+        )
+        == ""
+    )
+    shortened = "Bini lives in Seattle."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary=shortened,
+            confidence=0.9,
+            min_confidence=0.4,
+            allow_clear=True,
+        )
+        is None
+    )
+
+
 def test_select_memories_filters_low_confidence():
     settings = Settings(memory_min_confidence=0.5, memory_inject_limit=10)
     memories = [
@@ -234,6 +271,27 @@ def test_select_memories_respects_limit_and_priority():
     assert len(selected) == 2
     assert selected[0].type == "profile"
     assert selected[1].type == "preference"
+
+
+def test_select_memories_for_prompt_includes_project_fact_focus():
+    settings = Settings(memory_min_confidence=0.0, memory_inject_limit=10)
+    memories = [
+        _memory("focus", "Ship the quiz this week", 0.8),
+        _memory("fact", "Works at Hooh", 0.9),
+        _memory("project", "Building Recall", 0.9),
+        _memory("profile", "Name is Sam", 0.7),
+        _memory("preference", "Short answers", 0.6),
+    ]
+    selected = select_memories_for_prompt(memories, settings)
+    assert [m.type for m in selected] == [
+        "profile",
+        "preference",
+        "project",
+        "fact",
+        "focus",
+    ]
+    omitted = select_memories_for_prompt(memories, settings, omit_project_memory=True)
+    assert [m.type for m in omitted] == ["profile", "preference", "fact", "focus"]
 
 
 def test_select_memories_semantic_ranks_by_similarity():
@@ -470,8 +528,8 @@ async def test_load_relevant_memories_priority_fallback_when_no_query():
     ):
         result = await load_relevant_memories(session, user, settings, query_text=None)
 
-    # No query → always-inject types only; DB search never called.
-    assert [m.type for m in result] == ["profile"]
+    # No query → type-priority fallback (includes fact/project/focus); DB search never called.
+    assert [m.type for m in result] == ["profile", "fact"]
     db_search.assert_not_awaited()
 
 

@@ -144,6 +144,7 @@ async def process_learning_nudge_emails(
             ok = await tx_email.send_learning_nudge(settings, pick.user, body=pick.body)
             if ok:
                 sent += 1
+                await redis.set(pick.redis_key, "1", ex=86_400)
             else:
                 await redis.delete(pick.redis_key)
         except Exception:

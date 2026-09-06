@@ -200,6 +200,111 @@ async def test_extract_and_store_drops_section_with_empty_summary_after_normaliz
 
 
 @pytest.mark.asyncio
+async def test_extract_and_store_deletes_section_on_explicit_forget():
+    settings = Settings(memory_min_confidence=0.4)
+    fact_id = uuid4()
+    extraction = MemorySectionUpdateResult(
+        sections=[MemorySectionItem(type="fact", summary="", confidence=0.9)]
+    )
+    delete_by_type = AsyncMock(return_value=1)
+    session, session_locals = _extraction_sessions(count=2)
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(
+                return_value=[
+                    SimpleNamespace(id=fact_id, type="fact", text="Lives in Boston"),
+                ]
+            ),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch(
+            "app.background.memory_extraction.memories_repo.delete_by_type",
+            delete_by_type,
+        ),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: Please forget that I live in Boston",
+        )
+
+    delete_by_type.assert_awaited_once()
+    assert delete_by_type.await_args.args[2] == "fact"
+
+
+@pytest.mark.asyncio
+async def test_extract_forget_does_not_clear_unrelated_nonempty_sections():
+    settings = Settings(memory_min_confidence=0.4)
+    fact_id = uuid4()
+    pref_id = uuid4()
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(type="fact", summary="", confidence=0.9),
+            MemorySectionItem(type="preference", summary="Tea.", confidence=0.9),
+        ]
+    )
+    delete_by_type = AsyncMock(return_value=1)
+    upsert = AsyncMock()
+    _, session_locals = _extraction_sessions(count=2)
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(
+                return_value=[
+                    SimpleNamespace(id=fact_id, type="fact", text="Lives in Boston"),
+                    SimpleNamespace(
+                        id=pref_id,
+                        type="preference",
+                        text="Drinks strong coffee every morning and afternoon.",
+                    ),
+                ]
+            ),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch(
+            "app.background.memory_extraction.memories_repo.delete_by_type",
+            delete_by_type,
+        ),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: Please forget that I live in Boston",
+        )
+
+    delete_by_type.assert_awaited_once()
+    assert delete_by_type.await_args.args[2] == "fact"
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_extract_rejects_rewrite_that_drops_prior_anchors():
     """Whole-section extraction must not upsert a rewrite that drops stable
     fact anchors — same preservation gate consolidation already uses."""

@@ -587,7 +587,7 @@ represents`;
     // ("Here's the graph of y = x + 2: ```graph") — CommonMark only
     // recognizes a fence at the start of a line, so without breaking
     // it onto its own line the JSON body renders as a code block instead
-    // of routing to FunctionGraphBlock. LIFT_MATH_FENCE_LANG now includes
+    // of routing to FunctionGraphBlock. shouldLiftFenceOutOfList includes
     // graph|geometry, not just math|latex|tex|answer.
     const input =
       "Here's the graph of y = x + 2: ```graph\n" +

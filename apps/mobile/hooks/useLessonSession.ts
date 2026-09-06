@@ -14,6 +14,8 @@ import {
   chapterItems,
   chapterIsComplete,
   chapterQueue,
+  groupLessonProgress,
+  isItemMastered,
   resolveLessonChapter,
 } from "@/lib/projects/chapterLesson";
 import { branchAccess, domainAccess, groupPathByDomain } from "@/lib/projects/domainPath";
@@ -38,6 +40,7 @@ type SessionState = {
   reviewing: boolean;
   learned: number;
   reviewed: number;
+  finishesGroup: boolean;
 };
 const emptyState = (): SessionState => ({
   drills: [],
@@ -48,6 +51,7 @@ const emptyState = (): SessionState => ({
   reviewing: false,
   learned: 0,
   reviewed: 0,
+  finishesGroup: false,
 });
 const always = () => true;
 
@@ -127,18 +131,20 @@ export function useLessonSession(projectId: string, isCurrentView: () => boolean
     }
     const words = chapterItems(project, chapter);
     const reviewing = chapterIsComplete(words);
+    const pending = words.filter((item) => !isItemMastered(item));
     const queue = chapterQueue(words, resolveDailyGoal(project.daily_goal));
+    const finishesGroup = reviewing || queue.length === pending.length;
     const drills = buildChapterDrills(
       queue,
       project.lists.flatMap((group) => group.items),
       {
         useQuestion: (sentence) => sentence,
-        meaningQuestion: (word) => t("lesson.meaning_question", { word }),
+        meaningQuestion: (word) => word,
       },
     );
-    publish({ ...emptyState(), chapter, drills, reviewing, seeded: true });
+    publish({ ...emptyState(), chapter, drills, reviewing, finishesGroup, seeded: true });
     if (peekQueuedLessonLaunch(projectId)) takeQueuedLessonLaunch();
-  }, [project, projectId, requested, t, publish, canAct]);
+  }, [project, projectId, requested, publish, canAct]);
   const step = view.drills[view.index] ?? null;
 
   const saveInFlight = useRef<Promise<void> | null>(null);
@@ -278,9 +284,11 @@ export function useLessonSession(projectId: string, isCurrentView: () => boolean
     const answer = latest.current.answer;
     if (answer?.status === "failed") void saveAnswer(answer, latest.current.reviewing);
   }, [saveAnswer]);
+  const words = project && view.chapter ? chapterItems(project, view.chapter) : [];
   const total = new Set(view.drills.map((entry) => entry.itemId)).size;
   const finished = view.seeded && total > 0 && view.index >= view.drills.length;
-  const finishedWords = view.learned + view.reviewed;
+  const progress = groupLessonProgress(words, step?.itemId ?? null);
+  const groupDone = finished && (view.reviewing || view.finishesGroup || chapterIsComplete(words));
   const canAdvance = Boolean(
     step &&
       (step.kind === "teach" ||
@@ -300,11 +308,12 @@ export function useLessonSession(projectId: string, isCurrentView: () => boolean
     empty: view.seeded && total === 0,
     complete: finished,
     reviewing: view.reviewing,
+    groupDone,
     busy: loading && !project,
     saving: Boolean(step && isPracticePending(step.itemId)),
-    currentNumber: Math.min(total, finishedWords + (finished ? 0 : 1)),
-    total,
-    progressFill: total ? finishedWords / total : 0,
+    currentNumber: groupDone ? progress.total : progress.current,
+    total: progress.total,
+    progressFill: groupDone ? 1 : progress.fill,
     canAdvance,
     submitLetter,
     continueLesson,

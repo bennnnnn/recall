@@ -100,6 +100,17 @@ describe("push gating on user.push_notifications_enabled", () => {
     );
   });
 
+  it("registerRemotePushToken throws when the Expo token cannot be resolved", async () => {
+    (Notifications.getExpoPushTokenAsync as jest.Mock).mockRejectedValueOnce(new Error("no eas"));
+    await expect(registerRemotePushToken("tok", true)).rejects.toThrow("push_token_unavailable");
+    expect(registerMock).not.toHaveBeenCalled();
+  });
+
+  it("registerRemotePushToken throws when the API register call fails", async () => {
+    registerMock.mockRejectedValueOnce(new Error("rebind rejected"));
+    await expect(registerRemotePushToken("tok", true)).rejects.toThrow("rebind rejected");
+  });
+
   it("attachPushForegroundSync returns a cleanup function and does not throw", () => {
     // The register/unregister behaviour is covered by the direct tests above;
     // here we just verify the sync contract: returns a cleanup fn, no throw.

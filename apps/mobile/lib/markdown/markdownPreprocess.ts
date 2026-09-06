@@ -16,6 +16,7 @@ import {
   looksLikeMathAnswer,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
+import { shouldLiftFenceOutOfList } from "@/lib/fenceRegistry";
 import { allowsContentHeuristic } from "@/lib/fenceDispatch";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
 import { applyOutsideFences, readFenceMarker } from "@/lib/mdFenceScan";
@@ -239,9 +240,6 @@ const FENCED_TABLE_RE =
   /```(?:markdown|md|table)\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
 const FENCE_BLOCK_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
-/** Math/answer/graph/geometry fences that should be lifted out of list items. */
-const LIFT_MATH_FENCE_LANG = /^(math|latex|tex|answer|graph|geometry)$/i;
-
 /**
  * The model glues a fence opener to the end of a sentence
  * (`Multiply both sides by r: ```math` or `Here's the code: ```python`).
@@ -377,7 +375,7 @@ export function liftMathFencesOutOfLists(content: string): string {
     const trimmed = line.trim();
     const open = trimmed.match(/^```([a-zA-Z][\w-]*)\s*$/);
     if (inFence == null) {
-      if (open && LIFT_MATH_FENCE_LANG.test(open[1]!)) {
+      if (open && shouldLiftFenceOutOfList(open[1]!)) {
         if (out.length > 0 && out[out.length - 1] !== "") out.push("");
         out.push("```" + open[1]!.toLowerCase());
         inFence = "math";

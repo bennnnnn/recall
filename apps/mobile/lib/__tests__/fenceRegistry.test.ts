@@ -6,6 +6,12 @@ import {
   fallbackKindForLang,
   isMathFenceLang,
   isMathDiagramLang,
+  isAnswerFenceLang,
+  isChartFenceLang,
+  isControlFenceLang,
+  isVisualDiagramFenceLang,
+  isDiagramFenceId,
+  shouldLiftFenceOutOfList,
 } from "@/lib/fenceRegistry";
 
 /**
@@ -183,5 +189,58 @@ describe("fence registry lookups", () => {
     expect(isMathFenceLang("latex")).toBe(true);
     expect(isMathDiagramLang("geometry")).toBe(true);
     expect(isMathDiagramLang("python")).toBe(false);
+  });
+});
+
+describe("fence registry round-trip (render, copy, fallback)", () => {
+  it("every registered id has an explicit render slot", () => {
+    const renderSlot: Record<(typeof FENCES)[number]["id"], "component" | "hidden"> = {
+      email: "component",
+      quote: "component",
+      comparison: "component",
+      keyvalue: "component",
+      steps: "component",
+      collapsible: "component",
+      math: "component",
+      answer: "component",
+      clock: "component",
+      mermaid: "component",
+      chart: "component",
+      geometry: "component",
+      graph: "component",
+      chemistry: "component",
+      molecule: "component",
+      molecule3d: "component",
+      places: "component",
+      callout: "component",
+      social: "component",
+      message: "component",
+      copy: "hidden",
+      sources: "hidden",
+      learning_launch: "hidden",
+    };
+    for (const spec of FENCES) {
+      expect(renderSlot[spec.id]).toBe(spec.structured ? "component" : "hidden");
+    }
+  });
+
+  it("copy/speech routing derives from the registry, not parallel lang lists", () => {
+    expect(isChartFenceLang("vega-lite")).toBe(true);
+    expect(isAnswerFenceLang("result")).toBe(true);
+    expect(isVisualDiagramFenceLang("smiles")).toBe(true);
+    expect(isVisualDiagramFenceLang("chart")).toBe(false);
+    expect(isControlFenceLang("sources")).toBe(true);
+    expect(isControlFenceLang("reminder")).toBe(true);
+    expect(isControlFenceLang("vocab_quiz")).toBe(true);
+    expect(isControlFenceLang("python")).toBe(false);
+    expect(isDiagramFenceId("mermaid")).toBe(true);
+    expect(shouldLiftFenceOutOfList("latex")).toBe(true);
+    expect(shouldLiftFenceOutOfList("python")).toBe(false);
+  });
+
+  it("every fence's fallback kind matches the registry declaration", () => {
+    for (const spec of FENCES) {
+      expect(fallbackKindForLang(spec.langs[0]!)).toBe(spec.fallback ?? null);
+    }
   });
 });
