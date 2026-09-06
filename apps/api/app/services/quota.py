@@ -415,10 +415,16 @@ async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
 
 
 # ── Live talk turns (Pro-only via limit=0 for free) ──────────────────────────
-# One slot = one user utterance that is sent as a chat turn. Pending key lets
-# the client refund if STT/send fails before the model starts.
+# One slot = one persisted user utterance, not one WebRTC session. Minting a
+# session only checks remaining capacity; persist consumes the slot. Pending
+# lets persist refund if the chat write fails after reserve.
 
 _LIVE_TALK_PENDING_TTL_SECONDS = 90
+VOICE_SPEND_CAP_MESSAGE = "Voice is temporarily unavailable. Try again later."
+STT_SPEND_USD = 0.01
+TTS_SPEND_USD = 0.015
+LIVE_TALK_SESSION_SPEND_USD = 0.03
+LIVE_TALK_TURN_SPEND_USD = 0.08
 
 
 def live_talk_limit_for_user(user: User, settings: Settings) -> int:
@@ -438,6 +444,13 @@ def _live_talk_pending_key(user_id: UUID) -> str:
 async def live_talk_used(redis: Redis, user_id: UUID) -> int:
     value = await redis.get(_daily_key("livetalk", user_id))
     return int(value or 0)
+
+
+async def live_talk_has_capacity(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    """True when another utterance can still be persisted today. Does not reserve."""
+    if limit <= 0:
+        return False
+    return await live_talk_used(redis, user_id) < limit
 
 
 async def reserve_live_talk(redis: Redis, user_id: UUID, *, limit: int) -> bool:
@@ -506,3 +519,11 @@ async def global_spend_exceeded(redis: Redis, settings: Settings) -> bool:
     except RedisError:
         logger.warning("Global spend check failed; treating as exceeded", exc_info=True)
         return True
+
+
+async def record_voice_spend(redis: Redis, usd: float) -> None:
+    """Best-effort: voice cost must not fail the user path if Redis is unhappy."""
+    try:
+        await record_global_spend(redis, usd)
+    except Exception:
+        logger.exception("record_voice_spend failed")

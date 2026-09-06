@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BackHandler } from "react-native";
+import { AppState, BackHandler } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -8,9 +8,12 @@ import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/lib/liveTalkEvents";
 import {
+  LIVE_TALK_MAX_SESSION_MS,
   liveTalkErrorGate,
   liveTalkGate,
   liveTalkShouldAttachSession,
+  liveTalkShouldCloseOnAppState,
+  liveTalkShouldCloseOnChatChange,
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
@@ -96,6 +99,8 @@ export function useLiveTalk({
   const visibleRef = useRef(false);
   const sessionGenRef = useRef(0);
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionLimitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeRef = useRef<() => void>(() => {});
 
   const alertForGate = useCallback(
     (gate: LiveTalkGate) => {
@@ -182,6 +187,11 @@ export function useLiveTalk({
               user_message: saved.user_message, assistant_message: saved.assistant_message }, completed.id);
           })
           .catch((error: unknown) => {
+            if (liveTalkErrorGate(error) === "limit") {
+              closeRef.current();
+              alertForGate("limit");
+              return;
+            }
             reportRecoverableError(
               feedback,
               error instanceof Error ? error.message : t("chat.live_talk_failed"),
@@ -218,7 +228,7 @@ export function useLiveTalk({
         );
       }
     },
-    [applyEvent, feedback, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
+    [alertForGate, applyEvent, feedback, newMessageCountRef, onFirstReply, onScrollToLatest, status, t, token],
   );
 
   const finalizeCurrentTurn = useCallback(() => {
@@ -321,6 +331,10 @@ export function useLiveTalk({
       clearTimeout(finishTimerRef.current);
       finishTimerRef.current = null;
     }
+    if (sessionLimitTimerRef.current != null) {
+      clearTimeout(sessionLimitTimerRef.current);
+      sessionLimitTimerRef.current = null;
+    }
     const completed = captureCurrentTurn();
     if (completed && (completed.userText || completed.assistantText)) {
       void finishTurn(completed);
@@ -333,7 +347,6 @@ export function useLiveTalk({
     setVisible(false);
     if (shouldCueEnd) void playLiveTalkCue("end");
   }, [captureCurrentTurn, finishTurn]);
-  const closeRef = useRef(close);
   closeRef.current = close;
 
   const open = useCallback(async () => {
@@ -379,6 +392,13 @@ export function useLiveTalk({
       }
       sessionRef.current = session;
       callIdRef.current = session.callId;
+      if (sessionLimitTimerRef.current != null) {
+        clearTimeout(sessionLimitTimerRef.current);
+      }
+      sessionLimitTimerRef.current = setTimeout(() => {
+        sessionLimitTimerRef.current = null;
+        closeRef.current();
+      }, LIVE_TALK_MAX_SESSION_MS);
       setPhase("recording");
     } catch (error) {
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;
@@ -422,6 +442,19 @@ export function useLiveTalk({
     });
     return () => sub.remove();
   }, [visible, drawerOpen, close]);
+
+  useEffect(() => {
+    if (!liveTalkShouldCloseOnChatChange(turnChatIdRef.current, chatId)) return;
+    close();
+  }, [chatId, close]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (liveTalkShouldCloseOnAppState(state)) closeRef.current();
+    });
+    return () => sub.remove();
+  }, [visible]);
 
   useEffect(() => {
     // Fast Refresh preserves `visible` and drops the native peer. A leftover

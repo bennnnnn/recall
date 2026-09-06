@@ -118,8 +118,11 @@ export function renderRichFenceById(
     case "sources":
     case "learning_launch":
       return null;
-    default:
+    default: {
+      const _exhaustive: never = id;
+      void _exhaustive;
       return null;
+    }
   }
 }
 

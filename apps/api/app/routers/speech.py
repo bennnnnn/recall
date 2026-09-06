@@ -61,12 +61,17 @@ def _raise_live_talk_route_gone(settings: Settings) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
-        detail="Live talk reserves on POST /speech/live/session",
+        detail="Live talk reserves on POST /speech/live/persist",
     )
 
 
 async def _reserve_tts_or_raise(user: User, settings: Settings) -> None:
     redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
+        )
     rate_limit = settings.speech_rate_limit_per_minute
     if rate_limit > 0:
         allowed = await allow_request_fail_closed(
@@ -278,6 +283,11 @@ async def synthesize_speech(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
 
     redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
+        )
     rate_limit = settings.speech_rate_limit_per_minute
     daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
     part = _normalize_tts_part(body.part)
@@ -333,6 +343,8 @@ async def synthesize_speech(
                     payload,
                     ex=_TTS_FOLLOWUP_TTL_SECONDS,
                 )
+        if billed:
+            await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,
@@ -382,6 +394,8 @@ async def stream_speech(
         finally:
             if not got:
                 await quota_service.refund_speech_tts(redis, user.id)
+            else:
+                await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
 
     return StreamingResponse(
         body_iter(),
@@ -443,6 +457,11 @@ async def transcribe_speech(
         filename = getattr(upload, "filename", None) or "speech.m4a"
 
     redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.VOICE_SPEND_CAP_MESSAGE,
+        )
     rate_limit = settings.speech_rate_limit_per_minute
     if rate_limit > 0:
         allowed = await allow_request_fail_closed(
@@ -465,7 +484,9 @@ async def transcribe_speech(
         )
 
     try:
-        return await _transcribe_bytes(settings, data, filename, language)
+        result = await _transcribe_bytes(settings, data, filename, language)
+        await quota_service.record_voice_spend(redis, quota_service.STT_SPEND_USD)
+        return result
     except HTTPException as exc:
         if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
             await quota_service.refund_speech_transcription(redis, user.id)

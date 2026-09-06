@@ -20,6 +20,7 @@ import {
 import {
   type FenceId,
   fenceSpecForLang,
+  isDiagramFenceId,
   isMathDiagramLang,
 } from "@/lib/fenceRegistry";
 import { looksLikeLatexFence, looksLikeMathFenceBody } from "@/lib/math/mathFenceRetag";
@@ -46,16 +47,6 @@ export type FenceDecision = {
   id?: FenceId;
   lang: string;
 };
-
-const DIAGRAM_IDS: ReadonlySet<FenceId> = new Set([
-  "geometry",
-  "graph",
-  "chart",
-  "mermaid",
-  "chemistry",
-  "molecule",
-  "molecule3d",
-]);
 
 export function isFakeImageGenFence(lang: string): boolean {
   const l = lang.trim().toLowerCase();
@@ -146,7 +137,7 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   // ```molecule3d was a pulsing gray box under "3D Structure" that vanished
   // when the fence closed and the leftover was dropped. Hold nothing.
   if (decision.id === "molecule3d") return "hide";
-  if (decision.kind === "rich" && decision.id && DIAGRAM_IDS.has(decision.id)) {
+  if (decision.kind === "rich" && isDiagramFenceId(decision.id)) {
     return "diagram";
   }
   if (decision.kind === "clock") return "code";

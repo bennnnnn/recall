@@ -73,6 +73,9 @@ from app.services.memory.text import (
     is_diet_health_memory_text as is_diet_health_memory_text,
 )
 from app.services.memory.text import (
+    is_explicit_forget_command as is_explicit_forget_command,
+)
+from app.services.memory.text import (
     is_explicit_memory_command as is_explicit_memory_command,
 )
 from app.services.memory.text import (

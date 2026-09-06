@@ -14,6 +14,7 @@ from app.services import memory_llm
 from app.services.memory import (
     accept_memory_section_rewrite,
     acquire_memory_write_lock,
+    is_explicit_forget_command,
     release_memory_write_lock,
     stamp_memory_as_of,
 )
@@ -90,7 +91,9 @@ async def extract_and_store_memories(
                     await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 return None
 
+            forget = is_explicit_forget_command(expanded)
             rows: list[tuple[str, str, float, UUID | None]] = []
+            clear_types: list[str] = []
             for section in result.sections:
                 accepted = accept_memory_section_rewrite(
                     section_type=section.type,
@@ -98,16 +101,22 @@ async def extract_and_store_memories(
                     summary=section.summary,
                     confidence=section.confidence,
                     min_confidence=settings.memory_min_confidence,
+                    allow_clear=forget,
                 )
-                if accepted is not None:
-                    rows.append(
-                        (
-                            section.type,
-                            stamp_memory_as_of(accepted),
-                            section.confidence,
-                            chat_id,
-                        )
+                if accepted is None:
+                    continue
+                if forget and not accepted:
+                    if snapshot.existing_sections.get(section.type):
+                        clear_types.append(section.type)
+                    continue
+                rows.append(
+                    (
+                        section.type,
+                        stamp_memory_as_of(accepted),
+                        section.confidence,
+                        chat_id,
                     )
+                )
             if rows:
                 await apply_memory_section_rows(
                     settings,
@@ -117,6 +126,18 @@ async def extract_and_store_memories(
                     memories=memories_repo,
                     expected_sections=snapshot.existing_rows,
                 )
+            if clear_types:
+                async with SessionLocal() as session:
+                    for section_type in clear_types:
+                        await memories_repo.delete_by_type(
+                            session, user_id, section_type, commit=False
+                        )
+                    await session.commit()
+                from app.services import home as home_service
+                from app.services import memory as memory_service
+
+                await memory_service.invalidate_memory_block(user_id)
+                await home_service.invalidate_home_cache(user_id)
             if newest_cursor:
                 await stamp_extract_cursor(user_id, chat_id, newest_cursor)
         finally:

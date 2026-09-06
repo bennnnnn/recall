@@ -123,12 +123,8 @@ def _session_mint_patches(*, mint: AsyncMock, memory_block: str = ""):
             return_value=30,
         ),
         patch(
-            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            "app.routers.speech_realtime.quota_service.live_talk_has_capacity",
             AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
-            AsyncMock(),
         ),
         patch(
             "app.routers.speech_realtime.live_talk_service.load_live_talk_session_context",
@@ -195,11 +191,24 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
     client = TestClient(_realtime_app(user, Settings()))
     sources = [{"title": "Official score", "url": "https://example.com/score"}]
     persist = AsyncMock(return_value=(None, None))
+    chat_id = uuid4()
     with (
         patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.routers.speech_realtime.live_talk_service.realtime_session_is_active",
+            "app.routers.speech_realtime.live_talk_service.realtime_session_bound_chat_id",
+            AsyncMock(return_value=chat_id),
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.reserve_live_talk",
             AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
+            AsyncMock(),
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.record_voice_spend",
+            AsyncMock(),
         ),
         patch(
             "app.routers.speech_realtime.live_talk_service.load_live_talk_history",
@@ -214,7 +223,7 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
             "/speech/live/persist",
             headers={"Authorization": "Bearer tok"},
             json={
-                "chat_id": str(uuid4()),
+                "chat_id": str(chat_id),
                 "call_id": "issued-session",
                 "turn_id": "utterance-1",
                 "user_text": "Who won?",
@@ -222,10 +231,136 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
             },
         )
     assert response.status_code == 204
-    assert (
-        persist.await_args.kwargs["assistant_text"]
-        == "Team A won.\n\n```sources\n" + json.dumps(sources) + "\n```"
+    assert persist.await_args.kwargs["assistant_text"] == (
+        "Team A won.\n\n```sources\n" + json.dumps(sources) + "\n```"
     )
+
+
+def test_persist_rejects_when_daily_turn_cap_is_exhausted():
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        daily_live_talk_pro=30,
+    )
+    chat_id = uuid4()
+    persist = AsyncMock(return_value=(None, None))
+    client = TestClient(_realtime_app(user, settings))
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.routers.speech_realtime.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.routers.speech_realtime.live_talk_service.realtime_session_bound_chat_id",
+            AsyncMock(return_value=chat_id),
+        ),
+        patch(
+            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            AsyncMock(return_value=False),
+        ),
+        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+    ):
+        response = client.post(
+            "/speech/live/persist",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(chat_id),
+                "call_id": "issued-session",
+                "user_text": "hello",
+                "assistant_text": "hi",
+            },
+        )
+    assert response.status_code == 429
+    persist.assert_not_awaited()
+
+
+def test_persist_rejects_when_global_spend_cap_is_hit():
+    from app.services.quota import VOICE_SPEND_CAP_MESSAGE
+
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        daily_global_spend_usd=1.0,
+    )
+    persist = AsyncMock(return_value=(None, None))
+    client = TestClient(_realtime_app(user, settings))
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.routers.speech_realtime.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+    ):
+        response = client.post(
+            "/speech/live/persist",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(uuid4()),
+                "call_id": "issued-session",
+                "user_text": "hello",
+                "assistant_text": "hi",
+            },
+        )
+    assert response.status_code == 429
+    assert response.json()["detail"] == VOICE_SPEND_CAP_MESSAGE
+    persist.assert_not_awaited()
+
+
+def test_persist_rejects_chat_id_that_is_not_bound_to_the_session():
+    user = _fake_user(plan="pro")
+    client = TestClient(_realtime_app(user, Settings()))
+    persist = AsyncMock(return_value=(None, None))
+    with (
+        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.routers.speech_realtime.live_talk_service.realtime_session_bound_chat_id",
+            AsyncMock(return_value=uuid4()),
+        ),
+        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+    ):
+        response = client.post(
+            "/speech/live/persist",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "chat_id": str(uuid4()),
+                "call_id": "issued-session",
+                "user_text": "hello",
+                "assistant_text": "hi",
+            },
+        )
+    assert response.status_code == 403
+    persist.assert_not_awaited()
+
+
+def test_realtime_session_mint_does_not_consume_a_turn_slot():
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        speech_rate_limit_per_minute=0,
+    )
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    reserve = AsyncMock(return_value=True)
+    client = TestClient(_realtime_app(user, settings))
+    with (
+        _session_mint_patches(mint=mint),
+        patch(
+            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            reserve,
+        ),
+    ):
+        r = client.post(
+            "/speech/live/session",
+            headers={"Authorization": "Bearer tok"},
+            json={},
+        )
+    assert r.status_code == 200
+    reserve.assert_not_awaited()
 
 
 def test_realtime_session_returns_ephemeral_key_and_recall_session_id():

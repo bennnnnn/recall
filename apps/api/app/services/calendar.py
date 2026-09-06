@@ -342,7 +342,19 @@ async def _fetch_upcoming_events(
             timezone=user.timezone,
             days=settings.calendar_fetch_days,
         )
-    except (GoogleCalendarError, OAuthTokenDecryptError):
+    except GoogleCalendarError as exc:
+        if exc.permanent:
+            from app.services import google_integrations as google_integrations_service
+
+            logger.warning(
+                "Revoked Google Calendar grant; disconnecting user_id=%s",
+                user.id,
+            )
+            await google_integrations_service.disconnect_calendar(session, redis, settings, user.id)
+        if report_errors:
+            return CalendarListResult(events=[], load_error="fetch_failed")
+        return CalendarListResult(events=[])
+    except OAuthTokenDecryptError:
         if report_errors:
             return CalendarListResult(events=[], load_error="fetch_failed")
         return CalendarListResult(events=[])

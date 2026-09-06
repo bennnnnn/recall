@@ -1,28 +1,13 @@
 /** Copy vs speech conversion of assistant markdown (do not import printDocument). */
 
 import { readFenceMarker } from "@/lib/mdFenceScan";
-
-const CONTROL_FENCE_LANGS = new Set([
-  "reminder",
-  "sources",
-  "places",
-  "calendar_proposal",
-  "settings_proposal",
-]);
-
-const CHART_FENCE_LANGS = new Set(["chart", "vega", "vega-lite", "plot"]);
-
-const DIAGRAM_FENCE_LANGS = new Set([
-  "geometry",
-  "graph",
-  "mermaid",
-  "smiles",
-  "molecule3d",
-]);
-
-const ANSWER_FENCE_LANGS = new Set(["answer", "result", "final"]);
-
-const MATH_FENCE_LANGS = new Set(["math", "latex", "tex"]);
+import {
+  fenceIdForLang,
+  isChartFenceLang,
+  isControlFenceLang,
+  isMathFenceLang,
+  isVisualDiagramFenceLang,
+} from "@/lib/fenceRegistry";
 
 function mapFenceRegions(
   text: string,
@@ -260,11 +245,11 @@ function convertProse(prose: string, mode: "copy" | "speech"): string {
 
 function convertFence(lang: string, body: string, mode: "copy" | "speech"): string {
   const trimmed = body.replace(/\n$/, "").trim();
-  if (CONTROL_FENCE_LANGS.has(lang)) return "";
-  if (CHART_FENCE_LANGS.has(lang)) return mode === "speech" ? "a chart" : "";
-  if (DIAGRAM_FENCE_LANGS.has(lang)) return mode === "speech" ? "a diagram" : "";
-  if (ANSWER_FENCE_LANGS.has(lang)) return trimmed;
-  if (MATH_FENCE_LANGS.has(lang)) {
+  if (isControlFenceLang(lang)) return "";
+  if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
+  if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
+  if (fenceIdForLang(lang) === "answer") return trimmed;
+  if (isMathFenceLang(lang)) {
     return mode === "speech" ? speakMath(trimmed) : trimmed;
   }
   if (lang.startsWith("callout-")) return convertProse(trimmed, mode);
