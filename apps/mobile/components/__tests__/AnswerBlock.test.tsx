@@ -37,6 +37,14 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
+  it("BUG FIX regression: two roots joined with or stay on MathText so the last root is not clipped", async () => {
+    const { getByLabelText } = await render(
+      <AnswerBlock content={String.raw`x = \frac{1}{2} \text{ or } x = 3`} />,
+    );
+    expect(getByLabelText(/x = 3/)).toBeOnTheScreen();
+    expect(mockFormula).not.toHaveBeenCalled();
+  });
+
   it("BUG FIX regression: strips a streaming ``` closer leaked into the answer body", async () => {
     const { queryByText } = await render(
       <AnswerBlock content={"x = -2 or x = 2\n```"} />,
