@@ -39,6 +39,7 @@ import {
   defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
+import { composerTextAfterMathScan } from "@/lib/mathCameraPrompt";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -595,9 +596,10 @@ export function useChatSend({
 
   const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
     setPendingAttachment(pending);
-    setInput(defaultMathCameraPrompt());
+    const existing = inputRef.current;
+    setInput(composerTextAfterMathScan(existing, defaultMathCameraPrompt()));
     setMathScannerOpen(false);
-  }, [setInput, setPendingAttachment]);
+  }, [setInput, setPendingAttachment, inputRef]);
 
   return {
     setInput,
