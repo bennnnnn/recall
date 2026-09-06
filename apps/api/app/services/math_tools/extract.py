@@ -18,6 +18,7 @@ from app.services.math_tools.extractors.geometry_graph import (
     GEOMETRY_GRAPH_EXTRACTORS,
     SOLID_EXTRACTOR,
 )
+from app.services.math_tools.helpers import math_expr_or_none
 from app.services.math_tools.physics import PHYSICS_EXTRACTORS
 from app.services.math_tools.school import SCHOOL_EXTRACTORS
 
@@ -43,8 +44,8 @@ def extract_math_intent(text: str) -> MathIntent | None:
         return None
     roots_match = _ROOTS_RE.search(cleaned)
     if roots_match:
-        tail = roots_match.group(1).strip()
-        if "=" not in tail and any(c.isdigit() for c in tail):
+        tail = math_expr_or_none(roots_match.group(1))
+        if tail is not None and "=" not in tail:
             cleaned = f"solve {tail} = 0"
     for extractor in _INTENT_EXTRACTORS:
         intent = extractor(cleaned)
