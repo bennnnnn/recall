@@ -19,6 +19,7 @@ import {
   parseUserMessageContent,
 } from "@/lib/messageAttachments";
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
+import { displayMathToInline } from "@/lib/math/solutionBars";
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -115,10 +116,11 @@ export function UserMessageContent({ message }: Props) {
 }
 
 function UserBubbleBody({ content }: { content: string }) {
-  if (sentMessageShowsMathPreview(content)) {
-    return <MathDraftPreview input={content} showCaret={false} />;
+  const compact = displayMathToInline(content);
+  if (sentMessageShowsMathPreview(compact)) {
+    return <MathDraftPreview input={compact} showCaret={false} />;
   }
-  return <MarkdownContent content={content} />;
+  return <MarkdownContent content={compact} />;
 }
 
 function makeStyles(C: Theme) {

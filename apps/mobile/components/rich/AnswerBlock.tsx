@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
+import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/mathText";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
@@ -17,8 +18,10 @@ type Props = { content: string };
 function normalizeAnswerContent(raw: string): string {
   const text = stripTrailingFenceCloser(raw.trim());
   const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
-  if (boxed) return boxed[1].trim();
-  return stripEmbeddedDollarWraps(stripRedundantDollarWrap(text));
+  if (boxed) return rewriteSolutionSeparatorBars(boxed[1].trim());
+  return rewriteSolutionSeparatorBars(
+    stripEmbeddedDollarWraps(stripRedundantDollarWrap(text)),
+  );
 }
 
 function answerNeedsKatex(text: string): boolean {

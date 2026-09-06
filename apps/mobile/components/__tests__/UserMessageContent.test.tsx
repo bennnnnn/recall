@@ -141,6 +141,17 @@ describe("UserMessageContent math/markdown rendering", () => {
     );
     expect(getByTestId("math-draft-preview")).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: a pasted \\[...\\] write-up is not the composer math preview", async () => {
+    const { queryByTestId } = await render(
+      <UserMessageContent
+        message={userMessage(
+          "\\[ 2x^2-7x+3=0 \\]\nFactor it:\n\\[ 2x-1=0 \\]\nor\n\\[ x-3=0 \\]",
+        )}
+      />,
+    );
+    expect(queryByTestId("math-draft-preview")).toBeNull();
+  });
 });
 
 describe("UserMessageContent", () => {

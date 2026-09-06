@@ -589,6 +589,17 @@ def test_try_extract_equations_strips_glued_english() -> None:
     assert math_service.try_extract_equations_from_text("E=mc^2") == [("E", "mc^2")]
 
 
+def test_try_extract_equations_stops_at_homework_labels() -> None:
+    """collapse_ws turns `=0\\nFactor it:` into `=0 Factor it` — do not glue
+    the label onto the RHS (that used to make a fake multi-equation system)."""
+    pairs = math_service.try_extract_equations_from_text("2x^2-7x+3=0 Factor it: 2x-1=0 or x-3=0")
+    assert ("2x^2-7x+3", "0") in pairs
+    assert ("2x-1", "0") in pairs
+    assert ("x-3", "0") in pairs
+    assert all("Factor" not in lhs + rhs for lhs, rhs in pairs)
+    assert all(" or " not in lhs and " or " not in rhs for lhs, rhs in pairs)
+
+
 def test_guess_variables_does_not_split_unknown_letter_runs() -> None:
     eq = math_service.try_extract_equation_from_text("X=6graph")
     assert eq is not None

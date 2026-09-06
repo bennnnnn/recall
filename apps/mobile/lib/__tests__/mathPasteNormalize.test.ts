@@ -90,4 +90,11 @@ describe("extractInsertedDelta / applyComposerTextChange", () => {
     expect(applyComposerTextChange("", pasted)).not.toContain("\\frac");
     expect(applyComposerTextChange("", pasted)).not.toContain("$");
   });
+
+  it("does not wrap a \\[...\\] homework paste in one $...$", () => {
+    const pasted =
+      "\\[ 2x^2-7x+3=0 \\]\nFactor it:\n\\[ 2x-1=0 \\]\nor\n\\[ x-3=0 \\]";
+    expect(normalizePastedMath(pasted)).toBe(pasted);
+    expect(applyComposerTextChange("", pasted)).toBe(pasted);
+  });
 });

@@ -1,6 +1,7 @@
 /** Parse simple LaTeX into native Text segments (no WebView). */
 
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
+import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 
 export type MathSegment =
   | { type: "text"; value: string }
@@ -409,6 +410,7 @@ function preprocessLatex(latex: string): string {
   if (s.includes(PROTECTED_MATH_STAR_MARKER)) {
     s = s.split(PROTECTED_MATH_STAR_MARKER).join("*");
   }
+  s = rewriteSolutionSeparatorBars(s);
   // OCR / models often emit Unicode supers/subs (`x²`, `a₁₀`) instead of
   // caret form. Rewrite to `^`/`_` so the segment parser builds real scripts.
   s = normalizeUnicodeScripts(s);

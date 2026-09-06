@@ -49,6 +49,9 @@ MATH_INTENT_HINT = (
     "`- For F = 0:`\n"
     "`  $0 + 3 = 3$`). Wrap that second line in `$...$` and end it with "
     "`- [x]` or a trailing check mark.\n"
+    "  - Two real roots: join with the word or or a comma inside `$...$` "
+    "(e.g. `$x = 1/2$ or $x = 3$`). Never a vertical bar `|`, `\\mid`, or "
+    "`\\Big|` between solutions.\n"
 )
 
 MATH_SOLVER_HINT = (

@@ -7,7 +7,7 @@ from itertools import pairwise
 from app.models.math_schemas import EquationInput
 from app.services.math_service.discrete import guess_variables
 from app.services.math_service.parse import _normalize_latex_to_sympy
-from app.services.math_text_match.scan import peel_edge_english
+from app.services.math_text_match.scan import MATH_MULTI_LETTER, peel_edge_english
 
 _EQUATION_SIDE_CHARS = frozenset(
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
@@ -31,11 +31,75 @@ _SYSTEM_PREFIXES = (
 )
 
 
+# Two-letter words that sit between homework steps after collapse_ws
+# ("…=0 or x-3=0"). 1-letter tokens stay variables; ln/pi stay math.
+_TWO_LETTER_ENGLISH = frozenset(
+    {"or", "if", "so", "to", "of", "it", "is", "be", "as", "at", "by", "an", "we"}
+)
+
+
+def _english_run_len(s: str, i: int) -> int:
+    """Length of an English word starting at ``i``, else 0. Linear scan."""
+    n = len(s)
+    if i >= n or not s[i].isalpha():
+        return 0
+    j = i + 1
+    while j < n and s[j].isalpha():
+        j += 1
+    run = s[i:j]
+    low = run.lower()
+    if low in MATH_MULTI_LETTER:
+        return 0
+    if len(run) >= 3:
+        return j - i
+    if len(run) == 2 and low in _TWO_LETTER_ENGLISH:
+        return j - i
+    return 0
+
+
+def _english_after(s: str, i: int) -> bool:
+    """True when the next token (skipping spaces) is English."""
+    n = len(s)
+    pos = i
+    while pos < n and s[pos] == " ":
+        pos += 1
+    return _english_run_len(s, pos) > 0
+
+
+def _english_before(s: str, i: int) -> bool:
+    """True when the token ending at ``i`` (exclusive, skipping spaces) is English."""
+    k = i
+    while k > 0 and s[k - 1] == " ":
+        k -= 1
+    if k == 0 or not s[k - 1].isalpha():
+        return False
+    start = k - 1
+    while start > 0 and s[start - 1].isalpha():
+        start -= 1
+    return _english_run_len(s, start) > 0
+
+
 def _is_equation_side(s: str) -> bool:
     stripped = s.strip()
     if not stripped or len(stripped) > 120:
         return False
-    return all(c in _EQUATION_SIDE_CHARS for c in stripped)
+    if not all(c in _EQUATION_SIDE_CHARS for c in stripped):
+        return False
+    k = 0
+    n = len(stripped)
+    while k < n:
+        run = _english_run_len(stripped, k)
+        if run:
+            # A side that is only a name (`velocity`) is a valid lhs; mixed
+            # math + English (`0 Factor it`) is a collapsed homework label.
+            has_math = any(c in "0123456789+-*/^()." for c in stripped)
+            return not has_math
+        if stripped[k].isalpha():
+            while k < n and stripped[k].isalpha():
+                k += 1
+        else:
+            k += 1
+    return True
 
 
 def _strip_leading_prefixes(text: str, *, strip_bare_x: bool) -> str:
@@ -113,9 +177,24 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
             continue
         left = eq
         while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            if cleaned[left - 1] == " " and _english_before(cleaned, left - 1):
+                break
             left -= 1
         right = eq + 1
         while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            if _english_after(cleaned, right):
+                break
+            # `=0 (2x-1)(x-3)=0` — next parenthetical is another equation,
+            # not part of this RHS (collapse_ws glued the two displays).
+            if cleaned[right] == " " and cleaned[eq + 1 : right].strip() in {
+                "0",
+                "0.0",
+            }:
+                nxt = right + 1
+                while nxt < len(cleaned) and cleaned[nxt] == " ":
+                    nxt += 1
+                if nxt < len(cleaned) and cleaned[nxt] == "(":
+                    break
             right += 1
         lhs = peel_edge_english(cleaned[left:eq].strip())
         rhs = peel_edge_english(cleaned[eq + 1 : right].strip())

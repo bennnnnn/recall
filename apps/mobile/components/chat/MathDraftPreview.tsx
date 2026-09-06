@@ -41,9 +41,17 @@ export function draftShowsMathPreview(input: string): boolean {
  * Unlike the composer, sent messages only use the preview when the user
  * explicitly wrapped math in `$...$` — bare equations in sent messages
  * render through the normal markdown path (which handles implicit math).
+ *
+ * Multi-line / display-math pastes (`\[...\]`, `$$...$$`) must not use the
+ * composer preview: wrapping them in one `$` row left a tall empty bubble.
  */
 export function sentMessageShowsMathPreview(input: string): boolean {
-  return input.includes("$") && input.trim().length > 0;
+  const s = input.trim();
+  if (!s.includes("$") || s.length === 0) return false;
+  if (s.includes("\n")) return false;
+  if (s.includes("\\[") || s.includes("\\]") || s.includes("$$")) return false;
+  if (s.length > 160) return false;
+  return true;
 }
 
 type Props = {
