@@ -277,6 +277,8 @@ class TestVerticalLine:
             ("graph x=4", 4.0),
             ("plot x = 7", 7.0),
             ("draw vertical x=3", 3.0),
+            ("graph y=x**2 and also solve 3x=9", None),
+            ("graph 3x=9", None),
         ],
     )
     def test_vertical_line_x(self, text, expected):
