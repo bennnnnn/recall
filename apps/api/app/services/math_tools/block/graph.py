@@ -25,10 +25,7 @@ def _verified_block_point(
         points=[[px, py]],
     )
     lines.append(f"Point: ({px:g}, {py:g})")
-    lines.append(
-        "Do NOT invent a function or extra points through this marker — "
-        "Recall attaches the verified plot."
-    )
+    lines.append("Do NOT invent a function or extra points through this marker.")
     return _diagram_block(lines, point_spec, f"({px:g}, {py:g})")
 
 

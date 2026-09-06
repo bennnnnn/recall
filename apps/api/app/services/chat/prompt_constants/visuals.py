@@ -62,8 +62,7 @@ VISUALIZATION_HINTS = (
     "If Plan is free and they ask for image generation, mention that Pro unlocks it. "
     "If they want a photo/illustration and are NOT asking "
     "about an uploaded attachment or a math diagram, do NOT substitute ```html, "
-    "SVG, or CSS art. Recall attaches verified math diagrams; do not emit "
-    "```geometry or ```graph JSON. "
+    "SVG, or CSS art. Do not emit ```geometry or ```graph JSON. "
     "For uploaded images, describe what you see — do not redraw them in HTML.\n\n"
     "**HTML UI** (```html) — Use ONLY when the user wants a web UI, page, form, card, layout, "
     "login screen, dashboard, landing page, or interactive mockup — NOT for 'draw me X' or "
@@ -89,8 +88,8 @@ VISUALIZATION_HINTS = (
     '"mark":"bar","encoding":{"x":{"field":"a","type":"nominal"},'
     '"y":{"field":"b","type":"quantitative"}}}\n'
     "```\n\n"
-    "**Geometry / graphs** — Do not emit ```geometry or ```graph JSON. When a "
-    "verified system block is present, Recall attaches the labeled diagram. "
+    "**Geometry / graphs** — Do not emit ```geometry or ```graph JSON. Do not "
+    "tell the user a diagram will be attached. "
     "Never invent measures. School shapes only — not molecules.\n\n"
     "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
     "venue recommendations (any nearby place). Use when the user asks for something "

@@ -9,14 +9,12 @@ from typing import Any
 # The model explains; Recall attaches ```answer / ```graph / ```geometry
 # after the stream from canonical_fence / canonical_answer. Do not put those
 # fences in the system hint — that is what taught Qwen/GLM to invent JSON.
-SOLVER_OWNED_FENCES_NOTE = (
-    "Do NOT emit ```answer, ```graph, or ```geometry fences — "
-    "Recall attaches the verified result after your answer."
-)
+SOLVER_OWNED_FENCES_NOTE = "Do NOT emit ```answer, ```graph, or ```geometry fences."
 
 DIAGRAM_OWNED_NOTE = (
-    "Recall will attach the verified diagram. Describe it in words using $...$ "
-    "where helpful. Do NOT emit ```geometry or ```graph JSON."
+    "Do not mention attaching, fences, JSON, or the app. "
+    "Do NOT emit ```geometry or ```graph. One short sentence about the figure, "
+    "using $...$ where helpful."
 )
 
 

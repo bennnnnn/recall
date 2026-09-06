@@ -1329,6 +1329,8 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     # Sample window stays on the fence; don't give the model y=±10 to parrot.
     assert "from y" not in verified.text.lower()
     assert "y = -10" not in verified.text
+    assert "Recall will attach" not in verified.text
+    assert "Do not mention attaching" in verified.text
     assert verified.canonical_fence["x_min"] == 0.0
     assert verified.canonical_fence["x_max"] == 10.0
     assert verified.canonical_fence["y_min"] == -10.0
@@ -1438,7 +1440,8 @@ async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     assert verified is not None
     assert verified.canonical_fence is not None
     assert len(verified.canonical_fence["points"]) == 220
-    assert "Recall will attach the verified diagram" in verified.text
+    assert "Do not mention attaching" in verified.text
+    assert "Recall will attach" not in verified.text
     assert "```graph\n" not in verified.text
 
 

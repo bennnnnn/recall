@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Assistant said “Recall will attach the verified diagram.”** That sentence
+  was a system instruction (`DIAGRAM_OWNED_NOTE`) in declarative voice; the
+  model copied it into the chat. Phrase as “do not mention attaching / fences”;
+  never tell the user the app will attach anything.
 - **`X=6graph` became 6·g·r·a·p·h then a broken Vega chart.** Equation walk +
   implicit multiplication split unknown 3+ letter tokens; `"graph" in text`
   also matched `paragraph` (`"graph "` inside `"paragraph "`). Peel/mask
