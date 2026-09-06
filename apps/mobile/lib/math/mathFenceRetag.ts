@@ -127,6 +127,16 @@ export function isHeavyInlineMath(latex: string): boolean {
 }
 
 const INLINE_MATH_FENCE_MAX = 48;
+/** List-hosted one-liners can include a short equation (`x - 3 = 0 → x = 3`). */
+const LIST_MATH_FENCE_MAX = 160;
+
+function isOneLineMathFenceBody(body: string, maxLen: number): string | null {
+  const t = stripRedundantDollarWrap(body.trim());
+  if (!t || t.includes("\n")) return null;
+  if (t.length > maxLen) return null;
+  if (/\\begin\{/.test(t)) return null;
+  return t;
+}
 
 /**
  * Short one-line ```math (or untagged algebra) belongs in the sentence as
@@ -134,15 +144,22 @@ const INLINE_MATH_FENCE_MAX = 48;
  * stay block fences.
  */
 export function shouldRenderMathFenceInline(body: string): boolean {
-  const t = stripRedundantDollarWrap(body.trim());
-  if (!t || t.includes("\n")) return false;
-  if (t.length > INLINE_MATH_FENCE_MAX) return false;
-  if (/\\begin\{/.test(t)) return false;
+  const t = isOneLineMathFenceBody(body, INLINE_MATH_FENCE_MAX);
+  if (t == null) return false;
   if (/[=\\]/.test(t) && !/^\d+\s*[+\-*/]\s*[A-Za-z]$/.test(t)) return false;
   if (/^[A-Za-z]$/.test(t)) return true;
   if (/^\d+\s*[+\-*/]\s*[A-Za-z]$/.test(t)) return true;
   if (/^[A-Za-z]\s*[+\-*/]\s*\d+$/.test(t)) return true;
   return false;
+}
+
+/**
+ * A lone `-` / `1.` followed by ```math (or `\[...\]` rewritten as a fence)
+ * streams as an empty bullet — live: step "Solve for x" showed `x = 1/2`
+ * and hid `x = 3`. Fold that one-line equation onto the marker as `$...$`.
+ */
+export function shouldInlineMathFenceOnBareListMarker(body: string): boolean {
+  return isOneLineMathFenceBody(body, LIST_MATH_FENCE_MAX) != null;
 }
 
 /**

@@ -51,7 +51,10 @@ MATH_INTENT_HINT = (
     "`- [x]` or a trailing check mark.\n"
     "  - Two real roots: join with the word or or a comma inside `$...$` "
     "(e.g. `$x = 1/2$ or $x = 3$`). Never a vertical bar `|`, `\\mid`, or "
-    "`\\Big|` between solutions.\n"
+    "`\\Big|` between solutions. Factor-zero bullets keep the equation in "
+    "`$...$` on the SAME line as the `-` (e.g. ` - $x - 3 = 0 \\rightarrow x = 3$`). "
+    "Never a lone `-` then ```math / `\\[` — that streams as an empty bullet "
+    "and hides the second root.\n"
 )
 
 MATH_SOLVER_HINT = (

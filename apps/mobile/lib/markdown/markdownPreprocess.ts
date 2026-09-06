@@ -2,6 +2,7 @@ import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/moleculePair";
 import {
   retagMathAndDiagramFences,
+  shouldInlineMathFenceOnBareListMarker,
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
 } from "@/lib/math/mathFenceRetag";
@@ -418,12 +419,26 @@ function appendInlineMath(out: string[], latex: string): void {
   const piece = `$${latex}$`;
   while (out.length > 0 && out[out.length - 1]!.trim() === "") out.pop();
   if (out.length > 0 && out[out.length - 1]!.trim() !== "") {
-    const prev = out[out.length - 1]!;
-    const gap = prev.endsWith(" ") ? "" : " ";
-    out[out.length - 1] = prev.replace(/\s+$/, "") + gap + piece;
+    const prev = out[out.length - 1]!.replace(/\s+$/, "");
+    // Always a space after a list marker (`- $eq$`). Dropping it when the
+    // line already ended in whitespace produced `-$eq$`, which CommonMark
+    // does not treat as a list item.
+    out[out.length - 1] = `${prev} ${piece}`;
     return;
   }
   out.push(piece);
+}
+
+/** `-` / `1.` with no body — the empty bullet a following ```math used to hide. */
+function isBareListMarkerLine(line: string): boolean {
+  return /^\s*(?:[-*•]|\d+[.)])\s*$/.test(line);
+}
+
+function lastNonemptyLine(lines: string[]): string | undefined {
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (lines[i]!.trim() !== "") return lines[i];
+  }
+  return undefined;
 }
 
 /**
@@ -457,7 +472,16 @@ export function inlineShortMathFences(content: string): string {
     const raw = body.join("\n").trim();
     const keepAnswer = isAnswerLang(lang) && looksLikeMathAnswer(raw);
     const keepCode = !lang && looksLikeCode(raw);
-    if (keepAnswer || keepCode || !shouldRenderMathFenceInline(raw)) {
+    const host = lastNonemptyLine(out);
+    const listInline =
+      host != null &&
+      isBareListMarkerLine(host) &&
+      shouldInlineMathFenceOnBareListMarker(raw);
+    if (
+      keepAnswer ||
+      keepCode ||
+      !(listInline || shouldRenderMathFenceInline(raw))
+    ) {
       for (let k = i; k <= j; k += 1) out.push(lines[k]!);
       i = j + 1;
       continue;

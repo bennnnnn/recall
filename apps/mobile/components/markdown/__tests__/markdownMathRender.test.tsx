@@ -122,4 +122,22 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/^It's a$/)).toBeNull();
     expect(queryByText(/linear equation/)).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: second quadratic root stays on the solve bullet", async () => {
+    const { getByText, queryByText } = await render(
+      <MarkdownContent
+        content={[
+          "4. **Solve for x**:",
+          "   - $2x - 1 = 0 \\rightarrow x = 1/2$",
+          "   -",
+          "",
+          "```math",
+          "x - 3 = 0 \\rightarrow x = 3",
+          "```",
+        ].join("\n")}
+      />,
+    );
+    expect(queryByText(/\\rightarrow/)).toBeNull();
+    expect(getByText(/x = 3/)).toBeOnTheScreen();
+  });
 });

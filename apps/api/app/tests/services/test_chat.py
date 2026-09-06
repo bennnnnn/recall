@@ -479,6 +479,8 @@ def test_math_formula_shape_rule_is_unified():
     assert "Do NOT emit ```answer" in MATH_INTENT_HINT
     assert "both sides" in MATH_INTENT_HINT.lower()
     assert "F + 3 - 3 = 3 - 3" in MATH_INTENT_HINT
+    assert "empty bullet" in MATH_INTENT_HINT
+    assert "SAME line as the `-`" in MATH_INTENT_HINT
 
 
 def test_math_solver_hint_does_not_overclaim_unverified_scope():
