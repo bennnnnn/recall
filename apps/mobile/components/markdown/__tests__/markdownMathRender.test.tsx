@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { formatAssistantMathExpr } from "@/lib/math/formatMathInput";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
@@ -85,6 +86,30 @@ describe("MarkdownContent math rendering", () => {
     expect(getAllByTestId("math-frac").length).toBeGreaterThanOrEqual(4);
     expect(getByText("(5+1)")).toBeOnTheScreen();
     expect(getByText("(5-1)")).toBeOnTheScreen();
+    expect(queryByText(/\\frac/)).toBeNull();
+  });
+
+  it("BUG FIX regression: bare-ASCII quadratic-formula steps stack a real fraction (not literal '/'), given the assistant mathFormat", async () => {
+    // Live bug: Recall answered "3x^2 - 11x + 6 = 0" with steps written as
+    // plain ASCII division ("(11 ± 7) / 6", "√(49)") because the model
+    // never wrapped them in \frac{}/\sqrt{} — MessageBubble now passes
+    // `formatAssistantMathExpr` as `mathFormat` so normalizeImplicitMath's
+    // bare-equation wrap also converts the slash/radical, not just ±→\pm.
+    const { getAllByTestId, queryByText } = await render(
+      <MarkdownContent
+        content={
+          "Steps\n\n" +
+          "4. Split the two roots:\n" +
+          "- x = (11 + 7) / 6 = 18 / 6 = 3\n" +
+          "- x = (11 - 7) / 6 = 4 / 6 = 2/3"
+        }
+        mathFormat={formatAssistantMathExpr}
+      />,
+    );
+    expect(getAllByTestId("math-frac").length).toBeGreaterThanOrEqual(4);
+    // No leftover literal division text once every fraction is stacked.
+    expect(queryByText(/\(11 \+ 7\) \/ 6/)).toBeNull();
+    expect(queryByText(/\(11 - 7\) \/ 6/)).toBeNull();
     expect(queryByText(/\\frac/)).toBeNull();
   });
 

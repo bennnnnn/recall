@@ -24,6 +24,7 @@ import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
+import { formatAssistantMathExpr } from "@/lib/math/formatMathInput";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
@@ -435,7 +436,11 @@ export const MessageBubble = React.memo(function MessageBubble({
                   resetKey={markdownResetKey}
                   content={markdownContent}
                 >
-                  <MarkdownContent content={markdownContent} streaming={markdownStreamMode} />
+                  <MarkdownContent
+                    content={markdownContent}
+                    streaming={markdownStreamMode}
+                    mathFormat={formatAssistantMathExpr}
+                  />
                   {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
                 </MarkdownErrorBoundary>
               </AssistantMessageScope>
