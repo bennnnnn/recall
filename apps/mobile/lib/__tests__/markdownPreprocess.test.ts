@@ -228,24 +228,102 @@ $)
     // Live: "For $x = 2$: $2^2 + 2 = 6$" (or one $x = 2: 2^2$ span) rendered
     // as 2:2². Split the label from the formula and force a space after `:`.
     expect(layoutCheckVerificationLines("For $x = 2$:$2^2 + 2 = 6$")).toBe(
-      "For $x = 2$:\n  $2^2 + 2 = 6$",
+      "For $x = 2$:\n\n  $2^2 + 2 = 6$",
     );
     expect(layoutCheckVerificationLines("For $x = 2: 2^2 + 2 = 6$")).toBe(
-      "For $x = 2$:\n  $2^2 + 2 = 6$",
+      "For $x = 2$:\n\n  $2^2 + 2 = 6$",
     );
     expect(layoutCheckVerificationLines("- [x] For $x = -2$:$(-2)^2 + 2 = 6$")).toBe(
-      "- [x] For $x = -2$:\n  $(-2)^2 + 2 = 6$",
+      "- [x] For $x = -2$:\n\n  $(-2)^2 + 2 = 6$",
     );
   });
 
   it("puts the check substitution on the line under For n = …", () => {
     expect(layoutCheckVerificationLines("• For F = 0: 0 + 3 = 3 ✓")).toBe(
-      "• For F = 0:\n  0 + 3 = 3 ✓",
+      "• For F = 0:\n\n  0 + 3 = 3 ✓",
     );
     expect(layoutCheckVerificationLines("- For F = 0: 0 + 3 = 3")).toBe(
-      "- For F = 0:\n  0 + 3 = 3",
+      "- For F = 0:\n\n  0 + 3 = 3",
     );
     expect(layoutCheckVerificationLines("For example: try again")).toBe("For example: try again");
+  });
+
+  it("BUG FIX regression: check chains split so = 0 is not clipped off-screen", () => {
+    const packed =
+      "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$";
+    const out = layoutCheckVerificationLines(packed);
+    expect(out).toContain("- For $x = 3$:");
+    expect(out).toMatch(/For \$x = 3\$:\n\n/);
+    expect(out).toContain("$2(3)^2 - 7(3) + 3$");
+    expect(out).toContain("$= 18 - 21 + 3$");
+    expect(out).toContain("$= 0$");
+    expect(out).not.toMatch(/18 - 21 \+ 3 = 0/);
+
+    const frac =
+      "- For $x = \\frac{1}{2}$: $2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = \\frac{1 - 7 + 6}{2} = 0$";
+    const fracOut = layoutCheckVerificationLines(frac);
+    expect(fracOut).toMatch(/For \$x = \\frac\{1\}\{2\}:\$\n\n/);
+    expect(fracOut).toContain("$= 0$");
+    expect(fracOut.split("\n").some((l) => l.includes("$= 0$"))).toBe(true);
+
+    const homework = "8. Calculate: $x = \\frac{12}{4}$ or $x = \\frac{2}{4}$";
+    expect(layoutCheckVerificationLines(homework)).toBe(homework);
+  });
+
+  it("BUG FIX regression: no-colon For x = 1/2 still splits the = chain", () => {
+    const live =
+      "You can check:\n" +
+      "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$\n" +
+      "- For $x = \\frac{1}{2}$\n" +
+      "$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = \\frac{1-7+6}{2} = 0$";
+    const out = layoutCheckVerificationLines(live);
+    expect(out).toMatch(/For \$x = 3\$:\n\n/);
+    expect(out).toMatch(/For \$x = \\frac\{1\}\{2\}:\$/);
+    expect(out).not.toMatch(/For \$x = \\frac\{1\}\{2\}\$\n/);
+    expect(out).toContain("$2(3)^2 - 7(3) + 3$");
+    expect(out).toContain("$= 18 - 21 + 3$");
+    expect(out).toContain("$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3$");
+    expect(out).toContain("$= \\frac{1}{2} - \\frac{7}{2} + 3$");
+    expect(out).toContain("$= \\frac{1-7+6}{2}$");
+    expect(out.split("\n").filter((l) => l.includes("$= 0$")).length).toBe(2);
+    expect(out).not.toMatch(/18 - 21 \+ 3 = 0/);
+    expect(out).not.toMatch(/\\frac\{1\}\{2\} - \\frac\{7\}\{2\} \+ 3 = /);
+
+    const mixed =
+      "- For $x = 3$:\n$2(3)^2 - 7(3) + 3$ = $18 - 21 + 3$ = $0$";
+    const mixedOut = layoutCheckVerificationLines(mixed);
+    expect(mixedOut).toContain("$2(3)^2 - 7(3) + 3$");
+    expect(mixedOut).toContain("$= 18 - 21 + 3$");
+    expect(mixedOut).toContain("$= 0$");
+  });
+
+  it("BUG FIX regression: live You can check with ✓ and For $x$ = frac still splits", () => {
+    const live =
+      "You can check:\n" +
+      "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$ ✓\n" +
+      "- For $x$ = $\\frac{1}{2}$\n" +
+      "$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = -3 + 3 = 0$\n" +
+      "✓";
+    const out = preprocessMarkdown(live);
+    expect(out).toMatch(/For \$x = 3\$:\n\n/);
+    expect(out).toMatch(/For \$x\$ = \$\\frac\{1\}\{2\}:\$/);
+    expect(out).toContain("$2(3)^2 - 7(3) + 3$");
+    expect(out).toContain("$= 18 - 21 + 3$");
+    expect(out).toContain("$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3$");
+    expect(out).toContain("$= \\frac{1}{2} - \\frac{7}{2} + 3$");
+    expect(out).toContain("$= -3 + 3$");
+    expect(out.split("\n").filter((l) => l.includes("$= 0$")).length).toBeGreaterThanOrEqual(2);
+    expect(out).not.toMatch(/18 - 21 \+ 3 = 0/);
+
+    const withTick = layoutCheckVerificationLines(
+      "- For $x = 3$:\n$2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$ ✓",
+    );
+    expect(withTick).toContain("$= 0$ ✓");
+    expect(withTick).not.toMatch(/18 - 21 \+ 3 = 0/);
+
+    const fracLabel = layoutCheckVerificationLines("- For $x = \\frac{1}{2}$");
+    expect(fracLabel).toContain("$x = \\frac{1}{2}:$");
+    expect(fracLabel).not.toMatch(/\\frac\{1\}\{2\}\$:/);
   });
 
   it("preprocess keeps math adjacent to bold labels", () => {

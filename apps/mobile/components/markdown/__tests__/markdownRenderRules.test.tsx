@@ -212,6 +212,17 @@ describe("markdown render rules", () => {
     expect(queryByText(/^:$/)).toBeNull();
   });
 
+  it("keeps the colon on For x = 1/2 check labels (frac is a nested View)", async () => {
+    const { getByText } = await render(
+      <MarkdownContent
+        content={"- For $x = \\frac{1}{2}$:\n\n  $0 + 3 = 3$"}
+      />,
+    );
+    // Preprocess tucks `:` into `$x = \frac{1}{2}:$` so the renderer does not
+    // drop it as a stranded "two dots" after the stacked fraction.
+    expect(getByText(":")).toBeOnTheScreen();
+  });
+
   it("keeps nested bullets as bullets instead of inventing sequence", async () => {
     const md = `- **Powers**
   - eight squared is 64

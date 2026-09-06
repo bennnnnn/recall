@@ -140,4 +140,23 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/\\rightarrow/)).toBeNull();
     expect(getByText(/x = 3/)).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: For x = 3: check is not packed onto the formula line", async () => {
+    const { getAllByText, queryByText } = await render(
+      <MarkdownContent
+        content={
+          "You can check:\n" +
+          "- For $x = 3$: $2(3)^2 - 7(3) + 3 = 18 - 21 + 3 = 0$ ✓\n" +
+          "- For $x$ = $\\frac{1}{2}$\n" +
+          "$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = -3 + 3 = 0$\n" +
+          "✓"
+        }
+      />,
+    );
+    expect(getAllByText(/For/).length).toBeGreaterThanOrEqual(2);
+    expect(queryByText(/18 - 21 \+ 3 = 0/)).toBeNull();
+    expect(queryByText(/1\/2 - 7\/2 \+ 3 = 0/)).toBeNull();
+    expect(getAllByText("= 0").length).toBeGreaterThanOrEqual(2);
+    expect(getAllByText("= 18 - 21 + 3").length).toBeGreaterThanOrEqual(1);
+  });
 });
