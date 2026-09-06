@@ -68,6 +68,29 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
     assert result.content == "No results."
 
 
+@pytest.mark.asyncio
+async def test_web_search_adapter_second_invoke_reuses_first_result(fake_redis):
+    from app.gateways.web_search_gateway import WebSearchHit
+    from app.services.mcp.web_search_adapter import bind_search_quota_context
+
+    user = MagicMock()
+    user.id = uuid4()
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
+    cached = AsyncMock(return_value=([hit], ["q"]))
+
+    with (
+        patch("app.services.mcp.web_search_adapter.run_cached_search", cached),
+        bind_search_quota_context(user=user, redis=fake_redis),
+    ):
+        first = await adapter.invoke({"query": "latest news"})
+        second = await adapter.invoke({"query": "something else"})
+
+    cached.assert_awaited_once()
+    assert second.content == first.content
+    assert second.data == first.data
+
+
 def test_mcp_registry_setup():
     from app.gateways.mcp.registry import clear
 

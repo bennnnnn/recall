@@ -1012,7 +1012,7 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     enq.assert_awaited_once()
     kwargs = enq.await_args.kwargs
     assert kwargs["event_type"] == "INITIAL_PURCHASE"
@@ -1053,7 +1053,7 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     enq.assert_not_awaited()
 
 
@@ -1089,7 +1089,7 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     enq.assert_not_awaited()
 
 
@@ -1126,7 +1126,7 @@ def test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     apply_plan.assert_not_awaited()
 
 
@@ -1161,9 +1161,132 @@ def test_revenuecat_webhook_cancellation_with_past_expiry_downgrades():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     apply_plan.assert_awaited_once()
     assert apply_plan.await_args.kwargs["plan"] == "free"
+
+
+def test_revenuecat_webhook_subscriber_fetch_failure_returns_503():
+    """HTTP 200 would ack the event and drop a failed REST lookup forever."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {"event": {"type": "INITIAL_PURCHASE", "app_user_id": str(uid)}}
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_plan,
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 503
+    apply_plan.assert_not_awaited()
+
+
+def test_revenuecat_webhook_customer_support_refund_rechecks_entitlement():
+    """CUSTOMER_SUPPORT is a store refund — REST decides whether Pro stays."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "CANCELLATION",
+            "app_user_id": str(uid),
+            "cancel_reason": "CUSTOMER_SUPPORT",
+            "expiration_at_ms": 4099689600000,
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="free"),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_plan,
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 200
+    apply_plan.assert_awaited_once()
+    assert apply_plan.await_args.kwargs["plan"] == "free"
+
+
+def test_revenuecat_webhook_customer_support_keeps_pro_when_entitlement_active():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "CANCELLATION",
+            "app_user_id": str(uid),
+            "cancel_reason": "CUSTOMER_SUPPORT",
+            "expiration_at_ms": 4099689600000,
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=False),
+        ) as apply_plan,
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 200
+    apply_plan.assert_awaited_once()
+    assert apply_plan.await_args.kwargs["plan"] == "pro"
 
 
 def test_revenuecat_webhook_billing_issue_does_not_downgrade():
@@ -1192,7 +1315,7 @@ def test_revenuecat_webhook_billing_issue_does_not_downgrade():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     apply_plan.assert_not_awaited()
 
 
@@ -1221,7 +1344,7 @@ def test_revenuecat_webhook_expiration_still_downgrades():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     apply_plan.assert_awaited_once()
     assert apply_plan.await_args.kwargs["plan"] == "free"
 
@@ -1280,8 +1403,8 @@ def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
         ) as advance,
     ):
         client = TestClient(app)
-        assert client.post("/webhooks/revenuecat", json=purchase).status_code == 204
-        assert client.post("/webhooks/revenuecat", json=stale_expiration).status_code == 204
+        assert client.post("/webhooks/revenuecat", json=purchase).status_code == 200
+        assert client.post("/webhooks/revenuecat", json=stale_expiration).status_code == 200
 
     assert apply_plan.await_count == 1
     assert apply_plan.await_args.kwargs["plan"] == "pro"
@@ -1342,8 +1465,8 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
         ) as advance,
     ):
         client = TestClient(app)
-        assert client.post("/webhooks/revenuecat", json=purchase).status_code == 204
-        assert client.post("/webhooks/revenuecat", json=expiration).status_code == 204
+        assert client.post("/webhooks/revenuecat", json=purchase).status_code == 200
+        assert client.post("/webhooks/revenuecat", json=expiration).status_code == 200
 
     assert apply_plan.await_count == 2
     assert apply_plan.await_args_list[0].kwargs["plan"] == "pro"
@@ -1397,7 +1520,7 @@ def test_revenuecat_webhook_huge_expiration_still_succeeds():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     assert enq.await_args.kwargs.get("expiration") is None
 
 
@@ -1440,8 +1563,8 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
         r1 = client.post("/webhooks/revenuecat", json=payload)
         r2 = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r1.status_code == 204
-    assert r2.status_code == 204
+    assert r1.status_code == 200
+    assert r2.status_code == 200
     apply_mock.assert_awaited_once()
 
 
@@ -1483,8 +1606,8 @@ def test_revenuecat_webhook_missing_event_id_hashes_payload_for_dedupe():
         r1 = client.post("/webhooks/revenuecat", json=payload)
         r2 = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r1.status_code == 204
-    assert r2.status_code == 204
+    assert r1.status_code == 200
+    assert r2.status_code == 200
     apply_mock.assert_awaited_once()
 
 
@@ -1525,7 +1648,7 @@ def test_revenuecat_webhook_pro_event_defers_when_entitlement_unresolved():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 503
     apply_mock.assert_not_awaited()
 
 
@@ -1579,8 +1702,8 @@ def test_revenuecat_webhook_concurrent_claim_only_processes_once():
         r1 = client.post("/webhooks/revenuecat", json=payload)
         r2 = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r1.status_code == 204
-    assert r2.status_code == 204
+    assert r1.status_code == 200
+    assert r2.status_code == 503
     apply_mock.assert_awaited_once()
     enq.assert_awaited_once()
 
@@ -1631,7 +1754,7 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
         # The event id must not have been marked as seen by the failed attempt.
         r2 = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r2.status_code == 204
+    assert r2.status_code == 200
     assert apply_mock.await_count == 2
 
 
@@ -1673,7 +1796,7 @@ def test_revenuecat_webhook_requires_auth_in_production():
         )
 
     assert r_bad.status_code == 401
-    assert r_ok.status_code == 204
+    assert r_ok.status_code == 200
     apply_mock.assert_awaited_once()
 
 
@@ -1720,7 +1843,7 @@ def test_revenuecat_webhook_ignores_sandbox_in_production():
             headers={"Authorization": "Bearer whsec-secret"},
         )
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     apply_mock.assert_not_awaited()
     enq.assert_not_awaited()
 
@@ -1765,7 +1888,7 @@ def test_revenuecat_webhook_processes_sandbox_in_development():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     apply_mock.assert_awaited_once()
 
 
@@ -1801,7 +1924,7 @@ def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r.status_code == 204
+    assert r.status_code == 200
     transfer_mock.assert_awaited_once()
     kwargs = transfer_mock.await_args.kwargs
     assert kwargs["new_app_user_id"] == str(new_uid)
@@ -1842,8 +1965,8 @@ def test_revenuecat_webhook_transfer_failure_does_not_dedup():
         r1 = client.post("/webhooks/revenuecat", json=payload)
         r2 = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r1.status_code == 204
-    assert r2.status_code == 204
+    assert r1.status_code == 503
+    assert r2.status_code == 503
     assert transfer_mock.await_count == 2
 
 
@@ -1871,7 +1994,7 @@ def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
             "original_app_user_id": str(uid),
         }
     }
-    # Blank target after strip — _dispatch_event must return False.
+    # Blank target after strip — ack (nothing to apply) without calling transfer.
     payload["event"]["app_user_id"] = "   "
 
     with patch(
@@ -1882,8 +2005,8 @@ def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
         r1 = client.post("/webhooks/revenuecat", json=payload)
         r2 = client.post("/webhooks/revenuecat", json=payload)
 
-    assert r1.status_code == 204
-    assert r2.status_code == 204
+    assert r1.status_code == 200
+    assert r2.status_code == 200
     transfer_mock.assert_not_awaited()
 
 
@@ -2266,6 +2389,36 @@ def test_speech_transcribe_daily_cap():
         )
     assert first.status_code == 200
     assert second.status_code == 429
+
+
+def test_speech_transcribe_cancelled_refunds():
+    """Hard cancel (CancelledError) must refund — except Exception would miss it."""
+    import asyncio
+
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+
+    async def boom(*_args: object, **_kwargs: object) -> str:
+        raise asyncio.CancelledError()
+
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.routers.speech.speech_service.transcribe_audio", boom),
+        patch(
+            "app.routers.speech.quota_service.refund_speech_transcription",
+            AsyncMock(),
+        ) as refund,
+    ):
+        with pytest.raises((asyncio.CancelledError, RuntimeError)):
+            client.post(
+                "/speech/transcribe",
+                headers={"Authorization": "Bearer tok"},
+                files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+            )
+    refund.assert_awaited()
 
 
 def test_speech_transcribe_rate_limit():

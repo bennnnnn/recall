@@ -151,6 +151,11 @@ async def generate_for_chat(
     )
 
     redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        raise ImageGenerationError(
+            quota_service.IMAGE_GENERATION_SPEND_CAP_MESSAGE,
+            status_code=429,
+        )
     daily_limit = quota_service.image_generation_limit_for_user(user, settings)
     if not await quota_service.reserve_image_generation(redis, user.id, limit=daily_limit):
         raise ImageGenerationError(
@@ -294,12 +299,17 @@ async def generate_for_chat(
         if exc.status_code not in (403, 429):
             await quota_service.refund_image_generation(redis, user.id)
         raise
-    except Exception:
+    except BaseException:
         await _rollback_written_bytes(gateway, written_key)
         for key in reference_keys:
             await _rollback_written_bytes(gateway, key)
         await quota_service.refund_image_generation(redis, user.id)
         raise
+
+    try:
+        await quota_service.record_global_spend(redis, quota_service.IMAGE_GEN_SPEND_USD)
+    except Exception:
+        logger.exception("record_global_spend failed after image generation")
 
     return user_message, assistant_message
 

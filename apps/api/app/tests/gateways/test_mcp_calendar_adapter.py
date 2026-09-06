@@ -80,3 +80,4 @@ async def test_conflicts_uses_google_events_not_only_caller_supplied():
         )
 
     assert "Standup" in result.content
+    assert "BEGIN UNTRUSTED CONTENT — calendar" in result.content

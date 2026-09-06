@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 from app.gateways import litellm_gateway, mock_llm
 from app.models.schemas import WebSearchClassification
+from app.services import quota as quota_service
+
+logger = logging.getLogger(__name__)
 
 
 async def classify_web_search_need(
@@ -19,6 +25,10 @@ async def classify_web_search_need(
             user_message,
             prior_user_messages=prior_user_messages,
         )
+
+    redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        return None
 
     context_lines: list[str] = []
     if prior_user_messages:
@@ -55,7 +65,7 @@ async def classify_web_search_need(
             ),
         },
     ]
-    return await litellm_gateway.complete_structured(
+    result = await litellm_gateway.complete_structured(
         settings=settings,
         model_alias="memory-model",
         messages=messages,
@@ -64,3 +74,10 @@ async def classify_web_search_need(
         timeout_seconds=settings.web_search_classifier_timeout_seconds,
         allow_fallback=False,
     )
+    try:
+        await quota_service.record_global_spend(
+            redis, quota_service.WEB_SEARCH_CLASSIFIER_SPEND_USD
+        )
+    except Exception:
+        logger.exception("record_global_spend failed after web-search classifier")
+    return result
