@@ -151,11 +151,28 @@ def test_replace_unclosed_graph_fence_safe_strips_when_no_canonical() -> None:
 
 
 def test_replace_unclosed_graph_fence_safe_noop_when_no_unclosed_fence() -> None:
-    """No unclosed fence → return content unchanged (no SymPy, no rewrite)."""
+    """No diagram fence → return content unchanged (no SymPy, no rewrite)."""
     from app.services.math_fence import replace_unclosed_graph_fence_safe
 
     content = "Just prose, no graph fence at all."
     assert replace_unclosed_graph_fence_safe(content, None) == content
+
+
+def test_replace_unclosed_graph_fence_safe_degrades_closed_unmatched() -> None:
+    """Timeout path must fail-closed on complete invented geometry/graph JSON."""
+    from app.services.math_fence import replace_unclosed_graph_fence_safe
+
+    geo = '```geometry\n{"type":"rectangle","width":99,"height":1}\n```'
+    geo_out = replace_unclosed_graph_fence_safe(geo, None)
+    assert "Could not render that diagram" in geo_out
+    assert "```geometry" not in geo_out
+    assert "99" not in geo_out
+
+    graph = '```graph\n{"type":"function","expr":"x**2","points":[[0.0,0.0],[1.0,1.0]]}\n```'
+    graph_out = replace_unclosed_graph_fence_safe(graph, None)
+    assert "Could not render that diagram" in graph_out
+    assert "```graph" not in graph_out
+    assert "x**2" not in graph_out
 
 
 def test_rewrites_unverified_inequality_step_to_number_line() -> None:

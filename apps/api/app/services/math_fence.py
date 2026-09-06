@@ -324,11 +324,28 @@ def replace_unclosed_graph_fence_safe(
     Use on the ``validate_math_fences`` timeout path: the densify pass (which
     runs SymPy) was killed, but a truncated graph fence the model left at EOS
     still needs to be cleaned up so the client doesn't render a half-pasted
-    points array. Substitute the verified canonical fence as-is or strip to the
+    points array. Closed unmatched `` ```geometry `` / `` ```graph `` fences
+    are degraded the same way as ``validate_math_fences`` (P0-G), without
+    densify. Substitute the verified canonical fence as-is or strip to the
     "Could not render that diagram." note. No SymPy, no sampling — safe to
     run after a solve timeout.
     """
-    return _replace_unclosed_graph_fence(content, canonical_fence, densify=False)
+    content = _replace_unclosed_graph_fence(content, canonical_fence, densify=False)
+    return _degrade_closed_diagram_fences(content, canonical_fence)
+
+
+def _degrade_closed_diagram_fences(content: str, canonical_fence: dict[str, object] | None) -> str:
+    """Strip closed unmatched geometry/graph fences. No SymPy densify."""
+    content = map_closed_fences(
+        content,
+        "geometry",
+        lambda body: _replace_fence(body, "geometry", canonical_fence, densify=False),
+    )
+    return map_closed_fences(
+        content,
+        "graph",
+        lambda body: _replace_fence(body, "graph", canonical_fence, densify=False),
+    )
 
 
 def _replace_fence(
@@ -336,6 +353,8 @@ def _replace_fence(
     label: str,
     canonical_fence: dict[str, object] | None,
     canonical_fences: list[dict[str, object]] | None = None,
+    *,
+    densify: bool = True,
 ) -> str:
     """Replace a model geometry/graph fence with the canonical JSON, or strip it.
 
@@ -354,7 +373,7 @@ def _replace_fence(
         parsed = GraphBlockSpec.model_validate(json.loads(corrected))
     except (json.JSONDecodeError, ValidationError, TypeError):
         return f"```{label}\n{corrected}\n```"
-    densified = densify_sparse_graph(parsed)
+    densified = densify_sparse_graph(parsed) if densify else parsed
     if densified is parsed:
         return f"```graph\n{corrected}\n```"
     return _graph_fence_body(densified)
