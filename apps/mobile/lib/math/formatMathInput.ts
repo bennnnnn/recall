@@ -11,7 +11,11 @@
  * (`messageTextForSend`) so the user bubble matches the composer.
  */
 
-import { applyImplicitPowerNotation, isMathLike } from "@/lib/normalizeImplicitMath";
+import {
+  applyImplicitPowerNotation,
+  fixImplicitExponents,
+  isMathLike,
+} from "@/lib/normalizeImplicitMath";
 
 export type MathFormatOptions = {
   /** `x2` → `x^2` (OCR's dropped caret). Default true. */
@@ -253,6 +257,133 @@ function spaceOperators(s: string): string {
     i += 1;
   }
   return out.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Unicode radical → LaTeX: `√(49)` and bare `√49` alike. Model replies (and
+ * pasted text before `mathPasteNormalize` runs) use the Unicode glyph, but
+ * the native math renderer (`mathText.ts`) only stacks a vinculum for the
+ * literal `\sqrt{...}` command — an unconverted `√` is drawn as a plain
+ * character with no radicand grouping.
+ */
+function radicalToSqrt(s: string): string {
+  let out = s.replace(/√\s*\(([^()]*)\)/g, "\\sqrt{$1}");
+  out = out.replace(/√\s*(\d+(?:\.\d+)?)/g, "\\sqrt{$1}");
+  return out;
+}
+
+/** Balanced-paren scan backward from `end` over one `(...)` group ending
+ * just before `end` (after trimming trailing whitespace), or the simple
+ * atom `slashToFrac` already recognizes. Returns the un-parenthesized text
+ * plus where it starts in `out`, so the caller can splice a `\frac{}{}`
+ * over the whole span (including the parens). */
+function readGroupedLeft(out: string): { text: string; start: number } | null {
+  let i = out.length;
+  while (i > 0 && /\s/.test(out[i - 1]!)) i -= 1;
+  if (i === 0) return null;
+  if (out[i - 1] === ")") {
+    let depth = 0;
+    let j = i - 1;
+    for (; j >= 0; j -= 1) {
+      if (out[j] === ")") depth += 1;
+      else if (out[j] === "(") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (depth !== 0) return null;
+    return { text: out.slice(j + 1, i - 1).trim(), start: j };
+  }
+  const atom = lastAtomStart(out.slice(0, i));
+  return atom ? { text: atom.atom, start: atom.start } : null;
+}
+
+/** Mirror of `readGroupedLeft` walking forward from `start` — a `(...)`
+ * group right after the slash, or the simple atom `slashToFrac` reads. */
+function readGroupedRight(s: string, start: number): { text: string; next: number } | null {
+  let i = start;
+  while (i < s.length && /\s/.test(s[i]!)) i += 1;
+  if (s[i] === "(") {
+    let depth = 0;
+    let j = i;
+    for (; j < s.length; j += 1) {
+      if (s[j] === "(") depth += 1;
+      else if (s[j] === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          j += 1;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) return null;
+    return { text: s.slice(i + 1, j - 1).trim(), next: j };
+  }
+  const atom = readAtom(s, i);
+  return atom ? { text: atom.atom, next: atom.next } : null;
+}
+
+/**
+ * `a/b` PLUS a parenthesized numerator/denominator on either side —
+ * `(11 + 7)/6` and `(-b \pm \sqrt{d})/(2a)` → `\frac{...}{...}` — unlike
+ * `slashToFrac`'s bare-atom-only rule (intentionally conservative there
+ * since a composer user typing `(11+7)/6` may still be mid-edit; a
+ * *complete* model reply line never is). Assistant-only — see
+ * `formatAssistantMathExpr`.
+ */
+function groupedSlashToFrac(s: string): string {
+  let out = "";
+  let i = 0;
+  const n = s.length;
+  while (i < n) {
+    if (s[i] === "\\") {
+      const j = skipLatexArgs(s, i);
+      out += s.slice(i, j);
+      i = j;
+      continue;
+    }
+    if ((s[i] === "^" || s[i] === "_") && s[i + 1] === "{") {
+      const j = skipBraceGroup(s, i + 1);
+      out += s.slice(i, j);
+      i = j;
+      continue;
+    }
+    if (s[i] === "/") {
+      const left = readGroupedLeft(out);
+      const right = readGroupedRight(s, i + 1);
+      if (left && right && left.text && right.text && !isUnitSlash(left.text, right.text)) {
+        out = out.slice(0, left.start) + `\\frac{${left.text}}{${right.text}}`;
+        i = right.next;
+        continue;
+      }
+    }
+    out += s[i];
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Format a model/assistant math expression for the native renderer:
+ * `√(...)` → `\sqrt{...}`, `a/b` AND `(a+b)/c` → `\frac{}{}` (see
+ * `groupedSlashToFrac` — steps commonly parenthesize a multi-term numerator
+ * or denominator, which the composer's bare-atom-only `slashToFrac` skips),
+ * `±` → `\pm`, WITHOUT the composer-only `x2` → `x^2` OCR rewrite (model
+ * replies already write explicit `^` for exponents; reinterpreting bare
+ * digits after a letter would corrupt subscript-like text the model never
+ * intended as an exponent — see the module docstring).
+ *
+ * This is the fix for steps like `x = (11 - 7)/6 = 4/6 = 2/3` or
+ * `x = (-b ± √(b^2-4ac)) / (2a)` rendering as literal parens-and-slash text
+ * instead of a stacked fraction with a vinculum: passed as
+ * `preprocessMarkdown`'s `mathFormat`, every bare-equation / math-in-parens
+ * span `normalizeImplicitMath` wraps in `$...$` now also gets this
+ * conversion instead of just `fixImplicitExponents`'s whitespace collapse.
+ */
+export function formatAssistantMathExpr(expr: string): string {
+  const s = fixImplicitExponents(radicalToSqrt(expr));
+  const withFracs = groupedSlashToFrac(s);
+  return formatMathExpr(withFracs, { power: false, slashFrac: false });
 }
 
 function formatDollarSpans(text: string): string {

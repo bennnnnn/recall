@@ -1,4 +1,8 @@
-import { formatMathExpr, formatMathMessage } from "@/lib/math/formatMathInput";
+import {
+  formatAssistantMathExpr,
+  formatMathExpr,
+  formatMathMessage,
+} from "@/lib/math/formatMathInput";
 
 describe("formatMathExpr", () => {
   describe("power", () => {
@@ -125,6 +129,51 @@ describe("formatMathExpr", () => {
       expect(formatMathExpr("1.2 m/s^2")).not.toContain("\\frac");
       expect(formatMathExpr("80 km/h")).toBe("80 km/h");
     });
+  });
+});
+
+describe("formatAssistantMathExpr", () => {
+  it("converts a simple a/b to \\frac like the composer", () => {
+    expect(formatAssistantMathExpr("18/6")).toBe("\\frac{18}{6}");
+    expect(formatAssistantMathExpr("4/6 = 2/3")).toBe("\\frac{4}{6} = \\frac{2}{3}");
+  });
+
+  it("converts a parenthesized numerator/denominator the composer's slashToFrac skips", () => {
+    expect(formatAssistantMathExpr("(11 + 7)/6")).toBe("\\frac{11 + 7}{6}");
+    expect(formatAssistantMathExpr("(11 - 7)/6")).toBe("\\frac{11 - 7}{6}");
+  });
+
+  it("converts Unicode radicals to \\sqrt{}", () => {
+    expect(formatAssistantMathExpr("√(49)")).toBe("\\sqrt{49}");
+    expect(formatAssistantMathExpr("√49")).toBe("\\sqrt{49}");
+  });
+
+  it("does not apply composer-only x2 -> x^2 OCR to model text", () => {
+    expect(formatAssistantMathExpr("x2 = 4")).toBe("x2 = 4");
+  });
+
+  it("fixes the reported quadratic-formula step end-to-end", () => {
+    const input = "x = ( -(-11) ± √(49) ) / (2(3)) = (11 ± 7) / 6";
+    const out = formatAssistantMathExpr(input);
+    expect(out).toBe("x = \\frac{-(-11) \\pm \\sqrt{49}}{2(3)} = \\frac{11 \\pm 7}{6}");
+  });
+
+  it("fixes both split-root step lines from the same screenshot", () => {
+    expect(formatAssistantMathExpr("x = (11 + 7)/6 = 18/6 = 3")).toBe(
+      "x = \\frac{11 + 7}{6} = \\frac{18}{6} = 3",
+    );
+    expect(formatAssistantMathExpr("x = (11 - 7)/6 = 4/6 = 2/3")).toBe(
+      "x = \\frac{11 - 7}{6} = \\frac{4}{6} = \\frac{2}{3}",
+    );
+  });
+
+  it("does not touch SI unit slashes", () => {
+    expect(formatAssistantMathExpr("1.2 m/s^2")).not.toContain("\\frac");
+  });
+
+  it("leaves already-correct LaTeX alone (idempotent)", () => {
+    expect(formatAssistantMathExpr("x = \\frac{2}{3}")).toBe("x = \\frac{2}{3}");
+    expect(formatAssistantMathExpr("\\sqrt{49}")).toBe("\\sqrt{49}");
   });
 });
 
