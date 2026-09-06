@@ -8,9 +8,9 @@ drifted or hallucinated number never reaches the user.
 
 When this turn produced a canonical `` ```graph `` fence but it (or the
 substituted JSON) is still sparse, we densify by re-sampling that *verified*
-expression. Sparse *unverified* y=f(x) fences are also resampled from the
-fence's own ``expr`` — otherwise the client draws a 3-point polyline (a V
-for a parabola). Discrete point markers and vertical lines stay untouched.
+expression. Model-emitted geometry/graph JSON with no matching canonical
+fence is stripped — schema-valid invented numbers must not ship as if
+verified. Discrete point markers and vertical lines stay untouched.
 
 After rewriting any fences the model still produced, we append canonical
 fences that are missing so the client always gets the solver-owned
@@ -28,16 +28,8 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.models.math_schemas import (
-    CircleGeometryBlockSpec,
-    GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
-    ParallelogramGeometryBlockSpec,
-    RightTriangleGeometryBlockSpec,
-    SectorGeometryBlockSpec,
-    TrapezoidGeometryBlockSpec,
-    TriangleGeometryBlockSpec,
-    TriangleSidesGeometryBlockSpec,
 )
 from app.services import math_service
 from app.services.math_service import MathServiceError
@@ -60,6 +52,7 @@ _MIN_CURVE_POINTS = 48
 _MAX_ANSWER_FENCES = 4
 _MAX_GEOMETRY_FENCES = 4
 _MAX_GRAPH_FENCES = 2
+_DIAGRAM_FAIL_NOTE = "\n*Could not render that diagram.*\n"
 
 _GEOMETRY_TYPES = frozenset(
     {
@@ -76,41 +69,6 @@ _GEOMETRY_TYPES = frozenset(
     }
 )
 _GRAPH_TYPES = frozenset({"function", "vertical", "number_line", "trajectory"})
-
-
-def _validate_geometry(raw: str) -> bool:
-    try:
-        data = json.loads(raw)
-        if not isinstance(data, dict):
-            return False
-        kind = data.get("type")
-        if kind in {"rectangle", "rect", "square"}:
-            GeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "triangle":
-            TriangleGeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "right_triangle":
-            RightTriangleGeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "circle":
-            CircleGeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "triangle_sides":
-            TriangleSidesGeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "trapezoid":
-            TrapezoidGeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "parallelogram":
-            ParallelogramGeometryBlockSpec.model_validate(data)
-            return True
-        if kind == "sector":
-            SectorGeometryBlockSpec.model_validate(data)
-            return True
-        return False
-    except (json.JSONDecodeError, ValidationError, TypeError):
-        return False
 
 
 def _canonical_replacement(
@@ -304,23 +262,6 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     )
 
 
-def _rewrite_inequality_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
-    """Turn a y=f(x) fence whose expr is ``x > 3`` into a number line.
-
-    The model (and an older sample_function path) plotted inequalities as a
-    0/1 step. School graphs of ``x > 3`` are a number line, not a Heaviside.
-    """
-    if spec.type in {"number_line", "vertical", "trajectory"}:
-        return spec
-    line = math_service.number_line_spec_from_expr(spec.expr, spec.variable)
-    if line is None:
-        return spec
-    title = (spec.title or "").strip()
-    if title:
-        return line.model_copy(update={"title": title[:64]})
-    return line
-
-
 def _graph_fence_body(spec: GraphBlockSpec) -> str:
     return f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
 
@@ -363,12 +304,12 @@ def _replace_unclosed_graph_fence(
         "number_line",
         "trajectory",
     }:
-        note = "\n*Could not render that diagram.*\n"
+        note = _DIAGRAM_FAIL_NOTE
         return head + note + rest
     try:
         parsed = GraphBlockSpec.model_validate(canonical_fence)
     except (ValidationError, TypeError):
-        note = "\n*Could not render that diagram.*\n"
+        note = _DIAGRAM_FAIL_NOTE
         return head + note + rest
     spec = densify_sparse_graph(parsed) if densify else parsed
     suffix = rest if rest.startswith("\n") else ("\n" + rest if rest else "\n")
@@ -390,111 +331,33 @@ def replace_unclosed_graph_fence_safe(
     return _replace_unclosed_graph_fence(content, canonical_fence, densify=False)
 
 
-def _sample_function_graph_from_json(raw: str) -> GraphBlockSpec | None:
-    """Build a sampled function graph from a fence that has ``expr`` but
-    failed schema (usually empty/missing ``points``).
-
-    The model is prompted to emit ```graph for y=f(x) even when this turn
-    had no verified sample. That JSON typically copies the schema example
-    without a points array — validation then strips it to
-    "Could not render that diagram." Sampling here recovers the plot.
-    """
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(data, dict):
-        return None
-    gtype = data.get("type", "function")
-    if gtype not in (None, "function"):
-        return None
-    expr = data.get("expr")
-    if not isinstance(expr, str) or not expr.strip():
-        return None
-    expr = _strip_y_equals(expr)
-    if not expr:
-        return None
-    variable = data.get("variable")
-    if not isinstance(variable, str) or not variable.strip():
-        variable = "x"
-    try:
-        x_min = float(data["x_min"]) if data.get("x_min") is not None else -10.0
-        x_max = float(data["x_max"]) if data.get("x_max") is not None else 10.0
-    except (TypeError, ValueError):
-        x_min, x_max = -10.0, 10.0
-    if x_max <= x_min:
-        x_min, x_max = -10.0, 10.0
-    settings = get_settings()
-    sampled = _resample_curve(
-        expr,
-        variable.strip(),
-        x_min,
-        x_max,
-        settings.math_graph_max_points,
-        settings.math_max_expr_length,
-    )
-    if sampled is None:
-        return None
-    points, segments, expr_out, var_out, out_xmin, out_xmax = sampled
-    title = data.get("title")
-    try:
-        return GraphBlockSpec(
-            type="function",
-            expr=expr_out,
-            variable=var_out,
-            x_min=out_xmin,
-            x_max=out_xmax,
-            title=title if isinstance(title, str) else None,
-            points=points,
-            segments=segments,
-        )
-    except ValidationError:
-        return None
-
-
 def _replace_fence(
     raw: str,
     label: str,
-    original: str,
     canonical_fence: dict[str, object] | None,
     canonical_fences: list[dict[str, object]] | None = None,
 ) -> str:
+    """Replace a model geometry/graph fence with the canonical JSON, or strip it.
+
+    Schema-valid invented numbers must not ship. There is no pass-through
+    path for unmatched fences.
+    """
     raw = raw.strip()
     corrected = _canonical_replacement(raw, canonical_fence, canonical_fences)
-    if corrected is not None:
-        if label != "graph":
-            return f"```{label}\n{corrected}\n```"
-        # Densify only the verified canonical curve — never an unverified
-        # model expr (that would polish a wrong function into looking true).
-        try:
-            parsed = GraphBlockSpec.model_validate(json.loads(corrected))
-        except (json.JSONDecodeError, ValidationError, TypeError):
-            return f"```{label}\n{corrected}\n```"
-        densified = densify_sparse_graph(parsed)
-        if densified is parsed:
-            return f"```graph\n{corrected}\n```"
-        return _graph_fence_body(densified)
+    if corrected is None:
+        return _DIAGRAM_FAIL_NOTE
+    if label != "graph":
+        return f"```{label}\n{corrected}\n```"
+    # Densify only the verified canonical curve — never an unverified
+    # model expr (that would polish a wrong function into looking true).
     try:
-        if label == "geometry":
-            if not _validate_geometry(raw):
-                raise ValueError("invalid geometry")
-            return original
-        parsed = GraphBlockSpec.model_validate(json.loads(raw))
-        rewritten = _rewrite_inequality_graph(parsed)
-        if rewritten is not parsed:
-            return _graph_fence_body(rewritten)
-        densified = densify_sparse_graph(parsed)
-        if densified is parsed:
-            return original
-        return _graph_fence_body(densified)
-    except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
-        if label == "graph":
-            recovered = _sample_function_graph_from_json(raw)
-            if recovered is not None:
-                return _graph_fence_body(recovered)
-        # Soft prose — never a CopyBlock / code fence. Callouts got routed
-        # into copyable cards for short meta lines; keep math failures quiet.
-        return "\n*Could not render that diagram.*\n"
+        parsed = GraphBlockSpec.model_validate(json.loads(corrected))
+    except (json.JSONDecodeError, ValidationError, TypeError):
+        return f"```{label}\n{corrected}\n```"
+    densified = densify_sparse_graph(parsed)
+    if densified is parsed:
+        return f"```graph\n{corrected}\n```"
+    return _graph_fence_body(densified)
 
 
 def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
@@ -649,73 +512,23 @@ def _replace_answer_fence(raw: str, original: str, answer_body: str | None) -> s
     return f"```answer\n{answer_body}\n```"
 
 
-def _strip_y_equals(expr: str) -> str:
-    """``y = x/2`` → ``x/2`` so sample_function (which expects y=f(x)) can plot it."""
-    e = expr.strip()
-    low = e.lower()
-    if low.startswith("y="):
-        return e[2:].strip()
-    if low.startswith("y ="):
-        return e[3:].strip()
-    return e
-
-
 def _function_call_json_to_graph_fence(raw: str) -> str:
-    """Turn one ``!function_call:{...}`` JSON blob into a ```graph fence, or "".
+    """Drop ``!function_call:{...}`` blobs.
 
-    Some models emit a tool call as text instead of via the structured
-    ``tool_calls`` API. For a ``graph`` call we sample the expr server-side
-    (reusing the same densify helper) so the renderer gets a real curve;
-    any other call (or a bad graph expr) is stripped so the raw
-    ``!function_call:...`` text never reaches the user.
+    Graph calls used to be sampled into a ```graph fence from the model's
+    expr, which shipped unverified curves. Canonical graphs are appended
+    after rewrite instead. Parse only so a truncated blob still strips.
     """
     try:
-        data = json.loads(raw)
+        json.loads(raw)
     except json.JSONDecodeError:
         return ""
-    if not isinstance(data, dict):
-        return ""
-    call = str(data.get("call") or data.get("name") or "")
-    args = data.get("arguments")
-    if not isinstance(args, dict):
-        args = {}
-    if call != "graph":
-        return ""
-    expr = _strip_y_equals(str(args.get("expr") or ""))
-    if not expr:
-        return ""
-    variable = str(args.get("variable") or "x")
-    try:
-        x_min = float(args.get("x_min") or -10.0)
-        x_max = float(args.get("x_max") or 10.0)
-    except (TypeError, ValueError):
-        x_min, x_max = -10.0, 10.0
-    settings = get_settings()
-    sampled = _resample_curve(
-        expr,
-        variable,
-        x_min,
-        x_max,
-        settings.math_graph_max_points,
-        settings.math_max_expr_length,
-    )
-    if sampled is None:
-        return ""
-    points, segments, s_expr, s_var, s_xmin, s_xmax = sampled
-    spec = GraphBlockSpec(
-        expr=s_expr,
-        variable=s_var,
-        x_min=s_xmin,
-        x_max=s_xmax,
-        points=points,
-        segments=segments,
-    )
-    return _graph_fence_body(spec)
+    return ""
 
 
 def convert_function_call_text(content: str) -> str:
-    """Find ``!function_call:{...}`` blobs (balanced JSON, may span lines) and
-    replace each with a ```graph fence (for graph calls) or strip it."""
+    """Find ``!function_call:{...}`` blobs (balanced JSON, may span lines)
+    and strip each one. Canonical graph fences are appended separately."""
     marker = "!function_call:"
     out: list[str] = []
     i = 0
@@ -763,8 +576,8 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     canonical_fences = verified.canonical_fences if verified is not None else []
     answer_body = _canonical_answer_body(verified)
     # Models sometimes emit a tool call as text (!function_call:{...}) instead
-    # of the structured tool_calls API — convert graph calls to real fences and
-    # strip the rest before fence validation runs.
+    # of the structured tool_calls API — strip it so unverified graph JSON
+    # never ships. Canonical diagrams are appended after rewrite.
     content = convert_function_call_text(content)
     content = map_closed_fences(
         content,
@@ -778,11 +591,11 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         lambda body: _replace_fence(
             body,
             "geometry",
-            f"```geometry\n{body}```",
             canonical_fence,
             canonical_fences,
         ),
         max_count=_MAX_GEOMETRY_FENCES,
+        leftover=lambda _body: _DIAGRAM_FAIL_NOTE,
     )
     content = map_closed_fences(
         content,
@@ -790,11 +603,11 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         lambda body: _replace_fence(
             body,
             "graph",
-            f"```graph\n{body}```",
             canonical_fence,
             canonical_fences,
         ),
         max_count=_MAX_GRAPH_FENCES,
+        leftover=lambda _body: _DIAGRAM_FAIL_NOTE,
     )
     # A ```graph fence the model truncated mid-JSON (stopped copying the
     # verified points at EOS) is left unclosed. Swap it for the verified
