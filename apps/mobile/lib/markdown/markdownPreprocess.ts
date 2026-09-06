@@ -939,7 +939,14 @@ export function layoutCheckVerificationLines(content: string): string {
     .split("\n")
     .map((line) => splitPackedCheckLine(normalizeCheckLabelLine(line)))
     .join("\n");
-  return splitChainedEqualsInCheckMath(out);
+  out = splitChainedEqualsInCheckMath(out);
+  // Frac/sqrt labels can't keep a prose `:` after the math View — RN strands
+  // it as lone "two dots" and the renderer drops it. Tuck the colon into the
+  // last `$...$` so `For x = 1/2:` matches `For x = 3:`.
+  return out
+    .split("\n")
+    .map(tuckStackedCheckColon)
+    .join("\n");
 }
 
 /**
@@ -1052,8 +1059,76 @@ function splitPackedCheckLine(line: string): string {
   return `${before}\n\n  ${after}`;
 }
 
+function lastInlineMathSpan(line: string): { open: number; close: number } | null {
+  let open = -1;
+  let last: { open: number; close: number } | null = null;
+  for (let i = 0; i < line.length; i += 1) {
+    if (line[i] !== "$") continue;
+    if (open < 0) {
+      open = i;
+      continue;
+    }
+    last = { open, close: i };
+    open = -1;
+  }
+  return last;
+}
+
+function latexLooksStacked(latex: string): boolean {
+  return (
+    latex.includes("\\frac") ||
+    latex.includes("\\dfrac") ||
+    latex.includes("\\sqrt") ||
+    latex.includes("\\tbinom")
+  );
+}
+
+/**
+ * `For $x = 3$:` can keep the colon in prose. `For $x = \frac{1}{2}$:` cannot:
+ * the fraction is a nested View, so the trailing `:` drops to its own line
+ * and markdownRenderRules strips it. Put `:` inside the math span instead.
+ */
+function tuckStackedCheckColon(line: string): string {
+  const forAt = indexOfForKeyword(line);
+  if (forAt < 0 || isForExampleAt(line, forAt) || !line.includes("=")) return line;
+  const end = line.length;
+  let i = end;
+  while (i > 0 && (line[i - 1] === " " || line[i - 1] === "\t")) i -= 1;
+  if (i === 0 || line[i - 1] !== ":") return line;
+  let j = i - 1;
+  while (j > 0 && (line[j - 1] === " " || line[j - 1] === "\t")) j -= 1;
+  if (j === 0 || line[j - 1] !== "$") return line;
+  const span = lastInlineMathSpan(line.slice(0, j));
+  if (span == null || span.close !== j - 1) return line;
+  const inner = line.slice(span.open + 1, span.close);
+  if (!latexLooksStacked(inner) || inner.trim().endsWith(":")) return line;
+  return `${line.slice(0, span.open)}$${inner}:$${line.slice(i)}`;
+}
+
 function isForExampleAt(line: string, forAt: number): boolean {
   return line.slice(forAt, forAt + 11).toLowerCase() === "for example";
+}
+
+function indexOfForKeyword(line: string): number {
+  const lower = line.toLowerCase();
+  let from = 0;
+  while (from < lower.length) {
+    const at = lower.indexOf("for", from);
+    if (at < 0) return -1;
+    const prev = at === 0 ? "" : lower[at - 1]!;
+    if (prev >= "a" && prev <= "z") {
+      from = at + 3;
+      continue;
+    }
+    if (isForExampleAt(line, at)) {
+      from = at + 3;
+      continue;
+    }
+    const next = at + 3 < lower.length ? lower[at + 3] : "";
+    if (next === " " || next === "*" || next === "$" || next === "") return at;
+    from = at + 3;
+  }
+  return -1;
 }
 
 function stripTrailingCheckTick(s: string): { text: string; mark: string } {
@@ -1081,18 +1156,23 @@ function unwrapInlineDollars(s: string): string {
  * (`For $x = 3:`). Put a colon on every For-x label so both match.
  */
 function normalizeCheckLabelLine(line: string): string {
-  const forAt = line.toLowerCase().indexOf("for ");
+  const forAt = indexOfForKeyword(line);
   if (forAt < 0 || isForExampleAt(line, forAt)) return line;
-  const afterForRaw = line.slice(forAt + 4);
+  let afterAt = forAt + 3;
+  while (
+    afterAt < line.length &&
+    (line[afterAt] === "*" || line[afterAt] === " " || line[afterAt] === "\t")
+  ) {
+    afterAt += 1;
+  }
+  const afterForRaw = line.slice(afterAt);
   if (!afterForRaw.includes("=") || indexOfCheckLabelColon(line) >= 0) return line;
 
   const afterFor = afterForRaw.trimStart();
   const leadWs = afterForRaw.length - afterFor.length;
-  const prefix = line.slice(0, forAt + 4 + leadWs);
+  const prefix = line.slice(0, afterAt + leadWs);
   const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
   const segs = splitTopLevelEquals(latex);
-  // `$x$ = $\frac{1}{2}$` is two math spans — the first has no `=`, so do not
-  // require parts[0] to be the whole assignment.
   if (latex.includes("=") && segs.length <= 2) {
     return `${line.replace(/\s+$/, "")}:`;
   }
@@ -1110,16 +1190,26 @@ function normalizeCheckLabelLine(line: string): string {
   return line;
 }
 
-/** Colon that closes `For x = 2:` / `For $F = 0$:` — not "for example:". */
+/** Colon that closes `For x = 2:` / `For $F = 0$:` — not inside `$...$`, not "for example:". */
 function indexOfCheckLabelColon(line: string): number {
-  const lower = line.toLowerCase();
-  const forAt = lower.indexOf("for ");
-  if (forAt < 0) return -1;
-  const colon = line.indexOf(":", forAt + 4);
-  if (colon < 0) return -1;
-  const label = line.slice(forAt, colon);
-  if (!label.includes("=")) return -1;
-  return colon;
+  const forAt = indexOfForKeyword(line);
+  if (forAt < 0 || isForExampleAt(line, forAt)) return -1;
+  let i = forAt + 3;
+  let inMath = false;
+  while (i < line.length) {
+    const ch = line[i]!;
+    if (ch === "$") {
+      inMath = !inMath;
+      i += 1;
+      continue;
+    }
+    if (!inMath && ch === ":") {
+      const chunk = line.slice(forAt, i);
+      if (chunk.includes("=") || unwrapInlineDollars(chunk).includes("=")) return i;
+    }
+    i += 1;
+  }
+  return -1;
 }
 
 function looksLikeCheckComputation(s: string): boolean {
@@ -1130,9 +1220,16 @@ function looksLikeCheckComputation(s: string): boolean {
 function isCheckLabelOnlyLine(line: string): boolean {
   const colon = indexOfCheckLabelColon(line);
   if (colon >= 0) return line.slice(colon + 1).trim() === "";
-  const forAt = line.toLowerCase().indexOf("for ");
+  const forAt = indexOfForKeyword(line);
   if (forAt < 0 || isForExampleAt(line, forAt)) return false;
-  const afterFor = line.slice(forAt + 4).trim();
+  let afterAt = forAt + 3;
+  while (
+    afterAt < line.length &&
+    (line[afterAt] === "*" || line[afterAt] === " " || line[afterAt] === "\t")
+  ) {
+    afterAt += 1;
+  }
+  const afterFor = line.slice(afterAt).trim();
   const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
   if (!latex.includes("=") || afterFor.length >= 100) return false;
   return splitTopLevelEquals(latex).length <= 2;

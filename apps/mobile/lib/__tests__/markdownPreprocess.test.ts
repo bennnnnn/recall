@@ -262,7 +262,7 @@ $)
     const frac =
       "- For $x = \\frac{1}{2}$: $2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = \\frac{1 - 7 + 6}{2} = 0$";
     const fracOut = layoutCheckVerificationLines(frac);
-    expect(fracOut).toMatch(/For \$x = \\frac\{1\}\{2\}\$:\n\n/);
+    expect(fracOut).toMatch(/For \$x = \\frac\{1\}\{2\}:\$\n\n/);
     expect(fracOut).toContain("$= 0$");
     expect(fracOut.split("\n").some((l) => l.includes("$= 0$"))).toBe(true);
 
@@ -278,7 +278,7 @@ $)
       "$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3 = \\frac{1}{2} - \\frac{7}{2} + 3 = \\frac{1-7+6}{2} = 0$";
     const out = layoutCheckVerificationLines(live);
     expect(out).toMatch(/For \$x = 3\$:\n\n/);
-    expect(out).toMatch(/For \$x = \\frac\{1\}\{2\}\$:/);
+    expect(out).toMatch(/For \$x = \\frac\{1\}\{2\}:\$/);
     expect(out).not.toMatch(/For \$x = \\frac\{1\}\{2\}\$\n/);
     expect(out).toContain("$2(3)^2 - 7(3) + 3$");
     expect(out).toContain("$= 18 - 21 + 3$");
@@ -306,7 +306,7 @@ $)
       "✓";
     const out = preprocessMarkdown(live);
     expect(out).toMatch(/For \$x = 3\$:\n\n/);
-    expect(out).toMatch(/For \$x\$ = \$\\frac\{1\}\{2\}\$:/);
+    expect(out).toMatch(/For \$x\$ = \$\\frac\{1\}\{2\}:\$/);
     expect(out).toContain("$2(3)^2 - 7(3) + 3$");
     expect(out).toContain("$= 18 - 21 + 3$");
     expect(out).toContain("$2(\\frac{1}{2})^2 - 7(\\frac{1}{2}) + 3$");
@@ -320,6 +320,10 @@ $)
     );
     expect(withTick).toContain("$= 0$ ✓");
     expect(withTick).not.toMatch(/18 - 21 \+ 3 = 0/);
+
+    const fracLabel = layoutCheckVerificationLines("- For $x = \\frac{1}{2}$");
+    expect(fracLabel).toContain("$x = \\frac{1}{2}:$");
+    expect(fracLabel).not.toMatch(/\\frac\{1\}\{2\}\$:/);
   });
 
   it("preprocess keeps math adjacent to bold labels", () => {
