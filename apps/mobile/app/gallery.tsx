@@ -12,10 +12,9 @@ import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { GalleryColumnRow } from "@/components/gallery/GalleryColumnRow";
-import { GalleryItemActionsSheet } from "@/components/gallery/GalleryItemActionsSheet";
 import { GalleryLibraryHeader } from "@/components/gallery/GalleryLibraryHeader";
+import { GalleryMediaModals } from "@/components/gallery/GalleryMediaModals";
 import { GalleryThumbnail } from "@/components/GalleryThumbnail";
 import { Icon } from "@/components/Icon";
 import { SkeletonList } from "@/components/SkeletonLoader";
@@ -71,7 +70,7 @@ export default function GalleryScreen() {
           return;
         }
         if (isImage) library.openImage(item);
-        else library.openActions(item);
+        else library.openFile(item);
       };
       if (library.layout === "column") {
         return (
@@ -115,7 +114,7 @@ export default function GalleryScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel={
-            pickMode ? t("gallery.use_in_chat") : t("gallery.file_actions_a11y")
+            pickMode ? t("gallery.use_in_chat") : t("gallery.open_file_a11y")
           }
         >
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
@@ -130,8 +129,6 @@ export default function GalleryScreen() {
     [t, s, C, thumbSize, library, pickMode, removeItem],
   );
 
-  const viewerItem = library.viewerItem;
-
   return (
     <View style={s.root}>
       <GalleryLibraryHeader
@@ -141,6 +138,7 @@ export default function GalleryScreen() {
         onSearchChange={setSearchQuery}
         onFilterChange={(next) => {
           library.setViewerId(null);
+          library.setFileItem(null);
           setFilter(next);
         }}
         onToggleLayout={library.toggleLayout}
@@ -195,45 +193,7 @@ export default function GalleryScreen() {
         />
       )}
 
-      <AttachmentImageViewer
-        visible={viewerItem != null && galleryPressAction(viewerItem.content_type) === "view-image"}
-        onClose={() => library.setViewerId(null)}
-        attachmentId={viewerItem?.id}
-        path={viewerItem?.download_url ?? null}
-        fileName={
-          viewerItem
-            ? galleryFileName(viewerItem.content_type, viewerItem.original_filename)
-            : undefined
-        }
-        onOpenChat={viewerItem?.chat_id ? () => library.openChat(viewerItem) : undefined}
-        onUseInChat={viewerItem ? () => void library.attachToComposer(viewerItem) : undefined}
-        onDelete={viewerItem ? () => library.confirmDelete(viewerItem) : undefined}
-      />
-
-      <GalleryItemActionsSheet
-        visible={!pickMode && library.actionItem != null}
-        canOpenChat={Boolean(library.actionItem?.chat_id)}
-        onClose={() => library.setActionItem(null)}
-        onUseInChat={() => {
-          const item = library.actionItem;
-          if (item) void library.attachToComposer(item);
-        }}
-        onOpenChat={() => {
-          const item = library.actionItem;
-          library.setActionItem(null);
-          if (item) library.openChat(item);
-        }}
-        onShare={() => {
-          const item = library.actionItem;
-          if (!item) return;
-          void library.shareFile(item);
-        }}
-        onDelete={() => {
-          const item = library.actionItem;
-          if (!item) return;
-          library.confirmDelete(item);
-        }}
-      />
+      <GalleryMediaModals items={items} pickMode={pickMode} library={library} />
     </View>
   );
 }

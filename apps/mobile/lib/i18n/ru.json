@@ -330,6 +330,8 @@
   "gallery.delete_confirm_title": "Удалить из библиотеки?",
   "gallery.delete_failed": "Не удалось удалить этот элемент.",
   "gallery.file_actions_a11y": "Действия с файлом",
+  "gallery.file_preview_failed": "Could not open this file.",
+  "gallery.open_file_a11y": "Open file",
   "gallery.layout_column_a11y": "Вид столбцом",
   "gallery.layout_grid_a11y": "Вид сеткой",
   "gallery.open_chat": "Открыть чат",

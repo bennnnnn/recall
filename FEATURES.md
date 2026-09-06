@@ -65,9 +65,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
-  `[Image: …]` marker. Tap an image to view, with **Open chat** when the attachment is
-  still linked and **Use in chat** to attach it to the composer; tap a file
-  to share (no in-library preview). The attach sheet also opens Library. Deleting a chat leaves
+  `[Image: …]` marker. Tap an image for a fullscreen viewer (swipe for the next
+  photo; each photo keeps its own size). Long-press for Use in chat / Open chat /
+  Share / Delete. Tap a file to read it (PDF and text in-app; other types open on
+  the device). The attach sheet also opens Library. Deleting a chat leaves
   its uploads and generated files in Library (Open chat hides when the thread is gone). Lookup
   photos stay on the chat only. Explicit Library
   delete removes the file. A failed thumbnail stays with Retry; the row is dropped

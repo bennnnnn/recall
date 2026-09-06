@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -43,11 +43,11 @@ type Props = {
   /** Already-resolved display URI from the chat thumbnail (instant open). */
   previewUri?: string | null;
   /** Open the originating chat (gallery). */
-  onOpenChat?: () => void;
+  onOpenChat?: (image: AttachmentViewerImage) => void;
   /** Attach this Library item to the composer. */
-  onUseInChat?: () => void;
+  onUseInChat?: (image: AttachmentViewerImage) => void;
   /** Remove this Library item (gallery). */
-  onDelete?: () => void;
+  onDelete?: (image: AttachmentViewerImage) => void;
 };
 
 export function AttachmentImageViewer({
@@ -72,6 +72,7 @@ export function AttachmentImageViewer({
   const { pan, panStyle, translateY } = useSheetPanDismiss(true, reduceMotion, onClose);
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
   const [pageIndex, setPageIndex] = useState(initialIndex);
+  const wasVisibleRef = useRef(false);
 
   const items = useMemo((): AttachmentViewerImage[] => {
     if (images && images.length > 0) return images;
@@ -79,15 +80,22 @@ export function AttachmentImageViewer({
   }, [images, attachmentId, localUri, path, fileName, previewUri]);
 
   const safeIndex = Math.min(Math.max(0, initialIndex), Math.max(0, items.length - 1));
+  const showDots = items.length > 1 && items.length <= 8;
+
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current) {
+      setPageIndex(safeIndex);
+    }
+    wasVisibleRef.current = visible;
+  }, [visible, safeIndex]);
 
   useEffect(() => {
     if (!visible) return;
-    setPageIndex(safeIndex);
     // Reanimated shared values are designed to be mutated from effects —
     // reset so a leftover drag doesn't reopen mid-slide.
     // eslint-disable-next-line react-hooks/immutability
     translateY.value = 0;
-  }, [visible, safeIndex, translateY]);
+  }, [visible, translateY]);
 
   const current = items[Math.min(pageIndex, items.length - 1)] ?? items[0];
   const remoteUri = resolveAttachmentUri({
@@ -170,20 +178,20 @@ export function AttachmentImageViewer({
           </Pressable>
 
           <View style={s.headerActions}>
-            {onUseInChat ? (
+            {onUseInChat && current ? (
               <Pressable
                 style={s.iconBtn}
-                onPress={onUseInChat}
+                onPress={() => onUseInChat(current)}
                 hitSlop={8}
                 accessibilityLabel={t("gallery.use_in_chat")}
               >
                 <Icon name="attach-outline" size={22} color={LIGHTBOX_FG} />
               </Pressable>
             ) : null}
-            {onOpenChat ? (
+            {onOpenChat && current?.chatId ? (
               <Pressable
                 style={s.iconBtn}
-                onPress={onOpenChat}
+                onPress={() => onOpenChat(current)}
                 hitSlop={8}
                 accessibilityLabel={t("gallery.open_chat_a11y")}
               >
@@ -216,10 +224,10 @@ export function AttachmentImageViewer({
                 <Icon name="download-outline" size={22} color={LIGHTBOX_FG} />
               )}
             </Pressable>
-            {onDelete ? (
+            {onDelete && current ? (
               <Pressable
                 style={s.iconBtn}
-                onPress={onDelete}
+                onPress={() => onDelete(current)}
                 hitSlop={8}
                 accessibilityLabel={t("common.delete")}
               >
@@ -260,7 +268,7 @@ export function AttachmentImageViewer({
           <AttachmentImageStage item={items[0] ?? { previewUri }} active={visible} />
         )}
 
-        {items.length > 1 ? (
+        {showDots ? (
           <View style={[s.dots, { paddingBottom: Math.max(insets.bottom, Space.sm) }]}>
             {items.map((item, index) => (
               <View

@@ -11,7 +11,8 @@ import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { removeCachedGalleryItem } from "@/lib/cache/galleryListCache";
 import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { shareChatAttachment } from "@/lib/downloadChatAttachment";
-import { galleryFileName, libraryOpenChatHref } from "@/lib/gallery";
+import { galleryFileName, isReadableTextContentType, libraryOpenChatHref } from "@/lib/gallery";
+import { isPdfContentType } from "@/lib/messageAttachments";
 import {
   getGalleryLayout,
   peekGalleryLayout,
@@ -36,6 +37,7 @@ export function useGalleryLibrary(
   const feedback = useActionFeedbackOptional();
   const [layout, setLayoutState] = useState<GalleryLayout>(peekGalleryLayout);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [fileItem, setFileItem] = useState<AttachmentListItem | null>(null);
   const [actionItem, setActionItem] = useState<AttachmentListItem | null>(null);
   const sharingRef = useRef(false);
   const attachingRef = useRef(false);
@@ -51,6 +53,7 @@ export function useGalleryLibrary(
   useLayoutEffect(() => {
     setActionItem(null);
     setViewerId(null);
+    setFileItem(null);
   }, [session]);
 
   useEffect(() => {
@@ -124,6 +127,7 @@ export function useGalleryLibrary(
         queueComposerAttachment(pending, targetThread);
         setActionItem(null);
         setViewerId(null);
+        setFileItem(null);
         if (router.canGoBack()) router.back();
         else router.replace("/");
       } catch (attachError) {
@@ -152,6 +156,7 @@ export function useGalleryLibrary(
         if (!isCurrent(version)) return;
         removeItem(item.id);
         setViewerId((current) => (current === item.id ? null : current));
+        setFileItem((current) => (current?.id === item.id ? null : current));
         setActionItem((current) => (current?.id === item.id ? null : current));
       } catch (deleteError) {
         if (!isCurrent(version)) return;
@@ -187,14 +192,30 @@ export function useGalleryLibrary(
 
   const openImage = useCallback((item: AttachmentListItem) => {
     tap();
+    setFileItem(null);
     setViewerId(item.id);
   }, []);
+
+  const openFile = useCallback(
+    (item: AttachmentListItem) => {
+      tap();
+      setViewerId(null);
+      if (isPdfContentType(item.content_type) || isReadableTextContentType(item.content_type)) {
+        setFileItem(item);
+        return;
+      }
+      return shareFile(item);
+    },
+    [shareFile],
+  );
 
   return {
     layout,
     toggleLayout,
     viewerItem,
     setViewerId,
+    fileItem,
+    setFileItem,
     actionItem,
     setActionItem,
     shareFile,
@@ -203,5 +224,6 @@ export function useGalleryLibrary(
     confirmDelete,
     openActions,
     openImage,
+    openFile,
   };
 }

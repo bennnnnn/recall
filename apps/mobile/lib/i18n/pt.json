@@ -330,6 +330,8 @@
   "gallery.delete_confirm_title": "Excluir da biblioteca?",
   "gallery.delete_failed": "Não foi possível excluir este item.",
   "gallery.file_actions_a11y": "Ações do arquivo",
+  "gallery.file_preview_failed": "Could not open this file.",
+  "gallery.open_file_a11y": "Open file",
   "gallery.layout_column_a11y": "Visualização em coluna",
   "gallery.layout_grid_a11y": "Visualização em grade",
   "gallery.open_chat": "Abrir chat",

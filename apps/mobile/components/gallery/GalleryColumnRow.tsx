@@ -37,7 +37,7 @@ export function GalleryColumnRow({
       onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={
-        isImage ? t("chat.image_view_a11y") : t("gallery.file_actions_a11y")
+        isImage ? t("chat.image_view_a11y") : t("gallery.open_file_a11y")
       }
       style={({ pressed }) => [s.row, pressed && s.rowPressed]}
     >

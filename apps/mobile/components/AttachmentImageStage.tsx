@@ -10,6 +10,7 @@ import {
 } from "@/lib/downloadChatAttachment";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
 import { getSessionGeneration } from "@/lib/auth";
+import { fitImageToStage } from "@/lib/fitImageToStage";
 
 export type AttachmentViewerImage = {
   attachmentId?: string | null;
@@ -17,6 +18,7 @@ export type AttachmentViewerImage = {
   path?: string | null;
   fileName?: string;
   previewUri?: string | null;
+  chatId?: string | null;
 };
 
 type Props = {
@@ -29,6 +31,8 @@ export function AttachmentImageStage({ item, active }: Props) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [cachedFile, setCachedFile] = useState<{ key: object; uri: string } | null>(null);
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
+  const [stage, setStage] = useState({ width: 0, height: 0 });
 
   const fileName = item.fileName ?? "image.jpg";
   const remoteUri = useMemo(() => {
@@ -49,6 +53,15 @@ export function AttachmentImageStage({ item, active }: Props) {
     item.localUri ||
     item.previewUri ||
     remoteUri;
+
+  const fitted =
+    natural && stage.width > 0 && stage.height > 0
+      ? fitImageToStage(natural.width, natural.height, stage.width, stage.height)
+      : null;
+
+  useEffect(() => {
+    setNatural(null);
+  }, [remoteUri, item.localUri, item.previewUri]);
 
   useEffect(() => {
     if (!active) return;
@@ -75,6 +88,22 @@ export function AttachmentImageStage({ item, active }: Props) {
       cancelled = true;
     };
   }, [active, remoteUri, item.localUri, item.previewUri, token, fileName, attempt, fileKey]);
+
+  useEffect(() => {
+    const uri = cachedUri ?? (item.localUri?.startsWith("file://") ? item.localUri : null);
+    if (!uri) return;
+    let cancelled = false;
+    Image.getSize(
+      uri,
+      (width, height) => {
+        if (!cancelled && width > 0 && height > 0) setNatural({ width, height });
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [cachedUri, item.localUri]);
 
   const source = useMemo(() => {
     if (!displayUri) return null;
@@ -106,12 +135,20 @@ export function AttachmentImageStage({ item, active }: Props) {
   }
 
   return (
-    <View style={s.stage}>
+    <View
+      style={s.stage}
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        setStage((prev) =>
+          prev.width === width && prev.height === height ? prev : { width, height },
+        );
+      }}
+    >
       <Image
         key={`${displayUri}:${attempt}`}
         testID="attachment-viewer-image"
         source={source}
-        style={s.image}
+        style={fitted ?? s.imageFill}
         resizeMode="contain"
         onError={() => setFailed(true)}
       />
@@ -126,7 +163,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  image: {
+  imageFill: {
     width: "100%",
     height: "100%",
   },
