@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
-  Pressable,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -17,19 +15,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageStage, type AttachmentViewerImage } from "@/components/AttachmentImageStage";
-import { Icon } from "@/components/Icon";
+import { AttachmentLightboxChrome } from "@/components/AttachmentLightboxChrome";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
 import { saveChatAttachmentToLibrary, shareChatAttachment } from "@/lib/downloadChatAttachment";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
-import { Radius } from "@/lib/radius";
 import { useReduceMotion } from "@/lib/reduceMotion";
-import { Space } from "@/lib/space";
 
 const LIGHTBOX_BG = "#000000";
-const LIGHTBOX_FG = "#FFFFFF";
-/** Circular chip behind each header icon so they read on the photo. */
-const ICON_CHIP_BG = "rgba(255, 255, 255, 0.18)";
 
 type Props = {
   visible: boolean;
@@ -72,6 +65,8 @@ export function AttachmentImageViewer({
   const { pan, panStyle, translateY } = useSheetPanDismiss(true, reduceMotion, onClose);
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
   const [pageIndex, setPageIndex] = useState(initialIndex);
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const wasVisibleRef = useRef(false);
 
   const items = useMemo((): AttachmentViewerImage[] => {
@@ -85,6 +80,8 @@ export function AttachmentImageViewer({
   useEffect(() => {
     if (visible && !wasVisibleRef.current) {
       setPageIndex(safeIndex);
+      setChromeVisible(true);
+      setOverflowOpen(false);
     }
     wasVisibleRef.current = visible;
   }, [visible, safeIndex]);
@@ -104,6 +101,10 @@ export function AttachmentImageViewer({
     path: current?.path,
   });
   const currentName = current?.fileName ?? fileName;
+  const showUseInChat = Boolean(onUseInChat && current);
+  const showOpenChat = Boolean(onOpenChat && current?.chatId);
+  const showDelete = Boolean(onDelete && current);
+  const showOverflow = showUseInChat || showOpenChat || showDelete;
 
   const handleDownload = async () => {
     if (!remoteUri || busy) return;
@@ -151,6 +152,18 @@ export function AttachmentImageViewer({
     if (next >= 0 && next < items.length) setPageIndex(next);
   };
 
+  const onImagePress = () => {
+    if (overflowOpen) {
+      setOverflowOpen(false);
+      return;
+    }
+    setChromeVisible((open) => !open);
+  };
+
+  const stage = (item: AttachmentViewerImage, active: boolean) => (
+    <AttachmentImageStage item={item} active={active} onPress={onImagePress} />
+  );
+
   return (
     <Modal
       visible={visible}
@@ -167,119 +180,71 @@ export function AttachmentImageViewer({
             collapsable={false}
             style={[s.root, panStyle]}
           >
-        <View style={[s.header, { paddingTop: Math.max(insets.top, Space.xs) }]}>
-          <Pressable
-            style={s.iconBtn}
-            onPress={onClose}
-            hitSlop={8}
-            accessibilityLabel={t("preview.close")}
-          >
-            <Icon name="close" size={22} color={LIGHTBOX_FG} />
-          </Pressable>
-
-          <View style={s.headerActions}>
-            {onUseInChat && current ? (
-              <Pressable
-                style={s.iconBtn}
-                onPress={() => onUseInChat(current)}
-                hitSlop={8}
-                accessibilityLabel={t("gallery.use_in_chat")}
-              >
-                <Icon name="attach-outline" size={22} color={LIGHTBOX_FG} />
-              </Pressable>
-            ) : null}
-            {onOpenChat && current?.chatId ? (
-              <Pressable
-                style={s.iconBtn}
-                onPress={() => onOpenChat(current)}
-                hitSlop={8}
-                accessibilityLabel={t("gallery.open_chat_a11y")}
-              >
-                <Icon name="chatbubble-outline" size={22} color={LIGHTBOX_FG} />
-              </Pressable>
-            ) : null}
-            <Pressable
-              style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
-              onPress={() => void handleShare()}
-              disabled={!remoteUri || busy != null}
-              hitSlop={8}
-              accessibilityLabel={t("preview.share")}
-            >
-              {busy === "share" ? (
-                <ActivityIndicator color={LIGHTBOX_FG} size="small" />
-              ) : (
-                <Icon name="share-outline" size={22} color={LIGHTBOX_FG} />
-              )}
-            </Pressable>
-            <Pressable
-              style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
-              onPress={() => void handleDownload()}
-              disabled={!remoteUri || busy != null}
-              hitSlop={8}
-              accessibilityLabel={t("common.download")}
-            >
-              {busy === "download" ? (
-                <ActivityIndicator color={LIGHTBOX_FG} size="small" />
-              ) : (
-                <Icon name="download-outline" size={22} color={LIGHTBOX_FG} />
-              )}
-            </Pressable>
-            {onDelete && current ? (
-              <Pressable
-                style={s.iconBtn}
-                onPress={() => onDelete(current)}
-                hitSlop={8}
-                accessibilityLabel={t("common.delete")}
-              >
-                <Icon name="trash-outline" size={22} danger />
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-
-        {items.length > 1 ? (
-          <FlatList
-            testID="attachment-viewer-pager"
-            style={s.pager}
-            data={items}
-            key={visible ? `open-${safeIndex}` : "closed"}
-            horizontal
-            pagingEnabled
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item, index) =>
-              `${item.attachmentId ?? item.path ?? item.localUri ?? "img"}-${index}`
-            }
-            getItemLayout={(_, index) => ({
-              length: screenWidth,
-              offset: screenWidth * index,
-              index,
-            })}
-            initialScrollIndex={safeIndex}
-            onScrollToIndexFailed={() => undefined}
-            onMomentumScrollEnd={onPageScrollEnd}
-            renderItem={({ item, index }) => (
-              <View style={{ width: screenWidth, height: "100%" }}>
-                <AttachmentImageStage item={item} active={visible && Math.abs(index - pageIndex) <= 1} />
-              </View>
-            )}
-          />
-        ) : (
-          <AttachmentImageStage item={items[0] ?? { previewUri }} active={visible} />
-        )}
-
-        {showDots ? (
-          <View style={[s.dots, { paddingBottom: Math.max(insets.bottom, Space.sm) }]}>
-            {items.map((item, index) => (
-              <View
-                key={`${item.attachmentId ?? item.path ?? index}-dot`}
-                style={[s.dot, index === pageIndex && s.dotActive]}
+            {items.length > 1 ? (
+              <FlatList
+                testID="attachment-viewer-pager"
+                style={s.pager}
+                data={items}
+                key={visible ? `open-${safeIndex}` : "closed"}
+                horizontal
+                pagingEnabled
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item, index) =>
+                  `${item.attachmentId ?? item.path ?? item.localUri ?? "img"}-${index}`
+                }
+                getItemLayout={(_, index) => ({
+                  length: screenWidth,
+                  offset: screenWidth * index,
+                  index,
+                })}
+                initialScrollIndex={safeIndex}
+                onScrollToIndexFailed={() => undefined}
+                onMomentumScrollEnd={onPageScrollEnd}
+                renderItem={({ item, index }) => (
+                  <View style={{ width: screenWidth, height: "100%" }}>
+                    {stage(item, visible && Math.abs(index - pageIndex) <= 1)}
+                  </View>
+                )}
               />
-            ))}
-          </View>
-        ) : (
-          <View style={{ height: Math.max(insets.bottom, Space.sm) }} />
-        )}
+            ) : (
+              stage(items[0] ?? { previewUri }, visible)
+            )}
+
+            <AttachmentLightboxChrome
+              visible={chromeVisible}
+              overflowOpen={overflowOpen}
+              insets={insets}
+              busy={busy}
+              canShare={Boolean(remoteUri)}
+              showOverflow={showOverflow}
+              showUseInChat={showUseInChat}
+              showOpenChat={showOpenChat}
+              showDelete={showDelete}
+              showDots={showDots}
+              pageIndex={pageIndex}
+              pageCount={items.length}
+              onClose={onClose}
+              onShare={() => void handleShare()}
+              onDownload={() => void handleDownload()}
+              onToggleOverflow={() => setOverflowOpen((open) => !open)}
+              onCloseOverflow={() => setOverflowOpen(false)}
+              onUseInChat={() => {
+                if (!current || !onUseInChat) return;
+                setOverflowOpen(false);
+                onUseInChat(current);
+              }}
+              onOpenChat={() => {
+                if (!current || !onOpenChat) return;
+                setOverflowOpen(false);
+                onOpenChat(current);
+              }}
+              onDelete={() => {
+                if (!current || !onDelete) return;
+                setOverflowOpen(false);
+                onDelete(current);
+              }}
+            />
           </Animated.View>
         </GestureDetector>
       </GestureHandlerRootView>
@@ -297,44 +262,5 @@ const s = StyleSheet.create({
   },
   pager: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Space.sm,
-    paddingBottom: Space.xs,
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Space.xs,
-  },
-  iconBtn: {
-    width: Space.minTouch,
-    height: Space.minTouch,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radius.full,
-    backgroundColor: ICON_CHIP_BG,
-  },
-  iconBtnDisabled: {
-    opacity: 0.45,
-  },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 6,
-    paddingTop: Space.xs,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.35)",
-  },
-  dotActive: {
-    backgroundColor: LIGHTBOX_FG,
   },
 });

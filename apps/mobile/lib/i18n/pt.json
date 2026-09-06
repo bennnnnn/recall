@@ -425,6 +425,7 @@
   "preview.expo_go_banner": "Esta página usa JavaScript — mude para Executar com um build de desenvolvimento para a prévia ao vivo, ou Compartilhe para abrir no Safari.",
   "preview.load_error": "Não foi possível carregar esta página. Tente Compartilhar para abrir no Safari.",
   "preview.loading": "Loading preview…",
+  "preview.more_a11y": "More",
   "preview.open_in_browser": "Abrir no navegador",
   "preview.preview_html": "Pré-visualizar HTML",
   "preview.preview_html_bundled": "Pré-visualizar HTML com CSS/JS desta resposta",

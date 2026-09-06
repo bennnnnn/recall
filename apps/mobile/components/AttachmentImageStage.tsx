@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, View } from "react-native";
 
 import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
@@ -24,9 +24,10 @@ export type AttachmentViewerImage = {
 type Props = {
   item: AttachmentViewerImage;
   active: boolean;
+  onPress?: () => void;
 };
 
-export function AttachmentImageStage({ item, active }: Props) {
+export function AttachmentImageStage({ item, active, onPress }: Props) {
   const token = useAuthToken();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -135,8 +136,11 @@ export function AttachmentImageStage({ item, active }: Props) {
   }
 
   return (
-    <View
+    <Pressable
       style={s.stage}
+      onPress={onPress}
+      disabled={!onPress}
+      testID="attachment-viewer-tap"
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
         setStage((prev) =>
@@ -152,7 +156,7 @@ export function AttachmentImageStage({ item, active }: Props) {
         resizeMode="contain"
         onError={() => setFailed(true)}
       />
-    </View>
+    </Pressable>
   );
 }
 

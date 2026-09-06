@@ -100,27 +100,63 @@ describe("AttachmentImageViewer", () => {
   });
 
   it("hides Open chat when the visible photo is not linked to a chat", async () => {
-    const { queryByLabelText } = await render(
+    const { getByLabelText, queryByLabelText } = await render(
       <AttachmentImageViewer
         visible
         images={[{ attachmentId: "a" }]}
         onOpenChat={jest.fn()}
+        onDelete={jest.fn()}
       />,
     );
+    await fireEvent.press(getByLabelText("preview.more_a11y"));
     expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+    expect(getByLabelText("common.delete")).toBeTruthy();
   });
 
-  it("opens chat for the visible Library photo", async () => {
+  it("opens chat for the visible Library photo from the more menu", async () => {
     const onOpenChat = jest.fn();
-    const { getByLabelText } = await render(
+    const { getByLabelText, queryByLabelText } = await render(
       <AttachmentImageViewer
         visible
         images={[{ attachmentId: "a", chatId: "c1" }]}
         onOpenChat={onOpenChat}
       />,
     );
+    expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+    await fireEvent.press(getByLabelText("preview.more_a11y"));
     await fireEvent.press(getByLabelText("gallery.open_chat_a11y"));
     expect(onOpenChat).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: "a", chatId: "c1" }));
+  });
+
+  it("keeps only share, download, and more in the header", async () => {
+    const { getByLabelText, queryByLabelText } = await render(
+      <AttachmentImageViewer
+        visible
+        images={[{ attachmentId: "a", chatId: "c1" }]}
+        onOpenChat={jest.fn()}
+        onUseInChat={jest.fn()}
+        onDelete={jest.fn()}
+      />,
+    );
+    expect(getByLabelText("preview.close")).toBeTruthy();
+    expect(getByLabelText("preview.share")).toBeTruthy();
+    expect(getByLabelText("common.download")).toBeTruthy();
+    expect(getByLabelText("preview.more_a11y")).toBeTruthy();
+    expect(queryByLabelText("gallery.use_in_chat")).toBeNull();
+    expect(queryByLabelText("common.delete")).toBeNull();
+  });
+
+  it("hides chrome on a tap and brings it back on the next tap", async () => {
+    const { getByTestId, getByLabelText, queryByLabelText } = await render(
+      <AttachmentImageViewer visible attachmentId="a" />,
+    );
+    expect(getByLabelText("preview.close")).toBeTruthy();
+    await fireEvent.press(getByTestId("attachment-viewer-tap"));
+    expect(queryByLabelText("preview.close")).toBeNull();
+    expect(queryByLabelText("preview.share")).toBeNull();
+    await fireEvent.press(getByTestId("attachment-viewer-tap"));
+    expect(getByLabelText("preview.close")).toBeTruthy();
+    expect(getByLabelText("preview.share")).toBeTruthy();
   });
 
   it("puts each header icon on its own circular chip", async () => {

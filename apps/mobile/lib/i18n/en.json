@@ -425,6 +425,7 @@
   "preview.expo_go_banner": "This page uses JavaScript — switch to Run with a dev build for live preview, or Share to open in Safari.",
   "preview.load_error": "This page couldn't be loaded. Try Share to open it in Safari instead.",
   "preview.loading": "Loading preview…",
+  "preview.more_a11y": "More",
   "preview.open_in_browser": "Open in browser",
   "preview.preview_html": "Preview HTML",
   "preview.preview_html_bundled": "Preview HTML with CSS/JS from this reply",
