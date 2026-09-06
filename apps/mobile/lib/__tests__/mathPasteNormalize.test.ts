@@ -11,6 +11,9 @@ describe("normalizePastedMath", () => {
     expect(normalizePastedMath("x² + y² = 1")).toBe("$x^2 + y^2 = 1$");
     expect(normalizePastedMath("½")).toBe("$\\frac{1}{2}$");
     expect(normalizePastedMath("√(x)")).toBe("$\\sqrt{x}$");
+    expect(normalizePastedMath("√9")).toBe("$\\sqrt{9}$");
+    expect(normalizePastedMath("√x")).toBe("$\\sqrt{x}$");
+    expect(normalizePastedMath("√{9}")).toBe("$\\sqrt{9}$");
     expect(normalizePastedMath("a ≤ b ≠ c")).toBe("$a \\leq b \\neq c$");
     expect(normalizePastedMath("2 × π")).toBe("$2 \\times \\pi$");
   });
