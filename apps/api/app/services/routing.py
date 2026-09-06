@@ -165,9 +165,13 @@ _LONG_MESSAGE_CHARS = 800
 # can't consume `\n`, so each line's whitespace run is only ever scanned
 # once — linear in input length regardless of how many blank lines it has.
 _CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
-# Bare "3+0" / "2 * 2" — no variable, not a word problem.
+# Bare "3+0" / "2 * 2" — no variable, not a word problem. Whole message only.
 _BARE_ARITH = re.compile(
     r"^\s*-?\d+(?:\.\d+)?\s*[-+*/\u00d7\u00f7^]\s*-?\d+(?:\.\d+)?\s*[.?!]?\s*$"
+)
+_WHAT_IS_ARITH = re.compile(
+    r"^\s*what\s+is\s+-?\d+(?:\.\d+)?\s*[-+*/\u00d7\u00f7^]\s*-?\d+(?:\.\d+)?\s*[.?!]?\s*$",
+    re.IGNORECASE,
 )
 
 
@@ -350,7 +354,7 @@ def _verified_math_stays_fast(content: str) -> bool:
     "what is 1+1" style arithmetic stay on the fast model.
     """
     from app.services.math_text_match.discrete import combinatorics_signal
-    from app.services.math_text_match.scan import has_algebraic_equation, prepare
+    from app.services.math_text_match.scan import prepare
 
     cleaned = prepare(content)
     if not cleaned:
@@ -360,12 +364,8 @@ def _verified_math_stays_fast(content: str) -> bool:
         return True
     if _BARE_ARITH.fullmatch(cleaned):
         return True
-    lower = cleaned.lower()
-    if "what is" not in lower or not any(ch.isdigit() for ch in cleaned):
-        return False
-    if not any(op in cleaned for op in ("+", "-", "*", "/", "\u00d7", "\u00f7", "^")):
-        return False
-    return not has_algebraic_equation(cleaned)
+    # "what is 1+1" stays fast only when that is the whole message.
+    return _WHAT_IS_ARITH.fullmatch(cleaned) is not None
 
 
 def resolve_alias(
