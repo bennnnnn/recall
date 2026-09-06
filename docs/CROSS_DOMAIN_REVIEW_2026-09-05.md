@@ -1,8 +1,8 @@
-# Recall — Cross-Domain Review: STT/Live Talk, Schedule, Push, Memory, Output Format, Billing, Image Gen, Tool Loop, Cancellation Safety, Background Jobs, Model Routing/Quota (Sep 2026)
+# Recall — Cross-Domain Review: STT/Live Talk, Schedule, Push, Memory, Output Format, Billing, Image Gen, Tool Loop, Cancellation Safety, Background Jobs, Model Routing/Quota, Mobile Offline Resilience, Account Lifecycle/Email (Sep 2026)
 
-Staff-level review across eleven product-critical subsystems, run as eleven independent, read-only
-deep-dives (one subagent per domain, across three rounds) and consolidated here. Each domain has its
-own full report with file:line evidence:
+Staff-level review across thirteen product-critical subsystems, run as thirteen independent,
+read-only deep-dives (one subagent per domain, across four rounds) and consolidated here. Each
+domain has its own full report with file:line evidence:
 
 **Round 1 (2026-09-05):**
 
@@ -35,11 +35,21 @@ quota) that every other domain sits on top of:
 | Background jobs / worker infra | [`BACKGROUND_JOBS_INFRA_REVIEW_2026-09-06.md`](./BACKGROUND_JOBS_INFRA_REVIEW_2026-09-06.md) | P0 ×1 |
 | Model routing + core quota | [`MODEL_ROUTING_QUOTA_REVIEW_2026-09-06.md`](./MODEL_ROUTING_QUOTA_REVIEW_2026-09-06.md) | P1 ×2 |
 
+**Round 4 (2026-09-06)** — mobile-only (no web client exists yet, per explicit product scoping);
+targeted the two largest remaining unreviewed surfaces: client-side network/state resilience, and
+the account-deletion/GDPR/email lifecycle that sits underneath every other feature:
+
+| Domain | Full report | Top severity found |
+|---|---|---|
+| Mobile network/offline resilience + drafts | [`MOBILE_OFFLINE_RESILIENCE_REVIEW_2026-09-06.md`](./MOBILE_OFFLINE_RESILIENCE_REVIEW_2026-09-06.md) | P0 ×1 |
+| Account lifecycle + transactional email | [`ACCOUNT_LIFECYCLE_EMAIL_REVIEW_2026-09-06.md`](./ACCOUNT_LIFECYCLE_EMAIL_REVIEW_2026-09-06.md) | P1 ×3 |
+
 Each report also independently re-verified prior review docs (`docs/CODEBASE_REVIEW_2026-08.md`,
 `docs/*_RELIABILITY_REVIEW_2026-09-04.md`, and each other's companion reports) against current
 code rather than assuming they still hold — all their headline fixes (C3/C4 memory split, C5/C7
 fence registry, Schedule pagination and conditional writes, C1 turn-quota lifecycle, C2 inverted
-`core/jobs.py` imports) were confirmed genuinely landed and correct. Findings below are net-new.
+`core/jobs.py` imports, the server-side hard-disconnect finalize path) were confirmed genuinely
+landed and correct. Findings below are net-new.
 
 ## Overall verdict
 
@@ -229,6 +239,57 @@ issue; and the Aug 2026 review's **C1** (turn quota/lock lifecycle) is genuinely
 the removal of the third entry point (`stream_edit_response`) that C1 originally flagged, which no
 longer exists because message-edit was independently banned as a UX pattern.
 
+## Top findings, round 4 (Mobile Offline Resilience, Account Lifecycle/Email)
+
+1. **[Mobile offline] F1 (P0, privacy)** — Composer draft text is never cleared on sign-out:
+   `ComposerDraftProvider` sits above the auth redirect in the component tree, so it's never
+   unmounted across a sign-out → sign-in cycle, and the eleven-cache `clearSignedOutAccount` sweep
+   never touches it. Because every sign-in lands on the shared "New Chat" draft slot, the next
+   account to sign in on the same device inherits whatever unsent text the previous account left
+   in the box — **reproduced with a standalone script showing Account B's composer displaying
+   Account A's un-sent draft verbatim.** A straightforward, always-reproducible, high-confidence
+   privacy bug on the default post-login path, not an edge case.
+2. **[Account lifecycle] E3 (P1, billing/product)** — Account deletion never touches the
+   RevenueCat subscription: a deleted Pro user's App/Play Store subscription keeps auto-renewing
+   and billing them indefinitely, with zero in-app disclosure that "delete account" does not mean
+   "stop being charged." Not purely fixable server-side (no third-party backend can cancel an
+   active Apple auto-renewable subscription), but the missing disclosure is a same-day copy fix.
+3. **[Account lifecycle] E2 (P1, compliance)** — The GDPR data-export feature silently omits five
+   user-owned tables, most importantly `suggested_reminders`, which stores **verbatim excerpts of
+   the user's own Gmail content** extracted server-side. A user who exports their data after
+   connecting Gmail does not receive the Gmail-derived personal data the backend demonstrably
+   holds about them.
+4. **[Account lifecycle] E1 (P1, jobs/email)** — The job-queue transactional-email handler
+   discards the email gateway's success/failure return value entirely, so **any** definite send
+   failure (provider outage, bad API key, rate limit) — not just round 3's narrow J4
+   ambiguous-timeout double-send case — is recorded as a successful job with zero retry and zero
+   DLQ entry. A user who signs up during a provider outage silently never gets a welcome email,
+   with no way to detect or recover it after the fact; the codebase already has the correct
+   pattern next door (the two periodic-scheduler email types check their send result correctly)
+   but it wasn't applied to the job-queue path.
+5. **[Mobile offline] F2/F3 (P1)** — Two related mobile-chat-resilience gaps: a message that fails
+   to send due to a genuine client-side network failure (not a server rejection) settles into a
+   permanent, unmarked, unretryable "sent" bubble with the composer text already gone (F2); and a
+   network drop mid-stream while the app stays foregrounded has no automatic recovery, leaving
+   Regenerate as the only visible action — which discards a correct, already-persisted answer
+   (per round 3's confirmed server-side hard-disconnect finalize fix) and burns a redundant LLM
+   call (F3).
+6. **[Account lifecycle] E4/E5/E6 (P2/P3)** — No bounce/complaint webhook exists for the email
+   provider at all (invisible deliverability risk as volume grows); `delete_account`'s steps
+   commit independently rather than atomically (narrow, self-healing crash window); no
+   `List-Unsubscribe` header on the two opt-in bulk email types (forward-looking best-practice
+   gap, not a current compliance blocker).
+
+**Confirmed fixed / confirmed not-a-finding in round 4** (recorded because each looked like a
+plausible new finding before tracing fully): account deletion's Postgres-level cascade coverage
+was independently re-verified against actual migration DDL (not just ORM annotations) and is
+**complete** — every user-content table is covered; session revocation is real and immediate,
+explicitly re-verified on every chargeable WebSocket frame specifically to cut off live sessions
+on deletion; re-signup with the same Google/Apple identity or email after deletion is clean
+end-to-end with no stale-row collision; no parameter-tampering path exists for delete or export;
+and the round-1 Live-Talk-style chat-switch state leak (C2) does **not** recur for same-account
+chat-to-chat draft switching — only the cross-*account* case (F1 above) is broken.
+
 ### Cross-cutting pattern worth calling out explicitly
 
 **The `except Exception` (not `BaseException`) cancellation-safety gap has now been found in
@@ -247,6 +308,34 @@ cleanup logic — that a shared `@refund_on_cancel` abstraction would be prematu
 should now be treated as closed as a class**, with the understanding that any *future* reservation
 site should default to `except BaseException` from the start rather than needing its own
 dedicated review to catch the same mistake a fifth time.
+
+**Two more patterns crossed the round-3/round-4 boundary and are now confirmed 3-for-3 across
+independent domains, on top of the cancellation-safety pattern above:**
+
+- **"A fix or helper for exactly this problem already exists elsewhere in this file/codebase but
+  was never wired in."** Round 3's Q2 (`heal_usage_drift`, fully implemented, zero call sites) now
+  has a direct sibling in round 4: `findLastLocalUserMessageId` (mobile offline F2) is a tested
+  helper — the exact lookup a send-failure recovery path needs — with zero call sites in
+  production code. Both are the same shape: the engineer who'd need to write this code already
+  wrote it, scoped correctly, and then the wiring-in step didn't happen. Worth a lightweight
+  "grep for unused-but-tested exports" pass as a cheap way to find more of these before they're
+  independently rediscovered a third time.
+- **"The handler/caller silently treats a definite failure as success because the callee's
+  contract is 'never raise.'"** This is the shared root cause of round 4's E1 (transactional email:
+  the gateway's correct, intentional "never raise" contract for its *synchronous* caller is reused
+  unchanged as a job-queue return value the handler never checks) and is structurally the same
+  mistake as the fallback-retry accounting bug in round 3 (Q1: a retry mechanism built for one
+  failure mode silently mis-accounts a different one it wasn't checked against). Both are now
+  fixed with the same shape of change: make the *caller* that has retry/accounting responsibility
+  actually inspect what it's calling, rather than trusting a shared, differently-scoped contract.
+- **"Tests exercise a call shape production never uses"** (PN1, background-jobs J6) recurred a
+  third time in round 4: 24 of ~26 `sendMessage` calls in `useChat.test.tsx` use an options shape
+  production never sends (`skipUserBubble` omitted), so the disconnect/error tests that look like
+  they cover "what happens to the user's message on failure" actually exercise a dead branch. This
+  review series has now found this exact bug class in four independent subsystems (push, jobs,
+  and twice more here) — it may be worth a dedicated, cheap sweep (grep every test file for the
+  production call's actual option shape vs. what the test passes) rather than continuing to find
+  one instance per domain review.
 
 ## Second-tier findings worth scheduling soon (P2, selected)
 
@@ -309,6 +398,20 @@ dedicated review to catch the same mistake a fifth time.
   turn's real usage can't corrupt the next turn's remaining-quota check; the model catalog is
   current against live OpenRouter listings; per-message model overrides are correctly plan-gated
   end-to-end, and no provider API key or raw provider error ever reaches the client.
+- Mobile offline resilience: pre-send offline detection has a correct, non-blocking UI (banner +
+  toast + preserved draft); the three-state connectivity probe correctly distinguishes API-down
+  from no-internet and has no Neon-cold-start false positive (the API never scales to zero); the
+  app-backgrounded-mid-stream recovery mechanism and the explicit server-rejection retry queue are
+  both real and tested; same-account chat-switch draft isolation is correct — only the
+  cross-*account* case (F1) leaks.
+- Account lifecycle: Postgres-level deletion cascade coverage is complete, independently
+  re-verified against real migration DDL rather than trusted from ORM annotations; session
+  revocation is immediate and explicitly reaches live WebSocket connections, not just new
+  requests; Google/Gmail/Calendar OAuth tokens are genuinely revoked at Google on deletion, not
+  just deleted locally; object storage has two independent, non-redundant cleanup backstops;
+  re-signup after deletion with the same identity is clean end-to-end; HTML-escaping and
+  header-injection hardening in email templates is real and tested; no parameter-tampering path
+  exists for delete or export.
 
 ## Suggested sequencing (cross-domain, highest leverage first)
 
@@ -346,37 +449,53 @@ dedicated review to catch the same mistake a fifth time.
     call sites (STT/Live Talk C3, Image Gen F2, Tool Loop F4's classifier call, plus a grep for
     any others) rather than fixing them one review at a time.
 11. Add a RevenueCat reconciliation/polling backstop (Billing F3), move calendar/learning push
-    dedupe claims to post-send (Push PN3), and pick up the smaller round-3 items (Background Jobs
-    J4/J5 transactional-email idempotency and spend-cap-vs-dedupe interaction; Model Routing Q3
-    fallback-failure attribution).
-12. Everything else in the eleven reports' own "P2/P3/Medium/Low" sections and sequencing notes.
+    dedupe claims to post-send (Push PN3), and pick up the smaller round-3/round-4 items
+    (Background Jobs J4/J5 transactional-email idempotency and spend-cap-vs-dedupe interaction;
+    Model Routing Q3 fallback-failure attribution; Account Lifecycle E4/E5/E6).
+12. Fix the two mobile send-failure/mid-stream recovery gaps (Mobile Offline F2, F3) together —
+    same architectural seam (`useChat`'s failure-path ownership of the optimistic user bubble),
+    same PR review pass, and F3's fix reuses the exact forced-refetch mechanism the
+    already-working backgrounding path (F3's "what's working" citation) provides for free.
+13. Fix the GDPR export completeness gap (Account Lifecycle E2) and add the Pro-subscription
+    deletion disclosure copy (E3) — both are compliance/trust-facing, both are small, targeted
+    changes with no architecture risk.
+14. Everything else in the thirteen reports' own "P2/P3/Medium/Low" sections and sequencing notes.
 
 ## What to review next (candidates, not yet covered)
 
-All three previously-listed highest-value candidates — the cancellation-safety sweep, background
-jobs/worker infra, and model routing/core quota — were completed in round 3 and are folded into
-the findings above. Remaining candidates, roughly in descending expected value:
+All five previously-listed highest-value candidates from round 3 — the cancellation-safety sweep,
+background jobs/worker infra, model routing/core quota, mobile offline resilience, and account
+lifecycle/email — are now complete and folded into the findings above. Given the product
+explicitly has no web client to review right now, remaining candidates are narrower:
 
-- **Transactional email** (`transactional_email.py`) — partially touched by round 3's J4
-  (idempotency gap), but not reviewed end-to-end for template correctness, deliverability, or
-  provider-webhook handling (bounces/complaints). Lower stakes than push, likely quick.
-- **Auth/session refresh** — not yet covered by this series; a Sep 4 auth session review exists
-  but predates this series, so a fresh pass would need to check it's still current rather than
-  starting from scratch.
-- **Mobile app state management / offline behavior** (chat draft persistence, optimistic UI
-  rollback on send failure, offline queue) — not yet reviewed at all in this series; likely to
-  surface UX-correctness bugs distinct from the backend-heavy findings so far.
+- **Auth/session refresh (mobile Bearer-token flows)** — the Sep 4 `AUTH_SESSION_REVIEW` describes
+  a large, thorough rewrite (atomic credential storage, session-generation guards, revocation
+  precision) that predates this series; round 4 leaned on and re-verified pieces of it (session
+  revocation on deletion) but a fresh, dedicated pass has not been done. Likely lower marginal
+  value than it would have been before round 4, given how much of it round 4 already exercised.
 - **i18n / localization correctness** — explicitly out of scope for every round so far; only
-  covered historically by `docs/CODEBASE_REVIEW_2026-08.md`.
-- **Admin router surface** (`routers/admin.py`) beyond the DLQ replay endpoint touched in passing
-  by round 3 — auth gating, audit logging, and blast radius of each admin action.
+  covered historically by `docs/CODEBASE_REVIEW_2026-08.md`. Round 4 noted the locale-fallback
+  behavior for transactional email is deliberate and tested, but did not review UI-string
+  localization broadly.
+- **Onboarding flow correctness** (`apps/mobile/app/onboarding.tsx`) beyond the auth/session and
+  account-lifecycle pieces already covered — first-run UX, permission-request sequencing, and
+  whether onboarding state itself has the same kind of session-scoping gap round 4 found in
+  composer drafts.
+- **The "tests exercise the wrong code path" and "helper/fix exists but never wired in" sweeps**
+  called out above as now-confirmed 3-for-3 and 2-for-2 patterns respectively — not new domains,
+  but per the cancellation-safety sweep's precedent, a dedicated cheap grep-based pass for either
+  pattern could plausibly find more instances at lower cost than another full-domain review.
 
 ## Explicit non-goals of this cross-domain pass
 
-- No code was changed by any of the eleven reviews; this is a pure audit.
-- Did not re-review the chat loop's core LLM streaming logic, i18n, or admin surfaces — the first
-  is covered by `docs/CODEBASE_REVIEW_2026-08.md` and the turn-quota lifecycle sub-piece was
-  re-verified in round 3 (Model Routing Q-series); the latter two remain open candidates above.
+- No code was changed by any of the thirteen reviews; this is a pure audit. Round 4's mobile
+  offline review used a standalone reproduction script (outside the repo) to verify F1; nothing in
+  the repository itself was modified.
+- Did not re-review the chat loop's core LLM streaming logic, i18n, admin surfaces, or a web
+  client — the first is covered by `docs/CODEBASE_REVIEW_2026-08.md` and the turn-quota lifecycle
+  sub-piece was re-verified in round 3 (Model Routing Q-series); i18n and admin surfaces remain
+  open candidates above; **no web client exists for this product today**, so it is explicitly
+  excluded rather than deferred.
 - Did not attempt on-device validation of Live Talk barge-in/echo/interruption timing, nor of the
   job-queue/worker-shutdown reproductions — round 3's crash-safety and `SIGTERM`-handling findings
   were reproduced with standalone scripts modeling the real code's shape and reading the installed
@@ -389,3 +508,11 @@ the findings above. Remaining candidates, roughly in descending expected value:
 - Did not build a shared cancellation-safety abstraction (e.g. a `@refund_on_cancel` decorator) —
   round 3's sweep explicitly recommends against this with only four data points in hand; revisit
   if a fifth instance of the same call-site shape turns up.
+- Did not propose an offline send queue or a WebSocket/SSE heartbeat protocol for mobile (round
+  4's F2/F3 fixes are about correctly surfacing/recovering from an already-failed or
+  already-finished turn, not about preventing disconnects or adding a durable outbox) — both are
+  larger product/protocol decisions explicitly out of scope for a code-correctness review.
+- Did not determine whether RevenueCat's API can programmatically cancel an Apple/Google store
+  subscription on account deletion (Account Lifecycle E3) — Apple is known not to support this via
+  any third-party backend; Play Store specifics were not verified against current docs, and the
+  recommended fix is disclosure-first, not an assumed programmatic cancel.
