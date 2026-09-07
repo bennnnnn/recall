@@ -65,6 +65,8 @@ _SUPPORTED_PHYSICS_CUES = (
     "newtons second law",
     "force of",
     "force required",
+    "what is the force",
+    "what's the force",
     "acceleration given",
     "given force",
     # Scalar energy/work/power formulas.

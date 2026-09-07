@@ -791,6 +791,29 @@ def test_verified_block_force_accelerated_phrasing() -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "A 5 kg mass is accelerated at 2 m/s². What is the force.",
+        r"A 5 kg mass is accelerated at 2 m/s^{2}. What is the force.",
+        r"A 5 kg mass is accelerated at $2$ m/s^{2}. What is the force.",
+    ],
+)
+def test_verified_block_force_math_keyboard_units(text: str) -> None:
+    """Unicode / LaTeX s² from the math keyboard used to miss extract, then
+    the bubble still said Couldn't verify this with SymPy."""
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "force"
+    assert intent.physics_params is not None
+    assert intent.physics_params["a"] == 2.0
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "10" in block.canonical_answer
+
+
+@pytest.mark.parametrize(
     "text, kind",
     [
         ("what is 7*8", "arithmetic"),
