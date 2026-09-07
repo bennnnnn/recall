@@ -1,18 +1,19 @@
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, G, Polyline } from "react-native-svg";
 
+import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import {
   expandBoundsForAxes,
-  formatAxisNumber,
   formatGraphExpr,
   formatInequalityExpr,
   graphBounds,
   graphPolylinePoints,
   mapGraphPoint,
   parseGraphSpec,
+  schoolViewBounds,
   type GraphSpec,
 } from "@/lib/graphBlock";
 import { CODE_FONT } from "@/lib/fonts";
@@ -35,6 +36,7 @@ export function FunctionGraphBlock({ content }: Props) {
   const spec = useMemo(() => parseGraphSpec(content), [content]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const chartWidth = Math.min(screenWidth - 48, 360);
+  const clipId = useId().replace(/:/g, "");
 
   if (!spec) {
     return (
@@ -83,6 +85,10 @@ export function FunctionGraphBlock({ content }: Props) {
     spec.title ??
       (spec.type === "vertical" ? spec.expr : `y = ${formatGraphExpr(spec.expr)}`),
   );
+  const pad = 28;
+  const innerW = chartWidth - pad * 2;
+  const innerH = CHART_HEIGHT - pad * 2;
+  const plotAspect = innerW / innerH;
   const bounds = isVerticalLine
     ? expandBoundsForAxes(
         {
@@ -93,8 +99,9 @@ export function FunctionGraphBlock({ content }: Props) {
         },
         { pad: false },
       )
-    : expandBoundsForAxes(
+    : schoolViewBounds(
         graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
+        plotAspect,
       );
   // A single point (or points sharing an x) has no line to draw — a
   // Polyline needs 2+ points to render anything visible. Vertical lines
@@ -132,22 +139,30 @@ export function FunctionGraphBlock({ content }: Props) {
           .filter((seg) => seg.length >= 2)
           .map((seg) => graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds))
       : null;
+  const inView = ([x, y]: [number, number]) =>
+    x >= bounds.xMin && x <= bounds.xMax && y >= bounds.yMin && y <= bounds.yMax;
   const markers =
     isVerticalLine || spec.points.length > MAX_MARKED_POINTS
       ? []
-      : spec.points.map(([x, y]) =>
+      : spec.points.filter(inView).map(([x, y]) =>
           mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
         );
   const markers2 =
     hasCurve2 && points2.length <= MAX_MARKED_POINTS
-      ? points2.map(([x, y]) => mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT))
+      ? points2.filter(inView).map(([x, y]) =>
+          mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
+        )
       : [];
-  const pad = 28;
-  const axisColor = theme.border;
   const origin = mapGraphPoint(0, 0, bounds, chartWidth, CHART_HEIGHT);
-  const yAxisX = origin.px;
-  const xAxisY = origin.py;
+  const showVertex =
+    !isVerticalLine &&
+    bounds.xMin <= 0 &&
+    bounds.xMax >= 0 &&
+    bounds.yMin <= 0 &&
+    bounds.yMax >= 0 &&
+    spec.points.some(([x, y]) => Math.abs(x) < 0.35 && Math.abs(y) < 0.35);
   const curveColor2 = theme.accent;
+  const clip = `url(#${clipId})`;
 
   return (
     <View style={styles.wrap}>
@@ -169,22 +184,19 @@ export function FunctionGraphBlock({ content }: Props) {
         </View>
       ) : null}
       <Svg width={chartWidth} height={CHART_HEIGHT}>
-        <Line
-          x1={yAxisX}
-          y1={pad}
-          x2={yAxisX}
-          y2={CHART_HEIGHT - pad}
-          stroke={axisColor}
-          strokeWidth={1}
+        <CartesianAxes
+          width={chartWidth}
+          height={CHART_HEIGHT}
+          pad={pad}
+          bounds={bounds}
+          clipId={clipId}
+          axisColor={theme.textSecondary}
+          labelColor={theme.textSecondary}
+          gridColor={theme.border}
+          xName={spec.variable ?? "x"}
+          yName="y"
         />
-        <Line
-          x1={pad}
-          y1={xAxisY}
-          x2={chartWidth - pad}
-          y2={xAxisY}
-          stroke={axisColor}
-          strokeWidth={1}
-        />
+        <G clipPath={clip}>
         {segmentPolylines ? (
           segmentPolylines.map((pts, i) => (
             <Polyline
@@ -229,74 +241,22 @@ export function FunctionGraphBlock({ content }: Props) {
             strokeLinejoin="round"
           />
         ) : null}
+        </G>
         {markers.map(({ px, py }, i) => (
           <Circle key={i} cx={px} cy={py} r={4} fill={theme.primary} />
         ))}
         {markers2.map(({ px, py }, i) => (
           <Circle key={`c2-${i}`} cx={px} cy={py} r={4} fill={curveColor2} />
         ))}
-        <SvgText
-          x={chartWidth - pad}
-          y={xAxisY - 6}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {spec.variable ?? "x"}
-        </SvgText>
-        <SvgText
-          x={yAxisX}
-          y={pad - 2}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="middle"
-        >
-          y
-        </SvgText>
-        <SvgText
-          x={Math.max(4, yAxisX - 4)}
-          y={pad + 16}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {formatAxisNumber(bounds.yMax)}
-        </SvgText>
-        <SvgText
-          x={Math.max(4, yAxisX - 4)}
-          y={CHART_HEIGHT - pad + 4}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {formatAxisNumber(bounds.yMin)}
-        </SvgText>
-        <SvgText
-          x={pad}
-          y={xAxisY + 16}
-          fill={theme.textSecondary}
-          fontSize={11}
-        >
-          {formatAxisNumber(bounds.xMin)}
-        </SvgText>
-        <SvgText
-          x={chartWidth - pad}
-          y={xAxisY + 16}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {formatAxisNumber(bounds.xMax)}
-        </SvgText>
-        {Math.abs(bounds.xMin) > 1e-6 && Math.abs(bounds.xMax) > 1e-6 ? (
-          <SvgText
-            x={yAxisX + 4}
-            y={xAxisY + 16}
-            fill={theme.textSecondary}
-            fontSize={11}
-          >
-            0
-          </SvgText>
+        {showVertex ? (
+          <Circle
+            cx={origin.px}
+            cy={origin.py}
+            r={5}
+            fill={theme.surface}
+            stroke={theme.primary}
+            strokeWidth={2}
+          />
         ) : null}
       </Svg>
     </View>
@@ -312,12 +272,9 @@ type TrajectoryChartProps = {
 
 function TrajectoryChart({ spec, chartWidth, styles, theme }: TrajectoryChartProps) {
   const pad = 28;
-  const bounds = expandBoundsForAxes(graphBounds(spec.points));
+  const clipId = useId().replace(/:/g, "");
+  const bounds = expandBoundsForAxes(graphBounds(spec.points), { pad: false });
   const polyline = graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT, bounds);
-  const origin = mapGraphPoint(0, 0, bounds, chartWidth, CHART_HEIGHT);
-  const yAxisX = origin.px;
-  const xAxisY = origin.py;
-  const axisColor = theme.border;
   const xLabel = spec.x_label ?? "x";
   const yLabel = spec.y_label ?? "y";
   const title = formatGraphExpr(spec.title ?? "Trajectory");
@@ -326,83 +283,28 @@ function TrajectoryChart({ spec, chartWidth, styles, theme }: TrajectoryChartPro
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
       <Svg width={chartWidth} height={CHART_HEIGHT}>
-        <Line
-          x1={yAxisX}
-          y1={pad}
-          x2={yAxisX}
-          y2={CHART_HEIGHT - pad}
-          stroke={axisColor}
-          strokeWidth={1}
+        <CartesianAxes
+          width={chartWidth}
+          height={CHART_HEIGHT}
+          pad={pad}
+          bounds={bounds}
+          clipId={clipId}
+          axisColor={theme.textSecondary}
+          labelColor={theme.textSecondary}
+          gridColor={theme.border}
+          xName={xLabel}
+          yName={yLabel}
         />
-        <Line
-          x1={pad}
-          y1={xAxisY}
-          x2={chartWidth - pad}
-          y2={xAxisY}
-          stroke={axisColor}
-          strokeWidth={1}
-        />
-        <Polyline
-          points={polyline}
-          fill="none"
-          stroke={theme.primary}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <SvgText
-          x={chartWidth - pad}
-          y={xAxisY - 6}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {xLabel}
-        </SvgText>
-        <SvgText
-          x={yAxisX}
-          y={pad - 2}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="middle"
-        >
-          {yLabel}
-        </SvgText>
-        <SvgText
-          x={Math.max(4, yAxisX - 4)}
-          y={pad + 16}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {formatAxisNumber(bounds.yMax)}
-        </SvgText>
-        <SvgText
-          x={Math.max(4, yAxisX - 4)}
-          y={CHART_HEIGHT - pad + 4}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {formatAxisNumber(bounds.yMin)}
-        </SvgText>
-        <SvgText
-          x={pad}
-          y={xAxisY + 16}
-          fill={theme.textSecondary}
-          fontSize={11}
-        >
-          {formatAxisNumber(bounds.xMin)}
-        </SvgText>
-        <SvgText
-          x={chartWidth - pad}
-          y={xAxisY + 16}
-          fill={theme.textSecondary}
-          fontSize={11}
-          textAnchor="end"
-        >
-          {formatAxisNumber(bounds.xMax)}
-        </SvgText>
+        <G clipPath={`url(#${clipId})`}>
+          <Polyline
+            points={polyline}
+            fill="none"
+            stroke={theme.primary}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </G>
       </Svg>
     </View>
   );

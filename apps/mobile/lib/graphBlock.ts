@@ -398,6 +398,85 @@ export function expandBoundsForAxes(
   return { xMin, xMax, yMin, yMax };
 }
 
+/** API default sample is ±10. ChatGPT-style school graphs zoom to about ±6. */
+const TEXTBOOK_HALF_X = 6;
+
+function niceStep(raw: number): number {
+  if (!(raw > 0) || !Number.isFinite(raw)) return 1;
+  const exp = Math.floor(Math.log10(raw));
+  const mag = 10 ** exp;
+  const f = raw / mag;
+  const nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return nf * mag;
+}
+
+/**
+ * View window for a function plot — origin in frame, integer edges.
+ *
+ * Fitting y = x² on the default ±10 sample makes y run to 100, so the
+ * vertex is a spike and 8% pad labels the frame as −12 / 108 / −8.
+ * When y is much taller than a 1:1 scale, zoom to a textbook x of ±6
+ * and a matching y (about −1…6) so (±1,1) / (±2,4) stay readable.
+ */
+export function schoolViewBounds(
+  data: ReturnType<typeof graphBounds>,
+  plotAspect: number,
+): ReturnType<typeof graphBounds> {
+  let xMin = Math.min(data.xMin, 0);
+  let xMax = Math.max(data.xMax, 0);
+  let yMin = Math.min(data.yMin, 0);
+  let yMax = Math.max(data.yMax, 0);
+  const aspect = Number.isFinite(plotAspect) && plotAspect > 0.3 ? plotAspect : 1.7;
+  const xSpan = xMax - xMin || 1;
+  const ySpan = yMax - yMin || 1;
+  const yUnit = xSpan / aspect;
+  // Only crop a sky-high y (x² on ±10 → y=100). A short sample like
+  // (0,0)/(1,1)/(2,4) must keep those points on screen.
+  if (ySpan > yUnit * 2.5 && ySpan >= 20) {
+    const defaultSample =
+      xMin <= -9 && xMax >= 9 && xMin >= -12 && xMax <= 12;
+    if (defaultSample) {
+      xMin = -TEXTBOOK_HALF_X;
+      xMax = TEXTBOOK_HALF_X;
+    }
+    const spanY = (xMax - xMin) / aspect;
+    if (data.yMin >= -1e-9) {
+      yMin = -1;
+      yMax = yMin + spanY;
+    } else if (data.yMax <= 1e-9) {
+      yMax = 1;
+      yMin = yMax - spanY;
+    } else {
+      yMin = -spanY / 2;
+      yMax = spanY / 2;
+    }
+  }
+  return {
+    xMin: Math.floor(xMin),
+    xMax: Math.ceil(xMax),
+    yMin: Math.floor(yMin),
+    yMax: Math.ceil(yMax),
+  };
+}
+
+/** Even ticks inside a view window (e.g. −6, −4, …, 6). */
+export function graphAxisTicks(min: number, max: number, maxCount = 7): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [];
+  const step = niceStep((max - min) / Math.max(1, maxCount - 1));
+  const start = Math.ceil((min - 1e-12) / step) * step;
+  const ticks: number[] = [];
+  const seen = new Set<string>();
+  for (let v = start; v <= max + step * 1e-9; v += step) {
+    const n = Math.abs(v) < step * 1e-9 ? 0 : Number(v.toPrecision(12));
+    if (n < min - 1e-9 || n > max + 1e-9) continue;
+    const key = formatAxisNumber(n);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    ticks.push(n);
+  }
+  return ticks;
+}
+
 /** Axis tick label — always a whole number (no ``-11.6``). */
 export function formatAxisNumber(n: number): string {
   const rounded = Math.round(n);
