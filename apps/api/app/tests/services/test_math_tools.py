@@ -244,6 +244,35 @@ def test_extract_system_intent_for_multiple_equations() -> None:
     assert set(intent.system_variables) >= {"x", "y"}
 
 
+def test_spaced_system_does_not_drop_first_x() -> None:
+    """Prose 'x + y' after 'the system' used to extract ('+ y', '5') and
+    verify the wrong solution (x=6, y=5) against correct prose."""
+    text = "Solve the system x + y = 5 and x - y = 1."
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "system"
+    assert intent.system_equations == [("x + y", "5"), ("x - y", "1")]
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "x = 3" in block.canonical_answer
+    assert "y = 2" in block.canonical_answer
+    assert "x = 6" not in block.canonical_answer
+
+
+def test_trailing_sentence_period_still_solves_equation() -> None:
+    intent = math_tools.extract_math_intent("Solve 1/2 + 1/3 = x.")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "1/2 + 1/3"
+    assert intent.rhs == "x"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "5}{6}" in compact or "5/6" in compact
+
+
 _WORKED_QUADRATIC_PASTE = r"""\[ 2x^2-7x+3=0 \]
 Factor it:
  \[ 2x^2-6x-x+3=0 \]
@@ -667,6 +696,7 @@ def test_draw_square_without_side_still_defaults() -> None:
         ("volume of a cube with side 5 cm", "cube", True, False),
         ("surface area of a cube side 4", "cube", False, True),
         ("volume of a rectangular prism 3 by 4 by 5", "rectangular_prism", True, False),
+        ("Volume of a rectangular prism 3 by 4 by 5.", "rectangular_prism", True, False),
         ("volume of a cuboid length 3 width 4 height 5", "rectangular_prism", True, False),
         ("volume of a cylinder radius 3 height 10", "cylinder", True, False),
         ("volume of a cone radius 3 height 4", "cone", True, False),
@@ -724,6 +754,40 @@ def test_verified_block_prism_volume() -> None:
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
     assert block.canonical_answer == "60"
+
+
+def test_verified_block_prism_volume_sentence_period() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Volume of a rectangular prism 3 by 4 by 5.")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer == "60"
+
+
+def test_verified_block_integral_of_2x_sentence_period() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("What is the integral of 2x.")
+    assert intent is not None
+    assert intent.kind == "calculus"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "x^{2}" in compact or "x^2" in compact
+
+
+def test_verified_block_force_accelerated_phrasing() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent(
+        "A 5 kg mass is accelerated at 2 m/s^2. What is the force."
+    )
+    assert intent is not None
+    assert intent.kind == "force"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "10" in block.canonical_answer
 
 
 @pytest.mark.parametrize(
@@ -806,6 +870,7 @@ def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: st
     "text, expected_expr",
     [
         ("graph x=2y", "x/2"),
+        ("Graph x = 2y.", "x/2"),
         ("plot x = 2*y", "x/2"),
         ("graph x=-3y", "-x/3"),
         ("graph 2x=y", "2*x"),
@@ -878,6 +943,7 @@ async def test_augment_bare_y_equals_injects_graph_fence() -> None:
     [
         ("differentiate x^2 please", "x^2"),
         ("integrate x^2 for me", "x^2"),
+        ("What is the integral of 2x.", "2x"),
         ("simplify x^2 + 2x + x^2 now", "x^2 + 2x + x^2"),
     ],
 )

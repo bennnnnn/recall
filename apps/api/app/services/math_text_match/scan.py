@@ -278,11 +278,11 @@ def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
         i += 1
     if i < n and s[i] in ".,":
         j = i + 1
-        if j >= n or not s[j].isdigit():
-            return None
-        while j < n and s[j].isdigit():
-            j += 1
-        i = j
+        if j < n and s[j].isdigit():
+            while j < n and s[j].isdigit():
+                j += 1
+            i = j
+        # else: "5." at end of a sentence — keep the integer, ignore the period.
     try:
         return float(s[start:i].replace(",", ".")), i
     except ValueError:

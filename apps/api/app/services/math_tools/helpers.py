@@ -116,6 +116,8 @@ def _strip_trailing_filler(expr: str) -> str:
             if lower.endswith(suffix):
                 s = s[: -len(suffix)].rstrip()
                 break
+    while s and s[-1] in ".?!":
+        s = s[:-1].rstrip()
     return s
 
 

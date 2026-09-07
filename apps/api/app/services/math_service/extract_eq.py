@@ -102,6 +102,14 @@ def _is_equation_side(s: str) -> bool:
     return True
 
 
+def _strip_side_punct(side: str) -> str:
+    """Drop sentence punctuation so ``1/2 + 1/3 = x.`` still solves for x."""
+    s = side.strip()
+    while s and s[-1] in ".?!;:,":
+        s = s[:-1].rstrip()
+    return s
+
+
 def _strip_leading_prefixes(text: str, *, strip_bare_x: bool) -> str:
     """Strip leading solve/find/... filler without ``\\s+`` regex pumps."""
     s = text.strip()
@@ -134,9 +142,14 @@ def _strip_leading_prefixes(text: str, *, strip_bare_x: bool) -> str:
         if low.startswith("for me "):
             s = s[7:].lstrip()
             low = s.lower()
+        # "solve the system x + y = 5" used to drop the first x because this
+        # path treated a bare "x " filler token the same as the variable in
+        # "x + y". Only strip when the next character is not math.
         if strip_bare_x and low.startswith("x "):
-            s = s[2:].lstrip()
-            low = s.lower()
+            rest = s[2:].lstrip()
+            if rest and rest[0] not in "+-*/=^().0123456789":
+                s = rest
+                low = s.lower()
         if low.startswith("if "):
             s = s[3:].lstrip()
         if s == prev:
@@ -196,8 +209,8 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
                 if nxt < len(cleaned) and cleaned[nxt] == "(":
                     break
             right += 1
-        lhs = peel_edge_english(cleaned[left:eq].strip())
-        rhs = peel_edge_english(cleaned[eq + 1 : right].strip())
+        lhs = _strip_side_punct(peel_edge_english(cleaned[left:eq].strip()))
+        rhs = _strip_side_punct(peel_edge_english(cleaned[eq + 1 : right].strip()))
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             pairs.append((lhs, rhs))
         start = right if right > eq + 1 else eq + 1

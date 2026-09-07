@@ -622,6 +622,27 @@ def test_appends_canonical_graph_when_model_omits_fence() -> None:
     assert data["expr"] == "x**2"
 
 
+def test_strips_model_chart_when_verified_graph_exists() -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    content = (
+        "Here is the parabola.\n"
+        "```chart\n"
+        '{"mark":"line","encoding":{"x":{"field":"x"},"y":{"field":"y"}}}\n'
+        "```\n"
+    )
+    out = validate_math_fences(content, verified=_verified(spec))
+    assert "```chart" not in out
+    assert "```graph" in out
+    assert json.loads(out.split("```graph")[1].split("```")[0].strip())["expr"] == "x**2"
+
+
 def test_appends_answer_and_graph_for_physics() -> None:
     from app.services.math_tools import VerifiedMathBlock
 

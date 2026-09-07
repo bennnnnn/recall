@@ -578,6 +578,19 @@ def test_try_extract_equations_from_text_strips_system_prefix() -> None:
     assert pairs == [("x+2y", "8"), ("3x-y", "1")]
 
 
+def test_try_extract_equations_keeps_x_in_spaced_system() -> None:
+    """'the system x + y = 5' used to strip the first x as filler."""
+    pairs = math_service.try_extract_equations_from_text(
+        "Solve the system x + y = 5 and x - y = 1."
+    )
+    assert pairs == [("x + y", "5"), ("x - y", "1")]
+
+
+def test_try_extract_equations_strips_trailing_sentence_period() -> None:
+    pairs = math_service.try_extract_equations_from_text("Solve 1/2 + 1/3 = x.")
+    assert pairs == [("1/2 + 1/3", "x")]
+
+
 def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
     assert math_service.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
 

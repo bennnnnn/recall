@@ -376,6 +376,8 @@ _FORCE_CUES = (
     "newtons second law",
     "force of",
     "force required",
+    "what is the force",
+    "what's the force",
     "acceleration given",
     "given force",
 )
@@ -413,7 +415,7 @@ def _extract_force_intent(cleaned: str) -> MathIntent | None:
     au = _find_value_with_specific_unit(
         cleaned,
         r"m/s\^?2|m/s2",
-        ("acceleration", "accelerates"),
+        ("acceleration", "accelerates", "accelerated"),
     )
     if au is not None:
         accel, accel_unit = au
