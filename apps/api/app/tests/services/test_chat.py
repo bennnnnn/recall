@@ -1967,6 +1967,21 @@ async def test_classify_turn_mode_eat_tonight_is_advice_memory():
 
 
 @pytest.mark.asyncio
+async def test_classify_turn_mode_milk_preference_is_advice_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "What milk do I drink.")
+
+    assert mode.lightweight is False
+    assert mode.advice_memory is True
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "text",
     [

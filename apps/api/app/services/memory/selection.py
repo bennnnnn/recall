@@ -8,6 +8,7 @@ and friends still intercept the internal calls.
 
 from app.core.config import Settings
 from app.models.orm import Memory
+from app.services.memory.text import is_food_or_diet_memory_text, is_food_or_diet_query
 
 TYPE_PRIORITY = {"profile": 0, "preference": 1, "project": 2, "fact": 3, "focus": 4}
 SECTION_LABELS = {
@@ -75,8 +76,13 @@ def select_memories_semantic(
     settings: Settings,
     *,
     omit_project_memory: bool = False,
+    query_text: str | None = None,
 ) -> list[Memory]:
-    """profile/preference always; fact/focus/project only above similarity."""
+    """profile/preference always; fact/focus/project only above similarity.
+
+    Food/drink asks also keep diet facts whose embedding would otherwise miss
+    (a mixed Spanish+oat-milk blob scores as Spanish, not milk).
+    """
     from app.gateways.embedding_gateway import cosine_similarity, parse_embedding
 
     always: list[Memory] = []
@@ -103,5 +109,17 @@ def select_memories_semantic(
     always.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
     gated = [memory for _, memory in scored]
     merged = always + gated
+    if query_text and is_food_or_diet_query(query_text):
+        have = {id(memory) for memory in merged}
+        for memory in memories:
+            if id(memory) in have:
+                continue
+            if not _eligible_memory(memory, settings):
+                continue
+            if omit_project_memory and memory.type == "project":
+                continue
+            if is_food_or_diet_memory_text(memory.text):
+                merged.append(memory)
+                have.add(id(memory))
     type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
     return merged[:type_cap]

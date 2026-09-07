@@ -12,6 +12,7 @@ from app.services.memory import (
     is_diet_health_memory_text,
     is_explicit_forget_command,
     is_explicit_memory_command,
+    is_food_or_diet_memory_text,
     is_food_or_diet_query,
     is_sensitive_memory_text,
     merge_explicit_remember_fact,
@@ -129,6 +130,9 @@ def test_exclude_sensitive_for_query_injects_only_on_matching_asks():
     assert exclude_sensitive_for_query("what should I eat tonight") is True
     assert is_food_or_diet_query("what should I eat tonight") is True
     assert is_food_or_diet_query("what's the weather") is False
+    assert is_food_or_diet_query("What milk do I drink.") is True
+    assert is_food_or_diet_memory_text("Bini consumes oat milk") is True
+    assert is_food_or_diet_memory_text("Building a rocket hobby app") is False
     assert is_diet_health_memory_text("Peanut allergy") is True
     assert is_diet_health_memory_text("Paying off a mortgage") is False
 
@@ -251,6 +255,21 @@ def test_accept_memory_section_rewrite_keeps_expanding_rewrite():
     )
 
 
+def test_accept_memory_section_rewrite_keeps_omitted_diet_fact():
+    prior = "Bini has started learning Spanish. Bini consumes oat milk"
+    summary = "Bini has started learning Spanish and wants to announce this on LinkedIn"
+    accepted = accept_memory_section_rewrite(
+        section_type="fact",
+        prior=prior,
+        summary=summary,
+        confidence=0.9,
+        min_confidence=0.4,
+    )
+    assert accepted is not None
+    assert "oat milk" in accepted.lower()
+    assert "linkedin" in accepted.lower()
+
+
 def test_accept_memory_section_rewrite_allow_clear_empties_on_forget():
     prior = "User's name is Bini. User works at Hooh."
     assert (
@@ -354,6 +373,32 @@ def test_select_memories_semantic_keeps_profile_drops_off_topic_fact():
     assert "Name is Sam" in texts
     assert "Loves Italian cooking and pasta" in texts
     assert "peanut allergy" not in " ".join(texts)
+
+
+def test_select_memories_semantic_injects_diet_fact_on_milk_query():
+    """Milk/drink asks must see an oat-milk fact even when its embedding is off-topic."""
+    settings = Settings(
+        memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.35
+    )
+    profile = _memory("profile", "Name is Bini", 1.0)
+    oat = _memory(
+        "fact",
+        "Bini has started learning Spanish. Bini consumes oat milk",
+        1.0,
+    )
+    oat.embedding_json = "[0.0, 1.0, 0.0]"  # orthogonal to a milk query vector
+    salary = _memory("fact", "Salary is $200k", 1.0)
+    salary.embedding_json = "[0.0, 1.0, 0.0]"
+    selected = select_memories_semantic(
+        [profile, oat, salary],
+        [1.0, 0.0, 0.0],
+        settings,
+        query_text="What milk do I drink.",
+    )
+    texts = [m.text for m in selected]
+    assert "Name is Bini" in texts
+    assert "oat milk" in " ".join(texts).lower()
+    assert "Salary" not in " ".join(texts)
 
 
 def test_format_memory_block_respects_char_budget():

@@ -79,6 +79,9 @@ from app.services.memory.text import (
     is_explicit_memory_command as is_explicit_memory_command,
 )
 from app.services.memory.text import (
+    is_food_or_diet_memory_text as is_food_or_diet_memory_text,
+)
+from app.services.memory.text import (
     is_food_or_diet_query as is_food_or_diet_query,
 )
 from app.services.memory.text import (
@@ -86,6 +89,9 @@ from app.services.memory.text import (
 )
 from app.services.memory.text import (
     join_memory_facts as join_memory_facts,
+)
+from app.services.memory.text import (
+    merge_diet_facts as merge_diet_facts,
 )
 from app.services.memory.text import (
     merge_explicit_remember_fact as merge_explicit_remember_fact,
@@ -148,6 +154,7 @@ async def _semantic_memories_from_vec(
     query_vec: list[float],
     *,
     omit_project_memory: bool = False,
+    query_text: str | None = None,
 ) -> list[Memory]:
     return await _retrieval.semantic_memories_from_vec(
         _seams(),
@@ -156,6 +163,7 @@ async def _semantic_memories_from_vec(
         settings,
         query_vec,
         omit_project_memory=omit_project_memory,
+        query_text=query_text,
     )
 
 

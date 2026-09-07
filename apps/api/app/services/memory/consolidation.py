@@ -8,7 +8,11 @@ machinery so the rules can be read and tested on their own.
 import logging
 import re
 
-from app.services.memory.text import _split_sentences, normalize_memory_text
+from app.services.memory.text import (
+    _split_sentences,
+    merge_diet_facts,
+    normalize_memory_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -134,4 +138,6 @@ def accept_memory_section_rewrite(
         return None
     # Identical text is still "accepted" so extraction can re-embed stale rows;
     # callers that only want real changes should compare against prior.
+    if prior and not allow_clear:
+        clean = merge_diet_facts(prior, clean)
     return clean

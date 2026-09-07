@@ -20,6 +20,7 @@ from app.services.chat.prompt_constants import (
     is_short_confirmation,
     needs_rich_context,
 )
+from app.services.memory.text import is_food_or_diet_query
 
 if TYPE_CHECKING:
     from app.services.chat.turn_prep.context import ClientGeoContext
@@ -188,7 +189,7 @@ async def _classify_turn_mode(
         day_reflection=day_reflection,
     )
     advice_memory = (
-        is_personal_advice_question(content)
+        (is_personal_advice_question(content) or is_food_or_diet_query(content))
         and not day_planning
         and not day_reflection
         and not lightweight
