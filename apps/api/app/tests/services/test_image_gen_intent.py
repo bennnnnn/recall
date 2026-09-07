@@ -21,6 +21,7 @@ from app.services.image_gen_intent import (
         ("generate image of sunset over mountains", "sunset over mountains"),
         ("Generate image: milk", "milk"),
         ("make a red sports car photo", "red sports car"),
+        ("draw a mermaid", "mermaid"),
     ],
 )
 def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
@@ -47,6 +48,8 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "draw me an example",
         "create an image of my tasks",
         "make a picture of my todo list",
+        "Draw a mermaid flowchart for brewing coffee.",
+        "draw a mermaid flowchart of making a cup of coffee",
         "draw a right triangle with legs 3 and 4",
         "Draw a right triangle with legs 3 and 4.",
         "draw the molecule caffeine",

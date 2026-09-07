@@ -13,6 +13,7 @@ describe("extractImageGenPrompt", () => {
 
   it("extracts from short draw without an image noun", () => {
     expect(extractImageGenPrompt("draw a dog")).toBe("dog");
+    expect(extractImageGenPrompt("draw a mermaid")).toBe("mermaid");
   });
 
   it("does not treat bare make/create as image gen (needs pic/image/photo)", () => {
@@ -58,6 +59,7 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("make a diagram picture")).toBeNull();
     expect(extractImageGenPrompt("generate a picture of a diagram")).toBeNull();
     expect(extractImageGenPrompt("draw me a diagram")).toBeNull();
+    expect(extractImageGenPrompt("Draw a mermaid flowchart for brewing coffee.")).toBeNull();
   });
 
   it("returns null for draw a conclusion", () => {

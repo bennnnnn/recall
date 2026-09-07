@@ -126,6 +126,8 @@ _NON_IMAGE_WORDS = frozenset(
         "charts",
         "diagram",
         "diagrams",
+        "flowchart",
+        "flowcharts",
         "table",
         "tables",
         "formula",
