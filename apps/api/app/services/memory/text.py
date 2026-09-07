@@ -127,7 +127,9 @@ _FOOD_QUERY_RE = re.compile(
     r"\b("
     r"eat|eating|eaten|ate|cook|cooking|dinner|lunch|breakfast|brunch|"
     r"food|restaurant|recipe|meal|hungry|starving|snack|diet|"
-    r"allerg(?:y|ies|ic)|peanut|gluten|vegan|vegetarian"
+    r"allerg(?:y|ies|ic)|peanut|gluten|vegan|vegetarian|"
+    r"milk|drink|drinks|drank|coffee|tea|latte|oat|"
+    r"consume|consumes|consumed"
     r")\b",
     re.IGNORECASE,
 )
@@ -144,6 +146,11 @@ def is_food_or_diet_query(text: str) -> bool:
     if not cleaned:
         return False
     return bool(_FOOD_QUERY_RE.search(cleaned))
+
+
+def is_food_or_diet_memory_text(text: str) -> bool:
+    """True when stored memory mentions food, drink, or diet."""
+    return bool(_FOOD_QUERY_RE.search(strip_memory_as_of(text)))
 
 
 def exclude_sensitive_for_query(query_text: str | None) -> bool:
@@ -187,3 +194,19 @@ def join_memory_facts(facts: list[str]) -> str:
     if merged and not merged.endswith("."):
         merged += "."
     return merged
+
+
+def merge_diet_facts(prior: str, incoming: str) -> str:
+    """Keep diet/drink sentences a later section rewrite omitted."""
+    incoming_body = strip_memory_as_of(incoming)
+    haystack = incoming_body.lower()
+    omitted: list[str] = []
+    for fact in split_memory_facts(prior):
+        if not is_food_or_diet_memory_text(fact):
+            continue
+        needle = normalize_memory_text(strip_memory_as_of(fact)).lower()
+        if needle and needle not in haystack:
+            omitted.append(strip_memory_as_of(fact))
+    if not omitted:
+        return incoming
+    return join_memory_facts([incoming_body, *omitted])

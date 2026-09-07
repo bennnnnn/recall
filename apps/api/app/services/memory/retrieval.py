@@ -18,6 +18,7 @@ async def semantic_memories_from_vec(
     query_vec: list[float],
     *,
     omit_project_memory: bool = False,
+    query_text: str | None = None,
 ) -> list[Memory]:
     from app.repositories import memories as memories_repo
 
@@ -27,6 +28,7 @@ async def semantic_memories_from_vec(
         query_vec,
         settings,
         omit_project_memory=omit_project_memory,
+        query_text=query_text,
     )
     if semantic:
         return semantic
@@ -49,7 +51,6 @@ async def load_relevant_memories(
     query_vec: list[float] | None = None,
     omit_project_memory: bool = False,
 ) -> list[Memory]:
-    del query_text
     if not user.memory_enabled:
         return []
     from app.repositories import memories as memories_repo
@@ -62,6 +63,7 @@ async def load_relevant_memories(
                 settings,
                 query_vec,
                 omit_project_memory=omit_project_memory,
+                query_text=query_text,
             )
         all_memories = await memories_repo.list_for_user(session, user.id)
         return seams.select_memories_for_prompt(
@@ -108,6 +110,7 @@ async def semantic_block_from_vec(
         user,
         settings,
         query_vec=query_vec,
+        query_text=query_text,
         omit_project_memory=omit_project_memory,
     )
     memories = filter_surface_memories(
