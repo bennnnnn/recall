@@ -186,7 +186,7 @@ const SHORT_DRAW_SUBJECT = new RegExp(
 );
 
 const NON_IMAGE_DRAW = new RegExp(
-  String.raw`\b(?:conclusion|inference|boundary|line|diagram|chart|graph|plot|flowcharts?|sketch\s+of\s+the\s+idea)\b`,
+  String.raw`\b(?:conclusion|inference|boundary|line|diagram|chart|graph|plot|flowcharts?|sketch\s+of\s+the\s+idea|triangles?|squares?|circles?|rectangles?|trapezoids?|trapezium|polygons?|rhombus|parallelogram|geometry|geometric|hypotenuse|molecules?|molecular|structures?|smiles|chemistry|chemical)\b`,
   "i",
 );
 

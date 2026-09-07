@@ -13,6 +13,7 @@ from uuid import uuid4
 import pytest
 
 from app.models.orm import Memory
+from app.models.schemas import MemoryOut
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
 
@@ -73,3 +74,23 @@ async def test_delete_by_type_only_deletes_matching_user_and_type(db_session):
     assert {m.text for m in remaining_a} == {"A preference"}
     remaining_b = await memories_repo.list_for_user(db_session, user_b.id)
     assert {m.text for m in remaining_b} == {"B profile"}
+
+
+@pytest.mark.asyncio
+async def test_update_text_flush_serializes_memory_out(db_session):
+    """commit=False flush expires updated_at; PATCH then MemoryOut.model_validate 500'd."""
+    user = await _make_user(db_session)
+    row = _build_memory(user.id, memory_type="fact", text="Old fact")
+    db_session.add(row)
+    await db_session.commit()
+
+    updated = await memories_repo.update_text(
+        db_session, user.id, row.id, "New fact about hiking", commit=False
+    )
+    await db_session.commit()
+
+    assert updated is not None
+    out = MemoryOut.model_validate(updated)
+    assert out.text == "New fact about hiking"
+    assert out.id == row.id
+    assert out.updated_at is not None

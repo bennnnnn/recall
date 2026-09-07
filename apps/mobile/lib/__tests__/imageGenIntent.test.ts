@@ -66,6 +66,12 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("draw a conclusion from this")).toBeNull();
   });
 
+  it("does not generate a picture for verified geometry or chemistry draws", () => {
+    expect(extractImageGenPrompt("Draw a right triangle with legs 3 and 4.")).toBeNull();
+    expect(extractImageGenPrompt("draw a right triangle with legs 3 and 4")).toBeNull();
+    expect(extractImageGenPrompt("draw the molecule caffeine")).toBeNull();
+  });
+
   it("returns null with pending-style long prompts", () => {
     expect(extractImageGenPrompt("a".repeat(501))).toBeNull();
   });

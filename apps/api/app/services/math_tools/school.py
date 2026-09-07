@@ -13,7 +13,8 @@ from app.services.math_tools.block import VerifiedMathBlock, _finish_with_answer
 
 logger = logging.getLogger(__name__)
 
-_TRIG_FUNCS = ("sin", "cos", "tan")
+_TRIG_FUNCS = ("sine", "cosine", "tangent", "sin", "cos", "tan")
+_TRIG_CANON = {"sine": "sin", "cosine": "cos", "tangent": "tan"}
 
 
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
@@ -163,6 +164,9 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
             return None
     idx = lower.find(func)
     rest = cleaned[idx + len(func) :].lstrip()
+    # "sin of 30 degrees" / "sine of 30" — English, not sin(30).
+    if rest.lower().startswith("of"):
+        rest = rest[2:].lstrip()
     if rest.startswith("("):
         rest = rest[1:].lstrip()
     if not rest or not rest[0].isdigit():
@@ -171,11 +175,12 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     if num is None:
         return None
     degrees = float(num.group(0))
+    canon = _TRIG_CANON.get(func, func)
     return MathIntent(
         kind="trig",
-        school_op=func,
+        school_op=canon,
         percent_base=degrees,
-        expr=f"{func}({degrees}*pi/180)",
+        expr=f"{canon}({degrees}*pi/180)",
         operation="solve",
     )
 

@@ -200,6 +200,72 @@ async def test_extract_and_store_drops_section_with_empty_summary_after_normaliz
 
 
 @pytest.mark.asyncio
+async def test_extract_explicit_remember_merges_short_preference():
+    """A long preference section plus 'remember that I drink oat milk' used
+    to drop the new fact: the LLM rewrite was shorter than 50% of the prior
+    text, so accept_memory_section_rewrite skipped the upsert."""
+    settings = Settings(memory_min_confidence=0.4)
+    pref_id = uuid4()
+    prior = (
+        "Bini prefers varied learning formats for English vocabulary sessions, "
+        "alternating between teach then use, use then define, and occasional "
+        "multiple-choice questions"
+    )
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(type="preference", summary="Drinks oat milk.", confidence=0.9),
+        ]
+    )
+    listed = SimpleNamespace(
+        id=pref_id,
+        type="preference",
+        text=prior,
+        embedding=[0.1],
+        embedding_json=[0.1],
+        embedding_text_hash=embedding_text_hash(prior),
+    )
+    upsert = AsyncMock()
+    _, session_locals = _extraction_sessions(count=2)
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(
+                side_effect=[
+                    [SimpleNamespace(id=pref_id, type="preference", text=prior)],
+                    [listed],
+                ]
+            ),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: Remember that I drink oat milk.",
+        )
+
+    upsert.assert_awaited_once()
+    items = upsert.call_args.kwargs["items"]
+    assert len(items) == 1
+    text = items[0][1]
+    assert "oat milk" in text.lower()
+    assert "varied learning formats" in text
+
+
+@pytest.mark.asyncio
 async def test_extract_and_store_deletes_section_on_explicit_forget():
     settings = Settings(memory_min_confidence=0.4)
     fact_id = uuid4()

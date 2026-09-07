@@ -733,6 +733,8 @@ def test_verified_block_prism_volume() -> None:
         ("what is 15% of 80", "arithmetic"),
         ("simplify the ratio 6:8", "arithmetic"),
         ("sin 30", "trig"),
+        ("What is sin of 30 degrees.", "trig"),
+        ("sine of 30 degrees", "trig"),
         ("distance between (0,0) and (3,4)", "coord"),
         ("midpoint of (0,0) and (4,6)", "coord"),
         ("magnitude of <3,4>", "vector"),
@@ -760,6 +762,18 @@ def test_verified_percent_and_distance() -> None:
     dblock = math_tools._build_verified_block(dist, settings)
     assert dblock is not None
     assert dblock.canonical_answer == "5"
+
+
+def test_verified_trig_sin_of_degrees() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("What is sin of 30 degrees.")
+    assert intent is not None
+    assert intent.kind == "trig"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    answer = block.canonical_answer
+    assert answer is not None
+    assert "1}{2" in answer or "1/2" in answer
 
 
 @pytest.mark.parametrize(

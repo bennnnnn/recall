@@ -30,6 +30,7 @@ from app.services.projects.path import (
     parse_learning_path,
     sort_list_titles,
     up_next_chapter,
+    with_learning_path,
 )
 from app.services.projects.prompt_context import _stats_for_items
 
@@ -342,6 +343,7 @@ async def get_project_detail(
     project_items = await project_items_repo.list_for_user(
         session, user_id, project_id=project_id, limit=5000
     )
+    path_project: object = item
     if _is_language_project(item):
         from app.services.learning.path_seed import (
             apply_full_catalog_path,
@@ -352,7 +354,7 @@ async def get_project_detail(
         if needs_catalog_sync(item, project_items):
             await enqueue_language_path_job(user_id, item.id)
         project_items = current_catalog_items(item, project_items)
-        apply_full_catalog_path(item)
+        path_project = with_learning_path(item, apply_full_catalog_path(item))
     # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
     # mutable column, so a later miss on an item silently erased which day an earlier
     # miss belonged to. Load the append-only miss-event log so past days stay stable.
@@ -426,20 +428,20 @@ async def get_project_detail(
         ).items()
     }
     lists: list[Any] = []
-    path = parse_learning_path(item)
+    path = parse_learning_path(path_project)
     if include_lists:
         lists = group_items(
             project_items,
             learning_path=path,
             target_language=getattr(item, "target_language", None),
         )
-    path_progress = build_path_progress(item, project_items)
+    path_progress = build_path_progress(path_project, project_items)
     return {
         **ProjectOut.model_validate(item).model_dump(),
         "kind": normalize_project_kind(item.kind),
         "learning_path": path,
         "path_progress": path_progress,
-        "up_next": up_next_chapter(item, project_items) if path_progress else None,
+        "up_next": up_next_chapter(path_project, project_items) if path_progress else None,
         "mastered_count": stats.mastered_count,
         "total_count": stats.total,
         "stats": stats,

@@ -37,6 +37,11 @@ const NON_IMAGE_WORDS = new Set([
   "translation", "definition", "meaning", "transcript", "attachment",
   "attachments", "document", "documents", "pdf", "explanation", "breakdown",
   "method", "methods", "working", "workings", "derivation",
+  // Chemistry / verified geometry — not stock photos.
+  "structure", "structures", "molecule", "molecules", "molecular",
+  "compound", "compounds", "chemistry", "chemical", "smiles", "atom", "atoms",
+  "bond", "bonds", "triangle", "triangles", "square", "squares", "circle",
+  "circles", "rectangle", "rectangles", "geometry", "geometric",
 ]);
 
 const EXPLANATION_CUES = new Set([

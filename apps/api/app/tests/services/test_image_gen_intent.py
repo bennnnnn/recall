@@ -50,6 +50,9 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "make a picture of my todo list",
         "Draw a mermaid flowchart for brewing coffee.",
         "draw a mermaid flowchart of making a cup of coffee",
+        "draw a right triangle with legs 3 and 4",
+        "Draw a right triangle with legs 3 and 4.",
+        "draw the molecule caffeine",
         "a" * 501,
     ],
 )

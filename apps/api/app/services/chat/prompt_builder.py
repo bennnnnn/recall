@@ -78,7 +78,6 @@ from app.services.chat.prompt_constants import (
     is_short_confirmation,
     is_structured_comparison_question,
     is_underspecified_writing_request,
-    is_writing_deliverable_request,
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import is_html_ui_question
@@ -652,6 +651,26 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     return None
 
 
+def _writing_format_hint(query_text: str | None) -> str | None:
+    """Email / message / social / translation / prose shape. Edit stays compact."""
+    if not query_text:
+        return None
+    kind = writing_request_kind(query_text)
+    if kind in {"email", "message"}:
+        if is_underspecified_writing_request(query_text):
+            return EMAIL_ASK_PURPOSE_HINT
+        return EMAIL_DRAFT_HINT
+    if kind == "social":
+        if is_underspecified_writing_request(query_text):
+            return EMAIL_ASK_PURPOSE_HINT
+        return SOCIAL_DRAFT_HINT
+    if kind == "translation":
+        return TRANSLATION_FORMAT_HINT
+    if kind == "prose":
+        return PROSE_WRITING_HINT
+    return None
+
+
 def _style_format_hints(
     *,
     query_text: str | None,
@@ -665,8 +684,11 @@ def _style_format_hints(
     ``compact`` is for greetings and pasted fragments only — not for
     "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
     packs are intent-gated so general knowledge does not pay ~3k tokens.
+    Writing deliverables replace compact / short / FORMAT_CONTRACT so a
+    paragraph ask is not also told to use bullets or a compare table.
     """
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
+    writing = _writing_format_hint(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
@@ -681,14 +703,15 @@ def _style_format_hints(
         parts.append(BROAD_SELF_ANSWER_HINT)
     if style == "short":
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.append(SHORT_RESPONSE_FORMAT_HINT)
+        # Explicit draft/prose still wins over "plain text, skip fences".
+        parts.append(writing if writing else SHORT_RESPONSE_FORMAT_HINT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     elif is_day_plan:
         # Day-plan used to miss math guardrails. Keep compact math safety so
         # any math in a plan still renders; keep the richer format pack so a
         # day outline can use headings.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        parts.append(FORMAT_CONTRACT)
+        parts.append(writing if writing else FORMAT_CONTRACT)
         parts.append(SHORT_MATH_SAFETY_HINT)
     elif compact:
         # Slim/casual used to still get RESPONSE_FORMAT_HINT (tips/headings/
@@ -698,7 +721,13 @@ def _style_format_hints(
         layout = _layout_format_hint(query_text)
         # Compact "plain prose" turns chart/flowchart/compare asks into a
         # joke, table, or clipped 2-node mermaid. Those turns get a fence hint.
-        parts.append(layout if layout else COMPACT_RESPONSE_FORMAT_HINT)
+        # Writing kinds must win the same way or "one paragraph" becomes bullets.
+        winner = writing or layout
+        parts.append(winner if winner else COMPACT_RESPONSE_FORMAT_HINT)
+        parts.append(SHORT_MATH_SAFETY_HINT)
+    elif writing:
+        parts.append(UNIVERSAL_FORMAT_BASELINE)
+        parts.append(writing)
         parts.append(SHORT_MATH_SAFETY_HINT)
     else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
@@ -714,23 +743,11 @@ def _style_format_hints(
             parts.append(layout)
     if query_text and is_brevity_request(query_text):
         parts.append(BREVITY_REQUEST_HINT)
-    parts.append(COPY_DELIVERABLE_HINT)
-    if query_text and is_writing_deliverable_request(query_text):
-        writing_kind = writing_request_kind(query_text)
-        if writing_kind in {"email", "message"}:
-            if is_underspecified_writing_request(query_text):
-                parts.append(EMAIL_ASK_PURPOSE_HINT)
-            else:
-                parts.append(EMAIL_DRAFT_HINT)
-        elif writing_kind == "social":
-            if is_underspecified_writing_request(query_text):
-                parts.append(EMAIL_ASK_PURPOSE_HINT)
-            else:
-                parts.append(SOCIAL_DRAFT_HINT)
-        elif writing_kind == "translation":
-            parts.append(TRANSLATION_FORMAT_HINT)
-        elif writing_kind == "prose":
-            parts.append(PROSE_WRITING_HINT)
+    writing_kind = writing_request_kind(query_text) if query_text else None
+    # Specialized translation/prose hints already own the shape; the copy-fence
+    # contract would tell the model to wrap an article in ```copy.
+    if writing_kind not in {"translation", "prose"}:
+        parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
     return parts

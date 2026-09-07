@@ -180,6 +180,7 @@ def test_fragment_gets_writing_line_hint():
         compact=True,
     )
     assert WRITING_LINE_HINT in parts
+    assert COMPACT_RESPONSE_FORMAT_HINT in parts
     assert "Do not say you are an AI" in WRITING_LINE_HINT
 
 
@@ -365,6 +366,62 @@ def test_each_writing_kind_gets_only_its_relevant_format_hint():
         )
         assert expected in parts
         assert specialized.intersection(parts) == {expected}
+
+
+_COPY_FENCE_INSTRUCTION = "put ONLY the final send-ready wording inside a fenced code block"
+
+
+def _writing_style_parts(
+    query: str, *, compact: bool = False, style: str = "balanced"
+) -> list[str]:
+    return _style_format_hints(
+        query_text=query,
+        style=style,
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=compact,
+    )
+
+
+def test_writing_kinds_displace_competing_format_contracts():
+    from app.services.chat.prompt_constants import (
+        EMAIL_DRAFT_HINT,
+        FORMAT_CONTRACT,
+        PROSE_WRITING_HINT,
+        RESPONSE_FORMAT_HINT,
+        SHORT_RESPONSE_FORMAT_HINT,
+        SOCIAL_DRAFT_HINT,
+        TRANSLATION_FORMAT_HINT,
+    )
+
+    cases = (
+        ("email my boss about PTO", EMAIL_DRAFT_HINT, False),
+        ("Write a LinkedIn post announcing my new role", SOCIAL_DRAFT_HINT, False),
+        ("Translate 'see you tomorrow' into Spanish", TRANSLATION_FORMAT_HINT, True),
+        ("Write one paragraph about photosynthesis", PROSE_WRITING_HINT, True),
+        ("Write a short article comparing Python and Java", PROSE_WRITING_HINT, True),
+    )
+    competing = {
+        COMPACT_RESPONSE_FORMAT_HINT,
+        FORMAT_CONTRACT,
+        RESPONSE_FORMAT_HINT,
+        SHORT_RESPONSE_FORMAT_HINT,
+    }
+    for query, expected, skip_copy_fence in cases:
+        for compact in (False, True):
+            parts = _writing_style_parts(query, compact=compact)
+            assert expected in parts
+            assert not competing.intersection(parts)
+            joined = "\n".join(parts)
+            if skip_copy_fence:
+                assert _COPY_FENCE_INSTRUCTION not in joined
+            else:
+                assert _COPY_FENCE_INSTRUCTION in joined
+        short_parts = _writing_style_parts(query, style="short")
+        assert expected in short_parts
+        assert SHORT_RESPONSE_FORMAT_HINT not in short_parts
+        assert COMPACT_RESPONSE_FORMAT_HINT not in short_parts
+        assert FORMAT_CONTRACT not in short_parts
 
 
 def test_writing_deliverable_wins_over_incidental_comparison_layout():

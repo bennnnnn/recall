@@ -250,6 +250,7 @@ async def enrich_final_content(
                     chat_id=ctx.chat_id,
                     assistant_text=assistant_text,
                     user_timezone=getattr(user, "timezone", None),
+                    user_text=ctx.user_message_content,
                 )
 
         from app.services.sympy_executor import run_sympy

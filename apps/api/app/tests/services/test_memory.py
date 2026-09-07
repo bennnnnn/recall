@@ -14,6 +14,7 @@ from app.services.memory import (
     is_explicit_memory_command,
     is_food_or_diet_query,
     is_sensitive_memory_text,
+    merge_explicit_remember_fact,
     normalize_memory_text,
     section_needs_consolidation,
     sections_need_consolidation,
@@ -74,6 +75,34 @@ def test_is_explicit_memory_command_detects_remember_and_forget():
     assert is_explicit_memory_command("Please forget that I live in Boston") is True
     assert is_explicit_memory_command("I remember when we first met") is False
     assert is_explicit_memory_command("I'm allergic to peanuts") is False
+
+
+def test_merge_explicit_remember_fact_keeps_prior_and_adds_new():
+    prior = (
+        "As of 2026-08-20: Bini prefers varied learning formats for English "
+        "vocabulary sessions, alternating between teach, use, and multiple-choice"
+    )
+    merged = merge_explicit_remember_fact(prior, "Drinks oat milk")
+    assert "varied learning formats" in merged
+    assert "oat milk" in merged.lower()
+
+
+def test_accept_memory_section_rewrite_rejects_short_preference_alone():
+    prior = (
+        "Bini prefers varied learning formats for English vocabulary sessions, "
+        "alternating between teach then use, use then define, and occasional "
+        "multiple-choice questions"
+    )
+    assert (
+        accept_memory_section_rewrite(
+            section_type="preference",
+            prior=prior,
+            summary="Drinks oat milk",
+            confidence=0.9,
+            min_confidence=0.4,
+        )
+        is None
+    )
 
 
 def test_is_explicit_forget_command_ignores_dont_forget():
