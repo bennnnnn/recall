@@ -749,6 +749,23 @@ def test_skips_answer_pill_when_prose_already_states_result() -> None:
     assert "```answer" not in out
 
 
+def test_skips_answer_pill_when_prose_states_a_different_x_equals() -> None:
+    """Solver parsed ``2x+3=3`` (x=0) while the steps solved ``2x+3=7`` (x=2)."""
+    verified = _verified({"type": "answer", "content": "x = 0"})
+    out = validate_math_fences(
+        "The correct equation is $2x + 3 = 7$.\n\n**Solution:** $x = 2$",
+        verified=verified,
+    )
+    assert "```answer" not in out
+    assert "x = 2" in out
+
+
+def test_intermediate_2x_equals_does_not_count_as_conflicting_x() -> None:
+    verified = _verified({"type": "answer", "content": "x = 2"})
+    out = validate_math_fences("First $2x = 4$. Then divide.", verified=verified)
+    assert "```answer\nx = 2\n```" in out
+
+
 def test_draw_geometry_without_canonical_answer_does_not_append_pill() -> None:
     from app.services.math_tools import VerifiedMathBlock
 

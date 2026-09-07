@@ -302,7 +302,15 @@ def _first_order_ode_equation(cleaned: str) -> str | None:
     if start == -1:
         return None
     rest = cleaned[start:]
-    if "=" not in rest:
+    low_rest = rest.lower()
+    if low_rest.startswith("dy/dx"):
+        after_op = rest[5:].lstrip()
+    elif rest.startswith("y'"):
+        after_op = rest[2:].lstrip()
+    else:
+        after_op = rest.lstrip()
+    # ``Find dy/dx if y = …`` is a derivative ask, not an ODE ``dy/dx = …``.
+    if not after_op.startswith("="):
         return None
     return _strip_trailing_filler(rest)
 

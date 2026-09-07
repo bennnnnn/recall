@@ -483,6 +483,59 @@ def _span_states_short_int(span: str, core: str) -> bool:
     return compact == core or compact.endswith("=" + core)
 
 
+def _span_var_equals_int(span: str) -> str | None:
+    """``x = 2`` / ``x=0`` → the integer core; skip ``2x = 4``."""
+    compact = _normalize_answer_token(span)
+    if len(compact) < 3 or not compact[0].isalpha() or compact[1] != "=":
+        return None
+    rest = compact[2:]
+    if rest.startswith("-"):
+        rest = rest[1:]
+    if not rest.isdigit() or len(rest) > 2:
+        return None
+    return compact[2:]
+
+
+def _compact_bare_var_equals_ints(compact: str) -> list[str]:
+    """Integer cores from ``<letter>=N`` where the letter is not ``2x=4``."""
+    found: list[str] = []
+    i = 0
+    n = len(compact)
+    while i < n - 2:
+        if (
+            compact[i].isalpha()
+            and compact[i + 1] == "="
+            and (i == 0 or not compact[i - 1].isalnum())
+        ):
+            j = i + 2
+            if j < n and compact[j] == "-":
+                j += 1
+            k = j
+            while k < n and compact[k].isdigit():
+                k += 1
+            if k > j and (k - j) <= 2:
+                found.append(compact[i + 2 : k])
+            i = k
+        else:
+            i += 1
+    return found
+
+
+def _prose_states_conflicting_var_equals(content: str, answer_body: str) -> bool:
+    """True when steps already state ``x = 2`` and the solver chip would be ``x = 0``."""
+    solver = _answer_numeric_core(answer_body)
+    digits = solver[1:] if solver.startswith("-") else solver
+    if not digits.isdigit() or len(digits) > 2:
+        return False
+    stated: list[str] = []
+    for span in _math_spans(content):
+        hit = _span_var_equals_int(span)
+        if hit is not None:
+            stated.append(hit)
+    stated.extend(_compact_bare_var_equals_ints(_normalize_answer_token(content)))
+    return any(value != solver for value in stated)
+
+
 def _prose_already_states_answer(content: str, answer_body: str) -> bool:
     """True when the verified value is already visible in the assistant prose.
 
@@ -512,6 +565,7 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
         answer_body
         and not has_closed_fence(content, "answer")
         and not _prose_already_states_answer(content, answer_body)
+        and not _prose_states_conflicting_var_equals(content, answer_body)
     ):
         extras.append(_markdown_fence("answer", answer_body))
 

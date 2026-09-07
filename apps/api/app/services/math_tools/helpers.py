@@ -156,6 +156,39 @@ def _strip_expr_leadins(expr: str) -> str:
     return s
 
 
+def _is_named_function_lhs(left: str) -> bool:
+    """``y`` or ``f(x)`` — a definition lhs, not ``2x+3``."""
+    compact = left.replace(" ", "")
+    if len(compact) == 1 and compact.isalpha():
+        return True
+    return (
+        len(compact) == 4
+        and compact[0].isalpha()
+        and compact[1] == "("
+        and compact[2].isalpha()
+        and compact[3] == ")"
+    )
+
+
+def peel_function_definition(expr: str) -> str:
+    """``y = x^3 - 3x`` / ``of y = …`` / ``if y = …`` → the rhs expression."""
+    s = _strip_expr_leadins(collapse_ws(expr))
+    if len(s) > _MAX_MATH_INPUT:
+        s = s[:_MAX_MATH_INPUT]
+    low = s.lower()
+    if low.startswith("if "):
+        s = s[3:].lstrip()
+        s = _strip_expr_leadins(s)
+    eq = s.find("=")
+    if eq == -1:
+        return s
+    left = s[:eq].strip()
+    right = s[eq + 1 :].strip()
+    if _is_named_function_lhs(left) and looks_like_math_expr(right):
+        return right
+    return s
+
+
 def math_expr_or_none(expr: str) -> str | None:
     """Return ``expr`` only when it looks like math, not leftover English."""
     stripped = _strip_expr_leadins(expr)

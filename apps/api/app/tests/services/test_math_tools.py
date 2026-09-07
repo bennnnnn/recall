@@ -176,6 +176,29 @@ def test_late_reason_prose_does_not_extract_an_equation() -> None:
     assert math_tools.extract_math_intent("let x = the reason I'm late, it doesn't matter") is None
 
 
+def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
+    """``Let x = 5. What is x + 2?`` must not stamp ```answer x = 5."""
+    assert math_tools.extract_math_intent("Let x = 5. What is x + 2?") is None
+    assert math_tools.extract_math_intent("let x = 5") is not None
+
+
+def test_chained_equals_solves_the_intended_linear() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Solve 2x + 3 = 3 = 7")
+    assert intent is not None
+    assert intent.kind == "equation"
+    lhs = intent.lhs
+    rhs = intent.rhs
+    assert lhs is not None and rhs is not None
+    assert lhs.replace(" ", "") == "2x+3"
+    assert rhs.replace(" ", "") == "7"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "0" not in block.canonical_answer.split("=")[-1]
+    assert "2" in block.canonical_answer
+
+
 def test_extract_bare_equation_intent() -> None:
     intent = math_tools.extract_math_intent("2x+3=7")
     assert intent is not None
@@ -1320,6 +1343,36 @@ def test_second_derivative_is_not_the_first() -> None:
     # f' = 4x^3 - 6x; f'' = 12x^2 - 6 (possibly factored). Must not ship f'.
     assert "x^{3}" not in block.canonical_answer
     assert "2 x^{2}" in block.canonical_answer or "12" in block.canonical_answer
+
+
+def test_second_derivative_of_y_equals_polynomial_verifies() -> None:
+    """``y = x^3 - 3x`` used to fail extract, then stamp Couldn't verify."""
+    settings = Settings(math_tools_enabled=True)
+    text = "Find the second derivative of y = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    assert "=" not in (intent.expr or "")
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "6x" in compact or "6 x" in block.canonical_answer
+
+
+def test_dydx_if_y_equals_differentiates_the_rhs() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "Find dy/dx if y = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 1
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "3x^2" in compact or "3x^{2}" in compact or "3 x^{2}" in block.canonical_answer
 
 
 def test_dsolve_first_order_separable() -> None:

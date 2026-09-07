@@ -135,9 +135,34 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _is_given_then_evaluate(cleaned: str, eq_pairs: list[tuple[str, str]]) -> bool:
+    """``Let x = 5. What is x + 2?`` is substitution, not ``solve x = 5``."""
+    if len(eq_pairs) != 1:
+        return False
+    lhs, rhs = eq_pairs[0]
+    left = lhs.replace(" ", "")
+    if len(left) != 1 or not left.isalpha():
+        return False
+    compact_rhs = rhs.replace(" ", "")
+    if compact_rhs.startswith("-"):
+        compact_rhs = compact_rhs[1:]
+    if not compact_rhs or not all(ch.isdigit() or ch == "." for ch in compact_rhs):
+        return False
+    eq_at = cleaned.find("=")
+    if eq_at == -1:
+        return False
+    rest = cleaned[eq_at + 1 :].lower()
+    for cue in ("what is", "what's", "whats", "compute ", "evaluate ", "calculate "):
+        if cue in rest:
+            return True
+    return False
+
+
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
     if not eq_pairs:
+        return None
+    if _is_given_then_evaluate(cleaned, eq_pairs):
         return None
     lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
     from app.services.math_tools.helpers import math_expr_or_none

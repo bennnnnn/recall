@@ -205,35 +205,51 @@ def looks_like_math_expr(text: str) -> bool:
     return any(ch.isalnum() or ch in "+-*/^=()." for ch in stripped)
 
 
+def _leibniz_op_end(text: str, start: int) -> int | None:
+    """Exclusive end of ``d/dx`` or ``dy/dx`` starting at ``start``."""
+    n = len(text)
+    if start >= n or text[start] not in "dD":
+        return None
+    i = start + 1
+    if i < n and text[i] == "/":
+        if i + 1 < n and text[i + 1] in "dD":
+            i += 2
+            if i < n and text[i].isalpha() and (i + 1 == n or not text[i + 1].isalpha()):
+                return i + 1
+        return None
+    if i < n and text[i].isalpha() and (i + 1 == n or not text[i + 1].isalpha()):
+        i += 1
+        if i + 1 < n and text[i] == "/" and text[i + 1] in "dD":
+            i += 2
+            if i < n and text[i].isalpha() and (i + 1 == n or not text[i + 1].isalpha()):
+                return i + 1
+    return None
+
+
 def ddx_cue_at(text: str) -> int | None:
-    """Index of a ``d/dx`` derivative cue (not ``and/or``)."""
+    """Index of a ``d/dx`` / ``dy/dx`` derivative cue (not ``and/or``)."""
     lower = text.lower()
-    start = 0
     n = len(lower)
-    while True:
-        idx = lower.find("d/d", start)
+    start = 0
+    while start < n:
+        idx = lower.find("d", start)
         if idx == -1:
             return None
         prev_ok = idx == 0 or not lower[idx - 1].isalpha()
-        var_i = idx + 3
-        if (
-            prev_ok
-            and var_i < n
-            and lower[var_i].isalpha()
-            and (var_i + 1 == n or not lower[var_i + 1].isalpha())
-        ):
+        if prev_ok and _leibniz_op_end(lower, idx) is not None:
             return idx
         start = idx + 1
-
-
-_DDX_LEN = 4  # ``d/dx``
+    return None
 
 
 def ddx_expr_after(text: str) -> str | None:
     idx = ddx_cue_at(text)
     if idx is None:
         return None
-    return text[idx + _DDX_LEN :]
+    end = _leibniz_op_end(text, idx)
+    if end is None:
+        return None
+    return text[end:]
 
 
 def split_glued_viz_runs(text: str) -> str:
