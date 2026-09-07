@@ -633,6 +633,11 @@ def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
     assert math_service.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
 
 
+def test_try_extract_equations_collapses_chained_equals() -> None:
+    """``2x+3=3=7`` (doubled '=') must solve ``2x+3=7``, not ``2x+3=3``."""
+    assert math_service.try_extract_equations_from_text("Solve 2x + 3 = 3 = 7") == [("2x + 3", "7")]
+
+
 def test_try_extract_equations_strips_glued_english() -> None:
     assert math_service.try_extract_equations_from_text("X=6graph") == [("X", "6")]
     assert math_service.try_extract_equations_from_text("2x+3=7please") == [("2x+3", "7")]

@@ -11,6 +11,7 @@ from app.services.math_tools.helpers import (
     _strip_series_prefix,
     _strip_trailing_filler,
     math_expr_or_none,
+    peel_function_definition,
 )
 
 
@@ -79,6 +80,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         calc_op = "expand"
     tail = _calc_expr_tail(cleaned)
     raw = _strip_trailing_filler(tail) if tail is not None else cleaned
+    raw = peel_function_definition(raw)
     integral_lower: str | None = None
     integral_upper: str | None = None
     if calc_op == "integrate":

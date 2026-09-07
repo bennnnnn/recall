@@ -116,7 +116,8 @@ def _verified_block_graph(
     lines.append(
         "At most one short sentence naming the curve. Do not include a "
         "coordinate table, ASCII sketch, or hand-drawing instructions — "
-        "the plot is the figure."
+        "the plot is the figure. Do not ask for a domain or output format "
+        "and do not offer Python or Colab."
     )
     if has_discontinuity:
         lines.append(

@@ -214,6 +214,8 @@ def test_clarification_hint_asks_once_when_purpose_or_data_missing():
     assert "ask ONE question for that purpose" in CLARIFICATION_HINT
     assert "ask ONE question for the values" in CLARIFICATION_HINT
     assert "Do not interview for steps" in CLARIFICATION_HINT
+    assert "Function plots" in CLARIFICATION_HINT
+    assert "Python" in CLARIFICATION_HINT
     assert is_underspecified_writing_request("write me an email")
     assert is_underspecified_writing_request("escribeme un correo")
     assert not is_underspecified_writing_request("email my boss about PTO")

@@ -12,6 +12,23 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
+  typed English) hit the calculus verb so a Math note stamped, but
+  `squared` is an unknown letter-run so extract returned None. Rewrite
+  `x squared` / `x cubed` → `x^2` / `x^3` only after a 1-letter or digit
+  (not `area squared`).
+- **Graph y=x^2 asked for Python/Colab instead of plotting.** Keyword checks
+  missed it (```graph was attached). CLARIFICATION_HINT treated domain as a
+  missing fact. Exception like mermaid: default window, never offer code.
+- **Gray `x = 0` under steps that say `x = 2`.** Solver-owned ```answer is
+  appended after the stream. Chained `2x+3=3=7` solved `2x+3=3`; the model
+  solved `2x+3=7`. Collapse `a=b=c` to `a=c`. Skip the chip when prose already
+  states a different `x = N`. `Let x = 5. What is x + 2?` substitutes then
+  evals (`5+2`); returning no intent still injected the unverified footer.
+- **`Couldn't verify this with SymPy` under a correct `y'' = 6x`.** Intent
+  saw calculus but `y = x^3-3x` was differentiated as an equation (fails) and
+  `dy/dx` was not a `d/dx` cue. Peel `y=` / `f(x)=`; treat `dy/dx` as Leibniz.
+
 - **Assistant said “Recall will attach the verified diagram.”** That sentence
   was a system instruction (`DIAGRAM_OWNED_NOTE`) in declarative voice; the
   model copied it into the chat. Phrase as “do not mention attaching / fences”;

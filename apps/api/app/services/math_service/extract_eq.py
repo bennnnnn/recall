@@ -214,7 +214,21 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             pairs.append((lhs, rhs))
         start = right if right > eq + 1 else eq + 1
-    return pairs
+    return _collapse_equal_chain(pairs)
+
+
+def _collapse_equal_chain(pairs: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """``2x+3=3=7`` is one equation (first lhs, last rhs), not ``2x+3=3``.
+
+    Adjacent pairs form a chain when the previous RHS is the next LHS.
+    Independent clauses (``x+y=5, x-y=1``) stay separate.
+    """
+    if len(pairs) < 2:
+        return pairs
+    for i in range(len(pairs) - 1):
+        if pairs[i][1].strip() != pairs[i + 1][0].strip():
+            return pairs
+    return [(pairs[0][0], pairs[-1][1])]
 
 
 def try_extract_equation_from_text(text: str) -> EquationInput | None:

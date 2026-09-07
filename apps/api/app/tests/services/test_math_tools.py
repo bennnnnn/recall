@@ -176,6 +176,40 @@ def test_late_reason_prose_does_not_extract_an_equation() -> None:
     assert math_tools.extract_math_intent("let x = the reason I'm late, it doesn't matter") is None
 
 
+def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
+    """``Let x = 5. What is x + 2?`` must eval to 7, not stamp ```answer x = 5."""
+    intent = math_tools.extract_math_intent("Let x = 5. What is x + 2?")
+    assert intent is not None
+    assert intent.kind == "arithmetic"
+    assert intent.expr is not None
+    assert intent.expr.replace(" ", "") == "5+2"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "7" in block.canonical_answer
+    assert "x = 5" not in block.canonical_answer.replace(" ", "")
+    bare = math_tools.extract_math_intent("let x = 5")
+    assert bare is not None
+    assert bare.kind == "equation"
+
+
+def test_chained_equals_solves_the_intended_linear() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Solve 2x + 3 = 3 = 7")
+    assert intent is not None
+    assert intent.kind == "equation"
+    lhs = intent.lhs
+    rhs = intent.rhs
+    assert lhs is not None and rhs is not None
+    assert lhs.replace(" ", "") == "2x+3"
+    assert rhs.replace(" ", "") == "7"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "0" not in block.canonical_answer.split("=")[-1]
+    assert "2" in block.canonical_answer
+
+
 def test_extract_bare_equation_intent() -> None:
     intent = math_tools.extract_math_intent("2x+3=7")
     assert intent is not None
@@ -624,6 +658,8 @@ def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
     assert block.canonical_fence["base"] == 3
     assert block.canonical_fence["height"] == 4
     assert block.canonical_answer is None
+    assert "Opposite the base (3 cm) is 36.9°" in block.text
+    assert "opposite the height (4 cm) is 53.1°" in block.text
 
 
 def test_area_of_right_triangle_with_legs_still_answers_area() -> None:
@@ -925,6 +961,7 @@ def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in _unverified_math_note("graph")
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in DIAGRAM_OWNED_NOTE
+    assert "Do not offer Python" in DIAGRAM_OWNED_NOTE
 
 
 def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
@@ -1105,6 +1142,40 @@ def test_extract_indefinite_integral_has_no_bounds() -> None:
     assert intent.operation == "integrate"
     assert intent.integral_lower is None
     assert intent.integral_upper is None
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr",
+    [
+        ("Integrate x squared", "x^2"),
+        ("integrate x cubed", "x^3"),
+        ("What is the integral of x squared.", "x^2"),
+        ("differentiate x squared", "x^2"),
+    ],
+)
+def test_extract_english_squared_cubed(text: str, expected_expr: str) -> None:
+    """Speech / typed 'x squared' used to miss extract, then stamp unverified."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.expr == expected_expr
+
+
+def test_verified_integrate_x_squared_english() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Integrate x squared")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "x^{3}" in compact or "x^3" in compact
+    assert "3" in compact
+
+
+def test_english_area_squared_does_not_become_are_caret() -> None:
+    """Rewrite only 1-letter / digit bases — not the word 'area'."""
+    assert math_tools.extract_math_intent("integrate area squared") is None
 
 
 @pytest.mark.parametrize(
@@ -1320,6 +1391,36 @@ def test_second_derivative_is_not_the_first() -> None:
     # f' = 4x^3 - 6x; f'' = 12x^2 - 6 (possibly factored). Must not ship f'.
     assert "x^{3}" not in block.canonical_answer
     assert "2 x^{2}" in block.canonical_answer or "12" in block.canonical_answer
+
+
+def test_second_derivative_of_y_equals_polynomial_verifies() -> None:
+    """``y = x^3 - 3x`` used to fail extract, then stamp Couldn't verify."""
+    settings = Settings(math_tools_enabled=True)
+    text = "Find the second derivative of y = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    assert "=" not in (intent.expr or "")
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "6x" in compact or "6 x" in block.canonical_answer
+
+
+def test_dydx_if_y_equals_differentiates_the_rhs() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "Find dy/dx if y = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 1
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "3x^2" in compact or "3x^{2}" in compact or "3 x^{2}" in block.canonical_answer
 
 
 def test_dsolve_first_order_separable() -> None:

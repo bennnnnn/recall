@@ -6,7 +6,11 @@ import re
 
 from app.models.math_schemas import MathIntent
 from app.services import math_service
-from app.services.math_tools.helpers import _parse_newton_guess, _strip_newton_leadin
+from app.services.math_tools.helpers import (
+    _parse_newton_guess,
+    _strip_newton_leadin,
+    substituted_eval_expr,
+)
 
 _SOLVE_FOR_VAR_RE = re.compile(
     r"(?:solve\s+for|find|solve)\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
@@ -138,6 +142,9 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
     if not eq_pairs:
+        return None
+    # Let-binding + "what is x+2" is arithmetic after substitute, not solve x=5.
+    if substituted_eval_expr(cleaned) is not None:
         return None
     lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
     from app.services.math_tools.helpers import math_expr_or_none

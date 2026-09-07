@@ -14,8 +14,10 @@ SOLVER_OWNED_FENCES_NOTE = "Do NOT emit ```answer, ```graph, or ```geometry fenc
 DIAGRAM_OWNED_NOTE = (
     "Do not mention attaching, fences, JSON, or the app. "
     "Do NOT emit ```geometry or ```graph. One short sentence about the figure, "
-    "using $...$ where helpful. NEVER substitute a markdown table of sampled "
-    "points or a Mermaid/flowchart diagram for a function plot."
+    "using $...$ where helpful. Do not ask which domain or format. Do not offer "
+    "Python, Colab, or plotting code. Do not say you cannot plot. "
+    "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
+    "diagram for a function plot."
 )
 
 
