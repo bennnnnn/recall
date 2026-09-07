@@ -462,6 +462,7 @@ class TestNumberTheorySignal:
             ("lcm of 4 and 6", "lcm", 4, 6),
             ("prime factorization of 60", "factorize", 60, None),
             ("is 17 prime", "is_prime", 17, None),
+            ("is 91 a prime number", "is_prime", 91, None),
             ("10 mod 3", "mod", 10, 3),
         ],
     )
