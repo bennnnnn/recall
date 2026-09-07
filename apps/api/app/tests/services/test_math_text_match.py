@@ -257,10 +257,19 @@ class TestGraphExpr:
             ("graph x=2y", "x=2y"),
             ("graph x=4", "x=4"),
             ("graph 2x+3=x^2", "2x+3=x^2"),
+            # First capture is prose; last unprefixed graph/plot is the formula.
+            ("graph this: graph y=x^2", "x^2"),
+            ("graph theory then graph y=x^2", "x^2"),
         ],
     )
     def test_graph_expr(self, text, expected):
         assert mtm.graph_expr(text) == expected
+
+    def test_graph_expr_keeps_first_when_core_is_math(self):
+        """``graph y=x^2 then plot a table`` must not jump to the later ``plot``."""
+        expr = mtm.graph_expr("graph y=x^2 then plot a table")
+        assert expr is not None
+        assert expr.lower().startswith("x^2")
 
     def test_graph_expr_none_without_trigger(self):
         assert mtm.graph_expr("x^2") is None
@@ -462,6 +471,7 @@ class TestNumberTheorySignal:
             ("lcm of 4 and 6", "lcm", 4, 6),
             ("prime factorization of 60", "factorize", 60, None),
             ("is 17 prime", "is_prime", 17, None),
+            ("is 91 a prime number", "is_prime", 91, None),
             ("10 mod 3", "mod", 10, 3),
         ],
     )

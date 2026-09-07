@@ -80,9 +80,12 @@ class MathIntent(BaseModel):
             "taylor",
             "partial",
             "dsolve",
+            "critical_points",
         ]
         | None
     ) = None
+    # 1 = first derivative (default). "second derivative" sets 2, etc.
+    derivative_order: int = 1
     # Limit/series bounds — strings, not float, since "infinity"/"oo" is a
     # valid bound alongside a plain number (see
     # math_service._parse_infinity_aware_point).

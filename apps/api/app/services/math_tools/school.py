@@ -287,13 +287,33 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     return MathIntent(kind="complex", school_op="eval", expr=expr.strip(), operation="solve")
 
 
+def _first_order_ode_equation(cleaned: str) -> str | None:
+    """Span starting at ``dy/dx`` or ``y'`` through the rhs. Linear scan."""
+    from app.services.math_tools.helpers import _strip_trailing_filler
+
+    lower = cleaned.lower()
+    start = -1
+    idx = lower.find("dy/dx")
+    if idx != -1:
+        start = idx
+    yprime = cleaned.find("y'")
+    if yprime != -1 and (start == -1 or yprime < start):
+        start = yprime
+    if start == -1:
+        return None
+    rest = cleaned[start:]
+    if "=" not in rest:
+        return None
+    return _strip_trailing_filler(rest)
+
+
 def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if "taylor" in lower:
+    if "taylor" in lower or "maclaurin" in lower:
         expr = mtm.graph_expr(cleaned) or cleaned
         n = mtm.number_after(cleaned, "order") or mtm.number_after(cleaned, "degree") or 5
         point = "0"
-        if "at " in lower:
+        if "maclaurin" not in lower and "at " in lower:
             pt = mtm.number_after(cleaned, "at")
             if pt is not None:
                 point = f"{pt:g}"
@@ -339,10 +359,10 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
             variable=var,
         )
     if "dy/dx" in lower or "y'" in cleaned or "dsolve" in lower:
-        expr = cleaned
-        for w in ("solve", "dsolve", "the ode", "ode"):
-            expr = expr.replace(w, " ")
-        return MathIntent(kind="calculus", operation="dsolve", expr=expr.strip(), variable="x")
+        ode_eq = _first_order_ode_equation(cleaned)
+        if ode_eq is None:
+            return None
+        return MathIntent(kind="calculus", operation="dsolve", expr=ode_eq, variable="x")
     return None
 
 
@@ -488,6 +508,10 @@ def apply_calculus_extension(
     if intent.operation == "dsolve" and intent.expr:
         out = math_school.solve_ode(intent.expr, intent.variable)
         lines.append(f"ODE: {out.latex}")
+        return _finish_with_answer(lines, out.latex)
+    if intent.operation == "critical_points" and intent.expr:
+        out = math_school.critical_points(intent.expr, intent.variable)
+        lines.append(f"Critical points: {out.latex}")
         return _finish_with_answer(lines, out.latex)
     return None
 

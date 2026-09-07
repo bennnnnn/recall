@@ -105,6 +105,9 @@ def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
     from app.services.chat.prompt_constants import MATH_INTENT_HINT, SHORT_MATH_SAFETY_HINT
 
     assert "Closed-form" in SHORT_MATH_SAFETY_HINT
+    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in SHORT_MATH_SAFETY_HINT
     assert "$3 + 0 = 3$" in MATH_INTENT_HINT
     assert "$4! = 4 \\times 3 \\times 2 \\times 1 = 24$" in MATH_INTENT_HINT
     assert "no general" in MATH_INTENT_HINT

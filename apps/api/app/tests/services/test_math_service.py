@@ -314,6 +314,15 @@ def test_sample_function_rejects_relational_expr() -> None:
         )
 
 
+def test_sample_function_free_symbols_are_math_service_error() -> None:
+    """Leftover letters (``Graph`` → G·a·h·p·r) used to TypeError at np.asarray
+    and log as ``math_tools failed`` instead of a clean MathServiceError skip."""
+    with pytest.raises(math_service.MathServiceError, match="Could not sample"):
+        math_service.sample_function(
+            GraphSampleInput(expr="x**2/(G*a*h*p*r)", variable="x", x_min=-2, x_max=2, n=10)
+        )
+
+
 def test_number_line_from_x_gt_3() -> None:
     spec = math_service.number_line_spec_from_expr("x > 3")
     assert spec is not None
@@ -457,6 +466,13 @@ def test_compound_inequality_extract_and_solve() -> None:
 def test_differentiate_expression() -> None:
     result = math_service.differentiate_expression("x**2", "x")
     assert "2" in result.latex
+
+
+def test_differentiate_expression_second_order() -> None:
+    result = math_service.differentiate_expression("x**4 - 3*x**2", "x", 2)
+    # SymPy may leave 12x^{2}-6 or factor as 6(2x^{2}-1).
+    assert "x^{3}" not in result.latex
+    assert "2 x^{2}" in result.latex or "12" in result.latex
 
 
 def test_integrate_expression_marks_closed_form_result_as_solved() -> None:

@@ -67,7 +67,8 @@ class SympyAdapter:
         return (
             "Symbolic math: solve equations / systems / inequalities, simplify, "
             "differentiate, integrate (optional lower/upper for definite), factor, "
-            "expand, limits, series, Newton's method, rectangle/square/circle "
+            "expand, limits, series, Newton's method, first-order ODEs (dsolve), "
+            "rectangle/square/circle "
             "geometry, graphs (optional second curve via expr2), and verified "
             "kinematics/projectile/F=ma/scalar-energy word problems."
         )
@@ -142,14 +143,22 @@ class SympyAdapter:
                     math_service.integrate_definite, expr, variable, lower, upper
                 )
         if expr_result is None:
-            fn = {
-                "simplify": math_service.simplify_expression,
-                "diff": math_service.differentiate_expression,
-                "integrate": math_service.integrate_expression,
-                "factor": math_service.factor_expression,
-                "expand": math_service.expand_expression,
-            }[action]
-            expr_result = await self._run_off_loop(fn, expr, variable)
+            if action == "diff":
+                try:
+                    order_n = int(args.get("order") or 1)
+                except (TypeError, ValueError):
+                    order_n = 1
+                expr_result = await self._run_off_loop(
+                    math_service.differentiate_expression, expr, variable, order_n
+                )
+            else:
+                fn = {
+                    "simplify": math_service.simplify_expression,
+                    "integrate": math_service.integrate_expression,
+                    "factor": math_service.factor_expression,
+                    "expand": math_service.expand_expression,
+                }[action]
+                expr_result = await self._run_off_loop(fn, expr, variable)
         if expr_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         # Parity with the heuristic _verified_block_calculus path: an integral
@@ -551,6 +560,22 @@ class SympyAdapter:
             data=_fence_data(fence),
         )
 
+    async def _action_dsolve(self, args: dict[str, Any]) -> ToolResult:
+        from app.services import math_school
+
+        expr = str(args.get("expr") or args.get("text") or "")
+        variable = str(args.get("variable") or "x")
+        result = await self._run_off_loop(math_school.solve_ode, expr, variable)
+        if result is None:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        return ToolResult(
+            name=self.name,
+            content=_verified_content(f"ODE: {result.latex}"),
+            data=_fence_data(
+                math_tools._answer_canonical(result.latex), canonical_answer=result.latex
+            ),
+        )
+
     async def invoke(self, args: dict[str, Any]) -> ToolResult:
         action = str(args.get("action") or "solve").strip().lower()
         try:
@@ -586,6 +611,7 @@ _ACTION_HANDLERS: dict[str, _ActionHandler] = {
     "limit": SympyAdapter._action_limit,
     "series": SympyAdapter._action_series,
     "newton": SympyAdapter._action_newton,
+    "dsolve": SympyAdapter._action_dsolve,
     "rectangle": SympyAdapter._action_rectangle,
     "square": SympyAdapter._action_square,
     "circle": SympyAdapter._action_circle,

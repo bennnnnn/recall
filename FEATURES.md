@@ -462,7 +462,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **LLM todo sync** — ` ```reminder ` fences apply on persist (create + mutations);
   a background job still recovers missed writes from chat (dated items only). Injects
   Schedule + overdue summary into the system prompt. “What time is my flight / meeting /
-  …” loads Schedule (and Calendar) on the first turn.
+  …” loads Schedule (and Calendar) on the first turn. Typed “remind me …” also classifies
+  as a Schedule turn. Live Talk injects a compact Schedule snapshot and applies the same
+  clocked “remind me … today/tomorrow at …” persist heuristic (no invented times; tools
+  stay read-only).
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
@@ -1050,7 +1053,7 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → OpenAI `gpt-4o-mini-transcribe` → composer (app-language hint, no-speech gate) | Live provider verification |
-| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, physical-device barge-in, bounded read-only tools; persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
+| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)

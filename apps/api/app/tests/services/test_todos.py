@@ -402,6 +402,21 @@ def test_format_todos_block_schedule_only():
     assert "Milk" not in block
 
 
+def test_format_todos_voice_block_is_plain_and_skips_undated():
+    due_item = _item("Reading at 10", "General")
+    due_item.due_at = datetime(2026, 7, 1, 10, 0, tzinfo=UTC)
+    block = todos_service.format_todos_voice_block(
+        [due_item, _item("Milk", "Groceries")],
+        user_timezone="UTC",
+    )
+    assert "User Schedule" in block
+    assert "Reading at 10" in block
+    assert "10:00" in block
+    assert "### " not in block
+    assert "Milk" not in block
+    assert todos_service.format_todos_voice_block([_item("Milk")]) == ""
+
+
 @pytest.mark.asyncio
 async def test_apply_todo_actions_complete():
     session = AsyncMock()
@@ -487,6 +502,8 @@ def test_select_todos_for_prompt_prioritizes_overdue():
 def test_query_implies_todos():
     assert todos_service.query_implies_todos("What's on my todo list?")
     assert todos_service.query_implies_todos("mis recordatorios")
+    assert todos_service.query_implies_todos("remind me to call mom tomorrow at 5pm")
+    assert todos_service.query_implies_todos("Can you remind me")
     assert not todos_service.query_implies_todos("Add milk to my grocery list")
     assert todos_service.query_implies_todos("mark laundry done")
     assert todos_service.query_implies_todos("move dentist to tomorrow")

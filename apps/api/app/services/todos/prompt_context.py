@@ -17,6 +17,9 @@ from app.services import time_context as time_context_service
 from app.services.todos.classification import query_implies_todos
 from app.services.todos.prompt_hint import TODO_HINT
 
+# Voice inject stays shorter than typed-chat prompt_limit (48).
+_VOICE_SCHEDULE_LIMIT = 12
+
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
@@ -174,6 +177,37 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
                 f"- {mark} {todo.content} at {clock}{rel}{repeat} ({status}, topic: {topic})"
             )
 
+    return "\n".join(lines)
+
+
+def format_todos_voice_block(items: list[TodoItem], *, user_timezone: str | None = None) -> str:
+    """Compact Schedule snapshot for spoken Live Talk instructions (no markdown)."""
+    reminders = [item for item in items if item.due_at is not None]
+    if not reminders:
+        return ""
+
+    ranked = sorted(
+        reminders,
+        key=lambda item: _todo_priority(item, query_text=None, user_timezone=user_timezone),
+    )[:_VOICE_SCHEDULE_LIMIT]
+
+    grouped: dict[tuple[str, str], list[TodoItem]] = {}
+    for todo in ranked:
+        key = _reminder_day_group(todo, user_timezone)
+        grouped.setdefault(key, []).append(todo)
+
+    lines = ["User Schedule (in-app reminders):"]
+    for key in sorted(grouped.keys(), key=lambda item: item[0]):
+        heading = key[1]
+        day_items = sorted(
+            grouped[key],
+            key=lambda item: _due_local(item.due_at, user_timezone),  # type: ignore[arg-type]
+        )
+        for todo in day_items:
+            status = "done" if todo.checked else "open"
+            due_local = _due_local(todo.due_at, user_timezone)  # type: ignore[arg-type]
+            clock = due_local.strftime("%H:%M")
+            lines.append(f"{heading}: {todo.content} at {clock} ({status})")
     return "\n".join(lines)
 
 

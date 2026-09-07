@@ -303,6 +303,10 @@ export function looksLikeExplicitDraftContent(content: string): boolean {
   ) {
     return false;
   }
+  // Nested ```email / ```sms or ATX headings mean the model used a draft
+  // fence as a capability example and swallowed the rest of the reply.
+  if (trimmed.includes("```")) return false;
+  if (/^#{1,6}\s/m.test(trimmed)) return false;
   return !looksLikeCode(trimmed);
 }
 

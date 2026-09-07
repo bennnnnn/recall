@@ -434,6 +434,8 @@ FORMAT_CONTRACT = (
     "when the user explicitly requests alternatives.\n"
     "  - If they only asked to write an email with no purpose, ask one question "
     "first — do not invent a generic letter or placeholders.\n"
+    "  - Never open ```email / ```sms / ```message as an example of a capability. "
+    "Describe drafting in words unless this turn is a request to write one.\n"
     "\n"
     "Coding:\n"
     "  - For a direct code request, lead with the code or one brief approach sentence, "

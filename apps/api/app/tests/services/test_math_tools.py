@@ -160,14 +160,20 @@ def test_extract_equation_sin_pi_x_still_solves_for_x() -> None:
         ("2x+3=7", True),
         ("y=x^2", True),
         ("a+b=10", True),
+        ("let x = 5", True),
         ("the meeting = 3pm", False),
         ("What's the weather?", False),
+        ("let x = the reason I'm late, it doesn't matter", False),
     ],
 )
 def test_needs_symbolic_math_bare_equation(text: str, expected: bool) -> None:
     """Bare algebraic equations (no 'solve'/'find' keyword) now trigger SymPy.
-    Prose with an '=' but no standalone single-letter variable does not."""
+    Prose with an '=' but no math sides does not."""
     assert math_tools.needs_symbolic_math(text) is expected
+
+
+def test_late_reason_prose_does_not_extract_an_equation() -> None:
+    assert math_tools.extract_math_intent("let x = the reason I'm late, it doesn't matter") is None
 
 
 def test_extract_bare_equation_intent() -> None:
@@ -881,6 +887,10 @@ def test_verified_trig_sin_of_degrees() -> None:
         ("Graph y =Graph y = x².", "x**2"),
         (r"Graph y =Graph y = $x^{2}$.", "x**2"),
         (r"Graph y =Graph y$= x^$$= x^2.$", "x**2"),
+        ("Graph y = Graph y = x^2", "x**2"),
+        ("graph this: graph y=x^2", "x**2"),
+        ("graph theory then graph y=x^2", "x**2"),
+        ("Graph y =Graph y= x= x².", "x**2"),
     ],
 )
 def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
@@ -892,6 +902,29 @@ def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: st
     assert intent is not None
     assert intent.kind == "graph"
     assert intent.expr == expected_expr
+
+
+def test_garbled_graph_ask_does_not_become_equation() -> None:
+    """English leftover after a graph cue must stay kind=graph (honesty note),
+    not fall through to the equation solver as a fabricated verified solve."""
+    settings = Settings(math_tools_enabled=True)
+    text = "graph x = the reason I am late"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert not intent.expr
+    assert intent.lhs is None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is None
+
+
+def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
+    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.services.math_tools.block.common import DIAGRAM_OWNED_NOTE
+    from app.services.math_tools.prompt import _unverified_math_note
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in _unverified_math_note("graph")
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in DIAGRAM_OWNED_NOTE
 
 
 def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
@@ -1264,6 +1297,65 @@ def test_differentiate_expression_steps_name_rules() -> None:
     assert out.steps[-1].startswith("Result:")
     # The verified derivative of x^3 + 5 is 3*x^2.
     assert "3" in out.result and "x" in out.result
+
+
+def test_first_derivative_phrasing_stays_order_one() -> None:
+    intent = math_tools.extract_math_intent("find the derivative of sin(x)cos(x)")
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 1
+
+
+def test_second_derivative_is_not_the_first() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the second derivative of x^4 - 3x^2"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    # f' = 4x^3 - 6x; f'' = 12x^2 - 6 (possibly factored). Must not ship f'.
+    assert "x^{3}" not in block.canonical_answer
+    assert "2 x^{2}" in block.canonical_answer or "12" in block.canonical_answer
+
+
+def test_dsolve_first_order_separable() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "solve the differential equation dy/dx = y"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "dsolve"
+    assert intent.expr is not None
+    assert intent.expr.lower().startswith("dy/dx")
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    low = block.canonical_answer.lower()
+    assert "e" in low or "exp" in low or "c" in low
+
+
+def test_critical_points_are_not_a_fake_equation_solve() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the critical points of f(x) = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "critical_points"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "re(" not in block.canonical_answer
+    assert "1" in block.canonical_answer and "-1" in block.canonical_answer
+
+
+def test_maclaurin_aliases_taylor_at_zero() -> None:
+    intent = math_tools.extract_math_intent("maclaurin series of e^x")
+    assert intent is not None
+    assert intent.operation == "taylor"
+    assert intent.limit_point == "0"
 
 
 @pytest.mark.asyncio
