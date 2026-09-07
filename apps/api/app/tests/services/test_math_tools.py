@@ -1245,6 +1245,65 @@ def test_differentiate_expression_steps_name_rules() -> None:
     assert "3" in out.result and "x" in out.result
 
 
+def test_first_derivative_phrasing_stays_order_one() -> None:
+    intent = math_tools.extract_math_intent("find the derivative of sin(x)cos(x)")
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 1
+
+
+def test_second_derivative_is_not_the_first() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the second derivative of x^4 - 3x^2"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    # f' = 4x^3 - 6x; f'' = 12x^2 - 6 (possibly factored). Must not ship f'.
+    assert "x^{3}" not in block.canonical_answer
+    assert "2 x^{2}" in block.canonical_answer or "12" in block.canonical_answer
+
+
+def test_dsolve_first_order_separable() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "solve the differential equation dy/dx = y"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "dsolve"
+    assert intent.expr is not None
+    assert intent.expr.lower().startswith("dy/dx")
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    low = block.canonical_answer.lower()
+    assert "e" in low or "exp" in low or "c" in low
+
+
+def test_critical_points_are_not_a_fake_equation_solve() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the critical points of f(x) = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "critical_points"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "re(" not in block.canonical_answer
+    assert "1" in block.canonical_answer and "-1" in block.canonical_answer
+
+
+def test_maclaurin_aliases_taylor_at_zero() -> None:
+    intent = math_tools.extract_math_intent("maclaurin series of e^x")
+    assert intent is not None
+    assert intent.operation == "taylor"
+    assert intent.limit_point == "0"
+
+
 @pytest.mark.asyncio
 async def test_augment_prompt_unsolved_integral_has_no_answer_fence() -> None:
     settings = Settings(math_tools_enabled=True)

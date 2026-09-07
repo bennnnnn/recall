@@ -6,9 +6,12 @@ import math
 
 from pint import UnitRegistry
 from sympy import (
+    Derivative,
+    Eq,
     Function,
     Symbol,
     cos,
+    diff,
     dsolve,
     factorial,
     latex,
@@ -16,6 +19,7 @@ from sympy import (
     pi,
     simplify,
     sin,
+    solve,
     tan,
 )
 
@@ -243,18 +247,49 @@ def partial_derivative(expr: str, variable: str) -> MathExprResult:
 
 
 def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
-    """First-order ODE: ``dy/dx = ...`` or ``y' = ...`` in ``expr`` as Eq."""
+    """First-order ODE ``dy/dx = ...`` or ``y' = ...``. Build ``Eq`` in SymPy.
+
+    Do not feed ``Derivative(y(x), x) = ...`` through the generic expression
+    parser — ``y(x)`` is not a allowed free-form parse.
+    """
     y = Function("y")
     ivar = Symbol(variable)
-    text = expr.replace("y'", f"Derivative(y({variable}), {variable})")
-    text = text.replace("dy/dx", f"Derivative(y({variable}), {variable})")
-    parsed = _parse_expression(text, [variable])
+    text = expr.strip()
+    eq_at = text.find("=")
+    if eq_at == -1:
+        raise MathServiceError("could not solve ODE")
+    lhs_raw = text[:eq_at].strip()
+    rhs_raw = text[eq_at + 1 :].strip()
+    lhs_key = lhs_raw.lower().replace(" ", "")
+    if lhs_key not in {"dy/dx", "y'"}:
+        raise MathServiceError("could not solve ODE")
+    parsed_rhs = _parse_expression(rhs_raw, [variable, "y"])
+    parsed_rhs = parsed_rhs.subs(Symbol("y"), y(ivar))
+    eq = Eq(Derivative(y(ivar), ivar), parsed_rhs)
     try:
-        sol = dsolve(parsed, y(ivar))
+        sol = dsolve(eq, y(ivar))
     except Exception as exc:
         raise MathServiceError("could not solve ODE") from exc
     tex = str(latex(sol))
     return MathExprResult(result=tex, latex=tex, solved=True)
+
+
+def critical_points(expr: str, variable: str = "x") -> MathExprResult:
+    """Solve ``f'(x) = 0`` for polynomial/elementary ``f``."""
+    if not (expr or "").strip():
+        raise MathServiceError("could not find critical points")
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    deriv = diff(parsed, sym)
+    try:
+        sols = solve(deriv, sym)
+    except Exception as exc:
+        raise MathServiceError("could not find critical points") from exc
+    if not sols:
+        tex = r"\emptyset"
+    else:
+        tex = ", ".join(str(latex(s)) for s in sols)
+    return MathExprResult(result=str(sols), latex=tex, solved=True)
 
 
 def evaluate_trig_expr(expr: str) -> str:

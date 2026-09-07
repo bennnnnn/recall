@@ -14,6 +14,54 @@ from app.services.math_tools.helpers import (
 )
 
 
+def _derivative_order(cleaned: str) -> int:
+    """1-3 from phrasing. Linear scans — no regex."""
+    low = cleaned.lower()
+    for phrase, order in (
+        ("third derivative", 3),
+        ("3rd derivative", 3),
+        ("second derivative", 2),
+        ("2nd derivative", 2),
+    ):
+        if phrase in low:
+            return order
+    compact = low.replace(" ", "")
+    if "d^3" in compact or "d³" in compact:
+        return 3
+    if "d^2" in compact or "d²" in compact:
+        return 2
+    return 1
+
+
+def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
+    """Intercept extrema asks so they cannot fall through to a fake equation solve."""
+    low = cleaned.lower()
+    if (
+        "critical point" not in low
+        and "extrema" not in low
+        and "local max" not in low
+        and "local min" not in low
+    ):
+        return None
+    from app.services import math_service
+
+    expr: str | None = None
+    pairs = math_service.try_extract_equations_from_text(cleaned)
+    if pairs:
+        _lhs, rhs = pairs[0]
+        expr = math_expr_or_none(rhs)
+    if expr is None:
+        of_at = low.find(" of ")
+        if of_at != -1:
+            expr = math_expr_or_none(_strip_trailing_filler(cleaned[of_at + 4 :]))
+    return MathIntent(
+        kind="calculus",
+        expr=expr or "",
+        operation="critical_points",
+        variable="x",
+    )
+
+
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
@@ -46,6 +94,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         operation=calc_op,
         integral_lower=integral_lower,
         integral_upper=integral_upper,
+        derivative_order=_derivative_order(cleaned) if calc_op == "differentiate" else 1,
     )
 
 
@@ -93,6 +142,7 @@ def _extract_series_intent(cleaned: str) -> MathIntent | None:
 
 
 CALCULUS_EXTRACTORS = (
+    _extract_critical_points_intent,
     _extract_calculus_intent,
     _extract_limit_intent,
     _extract_series_intent,
