@@ -881,6 +881,10 @@ def test_verified_trig_sin_of_degrees() -> None:
         ("Graph y =Graph y = x².", "x**2"),
         (r"Graph y =Graph y = $x^{2}$.", "x**2"),
         (r"Graph y =Graph y$= x^$$= x^2.$", "x**2"),
+        ("Graph y = Graph y = x^2", "x**2"),
+        ("graph this: graph y=x^2", "x**2"),
+        ("graph theory then graph y=x^2", "x**2"),
+        ("Graph y =Graph y= x= x².", "x**2"),
     ],
 )
 def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
@@ -892,6 +896,29 @@ def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: st
     assert intent is not None
     assert intent.kind == "graph"
     assert intent.expr == expected_expr
+
+
+def test_garbled_graph_ask_does_not_become_equation() -> None:
+    """English leftover after a graph cue must stay kind=graph (honesty note),
+    not fall through to the equation solver as a fabricated verified solve."""
+    settings = Settings(math_tools_enabled=True)
+    text = "graph x = the reason I am late"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert not intent.expr
+    assert intent.lhs is None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is None
+
+
+def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
+    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.services.math_tools.block.common import DIAGRAM_OWNED_NOTE
+    from app.services.math_tools.prompt import _unverified_math_note
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in _unverified_math_note("graph")
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in DIAGRAM_OWNED_NOTE
 
 
 def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
