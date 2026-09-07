@@ -163,6 +163,7 @@ class TestMathTextMatchSignals:
             ("least common multiple of 4 and 6", ("lcm", 4, 6)),
             ("prime factorization of 60", ("factorize", 60, None)),
             ("is 97 prime", ("is_prime", 97, None)),
+            ("is 91 a prime number", ("is_prime", 91, None)),
             ("17 mod 5", ("mod", 17, 5)),
         ],
     )

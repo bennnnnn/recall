@@ -70,7 +70,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Vectors | Magnitude, dot, cross | `vector` |
 | Physics (narrow) | 1D gravity kinematics, vacuum projectile range/max height, scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; trajectory `graph` fences only for kinematics/projectile |
 | Linear algebra | 2×2–4×4 det and inverse | `matrix` |
-| Calc II (thin) | Taylor, partials, first-order `dsolve`. Polar/parametric/double integrals stay LLM | `calculus` |
+| Calc II (thin) | Taylor / Maclaurin, partials, first-order `dsolve`, 2nd/3rd derivative. Polar/parametric/double integrals stay LLM | `calculus` |
 | Probability | Binomial PMF, expected value of a list | `probability` |
 | Complex / units | Simplify `a+bi`; length/mass/time/temp convert | `complex`, `unit` |
 | Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse | `graph` / `graph_pair` |

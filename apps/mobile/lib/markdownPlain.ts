@@ -8,6 +8,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
+import { parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
 
 function mapFenceRegions(
   text: string,
@@ -189,6 +190,10 @@ function speakMath(latex: string): string {
     .trim();
 }
 
+function copyMath(latex: string): string {
+  return segmentsToPlain(parseSimpleLatex(latex)).replace(/\$/g, "").trim();
+}
+
 function isMathDollarInner(inner: string): boolean {
   const t = inner.trim();
   if (!t) return false;
@@ -198,7 +203,7 @@ function isMathDollarInner(inner: string): boolean {
   return /\d/.test(t) && /[+\-*/]/.test(t);
 }
 
-function speakInlineMath(text: string): string {
+function rewriteInlineMath(text: string, convert: (latex: string) => string): string {
   let out = "";
   let i = 0;
   while (i < text.length) {
@@ -209,7 +214,7 @@ function speakInlineMath(text: string): string {
         i += 1;
         continue;
       }
-      out += speakMath(text.slice(i + 2, close));
+      out += convert(text.slice(i + 2, close));
       i = close + 2;
       continue;
     }
@@ -226,7 +231,7 @@ function speakInlineMath(text: string): string {
     }
     const inner = text.slice(i + 1, close);
     if (isMathDollarInner(inner)) {
-      out += speakMath(inner);
+      out += convert(inner);
       i = close + 1;
       continue;
     }
@@ -239,7 +244,8 @@ function speakInlineMath(text: string): string {
 function convertProse(prose: string, mode: "copy" | "speech"): string {
   let text = pipeTablesToPlain(prose);
   text = stripMarkdownChrome(text);
-  if (mode === "speech") text = speakInlineMath(text);
+  if (mode === "speech") text = rewriteInlineMath(text, speakMath);
+  else text = rewriteInlineMath(text, copyMath);
   return text;
 }
 
@@ -248,9 +254,11 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
   if (isControlFenceLang(lang)) return "";
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
-  if (fenceIdForLang(lang) === "answer") return trimmed;
+  if (fenceIdForLang(lang) === "answer") {
+    return mode === "speech" ? speakMath(trimmed) : copyMath(trimmed);
+  }
   if (isMathFenceLang(lang)) {
-    return mode === "speech" ? speakMath(trimmed) : trimmed;
+    return mode === "speech" ? speakMath(trimmed) : copyMath(trimmed);
   }
   if (lang.startsWith("callout-")) return convertProse(trimmed, mode);
   return trimmed;
@@ -265,7 +273,7 @@ function convertMarkdown(markdown: string, mode: "copy" | "speech"): string {
   return walked.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** Whole-message Copy: keep code, `$`, identifiers, and ```answer bodies. */
+/** Whole-message Copy: keep code and identifiers; flatten `$...$` math to readable text. */
 export function markdownToCopyText(markdown: string): string {
   return convertMarkdown(markdown, "copy");
 }

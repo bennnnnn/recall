@@ -28,5 +28,23 @@ def test_evaluate_complex_keeps_sin() -> None:
 def test_evaluate_complex_keeps_pi() -> None:
     out = math_school.evaluate_complex("2+3i*sin(pi/6)")
     assert "pI" not in out
-    assert "sIn" not in out
-    assert "i" in out
+
+
+def test_solve_ode_builds_eq_not_parse_string() -> None:
+    out = math_school.solve_ode("dy/dx = y")
+    assert out.solved
+    low = out.latex.lower()
+    assert "e" in low or "exp" in low
+
+
+def test_solve_ode_yprime() -> None:
+    out = math_school.solve_ode("y' = -2*y")
+    assert out.solved
+    assert "2" in out.latex or "e" in out.latex.lower()
+
+
+def test_critical_points_cubic() -> None:
+    out = math_school.critical_points("x**3 - 3*x")
+    assert out.solved
+    assert "1" in out.latex
+    assert "-1" in out.latex

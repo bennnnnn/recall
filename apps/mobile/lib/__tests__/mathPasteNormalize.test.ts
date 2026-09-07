@@ -42,6 +42,10 @@ describe("normalizePastedMath", () => {
     expect(normalizePastedMath("**bold** text here")).toBe("**bold** text here");
     expect(normalizePastedMath("hello world")).toBe("hello world");
   });
+
+  it("wraps each line of a pasted equation system instead of gluing them", () => {
+    expect(normalizePastedMath("x + y = 3\n2x - y = 1")).toBe("$x + y = 3$\n$2x - y = 1$");
+  });
 });
 
 describe("restoreCopiedFractions", () => {

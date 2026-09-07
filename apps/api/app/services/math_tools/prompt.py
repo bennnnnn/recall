@@ -185,7 +185,9 @@ def _unverified_math_note(kind: str) -> str:
         "Explain carefully and show your work. Do NOT claim the answer was "
         "SymPy-verified. Write the result in `$...$` and mark uncertainty when "
         "you are unsure. Do NOT emit ```answer, ```geometry, or ```graph. "
-        "Do not invent geometry/graph dimensions or point lists."
+        "Do not invent geometry/graph dimensions or point lists. "
+        "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
+        "diagram for a function plot."
     )
 
 

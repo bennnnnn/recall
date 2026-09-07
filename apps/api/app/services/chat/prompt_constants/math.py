@@ -1,5 +1,12 @@
 """Math, geometry, and graph prompt hints."""
 
+# Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
+# when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
+GRAPH_NO_SUBSTITUTE_CLAUSE = (
+    "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
+    "diagram for a function plot."
+)
+
 MATH_INTENT_HINT = (
     "Math / algebra / numeric answers:\n"
     "  - Formula shape (one rule): numbered steps and intermediate algebra use "
@@ -67,7 +74,8 @@ MATH_INTENT_HINT = (
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation; NOT molecules):\n"
     "- Do NOT emit ```geometry or ```graph fences. Do not tell the user a "
-    "diagram will be attached. Describe the figure in words using `$...$`.\n"
+    "diagram will be attached. Describe the figure in words using `$...$`. "
+    f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n"
     "- Never invent geometry dimensions. Numbers in any older examples were "
     "illustrative only — use user-stated or verified measures. If measures are "
     'missing (bare "what is a circle?"), explain in words or ask.\n'
@@ -135,6 +143,7 @@ SHORT_MATH_SAFETY_HINT = (
     "those exact numbers — do NOT recompute. Never mention SymPy in the reply. "
     "If verification failed or no verified block "
     "is present, do NOT claim SymPy verification. Never invent geometry dimensions. "
+    f"{GRAPH_NO_SUBSTITUTE_CLAUSE} "
     "Closed-form (n!, 2+2): one-line instance, no lecture. Equations: general formula "
     "then numbered `$...$` lines — never a step-card fence."
 )

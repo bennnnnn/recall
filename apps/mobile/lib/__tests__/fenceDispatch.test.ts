@@ -46,6 +46,18 @@ describe("classifyFence — explicit tags win", () => {
     expect(classifyFence("linkedin", post).kind).toBe("rich");
   });
 
+  it("demotes an email fence that swallowed a capabilities list", () => {
+    const leaked = [
+      "to reschedule a meeting or ```sms to confirm plans)",
+      "## phases with numbered tasks",
+      "",
+      "**Planning & Productivity**",
+      "- Design an app",
+    ].join("\n");
+    expect(classifyFence("email", leaked).kind).toBe("prose");
+    expect(classifyFence("sms", leaked).kind).toBe("prose");
+  });
+
   it.each(["email", "message", "sms", "reply", "linkedin", "social", "copy"])(
     "streams an open %s fence as prose, never as code",
     (lang) => {
