@@ -15,7 +15,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Gray `x = 0` under steps that say `x = 2`.** Solver-owned ```answer is
   appended after the stream. Chained `2x+3=3=7` solved `2x+3=3`; the model
   solved `2x+3=7`. Collapse `a=b=c` to `a=c`. Skip the chip when prose already
-  states a different `x = N`. `Let x = 5. What is x + 2?` is not `solve x = 5`.
+  states a different `x = N`. `Let x = 5. What is x + 2?` substitutes then
+  evals (`5+2`); returning no intent still injected the unverified footer.
 - **`Couldn't verify this with SymPy` under a correct `y'' = 6x`.** Intent
   saw calculus but `y = x^3-3x` was differentiated as an equation (fails) and
   `dy/dx` was not a `d/dx` cue. Peel `y=` / `f(x)=`; treat `dy/dx` as Leibniz.

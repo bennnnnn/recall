@@ -10,6 +10,7 @@ from app.models.math_schemas import MathIntent
 from app.services import math_school
 from app.services import math_text_match as mtm
 from app.services.math_tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.math_tools.helpers import substituted_eval_expr
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +216,9 @@ def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
 
 
 def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
+    substituted = substituted_eval_expr(cleaned)
+    if substituted is not None:
+        return MathIntent(kind="arithmetic", school_op="eval", expr=substituted, operation="solve")
     if mtm.has_equation(cleaned):
         return None
     percent = _extract_percent_or_ratio(cleaned)

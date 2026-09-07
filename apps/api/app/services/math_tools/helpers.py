@@ -170,6 +170,82 @@ def _is_named_function_lhs(left: str) -> bool:
     )
 
 
+_EVAL_AFTER_GIVEN_CUES = (
+    "what is",
+    "what's",
+    "whats",
+    "compute ",
+    "evaluate ",
+    "calculate ",
+)
+
+
+def substituted_eval_expr(cleaned: str) -> str | None:
+    """``Let x = 5. What is x + 2?`` → ``5+2``. Bare ``let x = 5`` stays None."""
+    if len(cleaned) > _MAX_MATH_INPUT:
+        return None
+    from app.services import math_service
+
+    eq_pairs = math_service.try_extract_equations_from_text(cleaned)
+    if len(eq_pairs) != 1:
+        return None
+    lhs, rhs = eq_pairs[0]
+    left = lhs.replace(" ", "")
+    if len(left) != 1 or not left.isalpha():
+        return None
+    compact_rhs = rhs.replace(" ", "")
+    sign = ""
+    if compact_rhs.startswith("-"):
+        sign = "-"
+        compact_rhs = compact_rhs[1:]
+    if not compact_rhs or compact_rhs.count(".") > 1:
+        return None
+    if not all(ch.isdigit() or ch == "." for ch in compact_rhs):
+        return None
+    eq_at = cleaned.find("=")
+    if eq_at == -1:
+        return None
+    rest = cleaned[eq_at + 1 :]
+    rest_l = rest.lower()
+    cue_at = -1
+    cue_len = 0
+    for cue in _EVAL_AFTER_GIVEN_CUES:
+        found = rest_l.find(cue)
+        if found != -1 and (cue_at == -1 or found < cue_at):
+            cue_at = found
+            cue_len = len(cue)
+    if cue_at == -1:
+        return None
+    expr = rest[cue_at + cue_len :].strip()
+    while expr and expr[-1] in "?.!":
+        expr = expr[:-1].rstrip()
+    if not expr:
+        return None
+    replacement = sign + compact_rhs
+    var = left.lower()
+    out: list[str] = []
+    i = 0
+    saw_var = False
+    while i < len(expr):
+        ch = expr[i]
+        isolated = (i == 0 or not expr[i - 1].isalpha()) and (
+            i + 1 >= len(expr) or not expr[i + 1].isalpha()
+        )
+        if ch.lower() == var and isolated:
+            out.append(replacement)
+            saw_var = True
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    if not saw_var:
+        return None
+    result = "".join(out).replace(" ", "")
+    if any(ch.isalpha() for ch in result) or not any(ch.isdigit() for ch in result):
+        return None
+    return result
+
+
 def peel_function_definition(expr: str) -> str:
     """``y = x^3 - 3x`` / ``of y = …`` / ``if y = …`` → the rhs expression."""
     s = _strip_expr_leadins(collapse_ws(expr))

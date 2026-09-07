@@ -177,9 +177,20 @@ def test_late_reason_prose_does_not_extract_an_equation() -> None:
 
 
 def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
-    """``Let x = 5. What is x + 2?`` must not stamp ```answer x = 5."""
-    assert math_tools.extract_math_intent("Let x = 5. What is x + 2?") is None
-    assert math_tools.extract_math_intent("let x = 5") is not None
+    """``Let x = 5. What is x + 2?`` must eval to 7, not stamp ```answer x = 5."""
+    intent = math_tools.extract_math_intent("Let x = 5. What is x + 2?")
+    assert intent is not None
+    assert intent.kind == "arithmetic"
+    assert intent.expr is not None
+    assert intent.expr.replace(" ", "") == "5+2"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "7" in block.canonical_answer
+    assert "x = 5" not in block.canonical_answer.replace(" ", "")
+    bare = math_tools.extract_math_intent("let x = 5")
+    assert bare is not None
+    assert bare.kind == "equation"
 
 
 def test_chained_equals_solves_the_intended_linear() -> None:
