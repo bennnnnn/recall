@@ -199,17 +199,73 @@ def _bare_y_equals_rhs(text: str) -> str | None:
     return rhs
 
 
+_GRAPH_Y_PREFIXES = ("graph ", "plot ", "y=", "y =")
+
+
+def _peel_repeated_graph_y_prefix(expr: str) -> str:
+    """Unstack duplicated ``Graph y =`` / ``plot y =`` prefixes.
+
+    The composer math keyboard (or a leftover ``Graph y =`` plus a second
+    typed prompt) produces ``Graph y =Graph y = x²``. One-shot strip left
+    ``Graph y = x^2``, which SymPy read as G·r·a·p·h·y = x² — no plot, and
+    the model dumped a point table plus ASCII sketch instead.
+    """
+    s = expr.strip()
+    prev = None
+    while s and s != prev:
+        prev = s
+        low = s.lower()
+        matched = False
+        for prefix in _GRAPH_Y_PREFIXES:
+            if low.startswith(prefix):
+                s = s[len(prefix) :].lstrip()
+                matched = True
+                break
+        if not matched:
+            break
+    return _collapse_keyboard_graph_rhs(s)
+
+
+def _is_keyboard_leftover_lhs(lhs: str) -> bool:
+    """True for ``x`` / ``x^`` / ``x^= x^`` junk, not ``2x+3`` or ``2x``."""
+    compact = "".join(c for c in lhs.lower() if c not in " =")
+    if not compact:
+        return True
+    return "x" in compact and all(c in "x^" for c in compact)
+
+
+def _collapse_keyboard_graph_rhs(expr: str) -> str:
+    """After peeling ``Graph y =``, leftover ``x^= x^2`` / ``x= x^2`` from ``$``.
+
+    The keypad wrap ``y$= x^$$= x^2`` becomes ``x^= x^2``; taking the last
+    f(x)-shaped RHS recovers the parabola. Keep ``x=2y`` / ``x=4`` /
+    ``2x+3=x^2`` intact.
+    """
+    s = expr.strip()
+    if "=" not in s:
+        return s
+    lhs, _, rhs = s.rpartition("=")
+    lhs, rhs = lhs.strip(), rhs.strip()
+    if not rhs:
+        return s
+    rhs_c = rhs.replace(" ", "").lower()
+    # ``x=2y`` / ``x=4`` — real equations for the graph solver.
+    if "y" in rhs_c and "x" not in rhs_c:
+        return s
+    if not _is_keyboard_leftover_lhs(lhs):
+        return s
+    if "x" not in rhs_c:
+        return s
+    return rhs
+
+
 def graph_expr(text: str) -> str | None:
     lower = text.lower()
     for prefix in ("graph ", "plot "):
         idx = _find_unprefixed_phrase(lower, prefix)
         if idx == -1:
             continue
-        expr = text[idx + len(prefix) :].strip()
-        if expr.lower().startswith("y="):
-            expr = expr[2:].lstrip()
-        elif expr.lower().startswith("y ="):
-            expr = expr[3:].lstrip()
+        expr = _peel_repeated_graph_y_prefix(text[idx + len(prefix) :].strip())
         return expr or None
     return _bare_y_equals_rhs(text)
 

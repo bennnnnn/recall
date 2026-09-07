@@ -53,6 +53,7 @@ class TestNeedsSymbolic:
             "A ball is dropped from 20m. How long until it hits the ground?",
             "A projectile is launched at 20 m/s at 45 degrees. Find its range.",
             "What net force accelerates a 5 kg mass at 3 m/s^2?",
+            "A 5 kg mass is accelerated at 2 m/s². What is the force.",
             "Calculate the kinetic energy of a 2 kg object moving at 10 m/s.",
             "Draw a right triangle with legs 3 and 4. Label the sides including the hypotenuse.",
             "area of a right triangle with legs 3 and 4",
@@ -97,6 +98,17 @@ class TestNeedsSymbolic:
         prompt = "Solve the math problem in this image step by step."
         assert mtm.needs_symbolic(prompt, has_image_attachment=True)
         assert not mtm.needs_symbolic(prompt, has_image_attachment=False)
+
+
+class TestPrepareSuperscripts:
+    def test_unicode_and_latex_unit_powers(self):
+        assert mtm.prepare("2 m/s²") == "2 m/s^2"
+        assert mtm.prepare(r"2 m/s^{2}") == "2 m/s^2"
+        assert mtm.prepare("x²") == "x^2"
+        # Keyboard x² chain must stay a ^{a}^{b} pair for the graph peeler.
+        assert mtm.prepare("$^{x}^{2}$") == "^{x}^{2}"
+        mangled = r"A 5 kg mass is accelerated at 2 m/s$^2$$^2.$^2. What is the force."
+        assert mtm.prepare(mangled) == ("A 5 kg mass is accelerated at 2 m/s^2. What is the force.")
 
 
 class TestDrawShapeGate:
@@ -237,6 +249,14 @@ class TestGraphExpr:
             ("graph x^2", "x^2"),
             ("plot y = x^2", "x^2"),
             ("graph y=x^2", "x^2"),
+            # Composer leftover "Graph y =" + a second typed Graph prompt.
+            ("Graph y =Graph y = x^2.", "x^2."),
+            ("Graph y =Graph y = x².", "x²."),
+            # Keypad wrapped $ around = : Graph y$= x^$$= x^2
+            ("Graph y =Graph y= x^= x^2.", "x^2."),
+            ("graph x=2y", "x=2y"),
+            ("graph x=4", "x=4"),
+            ("graph 2x+3=x^2", "2x+3=x^2"),
         ],
     )
     def test_graph_expr(self, text, expected):

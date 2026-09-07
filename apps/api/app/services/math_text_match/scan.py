@@ -8,6 +8,10 @@ from app.services.text_normalize import collapse_ws
 
 _MAX = 1000
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
+# Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
+_SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+_SUP_ASCII = "0123456789"
+_SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
     r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|taylor|partial|dsolve)\b",
@@ -322,11 +326,78 @@ def word_index(lower: str, phrase: str) -> int:
         start = idx + 1
 
 
+def fold_match_superscripts(s: str) -> str:
+    """Turn ``m/s²`` / ``m/s^{2}`` into ``m/s^2`` so unit scanners can bind.
+
+    Linear scan — math-keyboard superscripts used to miss F=ma extract, then
+    the reply still said *Couldn't verify this with SymPy.*
+    """
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch in _SUP_GLYPHS:
+            j = i + 1
+            while j < n and s[j] in _SUP_GLYPHS:
+                j += 1
+            out.append("^" + s[i:j].translate(_SUP_TABLE))
+            i = j
+            continue
+        if ch == "^" and i + 1 < n and s[i + 1] == "{":
+            close = s.find("}", i + 2)
+            if close != -1:
+                inner = s[i + 2 : close]
+                # Leave ^{x}^{2} keyboard chains for the graph peeler.
+                if inner.isdigit() and (not out or out[-1] != "}"):
+                    out.append("^" + inner)
+                    i = close + 1
+                    continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def collapse_repeated_si_unit_powers(s: str) -> str:
+    """Stacked math-keyboard ``$^2$`` inserts: ``m/s^2^2.^2`` → ``m/s^2``.
+
+    ``2 m/s$^2$$^2.$^2`` never bound acceleration, so F=ma shipped the
+    *Couldn't verify this with SymPy.* footer under a correct 10 N.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if i + 4 <= n and s[i : i + 4] == "m/s^":
+            j = i + 4
+            if j < n and s[j].isdigit():
+                k = j + 1
+                while k < n and s[k].isdigit():
+                    k += 1
+                out.append(s[i:k])
+                i = k
+                while i < n:
+                    p = i
+                    if p < n and s[p] == ".":
+                        p += 1
+                    if p < n and s[p] == "^" and p + 1 < n and s[p + 1].isdigit():
+                        p += 1
+                        while p < n and s[p].isdigit():
+                            p += 1
+                        i = p
+                        continue
+                    break
+                continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
 def prepare(text: str) -> str | None:
     cleaned = collapse_ws(strip_inline_math_delims(text))
     if len(cleaned) > _MAX:
         return None
-    return cleaned
+    return collapse_repeated_si_unit_powers(fold_match_superscripts(cleaned))
 
 
 def has_draw_shape(lower: str, shape: str) -> bool:

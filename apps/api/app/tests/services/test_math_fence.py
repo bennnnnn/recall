@@ -643,6 +643,81 @@ def test_strips_model_chart_when_verified_graph_exists() -> None:
     assert json.loads(out.split("```graph")[1].split("```")[0].strip())["expr"] == "x**2"
 
 
+def test_strips_sample_point_table_when_verified_graph_exists() -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    content = (
+        "Here's the parabola.\n\n"
+        "### Sample Points\n"
+        "| $x$ | $y = x^2$ |\n"
+        "|-----|-----------|\n"
+        "| -1  | 1         |\n"
+        "| 1   | 1         |\n\n"
+        "The vertex is the origin."
+    )
+    out = validate_math_fences(content, verified=_verified(spec))
+    assert "| $x$" not in out
+    assert "| 1" not in out
+    assert "Sample Points" not in out
+    assert "vertex is the origin" in out
+    assert "```graph" in out
+
+
+def test_strips_ascii_sketch_when_verified_graph_exists() -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    content = (
+        "Parabola through the origin.\n\n"
+        "### How to Sketch\n"
+        "1. Plot the vertex.\n"
+        "> ASCII approximation:\n"
+        "> ```\n"
+        ">   ^ y\n"
+        "> ---+----> x\n"
+        "> ```\n"
+    )
+    out = validate_math_fences(content, verified=_verified(spec))
+    assert "How to Sketch" not in out
+    assert "ASCII" not in out
+    assert "Parabola through the origin." in out
+    assert "```graph" in out
+
+
+def test_strips_mermaid_when_verified_graph_exists() -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    content = (
+        "Here's the parabola.\n\n"
+        "### Mermaid Diagram (approximation):\n"
+        "```mermaid\n"
+        "graph LR\n"
+        '    A["(-3,9)"] --> B["(0,0)"]\n'
+        "```\n"
+    )
+    out = validate_math_fences(content, verified=_verified(spec))
+    assert "```mermaid" not in out
+    assert "Mermaid Diagram" not in out
+    assert "```graph" in out
+
+
 def test_appends_answer_and_graph_for_physics() -> None:
     from app.services.math_tools import VerifiedMathBlock
 

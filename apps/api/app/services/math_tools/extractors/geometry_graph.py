@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.math_schemas import MathIntent
+from app.services.math_text_match.scan import MATH_MULTI_LETTER
 from app.services.math_tools.helpers import _strip_trailing_filler
 
 
@@ -444,6 +445,24 @@ def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _has_non_math_word(side: str) -> bool:
+    """True when a 3+ letter run is English, not a known SymPy name."""
+    i = 0
+    n = len(side)
+    while i < n:
+        if side[i].isalpha():
+            j = i + 1
+            while j < n and side[j].isalpha():
+                j += 1
+            run = side[i:j]
+            if len(run) >= 3 and run.lower() not in MATH_MULTI_LETTER:
+                return True
+            i = j
+        else:
+            i += 1
+    return False
+
+
 def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     """Turn an equation like ``x=2y`` into the function ``x/2`` (y = f(x)).
 
@@ -465,6 +484,11 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
         return None
     # Only attempt when y is present (the dependent variable we solve for).
     if "y" not in lhs_str and "y" not in rhs_str:
+        return None
+    # ``Graph y = x^2`` must not parse Graph as G*r*a*p*h and "solve" to
+    # x**2/(G*a*h*p*r). English tokens on either side are not an equation
+    # to isolate; the graph-expr peeler should have already dropped them.
+    if _has_non_math_word(lhs_str) or _has_non_math_word(rhs_str):
         return None
     try:
         lhs = _parse_expression(lhs_str, ["x", "y"], real=True)

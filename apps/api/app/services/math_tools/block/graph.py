@@ -113,6 +113,11 @@ def _verified_block_graph(
         segments=sample.segments if has_discontinuity else [],
     )
     lines.append(f"Function samples for {sample.expr}: {len(sample.points)} points.")
+    lines.append(
+        "At most one short sentence naming the curve. Do not include a "
+        "coordinate table, ASCII sketch, or hand-drawing instructions — "
+        "the plot is the figure."
+    )
     if has_discontinuity:
         lines.append(
             f"NOTE: {sample.expr} has a discontinuity in this range (e.g. a vertical "
@@ -167,5 +172,9 @@ def _verified_block_graph_pair(
     lines.append(
         f"Function samples for y={sample1.expr} ({len(sample1.points)} points) and "
         f"y={sample2.expr} ({len(sample2.points)} points), same x-range for direct comparison."
+    )
+    lines.append(
+        "At most one short sentence comparing the two curves. Do not include "
+        "a coordinate table or ASCII sketch — the overlay plot is the figure."
     )
     return _diagram_block(lines, graph_spec)

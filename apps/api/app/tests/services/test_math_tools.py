@@ -791,6 +791,30 @@ def test_verified_block_force_accelerated_phrasing() -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "A 5 kg mass is accelerated at 2 m/s². What is the force.",
+        r"A 5 kg mass is accelerated at 2 m/s^{2}. What is the force.",
+        r"A 5 kg mass is accelerated at $2$ m/s^{2}. What is the force.",
+        r"A 5 kg mass is accelerated at 2 m/s$^2$$^2.$^2. What is the force.",
+    ],
+)
+def test_verified_block_force_math_keyboard_units(text: str) -> None:
+    """Unicode / LaTeX s² from the math keyboard used to miss extract, then
+    the bubble still said Couldn't verify this with SymPy."""
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "force"
+    assert intent.physics_params is not None
+    assert intent.physics_params["a"] == 2.0
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "10" in block.canonical_answer
+
+
+@pytest.mark.parametrize(
     "text, kind",
     [
         ("what is 7*8", "arithmetic"),
@@ -853,6 +877,10 @@ def test_verified_trig_sin_of_degrees() -> None:
         # gate rejects $/{/} and the turn ships with no verified fence.
         ("Graph $x^2$", "x**2"),
         ("Graph $^{x}^{2}$", "x**2"),
+        ("Graph y =Graph y = x^2.", "x**2"),
+        ("Graph y =Graph y = x².", "x**2"),
+        (r"Graph y =Graph y = $x^{2}$.", "x**2"),
+        (r"Graph y =Graph y$= x^$$= x^2.$", "x**2"),
     ],
 )
 def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
@@ -864,6 +892,38 @@ def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: st
     assert intent is not None
     assert intent.kind == "graph"
     assert intent.expr == expected_expr
+
+
+def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
+    """Screen prompt ``Graph y =Graph y = x².`` used to sample
+    x**2/(G*a*h*p*r), fail, and ship a point table + ASCII sketch."""
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Graph y =Graph y = x².")
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr == "x**2"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_fence is not None
+    assert block.canonical_fence.get("type") == "function"
+    pts = block.canonical_fence.get("points")
+    assert isinstance(pts, list) and len(pts) > 10
+
+
+def test_verified_block_graph_keypad_dollar_equals() -> None:
+    """On-screen ``Graph y =Graph y$= x^$$= x^2.$`` used to miss extract,
+    stamp Couldn't verify, and ship a Mermaid flowchart of points."""
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent(r"Graph y =Graph y$= x^$$= x^2.$")
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr == "x**2"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_fence is not None
+    assert block.canonical_fence.get("type") == "function"
+    pts = block.canonical_fence.get("points")
+    assert isinstance(pts, list) and len(pts) > 10
 
 
 @pytest.mark.parametrize(
@@ -1400,6 +1460,7 @@ async def test_augment_prompt_injects_graph_block() -> None:
     assert len(out) == 2
     assert "```graph\n" not in out[0]["content"]
     assert "points" in out[0]["content"]
+    assert "coordinate table" in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "function"
