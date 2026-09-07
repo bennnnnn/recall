@@ -7,6 +7,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services.live_talk import (
+    LiveTalkSessionContext,
     last_user_line,
     load_live_talk_session_context,
     persist_live_talk_turn,
@@ -178,11 +179,11 @@ async def test_load_session_context_passes_last_user_line_as_query():
             settings=settings,
         )
 
-    assert result == (history, "likes spicy food")
+    assert result == LiveTalkSessionContext(history, "likes spicy food")
     mem.assert_awaited_once()
     assert mem.await_args.kwargs["query_text"] == "what's for dinner"
     assert mem.await_args.kwargs["exclude_sensitive"] is True
-    assert session_factory.call_count == 2
+    assert session_factory.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -212,7 +213,7 @@ async def test_load_session_context_keeps_sensitive_memory_on_matching_ask():
             settings=settings,
         )
 
-    assert result == (history, "allergic to peanuts")
+    assert result == LiveTalkSessionContext(history, "allergic to peanuts")
     assert mem.await_args.kwargs["exclude_sensitive"] is False
 
 
@@ -237,11 +238,11 @@ async def test_load_session_context_without_chat_has_no_query():
             settings=settings,
         )
 
-    assert result == (None, "vegetarian")
+    assert result == LiveTalkSessionContext(None, "vegetarian")
     mem.assert_awaited_once()
     assert mem.await_args.kwargs["query_text"] is None
     assert mem.await_args.kwargs["exclude_sensitive"] is True
-    assert session_factory.call_count == 1
+    assert session_factory.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -262,7 +263,7 @@ async def test_load_session_context_skips_memory_when_disabled():
             settings=settings,
         )
 
-    assert result == (None, "")
+    assert result == LiveTalkSessionContext(None, "")
     mem.assert_not_called()
 
 
@@ -293,7 +294,7 @@ async def test_load_session_context_memory_failure_still_returns_history():
             settings=settings,
         )
 
-    assert result == (history, "")
+    assert result == LiveTalkSessionContext(history, "")
 
 
 @pytest.mark.asyncio
@@ -318,3 +319,133 @@ async def test_load_session_context_missing_chat_is_none():
     assert result is None
     mem.assert_not_called()
     assert session_factory.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_load_session_context_includes_schedule_snapshot():
+    from datetime import UTC, datetime
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = False
+    user.timezone = "UTC"
+    settings = Settings()
+    session = _memory_session()
+    item = MagicMock()
+    item.content = "Call mom"
+    item.due_at = datetime(2026, 9, 7, 17, 0, tzinfo=UTC)
+    item.checked = False
+    item.source = "user"
+    item.topic = "Reminders"
+    item.recurrence_rule = None
+
+    with (
+        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch(
+            "app.services.live_talk.todos_repo.list_for_user",
+            AsyncMock(return_value=[item]),
+        ),
+    ):
+        result = await load_live_talk_session_context(
+            chat_id=None,
+            user=user,
+            settings=settings,
+        )
+
+    assert result is not None
+    assert "Call mom" in result.schedule_block
+    assert "[BEGIN UNTRUSTED CONTENT — schedule]" in result.schedule_block
+
+
+@pytest.mark.asyncio
+async def test_persist_live_talk_turn_materializes_clocked_reminder_and_skips_todos_job():
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = False
+    user.timezone = "UTC"
+    chat_id = uuid4()
+    chat = MagicMock()
+    user_row = MagicMock()
+    user_row.id = uuid4()
+    asst_row = MagicMock()
+    asst_row.id = uuid4()
+    asst_row.content = "Sure."
+    updated = "Sure.\n\nSet: call mom · tomorrow 5:00 PM"
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.services.live_talk.messages_repo.create",
+            AsyncMock(side_effect=[user_row, asst_row]),
+        ),
+        patch(
+            "app.services.live_talk.todos_service.materialize_reminder_fences",
+            AsyncMock(return_value=(updated, 1)),
+        ) as materialize,
+        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+    ):
+        await persist_live_talk_turn(
+            user=user,
+            chat_id=chat_id,
+            user_text="remind me to call mom tomorrow at 5pm",
+            assistant_text="Sure.",
+            untitled=True,
+            settings=MagicMock(chat_history_rag_enabled=False),
+            redis=AsyncMock(),
+        )
+
+    materialize.assert_awaited_once()
+    assert materialize.await_args.kwargs["user_text"] == ("remind me to call mom tomorrow at 5pm")
+    assert asst_row.content == updated
+    jobs = [call.args[1] for call in enqueue.await_args_list]
+    assert "todos" not in jobs
+    assert "topic" in jobs
+
+
+@pytest.mark.asyncio
+async def test_persist_live_talk_turn_enqueues_todos_when_reminder_not_applied():
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = False
+    user.timezone = "UTC"
+    chat_id = uuid4()
+    chat = MagicMock()
+    user_row = MagicMock()
+    user_row.id = uuid4()
+    asst_row = MagicMock()
+    asst_row.id = uuid4()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.services.live_talk.messages_repo.create",
+            AsyncMock(side_effect=[user_row, asst_row]),
+        ),
+        patch(
+            "app.services.live_talk.todos_service.materialize_reminder_fences",
+            AsyncMock(return_value=("I'll set a reminder.", 0)),
+        ),
+        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+    ):
+        await persist_live_talk_turn(
+            user=user,
+            chat_id=chat_id,
+            user_text="remind me to call mom tomorrow",
+            assistant_text="I'll set a reminder.",
+            untitled=True,
+            settings=MagicMock(chat_history_rag_enabled=False),
+            redis=AsyncMock(),
+        )
+
+    jobs = [call.args[1] for call in enqueue.await_args_list]
+    assert "todos" in jobs

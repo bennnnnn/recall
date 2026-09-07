@@ -18,6 +18,7 @@ _BULK_SHIFT_TO_TOMORROW = re.compile(
 _TODO_QUERY_FIXED = re.compile(
     r"\b("
     r"todo|todos|task|tasks|reminder|reminders|"
+    r"remind me|"
     r"due|overdue|"
     r"what('?s| is) (?:on|in) my (?:reminders?|schedule|todos?|tasks?|calendar)|"
     r"show my (?:reminders?|schedule|todos?|tasks?)|"

@@ -12,6 +12,7 @@ from app.gateways import openai_speech_gateway
 from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.routers.speech_realtime import _realtime_instructions
+from app.services.live_talk import LiveTalkSessionContext
 from app.tests.test_routers import _fake_user
 
 
@@ -27,6 +28,8 @@ def test_realtime_instructions_include_bounded_chat_history():
     assert "assistant: earlier answer" in prompt
     assert "Recent conversation context:" in prompt
     assert "UNTRUSTED CONTENT — memory" not in prompt
+    assert "Do not say you cannot create reminders." in prompt
+    assert "create reminders, or change settings" not in prompt
 
 
 def test_realtime_instructions_include_memory_block():
@@ -35,6 +38,16 @@ def test_realtime_instructions_include_memory_block():
     assert "Allergic to peanuts" in prompt
     assert "user-saved notes" in prompt
     assert "do not recite them back" in prompt
+
+
+def test_realtime_instructions_include_schedule_block():
+    prompt = _realtime_instructions(
+        None,
+        schedule_block=("[BEGIN UNTRUSTED CONTENT — schedule]\nToday: Call mom at 17:00 (open)\n"),
+    )
+    assert "Today: Call mom at 17:00" in prompt
+    assert "UNTRUSTED CONTENT — schedule" in prompt
+    assert "exact clock" in prompt
 
 
 def test_realtime_instructions_omit_empty_memory():
@@ -114,7 +127,12 @@ def _realtime_app(user, settings: Settings):
 
 
 @contextmanager
-def _session_mint_patches(*, mint: AsyncMock, memory_block: str = ""):
+def _session_mint_patches(
+    *,
+    mint: AsyncMock,
+    memory_block: str = "",
+    schedule_block: str = "",
+):
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
         patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis),
@@ -128,7 +146,7 @@ def _session_mint_patches(*, mint: AsyncMock, memory_block: str = ""):
         ),
         patch(
             "app.routers.speech_realtime.live_talk_service.load_live_talk_session_context",
-            AsyncMock(return_value=(None, memory_block)),
+            AsyncMock(return_value=LiveTalkSessionContext(None, memory_block, schedule_block)),
         ),
         patch(
             "app.routers.speech_realtime.openai_speech_gateway.create_realtime_client_secret",
@@ -411,6 +429,31 @@ def test_realtime_session_injects_memory_and_custom_instructions():
     assert "[BEGIN UNTRUSTED CONTENT — memory]" in instructions
     assert "Keep answers short." in instructions
     assert "[BEGIN USER PREFERENCES]" in instructions
+
+
+def test_realtime_session_injects_schedule_snapshot():
+    user = _fake_user(plan="pro")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        speech_rate_limit_per_minute=0,
+    )
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, settings))
+    with _session_mint_patches(
+        mint=mint,
+        schedule_block="[BEGIN UNTRUSTED CONTENT — schedule]\nToday: Call mom at 17:00 (open)\n",
+    ):
+        r = client.post(
+            "/speech/live/session",
+            headers={"Authorization": "Bearer tok"},
+            json={},
+        )
+    assert r.status_code == 200
+    instructions = mint.await_args.kwargs["instructions"]
+    assert "Today: Call mom at 17:00" in instructions
+    assert "Do not say you cannot create reminders." in instructions
 
 
 def test_realtime_session_mints_when_memory_load_returns_empty():
