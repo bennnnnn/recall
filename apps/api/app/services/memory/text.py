@@ -87,6 +87,16 @@ def is_explicit_forget_command(text: str) -> bool:
     return False
 
 
+def merge_explicit_remember_fact(prior: str, incoming: str) -> str:
+    """Keep prior section text and add an explicit-remember fact the LLM omitted.
+
+    Whole-section rewrites of a long preference/profile often shrink below the
+    50% length floor (or drop unrelated anchors). Explicit "remember that …"
+    still has to land, so merge instead of dropping the new fact.
+    """
+    return join_memory_facts([strip_memory_as_of(prior), incoming])
+
+
 def _forget_marker_is_negated(lowered: str, index: int) -> bool:
     before = lowered[:index]
     return before.endswith("don't ") or before.endswith("do not ") or before.endswith("dont ")

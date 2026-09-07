@@ -88,6 +88,9 @@ from app.services.memory.text import (
     join_memory_facts as join_memory_facts,
 )
 from app.services.memory.text import (
+    merge_explicit_remember_fact as merge_explicit_remember_fact,
+)
+from app.services.memory.text import (
     normalize_memory_text as normalize_memory_text,
 )
 from app.services.memory.text import (
