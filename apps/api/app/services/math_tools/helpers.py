@@ -135,6 +135,61 @@ _EXPR_LEADINS = (
 )
 
 
+_ENGLISH_POWERS: tuple[tuple[str, str], ...] = (
+    ("squared", "^2"),
+    ("cubed", "^3"),
+)
+
+
+def _single_letter_or_digit_before(text: str, idx: int) -> bool:
+    """True when ``text[idx]`` follows a 1-letter variable, a digit, or ``)``.
+
+    ``area squared`` must not become ``are^2``; ``x squared`` / ``3 squared``
+    / ``) squared`` should.
+    """
+    if idx <= 0:
+        return False
+    ch = text[idx - 1]
+    if ch in ")]":
+        return True
+    if ch.isdigit():
+        return True
+    if not ch.isalpha():
+        return False
+    return idx < 2 or not text[idx - 2].isalpha()
+
+
+def rewrite_english_powers(expr: str) -> str:
+    """``x squared`` → ``x^2``. Leaves ``square root`` / ``draw a square`` alone."""
+    if len(expr) > _MAX_MATH_INPUT:
+        expr = expr[:_MAX_MATH_INPUT]
+    lower = expr.lower()
+    out: list[str] = []
+    i = 0
+    n = len(expr)
+    while i < n:
+        matched = False
+        if _single_letter_or_digit_before(expr, i):
+            j = i
+            while j < n and expr[j].isspace():
+                j += 1
+            rest = lower[j:]
+            for word, repl in _ENGLISH_POWERS:
+                if not rest.startswith(word):
+                    continue
+                end = j + len(word)
+                if end < n and lower[end].isalpha():
+                    continue
+                out.append(repl)
+                i = end
+                matched = True
+                break
+        if not matched:
+            out.append(expr[i])
+            i += 1
+    return "".join(out)
+
+
 def _strip_expr_leadins(expr: str) -> str:
     """Drop scaffolding words so ``factor the polynomial x^3 - 1`` keeps ``x^3 - 1``."""
     s = collapse_ws(expr)
@@ -267,7 +322,7 @@ def peel_function_definition(expr: str) -> str:
 
 def math_expr_or_none(expr: str) -> str | None:
     """Return ``expr`` only when it looks like math, not leftover English."""
-    stripped = _strip_expr_leadins(expr)
+    stripped = rewrite_english_powers(_strip_expr_leadins(expr))
     if not looks_like_math_expr(stripped):
         return None
     return stripped

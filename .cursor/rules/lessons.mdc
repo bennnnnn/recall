@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
+  typed English) hit the calculus verb so a Math note stamped, but
+  `squared` is an unknown letter-run so extract returned None. Rewrite
+  `x squared` / `x cubed` → `x^2` / `x^3` only after a 1-letter or digit
+  (not `area squared`).
 - **Graph y=x^2 asked for Python/Colab instead of plotting.** Keyword checks
   missed it (```graph was attached). CLARIFICATION_HINT treated domain as a
   missing fact. Exception like mermaid: default window, never offer code.

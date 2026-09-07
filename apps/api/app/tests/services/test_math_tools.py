@@ -1145,6 +1145,40 @@ def test_extract_indefinite_integral_has_no_bounds() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, expected_expr",
+    [
+        ("Integrate x squared", "x^2"),
+        ("integrate x cubed", "x^3"),
+        ("What is the integral of x squared.", "x^2"),
+        ("differentiate x squared", "x^2"),
+    ],
+)
+def test_extract_english_squared_cubed(text: str, expected_expr: str) -> None:
+    """Speech / typed 'x squared' used to miss extract, then stamp unverified."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.expr == expected_expr
+
+
+def test_verified_integrate_x_squared_english() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Integrate x squared")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "x^{3}" in compact or "x^3" in compact
+    assert "3" in compact
+
+
+def test_english_area_squared_does_not_become_are_caret() -> None:
+    """Rewrite only 1-letter / digit bases — not the word 'area'."""
+    assert math_tools.extract_math_intent("integrate area squared") is None
+
+
+@pytest.mark.parametrize(
     "text, expected_cmp",
     [
         ("solve x**2 - 1 > 0", ">"),
