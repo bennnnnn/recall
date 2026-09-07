@@ -63,12 +63,12 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Pre-algebra | Fractions/exponents in equations; gcd/lcm/primes/mod | `equation`, `number_theory` |
 | Algebra I–II | One equation, systems (≤4), inequalities + shaded region | `equation`, `system`, `inequality` + `number_line` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
-| Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area) | `solid` |
+| Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area). Numbers only — no 3D SVG fence. | `solid` |
 | Arithmetic / percent / ratio | Bare `7*8`, `15% of 80`, simplify `6:8` | `arithmetic` |
 | Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
-| Physics (narrow) | 1D gravity kinematics, vacuum projectile range/max height, scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; computed trajectory points render as `graph` fences |
+| Physics (narrow) | 1D gravity kinematics, vacuum projectile range/max height, scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; trajectory `graph` fences only for kinematics/projectile |
 | Linear algebra | 2×2–4×4 det and inverse | `matrix` |
 | Calc II (thin) | Taylor / Maclaurin, partials, first-order `dsolve`, 2nd/3rd derivative. Polar/parametric/double integrals stay LLM | `calculus` |
 | Probability | Binomial PMF, expected value of a list | `probability` |

@@ -688,6 +688,16 @@ describe("graphBlock", () => {
     expect(graphAxisTicks(view.yMin, view.yMax)).toEqual([0, 2, 4, 6]);
   });
 
+  it("schoolViewBounds clips a sky-high polynomial so the axis is not 1e50", () => {
+    const view = schoolViewBounds(
+      { xMin: -1000, xMax: 1000, yMin: 0, yMax: 1e50 },
+      1.75,
+    );
+    expect(view.xMin).toBe(-6);
+    expect(view.xMax).toBe(6);
+    expect(view.yMax).toBeLessThan(20);
+  });
+
   it("schoolViewBounds keeps y = x on a comparable scale (not a ±6 crop)", () => {
     const view = schoolViewBounds(
       { xMin: -10, xMax: 10, yMin: -10, yMax: 10 },
