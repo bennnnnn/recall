@@ -43,6 +43,8 @@ def test_extracts_allowlisted_settings(text: str, field: str, value: str) -> Non
         "how does photosynthesis work",
         "Spanish civil war",
         "use max",
+        "Make a 4-week plan to learn Spanish. How do I start.",
+        "Give me a 4-week plan to learn Spanish for travel.",
     ],
 )
 def test_ignores_content_requests(text: str) -> None:
