@@ -145,6 +145,15 @@ function formatPastedExpr(expr: string): string {
   return formatMathExpr(restoreCopiedFractions(expr));
 }
 
+function looksLikeEquationSystem(text: string): boolean {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length < 2) return false;
+  return lines.filter((line) => line.includes("=")).length >= 2;
+}
+
 export function normalizePastedMath(delta: string): string {
   if (isMostlyProsePaste(delta)) return delta;
   if (!pastedDeltaLooksLikeMath(delta)) return delta;
@@ -171,6 +180,14 @@ export function normalizePastedMath(delta: string): string {
   }
   if (trimmed.includes("$")) {
     return s.replace(/\$([^$\n]+)\$/g, (_m, inner: string) => `$${formatPastedExpr(inner)}$`);
+  }
+  if (looksLikeEquationSystem(trimmed)) {
+    return trimmed
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => `$${formatMathExpr(line)}$`)
+      .join("\n");
   }
   return `$${formatPastedExpr(trimmed)}$`;
 }
