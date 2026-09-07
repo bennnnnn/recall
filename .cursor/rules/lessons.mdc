@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Graph y=x^2 asked for Python/Colab instead of plotting.** Keyword checks
+  missed it (```graph was attached). CLARIFICATION_HINT treated domain as a
+  missing fact. Exception like mermaid: default window, never offer code.
 - **Gray `x = 0` under steps that say `x = 2`.** Solver-owned ```answer is
   appended after the stream. Chained `2x+3=3=7` solved `2x+3=3`; the model
   solved `2x+3=7`. Collapse `a=b=c` to `a=c`. Skip the chip when prose already

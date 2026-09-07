@@ -658,6 +658,8 @@ def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
     assert block.canonical_fence["base"] == 3
     assert block.canonical_fence["height"] == 4
     assert block.canonical_answer is None
+    assert "Opposite the base (3 cm) is 36.9°" in block.text
+    assert "opposite the height (4 cm) is 53.1°" in block.text
 
 
 def test_area_of_right_triangle_with_legs_still_answers_area() -> None:
@@ -959,6 +961,7 @@ def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in _unverified_math_note("graph")
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in DIAGRAM_OWNED_NOTE
+    assert "Do not offer Python" in DIAGRAM_OWNED_NOTE
 
 
 def test_verified_block_graph_duplicated_graph_y_prefix() -> None:

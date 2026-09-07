@@ -226,7 +226,11 @@ def _verified_block_right_triangle(
         f"hypotenuse={rt_geo.hypotenuse:g} {rt_geo.unit} "
         f"area={rt_geo.area:g} {rt_geo.unit}² "
         f"angles=90° / {rt_geo.labels['angle_at_base']} at base / "
-        f"{rt_geo.labels['angle_at_height']} at height"
+        f"{rt_geo.labels['angle_at_height']} at height. "
+        f"Opposite the base ({rt_geo.base:g} {rt_geo.unit}) is "
+        f"{rt_geo.labels['angle_at_height']}; opposite the height "
+        f"({rt_geo.height:g} {rt_geo.unit}) is {rt_geo.labels['angle_at_base']}. "
+        "Do not swap those opposite-side angles."
     )
     rt_spec = RightTriangleGeometryBlockSpec(
         type="right_triangle",

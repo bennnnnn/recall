@@ -32,7 +32,8 @@ MATH_INTENT_HINT = (
     "Never mention SymPy, verification, a system block, or that a diagram "
     "will be attached in the user-visible reply.\n"
     "  - Never invent geometry/graph dimensions; only use measures the user stated "
-    "or that a verified system block provides.\n"
+    "or that a verified system block provides. Graph y=f(x): do not interview "
+    "for domain or offer Python/Colab — describe the curve in one sentence.\n"
     "  - Closed-form asks (n!, 3+0, 2+2, a simple product): lead with the instance — "
     "`$3 + 0 = 3$` or `$4! = 4 \\times 3 \\times 2 \\times 1 = 24$` — then stop. "
     "No banter, no 'what is factorial', no section headers, no general "
@@ -80,7 +81,8 @@ MATH_SOLVER_HINT = (
     f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n"
     "- Never invent geometry dimensions. Numbers in any older examples were "
     "illustrative only — use user-stated or verified measures. If measures are "
-    'missing (bare "what is a circle?"), explain in words or ask.\n'
+    'missing (bare "what is a circle?"), explain in words or ask. Graph y=f(x) '
+    "is not missing a domain — do not interview or offer Python/Colab.\n"
     "- Do NOT use ```html or freehand SVG for math diagrams.\n"
     "- Formulas: inline `$...$` for steps; ```math only for a standalone display "
     "equation (not a bare number). Closed-form asks (n!, 2+2): one-line instance "
