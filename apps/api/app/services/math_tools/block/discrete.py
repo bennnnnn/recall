@@ -62,9 +62,18 @@ def _verified_block_calculus(
     # even with a verified final answer.
     if out.steps:
         lines.extend(out.steps)
-    else:
-        lines.append(f"Result: {out.latex}")
-    return _finish_with_answer(lines, out.latex)
+        return _finish_with_answer(lines, out.latex)
+    lines.append(f"Result: {out.latex}")
+    return _finish_with_answer(
+        lines,
+        out.latex,
+        preface=(
+            "Do NOT recompute the closed form. SymPy verified the result only — "
+            "it did not produce worked steps for this operation. Write a complete "
+            "numbered `$...$` derivation that reaches that verified result. Do not "
+            "skip to the answer. " + SOLVER_OWNED_FENCES_NOTE
+        ),
+    )
 
 
 def _verified_block_limit(

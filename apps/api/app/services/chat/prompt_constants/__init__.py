@@ -40,6 +40,7 @@ from app.services.chat.prompt_constants.learning import (
 )
 from app.services.chat.prompt_constants.math import (
     MATH_INTENT_HINT,
+    MATH_SHORT_STEPS_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     SHORT_MATH_SAFETY_HINT,
@@ -104,6 +105,7 @@ __all__ = [
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
+    "MATH_SHORT_STEPS_HINT",
     "MATH_SOLVER_HINT",
     "MATH_TUTORING_HINT",
     "MERMAID_FORMAT_HINT",

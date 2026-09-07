@@ -473,7 +473,8 @@ def test_math_formula_shape_rule_is_unified():
         assert "standalone" in blob.lower()
         # Must not tell the model to put step formulas in ```math fences.
         assert "NEVER indent a ```math fence inside that list item" not in blob
-    assert "numbered solution steps" in MATH_INTENT_HINT.lower()
+    assert "numbered" in MATH_INTENT_HINT.lower() and "steps" in MATH_INTENT_HINT.lower()
+    assert "integrate" in MATH_INTENT_HINT.lower()
     assert "closed-form asks" in MATH_INTENT_HINT.lower()
     assert "4! = 4" in MATH_INTENT_HINT
     assert "Do NOT emit ```answer" in MATH_INTENT_HINT
