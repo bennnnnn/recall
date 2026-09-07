@@ -643,6 +643,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     # Drop the model's chart when we already own a ```graph fence.
     if verified is not None and _verified_includes_graph(verified):
         content = strip_closed_fences(content, "chart")
+        content = strip_closed_fences(content, "mermaid")
         content = strip_gfm_pipe_tables(content)
         content = strip_hand_sketch_filler(content)
     return _append_missing_canonical_fences(content, verified)

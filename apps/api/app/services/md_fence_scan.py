@@ -205,12 +205,21 @@ def strip_gfm_pipe_tables(text: str) -> str:
 _SKETCH_HEADS = (
     "### how to sketch",
     "### how to plot",
+    "### sketching steps",
     "### quick sketch",
     "### points to plot",
     "### text-based sketch",
     "### sample points",
+    "### mermaid diagram",
 )
-_SKETCH_PHRASES = ("ascii", "text-based sketch", "text based sketch")
+_SKETCH_PHRASES = (
+    "ascii",
+    "text-based sketch",
+    "text based sketch",
+    "mermaid diagram",
+    "sketching steps",
+    "sketching tips",
+)
 _KEEP_FENCES = ("```graph", "```geometry", "```answer")
 
 

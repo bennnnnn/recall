@@ -223,7 +223,40 @@ def _peel_repeated_graph_y_prefix(expr: str) -> str:
                 break
         if not matched:
             break
-    return s
+    return _collapse_keyboard_graph_rhs(s)
+
+
+def _is_keyboard_leftover_lhs(lhs: str) -> bool:
+    """True for ``x`` / ``x^`` / ``x^= x^`` junk, not ``2x+3`` or ``2x``."""
+    compact = "".join(c for c in lhs.lower() if c not in " =")
+    if not compact:
+        return True
+    return "x" in compact and all(c in "x^" for c in compact)
+
+
+def _collapse_keyboard_graph_rhs(expr: str) -> str:
+    """After peeling ``Graph y =``, leftover ``x^= x^2`` / ``x= x^2`` from ``$``.
+
+    The keypad wrap ``y$= x^$$= x^2`` becomes ``x^= x^2``; taking the last
+    f(x)-shaped RHS recovers the parabola. Keep ``x=2y`` / ``x=4`` /
+    ``2x+3=x^2`` intact.
+    """
+    s = expr.strip()
+    if "=" not in s:
+        return s
+    lhs, _, rhs = s.rpartition("=")
+    lhs, rhs = lhs.strip(), rhs.strip()
+    if not rhs:
+        return s
+    rhs_c = rhs.replace(" ", "").lower()
+    # ``x=2y`` / ``x=4`` — real equations for the graph solver.
+    if "y" in rhs_c and "x" not in rhs_c:
+        return s
+    if not _is_keyboard_leftover_lhs(lhs):
+        return s
+    if "x" not in rhs_c:
+        return s
+    return rhs
 
 
 def graph_expr(text: str) -> str | None:

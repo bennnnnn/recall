@@ -880,6 +880,7 @@ def test_verified_trig_sin_of_degrees() -> None:
         ("Graph y =Graph y = x^2.", "x**2"),
         ("Graph y =Graph y = x².", "x**2"),
         (r"Graph y =Graph y = $x^{2}$.", "x**2"),
+        (r"Graph y =Graph y$= x^$$= x^2.$", "x**2"),
     ],
 )
 def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
@@ -898,6 +899,22 @@ def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
     x**2/(G*a*h*p*r), fail, and ship a point table + ASCII sketch."""
     settings = Settings(math_tools_enabled=True)
     intent = math_tools.extract_math_intent("Graph y =Graph y = x².")
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr == "x**2"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_fence is not None
+    assert block.canonical_fence.get("type") == "function"
+    pts = block.canonical_fence.get("points")
+    assert isinstance(pts, list) and len(pts) > 10
+
+
+def test_verified_block_graph_keypad_dollar_equals() -> None:
+    """On-screen ``Graph y =Graph y$= x^$$= x^2.$`` used to miss extract,
+    stamp Couldn't verify, and ship a Mermaid flowchart of points."""
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent(r"Graph y =Graph y$= x^$$= x^2.$")
     assert intent is not None
     assert intent.kind == "graph"
     assert intent.expr == "x**2"

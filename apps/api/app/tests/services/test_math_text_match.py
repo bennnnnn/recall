@@ -252,6 +252,11 @@ class TestGraphExpr:
             # Composer leftover "Graph y =" + a second typed Graph prompt.
             ("Graph y =Graph y = x^2.", "x^2."),
             ("Graph y =Graph y = x².", "x²."),
+            # Keypad wrapped $ around = : Graph y$= x^$$= x^2
+            ("Graph y =Graph y= x^= x^2.", "x^2."),
+            ("graph x=2y", "x=2y"),
+            ("graph x=4", "x=4"),
+            ("graph 2x+3=x^2", "2x+3=x^2"),
         ],
     )
     def test_graph_expr(self, text, expected):

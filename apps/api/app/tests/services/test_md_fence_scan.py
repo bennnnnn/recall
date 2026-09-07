@@ -106,3 +106,39 @@ def test_strip_hand_sketch_filler_drops_ascii_keeps_graph() -> None:
     assert "ASCII" not in out
     assert "Parabola at the origin." in out
     assert "```graph" in out
+
+
+def test_strip_hand_sketch_filler_drops_mermaid_and_sketching_steps() -> None:
+    text = (
+        "Parabola at the origin.\n\n"
+        "### Sketching Steps:\n"
+        "1. Plot the vertex.\n\n"
+        "### Mermaid Diagram (approximation):\n"
+        "```mermaid\n"
+        "graph LR\n"
+        "    A --> B\n"
+        "```\n\n"
+        "```graph\n"
+        '{"type":"function"}\n'
+        "```\n"
+    )
+    out = strip_hand_sketch_filler(text)
+    assert "Sketching Steps" not in out
+    assert "Mermaid Diagram" not in out
+    assert "Parabola at the origin." in out
+    assert "```graph" in out
+
+
+def test_strip_hand_sketch_filler_drops_sketching_tips() -> None:
+    text = (
+        "Parabola at the origin.\n\n"
+        "### Sketching Tips:\n"
+        "- Plot the vertex first\n\n"
+        "```graph\n"
+        '{"type":"function"}\n'
+        "```\n"
+    )
+    out = strip_hand_sketch_filler(text)
+    assert "Sketching Tips" not in out
+    assert "Parabola at the origin." in out
+    assert "```graph" in out

@@ -695,6 +695,29 @@ def test_strips_ascii_sketch_when_verified_graph_exists() -> None:
     assert "```graph" in out
 
 
+def test_strips_mermaid_when_verified_graph_exists() -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    content = (
+        "Here's the parabola.\n\n"
+        "### Mermaid Diagram (approximation):\n"
+        "```mermaid\n"
+        "graph LR\n"
+        '    A["(-3,9)"] --> B["(0,0)"]\n'
+        "```\n"
+    )
+    out = validate_math_fences(content, verified=_verified(spec))
+    assert "```mermaid" not in out
+    assert "Mermaid Diagram" not in out
+    assert "```graph" in out
+
+
 def test_appends_answer_and_graph_for_physics() -> None:
     from app.services.math_tools import VerifiedMathBlock
 
