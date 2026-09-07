@@ -1067,6 +1067,27 @@ def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
     assert intent.expr
 
 
+def test_calculus_without_sympy_steps_asks_model_to_derive() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("factor x^2 - 1")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert "did not produce worked steps" in block.text
+    assert "numbered" in block.text
+    assert block.canonical_answer is not None
+
+
+def test_differentiate_block_copies_verified_steps() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("differentiate x^3 + 5")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert "did not produce worked steps" not in block.text
+    assert "Sum rule" in block.text or "Power rule" in block.text
+
+
 def test_extract_definite_integral_bounds() -> None:
     """'integrate x^2 from 0 to 1' parses bounds and strips them from expr."""
     intent = math_tools.extract_math_intent("integrate x^2 from 0 to 1")

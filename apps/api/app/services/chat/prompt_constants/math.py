@@ -38,7 +38,9 @@ MATH_INTENT_HINT = (
     "No banter, no 'what is factorial', no section headers, no general "
     "$n! = n(n-1)\\cdots 1$ lecture unless they asked what the operator means. "
     "No fun-fact callouts on these.\n"
-    "  - Multi-step equations still show numbered solution steps in `$...$`.\n"
+    "  - Multi-step work (solve an equation, integrate, differentiate, factor, "
+    "expand, simplify) still shows numbered `$...$` steps even when response "
+    "style is Short. Do not jump to the closed form.\n"
     "  - When you add/subtract/multiply/divide both sides, WRITE that operation "
     "on BOTH sides of the current equation first, then simplify on the next "
     "step. Wrong: '1. Subtract 3 from both sides' then `$F = 3 - 3$`. "
@@ -83,7 +85,8 @@ MATH_SOLVER_HINT = (
     "- Formulas: inline `$...$` for steps; ```math only for a standalone display "
     "equation (not a bare number). Closed-form asks (n!, 2+2): one-line instance "
     "(`$4! = 4 \\times 3 \\times 2 \\times 1 = 24$`), no definition lecture. "
-    "Equations: general rule then numbered `$...$` steps. Do NOT emit ```answer. "
+    "Equations, integrals, factor/expand/simplify, derivatives: numbered `$...$` "
+    "steps even in Short style. Do NOT emit ```answer. "
     "Do not add a boxed final-answer section when the value is already in your "
     "prose. "
     "NEVER ```latex, ```tex, or untagged code blocks for LaTeX.\n"
@@ -121,14 +124,8 @@ MATH_TUTORING_HINT = (
     "present — say you're working it out and show the steps in $...$.\n"
 )
 
-# BUG FIX: _soft_hints only appended MATH_SOLVER_HINT / the math rules inside
-# INTENT_FORMAT_HINT when style != "short" — so a user on Short response
-# style got ZERO guardrails against raw ```latex/```tex/```copy fences or an
-# untagged code fence for math. Math answers are rarely one line; brevity
-# should not mean losing the rules that keep math output from rendering as
-# raw LaTeX. Recall attaches verified ```answer / diagram fences. Kept
-# deliberately compact (unlike the full MATH_SOLVER_HINT) so it doesn't blow
-# past Short mode's own 400-token output budget.
+# Fence-safety for every turn (including Short). Step-completeness for math
+# turns is MATH_INTENT_HINT + MATH_SHORT_STEPS_HINT, not this compact string.
 SHORT_MATH_SAFETY_HINT = (
     "Math in SHORT mode: inline `$...$` for formulas (never backticks around `$...$`); "
     "a ```math fence only for a standalone display equation (opener on its own line). "
@@ -141,6 +138,15 @@ SHORT_MATH_SAFETY_HINT = (
     "If verification failed or no verified block "
     "is present, do NOT claim SymPy verification. Never invent geometry dimensions. "
     f"{GRAPH_NO_SUBSTITUTE_CLAUSE} "
-    "Closed-form (n!, 2+2): one-line instance, no lecture. Equations: general formula "
-    "then numbered `$...$` lines — never a step-card fence."
+    "Closed-form (n!, 2+2): one-line instance, no lecture. Equations, integrals, "
+    "factor/expand/simplify, derivatives: numbered `$...$` lines even in SHORT "
+    "mode — never skip to the answer, never a step-card fence."
+)
+
+# Appended on Short/compact math turns so STYLE_HINTS["short"] "1-3 sentences"
+# cannot win over a derivation.
+MATH_SHORT_STEPS_HINT = (
+    "SHORT / compact / 1-3 sentence length does not apply to multi-step math. "
+    "Show numbered `$...$` steps for equations, integrals, derivatives, factor, "
+    "expand, and simplify. Closed-form n! / 2+2 stays one line."
 )

@@ -47,6 +47,7 @@ from app.services.chat.prompt_constants import (
     HOWTO_FORMAT_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_INTENT_HINT,
+    MATH_SHORT_STEPS_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
@@ -701,6 +702,7 @@ def _style_format_hints(
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    math_intent, viz_intent = _math_viz_intent(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
@@ -745,14 +747,15 @@ def _style_format_hints(
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(FORMAT_CONTRACT)
         parts.append(SHORT_MATH_SAFETY_HINT)
-        math_intent, viz_intent = _math_viz_intent(query_text)
-        if math_intent:
-            parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
         if viz_intent:
             parts.append(VISUALIZATION_HINTS)
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
+    if math_intent:
+        parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
+        if style == "short" or compact:
+            parts.append(MATH_SHORT_STEPS_HINT)
     if query_text and is_brevity_request(query_text):
         parts.append(BREVITY_REQUEST_HINT)
     writing_kind = writing_request_kind(query_text) if query_text else None

@@ -50,6 +50,43 @@ def test_short_style_still_includes_math_safety_guardrails():
     assert "```latex" in joined
 
 
+def test_short_style_math_query_gets_numbered_steps_bundle():
+    from app.services.chat.prompt_constants import (
+        MATH_INTENT_HINT,
+        MATH_SHORT_STEPS_HINT,
+        MATH_SOLVER_HINT,
+        MATH_TUTORING_HINT,
+        STYLE_HINTS,
+    )
+
+    parts = _hints("short")
+    assert MATH_INTENT_HINT in parts
+    assert MATH_SOLVER_HINT in parts
+    assert MATH_TUTORING_HINT in parts
+    assert MATH_SHORT_STEPS_HINT in parts
+    assert "does not apply to multi-step math" in MATH_SHORT_STEPS_HINT
+    assert "Multi-step math is exempt" in STYLE_HINTS["short"]
+
+
+def test_compact_math_query_gets_step_hints_not_just_safety():
+    from app.services.chat.prompt_constants import (
+        MATH_INTENT_HINT,
+        MATH_SHORT_STEPS_HINT,
+        MATH_SOLVER_HINT,
+    )
+
+    parts = _style_format_hints(
+        query_text="Solve 2x + 3 = 7",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert MATH_INTENT_HINT in parts
+    assert MATH_SOLVER_HINT in parts
+    assert MATH_SHORT_STEPS_HINT in parts
+
+
 def test_balanced_style_injects_universal_format_baseline():
     from app.services.chat.prompt_constants import UNIVERSAL_FORMAT_BASELINE
 
