@@ -152,6 +152,7 @@ async def update_memory(
                 )
             if updated is not None:
                 await session.commit()
+                await session.refresh(updated)
         except Exception:
             await session.rollback()
             raise

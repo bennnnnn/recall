@@ -211,9 +211,9 @@ async def update_text(
     memory.embedding_text_hash = None
     if commit:
         await session.commit()
-        await session.refresh(memory)
     else:
         await session.flush()
+    await session.refresh(memory)
     return memory
 
 
@@ -240,7 +240,7 @@ async def update_text_and_embedding(
         memory.embedding_text_hash = embedding_text_hash
     if commit:
         await session.commit()
-        await session.refresh(memory)
     else:
         await session.flush()
+    await session.refresh(memory)
     return memory

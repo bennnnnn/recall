@@ -35,14 +35,16 @@ def catalog_seed_revision() -> str:
 
 
 def apply_full_catalog_path(project: object) -> list[str]:
-    """Put every catalog chapter on the lesson map. Returns the titles used."""
+    """Return every catalog chapter for the lesson map. Does not persist.
+
+    Persistence is the ``language_path`` job. Assigning ``learning_path`` here
+    dirties the ORM on GET; the next query autoflushes, ``updated_at`` expires,
+    and ``ProjectOut.model_validate`` raises MissingGreenlet.
+    """
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if lang not in _CATALOG_LANGUAGES:
         return parse_learning_path(project)
-    titles = [deck.title for deck in path_decks_for_language(lang)]
-    project_any: Any = project
-    project_any.learning_path = titles
-    return titles
+    return [deck.title for deck in path_decks_for_language(lang)]
 
 
 def current_catalog_items(project: object, items: Sequence[ProjectItem]) -> list[ProjectItem]:
