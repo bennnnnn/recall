@@ -74,11 +74,13 @@ def _realtime_instructions(
     *,
     memory_block: str = "",
     custom_instructions: str = "",
+    schedule_block: str = "",
 ) -> str:
     return live_talk_service.build_realtime_instructions(
         history,
         memory_block=memory_block,
         custom_instructions=custom_instructions,
+        schedule_block=schedule_block,
     )
 
 
@@ -86,7 +88,7 @@ async def _load_session_context_or_404(
     chat_id: UUID | None,
     user: User,
     settings: Settings,
-) -> tuple[list[tuple[str, str]] | None, str]:
+) -> live_talk_service.LiveTalkSessionContext:
     loaded = await live_talk_service.load_live_talk_session_context(
         chat_id=chat_id,
         user=user,
@@ -149,14 +151,15 @@ async def create_realtime_session(
     settings: Settings = Depends(get_settings_dep),
 ) -> RealtimeSessionOut:
     """Mint a short-lived key; mobile completes WebRTC directly with OpenAI."""
-    history, memory_block = await _load_session_context_or_404(body.chat_id, user, settings)
+    ctx = await _load_session_context_or_404(body.chat_id, user, settings)
     redis = await _reserve_realtime_or_raise(user, settings)
 
     result = await openai_speech_gateway.create_realtime_client_secret(
         settings,
         instructions=_realtime_instructions(
-            history,
-            memory_block=memory_block,
+            ctx.history,
+            memory_block=ctx.memory_block,
+            schedule_block=ctx.schedule_block,
             custom_instructions=live_talk_service.voice_custom_instructions(user),
         ),
         safety_identifier=_safety_identifier(user),
