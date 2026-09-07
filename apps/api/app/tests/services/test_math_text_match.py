@@ -107,6 +107,8 @@ class TestPrepareSuperscripts:
         assert mtm.prepare("x²") == "x^2"
         # Keyboard x² chain must stay a ^{a}^{b} pair for the graph peeler.
         assert mtm.prepare("$^{x}^{2}$") == "^{x}^{2}"
+        mangled = r"A 5 kg mass is accelerated at 2 m/s$^2$$^2.$^2. What is the force."
+        assert mtm.prepare(mangled) == ("A 5 kg mass is accelerated at 2 m/s^2. What is the force.")
 
 
 class TestDrawShapeGate:
@@ -247,6 +249,9 @@ class TestGraphExpr:
             ("graph x^2", "x^2"),
             ("plot y = x^2", "x^2"),
             ("graph y=x^2", "x^2"),
+            # Composer leftover "Graph y =" + a second typed Graph prompt.
+            ("Graph y =Graph y = x^2.", "x^2."),
+            ("Graph y =Graph y = x².", "x²."),
         ],
     )
     def test_graph_expr(self, text, expected):

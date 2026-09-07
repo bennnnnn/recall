@@ -3,6 +3,8 @@ from app.services.md_fence_scan import (
     map_closed_fences,
     replace_first_closed_fence_body,
     strip_closed_fences,
+    strip_gfm_pipe_tables,
+    strip_hand_sketch_filler,
 )
 
 
@@ -62,3 +64,45 @@ def test_map_closed_fences_without_leftover_leaves_tail_past_cap() -> None:
     assert "KEEP:a" in out
     assert "```graph" in out
     assert "b" in out
+
+
+def test_strip_gfm_pipe_tables_drops_prose_table_keeps_fenced() -> None:
+    text = (
+        "Intro\n"
+        "### Points to plot\n"
+        "| x | y |\n"
+        "|---|---|\n"
+        "| 1 | 1 |\n"
+        "Outro\n"
+        "```python\n"
+        "| keep | me |\n"
+        "|------|----|\n"
+        "```\n"
+    )
+    out = strip_gfm_pipe_tables(text)
+    assert "| x |" not in out
+    assert "Points to plot" not in out
+    assert "Intro" in out
+    assert "Outro" in out
+    assert "| keep | me |" in out
+
+
+def test_strip_hand_sketch_filler_drops_ascii_keeps_graph() -> None:
+    text = (
+        "Parabola at the origin.\n\n"
+        "### How to Sketch\n"
+        "1. Plot the vertex.\n\n"
+        "> ASCII approximation:\n"
+        "> ```\n"
+        ">   ^ y\n"
+        "> ---+--> x\n"
+        "> ```\n\n"
+        "```graph\n"
+        '{"type":"function"}\n'
+        "```\n"
+    )
+    out = strip_hand_sketch_filler(text)
+    assert "How to Sketch" not in out
+    assert "ASCII" not in out
+    assert "Parabola at the origin." in out
+    assert "```graph" in out

@@ -199,17 +199,40 @@ def _bare_y_equals_rhs(text: str) -> str | None:
     return rhs
 
 
+_GRAPH_Y_PREFIXES = ("graph ", "plot ", "y=", "y =")
+
+
+def _peel_repeated_graph_y_prefix(expr: str) -> str:
+    """Unstack duplicated ``Graph y =`` / ``plot y =`` prefixes.
+
+    The composer math keyboard (or a leftover ``Graph y =`` plus a second
+    typed prompt) produces ``Graph y =Graph y = x²``. One-shot strip left
+    ``Graph y = x^2``, which SymPy read as G·r·a·p·h·y = x² — no plot, and
+    the model dumped a point table plus ASCII sketch instead.
+    """
+    s = expr.strip()
+    prev = None
+    while s and s != prev:
+        prev = s
+        low = s.lower()
+        matched = False
+        for prefix in _GRAPH_Y_PREFIXES:
+            if low.startswith(prefix):
+                s = s[len(prefix) :].lstrip()
+                matched = True
+                break
+        if not matched:
+            break
+    return s
+
+
 def graph_expr(text: str) -> str | None:
     lower = text.lower()
     for prefix in ("graph ", "plot "):
         idx = _find_unprefixed_phrase(lower, prefix)
         if idx == -1:
             continue
-        expr = text[idx + len(prefix) :].strip()
-        if expr.lower().startswith("y="):
-            expr = expr[2:].lstrip()
-        elif expr.lower().startswith("y ="):
-            expr = expr[3:].lstrip()
+        expr = _peel_repeated_graph_y_prefix(text[idx + len(prefix) :].strip())
         return expr or None
     return _bare_y_equals_rhs(text)
 

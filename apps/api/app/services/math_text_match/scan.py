@@ -358,11 +358,46 @@ def fold_match_superscripts(s: str) -> str:
     return "".join(out)
 
 
+def collapse_repeated_si_unit_powers(s: str) -> str:
+    """Stacked math-keyboard ``$^2$`` inserts: ``m/s^2^2.^2`` → ``m/s^2``.
+
+    ``2 m/s$^2$$^2.$^2`` never bound acceleration, so F=ma shipped the
+    *Couldn't verify this with SymPy.* footer under a correct 10 N.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if i + 4 <= n and s[i : i + 4] == "m/s^":
+            j = i + 4
+            if j < n and s[j].isdigit():
+                k = j + 1
+                while k < n and s[k].isdigit():
+                    k += 1
+                out.append(s[i:k])
+                i = k
+                while i < n:
+                    p = i
+                    if p < n and s[p] == ".":
+                        p += 1
+                    if p < n and s[p] == "^" and p + 1 < n and s[p + 1].isdigit():
+                        p += 1
+                        while p < n and s[p].isdigit():
+                            p += 1
+                        i = p
+                        continue
+                    break
+                continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
 def prepare(text: str) -> str | None:
     cleaned = collapse_ws(strip_inline_math_delims(text))
     if len(cleaned) > _MAX:
         return None
-    return fold_match_superscripts(cleaned)
+    return collapse_repeated_si_unit_powers(fold_match_superscripts(cleaned))
 
 
 def has_draw_shape(lower: str, shape: str) -> bool:
