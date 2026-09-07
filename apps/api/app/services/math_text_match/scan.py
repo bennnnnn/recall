@@ -462,6 +462,35 @@ def has_equation(text: str) -> bool:
 # letter (every letter sits inside a multi-letter word), so prose with an '='
 # is not pulled into SymPy.
 _STANDALONE_VAR_RE = re.compile(r"(?<![a-zA-Z])[a-zA-Z](?![a-zA-Z])")
+_EQ_SIDE_LEADINS = (
+    "let ",
+    "set ",
+    "given ",
+    "if ",
+    "when ",
+    "where ",
+    "and ",
+    "so ",
+    "then ",
+)
+
+
+def _math_equation_side(side: str) -> bool:
+    """True when one side of ``=`` is an expression, not leftover English."""
+    s = collapse_ws(side)
+    if not s:
+        return False
+    prev = None
+    while prev != s:
+        prev = s
+        lower = s.lower()
+        for prefix in _EQ_SIDE_LEADINS:
+            if lower.startswith(prefix):
+                s = s[len(prefix) :].strip()
+                break
+        else:
+            break
+    return looks_like_math_expr(s)
 
 
 def has_algebraic_equation(text: str) -> bool:
@@ -472,7 +501,10 @@ def has_algebraic_equation(text: str) -> bool:
     """
     if not has_equation(text):
         return False
-    return _STANDALONE_VAR_RE.search(text) is not None
+    if not _STANDALONE_VAR_RE.search(text):
+        return False
+    eq = text.find("=")
+    return _math_equation_side(text[:eq]) and _math_equation_side(text[eq + 1 :])
 
 
 def inequality_signal(cleaned: str) -> bool:

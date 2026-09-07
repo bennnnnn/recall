@@ -160,14 +160,20 @@ def test_extract_equation_sin_pi_x_still_solves_for_x() -> None:
         ("2x+3=7", True),
         ("y=x^2", True),
         ("a+b=10", True),
+        ("let x = 5", True),
         ("the meeting = 3pm", False),
         ("What's the weather?", False),
+        ("let x = the reason I'm late, it doesn't matter", False),
     ],
 )
 def test_needs_symbolic_math_bare_equation(text: str, expected: bool) -> None:
     """Bare algebraic equations (no 'solve'/'find' keyword) now trigger SymPy.
-    Prose with an '=' but no standalone single-letter variable does not."""
+    Prose with an '=' but no math sides does not."""
     assert math_tools.needs_symbolic_math(text) is expected
+
+
+def test_late_reason_prose_does_not_extract_an_equation() -> None:
+    assert math_tools.extract_math_intent("let x = the reason I'm late, it doesn't matter") is None
 
 
 def test_extract_bare_equation_intent() -> None:

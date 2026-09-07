@@ -140,6 +140,10 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     if not eq_pairs:
         return None
     lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
+    from app.services.math_tools.helpers import math_expr_or_none
+
+    if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
+        return None
     variables = math_service.guess_variables(lhs + rhs)
     requested = _requested_variable(cleaned, lhs + rhs)
     variable = requested or (variables[0] if variables else "x")
