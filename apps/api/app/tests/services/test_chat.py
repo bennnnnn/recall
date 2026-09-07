@@ -498,6 +498,8 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "illustrative" in lower
     assert "only when a verified" in lower
     assert "do not claim sympy verification" in lower
+    assert "trajectory graphs are only for kinematics" in lower
+    assert "force and energy answers are numbers only" in lower
     # Must not claim bare "are also in scope" without the verified-block gate.
     assert "are also in scope" not in lower
     assert "never invent geometry" in MATH_INTENT_HINT.lower()

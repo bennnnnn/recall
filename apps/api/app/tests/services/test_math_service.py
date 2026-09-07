@@ -374,6 +374,28 @@ def test_sample_function_does_not_split_a_smooth_function(expr: str) -> None:
     assert len(result.segments) == 1
 
 
+def test_sample_function_zooms_undersampled_sine() -> None:
+    """sin(x) on [-1000, 1000] at 96 points aliases (~20 units/sample vs period 2π)."""
+    result = math_service.sample_function(
+        GraphSampleInput(expr="sin(x)", variable="x", x_min=-1000, x_max=1000, n=96)
+    )
+    width = result.x_max - result.x_min
+    assert width < 100
+    assert result.x_min < 0 < result.x_max
+    ys = [p[1] for p in result.points]
+    assert max(ys) > 0.5
+    assert min(ys) < -0.5
+
+
+def test_sample_function_keeps_explicit_count_on_a_short_window() -> None:
+    result = math_service.sample_function(
+        GraphSampleInput(expr="x**2", variable="x", x_min=-2, x_max=2, n=10)
+    )
+    assert len(result.points) == 10
+    assert result.x_min == pytest.approx(-2.0)
+    assert result.x_max == pytest.approx(2.0)
+
+
 def test_simplify_expression() -> None:
     result = math_service.simplify_expression("x + x", "x")
     assert result.result == "2*x"

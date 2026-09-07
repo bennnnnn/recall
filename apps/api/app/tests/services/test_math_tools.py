@@ -1742,6 +1742,24 @@ async def test_default_graph_sample_stays_compact_for_chat_bubbles() -> None:
 
 
 @pytest.mark.asyncio
+async def test_wide_sine_graph_zooms_instead_of_aliasing() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph y = sin(x) from -1000 to 1000"}],
+        "Graph y = sin(x) from -1000 to 1000",
+        settings,
+    )
+    assert verified is not None
+    fence = verified.canonical_fence
+    assert fence is not None
+    assert fence["type"] == "function"
+    assert fence["x_max"] - fence["x_min"] < 100
+    ys = [p[1] for p in fence["points"]]
+    assert max(ys) > 0.5
+    assert min(ys) < -0.5
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_injects_sympy_block() -> None:
     settings = Settings(math_tools_enabled=True)
     messages = [
