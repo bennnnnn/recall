@@ -498,6 +498,9 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "illustrative" in lower
     assert "only when a verified" in lower
     assert "do not claim sympy verification" in lower
+    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_SOLVER_HINT
     # Must not claim bare "are also in scope" without the verified-block gate.
     assert "are also in scope" not in lower
     assert "never invent geometry" in MATH_INTENT_HINT.lower()

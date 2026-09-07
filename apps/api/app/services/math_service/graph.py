@@ -75,10 +75,9 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     xs = np.linspace(data.x_min, data.x_max, data.n)
     try:
         ys = numpy_fn(xs)
+        ys = np.asarray(ys, dtype=float)
     except Exception as exc:
         raise MathServiceError(f"Could not sample function: {data.expr}") from exc
-
-    ys = np.asarray(ys, dtype=float)
     points: list[list[float]] = []
     for x_val, y_val in zip(xs, ys, strict=False):
         if not np.isfinite(y_val):

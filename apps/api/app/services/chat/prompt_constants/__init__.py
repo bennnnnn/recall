@@ -39,6 +39,7 @@ from app.services.chat.prompt_constants.learning import (
     format_quiz_grading_hint,
 )
 from app.services.chat.prompt_constants.math import (
+    GRAPH_NO_SUBSTITUTE_CLAUSE,
     MATH_INTENT_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
@@ -100,6 +101,7 @@ __all__ = [
     "EMAIL_ASK_PURPOSE_HINT",
     "EMAIL_DRAFT_HINT",
     "FORMAT_CONTRACT",
+    "GRAPH_NO_SUBSTITUTE_CLAUSE",
     "HOWTO_FORMAT_HINT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",

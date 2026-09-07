@@ -314,6 +314,15 @@ def test_sample_function_rejects_relational_expr() -> None:
         )
 
 
+def test_sample_function_free_symbols_are_math_service_error() -> None:
+    """Leftover letters (``Graph`` → G·a·h·p·r) used to TypeError at np.asarray
+    and log as ``math_tools failed`` instead of a clean MathServiceError skip."""
+    with pytest.raises(math_service.MathServiceError, match="Could not sample"):
+        math_service.sample_function(
+            GraphSampleInput(expr="x**2/(G*a*h*p*r)", variable="x", x_min=-2, x_max=2, n=10)
+        )
+
+
 def test_number_line_from_x_gt_3() -> None:
     spec = math_service.number_line_spec_from_expr("x > 3")
     assert spec is not None
