@@ -40,6 +40,9 @@ describe("extractImageLookupQuery", () => {
     "   ",
     "draw me a cat",
     "create an image of a sunset",
+    "Show the structure of carbon dioxide.",
+    "show the structure of carbon dioxide",
+    "show me a right triangle",
   ])("rejects non-lookup or non-image subject: %j", (text) => {
     expect(extractImageLookupQuery(text)).toBeNull();
   });

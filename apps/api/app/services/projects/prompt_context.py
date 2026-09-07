@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
+from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -20,6 +22,7 @@ from app.services.learning.path import (
     parse_learning_path,
     sort_list_titles,
     up_next_chapter,
+    with_learning_path,
 )
 from app.services.projects import stats as project_stats
 from app.services.projects.common import (
@@ -153,7 +156,7 @@ def format_path_overview_lines(project: object, items: list[ProjectItem]) -> lis
     return lines
 
 
-def format_learning_overview_block(projects: list[Project], items: list[ProjectItem]) -> str:
+def format_learning_overview_block(projects: Sequence[Any], items: list[ProjectItem]) -> str:
     """Main-chat Learning inject: class + path checkmarks, no catalog dump."""
     if not projects:
         return ""
@@ -186,7 +189,7 @@ def format_learning_overview_block(projects: list[Project], items: list[ProjectI
     return "\n".join(lines)
 
 
-def format_current_chapter_block(project: Project, items: list[ProjectItem]) -> str:
+def format_current_chapter_block(project: Any, items: list[ProjectItem]) -> str:
     """Project-chat inject: current chapter ○/◐ words only."""
     current = up_next_chapter(project, items)
     chapter_items = items_in_chapter(items, current)
@@ -284,9 +287,9 @@ async def load_project_for_prompt(
         from app.services.learning.path_seed import apply_full_catalog_path, current_catalog_items
 
         items = current_catalog_items(project, items)
-        apply_full_catalog_path(project)
-        block = format_current_chapter_block(project, items)
-        current = up_next_chapter(project, items)
+        path_project = with_learning_path(project, apply_full_catalog_path(project))
+        block = format_current_chapter_block(path_project, items)
+        current = up_next_chapter(path_project, items)
         chapter_items = items_in_chapter(items, current)
         covered = [
             (item.content or "").strip()
@@ -353,11 +356,14 @@ async def load_projects_for_prompt(
     for item in items:
         by_project.setdefault(item.project_id, []).append(item)
     items = []
+    overview: list[Any] = []
     for project in projects:
         items.extend(current_catalog_items(project, by_project.get(project.id, [])))
         if _is_language_project(project):
-            apply_full_catalog_path(project)
-    block = format_learning_overview_block(projects, items)
+            overview.append(with_learning_path(project, apply_full_catalog_path(project)))
+        else:
+            overview.append(project)
+    block = format_learning_overview_block(overview, items)
     if block:
         from app.repositories import users as users_repo
         from app.services.learning.practice_context import load_activity_context

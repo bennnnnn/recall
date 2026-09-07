@@ -15,6 +15,8 @@ from app.services.memory import (
     accept_memory_section_rewrite,
     acquire_memory_write_lock,
     is_explicit_forget_command,
+    is_explicit_memory_command,
+    merge_explicit_remember_fact,
     release_memory_write_lock,
     stamp_memory_as_of,
 )
@@ -92,17 +94,30 @@ async def extract_and_store_memories(
                 return None
 
             forget = is_explicit_forget_command(expanded)
+            explicit_remember = is_explicit_memory_command(expanded) and not forget
             rows: list[tuple[str, str, float, UUID | None]] = []
             clear_types: list[str] = []
             for section in result.sections:
+                prior = snapshot.existing_sections.get(section.type, "")
                 accepted = accept_memory_section_rewrite(
                     section_type=section.type,
-                    prior=snapshot.existing_sections.get(section.type, ""),
+                    prior=prior,
                     summary=section.summary,
                     confidence=section.confidence,
                     min_confidence=settings.memory_min_confidence,
                     allow_clear=forget,
                 )
+                if accepted is None and explicit_remember:
+                    merged = merge_explicit_remember_fact(prior, section.summary)
+                    if merged != prior:
+                        accepted = accept_memory_section_rewrite(
+                            section_type=section.type,
+                            prior=prior,
+                            summary=merged,
+                            confidence=section.confidence,
+                            min_confidence=settings.memory_min_confidence,
+                            enforce_length_floor=False,
+                        )
                 if accepted is None:
                     continue
                 if forget and not accepted:

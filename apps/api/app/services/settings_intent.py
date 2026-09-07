@@ -116,6 +116,10 @@ _CONTENT_VERBS = frozenset(
         "create",
         "generate",
         "draw",
+        "learn",
+        "study",
+        "start",
+        "how",
     }
 )
 
@@ -258,8 +262,12 @@ def _extract_locale(tokens: list[str]) -> str | None:
         if (
             prev in {"to", "in", "language", "locale", "speak"}
             or nxt in {"language", "please"}
-            or _has_change_cue(tokens)
+            or "language" in tokens
+            or "locale" in tokens
         ):
+            return nick
+        # Short "use Spanish" / "Spanish please" only — not "make a plan to learn Spanish".
+        if prev in {"use", "set"} and len(tokens) <= 4:
             return nick
     return None
 
