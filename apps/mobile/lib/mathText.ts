@@ -284,6 +284,8 @@ const ACCENT_COMMANDS: [RegExp, string][] = [
   [/\\hat\{([^{}]+)\}/g, "̂"],
   [/\\widetilde\{([^{}]+)\}/g, "̃"], // combining tilde
   [/\\tilde\{([^{}]+)\}/g, "̃"],
+  [/\\overrightarrow\{([^{}]+)\}/g, "⃗"],
+  [/\\overleftarrow\{([^{}]+)\}/g, "⃖"],
   [/\\vec\{([^{}]+)\}/g, "⃗"], // combining right arrow above
   [/\\ddot\{([^{}]+)\}/g, "̈"], // combining diaeresis (double dot)
   [/\\dot\{([^{}]+)\}/g, "̇"], // combining dot above
@@ -576,6 +578,20 @@ function segmentToPlain(seg: MathSegment): string {
   return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
 }
 
+function readBareScript(input: string, i: number): { value: string; next: number } {
+  if (i >= input.length) return { value: "", next: i };
+  let j = i;
+  if (input[j] === "+" || input[j] === "-") j += 1;
+  if (j < input.length && input[j] >= "0" && input[j] <= "9") {
+    while (j < input.length && input[j] >= "0" && input[j] <= "9") j += 1;
+    return { value: input.slice(i, j), next: j };
+  }
+  if (j === i && ((input[j] >= "a" && input[j] <= "z") || (input[j] >= "A" && input[j] <= "Z"))) {
+    return { value: input[j] ?? "", next: i + 1 };
+  }
+  return { value: input[i] ?? "", next: i + 1 };
+}
+
 export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   if (depth > MAX_MATH_NEST_DEPTH) {
     return [{ type: "text", value: latex }];
@@ -621,8 +637,9 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
           continue;
         }
       }
-      out.push({ type: "sup", value: input[i] ?? "" });
-      i += 1;
+      const bare = readBareScript(input, i);
+      out.push({ type: "sup", value: bare.value });
+      i = bare.next;
       continue;
     }
 
@@ -639,8 +656,9 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
           continue;
         }
       }
-      out.push({ type: "sub", value: input[i] ?? "" });
-      i += 1;
+      const bare = readBareScript(input, i);
+      out.push({ type: "sub", value: bare.value });
+      i = bare.next;
       continue;
     }
 

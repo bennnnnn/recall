@@ -18,6 +18,11 @@ describe("parseSimpleLatex", () => {
     expect(segs.some((s) => s.type === "sup" && s.value === "2")).toBe(true);
   });
 
+  it("parses bare multi-character exponents as one script", () => {
+    expect(parseSimpleLatex("x^-2").some((s) => s.type === "sup" && s.value === "-2")).toBe(true);
+    expect(parseSimpleLatex("10^23").some((s) => s.type === "sup" && s.value === "23")).toBe(true);
+  });
+
   it("does not turn adjacent digits into a superscript (MathText pipeline)", () => {
     for (const expr of ["12+3=15", "20-10=10", "99*2=198"]) {
       const segs = parseSimpleLatex(fixImplicitExponents(expr));
@@ -251,6 +256,8 @@ describe("parseSimpleLatex", () => {
   it("accent commands (\\hat, \\vec, \\bar, \\dot, \\tilde, \\underline) render via combining marks", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\hat{x}`))).toBe("x̂");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec{v}`))).toBe("v⃗");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\overrightarrow{AB}`))).toBe("A⃗B⃗");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\overleftarrow{AB}`))).toBe("A⃖B⃖");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\bar{x}`))).toBe("x̄");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\dot{x}`))).toBe("ẋ");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\ddot{x}`))).toBe("ẍ");
