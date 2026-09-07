@@ -205,6 +205,14 @@ def test_force_f_ma_solve_f() -> None:
     assert intent.physics_params["a"] == 2.0
 
 
+def test_force_accelerated_what_is_the_force() -> None:
+    intent = _extract_force_intent("A 5 kg mass is accelerated at 2 m/s^2. What is the force.")
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["m"] == 5.0
+    assert intent.physics_params["a"] == 2.0
+
+
 def test_force_prefers_mass_nearest_mass_label() -> None:
     intent = _extract_force_intent(
         "A 3 kg cart is nearby. A net force of 20 N acts on a 5 kg mass. What is the acceleration?"

@@ -167,6 +167,8 @@ class TestFirstDimPair:
             ("rectangle 4 by 3", (4.0, 3.0, "cm")),
             ("3,5 by 8", (3.5, 8.0, "cm")),
             ("3,5x4", (3.5, 4.0, "cm")),
+            ("3.14 by 2", (3.14, 2.0, "cm")),
+            ("8 by 5.", (8.0, 5.0, "cm")),
         ],
     )
     def test_first_dim_pair(self, text, expected):
@@ -183,6 +185,7 @@ class TestFirstDimTriple:
     def test_three_edges(self):
         assert mtm.first_dim_triple("3 by 4 by 5 cm") == (3.0, 4.0, 5.0, "cm")
         assert mtm.first_dim_triple("3x4x5") == (3.0, 4.0, 5.0, "cm")
+        assert mtm.first_dim_triple("3 by 4 by 5.") == (3.0, 4.0, 5.0, "cm")
 
     def test_pair_is_not_a_triple(self):
         assert mtm.first_dim_triple("8 by 5 cm") is None

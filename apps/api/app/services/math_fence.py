@@ -39,6 +39,7 @@ from app.services.md_fence_scan import (
     is_fence_closer,
     map_closed_fences,
     next_fence_marker_line,
+    strip_closed_fences,
 )
 
 if TYPE_CHECKING:
@@ -430,6 +431,10 @@ def _collect_canonical_specs(verified: VerifiedMathBlock) -> list[dict[str, obje
     return specs
 
 
+def _verified_includes_graph(verified: VerifiedMathBlock) -> bool:
+    return any(_spec_fence_kind(spec) == "graph" for spec in _collect_canonical_specs(verified))
+
+
 def _normalize_answer_token(text: str) -> str:
     """Strip math/markup noise so we can test whether prose already states a value."""
     cleaned = (
@@ -632,6 +637,10 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     # verified points at EOS) is left unclosed. Swap it for the verified
     # canonical fence so the renderer gets a complete spec.
     content = _replace_unclosed_graph_fence(content, canonical_fence)
+    # Vega ```chart is a different product from a verified function plot.
+    # Drop the model's chart when we already own a ```graph fence.
+    if verified is not None and _verified_includes_graph(verified):
+        content = strip_closed_fences(content, "chart")
     return _append_missing_canonical_fences(content, verified)
 
 
