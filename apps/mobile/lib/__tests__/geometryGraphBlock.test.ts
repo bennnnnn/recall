@@ -30,6 +30,8 @@ import {
   numberLineBounds,
   numberLineTicks,
   parseGraphSpec,
+  schoolViewBounds,
+  graphAxisTicks,
 } from "@/lib/graphBlock";
 
 describe("geometryBlock", () => {
@@ -671,6 +673,36 @@ describe("graphBlock", () => {
       { pad: false },
     );
     expect(view).toEqual({ xMin: 0, xMax: 12, yMin: -10, yMax: 10 });
+  });
+
+  it("schoolViewBounds zooms x² on ±10 to a textbook vertex window", () => {
+    const view = schoolViewBounds(
+      { xMin: -10, xMax: 10, yMin: 0, yMax: 100 },
+      1.75,
+    );
+    expect(view.xMin).toBe(-6);
+    expect(view.xMax).toBe(6);
+    expect(view.yMin).toBe(-1);
+    expect(view.yMax).toBe(6);
+    expect(graphAxisTicks(view.xMin, view.xMax)).toEqual([-6, -4, -2, 0, 2, 4, 6]);
+    expect(graphAxisTicks(view.yMin, view.yMax)).toEqual([0, 2, 4, 6]);
+  });
+
+  it("schoolViewBounds keeps y = x on a comparable scale (not a ±6 crop)", () => {
+    const view = schoolViewBounds(
+      { xMin: -10, xMax: 10, yMin: -10, yMax: 10 },
+      1.75,
+    );
+    expect(view).toEqual({ xMin: -10, xMax: 10, yMin: -10, yMax: 10 });
+  });
+
+  it("schoolViewBounds keeps a short x² sample on screen", () => {
+    const view = schoolViewBounds(
+      { xMin: 0, xMax: 2, yMin: 0, yMax: 4 },
+      1.75,
+    );
+    expect(view.xMax).toBe(2);
+    expect(view.yMax).toBe(4);
   });
 
   it("formatAxisNumber is always a whole number", () => {

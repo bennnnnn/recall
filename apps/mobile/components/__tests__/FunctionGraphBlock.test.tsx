@@ -18,6 +18,32 @@ describe("FunctionGraphBlock", () => {
     expect(getByText("y = x²")).toBeOnTheScreen();
   });
 
+  it("renders even ticks for y = x², not padded −12 / 108 / −8", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      x_min: -10,
+      x_max: 10,
+      points: [
+        [-10, 100],
+        [0, 0],
+        [10, 100],
+      ],
+    });
+    const { queryByText, getByText, toJSON } = await render(
+      <FunctionGraphBlock content={content} />,
+    );
+    expect(getByText("y = x²")).toBeOnTheScreen();
+    expect(queryByText("108")).toBeNull();
+    expect(queryByText("-12")).toBeNull();
+    expect(queryByText("-8")).toBeNull();
+    const tree = JSON.stringify(toJSON());
+    expect(tree).not.toContain('"108"');
+    expect(tree).not.toContain('"-12"');
+    expect(tree).toContain("RNSVGLine");
+    expect(tree).toContain("RNSVGPath");
+  });
+
   it("prefers an explicit title over the default y = expr label", async () => {
     const content = JSON.stringify({
       type: "function",
