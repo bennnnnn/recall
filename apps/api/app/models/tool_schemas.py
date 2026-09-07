@@ -29,6 +29,7 @@ class SympyToolInput(BaseModel):
         "limit",
         "series",
         "newton",
+        "dsolve",
     ] = "solve"
     # Bounded the same as the equivalent fields on EquationInput/GraphSampleInput
     # (apps/api/app/models/math_schemas/) — unbounded strings here fed straight
@@ -67,6 +68,8 @@ class SympyToolInput(BaseModel):
     upper: str | None = Field(default=None, max_length=32)
     # newton: initial guess.
     guess: float | None = Field(default=None, ge=-1_000_000, le=1_000_000)
+    # diff: 1 = first derivative; 2 = second, …
+    order: int = Field(default=1, ge=1, le=4)
 
 
 class CalendarConflictEvent(BaseModel):

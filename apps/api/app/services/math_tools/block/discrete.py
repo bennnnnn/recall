@@ -32,7 +32,9 @@ def _verified_block_calculus(
     if intent.operation == "simplify":
         out = math_service.simplify_expression(intent.expr, intent.variable)
     elif intent.operation == "differentiate":
-        out = math_service.differentiate_expression(intent.expr, intent.variable)
+        out = math_service.differentiate_expression(
+            intent.expr, intent.variable, intent.derivative_order
+        )
     elif intent.operation == "integrate":
         if intent.integral_lower is not None and intent.integral_upper is not None:
             out = math_service.integrate_definite(

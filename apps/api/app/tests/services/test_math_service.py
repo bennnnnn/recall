@@ -468,6 +468,13 @@ def test_differentiate_expression() -> None:
     assert "2" in result.latex
 
 
+def test_differentiate_expression_second_order() -> None:
+    result = math_service.differentiate_expression("x**4 - 3*x**2", "x", 2)
+    # SymPy may leave 12x^{2}-6 or factor as 6(2x^{2}-1).
+    assert "x^{3}" not in result.latex
+    assert "2 x^{2}" in result.latex or "12" in result.latex
+
+
 def test_integrate_expression_marks_closed_form_result_as_solved() -> None:
     result = math_service.integrate_expression("2*x", "x")
     assert result.result == "x**2"

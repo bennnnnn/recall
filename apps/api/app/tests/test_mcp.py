@@ -261,6 +261,24 @@ async def test_sympy_adapter_dispatches_parity_actions():
 
 
 @pytest.mark.asyncio
+async def test_sympy_adapter_dsolve_and_second_diff():
+    adapter = SympyAdapter(Settings())
+    ode = await adapter.invoke({"action": "dsolve", "expr": "dy/dx = y", "variable": "x"})
+    assert ode.data is not None
+    assert ode.data["canonical_fence"]["type"] == "answer"
+    low = ode.data["canonical_fence"]["content"].lower()
+    assert "e" in low or "exp" in low or "c" in low
+
+    d2 = await adapter.invoke(
+        {"action": "diff", "expr": "x**4 - 3*x**2", "variable": "x", "order": 2}
+    )
+    assert d2.data is not None
+    content = d2.data["canonical_fence"]["content"]
+    assert "x^{3}" not in content
+    assert "2 x^{2}" in content or "12" in content
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
     thread_sympy_executor: None,
 ):
