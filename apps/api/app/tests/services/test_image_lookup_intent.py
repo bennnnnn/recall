@@ -38,6 +38,7 @@ def test_extracts_lookup_subject(text: str, expected: str) -> None:
         "show me a summary of this chapter",
         "show me my reminders",
         "show me the graph",
+        "show me a flowchart",
         "show me the steps",
         "show me the answer",
         "show me the equation",

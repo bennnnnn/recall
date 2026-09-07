@@ -171,6 +171,8 @@ _NON_IMAGE_DRAW_WORDS = frozenset(
         "chart",
         "graph",
         "plot",
+        "flowchart",
+        "flowcharts",
     },
 )
 
