@@ -47,6 +47,9 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "draw me an example",
         "create an image of my tasks",
         "make a picture of my todo list",
+        "draw a right triangle with legs 3 and 4",
+        "Draw a right triangle with legs 3 and 4.",
+        "draw the molecule caffeine",
         "a" * 501,
     ],
 )
