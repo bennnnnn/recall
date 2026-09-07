@@ -868,21 +868,27 @@ async def test_materialize_reminder_from_explicit_user_text_when_fence_missing()
 
 
 @pytest.mark.asyncio
-async def test_invalid_reminder_fence_does_not_fallback_to_user_text():
+async def test_invalid_reminder_fence_falls_back_to_explicit_user_text():
+    """A broken ```reminder must not block 'remind me … tomorrow at 6pm'."""
     session = AsyncMock()
     text = 'Hello\n```reminder\n{"title":"x"}\n```\n'
-    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
         updated, created = await todos_service.materialize_reminder_fences(
             session,
             user_id=uuid4(),
             chat_id=uuid4(),
             assistant_text=text,
             user_timezone="UTC",
-            user_text="remind me to water the plants tomorrow at 6pm",
+            user_text="remind me to water the fern tomorrow at 6pm",
         )
-    assert created == 0
-    assert "Could not set that reminder" in updated
-    create_mock.assert_not_awaited()
+    assert created == 1
+    assert "Could not set that reminder" not in updated
+    assert "Set: water the fern" in updated
+    assert create_mock.await_args.kwargs["content"] == "water the fern"
 
 
 @pytest.mark.asyncio

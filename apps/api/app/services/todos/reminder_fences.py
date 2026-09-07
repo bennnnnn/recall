@@ -321,8 +321,9 @@ async def materialize_reminder_fences(
     """Apply ```reminder fences (create + mutations) and strip them from the reply.
 
     Returns (updated_text, applied_count). Saves from a valid fence. If the model
-    omitted the fence entirely, an explicit user "remind me … today/tomorrow at
-    6pm" (clock required) is applied so the item still lands on Schedule.
+    omitted the fence, or emitted an invalid one, an explicit user "remind me …
+    today/tomorrow at 6pm" (clock required) is applied so the item still lands
+    on Schedule.
     """
     if not _REMINDER_FENCE.search(assistant_text):
         draft = _explicit_user_remind(user_text, user_timezone)
@@ -363,7 +364,17 @@ async def materialize_reminder_fences(
         draft = _parse_fence(match.group(1))
         if draft is None:
             logger.warning("Invalid reminder fence payload for user_id=%s", state.user_id)
-            parts.append(_INVALID_FENCE)
+            fallback = _explicit_user_remind(user_text, user_timezone)
+            if fallback is None:
+                parts.append(_INVALID_FENCE)
+                continue
+            line, ok = await _create_one(state, fallback)
+            result_lines.append(line)
+            if ok:
+                state.applied += 1
+                created_any = True
+            else:
+                parts.append(_INVALID_FENCE)
             continue
         if draft.action == "add":
             line, ok = await _create_one(state, draft)

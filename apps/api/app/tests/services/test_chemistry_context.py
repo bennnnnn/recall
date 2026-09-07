@@ -18,6 +18,7 @@ from app.services import chemistry_context
     [
         ("what is the structure of aspirin?", True),
         ("draw the molecule caffeine", True),
+        ("Draw the structure of carbon dioxide.", True),
         ("molecular formula of ethanol", True),
         ("what is the SMILES for glucose", True),
         ("tell me about water as a compound", True),
@@ -42,6 +43,8 @@ def test_is_chemistry_question(text: str, expected: bool) -> None:
         ("structure of caffeine", "caffeine"),
         ("molecular formula of ethanol", "ethanol"),
         ("draw the molecule glucose", "glucose"),
+        ("Draw the structure of carbon dioxide.", "carbon dioxide"),
+        ("show the lewis structure of carbon dioxide", "carbon dioxide"),
         ("what is 2 + 2?", None),
         ("", None),
     ],

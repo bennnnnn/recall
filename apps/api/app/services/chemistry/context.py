@@ -83,8 +83,12 @@ _COMPOUND_CUES = re.compile(
 # Common compound name patterns — a word or two after a cue.
 # e.g. "what is aspirin", "structure of caffeine", "molecular formula of ethanol"
 _COMPOUND_NAME_RE = re.compile(
-    r"\b(?:structure\s+of|molecular\s+formula\s+of|formula\s+of|"
-    r"what\s+is|what's|tell\s+me\s+about|draw\s+(?:the\s+)?(?:molecule\s+)?|show\s+me\s+(?:the\s+)?(?:molecule\s+)?|describe(?:\s+the)?(?:\s+molecule)?\s+|"
+    r"\b(?:(?:lewis\s+)?structure\s+of|molecular\s+formula\s+of|formula\s+of|"
+    r"what\s+is|what's|tell\s+me\s+about|"
+    r"draw\s+(?:the\s+)?(?:lewis\s+)?structure\s+of|"
+    r"show(?:\s+me)?\s+(?:the\s+)?(?:lewis\s+)?structure\s+of|"
+    r"draw\s+(?:the\s+)?(?:molecule\s+)?|show\s+me\s+(?:the\s+)?(?:molecule\s+)?|"
+    r"describe(?:\s+the)?(?:\s+molecule)?\s+|"
     r"smiles\s+for|smiles\s+of|compound|chemical\s+structure\s+of)\s*"
     r"([a-zA-Z][a-zA-Z0-9\-\s]{2,40}?)"
     r"(?:\?|$|\.|,|\s+(?:and|or|with|in|at|for|to|is|are|the))",
@@ -140,6 +144,8 @@ def extract_compound_name(content: str) -> str | None:
     name = match.group(1).strip().lower()
     # Clean up trailing articles/prepositions.
     name = re.sub(r"\s+(?:the|a|an|of|for|with)$", "", name).strip()
+    # "draw the structure of CO2" used to capture "structure of carbon dioxide".
+    name = re.sub(r"^(?:the\s+)?(?:lewis\s+)?structure\s+of\s+", "", name).strip()
     if not name or name in _FALSE_POSITIVES:
         return None
     if len(name) < 3 or len(name) > 40:
