@@ -59,6 +59,13 @@ describe("copyBlock heuristics", () => {
     expect(draftFenceProseText(leaked)).toContain("paste their number");
   });
 
+  it("rejects a nested ```sms example that leaked into an email fence", () => {
+    const leaked =
+      "to reschedule a meeting or ```sms to confirm plans)\n## phases with numbered tasks";
+    expect(looksLikeExplicitDraftContent(leaked)).toBe(false);
+    expect(shouldRenderAsCopyBlock("email", leaked)).toBe(false);
+  });
+
   it.each([
     "¡Feliz cumpleaños! Espero que tengas un día maravilloso lleno de alegría.",
     "መልካም ልደት! ዛሬ በደስታ እና በፍቅር የተሞላ ቀን እንዲሆንልህ እመኛለሁ።",

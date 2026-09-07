@@ -15,6 +15,7 @@ from app.services import projects as projects_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
+    is_capabilities_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
     is_short_confirmation,
@@ -189,7 +190,11 @@ async def _classify_turn_mode(
         day_reflection=day_reflection,
     )
     advice_memory = (
-        (is_personal_advice_question(content) or is_food_or_diet_query(content))
+        (
+            is_personal_advice_question(content)
+            or is_food_or_diet_query(content)
+            or is_capabilities_question(content)
+        )
         and not day_planning
         and not day_reflection
         and not lightweight
