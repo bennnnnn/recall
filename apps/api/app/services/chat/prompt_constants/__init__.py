@@ -4,6 +4,10 @@ Split by domain (math, learning, format, …). Import from this package the
 same way as the old ``prompt_constants`` module.
 """
 
+from app.services.chat.prompt_constants.capabilities import (
+    CAPABILITIES_FORMAT_HINT,
+    is_capabilities_question,
+)
 from app.services.chat.prompt_constants.format import (
     BREVITY_REQUEST_HINT,
     CALLOUT_FORMAT_HINT,
@@ -89,6 +93,7 @@ __all__ = [
     "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",
     "CALLOUT_FORMAT_HINT",
+    "CAPABILITIES_FORMAT_HINT",
     "CHART_FORMAT_HINT",
     "CHEMISTRY_FENCE_HINT",
     "CLARIFICATION_HINT",
@@ -132,6 +137,7 @@ __all__ = [
     "is_brevity_request",
     "is_broad_self_question",
     "is_callout_question",
+    "is_capabilities_question",
     "is_chart_question",
     "is_comparison_question",
     "is_email_or_message_request",

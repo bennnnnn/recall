@@ -1256,6 +1256,61 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     assert "The user may have Gmail" not in system
 
 
+@pytest.mark.asyncio
+async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = "San Francisco, CA"
+    user.location_enabled = True
+    user.response_style = "balanced"
+    user.response_tone = None
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = None
+    chat = MagicMock()
+    chat.project_id = None
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value="Building Recall. Learning FastAPI and async Python."),
+        ) as memory_mock,
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
+        ) as todos_mock,
+        patch(
+            "app.services.projects.load_projects_for_prompt",
+            AsyncMock(return_value="PROJECTS SHOULD NOT LOAD"),
+        ) as projects_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False, web_search_enabled=False),
+            query_text="What can you help me with? Give a few concrete examples.",
+            lightweight=False,
+            rich_context=False,
+            advice_memory=True,
+            chat=chat,
+        )
+
+    memory_mock.assert_awaited()
+    todos_mock.assert_not_awaited()
+    projects_mock.assert_not_awaited()
+    system = messages[0]["content"]
+    assert "Building Recall" in system
+    assert "capabilities overview" in system.lower()
+    assert "Never emit ```email" in system
+    assert "personal recommendation" not in system
+    assert "put only send-ready text" not in system.lower()
+    assert "TODOS SHOULD NOT LOAD" not in system
+    assert "The user may have Gmail" not in system
+
+
 class _FakeSessionCM:
     """Keep this unit test off the process-wide asyncpg pool."""
 
@@ -1963,6 +2018,26 @@ async def test_classify_turn_mode_eat_tonight_is_advice_memory():
     chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
+
+    assert mode.lightweight is False
+    assert mode.rich_context is False
+    assert mode.advice_memory is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    mode = await _classify_turn_mode(
+        AsyncMock(),
+        chat,
+        "What can you help me with? Give a few concrete examples.",
+    )
 
     assert mode.lightweight is False
     assert mode.rich_context is False
