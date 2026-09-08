@@ -44,6 +44,7 @@ from app.services.chat.prompt_constants.learning import (
 )
 from app.services.chat.prompt_constants.math import (
     GRAPH_NO_SUBSTITUTE_CLAUSE,
+    MATH_FENCE_SAFETY_HINT,
     MATH_INTENT_HINT,
     MATH_SHORT_STEPS_HINT,
     MATH_SOLVER_HINT,
@@ -116,6 +117,7 @@ __all__ = [
     "IMAGE_GEN_UNAVAILABLE_HINT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
+    "MATH_FENCE_SAFETY_HINT",
     "MATH_INTENT_HINT",
     "MATH_SHORT_STEPS_HINT",
     "MATH_SOLVER_HINT",

@@ -238,14 +238,11 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
 
 
 @pytest.mark.asyncio
-async def test_unverified_math_note_appended_to_final_content(
+async def test_unverified_math_note_is_not_appended_to_final_content(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.services.sympy_executor.run_sympy", _run_sympy_inline)
     seams = _seams()
-    seams.math_fence_service.append_unverified_math_note = (
-        lambda content: f"{content.rstrip()}\n\n*Couldn't verify this with SymPy.*"
-    )
     ctx = _ctx()
     ctx.math_unverified = True
     persisted = await enrich_final_content(

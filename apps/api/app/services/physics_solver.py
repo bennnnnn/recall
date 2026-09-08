@@ -190,26 +190,40 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
     v0 = p["v0"]
     theta = p["angle"]  # radians (converted by _params_in_si)
     op = intent.physics_op or "range"
+    h0 = p.get("h0", 0.0)
 
-    # Time of flight: t_flight = 2*v0*sin(θ)/g
-    t_flight = 2 * v0 * math.sin(theta) / g
+    if h0 > 0:
+        # y = h0 + v0 sinθ t - ½ g t² = 0 → ½ g t² - v0 sinθ t - h0 = 0
+        a = 0.5 * g
+        b = -v0 * math.sin(theta)
+        c = -h0
+        disc = b * b - 4 * a * c
+        if disc < 0:
+            raise MathServiceError("projectile has no positive flight time")
+        t_flight = (-b + math.sqrt(disc)) / (2 * a)
+    else:
+        t_flight = 2 * v0 * math.sin(theta) / g
     if t_flight <= 0:
         raise MathServiceError("projectile has no positive flight time")
 
     if op == "range":
-        r_val = v0**2 * math.sin(2 * theta) / g
+        if h0 > 0:
+            r_val = v0 * math.cos(theta) * t_flight
+        else:
+            r_val = v0**2 * math.sin(2 * theta) / g
         answer_latex = (
             rf"R = \frac{{v_0^2 \sin(2\theta)}}{{g}} = "
             rf"\frac{{{v0:g}^2 \cdot \sin({math.degrees(theta):.1f}^\circ \cdot 2)}}{{{g:g}}} "
             rf"\approx {r_val:.2f} \text{{ m}}"
+            if h0 <= 0
+            else rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
         )
         answer_value = f"{r_val:.2f} m"
     elif op == "max_height":
-        h_val = v0**2 * math.sin(theta) ** 2 / (2 * g)
+        h_val = h0 + v0**2 * math.sin(theta) ** 2 / (2 * g)
         answer_latex = (
-            rf"H = \frac{{v_0^2 \sin^2(\theta)}}{{2g}} = "
-            rf"\frac{{{v0:g}^2 \cdot \sin^2({math.degrees(theta):.1f}^\circ)}}{{2 \cdot {g:g}}} "
-            rf"\approx {h_val:.2f} \text{{ m}}"
+            rf"H = h_0 + \frac{{v_0^2 \sin^2(\theta)}}{{2g}} = "
+            rf"{h_val:.2f} \text{{ m}}"
         )
         answer_value = f"{h_val:.2f} m"
     else:
@@ -222,7 +236,7 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
     for i in range(n_points):
         ti = i * dt
         xi = v0 * math.cos(theta) * ti
-        yi = v0 * math.sin(theta) * ti - 0.5 * g * ti**2
+        yi = h0 + v0 * math.sin(theta) * ti - 0.5 * g * ti**2
         if yi < 0:
             yi = 0.0
         points.append([round(xi, 4), round(float(yi), 4)])

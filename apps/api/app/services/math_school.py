@@ -84,7 +84,9 @@ def evaluate_arithmetic(expr: str) -> str:
     if parsed.free_symbols:
         raise MathServiceError("arithmetic expression still has variables")
     value = simplify(parsed)
-    return str(latex(value))
+    from app.services.math_service.parse import format_verified_latex
+
+    return format_verified_latex(value)
 
 
 def percent_of(rate: float, base: float) -> str:
@@ -104,7 +106,9 @@ def evaluate_trig_degrees(func: str, degrees: float) -> str:
     if func not in table:
         raise MathServiceError(f"unsupported trig function {func}")
     exact = simplify(table[func](nsimplify(degrees) * pi / 180))
-    return str(latex(exact))
+    from app.services.math_service.parse import format_verified_latex
+
+    return format_verified_latex(exact)
 
 
 def coord_distance(x1: float, y1: float, x2: float, y2: float) -> str:
@@ -240,7 +244,10 @@ def convert_unit(value: float, src: str, dest: str) -> str:
         for dest_cand in _candidates(dest):
             try:
                 result = quantity.to(dest_cand)
-                return f"{float(result.magnitude):.10g}"
+                mag = float(result.magnitude)
+                if abs(mag) < 1e-9:
+                    mag = 0.0
+                return f"{mag:.10g}"
             except Exception as exc:
                 last_exc = exc
                 continue
@@ -319,4 +326,6 @@ def critical_points(expr: str, variable: str = "x") -> MathExprResult:
 
 def evaluate_trig_expr(expr: str) -> str:
     parsed = _parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
-    return str(latex(simplify(parsed)))
+    from app.services.math_service.parse import format_verified_latex
+
+    return format_verified_latex(simplify(parsed))

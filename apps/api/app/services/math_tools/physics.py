@@ -349,6 +349,16 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     if v0 is None or angle is None:
         return None
 
+    h0: float | None = None
+    h0_unit = "m"
+    hu = _find_value_with_specific_unit(
+        cleaned,
+        _LENGTH_UNIT_PATTERN,
+        ("from", "initial height", "height of", "high", "above", "cliff"),
+    )
+    if hu is not None:
+        h0, h0_unit = hu
+
     # Decide what the user is asking for.
     op: Literal["range", "max_height"] = "range"
     if "maximum height" in lower or "max height" in lower:
@@ -357,11 +367,16 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
         op = "range"  # trajectory implies range + plot
 
     g = _detect_gravity(cleaned)
+    params: dict[str, float] = {"v0": v0, "angle": angle, "g": g}
+    units: dict[str, str] = {"v0": v0_unit or "m/s", "angle": "deg", "g": "m/s^2"}
+    if h0 is not None:
+        params["h0"] = h0
+        units["h0"] = h0_unit or "m"
     return MathIntent(
         kind="projectile",
         physics_op=op,
-        physics_params={"v0": v0, "angle": angle, "g": g},
-        physics_units={"v0": v0_unit or "m/s", "angle": "deg", "g": "m/s^2"},
+        physics_params=params,
+        physics_units=units,
         operation="solve",
     )
 

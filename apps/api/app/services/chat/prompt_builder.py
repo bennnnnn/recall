@@ -46,6 +46,7 @@ from app.services.chat.prompt_constants import (
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
     LIGHTWEIGHT_REPLY_HINT,
+    MATH_FENCE_SAFETY_HINT,
     MATH_INTENT_HINT,
     MATH_SHORT_STEPS_HINT,
     MATH_SOLVER_HINT,
@@ -704,7 +705,7 @@ def _style_format_hints(
             PRIVACY_HINT,
             UNIVERSAL_FORMAT_BASELINE,
             CAPABILITIES_FORMAT_HINT,
-            SHORT_MATH_SAFETY_HINT,
+            MATH_FENCE_SAFETY_HINT,
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
@@ -725,14 +726,12 @@ def _style_format_hints(
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         # Explicit draft/prose still wins over "plain text, skip fences".
         parts.append(writing if writing else SHORT_RESPONSE_FORMAT_HINT)
-        parts.append(SHORT_MATH_SAFETY_HINT)
     elif is_day_plan:
-        # Day-plan used to miss math guardrails. Keep compact math safety so
-        # any math in a plan still renders; keep the richer format pack so a
-        # day outline can use headings.
+        # Day-plan used to miss math guardrails. Keep a short fence-safety
+        # line so incidental `$...$` still renders; keep FORMAT_CONTRACT so
+        # a day outline can use headings.
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(writing if writing else FORMAT_CONTRACT)
-        parts.append(SHORT_MATH_SAFETY_HINT)
     elif compact:
         # Slim/casual used to still get RESPONSE_FORMAT_HINT (tips/headings/
         # tables), so a pasted phrase became a funny essay with a clipped
@@ -744,15 +743,12 @@ def _style_format_hints(
         # Writing kinds must win the same way or "one paragraph" becomes bullets.
         winner = writing or layout
         parts.append(winner if winner else COMPACT_RESPONSE_FORMAT_HINT)
-        parts.append(SHORT_MATH_SAFETY_HINT)
     elif writing:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(writing)
-        parts.append(SHORT_MATH_SAFETY_HINT)
     else:
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(FORMAT_CONTRACT)
-        parts.append(SHORT_MATH_SAFETY_HINT)
         if viz_intent:
             parts.append(VISUALIZATION_HINTS)
         layout = _layout_format_hint(query_text)
@@ -763,9 +759,13 @@ def _style_format_hints(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
         )
     if math_intent:
-        parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
         if style == "short" or compact:
+            parts.append(SHORT_MATH_SAFETY_HINT)
             parts.append(MATH_SHORT_STEPS_HINT)
+        else:
+            parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
+    else:
+        parts.append(MATH_FENCE_SAFETY_HINT)
     if query_text and is_brevity_request(query_text):
         parts.append(BREVITY_REQUEST_HINT)
     writing_kind = writing_request_kind(query_text) if query_text else None
@@ -973,10 +973,9 @@ async def build_prompt_messages(
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)
         system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
         # Lightweight/chit-chat turns skipped the math guardrails entirely,
-        # so a math question mis-classified as lightweight lost the rules
-        # that keep math from rendering as raw ```latex/```copy. Keep the
-        # compact safety hint on every turn.
-        system_parts.append(SHORT_MATH_SAFETY_HINT)
+        # so incidental `$...$` rendered as raw ```latex. A two-line fence
+        # safety hint is enough — not the full math pack.
+        system_parts.append(MATH_FENCE_SAFETY_HINT)
     elif not minimal_quiz_context and not minimal_vocab_answer_context:
         system_parts.extend(
             _style_format_hints(
@@ -990,9 +989,9 @@ async def build_prompt_messages(
         )
     else:
         # Quiz / vocab answer turns skipped _style_format_hints entirely, so
-        # any math in a quiz explanation rendered as raw LaTeX. Keep the
-        # compact math safety hint so verified/inline math still renders.
-        system_parts.append(SHORT_MATH_SAFETY_HINT)
+        # any math in a quiz explanation rendered as raw LaTeX. Keep a short
+        # fence-safety hint so incidental `$...$` still renders.
+        system_parts.append(MATH_FENCE_SAFETY_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
     system_parts.append(TONE_FORMAT_GUARD)
     custom_block = _custom_instructions_block(user)

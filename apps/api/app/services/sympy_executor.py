@@ -210,6 +210,14 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             if slot is not None:
                 self._free_queue().put_nowait(slot)
 
+    def _schedule_warm(self) -> None:
+        """Import SymPy in a fresh worker so the next request is not cold."""
+        try:
+            pool = self._ensure_pool()
+            pool.submit(_sympy_worker, _warmup_import_sympy)
+        except Exception:
+            logger.debug("sympy re-warm submit failed", exc_info=True)
+
     def shutdown(self) -> None:
         self._kill_all_slots()
 
@@ -287,6 +295,19 @@ def reset_sympy_executor() -> None:
     fresh default (picking up any monkeypatches, since the pool forks after
     the patch is applied)."""
     set_sympy_executor(None)
+
+
+def _warmup_import_sympy() -> None:
+    """Picklable no-op that pays the spawn worker's SymPy import."""
+    import sympy  # noqa: F401
+
+
+async def warm_sympy_pool() -> None:
+    """Create the spawn worker and import SymPy so the first chat is not cold."""
+    try:
+        await run_sympy(_warmup_import_sympy, timeout=20.0)
+    except Exception:
+        logger.warning("sympy pool warmup failed", exc_info=True)
 
 
 async def run_sympy(

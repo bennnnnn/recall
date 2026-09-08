@@ -23,10 +23,6 @@ from app.models.math_schemas import (
 )
 from app.models.tool_schemas import SympyToolInput
 from app.services import math_service, math_tools
-from app.services.math_tools.block.common import (
-    DIAGRAM_OWNED_NOTE,
-    SOLVER_OWNED_FENCES_NOTE,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +45,8 @@ def _fence_data(
     return data or None
 
 
-def _verified_content(body: str, *, diagram: bool = False) -> str:
-    notes = [SOLVER_OWNED_FENCES_NOTE]
-    if diagram:
-        notes.append(DIAGRAM_OWNED_NOTE)
-    return body.rstrip() + "\n" + "\n".join(notes)
+def _verified_content(body: str) -> str:
+    return body.rstrip()
 
 
 class SympyAdapter:
@@ -223,7 +216,6 @@ class SympyAdapter:
             fence = line_spec.model_dump()
             content = _verified_content(
                 "\n".join(result.steps) + f"\nVerified result: {answer}",
-                diagram=True,
             )
             data = _fence_data(fence, canonical_answer=answer)
         return ToolResult(name=self.name, content=content, data=data)
@@ -364,7 +356,6 @@ class SympyAdapter:
             content=_verified_content(
                 f"Rectangle {rect_result.width}x{rect_result.height} {rect_result.unit}: "
                 f"diagonal={rect_result.diagonal}, angle={rect_result.angle_deg}°",
-                diagram=True,
             ),
             data=_fence_data(fence),
         )
@@ -405,7 +396,6 @@ class SympyAdapter:
             content=_verified_content(
                 f"Square side={square_result.side:g} {square_result.unit}: "
                 f"diagonal={square_result.diagonal:g}, area={square_result.area:g}",
-                diagram=True,
             ),
             data=_fence_data(fence),
         )
@@ -443,7 +433,6 @@ class SympyAdapter:
                 f"diameter={circle_result.diameter:g}, "
                 f"area={circle_result.area:.2f}, "
                 f"circumference={circle_result.circumference:.2f}",
-                diagram=True,
             ),
             data=_fence_data(fence),
         )
@@ -470,7 +459,6 @@ class SympyAdapter:
                 name=self.name,
                 content=_verified_content(
                     f"Sampled {len(ellipse_spec.points)} parametric points for {ellipse_spec.expr}",
-                    diagram=True,
                 ),
                 data=_fence_data(fence),
             )
@@ -485,7 +473,6 @@ class SympyAdapter:
                 content=_verified_content(
                     f"Shaded region for {line_spec.expr} on the number line "
                     "(open circle = not included).",
-                    diagram=True,
                 ),
                 data=_fence_data(fence),
             )
@@ -556,7 +543,7 @@ class SympyAdapter:
             summary = f"Sampled {len(graph_result.points)} points for {graph_result.expr}\n"
         return ToolResult(
             name=self.name,
-            content=_verified_content(summary, diagram=True),
+            content=_verified_content(summary),
             data=_fence_data(fence),
         )
 

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-import math
 import re
 from typing import Any
 
-from sympy import Abs, Eq, Symbol, parse_expr
+from sympy import Abs, E, Eq, Symbol, parse_expr, pi
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -25,10 +24,24 @@ _TRANSFORMATIONS = (
     convert_xor,
 )
 _LOCALS: dict[str, Any] = {
-    "pi": math.pi,
-    "e": math.e,
+    "pi": pi,
+    "e": E,
+    "E": E,
     "Abs": Abs,
 }
+
+_EXACT_LATEX_DECIMAL_THRESHOLD = 40
+
+
+def format_verified_latex(expr: Any) -> str:
+    """Exact latex when short; decimal via evalf when the exact form is a wall."""
+    from sympy import latex, simplify
+
+    val = simplify(expr)
+    tex = str(latex(val))
+    if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD:
+        return tex
+    return str(latex(val.evalf(6)))
 
 
 class MathServiceError(ValueError):

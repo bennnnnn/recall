@@ -41,6 +41,7 @@ from app.services.math_service.parse import (
     MathServiceError,
     _expr_needs_real_domain,
     _parse_expression,
+    format_verified_latex,
     parse_equation,
 )
 
@@ -62,19 +63,29 @@ def _is_real_value(val: Any) -> bool:
 def _solution_value_latex(val: Any) -> str:
     """``a + b i`` with ``i`` outside the fraction, not ``\\frac{\\sqrt{3} i}{2}``."""
     val = simplify(val)
+    if not val.is_number:
+        return str(latex(val))
     real, imag = val.as_real_imag()
     real, imag = simplify(real), simplify(imag)
     if imag == 0:
-        return str(latex(real))
+        return format_verified_latex(real)
     if real == 0:
         if imag == 1:
             return "i"
         if imag == -1:
             return "-i"
-        return f"{latex(imag)} i"
+        return f"{format_verified_latex(imag)} i"
     if imag.is_number and imag < 0:
-        return f"{latex(real)} - {latex(-imag)} i"
-    return f"{latex(real)} + {latex(imag)} i"
+        return f"{format_verified_latex(real)} - {format_verified_latex(-imag)} i"
+    return f"{format_verified_latex(real)} + {format_verified_latex(imag)} i"
+
+
+def _latex_coeff(val: Any) -> str:
+    """Parenthesize a negative coefficient so ``-5^{2}`` is not ``-(5^{2})``."""
+    tex = str(latex(val))
+    if val.is_number and val < 0:
+        return f"({tex})"
+    return tex
 
 
 def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
@@ -190,7 +201,7 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
         # of re-deriving (and corrupting) the algebra when b != 0.
         discriminant = simplify(c1**2 - 4 * c2 * c0)
         steps.append(
-            f"Discriminant: \\Delta = ({latex(c1)})^{{2}} - 4({latex(c2)})({latex(c0)}) "
+            f"Discriminant: \\Delta = {_latex_coeff(c1)}^{{2}} - 4({latex(c2)})({latex(c0)}) "
             f"= {latex(discriminant)}"
         )
         if c2 == 1:
@@ -200,7 +211,7 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
         else:
             denom = f"2({latex(c2)})"
         steps.append(
-            f"Quadratic formula: {variable} = \\frac{{{latex(-c1)} \\pm "
+            f"Quadratic formula: {variable} = \\frac{{-{_latex_coeff(c1)} \\pm "
             f"\\sqrt{{{latex(discriminant)}}}}}{{{denom}}}"
         )
         return steps
@@ -478,21 +489,21 @@ def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
 def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
     parsed = _parse_expression(expr, [variable])
     result = simplify(parsed)
-    return MathExprResult(result=str(result), latex=latex(result))
+    return MathExprResult(result=str(result), latex=format_verified_latex(result))
 
 
 def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Factor a polynomial/expression into a product of irreducible factors."""
     parsed = _parse_expression(expr, [variable])
     result = factor(parsed)
-    return MathExprResult(result=str(result), latex=latex(result))
+    return MathExprResult(result=str(result), latex=format_verified_latex(result))
 
 
 def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Expand a factored expression into a sum of terms."""
     parsed = _parse_expression(expr, [variable])
     result = expand(parsed)
-    return MathExprResult(result=str(result), latex=latex(result))
+    return MathExprResult(result=str(result), latex=format_verified_latex(result))
 
 
 def _term_derivative_step(term: Any, sym: Any) -> str:
@@ -559,7 +570,7 @@ def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> 
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
     result = diff(parsed, sym, order)
-    result_latex = latex(result)
+    result_latex = format_verified_latex(result)
     if order == 1:
         steps = _differentiation_steps(parsed, sym, result_latex)
     else:
@@ -582,7 +593,7 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     # still contains an unevaluated Integral(...) rather than raising —
     # callers must not treat that as a verified, fully-solved answer.
     solved = not result.has(Integral)
-    return MathExprResult(result=str(result), latex=latex(result), solved=solved)
+    return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
 
 def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> MathExprResult:
@@ -601,7 +612,7 @@ def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> Math
     except Exception as exc:
         raise MathServiceError(f"Could not compute definite integral of: {expr}") from exc
     solved = not result.has(Integral)
-    return MathExprResult(result=str(result), latex=latex(result), solved=solved)
+    return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
 
 _INFINITY_WORDS = {"infinity", "inf", "oo", "infty"}

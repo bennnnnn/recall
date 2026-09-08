@@ -234,6 +234,16 @@ def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
     assert "(-4)^{2}" in steps_text or "\\left(-4\\right)^{2}" in steps_text
 
 
+def test_solve_quadratic_negative_linear_coeff_parenthesizes_b() -> None:
+    result = math_service.solve_equation(
+        EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "(-5)^{2}" in steps_text or "(-5)^{{2}}" in steps_text
+    assert "-5^{2}" not in steps_text
+    assert "\\frac{-(-5)" in steps_text or "\\frac{-(-5) " in steps_text
+
+
 def test_solve_linear_includes_worked_isolation_steps() -> None:
     result = math_service.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
     steps_text = "\n".join(result.steps)

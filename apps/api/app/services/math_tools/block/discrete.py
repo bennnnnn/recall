@@ -13,7 +13,6 @@ from app.models.math_schemas import (
 )
 from app.services import math_service
 from app.services.math_tools.block.common import (
-    SOLVER_OWNED_FENCES_NOTE,
     VerifiedMathBlock,
     _finish_with_answer,
 )
@@ -52,12 +51,7 @@ def _verified_block_calculus(
     else:
         return None
     if not out.solved:
-        lines.append(
-            f"SymPy could not find a closed-form result (got: {out.latex}). "
-            "Do NOT claim this as a verified answer — tell the user no closed "
-            "form was found, or explain why the integral is hard, instead of "
-            "asserting a solution."
-        )
+        lines.append(f"No closed-form result (got: {out.latex}).")
         return VerifiedMathBlock(text="\n".join(lines))
     # Verified worked steps (differentiation): copy these verbatim instead of
     # inventing a derivation — the model's self-derived steps were often wrong
@@ -66,16 +60,7 @@ def _verified_block_calculus(
         lines.extend(out.steps)
         return _finish_with_answer(lines, out.latex)
     lines.append(f"Result: {out.latex}")
-    return _finish_with_answer(
-        lines,
-        out.latex,
-        preface=(
-            "Do NOT recompute the closed form. SymPy verified the result only — "
-            "it did not produce worked steps for this operation. Write a complete "
-            "numbered `$...$` derivation that reaches that verified result. Do not "
-            "skip to the answer. " + SOLVER_OWNED_FENCES_NOTE
-        ),
-    )
+    return _finish_with_answer(lines, out.latex)
 
 
 def _verified_block_limit(
@@ -153,11 +138,6 @@ def _verified_block_statistics(
     return _finish_with_answer(
         lines,
         answer,
-        preface=(
-            "Do NOT recompute any of these values — use the verified numbers above. "
-            "Show the relevant formula with these exact numbers substituted in. "
-            + SOLVER_OWNED_FENCES_NOTE
-        ),
     )
 
 
@@ -185,16 +165,9 @@ def _verified_block_combinatorics(
     )
     lines.extend(result.steps)
     lines.append(f"Result: {result.result}")
-    preface = "Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE
-    if intent.combo_op == "factorial":
-        preface = (
-            "Reply as one identity (e.g. 4! = 4*3*2*1 = 24). No banter, "
-            "no definition lecture, no fun-fact callout. " + SOLVER_OWNED_FENCES_NOTE
-        )
     return _finish_with_answer(
         lines,
         str(result.result),
-        preface=preface,
     )
 
 
@@ -213,7 +186,6 @@ def _verified_block_number_theory(
     return _finish_with_answer(
         lines,
         answer,
-        preface="Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE,
     )
 
 
@@ -237,5 +209,4 @@ def _verified_block_matrix(
     return _finish_with_answer(
         lines,
         answer,
-        preface="Do NOT recompute — use this exact verified result. " + SOLVER_OWNED_FENCES_NOTE,
     )

@@ -6,9 +6,10 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-# The model explains; Recall attaches ```answer / ```graph / ```geometry
-# after the stream from canonical_fence / canonical_answer. Do not put those
-# fences in the system hint — that is what taught Qwen/GLM to invent JSON.
+VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
+VERIFIED_MATH_END = "[END VERIFIED MATH]"
+
+# Stable system-hint copy — not mixed into the per-turn data block.
 SOLVER_OWNED_FENCES_NOTE = "Do NOT emit ```answer, ```graph, or ```geometry fences."
 
 DIAGRAM_OWNED_NOTE = (
@@ -48,17 +49,22 @@ def _answer_canonical(content: str) -> dict[str, str]:
     return {"type": "answer", "content": content}
 
 
+def wrap_verified_math(text: str) -> str:
+    body = text.strip()
+    if VERIFIED_MATH_BEGIN in body:
+        return body
+    return f"{VERIFIED_MATH_BEGIN}\n{body}\n{VERIFIED_MATH_END}"
+
+
 def _finish_with_answer(
     lines: list[str],
     answer: str,
     *,
-    preface: str = (
-        "Do NOT recompute. Explain in plain language with $...$ for formulas. "
-        + SOLVER_OWNED_FENCES_NOTE
-    ),
+    preface: str | None = None,
 ) -> VerifiedMathBlock:
     """Record the verified answer for post-stream attach; do not put a fence in the hint."""
-    lines.append(preface)
+    if preface:
+        lines.append(preface)
     lines.append(f"Verified result: {answer}")
     return VerifiedMathBlock(
         text="\n".join(lines),
@@ -73,10 +79,8 @@ def _diagram_block(
     answer: str | None = None,
 ) -> VerifiedMathBlock:
     """Diagram JSON on canonical_fence; optional numeric answer for post-stream attach."""
-    lines.append(DIAGRAM_OWNED_NOTE)
     if answer:
         lines.append(f"Verified result: {answer}")
-        lines.append(SOLVER_OWNED_FENCES_NOTE)
     dump = spec.model_dump() if hasattr(spec, "model_dump") else spec
     return VerifiedMathBlock(
         text="\n".join(lines),

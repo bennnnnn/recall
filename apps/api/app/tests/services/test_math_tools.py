@@ -496,9 +496,7 @@ async def test_augment_prompt_no_intent_forbids_invented_geometry(
         needs_math=True,
     )
     assert verified is None
-    assert note is not None
-    assert "invent" in note.lower()
-    assert "```geometry" in note
+    assert note is None
 
 
 @pytest.mark.asyncio
@@ -584,7 +582,6 @@ async def test_augment_prompt_newton_reports_non_convergence() -> None:
         block = math_tools._build_verified_block(intent, settings)
     assert block is not None
     assert "did not converge" in block.text.lower()
-    assert "do not present a root" in block.text.lower()
     assert block.canonical_fence is None
     assert "```answer" not in block.text
 
@@ -962,6 +959,9 @@ def test_verified_block_force_math_keyboard_units(text: str) -> None:
 @pytest.mark.parametrize(
     "text, kind",
     [
+        ("1+1", "arithmetic"),
+        ("7*8", "arithmetic"),
+        ("3*4+2", "arithmetic"),
         ("what is 7*8", "arithmetic"),
         ("7*8", "arithmetic"),
         ("8-8*2", "arithmetic"),
@@ -1267,9 +1267,8 @@ def test_calculus_without_sympy_steps_asks_model_to_derive() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert "did not produce worked steps" in block.text
-    assert "numbered" in block.text
     assert block.canonical_answer is not None
+    assert "x" in block.canonical_answer
 
 
 def test_differentiate_block_copies_verified_steps() -> None:
@@ -1278,7 +1277,6 @@ def test_differentiate_block_copies_verified_steps() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert "did not produce worked steps" not in block.text
     assert "Sum rule" in block.text or "Power rule" in block.text
 
 
@@ -1817,7 +1815,7 @@ async def test_augment_prompt_injects_single_point_graph_block() -> None:
     )
     assert len(out) == 2
     assert "```graph\n" not in out[0]["content"]
-    assert "Do NOT" in out[0]["content"]
+    assert "[BEGIN VERIFIED MATH]" in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["points"] == [[2.0, 3.0]]
@@ -1831,7 +1829,7 @@ async def test_augment_prompt_injects_graph_block() -> None:
     assert len(out) == 2
     assert "```graph\n" not in out[0]["content"]
     assert "points" in out[0]["content"]
-    assert "coordinate table" in out[0]["content"]
+    assert "[BEGIN VERIFIED MATH]" in out[0]["content"]
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "function"
@@ -1960,8 +1958,12 @@ async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() 
     out, verified = await math_tools.augment_prompt_messages(messages, "integrate x**x", settings)
     assert verified is not None
     assert "Do NOT recompute" not in verified.text
-    assert "no closed form" in verified.text.lower() or "not claim" in verified.text.lower()
-    assert any("no closed form" in m["content"].lower() for m in out if m["role"] == "system")
+    assert "closed-form" in verified.text.lower() or "no closed form" in verified.text.lower()
+    assert any(
+        "closed-form" in m["content"].lower() or "no closed form" in m["content"].lower()
+        for m in out
+        if m["role"] == "system"
+    )
 
 
 @pytest.mark.asyncio
@@ -1981,7 +1983,8 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     assert "from y" not in verified.text.lower()
     assert "y = -10" not in verified.text
     assert "Recall will attach" not in verified.text
-    assert "Do not mention attaching" in verified.text
+    assert "Do not mention attaching" not in verified.text
+    assert "[BEGIN VERIFIED MATH]" in verified.text
     assert verified.canonical_fence["x_min"] == 0.0
     assert verified.canonical_fence["x_max"] == 10.0
     assert verified.canonical_fence["y_min"] == -10.0
@@ -2091,7 +2094,8 @@ async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     assert verified is not None
     assert verified.canonical_fence is not None
     assert len(verified.canonical_fence["points"]) == 220
-    assert "Do not mention attaching" in verified.text
+    assert "[BEGIN VERIFIED MATH]" in verified.text
+    assert "Do not mention attaching" not in verified.text
     assert "Recall will attach" not in verified.text
     assert "```graph\n" not in verified.text
 
@@ -2144,8 +2148,8 @@ async def test_augment_prompt_injects_sympy_block() -> None:
     )
     assert len(out) == 3
     assert out[1]["role"] == "system"
-    assert "SymPy" in out[1]["content"]
-    assert "Solutions" in out[1]["content"]
+    assert "[BEGIN VERIFIED MATH]" in out[1]["content"]
+    assert "SymPy" not in out[1]["content"]
     # Equation answers get a ```answer canonical fence for post-stream rewrite.
     assert verified is not None
     assert verified.canonical_fence is not None
@@ -2221,8 +2225,8 @@ async def test_augment_prompt_times_out_gracefully(
     assert verified is None
     assert len(out) == 2
     note = next(m["content"] for m in out if m["role"] == "system")
-    assert "could not produce a verified result" in note
-    assert "Do NOT claim the answer was SymPy-verified" in note
+    assert "could not be produced" in note
+    assert "Do NOT claim the answer was verified" in note
 
 
 @pytest.mark.asyncio
@@ -2249,7 +2253,7 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     assert verified is None
     note = next(m["content"] for m in out if m["role"] == "system")
     assert "kind=equation" in note
-    assert "Do NOT claim the answer was SymPy-verified" in note
+    assert "Do NOT claim the answer was verified" in note
 
 
 @pytest.mark.asyncio
@@ -2275,4 +2279,4 @@ async def test_augment_prompt_broken_pool_injects_unverified_note(
 
     assert verified is None
     note = next(m["content"] for m in out if m["role"] == "system")
-    assert "Do NOT claim the answer was SymPy-verified" in note
+    assert "Do NOT claim the answer was verified" in note

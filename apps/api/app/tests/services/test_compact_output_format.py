@@ -5,8 +5,8 @@ import pytest
 from app.services.chat.prompt_builder import _style_format_hints
 from app.services.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
+    MATH_FENCE_SAFETY_HINT,
     RESPONSE_FORMAT_HINT,
-    SHORT_MATH_SAFETY_HINT,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
     WRITING_LINE_HINT,
@@ -24,7 +24,7 @@ def test_compact_turn_skips_rich_format_pack():
     )
     assert COMPACT_RESPONSE_FORMAT_HINT in parts
     assert RESPONSE_FORMAT_HINT not in parts
-    assert SHORT_MATH_SAFETY_HINT in parts
+    assert MATH_FENCE_SAFETY_HINT in parts
     joined = "\n".join(parts)
     assert "Make answers visually clear" not in joined
     assert "do not invent a topic essay" in joined.lower()

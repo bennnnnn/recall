@@ -311,14 +311,28 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
     if mtm.geometry_deferred_for_algebra(lower):
         return None
     radius = mtm.number_after(cleaned, "radius")
+    if radius is None:
+        radius = mtm.number_after(cleaned, "r=")
     angle = mtm.number_after(cleaned, "angle")
+    if angle is None:
+        deg_at = cleaned.find("°")
+        if deg_at == -1:
+            deg_at = lower.find(" degrees")
+        if deg_at != -1:
+            last = None
+            for match in mtm._NUM.finditer(cleaned[:deg_at]):
+                last = match
+            if last is not None:
+                angle = float(last.group(0))
     if radius is not None and angle is not None:
+        wants_area = "arc" not in lower or "area" in lower
         return MathIntent(
             kind="sector",
             radius=radius,
             sector_angle_deg=angle,
             unit="cm",
             operation="solve",
+            wants_area=wants_area,
         )
     # Defaults only when the user asked to draw the shape — never invent a
     # 90° / 5 cm sector for "sector of a circle with radius 5" alone.

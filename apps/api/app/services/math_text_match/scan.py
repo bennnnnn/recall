@@ -14,7 +14,7 @@ _SUP_ASCII = "0123456789"
 _SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
-    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|taylor|partial|dsolve)\b",
+    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|dsolve)\b",
     re.IGNORECASE,
 )
 _DIM_SEPS = ("\u00d7", "by", "x", "*")

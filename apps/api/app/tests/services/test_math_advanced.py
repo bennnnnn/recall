@@ -198,7 +198,8 @@ class TestAugmentPromptMessagesForNewKinds:
         updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "mean=5" in verified.text
-        assert "Do NOT recompute" in verified.text
+        assert "[BEGIN VERIFIED MATH]" in verified.text
+        assert "COPYING" not in verified.text
         assert len(updated) == 3
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "answer"

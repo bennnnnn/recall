@@ -13,7 +13,15 @@ from app.services.math_tools.helpers import (
 )
 
 _SOLVE_FOR_VAR_RE = re.compile(
-    r"(?:solve\s+for|find|solve)\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
+    r"\bsolve\s+for\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
+    re.IGNORECASE,
+)
+_FIND_VAR_RE = re.compile(
+    r"\bfind\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
+    re.IGNORECASE,
+)
+_TRAILING_FOR_VAR_RE = re.compile(
+    r"\bfor\s+([a-zA-Z])(?![a-zA-Z])\s*$",
     re.IGNORECASE,
 )
 # Whole-word cues that mean "solve this" even mid-sentence (`show me how to
@@ -182,7 +190,11 @@ _LEADIN_WORDS = frozenset(
 
 def _requested_variable(cleaned: str, equation_text: str) -> str | None:
     """Return the variable the user explicitly asked to solve for, or None."""
-    m = _SOLVE_FOR_VAR_RE.search(cleaned)
+    m = (
+        _SOLVE_FOR_VAR_RE.search(cleaned)
+        or _FIND_VAR_RE.search(cleaned)
+        or _TRAILING_FOR_VAR_RE.search(cleaned)
+    )
     if m is None:
         return None
     var = m.group(1)

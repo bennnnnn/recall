@@ -9,7 +9,7 @@ raw ```latex/```tex/```copy fences for math so verified math still has latex/fen
 from __future__ import annotations
 
 from app.services.chat.prompt_builder import _style_format_hints
-from app.services.chat.prompt_constants import SHORT_MATH_SAFETY_HINT
+from app.services.chat.prompt_constants import MATH_FENCE_SAFETY_HINT, SHORT_MATH_SAFETY_HINT
 
 
 def _hints(style: str) -> list[str]:
@@ -36,7 +36,7 @@ def test_day_plan_keeps_math_safety_guardrails():
     lost every guardrail against raw ```latex/```copy fences. The compact
     math safety hint now ships on day-plan turns too."""
     parts = _day_plan_hints()
-    assert SHORT_MATH_SAFETY_HINT in parts
+    assert MATH_FENCE_SAFETY_HINT in parts
     joined = "\n".join(parts)
     assert "Do NOT emit ```answer" in joined
     assert "```latex" in joined
@@ -60,9 +60,10 @@ def test_short_style_math_query_gets_numbered_steps_bundle():
     )
 
     parts = _hints("short")
-    assert MATH_INTENT_HINT in parts
-    assert MATH_SOLVER_HINT in parts
-    assert MATH_TUTORING_HINT in parts
+    assert MATH_INTENT_HINT not in parts
+    assert MATH_SOLVER_HINT not in parts
+    assert MATH_TUTORING_HINT not in parts
+    assert SHORT_MATH_SAFETY_HINT in parts
     assert MATH_SHORT_STEPS_HINT in parts
     assert "does not apply to multi-step math" in MATH_SHORT_STEPS_HINT
     assert "Multi-step math is exempt" in STYLE_HINTS["short"]
@@ -82,8 +83,9 @@ def test_compact_math_query_gets_step_hints_not_just_safety():
         minimal_personal_context=False,
         compact=True,
     )
-    assert MATH_INTENT_HINT in parts
-    assert MATH_SOLVER_HINT in parts
+    assert MATH_INTENT_HINT not in parts
+    assert MATH_SOLVER_HINT not in parts
+    assert SHORT_MATH_SAFETY_HINT in parts
     assert MATH_SHORT_STEPS_HINT in parts
 
 
@@ -111,8 +113,9 @@ def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
     assert "$3 + 0 = 3$" in MATH_INTENT_HINT
     assert "$4! = 4 \\times 3 \\times 2 \\times 1 = 24$" in MATH_INTENT_HINT
     assert "no general" in MATH_INTENT_HINT
-    assert "Skip that block on n!" in MATH_INTENT_HINT
     assert "Never mention SymPy" in MATH_INTENT_HINT
+    assert "You can check" not in MATH_INTENT_HINT
+    assert "markdown checkbox" in MATH_INTENT_HINT
     # Old tutor shape must not return.
     assert "3! begins with" not in MATH_INTENT_HINT
     assert "Do not jump straight to the instance" not in MATH_INTENT_HINT
@@ -132,9 +135,9 @@ def test_funny_tone_does_not_pad_one_line_arithmetic() -> None:
 def test_balanced_style_keeps_full_math_solver_hint():
     parts = _hints("balanced")
     joined = "\n".join(parts)
-    # Solve 2x+3=7 is math intent — full solver pack plus compact safety.
+    # Solve 2x+3=7 is math intent — full solver pack, not the compact safety blob.
     assert "Math diagrams and plots" in joined
-    assert SHORT_MATH_SAFETY_HINT in parts
+    assert SHORT_MATH_SAFETY_HINT not in parts
 
 
 def test_balanced_style_includes_math_tutoring_hint():
@@ -162,7 +165,7 @@ def test_slim_casual_turn_uses_compact_math_safety_not_viz_pack():
         minimal_personal_context=False,
         compact=True,
     )
-    assert SHORT_MATH_SAFETY_HINT in parts
+    assert MATH_FENCE_SAFETY_HINT in parts
     assert FORMAT_CONTRACT not in parts
     assert MATH_SOLVER_HINT not in parts
     assert VISUALIZATION_HINTS not in parts
@@ -651,3 +654,19 @@ def test_pasted_fragment_still_uses_compact():
     )
     assert COMPACT_RESPONSE_FORMAT_HINT in parts
     assert FORMAT_CONTRACT not in parts
+
+
+def test_writing_caption_does_not_get_math_intent_pack():
+    from app.services.chat.prompt_constants import MATH_INTENT_HINT, MATH_SOLVER_HINT
+
+    parts = _style_format_hints(
+        query_text="write me a caption about a complex launch",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert MATH_INTENT_HINT not in parts
+    assert MATH_SOLVER_HINT not in parts
+    assert MATH_FENCE_SAFETY_HINT in parts
+    joined = "\n".join(parts)
+    assert "You can check" not in joined

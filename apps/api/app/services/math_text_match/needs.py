@@ -237,9 +237,31 @@ def supported_physics_cue(cleaned: str) -> bool:
     return any(cue in lower for cue in _SUPPORTED_PHYSICS_CUES)
 
 
+def looks_like_bare_arithmetic(text: str) -> bool:
+    """Digits plus + - * / ^ and unicode times/divide. Rejects date-like ``9/7/2026``."""
+    times, divide = "\u00d7", "\u00f7"
+    s = text.strip()
+    if not s or any(ch.isalpha() for ch in s):
+        return False
+    if not any(ch.isdigit() for ch in s):
+        return False
+    if "," in s:
+        return False
+    other_ops = ("+", "*", "^", times, divide)
+    if s.count("/") >= 2 and not any(op in s for op in other_ops):
+        return False
+    allowed = set("0123456789.+-*/^() \t") | {times, divide}
+    if any(ch not in allowed for ch in s):
+        return False
+    body = s[1:] if s.startswith("-") else s
+    return any(op in body for op in ("+", "-", "*", "/", "^", times, divide))
+
+
 def school_homework_cue(cleaned: str) -> bool:
     """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
     lower = cleaned.lower()
+    if looks_like_bare_arithmetic(cleaned):
+        return True
     if "% of " in lower and any(ch.isdigit() for ch in cleaned):
         return True
     if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
@@ -250,9 +272,13 @@ def school_homework_cue(cleaned: str) -> bool:
         return True
     if "binomial" in lower or "expected value" in lower:
         return True
-    if "taylor" in lower or "partial" in lower or "dy/dx" in lower:
+    if "taylor of " in lower or "maclaurin" in lower or ("taylor" in lower and "series" in lower):
         return True
-    if "complex" in lower or "modulus" in lower:
+    if "partial of " in lower or "partial derivative" in lower or " wrt" in lower:
+        return True
+    if "dy/dx" in lower or "day/dx" in lower or "y'" in cleaned:
+        return True
+    if "modulus" in lower or "imaginary" in lower or "complex number" in lower:
         return True
     if bare_arithmetic_expr(cleaned) is not None:
         return True

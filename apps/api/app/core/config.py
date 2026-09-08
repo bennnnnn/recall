@@ -77,8 +77,8 @@ class Settings(BaseSettings):
     # the loop runs only when the turn still looks like search / unsolved math /
     # calendar create / Pro image gen after heuristic inject.
     mcp_tool_loop_enabled: bool = True
-    mcp_tool_loop_max_rounds: int = 3
-    mcp_tool_loop_timeout_seconds: float = 30.0
+    mcp_tool_loop_max_rounds: int = 2
+    mcp_tool_loop_timeout_seconds: float = 8.0
     mcp_tool_loop_max_calls_per_round: int = 4
     mcp_tool_loop_invoke_timeout_seconds: float = 20.0
 

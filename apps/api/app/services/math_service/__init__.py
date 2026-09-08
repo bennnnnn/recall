@@ -65,6 +65,9 @@ from app.services.math_service.parse import (
     _parse_expression as _parse_expression,
 )
 from app.services.math_service.parse import (
+    format_verified_latex as format_verified_latex,
+)
+from app.services.math_service.parse import (
     parse_equation as parse_equation,
 )
 
@@ -86,6 +89,7 @@ __all__ = [
     "expr_looks_like_inequality",
     "factor_expression",
     "format_degree_label",
+    "format_verified_latex",
     "guess_variables",
     "integrate_definite",
     "integrate_expression",

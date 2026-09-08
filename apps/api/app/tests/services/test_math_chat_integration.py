@@ -31,8 +31,8 @@ async def test_augment_web_and_tools_injects_math_for_solve() -> None:
     assert hits == []
     assert len(updated) == 3
     assert updated[1]["role"] == "system"
-    assert "SymPy" in updated[1]["content"]
-    assert "Solutions" in updated[1]["content"]
+    assert "[BEGIN VERIFIED MATH]" in updated[1]["content"]
+    assert "SymPy" not in updated[1]["content"]
     assert verified_math is not None
     assert verified_math.canonical_fence is not None
     assert verified_math.canonical_fence["type"] == "answer"

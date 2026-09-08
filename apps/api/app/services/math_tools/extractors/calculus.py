@@ -9,6 +9,7 @@ from app.services.math_tools.helpers import (
     _calc_expr_tail,
     _normalize_latex_expr,
     _strip_series_prefix,
+    _strip_trailing_differential,
     _strip_trailing_filler,
     math_expr_or_none,
     peel_function_definition,
@@ -98,6 +99,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     integral_lower: str | None = None
     integral_upper: str | None = None
     if calc_op == "integrate":
+        raw = _strip_trailing_differential(raw)
         bounds = mtm.integral_bounds(raw)
         if bounds is not None:
             raw, integral_lower, integral_upper = bounds

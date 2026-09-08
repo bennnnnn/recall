@@ -98,9 +98,7 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
 
 
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
-    lines: list[str] = [
-        "Symbolic math results (verified by SymPy — use these exact values in your answer):"
-    ]
+    lines: list[str] = []
 
     try:
         builder = _BLOCK_BUILDERS.get(intent.kind)
@@ -112,7 +110,17 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             builder = PHYSICS_BLOCK_BUILDERS.get(intent.kind)
         if builder is None:
             return None
-        return builder(intent, settings, lines)
+        block = builder(intent, settings, lines)
+        if block is None:
+            return None
+        from app.services.math_tools.block.common import wrap_verified_math
+
+        return VerifiedMathBlock(
+            text=wrap_verified_math(block.text),
+            canonical_fence=block.canonical_fence,
+            canonical_answer=block.canonical_answer,
+            canonical_fences=block.canonical_fences,
+        )
     except math_service.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)
         return None
