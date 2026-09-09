@@ -54,6 +54,8 @@ class Attachment(Base):
         default=True,
         server_default="true",
     )
+    # JSON: via_ocr, max_pages, max_chars, page_capped, char_capped — set after index.
+    index_coverage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

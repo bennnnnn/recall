@@ -1,4 +1,5 @@
 import type { GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
+import i18n from "@/lib/i18n";
 
 /** Local calendar date `YYYY-MM-DD` (device timezone). */
 export function localDateKey(date: Date): string {
@@ -111,7 +112,7 @@ export function calendarEventsOnDay(
 }
 
 export function formatCalendarEventTime(event: GoogleCalendarEvent): string {
-  if (event.all_day) return "All day";
+  if (event.all_day) return i18n.t("calendar.all_day");
   const start = new Date(event.start_at);
   const end = event.end_at ? new Date(event.end_at) : null;
   const time = (date: Date) =>
@@ -135,18 +136,13 @@ export function remindersOnDay(reminders: Todo[], dayKey: string): Todo[] {
   });
 }
 
-const WEEKDAYS = [
-  { id: "sun", label: "Su" },
-  { id: "mon", label: "Mo" },
-  { id: "tue", label: "Tu" },
-  { id: "wed", label: "We" },
-  { id: "thu", label: "Th" },
-  { id: "fri", label: "Fr" },
-  { id: "sat", label: "Sa" },
-] as const;
+const WEEKDAY_IDS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 export function weekdayHeaders(): ReadonlyArray<{ id: string; label: string }> {
-  return WEEKDAYS;
+  return WEEKDAY_IDS.map((id) => ({
+    id,
+    label: i18n.t(`calendar.weekday_${id}`),
+  }));
 }
 
 export function formatDayHeading(dayKey: string, now = new Date()): string {

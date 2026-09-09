@@ -4,6 +4,10 @@ Split by domain (math, learning, format, …). Import from this package the
 same way as the old ``prompt_constants`` module.
 """
 
+from app.services.chat.prompt_constants.capabilities import (
+    CAPABILITIES_FORMAT_HINT,
+    is_capabilities_question,
+)
 from app.services.chat.prompt_constants.format import (
     BREVITY_REQUEST_HINT,
     CALLOUT_FORMAT_HINT,
@@ -39,7 +43,9 @@ from app.services.chat.prompt_constants.learning import (
     format_quiz_grading_hint,
 )
 from app.services.chat.prompt_constants.math import (
+    GRAPH_NO_SUBSTITUTE_CLAUSE,
     MATH_INTENT_HINT,
+    MATH_SHORT_STEPS_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     SHORT_MATH_SAFETY_HINT,
@@ -68,9 +74,12 @@ from app.services.chat.prompt_constants.routing import (
 )
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
+    IMAGE_GEN_HONESTY_HINT,
+    IMAGE_GEN_UNAVAILABLE_HINT,
     VISUALIZATION_HINTS,
     attach_chemistry_fence_hint,
     is_html_ui_question,
+    is_image_generation_mention,
 )
 from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
@@ -88,6 +97,7 @@ __all__ = [
     "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",
     "CALLOUT_FORMAT_HINT",
+    "CAPABILITIES_FORMAT_HINT",
     "CHART_FORMAT_HINT",
     "CHEMISTRY_FENCE_HINT",
     "CLARIFICATION_HINT",
@@ -100,10 +110,14 @@ __all__ = [
     "EMAIL_ASK_PURPOSE_HINT",
     "EMAIL_DRAFT_HINT",
     "FORMAT_CONTRACT",
+    "GRAPH_NO_SUBSTITUTE_CLAUSE",
     "HOWTO_FORMAT_HINT",
+    "IMAGE_GEN_HONESTY_HINT",
+    "IMAGE_GEN_UNAVAILABLE_HINT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
+    "MATH_SHORT_STEPS_HINT",
     "MATH_SOLVER_HINT",
     "MATH_TUTORING_HINT",
     "MERMAID_FORMAT_HINT",
@@ -130,11 +144,13 @@ __all__ = [
     "is_brevity_request",
     "is_broad_self_question",
     "is_callout_question",
+    "is_capabilities_question",
     "is_chart_question",
     "is_comparison_question",
     "is_email_or_message_request",
     "is_howto_question",
     "is_html_ui_question",
+    "is_image_generation_mention",
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",

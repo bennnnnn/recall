@@ -53,26 +53,34 @@ async def try_image_gen_for_turn(
     reference_ids = None
     if not image_prompt:
         trimmed = content.strip()
-        if not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8:
-            return False
-        if skip_revision_lookup or not seams.could_be_image_revision(content):
+        followup = seams.could_be_image_thread_followup(content)
+        too_long = not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8
+        revisionish = (
+            not skip_revision_lookup and not too_long and seams.could_be_image_revision(content)
+        )
+        if not followup and not revisionish:
             return False
         if recent_messages is not None:
             recent = recent_messages
         else:
             async with seams.SessionLocal() as session:
                 recent = await seams.messages_repo.list_recent(session, chat_id, limit=20)
-        last_image_only, previous_subject = seams.image_gen_revision_context(recent)
-        image_prompt = seams.extract_image_revision_prompt(
-            content,
-            last_assistant_is_image_only=last_image_only,
-            previous_subject=previous_subject,
-        )
-        if image_prompt and create_user_message:
-            for row in reversed(recent):
-                if row.role == "assistant":
-                    reference_ids = seams.image_generation_service.image_reference_ids(row.content)
-                    break
+        priors = seams.prior_user_contents_for_image_gen(recent, content)
+        image_prompt = seams.extract_image_gen_prompt_from_thread(content, priors)
+        if not image_prompt and revisionish:
+            last_image_only, previous_subject = seams.image_gen_revision_context(recent)
+            image_prompt = seams.extract_image_revision_prompt(
+                content,
+                last_assistant_is_image_only=last_image_only,
+                previous_subject=previous_subject,
+            )
+            if image_prompt and create_user_message:
+                for row in reversed(recent):
+                    if row.role == "assistant":
+                        reference_ids = seams.image_generation_service.image_reference_ids(
+                            row.content
+                        )
+                        break
     if not image_prompt:
         return False
     try:

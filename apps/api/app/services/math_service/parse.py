@@ -253,6 +253,63 @@ def _implicit_mul_before_sqrt(s: str) -> str:
     return "".join(out)
 
 
+def _rewrite_unicode_sqrts(s: str) -> str:
+    """``√9`` / ``√x`` / ``√(x+1)`` → ``sqrt(...)``. Linear scan, leftover ``√`` → ``sqrt``."""
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    root = "\u221a"
+    while i < n:
+        if s[i] != root:
+            out.append(s[i])
+            i += 1
+            continue
+        i += 1
+        while i < n and s[i] in " \t":
+            i += 1
+        if i >= n:
+            out.append("sqrt")
+            break
+        if s[i] == "(":
+            depth = 1
+            j = i + 1
+            while j < n and depth:
+                if s[j] == "(":
+                    depth += 1
+                elif s[j] == ")":
+                    depth -= 1
+                j += 1
+            if depth == 0:
+                out.append("sqrt(")
+                out.append(s[i + 1 : j - 1])
+                out.append(")")
+                i = j
+                continue
+            out.append("sqrt")
+            continue
+        if s[i].isdigit():
+            j = i
+            while j < n and s[j].isdigit():
+                j += 1
+            if j < n and s[j] == "." and j + 1 < n and s[j + 1].isdigit():
+                j += 1
+                while j < n and s[j].isdigit():
+                    j += 1
+            out.append("sqrt(")
+            out.append(s[i:j])
+            out.append(")")
+            i = j
+            continue
+        if s[i].isalpha():
+            out.append("sqrt(")
+            out.append(s[i])
+            out.append(")")
+            i += 1
+            continue
+        out.append("sqrt")
+    return "".join(out)
+
+
 def _strip_math_dollar_delims(s: str) -> str:
     """Composer/math keyboard wraps expressions in ``$...$`` / ``\\(...\\)``.
 
@@ -339,8 +396,7 @@ def _normalize_latex_to_sympy(expr: str) -> str:
         s = s.replace(glyph, repl)
     for glyph, repl in _UNICODE_VULGAR:
         s = s.replace(glyph, repl)
-    s = re.sub("\u221a\\s*\\(([^()]*)\\)", r"sqrt(\1)", s)
-    s = s.replace("\u221a", "sqrt")
+    s = _rewrite_unicode_sqrts(s)
     s = _rewrite_unicode_script_runs(s)
     s = _rewrite_latex_sqrts(s)
     s = _implicit_mul_before_sqrt(s)

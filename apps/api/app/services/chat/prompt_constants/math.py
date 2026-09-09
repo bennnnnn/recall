@@ -1,5 +1,12 @@
 """Math, geometry, and graph prompt hints."""
 
+# Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
+# when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
+GRAPH_NO_SUBSTITUTE_CLAUSE = (
+    "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
+    "diagram for a function plot."
+)
+
 MATH_INTENT_HINT = (
     "Math / algebra / numeric answers:\n"
     "  - Formula shape (one rule): numbered steps and intermediate algebra use "
@@ -25,13 +32,16 @@ MATH_INTENT_HINT = (
     "Never mention SymPy, verification, a system block, or that a diagram "
     "will be attached in the user-visible reply.\n"
     "  - Never invent geometry/graph dimensions; only use measures the user stated "
-    "or that a verified system block provides.\n"
+    "or that a verified system block provides. Graph y=f(x): do not interview "
+    "for domain or offer Python/Colab — describe the curve in one sentence.\n"
     "  - Closed-form asks (n!, 3+0, 2+2, a simple product): lead with the instance — "
     "`$3 + 0 = 3$` or `$4! = 4 \\times 3 \\times 2 \\times 1 = 24$` — then stop. "
     "No banter, no 'what is factorial', no section headers, no general "
     "$n! = n(n-1)\\cdots 1$ lecture unless they asked what the operator means. "
     "No fun-fact callouts on these.\n"
-    "  - Multi-step equations still show numbered solution steps in `$...$`.\n"
+    "  - Multi-step work (solve an equation, integrate, differentiate, factor, "
+    "expand, simplify) still shows numbered `$...$` steps even when response "
+    "style is Short. Do not jump to the closed form.\n"
     "  - When you add/subtract/multiply/divide both sides, WRITE that operation "
     "on BOTH sides of the current equation first, then simplify on the next "
     "step. Wrong: '1. Subtract 3 from both sides' then `$F = 3 - 3$`. "
@@ -67,15 +77,18 @@ MATH_INTENT_HINT = (
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation; NOT molecules):\n"
     "- Do NOT emit ```geometry or ```graph fences. Do not tell the user a "
-    "diagram will be attached. Describe the figure in words using `$...$`.\n"
+    "diagram will be attached. Describe the figure in words using `$...$`. "
+    f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n"
     "- Never invent geometry dimensions. Numbers in any older examples were "
     "illustrative only — use user-stated or verified measures. If measures are "
-    'missing (bare "what is a circle?"), explain in words or ask.\n'
+    'missing (bare "what is a circle?"), explain in words or ask. Graph y=f(x) '
+    "is not missing a domain — do not interview or offer Python/Colab.\n"
     "- Do NOT use ```html or freehand SVG for math diagrams.\n"
     "- Formulas: inline `$...$` for steps; ```math only for a standalone display "
     "equation (not a bare number). Closed-form asks (n!, 2+2): one-line instance "
     "(`$4! = 4 \\times 3 \\times 2 \\times 1 = 24$`), no definition lecture. "
-    "Equations: general rule then numbered `$...$` steps. Do NOT emit ```answer. "
+    "Equations, integrals, factor/expand/simplify, derivatives: numbered `$...$` "
+    "steps even in Short style. Do NOT emit ```answer. "
     "Do not add a boxed final-answer section when the value is already in your "
     "prose. "
     "NEVER ```latex, ```tex, or untagged code blocks for LaTeX.\n"
@@ -92,7 +105,10 @@ MATH_SOLVER_HINT = (
     "(g = 9.81 m/s^2, h0 = 20 m, v0 = 0 m/s). Start with the general equation "
     "(e.g. $h = h_0 + v_0 t - \\frac{1}{2} g t^2$), then substitute the known "
     "values. State the numeric result once "
-    "in `$...$` (no extra boxed restatement). Do NOT re-list sampled points in prose."
+    "in `$...$` (no extra boxed restatement). Do NOT re-list sampled points in prose. "
+    "Trajectory graphs are only for kinematics (height vs time) and projectile "
+    "motion (x-y path). Force and energy answers are numbers only — do not invent "
+    "a trajectory plot."
 )
 
 # When the user is practicing/learning math and gives a wrong answer (or asks
@@ -113,14 +129,8 @@ MATH_TUTORING_HINT = (
     "present — say you're working it out and show the steps in $...$.\n"
 )
 
-# BUG FIX: _soft_hints only appended MATH_SOLVER_HINT / the math rules inside
-# INTENT_FORMAT_HINT when style != "short" — so a user on Short response
-# style got ZERO guardrails against raw ```latex/```tex/```copy fences or an
-# untagged code fence for math. Math answers are rarely one line; brevity
-# should not mean losing the rules that keep math output from rendering as
-# raw LaTeX. Recall attaches verified ```answer / diagram fences. Kept
-# deliberately compact (unlike the full MATH_SOLVER_HINT) so it doesn't blow
-# past Short mode's own 400-token output budget.
+# Fence-safety for every turn (including Short). Step-completeness for math
+# turns is MATH_INTENT_HINT + MATH_SHORT_STEPS_HINT, not this compact string.
 SHORT_MATH_SAFETY_HINT = (
     "Math in SHORT mode: inline `$...$` for formulas (never backticks around `$...$`); "
     "a ```math fence only for a standalone display equation (opener on its own line). "
@@ -132,6 +142,16 @@ SHORT_MATH_SAFETY_HINT = (
     "those exact numbers — do NOT recompute. Never mention SymPy in the reply. "
     "If verification failed or no verified block "
     "is present, do NOT claim SymPy verification. Never invent geometry dimensions. "
-    "Closed-form (n!, 2+2): one-line instance, no lecture. Equations: general formula "
-    "then numbered `$...$` lines — never a step-card fence."
+    f"{GRAPH_NO_SUBSTITUTE_CLAUSE} "
+    "Closed-form (n!, 2+2): one-line instance, no lecture. Equations, integrals, "
+    "factor/expand/simplify, derivatives: numbered `$...$` lines even in SHORT "
+    "mode — never skip to the answer, never a step-card fence."
+)
+
+# Appended on Short/compact math turns so STYLE_HINTS["short"] "1-3 sentences"
+# cannot win over a derivation.
+MATH_SHORT_STEPS_HINT = (
+    "SHORT / compact / 1-3 sentence length does not apply to multi-step math. "
+    "Show numbered `$...$` steps for equations, integrals, derivatives, factor, "
+    "expand, and simplify. Closed-form n! / 2+2 stays one line."
 )

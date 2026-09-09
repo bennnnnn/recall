@@ -10,6 +10,11 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
@@ -157,10 +162,16 @@ describe("useTodosActions reminders", () => {
       actions.setDuePicker({
         todo: existing,
         date: new Date("2026-08-25T18:00:00.000Z"),
+        recurrence: "weekly",
       });
     });
     await act(async () => {
       await actions.confirmDuePicker();
+    });
+
+    expect(api.updateTodo).toHaveBeenCalledWith("tok", "r1", {
+      due_at: "2026-08-25T18:00:00.000Z",
+      recurrence_rule: "weekly",
     });
 
     const optimistic = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];

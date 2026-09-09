@@ -22,7 +22,7 @@ import {
 import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
 import { flushEmailDrafts } from "@/lib/emailDraftFlush";
 import {
-  extractImageGenPrompt,
+  extractImageGenPromptFromThread,
   extractAttachedImageEditPrompt,
   extractImageRevisionPrompt,
   imageGenRevisionContext,
@@ -139,6 +139,7 @@ export function useChatSend({
     switchThread,
     adoptComposerThread,
     stashFailedDraftForThread,
+    resetForNewSession,
     getThreadKey,
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
@@ -188,9 +189,12 @@ export function useChatSend({
   const prevSessionRef = useRef(session);
   useLayoutEffect(() => {
     const fromKey = getThreadKey();
-    switchThread(composerThread);
     const accountChanged = prevSessionRef.current !== session;
     prevSessionRef.current = session;
+    // Wipe before switchThread: the shared "new" key no-ops and would keep the
+    // previous account's unsent text if we only switched.
+    if (accountChanged) resetForNewSession();
+    switchThread(composerThread);
     if (!accountChanged && prevComposerThreadRef.current === composerThread) return;
     prevComposerThreadRef.current = composerThread;
     sendInFlightRef.current = false;
@@ -200,7 +204,7 @@ export function useChatSend({
     setPendingAttachment(null);
     setAttachSheetOpen(false);
     setMathScannerOpen(false);
-  }, [composerThread, session, switchThread, getThreadKey, setPendingAttachment]);
+  }, [composerThread, session, switchThread, getThreadKey, setPendingAttachment, resetForNewSession]);
   useEffect(() => {
     const applyQueued = () => {
       if (!token || session !== getSessionGeneration()) return;
@@ -318,7 +322,7 @@ export function useChatSend({
         const revision = pendingAttachment?.kind === "image"
           ? extractAttachedImageEditPrompt(text)
           : extractImageRevisionPrompt(text, revisionContext);
-        const imagePrompt = extractImageGenPrompt(text) ?? revision;
+        const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
           sendInFlightRef.current = true;

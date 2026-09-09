@@ -12,6 +12,54 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Asked for a dog image, got a DALL-E copy-paste prompt.** Intercept only
+  sees the current line (`Image` / `that works` are not `draw me a dog`),
+  and compact turns never get the image-gen hint (viz_intent is
+  chart/mermaid/HTML). Follow-up `Dog` then `Image`; never tell the model
+  Recall cannot generate or to send the user off-app. `do it` after the
+  topic moved (`draw a dog` → `Paris`) must not generate — only the current
+  image exchange. If generation is off, do not tell them to resubmit.
+- **RAG said “first 500 PDF pages” after a 6-page OCR extract.** Indexing
+  called OCR with the inline 12k/6-page caps, stored no coverage, and the
+  prompt prefix was a static 500/200k string. Pass index char/page caps into
+  `ocr_scanned_pdf`, persist `index_coverage_json`, and build the prefix from
+  stored ceilings (OCR names the 20-page cap). Page count comes from the
+  render worker, not a second parse on the event loop.
+- **Worker crash mid-index dropped the job forever.** Dedupe SET NX used a 300s
+  running TTL while reclaim idle is 60s; skip then always `xack`ed. Mark
+  success as `done`; skip without ack while still `1`; keepalive refreshes
+  the running TTL. Chip keeps polling past that 300s claim so a retry around
+  five minutes can flip “Still indexing…” instead of a permanent fail.
+- **Generic Retry regenerated a turn that never reached the server.** SSE/WS
+  transport failure left the optimistic user bubble looking sent and the error
+  CTA called `regenerate`. Queue it as `send_rejected` (Retry = resend);
+  Regenerate only after tokens already arrived.
+- **Account B saw Account A's unsent composer draft.** Provider stays mounted
+  above the login Redirect; `switchThread` no-ops on the shared `"new"` key.
+  Reset drafts on session change and from `clearSignedOutAccount`.
+- **`1+1=x` sat ~1 minute then the LLM said `2`.** One shared SymPy worker plus a
+  60s queue wait ran *before* the 5s solve timeout, then the turn still called
+  the model. Isolated 1-worker slots (default 3) with a 2s slot wait; short
+  closed answers skip the LLM unless the user asked for steps. Do not raise
+  `math_solve_timeout_seconds` to hide queueing; do not SIGTERM a shared N-worker
+  pool (one timeout would kill siblings).
+- **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
+  typed English) hit the calculus verb so a Math note stamped, but
+  `squared` is an unknown letter-run so extract returned None. Rewrite
+  `x squared` / `x cubed` → `x^2` / `x^3` only after a 1-letter or digit
+  (not `area squared`).
+- **Graph y=x^2 asked for Python/Colab instead of plotting.** Keyword checks
+  missed it (```graph was attached). CLARIFICATION_HINT treated domain as a
+  missing fact. Exception like mermaid: default window, never offer code.
+- **Gray `x = 0` under steps that say `x = 2`.** Solver-owned ```answer is
+  appended after the stream. Chained `2x+3=3=7` solved `2x+3=3`; the model
+  solved `2x+3=7`. Collapse `a=b=c` to `a=c`. Skip the chip when prose already
+  states a different `x = N`. `Let x = 5. What is x + 2?` substitutes then
+  evals (`5+2`); returning no intent still injected the unverified footer.
+- **`Couldn't verify this with SymPy` under a correct `y'' = 6x`.** Intent
+  saw calculus but `y = x^3-3x` was differentiated as an equation (fails) and
+  `dy/dx` was not a `d/dx` cue. Peel `y=` / `f(x)=`; treat `dy/dx` as Leibniz.
+
 - **Assistant said “Recall will attach the verified diagram.”** That sentence
   was a system instruction (`DIAGRAM_OWNED_NOTE`) in declarative voice; the
   model copied it into the chat. Phrase as “do not mention attaching / fences”;

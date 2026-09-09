@@ -181,8 +181,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
 - ✅ **Image generation (Pro)** — Type an image request in the composer and send (e.g. "draw me a
-  cat"); the user bubble keeps that wording (not rewritten to "Generate image: …"). Pro users
-  get daily-limited generations stored as chat attachments. No separate prompt sheet. Stop
+  cat" or "Dog" then "Image"); the user bubble keeps that wording (not rewritten to "Generate
+  image: …"). Pro users get daily-limited generations stored as chat attachments. No separate
+  prompt sheet, and the model must not send people to DALL-E / Midjourney. Stop
   mid-generation keeps the user message and shows canceled/failed + Retry. Tap the result to
   view full-screen and save via the system share sheet.
 - 🔜 **Music generation** — same composer-send path as image gen (no prompt sheet): user asks
@@ -196,9 +197,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
   fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
-  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs before the LLM
-  explains (verified numbers injected into the prompt; Recall attaches geometry,
-  graph, and algebra ` ```answer ` after the stream). The composer **math keypad** inserts
+  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
+  verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
+  turn; “explain every step” still streams. Recall attaches geometry, graph, and
+  algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
@@ -229,7 +231,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   unread. A RAG miss is not treated as “not in the file.”
 - ✅ **Deeper file retrieval** — indexing reads up to 500 text-layer PDF pages / 200k
   characters (256 chunks by default), independently of the small inline excerpt.
-  Existing indexes require re-upload/reindex to gain the expanded coverage.
+  Scanned-PDF OCR on the index job is a separate ceiling (20 pages / 200k chars,
+  not 500 vision pages). Stored coverage drives the RAG prefix so OCR files are
+  not described as 500-page extracts. Existing indexes require re-upload/reindex
+  to gain the expanded coverage.
 - ✅ **Office text** — XLSX cells/formula text and PPTX text/tables/speaker notes.
   No formula execution, macros, embedded chart/image understanding, or external-link loading.
 - ✅ **Image edits** — owned reference bytes reach the image provider; hidden copies
@@ -462,7 +467,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **LLM todo sync** — ` ```reminder ` fences apply on persist (create + mutations);
   a background job still recovers missed writes from chat (dated items only). Injects
   Schedule + overdue summary into the system prompt. “What time is my flight / meeting /
-  …” loads Schedule (and Calendar) on the first turn.
+  …” loads Schedule (and Calendar) on the first turn. Typed “remind me …” also classifies
+  as a Schedule turn. Live Talk injects a compact Schedule snapshot and applies the same
+  clocked “remind me … today/tomorrow at …” persist heuristic (no invented times; tools
+  stay read-only).
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
@@ -778,8 +786,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   at turn start (excludes the recent window). Same shape as attachment RAG.
 - ✅ **Scanned-PDF OCR** — text-layer `pypdf` on **prepare** (no vision). Empty PDFs
   render pages (`pypdfium2`) and transcribe via `vision-chat` on the **index job**,
-  then the same excerpt + attachment RAG path. Cap + timeout in `attachment_ocr_*`.
-  Not a second extract pipeline.
+  then the same excerpt + attachment RAG path. Inline OCR stays at 6 pages / 12k
+  chars; index OCR uses 20 pages / 200k chars (`attachment_ocr_index_*`). Coverage is
+  stored on the attachment and the RAG prefix uses those ceilings, not a static
+  500/200k claim. Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
   SymPy still runs. Web search is the tool loop (source chips + wrap; forced search if
   the model skips). See [§29](#29-next-actions-product-decisions).
@@ -933,7 +943,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 
 | Capability | Status |
 |------------|--------|
-| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
+| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
 | Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
@@ -1050,7 +1060,7 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → OpenAI `gpt-4o-mini-transcribe` → composer (app-language hint, no-speech gate) | Live provider verification |
-| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, physical-device barge-in, bounded read-only tools; persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
+| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)
@@ -1108,8 +1118,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
    the owned tool loop (source chips + wrap); a skipped `web_search` still runs
    one cached search. Add Docs/GitHub later as owned tools — not user MCP servers.
 2. ✅ **Scanned-PDF OCR** — text-layer extract on prepare (no vision); empty PDFs
-   render pages → `vision-chat` on the **index job** → same excerpt + chunk/embed
-   RAG. No second pipeline.
+   render pages → `vision-chat` on the **index job** (20 pages / 200k chars, not 500
+   vision calls) → same excerpt + chunk/embed RAG. Coverage is stored; the prompt
+   prefix uses those ceilings. No second pipeline.
 3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
    start excluding the recent window. Golden Rule 3: never dump the full transcript.
 4. ✅ **Reply-quality Lane 2** — “yes/go” follows the prior offer; requested length

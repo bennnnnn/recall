@@ -50,6 +50,43 @@ def test_short_style_still_includes_math_safety_guardrails():
     assert "```latex" in joined
 
 
+def test_short_style_math_query_gets_numbered_steps_bundle():
+    from app.services.chat.prompt_constants import (
+        MATH_INTENT_HINT,
+        MATH_SHORT_STEPS_HINT,
+        MATH_SOLVER_HINT,
+        MATH_TUTORING_HINT,
+        STYLE_HINTS,
+    )
+
+    parts = _hints("short")
+    assert MATH_INTENT_HINT in parts
+    assert MATH_SOLVER_HINT in parts
+    assert MATH_TUTORING_HINT in parts
+    assert MATH_SHORT_STEPS_HINT in parts
+    assert "does not apply to multi-step math" in MATH_SHORT_STEPS_HINT
+    assert "Multi-step math is exempt" in STYLE_HINTS["short"]
+
+
+def test_compact_math_query_gets_step_hints_not_just_safety():
+    from app.services.chat.prompt_constants import (
+        MATH_INTENT_HINT,
+        MATH_SHORT_STEPS_HINT,
+        MATH_SOLVER_HINT,
+    )
+
+    parts = _style_format_hints(
+        query_text="Solve 2x + 3 = 7",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert MATH_INTENT_HINT in parts
+    assert MATH_SOLVER_HINT in parts
+    assert MATH_SHORT_STEPS_HINT in parts
+
+
 def test_balanced_style_injects_universal_format_baseline():
     from app.services.chat.prompt_constants import UNIVERSAL_FORMAT_BASELINE
 
@@ -68,6 +105,9 @@ def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
     from app.services.chat.prompt_constants import MATH_INTENT_HINT, SHORT_MATH_SAFETY_HINT
 
     assert "Closed-form" in SHORT_MATH_SAFETY_HINT
+    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in SHORT_MATH_SAFETY_HINT
     assert "$3 + 0 = 3$" in MATH_INTENT_HINT
     assert "$4! = 4 \\times 3 \\times 2 \\times 1 = 24$" in MATH_INTENT_HINT
     assert "no general" in MATH_INTENT_HINT
@@ -129,6 +169,50 @@ def test_slim_casual_turn_uses_compact_math_safety_not_viz_pack():
     joined = "\n".join(parts)
     assert "Do NOT emit ```answer" in joined
     assert "Math diagrams and plots" not in joined
+
+
+def test_compact_image_turn_gets_honesty_hint_not_viz_pack():
+    from app.services.chat.prompt_constants import (
+        FORMAT_CONTRACT,
+        IMAGE_GEN_HONESTY_HINT,
+        VISUALIZATION_HINTS,
+    )
+
+    parts = _style_format_hints(
+        query_text="Image",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert IMAGE_GEN_HONESTY_HINT in parts
+    assert VISUALIZATION_HINTS not in parts
+    assert FORMAT_CONTRACT not in parts
+    joined = "\n".join(parts)
+    assert "Never send the user to DALL-E" in joined
+    assert "Never say Recall cannot generate images" in joined
+    assert "do not tell them to send the same image request again" in joined
+
+
+def test_compact_image_turn_when_generation_disabled_does_not_ask_to_retry():
+    from app.services.chat.prompt_constants import (
+        IMAGE_GEN_HONESTY_HINT,
+        IMAGE_GEN_UNAVAILABLE_HINT,
+    )
+
+    parts = _style_format_hints(
+        query_text="generate an image of a dog",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+        image_generation_enabled=False,
+    )
+    assert IMAGE_GEN_UNAVAILABLE_HINT in parts
+    assert IMAGE_GEN_HONESTY_HINT not in parts
+    joined = "\n".join(parts)
+    assert "not available" in joined
+    assert "do not tell the user to resubmit" in joined.lower()
 
 
 def test_rich_turn_injects_format_contract_once_and_keeps_math():

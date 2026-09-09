@@ -46,7 +46,8 @@ async def extract_todo_actions(
                 "I'll set a reminder) and the transcript has a title + date/time, emit that "
                 "add with due_at.\n"
                 "- For add/set_due: due_at is required. Interpret relative dates in the "
-                "user's timezone (tomorrow, Friday 5pm).\n"
+                "user's timezone (tomorrow, Friday 5pm). On set_due, include "
+                "recurrence_rule when they asked to change the repeat.\n"
                 "- Bulk reschedule (all reminders due today → tomorrow): emit one set_due "
                 'per affected item, OR a single set_due with content="*" when moving every '
                 "open item due today.\n"

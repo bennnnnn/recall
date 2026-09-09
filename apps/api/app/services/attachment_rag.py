@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
@@ -14,18 +16,82 @@ from app.models.orm import Attachment, AttachmentChunk
 from app.repositories import attachment_chunks as chunks_repo
 from app.repositories import attachments as attachments_repo
 from app.services import attachment_content as attachment_content_service
+from app.services.attachment_content import ExtractedText
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
 
-_RAG_COVERAGE_PREFIX = (
-    f"Indexed file text covers at most the first "
-    f"{attachment_content_service.PDF_INDEX_MAX_PAGES} PDF pages and the first "
-    f"{attachment_content_service.MAX_INDEX_EXTRACT_CHARS} characters. "
-    "The configured chunk budget can reduce coverage further. "
-    "A retrieval miss is not proof the answer is absent from unread pages. "
-    "Do not invent from outside these excerpts.\n\n"
-)
+
+def _default_coverage_prefix() -> str:
+    return (
+        f"Indexed file text covers at most the first "
+        f"{attachment_content_service.PDF_INDEX_MAX_PAGES} PDF pages and the first "
+        f"{attachment_content_service.MAX_INDEX_EXTRACT_CHARS} characters. "
+        "The configured chunk budget can reduce coverage further. "
+        "A retrieval miss is not proof the answer is absent from unread pages. "
+        "Do not invent from outside these excerpts.\n\n"
+    )
+
+
+_RAG_COVERAGE_PREFIX = _default_coverage_prefix()
+
+
+def _parse_index_coverage(raw: object) -> dict[str, Any] | None:
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        max_pages = int(data["max_pages"])
+        max_chars = int(data["max_chars"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if max_pages < 1 or max_chars < 1:
+        return None
+    return {
+        "via_ocr": bool(data.get("via_ocr")),
+        "max_pages": max_pages,
+        "max_chars": max_chars,
+    }
+
+
+def _coverage_prefix_for(rows: list[Attachment]) -> str:
+    parsed = [_parse_index_coverage(getattr(row, "index_coverage_json", None)) for row in rows]
+    usable = [item for item in parsed if item is not None]
+    if not usable:
+        return _RAG_COVERAGE_PREFIX
+    max_pages = min(int(item["max_pages"]) for item in usable)
+    max_chars = min(int(item["max_chars"]) for item in usable)
+    via_ocr = any(bool(item["via_ocr"]) for item in usable)
+    pages_bit = f"first {max_pages} OCR'd PDF pages" if via_ocr else f"first {max_pages} PDF pages"
+    return (
+        f"Indexed file text covers at most the {pages_bit} and the first "
+        f"{max_chars} characters. "
+        "The configured chunk budget can reduce coverage further. "
+        "A retrieval miss is not proof the answer is absent from unread pages. "
+        "Do not invent from outside these excerpts.\n\n"
+    )
+
+
+def _index_coverage_payload(details: ExtractedText, settings: Settings) -> dict[str, Any]:
+    max_pages = (
+        settings.attachment_ocr_index_max_pages
+        if details.via_ocr
+        else attachment_content_service.PDF_INDEX_MAX_PAGES
+    )
+    return {
+        "via_ocr": details.via_ocr,
+        "max_pages": max_pages,
+        "max_chars": attachment_content_service.MAX_INDEX_EXTRACT_CHARS,
+        "page_capped": details.page_capped,
+        "char_capped": details.char_capped,
+    }
+
+
 _RAG_MISS_NOTE = (
     "Indexed excerpts were searched but none matched this question. "
     "That is not proof the answer is absent from unread pages or the rest of "
@@ -127,19 +193,20 @@ async def index_attachment(
     if not data:
         raise AttachmentIndexError(f"Failed to read attachment bytes for {attachment_id}")
 
-    text = await attachment_content_service.extract_text_from_bytes_async(
+    details = await attachment_content_service.extract_text_details_async(
         content_type,
         data,
         settings,
         max_chars=attachment_content_service.MAX_INDEX_EXTRACT_CHARS,
+        ocr_max_pages=settings.attachment_ocr_index_max_pages,
     )
-    if not text:
+    if details is None or not details.text:
         # Legitimate "no text" — scanned PDF with no OCR, or genuinely empty doc.
         # Not a transient failure; don't raise.
         return 0
 
     pieces = chunk_text(
-        text,
+        details.text,
         chunk_chars=settings.attachment_rag_chunk_chars,
         overlap=settings.attachment_rag_chunk_overlap,
     )[: settings.attachment_rag_max_chunks_per_file]
@@ -175,6 +242,13 @@ async def index_attachment(
             chat_id=chat_id,
             chunks=successful,
         )
+        if stored:
+            await attachments_repo.set_index_coverage(
+                session,
+                attachment_id=row_id,
+                user_id=owner_id,
+                coverage=_index_coverage_payload(details, settings),
+            )
     return len(successful) if stored else 0
 
 
@@ -230,6 +304,7 @@ async def retrieve_for_prompt(
     # without attachment context — RAG is best-effort background context,
     # same as memory/todos/projects, and must degrade the same way.
     filenames: dict[UUID, str] = {}
+    loaded_files: list[Attachment] = []
     try:
         async with SessionLocal() as search_session:
             rows = await chunks_repo.search_semantic(
@@ -242,9 +317,10 @@ async def retrieve_for_prompt(
             )
             att_ids = list({row.attachment_id for row in rows})
             if att_ids:
-                loaded = await attachments_repo.get_by_ids(search_session, att_ids, user_id)
+                loaded_files = await attachments_repo.get_by_ids(search_session, att_ids, user_id)
                 filenames = {
-                    row.id: (row.original_filename or "").strip() or "attachment" for row in loaded
+                    row.id: (row.original_filename or "").strip() or "attachment"
+                    for row in loaded_files
                 }
     except Exception:
         logger.warning("Attachment RAG retrieval failed for chat_id=%s", chat_id, exc_info=True)
@@ -269,4 +345,7 @@ async def retrieve_for_prompt(
     for i, row in enumerate(rows):
         name = filenames.get(row.attachment_id) or "attachment"
         lines.append(f"[{i + 1}] ({name}) {row.text}")
-    return wrap_untrusted("attached documents", _RAG_COVERAGE_PREFIX + "\n\n".join(lines))
+    return wrap_untrusted(
+        "attached documents",
+        _coverage_prefix_for(loaded_files) + "\n\n".join(lines),
+    )

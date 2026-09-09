@@ -31,6 +31,7 @@ import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
  * white, unlike the primary-tinted border below (which DOES follow theme). */
@@ -216,7 +217,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.brand.appleInk} />
                   ) : (
                     <>
-                      <Icon name="logo-apple" size={20} color={theme.brand.appleInk} />
+                      <Icon name="logo-apple" size={IconSize.sm} color={theme.brand.appleInk} />
                       <Text style={s.appleText}>{t("login.apple")}</Text>
                     </>
                   )}
@@ -239,7 +240,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.textSecondary} />
                   ) : (
                     <>
-                      <Icon name="logo-google" size={20} color={theme.brand.google} />
+                      <Icon name="logo-google" size={IconSize.sm} color={theme.brand.google} />
                       <Text style={s.googleText}>{t("login.google")}</Text>
                     </>
                   )}

@@ -1,4 +1,4 @@
-import { applyPinnedTextChange } from "@/lib/math/mathComposerChange";
+import { applyPinnedTextChange, caretAfterMathBarClose } from "@/lib/math/mathComposerChange";
 
 describe("applyPinnedTextChange", () => {
   const frac = "$\\frac{8}{8}$";
@@ -36,5 +36,13 @@ describe("applyPinnedTextChange", () => {
       text: "$\\frac{8}{8g}$",
       caret: den + 1,
     });
+  });
+});
+
+describe("caretAfterMathBarClose", () => {
+  it("sits after the last formula, not at the start of the draft", () => {
+    expect(caretAfterMathBarClose("solve $x^2+1$")).toBe("solve $x^2+1$".length);
+    expect(caretAfterMathBarClose("hello")).toBe(5);
+    expect(caretAfterMathBarClose("$x$ more")).toBe("$x$".length);
   });
 });

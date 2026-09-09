@@ -176,8 +176,10 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
     idx = lower.find("is ")
     while idx != -1:
         after = _digits_immediately_after(text, idx + len("is "))
-        if after is not None and lower[after[1] :].lstrip().startswith("prime"):
-            return "is_prime", after[0], None
+        if after is not None:
+            rest = lower[after[1] :].lstrip()
+            if rest.startswith("prime") or rest.startswith("a prime"):
+                return "is_prime", after[0], None
         idx = lower.find("is ", idx + 1)
     idx = lower.find(" mod ")
     if idx != -1:

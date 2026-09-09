@@ -9,13 +9,17 @@ import {
 } from "@/lib/math/mathFenceRetag";
 
 describe("mathFenceRetag", () => {
-  it("isHeavyInlineMath: only \\begin{…} environments are heavy", () => {
+  it("isHeavyInlineMath: environments and large operators are heavy", () => {
     // Environments the native MathText path can't lay out → route to WebView.
     expect(isHeavyInlineMath(String.raw`\begin{matrix}a&b\\c&d\end{matrix}`)).toBe(true);
     expect(isHeavyInlineMath(String.raw`\begin{cases} x & 1 \\ y & 2 \end{cases}`)).toBe(true);
     expect(isHeavyInlineMath(String.raw`\begin{aligned} x &= 1 \\ y &= 2 \end{aligned}`)).toBe(true);
     expect(isHeavyInlineMath(String.raw`\begin{pmatrix}1\\2\end{pmatrix}`)).toBe(true);
-    // Common inline math (no \begin) stays native — NOT heavy.
+    expect(isHeavyInlineMath(String.raw`\sum_{n=1}^{N} n`)).toBe(true);
+    expect(isHeavyInlineMath(String.raw`\int_0^1 x\,dx`)).toBe(true);
+    expect(isHeavyInlineMath(String.raw`\prod_{i=1}^{n} i`)).toBe(true);
+    expect(isHeavyInlineMath(String.raw`\binom{n}{k}`)).toBe(true);
+    // Common inline math (no \begin / large op) stays native — NOT heavy.
     expect(isHeavyInlineMath(String.raw`x^2 + 1`)).toBe(false);
     expect(isHeavyInlineMath(String.raw`\frac{a}{b}`)).toBe(false);
     expect(isHeavyInlineMath(String.raw`\sqrt{4}`)).toBe(false);

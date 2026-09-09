@@ -58,3 +58,10 @@ export function applyPinnedTextChange(
   const text = prev.slice(0, pinStart) + added + prev.slice(pinEnd);
   return { text, caret: pinStart + added.length };
 }
+
+/** After closing the math bar, sit after the last `$...$` (or at end). */
+export function caretAfterMathBarClose(text: string): number {
+  const lastDollar = text.lastIndexOf("$");
+  if (lastDollar === -1) return text.length;
+  return lastDollar + 1;
+}

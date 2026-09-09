@@ -21,6 +21,11 @@
  * - server: Recall attaches or rewrites this after the stream
  * - legacy: still rendered for history; the prompt must not choose it for layout
  *
+ * Do not add FenceId values casually. Prefer Markdown, `>` callouts/quotes, and
+ * GFM tables. New layout fences need a prompt contract, a renderer, stream
+ * preview, and preprocess — freeze the set unless the user-visible object is
+ * truly new.
+ *
  * Calendar / reminder / settings / vocab-quiz control fences are parsed
  * outside this registry (see assistantMessageContent.ts).
  */

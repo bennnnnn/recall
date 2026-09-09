@@ -30,7 +30,7 @@ jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
 }));
 jest.mock("@/hooks/useAttachmentIndexed", () => ({
-  useAttachmentIndexed: () => true,
+  useAttachmentIndexed: () => ({ indexed: true, failed: false }),
 }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));

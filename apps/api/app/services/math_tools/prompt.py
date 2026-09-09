@@ -185,7 +185,9 @@ def _unverified_math_note(kind: str) -> str:
         "Explain carefully and show your work. Do NOT claim the answer was "
         "SymPy-verified. Write the result in `$...$` and mark uncertainty when "
         "you are unsure. Do NOT emit ```answer, ```geometry, or ```graph. "
-        "Do not invent geometry/graph dimensions or point lists."
+        "Do not invent geometry/graph dimensions or point lists. "
+        "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
+        "diagram for a function plot."
     )
 
 
@@ -218,9 +220,8 @@ async def _build_verified_block_async(
     which are synchronous and can take arbitrarily long on a pathological
     expression. Running them on the shared default ``asyncio.to_thread`` pool
     would (a) starve unrelated async work and (b) leak the thread on timeout
-    (the await cancels but the thread keeps running). The bounded
-    ``ProcessPoolExecutor`` isolates SymPy to a single subprocess that can be
-    hard-killed on timeout.
+    (the await cancels but the thread keeps running). Isolated 1-worker
+    process slots can be hard-killed on timeout without terminating siblings.
     """
     from app.services import math_tools as mt
     from app.services.sympy_executor import run_sympy

@@ -1,11 +1,8 @@
 import { useMemo, type ReactElement } from "react";
-import { RefreshControl } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { RefreshControl, ScrollView } from "react-native";
 
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import { useTheme } from "@/lib/theme";
-
-const EMPTY: readonly never[] = [];
 
 type Props = {
   showRemindersEmptyHero: boolean;
@@ -15,7 +12,7 @@ type Props = {
   onRefresh?: () => void;
 };
 
-export function TodosFlashList({
+export function TodosScrollList({
   showRemindersEmptyHero,
   error,
   listHeader,
@@ -26,18 +23,17 @@ export function TodosFlashList({
   const s = useMemo(() => makeTodosStyles(C), [C]);
 
   return (
-    <FlashList
+    <ScrollView
       style={s.list}
-      data={EMPTY}
-      renderItem={() => null}
       contentContainerStyle={showRemindersEmptyHero && !error ? s.listEmpty : undefined}
       keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={listHeader}
       refreshControl={
         onRefresh ? (
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
         ) : undefined
       }
-    />
+    >
+      {listHeader}
+    </ScrollView>
   );
 }

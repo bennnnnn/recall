@@ -434,6 +434,8 @@ FORMAT_CONTRACT = (
     "when the user explicitly requests alternatives.\n"
     "  - If they only asked to write an email with no purpose, ask one question "
     "first — do not invent a generic letter or placeholders.\n"
+    "  - Never open ```email / ```sms / ```message as an example of a capability. "
+    "Describe drafting in words unless this turn is a request to write one.\n"
     "\n"
     "Coding:\n"
     "  - For a direct code request, lead with the code or one brief approach sentence, "
@@ -470,7 +472,8 @@ STYLE_HINTS = {
         "Response length: SHORT. The user chose brevity — this overrides default formatting length. "
         "Answer in 1-3 sentences or at most 4-5 tight bullets. No preamble, no recap of the question, "
         "no closing offers to help further. Skip sections, headings, tables, diagrams, and HTML unless "
-        "the user explicitly asked for them. Explicit prose/draft/code format requests still win."
+        "the user explicitly asked for them. Explicit prose/draft/code format requests still win. "
+        "Multi-step math is exempt: numbered `$...$` derivation, not a 1-3 sentence skip to the answer."
     ),
     "balanced": (
         "Response length: BALANCED. Be clear and complete without rambling — use short headings and "

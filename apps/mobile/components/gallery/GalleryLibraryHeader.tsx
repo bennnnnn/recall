@@ -9,6 +9,7 @@ import { type GalleryLayout } from "@/lib/galleryLayout";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   filter: GalleryFilter;
@@ -94,7 +95,7 @@ export function GalleryLibraryHeader({
         >
           <Icon
             name={layout === "grid" ? "list-outline" : "grid-outline"}
-            size={22}
+            size={IconSize.md}
             color={C.textSecondary}
           />
         </Pressable>

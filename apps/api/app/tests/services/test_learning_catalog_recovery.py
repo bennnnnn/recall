@@ -88,7 +88,11 @@ async def test_transient_seed_failure_retries_before_success_ack(catalog_sql, mo
     assert len(rows) == sum(len(deck.words) for deck in decks) == 40
     assert {row.user_id for row in rows} == {user_id}
     assert {row.project_id for row in rows} == {project_id}
-    redis.expire.assert_awaited_once()
+    redis.set.assert_any_await(
+        jobs.job_done_key(f"language_path:{project_id}"),
+        jobs._DEDUPE_DONE,
+        ex=jobs._JOB_DONE_TTL_SECONDS,
+    )
     redis.xack.assert_awaited_once()
     redis.xadd.assert_not_awaited()
     detail = await get_project_detail(
@@ -137,7 +141,11 @@ async def test_cache_failure_retries_invalidation_without_replacing_seeded_rows(
     assert invalidation.await_count == 2
     assert len(saved_ids) == 40
     session.commit.assert_awaited_once()
-    redis.expire.assert_awaited_once()
+    redis.set.assert_any_await(
+        jobs.job_done_key(f"language_path:{project_id}"),
+        jobs._DEDUPE_DONE,
+        ex=jobs._JOB_DONE_TTL_SECONDS,
+    )
 
 
 @pytest.mark.asyncio

@@ -11,14 +11,27 @@ from app.services.math_text_match.scan import (
     VIZ_COMMANDS,
     _alpha_run_end,
     has_viz_command,
+    looks_like_math_expr,
     split_glued_viz_runs,
     strip_inline_math_delims,
 )
 
+_GRAPH_PLOT_PREFIXES = ("graph ", "plot ")
+# Plot verbs that must not steal geometry (`draw a triangle`) or Vega
+# (`chart of rainfall`). Accepted only when the remainder is function-like.
+_GRAPH_PLOT_SOFT_PREFIXES = (
+    "draw ",
+    "sketch ",
+    "visualize ",
+    "visualise ",
+    "chart ",
+    "show ",
+)
+_LOOKS_LIKE_CUES = ("look like", "looks like", "shape of")
 
-def _find_unprefixed_phrase(lower: str, phrase: str) -> int:
+
+def _find_unprefixed_phrase(lower: str, phrase: str, start: int = 0) -> int:
     """``graph `` inside ``paragraph `` must not count as a graph command."""
-    start = 0
     while True:
         idx = lower.find(phrase, start)
         if idx == -1:
@@ -26,6 +39,40 @@ def _find_unprefixed_phrase(lower: str, phrase: str) -> int:
         if idx == 0 or not lower[idx - 1].isalpha():
             return idx
         start = idx + 1
+
+
+def _has_unprefixed_graph_or_plot(lower: str) -> bool:
+    return any(_find_unprefixed_phrase(lower, prefix) != -1 for prefix in _GRAPH_PLOT_PREFIXES)
+
+
+def _last_unprefixed_prefix(lower: str, prefixes: tuple[str, ...]) -> tuple[int, str] | None:
+    last: tuple[int, str] | None = None
+    for prefix in prefixes:
+        start = 0
+        while True:
+            idx = _find_unprefixed_phrase(lower, prefix, start)
+            if idx == -1:
+                break
+            if last is None or idx >= last[0]:
+                last = (idx, prefix)
+            start = idx + 1
+    return last
+
+
+def _last_unprefixed_graph_or_plot(lower: str) -> tuple[int, str] | None:
+    return _last_unprefixed_prefix(lower, _GRAPH_PLOT_PREFIXES)
+
+
+def _core_before_and_then(expr: str) -> str:
+    """Text before the first `` and `` / `` then `` clause (no regex)."""
+    lower = expr.lower()
+    cut: int | None = None
+    for token in (" and ", " then "):
+        idx = lower.find(token)
+        if idx != -1 and (cut is None or idx < cut):
+            cut = idx
+    s = expr[:cut] if cut is not None else expr
+    return s.rstrip(" .?!")
 
 
 def _parse_bound(token: str) -> float | None:
@@ -199,7 +246,17 @@ def _bare_y_equals_rhs(text: str) -> str | None:
     return rhs
 
 
-_GRAPH_Y_PREFIXES = ("graph ", "plot ", "y=", "y =")
+_GRAPH_Y_PREFIXES = (
+    "graph ",
+    "plot ",
+    "draw ",
+    "sketch ",
+    "visualize ",
+    "visualise ",
+    "chart ",
+    "y=",
+    "y =",
+)
 
 
 def _peel_repeated_graph_y_prefix(expr: str) -> str:
@@ -259,15 +316,106 @@ def _collapse_keyboard_graph_rhs(expr: str) -> str:
     return rhs
 
 
+def _function_like_plot_core(expr: str) -> bool:
+    """True for ``x^2`` / ``y=x^2`` / ``sin(x)``, not ``a triangle`` / ``of rainfall``."""
+    core = _core_before_and_then(_peel_repeated_graph_y_prefix(expr)).rstrip(" .?!")
+    if looks_like_math_expr(core):
+        return True
+    compact = core.replace(" ", "").lower()
+    if compact.startswith("y=") or compact.startswith("x="):
+        return looks_like_math_expr(core.split("=", 1)[-1])
+    return False
+
+
+def _expr_after_prefix(text: str, idx: int, prefix: str) -> str:
+    return _peel_repeated_graph_y_prefix(text[idx + len(prefix) :].strip())
+
+
+def _soft_plot_prefix_expr(text: str) -> str | None:
+    """``draw y=x^2`` / ``chart y=x^2`` — only when the remainder is f(x)."""
+    lower = text.lower()
+    first: tuple[int, str] | None = None
+    for prefix in _GRAPH_PLOT_SOFT_PREFIXES:
+        idx = _find_unprefixed_phrase(lower, prefix)
+        if idx != -1:
+            first = (idx, prefix)
+            break
+    if first is None:
+        return None
+    idx, prefix = first
+    expr = _expr_after_prefix(text, idx, prefix)
+    if _function_like_plot_core(expr):
+        return expr or None
+    last = _last_unprefixed_prefix(lower, _GRAPH_PLOT_SOFT_PREFIXES)
+    if last is not None and last[0] != idx:
+        expr = _expr_after_prefix(text, last[0], last[1])
+        if _function_like_plot_core(expr):
+            return expr or None
+    return None
+
+
+def _expr_from_looks_like_ask(text: str) -> str | None:
+    """``what does y=x^2 look like`` / ``show the shape of y=x^2``."""
+    lower = text.lower()
+    if not any(cue in lower for cue in _LOOKS_LIKE_CUES):
+        return None
+    marker = "y="
+    idx = lower.find(marker)
+    if idx == -1:
+        marker = "y ="
+        idx = lower.find(marker)
+    if idx == -1:
+        return None
+    rest = text[idx + len(marker) :]
+    rest_low = rest.lower()
+    cut: int | None = None
+    for cue in _LOOKS_LIKE_CUES:
+        padded = f" {cue}"
+        at = rest_low.find(padded)
+        if at != -1 and (cut is None or at < cut):
+            cut = at
+        at = rest_low.find(cue)
+        if at == 0:
+            cut = 0
+    if cut is not None:
+        rest = rest[:cut]
+    rest = rest.strip().rstrip(" .?!")
+    if not rest or not _function_like_plot_core(rest):
+        return None
+    return _peel_repeated_graph_y_prefix(rest) or None
+
+
 def graph_expr(text: str) -> str | None:
     lower = text.lower()
-    for prefix in ("graph ", "plot "):
+    first: tuple[int, str] | None = None
+    for prefix in _GRAPH_PLOT_PREFIXES:
         idx = _find_unprefixed_phrase(lower, prefix)
-        if idx == -1:
-            continue
-        expr = _peel_repeated_graph_y_prefix(text[idx + len(prefix) :].strip())
-        return expr or None
-    return _bare_y_equals_rhs(text)
+        if idx != -1:
+            first = (idx, prefix)
+            break
+    if first is None:
+        soft = _soft_plot_prefix_expr(text)
+        if soft is not None:
+            return soft
+        look = _expr_from_looks_like_ask(text)
+        if look is not None:
+            return look
+        return _bare_y_equals_rhs(text)
+
+    idx, prefix = first
+    expr = _expr_after_prefix(text, idx, prefix)
+    # Duplicated "Graph y = Graph y = x^2" is peeled from the first capture.
+    # "graph this: graph y=x^2" still has a later command and a non-math core
+    # — take the last unprefixed graph/plot instead. "graph y=x^2 then plot
+    # a table" keeps the first capture: the core before " then " is math.
+    if _has_unprefixed_graph_or_plot(expr.lower()) and not looks_like_math_expr(
+        _core_before_and_then(expr)
+    ):
+        last = _last_unprefixed_graph_or_plot(lower)
+        if last is not None and last[0] != idx:
+            idx, prefix = last
+            expr = _expr_after_prefix(text, idx, prefix)
+    return expr or None
 
 
 _GRAPH_PAIR_PREFIXES = ("graph ", "plot ", "compare ")

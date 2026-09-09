@@ -190,16 +190,37 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
         # of re-deriving (and corrupting) the algebra when b != 0.
         discriminant = simplify(c1**2 - 4 * c2 * c0)
         steps.append(
-            f"Discriminant: \\Delta = {latex(c1)}^{{2}} - 4({latex(c2)})({latex(c0)}) "
+            f"Discriminant: \\Delta = ({latex(c1)})^{{2}} - 4({latex(c2)})({latex(c0)}) "
             f"= {latex(discriminant)}"
         )
+        if c2 == 1:
+            denom = "2"
+        elif c2 == -1:
+            denom = "-2"
+        else:
+            denom = f"2({latex(c2)})"
         steps.append(
-            f"Quadratic formula: {variable} = \\frac{{-{latex(c1)} \\pm "
-            f"\\sqrt{{{latex(discriminant)}}}}}{{2({latex(c2)})}}"
+            f"Quadratic formula: {variable} = \\frac{{{latex(-c1)} \\pm "
+            f"\\sqrt{{{latex(discriminant)}}}}}{{{denom}}}"
         )
         return steps
 
     return steps
+
+
+def _reciprocal_if_proper_fraction(coeff: Any) -> Any | None:
+    """``x/2`` → multiply by 2, not divide by ``1/2`` (avoids nested fractions)."""
+    rat = simplify(coeff)
+    if not getattr(rat, "is_number", False) or not getattr(rat, "is_rational", False):
+        return None
+    numer, denom = rat.as_numer_denom()
+    if not getattr(numer, "is_integer", False) or not getattr(denom, "is_integer", False):
+        return None
+    if denom in (0, 1, -1):
+        return None
+    if abs(int(numer)) >= abs(int(denom)):
+        return None
+    return simplify(1 / rat)
 
 
 def _linear_both_sides_steps(lhs: Any, rhs: Any, var: Any, c1: Any, c0: Any) -> list[str]:
@@ -231,11 +252,19 @@ def _linear_both_sides_steps(lhs: Any, rhs: Any, var: Any, c1: Any, c0: Any) -> 
     isolated = simplify(-c0 / c1)
     final = f"{var} = {latex(isolated)}"
     if coeff != 0 and coeff != 1 and coeff != -1:
-        steps.append(
-            f"Divide both sides by {latex(coeff)}: "
-            f"\\frac{{{latex(cur_lhs)}}}{{{latex(coeff)}}} = "
-            f"\\frac{{{latex(cur_rhs)}}}{{{latex(coeff)}}}"
-        )
+        multiplier = _reciprocal_if_proper_fraction(coeff)
+        if multiplier is not None:
+            steps.append(
+                f"Multiply both sides by {latex(multiplier)}: "
+                f"{latex(multiplier)} \\cdot ({latex(cur_lhs)}) = "
+                f"{latex(multiplier)} \\cdot ({latex(cur_rhs)})"
+            )
+        else:
+            steps.append(
+                f"Divide both sides by {latex(coeff)}: "
+                f"\\frac{{{latex(cur_lhs)}}}{{{latex(coeff)}}} = "
+                f"\\frac{{{latex(cur_rhs)}}}{{{latex(coeff)}}}"
+            )
         steps.append(f"Simplify: {final}")
     elif coeff == -1:
         steps.append(f"Multiply both sides by -1: {latex(-cur_lhs)} = {latex(-cur_rhs)}")
@@ -524,15 +553,24 @@ def _differentiation_steps(parsed: Any, sym: Any, result_latex: str) -> list[str
     return steps
 
 
-def differentiate_expression(expr: str, variable: str = "x") -> MathExprResult:
+def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> MathExprResult:
+    if order < 1 or order > 4:
+        raise MathServiceError("unsupported derivative order")
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
-    result = diff(parsed, sym)
+    result = diff(parsed, sym, order)
     result_latex = latex(result)
+    if order == 1:
+        steps = _differentiation_steps(parsed, sym, result_latex)
+    else:
+        steps = [
+            f"Result: $\\frac{{d^{{{order}}}}}{{d{latex(sym)}^{{{order}}}}}"
+            f"\\left[{latex(parsed)}\\right] = {result_latex}$"
+        ]
     return MathExprResult(
         result=str(result),
         latex=result_latex,
-        steps=_differentiation_steps(parsed, sym, result_latex),
+        steps=steps,
     )
 
 

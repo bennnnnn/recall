@@ -8,7 +8,7 @@ describe("surface hierarchy", () => {
     expect(lightTheme.inputBg).toBe("#F7F7F8");
     expect(lightTheme.border).toBe("#D9D9DE");
     expect(lightTheme.bg).not.toBe(lightTheme.surface);
-    expect(lightTheme.userBubble).toBe("#EAF7F3");
+    expect(lightTheme.userBubble).toBe("#F0F1FF");
     expect(lightTheme.assistantBubble).toBe(lightTheme.bg);
     expect(lightTheme.primary).toBe("#4F56E5");
     expect(lightTheme.success).toBe("#16845B");
@@ -20,7 +20,9 @@ describe("surface hierarchy", () => {
     expect(darkTheme.composerBg).toBe(darkTheme.bg);
     expect(darkTheme.inputBg).toBe(darkTheme.surfaceAlt);
     expect(darkTheme.primary).toBe(darkTheme.accent);
+    expect(darkTheme.userBubble).toBe("#2A2D6A");
     expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
+    expect(lightTheme.userBubble).not.toBe(lightTheme.successLight);
     expect(lightTheme.onWarning).toBe("#FFFFFF");
     expect(darkTheme.onWarning).toBe("#111113");
   });
