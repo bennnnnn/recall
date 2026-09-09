@@ -37,7 +37,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 2.1 | Send message → tokens stream | ☐ | ☐ | WebSocket primary path |
 | 2.2 | Stop generation mid-stream | ☐ | ☐ | Partial reply kept |
 | 2.3 | Regenerate last assistant reply | ☐ | ☐ | |
-| 2.4 | Edit last user message | ☐ | ☐ | |
+| 2.4 | User bubble long-press copies only | ☐ | ☐ | No edit / resend (banned UX) |
 | 2.5 | New chat created on first message | ☐ | ☐ | No empty chat rows |
 | 2.6 | Offline banner when API unreachable | ☐ | ☐ | |
 | 2.7 | Quota exceeded shows plan-aware alert | ☐ | ☐ | Free vs Pro copy |
@@ -187,6 +187,27 @@ These were explicitly removed. If any reappears, it's a regression.
 | 14.5 | Project filter chips / "Link to project" on reminders | ☐ | ☐ | Schedule and Learning stay separate |
 | 14.6 | Empty-state body / "Add" button duplicating the FAB | ☐ | ☐ | Learning + Schedule empty: icon + title only |
 | 14.7 | Drawer Lists row / shopping checklist UI | ☐ | ☐ | Lists feature removed; do not reintroduce |
+| 14.8 | User-message edit / resend (pencil, truncated re-run) | ☐ | ☐ | Long-press on a user bubble is copy only |
+
+---
+
+## 15. Physical-device stress (do not skip on simulators)
+
+These need a **dev build on hardware**. Simulator FPS and memory are not evidence. Do not record invented frame rates — note jank (stutter, hitch, freeze) in **Blockers** with device model + OS.
+
+**Devices:** one recent iPhone, one low-end Android (≤6 GB RAM, e.g. a mid-tier 2022–2023 phone). Optional: older iPhone (A13 / 4 GB) if available.
+
+| # | Test | iOS | Low-end Android | Notes |
+|---|------|-----|-----------------|-------|
+| 15.1 | Open a thread with **200+ messages** and fling-scroll both directions | ☐ | ☐ | FlashList should not freeze; cells recycle. Watch memory. |
+| 15.2 | Stream a **~2k token** assistant reply (long explanation) | ☐ | ☐ | First token promptly; scroll stays usable; no multi-second freeze at `done`. |
+| 15.3 | Stream a **~5k token** reply (or two stacked long turns) | ☐ | ☐ | Same as 15.2. If the model caps lower, note actual length. |
+| 15.4 | Thread with **math** (`$…$` / display) plus a **chart** and **Mermaid** WebView | ☐ | ☐ | Scroll past each fence; expand/collapse chart if clipped; no blank WebViews after scroll-back. |
+| 15.5 | Stack **geometry + graph + chemistry** in one thread, then background the app 30s and return | ☐ | ☐ | SVGs/WebViews recover; no white cards. |
+| 15.6 | Send while a previous stream is still painting (or immediately after `done`) | ☐ | ☐ | Composer stays responsive; no double-send; typing indicator is honest. |
+| 15.7 | 10 minutes of mixed chat (send, scroll, open drawer, rotate if Android) | ☐ | ☐ | Thermal/jank after warmup. Stop if the OS kills the app. |
+
+**Pass bar:** the chat remains usable (scroll, send, stop) on the low-end Android. Cosmetic hitch on first WebView mount is OK; a multi-second freeze or crash is a blocker.
 
 ---
 
