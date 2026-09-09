@@ -162,6 +162,7 @@ async def reap_orphan_attachments(settings: Settings) -> int:
         orphans = await attachments_repo.list_orphans(
             session,
             older_than_hours=settings.attachment_orphan_grace_hours,
+            pending_older_than_hours=settings.attachment_pending_orphan_hours,
             limit=settings.attachment_orphan_reap_limit,
         )
     if not orphans:

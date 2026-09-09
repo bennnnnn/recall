@@ -936,7 +936,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 
 | Capability | Status |
 |------------|--------|
-| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
+| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
 | Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
