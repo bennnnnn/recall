@@ -251,6 +251,17 @@ def test_solve_linear_shows_subtract_on_both_sides() -> None:
     assert "F = 0" in steps_text
 
 
+def test_solve_linear_multiplies_by_reciprocal_for_half_x() -> None:
+    """x/2 + 1 = 4 should multiply by 2, not divide by 1/2."""
+    result = math_service.solve_equation(EquationInput(lhs="x/2 + 1", rhs="4", variables=["x"]))
+    steps_text = "\n".join(result.steps)
+    assert "Multiply" in steps_text
+    assert "2" in steps_text
+    assert "x = 6" in steps_text
+    assert "Divide both sides by" not in steps_text
+    assert r"\frac{\frac" not in steps_text
+
+
 def test_worked_steps_empty_for_unrecognized_form() -> None:
     """A multi-variable or higher-degree form gets no worked steps (caller
     still has the equation + solutions)."""
