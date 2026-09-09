@@ -35,18 +35,19 @@ _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
 # Idempotency: SET NX before dispatch so reclaim/duplicate enqueue cannot
-# double-apply side effects (duplicate todos, welcome emails, …). The claim
-# uses a SHORT TTL (a few multiples of the reclaim idle window) so a worker
-# that crashes mid-handler doesn't pin the dedupe key for 24h — the short
-# TTL expires and the reclaim re-runs the job. On success the TTL is extended
-# to the full _JOB_DONE_TTL_SECONDS so a later duplicate enqueue skips.
+# double-apply side effects (duplicate todos, welcome emails, …).
+# In-flight value is _DEDUPE_RUNNING with a short TTL; success overwrites with
+# _DEDUPE_DONE for 24h. A reclaim that loses NX must not xack while the key
+# is still running — that was a guaranteed drop: reclaim idle is 60s and the
+# running TTL is 300s, so skip+xack acknowledged the PEL entry forever.
 _JOB_DONE_PREFIX = "jobdone:"
 _JOB_DONE_TTL_SECONDS = 86_400
-# Short enough that a crashed worker's claim expires before the reclaim picks
-# up the entry (reclaim idle is _CLAIM_IDLE_MS); long enough to cover a normal
-# handler run (LLM round-trip, gmail batch) without a slow handler false-
-# positively expiring and letting a duplicate double-run.
+# Covers a normal handler (LLM / gmail batch). A keepalive refreshes this
+# while the handler runs so a slow index does not expire and double-run.
+# After a crash, the key expires and the next XAUTOCLAIM can NX-succeed.
 _JOB_DONE_CLAIM_TTL_SECONDS = 300
+_DEDUPE_RUNNING = "1"
+_DEDUPE_DONE = "done"
 
 
 class JobDiscardError(Exception):
@@ -237,14 +238,14 @@ async def _claim_dedupe(
     """Return True if this worker should run the job (or there is no dedupe).
 
     Uses a short TTL so a worker that crashes mid-handler doesn't pin the
-    key for 24h — the claim expires and the reclaim re-runs the job.
+    key for 24h — the claim expires and a later reclaim can NX-succeed.
     """
     if not dedupe_key:
         return True
     try:
         claimed = await redis.set(
             job_done_key(dedupe_key),
-            "1",
+            _DEDUPE_RUNNING,
             ex=ttl,
             nx=True,
         )
@@ -255,14 +256,58 @@ async def _claim_dedupe(
     return bool(claimed)
 
 
+async def _dedupe_is_complete(redis: Redis, dedupe_key: str | None) -> bool:
+    """True when a later duplicate should skip and ack (handler already succeeded)."""
+    if not dedupe_key:
+        return False
+    key = job_done_key(dedupe_key)
+    try:
+        value = await redis.get(key)
+        if value == _DEDUPE_DONE:
+            return True
+        if value != _DEDUPE_RUNNING:
+            return False
+        ttl = await redis.ttl(key)
+        # Pre-fix success only EXPIREd "1" to 24h. Treat a long TTL as done so
+        # a rolling deploy does not leave those duplicates pending for a day.
+        return isinstance(ttl, int) and ttl > _JOB_DONE_CLAIM_TTL_SECONDS
+    except Exception:
+        logger.debug("job dedupe state read failed key=%s", dedupe_key, exc_info=True)
+        return False
+
+
 async def _extend_dedupe(redis: Redis, dedupe_key: str | None) -> None:
-    """Extend a successful claim to the full TTL so later duplicates skip."""
+    """Mark the logical job done so later duplicates skip and ack."""
     if not dedupe_key:
         return
     try:
-        await redis.expire(job_done_key(dedupe_key), _JOB_DONE_TTL_SECONDS)
+        await redis.set(
+            job_done_key(dedupe_key),
+            _DEDUPE_DONE,
+            ex=_JOB_DONE_TTL_SECONDS,
+        )
     except Exception:
         logger.debug("job dedupe extend failed key=%s", dedupe_key, exc_info=True)
+
+
+async def _refresh_running_claim(redis: Redis, dedupe_key: str | None) -> None:
+    """Keep an in-flight claim alive across a slow handler."""
+    if not dedupe_key:
+        return
+    key = job_done_key(dedupe_key)
+    try:
+        current = await redis.get(key)
+        if current == _DEDUPE_RUNNING:
+            await redis.expire(key, _JOB_DONE_CLAIM_TTL_SECONDS)
+    except Exception:
+        logger.debug("job dedupe refresh failed key=%s", dedupe_key, exc_info=True)
+
+
+async def _refresh_running_claim_loop(redis: Redis, dedupe_key: str) -> None:
+    interval = max(1, _JOB_DONE_CLAIM_TTL_SECONDS // 2)
+    while True:
+        await asyncio.sleep(interval)
+        await _refresh_running_claim(redis, dedupe_key)
 
 
 async def _release_dedupe(redis: Redis, dedupe_key: str | None) -> None:
@@ -289,21 +334,35 @@ async def _process_one_entry(
         dedupe_key = dedupe_key.strip() or None
     else:
         dedupe_key = None
+    should_ack = True
+    keepalive: asyncio.Task[None] | None = None
     try:
         if not await _claim_dedupe(redis, dedupe_key):
+            if await _dedupe_is_complete(redis, dedupe_key):
+                logger.info(
+                    "Skipping already-processed job id=%s dedupe_key=%s",
+                    entry_id,
+                    dedupe_key,
+                )
+                return
             logger.info(
-                "Skipping already-processed job id=%s dedupe_key=%s",
+                "Skipping in-flight job id=%s dedupe_key=%s",
                 entry_id,
                 dedupe_key,
             )
+            should_ack = False
             return
+        if dedupe_key:
+            keepalive = asyncio.create_task(_refresh_running_claim_loop(redis, dedupe_key))
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             _touch_heartbeat()
+            await _refresh_running_claim(redis, dedupe_key)
             try:
                 await _dispatch(settings, fields)
-                # Success — extend the short claim to the full TTL so a later
-                # duplicate enqueue skips. (Crash before this line leaves the
-                # short claim to expire, so the reclaim re-runs.)
+                # Success — overwrite the short running claim so a later
+                # duplicate enqueue skips and acks. Crash before this line
+                # leaves the running TTL; reclaim must not xack until it
+                # expires (or this keepalive dies with the worker).
                 await _extend_dedupe(redis, dedupe_key)
                 break
             except JobDiscardError as exc:
@@ -326,12 +385,20 @@ async def _process_one_entry(
                     await _release_dedupe(redis, dedupe_key)
                     await _move_to_dlq(redis, entry_id, fields, traceback.format_exc(limit=8))
     finally:
-        # Best-effort jobs: ack regardless so a poison entry can't loop forever.
-        # Retry already happened above; the DLQ preserves the failed payload.
-        try:
-            await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
-        except Exception:
-            logger.debug("xack failed id=%s", entry_id, exc_info=True)
+        if keepalive is not None:
+            keepalive.cancel()
+            try:
+                await keepalive
+            except asyncio.CancelledError:
+                pass
+        if should_ack:
+            # Best-effort jobs: ack after we owned the run so a poison entry
+            # can't loop forever. Do not ack an in-flight duplicate — the
+            # PEL entry must survive until the running TTL expires.
+            try:
+                await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
+            except Exception:
+                logger.debug("xack failed id=%s", entry_id, exc_info=True)
 
 
 async def _process_entries(
