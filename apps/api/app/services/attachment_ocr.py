@@ -32,17 +32,28 @@ def render_pdf_pages(
     scale: float,
 ) -> list[tuple[str, bytes]]:
     """Render PDF pages to JPEG bytes. Never raises."""
+    pages, _total = render_pdf_pages_and_count(data, max_pages=max_pages, scale=scale)
+    return pages
+
+
+def render_pdf_pages_and_count(
+    data: bytes,
+    *,
+    max_pages: int,
+    scale: float,
+) -> tuple[list[tuple[str, bytes]], int]:
+    """Render pages and the document's page count (0 if unknown). Never raises."""
     try:
-        rendered = _render_with_pdfium(data, max_pages=max_pages, scale=scale)
+        rendered, total = _render_with_pdfium(data, max_pages=max_pages, scale=scale)
         if rendered:
-            return rendered
+            return rendered, total
     except Exception:
         logger.warning("PDF page render failed; trying embedded images", exc_info=True)
     try:
         return _embedded_page_images(data, max_pages=max_pages)
     except Exception:
         logger.warning("PDF embedded-image extract failed", exc_info=True)
-        return []
+        return [], 0
 
 
 def _render_with_pdfium(
@@ -50,13 +61,14 @@ def _render_with_pdfium(
     *,
     max_pages: int,
     scale: float,
-) -> list[tuple[str, bytes]]:
+) -> tuple[list[tuple[str, bytes]], int]:
     import pypdfium2 as pdfium
 
     pdf = pdfium.PdfDocument(data)
     out: list[tuple[str, bytes]] = []
     try:
-        page_count = min(len(pdf), max_pages)
+        total = len(pdf)
+        page_count = min(total, max_pages)
         for index in range(page_count):
             page = pdf[index]
             bitmap = page.render(scale=scale)
@@ -70,13 +82,14 @@ def _render_with_pdfium(
                 page.close()
     finally:
         pdf.close()
-    return out
+    return out, total
 
 
-def _embedded_page_images(data: bytes, *, max_pages: int) -> list[tuple[str, bytes]]:
+def _embedded_page_images(data: bytes, *, max_pages: int) -> tuple[list[tuple[str, bytes]], int]:
     from pypdf import PdfReader
 
     reader = PdfReader(io.BytesIO(data))
+    total = len(reader.pages)
     out: list[tuple[str, bytes]] = []
     for page in reader.pages[:max_pages]:
         for img in getattr(page, "images", None) or []:
@@ -86,17 +99,8 @@ def _embedded_page_images(data: bytes, *, max_pages: int) -> list[tuple[str, byt
             mime = _image_mime(raw, str(getattr(img, "name", "") or ""))
             out.append((mime, raw))
             if len(out) >= max_pages:
-                return out
-    return out
-
-
-def _pdf_page_count(data: bytes) -> int:
-    try:
-        from pypdf import PdfReader
-
-        return len(PdfReader(io.BytesIO(data)).pages)
-    except Exception:
-        return 0
+                return out, total
+    return out, total
 
 
 def _image_mime(raw: bytes, name: str) -> str:
@@ -181,8 +185,8 @@ async def ocr_scanned_pdf(
         timeout = max(timeout, settings.attachment_ocr_index_timeout_seconds)
     try:
         async with asyncio.timeout(timeout):
-            pages = await asyncio.to_thread(
-                render_pdf_pages,
+            pages, total_pages = await asyncio.to_thread(
+                render_pdf_pages_and_count,
                 data,
                 max_pages=pages_limit,
                 scale=settings.attachment_ocr_render_scale,
@@ -207,7 +211,6 @@ async def ocr_scanned_pdf(
     joined = "\n\n".join(parts).strip()
     if not joined:
         return None
-    total_pages = _pdf_page_count(data)
     return ExtractedText(
         text=joined[:chars],
         char_capped=len(joined) > chars,

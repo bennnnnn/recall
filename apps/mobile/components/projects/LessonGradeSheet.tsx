@@ -17,6 +17,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 const SLIDE = 64;
 
@@ -88,7 +89,7 @@ export function LessonGradeSheet({
       <View style={s.copyRow}>
         <Icon
           name={correct ? "checkmark-circle" : "close-circle"}
-          size={24}
+          size={IconSize.lg}
           color={correct ? theme.success : theme.danger}
         />
         <View style={s.copy}>

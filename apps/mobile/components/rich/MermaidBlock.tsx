@@ -28,6 +28,7 @@ import {
   useStaticOnlyNavigation,
 } from "@/lib/webView";
 import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
+import { IconSize } from "@/lib/icons";
 
 type Props = { content: string };
 
@@ -177,7 +178,7 @@ export function MermaidBlock({ content }: Props) {
         >
           <Icon
             name={showSource ? "eye-off-outline" : "code-slash-outline"}
-            size={20}
+            size={IconSize.sm}
             color={theme.primary}
           />
         </Pressable>
@@ -195,7 +196,7 @@ export function MermaidBlock({ content }: Props) {
             >
               <Icon
                 name={expanded ? "contract-outline" : "expand-outline"}
-                size={20}
+                size={IconSize.sm}
                 color={theme.textSecondary}
               />
             </Pressable>
@@ -209,7 +210,7 @@ export function MermaidBlock({ content }: Props) {
     >
       {renderError ? (
         <View style={s.previewBox}>
-          <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+          <Icon name="alert-circle-outline" size={IconSize.sm} color={theme.danger} />
           <Text style={[s.previewText, { color: theme.danger }]}>
             {renderError}
           </Text>

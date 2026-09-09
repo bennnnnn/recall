@@ -1,8 +1,10 @@
+import { resetComposerDraftsForAccount } from "@/lib/chat/composerDraftReset";
 import { signOutGoogle } from "@/lib/google-auth";
 
 /** Device/account side effects finish before another account signs in. Backend
  * session revocation is separate, so an offline server never holds logout UI. */
 export async function clearSignedOutAccount(userId: string | undefined): Promise<void> {
+  resetComposerDraftsForAccount();
   await Promise.allSettled([
     import("@/lib/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
     import("@/lib/todos/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),

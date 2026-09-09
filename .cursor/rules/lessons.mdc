@@ -16,7 +16,21 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   called OCR with the inline 12k/6-page caps, stored no coverage, and the
   prompt prefix was a static 500/200k string. Pass index char/page caps into
   `ocr_scanned_pdf`, persist `index_coverage_json`, and build the prefix from
-  stored ceilings (OCR names the 20-page cap).
+  stored ceilings (OCR names the 20-page cap). Page count comes from the
+  render worker, not a second parse on the event loop.
+- **Generic Retry regenerated a turn that never reached the server.** SSE/WS
+  transport failure left the optimistic user bubble looking sent and the error
+  CTA called `regenerate`. Queue it as `send_rejected` (Retry = resend);
+  Regenerate only after tokens already arrived.
+- **Account B saw Account A's unsent composer draft.** Provider stays mounted
+  above the login Redirect; `switchThread` no-ops on the shared `"new"` key.
+  Reset drafts on session change and from `clearSignedOutAccount`.
+- **`1+1=x` sat ~1 minute then the LLM said `2`.** One shared SymPy worker plus a
+  60s queue wait ran *before* the 5s solve timeout, then the turn still called
+  the model. Isolated 1-worker slots (default 3) with a 2s slot wait; short
+  closed answers skip the LLM unless the user asked for steps. Do not raise
+  `math_solve_timeout_seconds` to hide queueing; do not SIGTERM a shared N-worker
+  pool (one timeout would kill siblings).
 - **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
   typed English) hit the calculus verb so a Math note stamped, but
   `squared` is an unknown letter-run so extract returned None. Rewrite

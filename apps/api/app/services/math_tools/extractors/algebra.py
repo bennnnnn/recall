@@ -16,6 +16,133 @@ _SOLVE_FOR_VAR_RE = re.compile(
     r"(?:solve\s+for|find|solve)\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
     re.IGNORECASE,
 )
+# Whole-word cues that mean "solve this" even mid-sentence (`show me how to
+# solve 2x+3=7`). `find` is not here — "how do I find the slope of y=x^2"
+# is not a solve request.
+_SOLVE_WORD_CUES = ("solve", "isolate", "factor", "expand")
+_LEADING_SOLVE_CUES = (
+    "find",
+    "calculate",
+    "compute",
+    "evaluate",
+    "determine",
+    "simplify",
+    "what is",
+    "what's",
+)
+_PLOT_VERB_PREFIXES = (
+    "draw ",
+    "sketch ",
+    "visualize ",
+    "visualise ",
+    "chart ",
+    "show ",
+    "graph ",
+    "plot ",
+)
+_TRAILING_OK_WORDS = frozenset({"please", "thanks", "now", "quickly", "briefly", "here"})
+_EQ_BIND_PREFIXES = ("let ", "set ", "given ", "if ", "when ", "where ")
+
+
+def _has_whole_word(cleaned: str, word: str) -> bool:
+    lower = cleaned.lower()
+    start = 0
+    n = len(word)
+    while True:
+        idx = lower.find(word, start)
+        if idx == -1:
+            return False
+        before_ok = idx == 0 or not lower[idx - 1].isalpha()
+        after = idx + n
+        after_ok = after >= len(lower) or not lower[after].isalpha()
+        if before_ok and after_ok:
+            return True
+        start = idx + 1
+
+
+def _leading_after_polite(cleaned: str) -> str:
+    s = cleaned.strip()
+    low = s.lower()
+    for polite in ("please ", "can you ", "could you "):
+        if low.startswith(polite):
+            s = s[len(polite) :].lstrip()
+            low = s.lower()
+    return low
+
+
+def _has_solve_cue(cleaned: str, equation_text: str = "") -> bool:
+    """True for an imperative solve / requested variable, not a buried cue."""
+    if equation_text and _requested_variable(cleaned, equation_text) is not None:
+        return True
+    if any(_has_whole_word(cleaned, word) for word in _SOLVE_WORD_CUES):
+        return True
+    low = _leading_after_polite(cleaned)
+    for cue in _LEADING_SOLVE_CUES:
+        if low.startswith(cue) and (len(low) == len(cue) or not low[len(cue)].isalpha()):
+            return True
+    return False
+
+
+def _blank_extracted_equation(core: str, lhs: str, rhs: str) -> str:
+    """Remove the extracted ``lhs=rhs`` span so leftover English can be counted.
+
+    Do not ``str.replace`` a 1-letter lhs — that hits the ``y`` in ``why``.
+    """
+    eq = core.find("=")
+    if eq == -1:
+        return core
+    start = core.rfind(lhs, 0, eq)
+    end = core.find(rhs, eq + 1)
+    if start == -1 or end == -1:
+        return core
+    return core[:start] + " " + core[end + len(rhs) :]
+
+
+def _leftover_prose_blocks_solve(cleaned: str, lhs: str, rhs: str) -> bool:
+    """True when English around the extracted sides is a sentence, not a glue.
+
+    ``2x+3=7please`` / ``2x + 3 = 7 please`` still solve. ``tell me about
+    y=x^2`` does not.
+    """
+    if _has_solve_cue(cleaned, f"{lhs}={rhs}"):
+        return False
+    core = _equation_core_after_leadin(cleaned)
+    s = _blank_extracted_equation(core, lhs, rhs)
+    words = [w.lower().strip(".,?!:;") for w in s.split() if w.strip(".,?!=:;")]
+    english = [w for w in words if len(w) >= 3 and w.isalpha() and w not in _TRAILING_OK_WORDS]
+    return len(english) >= 2
+
+
+def _has_unclaimed_plot_verb(cleaned: str) -> bool:
+    """Plot phrasing that missed ``graph_expr`` must not fall through to solve."""
+    from app.services import math_text_match as mtm
+    from app.services.math_text_match.graph import _find_unprefixed_phrase
+
+    if mtm.graph_expr(cleaned) is not None:
+        return False
+    if _has_solve_cue(cleaned):
+        return False
+    lower = cleaned.lower()
+    return any(_find_unprefixed_phrase(lower, prefix) != -1 for prefix in _PLOT_VERB_PREFIXES)
+
+
+def _equation_core_after_leadin(cleaned: str) -> str:
+    from app.services.math_service.extract_eq import _strip_leading_filler
+
+    s = _strip_leading_filler(cleaned)
+    prev = None
+    while prev != s:
+        prev = s
+        low = s.lower()
+        for prefix in _EQ_BIND_PREFIXES:
+            if low.startswith(prefix):
+                s = s[len(prefix) :].lstrip()
+                break
+        else:
+            break
+    return s
+
+
 _LEADIN_WORDS = frozenset(
     {
         "solve",
@@ -140,6 +267,8 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
 
 
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
+    if _has_unclaimed_plot_verb(cleaned):
+        return None
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
     if not eq_pairs:
         return None
@@ -150,6 +279,8 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     from app.services.math_tools.helpers import math_expr_or_none
 
     if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
+        return None
+    if _leftover_prose_blocks_solve(cleaned, lhs, rhs):
         return None
     variables = math_service.guess_variables(lhs + rhs)
     requested = _requested_variable(cleaned, lhs + rhs)

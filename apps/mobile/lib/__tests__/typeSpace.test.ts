@@ -9,8 +9,11 @@ describe("type and space tokens", () => {
     expect(Type.body.fontSize).toBe(16);
     expect(Type.secondary.fontSize).toBe(14);
     expect(Type.caption.fontSize).toBe(12);
+    expect(Type.compact.fontSize).toBe(13);
     expect(Type.body.lineHeight).toBe(25);
     expect(Type.label.fontSize).toBe(14);
+    expect(Type.callout.fontSize).toBe(15);
+    expect(Type.navTitle.fontSize).toBe(17);
     expect(Type.title.fontSize).toBe(20);
     expect(Type.display.fontSize).toBe(28);
   });
@@ -29,6 +32,7 @@ describe("type and space tokens", () => {
   it("owns chrome radius, icon, and overlay layers", () => {
     expect(Radius.md).toBe(12);
     expect(Radius.sheet).toBe(20);
+    expect(Radius.composer).toBe(24);
     expect(IconSize.sm).toBe(20);
     expect(IconSize.md).toBe(22);
     expect(IconSize.lg).toBe(24);

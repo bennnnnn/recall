@@ -65,3 +65,31 @@ it("refuses all recovery actions while another send is active", async () => {
   await act(async () => { result.current(); });
   expect(restore).not.toHaveBeenCalled();
 });
+
+it("retries an unsaved send without regenerating", async () => {
+  const retryRejectedSend = jest.fn();
+  const regenerate = jest.fn();
+  const dismiss = jest.fn();
+  const { result } = await renderHook(() => useChatErrorRecovery({
+    error: { kind: "send_rejected", message: "unsaved" }, blocked: false,
+    dismiss, regenerate, retryRejectedSend, restoreComposerDraft: jest.fn(),
+    restoreRejectedAttachmentDraft: jest.fn(), selectedModel: "smart-chat",
+  }));
+  await act(async () => { result.current(); });
+  expect(retryRejectedSend).toHaveBeenCalledTimes(1);
+  expect(regenerate).not.toHaveBeenCalled();
+  expect(dismiss).toHaveBeenCalledTimes(1);
+});
+
+it("regenerates a saved reply without retrying an unsaved send", async () => {
+  const retryRejectedSend = jest.fn();
+  const regenerate = jest.fn();
+  const { result } = await renderHook(() => useChatErrorRecovery({
+    error: { kind: "generic", message: "Connection lost" }, blocked: false,
+    dismiss: jest.fn(), regenerate, retryRejectedSend, restoreComposerDraft: jest.fn(),
+    restoreRejectedAttachmentDraft: jest.fn(), selectedModel: "smart-chat",
+  }));
+  await act(async () => { result.current(); });
+  expect(regenerate).toHaveBeenCalledWith("smart-chat");
+  expect(retryRejectedSend).not.toHaveBeenCalled();
+});

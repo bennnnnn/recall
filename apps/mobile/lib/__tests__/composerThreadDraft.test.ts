@@ -1,6 +1,7 @@
 import {
   COMPOSER_NEW_THREAD_KEY,
   adoptNewComposerThread,
+  clearAllComposerDrafts,
   composerThreadKey,
   takeThreadDraft,
   shouldRestoreFailedSend,
@@ -85,5 +86,16 @@ describe("stashFailedSendDraft", () => {
     const drafts = new Map<string, string>([["a", "follow-up"]]);
     stashFailedSendDraft(drafts, "a", "hello");
     expect(drafts.get("a")).toBe("follow-up");
+  });
+});
+
+describe("clearAllComposerDrafts", () => {
+  it("drops every thread slot including New Chat", () => {
+    const drafts = new Map<string, string>([
+      [COMPOSER_NEW_THREAD_KEY, "account A secret"],
+      ["chat-1", "other thread"],
+    ]);
+    clearAllComposerDrafts(drafts);
+    expect(drafts.size).toBe(0);
   });
 });

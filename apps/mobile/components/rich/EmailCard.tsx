@@ -12,7 +12,7 @@ import { useEmailCardPersist } from "@/hooks/useEmailCardPersist";
 import { fullEmailText } from "@/lib/emailCompose";
 import { openGmailCompose } from "@/lib/openGmailCompose";
 import { notifySuccess, tap } from "@/lib/haptics";
-import { inkIconColor } from "@/lib/icons";
+import { IconSize, inkIconColor } from "@/lib/icons";
 import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -122,9 +122,9 @@ export function EmailCard({ draft }: Props) {
             }
           >
             {editing ? (
-              <Icon name="checkmark-outline" size={20} />
+              <Icon name="checkmark-outline" size={IconSize.sm} />
             ) : (
-              <NewChatIcon size={20} color={inkIconColor(theme)} />
+              <NewChatIcon size={IconSize.sm} color={inkIconColor(theme)} />
             )}
           </Pressable>
           <CopyButton

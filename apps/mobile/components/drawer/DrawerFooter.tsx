@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { NewChatIcon } from "@/components/NewChatIcon";
 import { tap } from "@/lib/haptics";
+import { IconSize } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -48,7 +49,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >
-        <Icon name="settings-outline" size={22} color={theme.onPrimary} />
+        <Icon name="settings-outline" size={IconSize.md} color={theme.onPrimary} />
       </Pressable>
     </View>
   );

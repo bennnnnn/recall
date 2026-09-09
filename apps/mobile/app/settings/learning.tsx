@@ -32,6 +32,7 @@ import { exportProjectAsPdf, projectHasExportableItems } from "@/lib/exportProje
 import { isShareCancelled } from "@/lib/exportPdf";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 export default function LearningSettingsScreen() {
   const owner = useAccountViewOwner();
@@ -177,7 +178,7 @@ function LearningSettingsView({ owner }: { owner: ReturnType<typeof useAccountVi
                 >
                   {statsSummary ? (
                     <View style={s.menuRow}>
-                      <Icon name="stats-chart-outline" size={20} color={theme.textTertiary} />
+                      <Icon name="stats-chart-outline" size={IconSize.sm} color={theme.textTertiary} />
                       <View style={s.rowBody}>
                         <Text style={s.rowTitle}>{statsSummary}</Text>
                       </View>

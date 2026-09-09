@@ -29,6 +29,7 @@ import {
   type ScanRegion,
 } from "@/lib/math/mathScannerRegion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   visible: boolean;
@@ -286,7 +287,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         accessibilityRole="button"
         accessibilityLabel={t("chat.math_scan_reset_a11y")}
       >
-        <Icon name="scan-outline" size={20} color={theme.onMedia} />
+        <Icon name="scan-outline" size={IconSize.sm} color={theme.onMedia} />
       </Pressable>
       <View style={[s.hintWrap, { top: insets.top + 56 }]}>
         <Text style={s.hint}>{t("chat.math_scan_hint")}</Text>

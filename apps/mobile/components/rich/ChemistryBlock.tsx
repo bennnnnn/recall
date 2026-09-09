@@ -13,6 +13,7 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseChemistryFence } from "@/lib/chemistryFence";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
+import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { SMILES_DRAWER_MIN_JS } from "@/lib/vendor/smilesDrawerMinJs";
 import {
@@ -139,7 +140,7 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   if (renderError) {
     return (
       <View style={s.previewBox}>
-        <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+        <Icon name="alert-circle-outline" size={IconSize.sm} color={theme.danger} />
         <Text style={[s.previewText, { color: theme.danger }]}>
           {renderError}
         </Text>

@@ -36,6 +36,12 @@ def test_render_pdf_pages_returns_jpeg():
     assert data[:3] == b"\xff\xd8\xff"
 
 
+def test_render_pdf_pages_and_count_includes_document_length():
+    pages, total = ocr.render_pdf_pages_and_count(_blank_pdf_bytes(), max_pages=2, scale=1.5)
+    assert len(pages) == 1
+    assert total == 1
+
+
 def test_render_pdf_pages_invalid_bytes_returns_empty():
     assert ocr.render_pdf_pages(b"not-a-pdf", max_pages=2, scale=1.5) == []
 
@@ -67,7 +73,7 @@ async def test_ocr_scanned_pdf_concatenates_pages():
     )
 
     with (
-        patch.object(ocr, "render_pdf_pages", return_value=rendered),
+        patch.object(ocr, "render_pdf_pages_and_count", return_value=(rendered, 2)),
         patch(
             "app.gateways.litellm_gateway.vision_completion",
             AsyncMock(side_effect=lambda **_k: next(responses)),
@@ -94,7 +100,7 @@ async def test_ocr_scanned_pdf_joins_nonempty_pages():
     ]
     responses = iter([_vision_response("Heading"), _vision_response("Body paragraph")])
     with (
-        patch.object(ocr, "render_pdf_pages", return_value=rendered),
+        patch.object(ocr, "render_pdf_pages_and_count", return_value=(rendered, 2)),
         patch(
             "app.gateways.litellm_gateway.vision_completion",
             AsyncMock(side_effect=lambda **_k: next(responses)),
@@ -196,8 +202,7 @@ async def test_ocr_scanned_pdf_uses_caller_char_cap():
     )
     rendered = [("image/jpeg", b"\xff\xd8\xffpage1")]
     with (
-        patch.object(ocr, "render_pdf_pages", return_value=rendered) as render,
-        patch.object(ocr, "_pdf_page_count", return_value=40),
+        patch.object(ocr, "render_pdf_pages_and_count", return_value=(rendered, 40)) as render,
         patch(
             "app.gateways.litellm_gateway.vision_completion",
             AsyncMock(return_value=_vision_response("x" * 50)),
