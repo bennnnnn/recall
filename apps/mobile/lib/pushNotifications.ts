@@ -15,6 +15,12 @@ type AppRouter = {
 let androidChannelReady = false;
 const ANDROID_CHANNEL = "recall-notifications";
 
+export async function getNotificationPermissionGranted(): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  const { status } = await Notifications.getPermissionsAsync();
+  return status === "granted";
+}
+
 export async function ensureNotificationPermission(analyticsToken?: string): Promise<boolean> {
   if (Platform.OS === "web") return false;
   await ensureAndroidChannel();
@@ -60,6 +66,8 @@ async function resolveExpoPushToken(): Promise<string | null> {
   }
 }
 
+export type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
+
 /** Register Expo push token with the backend for remote notifications.
  *
  * Gated on ``pushNotificationsEnabled`` (the user's ``push_notifications_enabled``
@@ -67,15 +75,22 @@ async function resolveExpoPushToken(): Promise<string | null> {
  * without this gate, the backend would hold a live push token for a user who
  * opted out and keep sending them notifications. The OS-level permission
  * prompt is separate (and still required); this gate is the user-level opt-out.
+ *
+ * If the pref is on but the OS denies permission, flip the server pref off so
+ * Settings and local/catch-up delivery agree (remote + local both fail on iOS
+ * without permission; the pref lie is what froze recurring catch-up).
  */
 export async function registerRemotePushToken(
   apiToken: string,
   pushNotificationsEnabled: boolean,
-): Promise<void> {
-  if (Platform.OS === "web") return;
-  if (!pushNotificationsEnabled) return;
+): Promise<PushRegisterResult> {
+  if (Platform.OS === "web") return "skipped";
+  if (!pushNotificationsEnabled) return "skipped";
   const granted = await ensureNotificationPermission(apiToken);
-  if (!granted) return;
+  if (!granted) {
+    await api.updateMe(apiToken, { push_notifications_enabled: false });
+    return "disabled_permission";
+  }
 
   const expoPushToken = await resolveExpoPushToken();
   if (!expoPushToken) {
@@ -88,6 +103,7 @@ export async function registerRemotePushToken(
     platform: Platform.OS,
     device_id: deviceId ?? undefined,
   });
+  return "registered";
 }
 
 /** Unregister the Expo push token from the backend.
@@ -111,25 +127,28 @@ export async function unregisterRemotePushToken(apiToken: string): Promise<void>
 export function attachPushForegroundSync(
   apiToken: string | null,
   pushNotificationsEnabled: boolean,
+  onPushPrefChange?: (enabled: boolean) => void,
 ): () => void {
   if (!apiToken) return () => {};
 
+  const sync = () => {
+    if (pushNotificationsEnabled) {
+      void registerRemotePushToken(apiToken, true)
+        .then((result) => {
+          if (result === "disabled_permission") onPushPrefChange?.(false);
+        })
+        .catch(() => {});
+    } else {
+      void unregisterRemotePushToken(apiToken);
+    }
+  };
+
   // Register when enabled, unregister when disabled — so toggling the pref
   // actually stops (or starts) backend delivery, not just OS permission.
-  if (pushNotificationsEnabled) {
-    void registerRemotePushToken(apiToken, true).catch(() => {});
-  } else {
-    void unregisterRemotePushToken(apiToken);
-  }
+  sync();
 
   const onChange = (state: AppStateStatus) => {
-    if (state === "active") {
-      if (pushNotificationsEnabled) {
-        void registerRemotePushToken(apiToken, true).catch(() => {});
-      } else {
-        void unregisterRemotePushToken(apiToken);
-      }
-    }
+    if (state === "active") sync();
   };
 
   const sub = AppState.addEventListener("change", onChange);

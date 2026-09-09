@@ -22,6 +22,7 @@ import {
 import { normalizeReminderLeadMinutes } from "@/lib/todos/reminderTiming";
 import {
   ensureNotificationPermission,
+  getNotificationPermissionGranted,
   registerRemotePushToken,
   unregisterRemotePushToken,
 } from "@/lib/pushNotifications";
@@ -48,6 +49,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [leadOpen, setLeadOpen] = useState(false);
+  const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
@@ -72,6 +74,15 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     if (feedback) feedback.error(t(key));
     else Alert.alert(t("common.error"), t(key));
   }, [isCurrent, feedback, t]);
+
+  useEffect(() => {
+    if (!isCurrent()) return;
+    let active = true;
+    void getNotificationPermissionGranted().then((granted) => {
+      if (active && isCurrent()) setOsPushGranted(granted);
+    }).catch(() => { if (active && isCurrent()) setOsPushGranted(false); });
+    return () => { active = false; };
+  }, [isCurrent]);
 
   useEffect(() => {
     if (!isCurrent()) return;
@@ -114,14 +125,21 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
       const granted = await ensureNotificationPermission(token);
       if (!sameAccount()) return;
       if (!granted) {
-        if (isCurrent()) Alert.alert(t("settings.push_blocked_title"), t("settings.push_blocked_message"));
+        if (isCurrent()) {
+          setOsPushGranted(false);
+          Alert.alert(t("settings.push_blocked_title"), t("settings.push_blocked_message"));
+        }
+        if (user?.push_notifications_enabled !== false && sameAccount()) {
+          await updateUser({ push_notifications_enabled: false });
+        }
         return;
       }
+      setOsPushGranted(true);
       await registerRemotePushToken(token, true);
       if (sameAccount()) await updateUser({ push_notifications_enabled: true });
     } catch { reportError("settings.push_register_failed"); }
     finally { finish(request); }
-  }, [token, begin, updateUser, sameAccount, isCurrent, t, reportError, finish]);
+  }, [token, begin, updateUser, sameAccount, isCurrent, t, reportError, finish, user?.push_notifications_enabled]);
 
   const toggleEmailReminders = useCallback(async (enabled: boolean) => {
     const request = begin("email");
@@ -144,7 +162,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
             icon="notifications-outline"
             title={t("settings.push_notifications")}
             subtitle={t("settings.push_notifications_desc")}
-            value={user?.push_notifications_enabled ?? true}
+            value={(user?.push_notifications_enabled ?? true) && osPushGranted === true}
             disabled={busyAction !== null}
             busy={busyAction === "push"}
             onValueChange={togglePush}
