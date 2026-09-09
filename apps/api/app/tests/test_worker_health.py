@@ -46,3 +46,17 @@ def test_worker_health_not_ready_when_redis_unreachable():
         response = client.get("/health/ready")
     assert response.status_code == 503
     assert response.json()["detail"] == "Dependency check failed"
+
+
+def test_worker_health_not_ready_when_periodic_loop_stale():
+    client = TestClient(create_worker_health_app())
+    with (
+        patch.object(jobs, "is_worker_alive", return_value=True),
+        patch(
+            "app.worker_health.periodic.started_periodic_unhealthy",
+            return_value=["push"],
+        ),
+    ):
+        response = client.get("/health/ready")
+    assert response.status_code == 503
+    assert response.json()["detail"] == "periodic loop not running: push"

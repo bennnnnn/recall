@@ -86,6 +86,27 @@ async def test_process_todo_reminders_respects_user_lead():
 
 
 @pytest.mark.asyncio
+async def test_log_aged_unsent_reminders_warns_when_count_positive(caplog):
+    session = AsyncMock()
+    session.scalar = AsyncMock(return_value=4)
+    with caplog.at_level("WARNING", logger="app.services.notifications.push"):
+        count = await push_service.log_aged_unsent_reminders(
+            session, now=datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+        )
+    assert count == 4
+    assert "Aged unsent reminders count=4" in caplog.text
+    assert "older_than_hours=48" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_log_aged_unsent_reminders_silent_when_none():
+    session = AsyncMock()
+    session.scalar = AsyncMock(return_value=0)
+    count = await push_service.log_aged_unsent_reminders(session)
+    assert count == 0
+
+
+@pytest.mark.asyncio
 async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
     session = AsyncMock()
     user_id = uuid4()
