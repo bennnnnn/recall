@@ -7,7 +7,7 @@ import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
-import { TodosFlashList } from "@/components/todos/TodosFlashList";
+import { TodosScrollList } from "@/components/todos/TodosScrollList";
 import { TodosScreenHeader } from "@/components/todos/TodosScreenHeader";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import { useTodosActions } from "@/hooks/useTodosActions";
@@ -180,7 +180,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   return (
     <GestureHandlerRootView style={s.root}>
-      <TodosFlashList
+      <TodosScrollList
         showRemindersEmptyHero={showRemindersEmptyHero}
         error={Boolean(error)}
         listHeader={listHeader}
