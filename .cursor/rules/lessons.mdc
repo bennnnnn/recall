@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Account B saw Account A's unsent composer draft.** Provider stays mounted
+  above the login Redirect; `switchThread` no-ops on the shared `"new"` key.
+  Reset drafts on session change and from `clearSignedOutAccount`.
 - **`1+1=x` sat ~1 minute then the LLM said `2`.** One shared SymPy worker plus a
   60s queue wait ran *before* the 5s solve timeout, then the turn still called
   the model. Isolated 1-worker slots (default 3) with a 2s slot wait; short
