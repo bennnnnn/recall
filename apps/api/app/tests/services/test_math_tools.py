@@ -776,6 +776,23 @@ def test_algebraic_cube_is_not_a_solid(text: str) -> None:
     assert intent is None or intent.kind != "solid"
 
 
+def test_convert_atmosphere_is_unit_not_sphere() -> None:
+    intent = math_tools.extract_math_intent("convert 1 atmosphere to psi")
+    assert intent is not None
+    assert intent.kind == "unit"
+    assert intent.unit_from is not None
+    assert "atmosphere" in intent.unit_from.lower()
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert "Solid (sphere)" not in block.text
+    assert "Equation:" not in block.text
+
+
+def test_silicone_is_not_a_cone_solid() -> None:
+    intent = math_tools.extract_math_intent("how much silicone")
+    assert intent is None or intent.kind != "solid"
+
+
 def test_verified_block_cube_volume() -> None:
     settings = Settings(math_tools_enabled=True)
     intent = math_tools.extract_math_intent("volume of a cube with side 5 cm")
