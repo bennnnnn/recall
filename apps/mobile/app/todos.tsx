@@ -218,6 +218,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
         onDismiss={() => actions.setDuePicker(null)}
         onChange={actions.onDuePickerChange}
+        onRecurrenceChange={actions.onDueRecurrenceChange}
         onConfirm={() => void actions.confirmDuePicker()}
       />
     </GestureHandlerRootView>

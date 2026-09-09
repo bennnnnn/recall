@@ -417,6 +417,7 @@ async def _mutate_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
         topic=REMINDER_TOPIC,
         content=title,
         due_at=draft.due_at,
+        recurrence_rule=draft.repeat if draft.action == "set_due" else None,
     )
     applied = await apply_todo_actions(
         state.session,
@@ -435,7 +436,7 @@ async def _mutate_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
         action=draft.action,
         title=title,
         due_at=due_at,
-        repeat=None,
+        repeat=draft.repeat if draft.action == "set_due" else None,
         user_timezone=state.user_timezone,
         ok=ok,
     ), ok

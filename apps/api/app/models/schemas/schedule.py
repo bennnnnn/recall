@@ -99,6 +99,12 @@ class TodoUpdate(BaseModel):
             raise ValueError("Reminders cannot be linked to a Learning project")
         return self
 
+    @model_validator(mode="after")
+    def recurrence_needs_due(self) -> Self:
+        if self.recurrence_rule is not None and self.due_at is None:
+            raise ValueError("recurrence_rule requires due_at")
+        return self
+
 
 class TodoReorderItem(BaseModel):
     model_config = ConfigDict(title="TodoReorderItem")
