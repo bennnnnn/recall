@@ -16,7 +16,22 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   sees the current line (`Image` / `that works` are not `draw me a dog`),
   and compact turns never get the image-gen hint (viz_intent is
   chart/mermaid/HTML). Follow-up `Dog` then `Image`; never tell the model
-  Recall cannot generate or to send the user off-app.
+  Recall cannot generate or to send the user off-app. `do it` after the
+  topic moved (`draw a dog` → `Paris`) must not generate — only the current
+  image exchange. If generation is off, do not tell them to resubmit.
+- **Generic Retry regenerated a turn that never reached the server.** SSE/WS
+  transport failure left the optimistic user bubble looking sent and the error
+  CTA called `regenerate`. Queue it as `send_rejected` (Retry = resend);
+  Regenerate only after tokens already arrived.
+- **Account B saw Account A's unsent composer draft.** Provider stays mounted
+  above the login Redirect; `switchThread` no-ops on the shared `"new"` key.
+  Reset drafts on session change and from `clearSignedOutAccount`.
+- **`1+1=x` sat ~1 minute then the LLM said `2`.** One shared SymPy worker plus a
+  60s queue wait ran *before* the 5s solve timeout, then the turn still called
+  the model. Isolated 1-worker slots (default 3) with a 2s slot wait; short
+  closed answers skip the LLM unless the user asked for steps. Do not raise
+  `math_solve_timeout_seconds` to hide queueing; do not SIGTERM a shared N-worker
+  pool (one timeout would kill siblings).
 - **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
   typed English) hit the calculus verb so a Math note stamped, but
   `squared` is an unknown letter-run so extract returned None. Rewrite

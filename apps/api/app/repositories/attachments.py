@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -272,6 +272,7 @@ async def list_orphans(
     session: AsyncSession,
     *,
     older_than_hours: int,
+    pending_older_than_hours: int | None = None,
     limit: int = 100,
 ) -> list[Attachment]:
     """Pending uploads and hidden send-clones never linked to a message.
@@ -279,20 +280,35 @@ async def list_orphans(
     Verified Library items that lost their chat (``message_id`` SET NULL,
     ``library_visible`` still true) are not orphans — they stay until the
     user deletes them from Library. Hidden copies (Library reuse clones,
-    reference-photo lookups) are reaped once that chat is gone.
+    reference-photo lookups) are reaped once that chat is gone, after
+    ``older_than_hours``. Unverified original uploads (``library_visible``
+    true) use ``pending_older_than_hours`` (default same as
+    ``older_than_hours``) so a same-day abandoned image can refund its
+    daily slot.
 
     Bounded so one reap cannot load every orphan in the system; the scheduler
     re-runs and drains remaining rows over time.
     """
-    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    now = datetime.now(UTC)
+    clone_cutoff = now - timedelta(hours=older_than_hours)
+    pending_hours = (
+        older_than_hours if pending_older_than_hours is None else pending_older_than_hours
+    )
+    pending_cutoff = now - timedelta(hours=pending_hours)
     result = await session.execute(
         select(Attachment)
         .where(
             Attachment.message_id.is_(None),
-            Attachment.created_at < cutoff,
             or_(
-                Attachment.verified_at.is_(None),
-                Attachment.library_visible.is_(False),
+                and_(
+                    Attachment.verified_at.is_(None),
+                    Attachment.library_visible.is_(True),
+                    Attachment.created_at < pending_cutoff,
+                ),
+                and_(
+                    Attachment.library_visible.is_(False),
+                    Attachment.created_at < clone_cutoff,
+                ),
             ),
         )
         .order_by(Attachment.created_at.asc(), Attachment.id.asc())

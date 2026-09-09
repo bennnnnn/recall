@@ -19,6 +19,7 @@ import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
+import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import {
@@ -120,7 +121,7 @@ export function ChatMessagePdf({
         accessibilityRole="button"
       >
         <View style={s.iconWrap}>
-          <Icon name="document-text-outline" size={22} color={theme.primary} />
+          <Icon name="document-text-outline" size={IconSize.md} color={theme.primary} />
         </View>
         <View style={s.meta}>
           <Text style={s.name} numberOfLines={2}>

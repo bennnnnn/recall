@@ -191,6 +191,28 @@ def test_compact_image_turn_gets_honesty_hint_not_viz_pack():
     joined = "\n".join(parts)
     assert "Never send the user to DALL-E" in joined
     assert "Never say Recall cannot generate images" in joined
+    assert "do not tell them to send the same image request again" in joined
+
+
+def test_compact_image_turn_when_generation_disabled_does_not_ask_to_retry():
+    from app.services.chat.prompt_constants import (
+        IMAGE_GEN_HONESTY_HINT,
+        IMAGE_GEN_UNAVAILABLE_HINT,
+    )
+
+    parts = _style_format_hints(
+        query_text="generate an image of a dog",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+        image_generation_enabled=False,
+    )
+    assert IMAGE_GEN_UNAVAILABLE_HINT in parts
+    assert IMAGE_GEN_HONESTY_HINT not in parts
+    joined = "\n".join(parts)
+    assert "not available" in joined
+    assert "do not tell the user to resubmit" in joined.lower()
 
 
 def test_rich_turn_injects_format_contract_once_and_keeps_math():

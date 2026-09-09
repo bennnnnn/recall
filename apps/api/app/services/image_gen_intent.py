@@ -522,15 +522,24 @@ def extract_image_gen_prompt_from_thread(
         return None
     if not is_image_gen_generate_now(text):
         return None
-    if not any(
-        is_image_noun_only_message(prior) or extract_image_gen_prompt(prior)
-        for prior in prior_user_contents
-    ):
-        return None
+    return _subject_from_active_image_exchange(prior_user_contents)
+
+
+def _subject_from_active_image_exchange(prior_user_contents: list[str]) -> str | None:
+    """Confirm ("do it") only against the current image exchange, not any older ask."""
+    skipped_noun_only = False
     for prior in reversed(prior_user_contents):
-        subject = _thread_subject_from_user(prior)
-        if subject:
-            return subject
+        if is_image_gen_generate_now(prior):
+            continue
+        if is_image_noun_only_message(prior):
+            skipped_noun_only = True
+            continue
+        explicit = extract_image_gen_prompt(prior)
+        if explicit:
+            return explicit
+        if skipped_noun_only:
+            return _thread_subject_from_user(prior)
+        return None
     return None
 
 

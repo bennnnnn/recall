@@ -460,16 +460,23 @@ export function extractImageGenPromptFromThread(
     return null;
   }
   if (!isImageGenGenerateNow(text)) return null;
-  if (
-    !priors.some(
-      (prior) => isImageNounOnlyMessage(prior) || extractImageGenPrompt(prior) !== null,
-    )
-  ) {
-    return null;
-  }
+  return subjectFromActiveImageExchange(priors);
+}
+
+/** Confirm ("do it") only against the current image exchange, not any older ask. */
+function subjectFromActiveImageExchange(priors: readonly string[]): string | null {
+  let skippedNounOnly = false;
   for (let i = priors.length - 1; i >= 0; i -= 1) {
-    const subject = threadSubjectFromUser(priors[i] ?? "");
-    if (subject) return subject;
+    const prior = priors[i] ?? "";
+    if (isImageGenGenerateNow(prior)) continue;
+    if (isImageNounOnlyMessage(prior)) {
+      skippedNounOnly = true;
+      continue;
+    }
+    const explicit = extractImageGenPrompt(prior);
+    if (explicit) return explicit;
+    if (skippedNounOnly) return threadSubjectFromUser(prior);
+    return null;
   }
   return null;
 }

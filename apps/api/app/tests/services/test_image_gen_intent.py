@@ -82,6 +82,11 @@ def test_extract_image_gen_prompt_from_thread_confirm_after_scene() -> None:
     assert extract_image_gen_prompt_from_thread("That works", priors) == "Dog"
     assert extract_image_gen_prompt_from_thread("I said u do it!", priors) == "Dog"
     assert extract_image_gen_prompt_from_thread("that works", ["add milk"]) is None
+    assert extract_image_gen_prompt_from_thread("do it", ["draw a dog"]) == "dog"
+
+
+def test_extract_image_gen_prompt_from_thread_confirm_not_stale_image_ask() -> None:
+    assert extract_image_gen_prompt_from_thread("do it", ["draw a dog", "Paris"]) is None
 
 
 def test_could_be_image_thread_followup() -> None:

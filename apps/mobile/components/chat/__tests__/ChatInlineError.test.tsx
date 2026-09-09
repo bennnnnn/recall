@@ -11,6 +11,8 @@ jest.mock("react-i18next", () => ({
     t: (key: string) =>
       ({
         "common.retry": "Retry",
+        "chat.regenerate": "Regenerate",
+        "chat.regenerate_a11y": "Regenerate response",
         "chat.restore_draft": "Restore draft",
         "settings.model": "Models",
         "chat.error_dismiss_a11y": "Dismiss error",
@@ -65,7 +67,7 @@ describe("ChatInlineError", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
-  it("offers one-tap retry for a failed reply", async () => {
+  it("offers one-tap regenerate for a failed saved reply", async () => {
     const onRetry = jest.fn();
     const view = await render(
       <ChatInlineError
@@ -76,7 +78,8 @@ describe("ChatInlineError", () => {
       />,
     );
 
-    fireEvent.press(view.getByTestId("chat-error-retry"));
+    expect(view.queryByTestId("chat-error-retry")).toBeNull();
+    fireEvent.press(view.getByTestId("chat-error-regenerate"));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 

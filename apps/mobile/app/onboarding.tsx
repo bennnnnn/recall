@@ -13,6 +13,7 @@ import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 const FEATURES = [
   {
@@ -78,7 +79,7 @@ export default function Onboarding() {
           {FEATURES.map((f) => (
             <View key={f.titleKey} style={s.feature}>
               <View style={s.featureIcon}>
-                <Icon name={f.icon as never} size={20} color={theme.primary} />
+                <Icon name={f.icon as never} size={IconSize.sm} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.featureTitle}>{t(f.titleKey)}</Text>

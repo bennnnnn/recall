@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import type { Project } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
-import { type IoniconName } from "@/lib/icons";
+import { IconSize, type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { learningProjectTitle } from "@/lib/projects/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
@@ -53,7 +53,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
         <Pressable accessibilityRole="button" style={s.mainTap} onPress={() => onOpen(project.id)}>
           <View style={s.header}>
             <View style={s.iconWrap}>
-              <Icon name={icon} size={22} color={theme.primary} />
+              <Icon name={icon} size={IconSize.md} color={theme.primary} />
             </View>
             <View style={s.headerText}>
               <Text style={s.headerTitle} numberOfLines={1}>

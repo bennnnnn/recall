@@ -9,6 +9,8 @@ import { isMathLike } from "@/lib/normalizeImplicitMath";
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
 export const PASTE_GROWTH_MIN = 6;
+/** Ordinary typing / autocorrect stays under this; a real paste is larger. */
+export const PASTE_CLIPBOARD_PROBE_MIN = 40;
 
 const VULGAR_FRACTIONS: Record<string, string> = {
   "½": "\\frac{1}{2}",
@@ -40,10 +42,23 @@ const OP_GLYPHS: [string, string][] = [
   ["∞", "\\infty "],
   ["π", "\\pi "],
   ["·", "\\cdot "],
+  ["⋅", "\\cdot "],
+  ["∗", "\\times "],
+  ["∕", "\\div "],
+  ["⁄", "/"],
   ["−", "-"],
+  ["–", "-"],
+  ["—", "-"],
 ];
 
-const MATH_GLYPH_RE = /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞√×÷±∓≤≥≠≈∞π·−²³¹⁰⁴⁵⁶⁷⁸⁹⁺⁻₀-₉]/;
+export const MATH_GLYPH_RE =
+  /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞√∛∜×÷±∓≤≥≠≈∞π·⋅∗∕⁄−²³¹⁰⁴⁵⁶⁷⁸⁹⁺⁻₀-₉]/;
+
+const RADICAL_PREFIX: Record<string, string> = {
+  "√": "\\sqrt",
+  "∛": "\\sqrt[3]",
+  "∜": "\\sqrt[4]",
+};
 
 /** Enough English words that a paste is a word problem, not a formula. */
 const PROSE_WORD_MIN = 8;
@@ -55,6 +70,11 @@ const PROSE_WORD_MIN = 8;
 export function isMostlyProsePaste(text: string): boolean {
   const words = text.match(/[A-Za-z]{3,}/g);
   return (words?.length ?? 0) >= PROSE_WORD_MIN;
+}
+
+export function shouldProbeClipboardForImagePaste(delta: string): boolean {
+  if (delta.length >= PASTE_CLIPBOARD_PROBE_MIN) return true;
+  return MATH_GLYPH_RE.test(delta) && delta.length >= PASTE_GROWTH_MIN;
 }
 
 export function pastedDeltaLooksLikeMath(delta: string): boolean {
@@ -88,12 +108,13 @@ export function restoreCopiedFractions(raw: string): string {
 }
 
 function rewriteUnicodeSqrts(s: string): string {
-  // Convert √9 / √x / √{9} / √(x) before leftover √ becomes \sqrt{}.
+  // Convert √9 / ∛8 / √{9} / √(x) before leftover √ becomes \sqrt{}.
   let out = "";
   let i = 0;
   const n = s.length;
   while (i < n) {
-    if (s[i] !== "√") {
+    const cmd = RADICAL_PREFIX[s[i] ?? ""];
+    if (!cmd) {
       out += s[i];
       i += 1;
       continue;
@@ -101,7 +122,7 @@ function rewriteUnicodeSqrts(s: string): string {
     i += 1;
     while (i < n && (s[i] === " " || s[i] === "\t")) i += 1;
     if (i >= n) {
-      out += "\\sqrt{}";
+      out += `${cmd}{}`;
       break;
     }
     if (s[i] === "(" || s[i] === "{") {
@@ -109,10 +130,10 @@ function rewriteUnicodeSqrts(s: string): string {
       const start = i + 1;
       const close = s.indexOf(closer, start);
       if (close < 0) {
-        out += "\\sqrt{}";
+        out += `${cmd}{}`;
         continue;
       }
-      out += `\\sqrt{${s.slice(start, close)}}`;
+      out += `${cmd}{${s.slice(start, close)}}`;
       i = close + 1;
       continue;
     }
@@ -126,17 +147,17 @@ function rewriteUnicodeSqrts(s: string): string {
           j = k;
         }
       }
-      out += `\\sqrt{${s.slice(i, j)}}`;
+      out += `${cmd}{${s.slice(i, j)}}`;
       i = j;
       continue;
     }
     const ch = s[i];
     if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")) {
-      out += `\\sqrt{${ch}}`;
+      out += `${cmd}{${ch}}`;
       i += 1;
       continue;
     }
-    out += "\\sqrt{}";
+    out += `${cmd}{}`;
   }
   return out;
 }

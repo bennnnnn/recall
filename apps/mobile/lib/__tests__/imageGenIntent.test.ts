@@ -230,5 +230,12 @@ describe("extractImageGenPromptFromThread", () => {
     expect(extractImageGenPromptFromThread("That works", msgs)).toBe("Dog");
     expect(extractImageGenPromptFromThread("I said u do it!", msgs)).toBe("Dog");
     expect(extractImageGenPromptFromThread("that works", [user("u1", "add milk")])).toBeNull();
+    expect(extractImageGenPromptFromThread("do it", [user("u1", "draw a dog")])).toBe("dog");
+  });
+
+  it("does not treat do it as image-gen after the topic moved", () => {
+    expect(
+      extractImageGenPromptFromThread("do it", [user("u1", "draw a dog"), user("u2", "Paris")]),
+    ).toBeNull();
   });
 });

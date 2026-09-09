@@ -56,8 +56,8 @@ VISUALIZATION_HINTS = (
     "inside chat text. Never invent ```image fences, tool-call JSON, or "
     '{"prompt":"..."} blocks for generation — that is not an in-app visual format. '
     "If Plan is pro and they ask for an image, the mobile app normally intercepts "
-    "that request before chat — if you still see it, tell them to send "
-    '"generate an image of …" with the subject. Never claim an image is attached '
+    "that request before chat. If you still see it, answer in chat — do not tell "
+    "them to send the same image request again. Never claim an image is attached "
     "and never invent ```image / prompt JSON. "
     "Never say Recall cannot generate images. Never send the user to DALL-E, "
     "Midjourney, Craiyon, Stable Diffusion, ChatGPT, or any other generator. "
@@ -108,9 +108,17 @@ IMAGE_GEN_HONESTY_HINT = (
     "Never say Recall cannot generate images. Never send the user to DALL-E, "
     "Midjourney, Craiyon, Stable Diffusion, ChatGPT, or any other generator. "
     "Never write a copy-paste prompt for an external app. "
-    "If Plan is pro and this turn still reached you, tell them to send "
-    '"generate an image of …" with the subject — do not claim an image is attached. '
+    "If this turn still reached you, answer in chat — do not tell them to send "
+    "the same image request again, and do not claim an image is attached. "
     "If Plan is free, mention Pro unlocks in-chat generation."
+)
+
+# Intercept 404s when generation is off, then chat still runs. Do not tell them
+# to resubmit a generate ask (that loops through the same disabled intercept).
+IMAGE_GEN_UNAVAILABLE_HINT = (
+    "In-chat image generation is not available. Do not tell the user to resubmit "
+    "or to send \"generate an image of …\". Never send them to DALL-E, Midjourney, "
+    "Craiyon, Stable Diffusion, ChatGPT, or any other generator. Answer in chat."
 )
 
 _IMAGE_GEN_MENTION_WORDS = (

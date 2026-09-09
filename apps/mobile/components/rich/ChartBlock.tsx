@@ -23,6 +23,7 @@ import {
   nextChartPreviewHeight,
 } from "@/lib/chartPreviewHeight";
 import { CODE_FONT } from "@/lib/fonts";
+import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import {
@@ -138,7 +139,7 @@ export function ChartBlock({ content }: Props) {
           >
             <Icon
               name={showSource ? "eye-off-outline" : "code-slash-outline"}
-              size={20}
+              size={IconSize.sm}
               color={showSource ? theme.primary : theme.textSecondary}
             />
           </Pressable>
@@ -152,7 +153,7 @@ export function ChartBlock({ content }: Props) {
             >
               <Icon
                 name={expanded ? "contract-outline" : "expand-outline"}
-                size={20}
+                size={IconSize.sm}
                 color={theme.textSecondary}
               />
             </Pressable>
@@ -164,7 +165,7 @@ export function ChartBlock({ content }: Props) {
             accessibilityRole="button"
             accessibilityLabel={t("rich.vega_editor")}
           >
-            <Icon name="open-outline" size={20} color={theme.textSecondary} />
+            <Icon name="open-outline" size={IconSize.sm} color={theme.textSecondary} />
           </Pressable>
         </>
       }
@@ -172,7 +173,7 @@ export function ChartBlock({ content }: Props) {
       <View style={[s.previewBox, { height }]}>
         {renderError ? (
           <View style={[s.previewPlaceholder, { height }]}>
-            <Icon name="alert-circle-outline" size={20} color={theme.danger} />
+            <Icon name="alert-circle-outline" size={IconSize.sm} color={theme.danger} />
             <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
               {renderError}
             </Text>

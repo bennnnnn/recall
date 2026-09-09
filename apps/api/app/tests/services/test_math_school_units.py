@@ -127,6 +127,34 @@ def test_unit_aliases() -> None:
     assert abs(float(math_school.convert_unit(1.0, "lb", "g")) - 453.59237) < 1e-4
 
 
+# Converter-pad prompts (apps/mobile/lib/unitConverter.ts). Must parse with
+# original case — lowercasing before Pint used to drop J/N/Pa/kWh/BTU/mmHg.
+@pytest.mark.parametrize(
+    "value, src, dest",
+    [
+        (5.0, "J", "cal"),
+        (5.0, "kJ", "J"),
+        (5.0, "N", "lbf"),
+        (5.0, "kN", "N"),
+        (5.0, "Pa", "psi"),
+        (5.0, "kPa", "Pa"),
+        (5.0, "kWh", "J"),
+        (5.0, "Wh", "J"),
+        (5.0, "eV", "J"),
+        (5.0, "BTU", "kJ"),
+        (5.0, "mmHg", "kPa"),
+        (5.0, "fl-oz", "mL"),
+        (1.0, "atm", "psi"),
+        (1.0, "L", "mL"),
+    ],
+)
+def test_converter_pad_prompts_round_trip(value: float, src: str, dest: str) -> None:
+    result = float(math_school.convert_unit(value, src, dest))
+    assert result > 0
+    back = float(math_school.convert_unit(result, dest, src))
+    assert abs(back - value) / value < 1e-6
+
+
 # ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------

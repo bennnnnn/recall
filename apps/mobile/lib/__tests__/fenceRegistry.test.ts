@@ -188,6 +188,47 @@ describe("fence registry lookups", () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
+  it("does not add fence types without an explicit contract change", () => {
+    expect(FENCES.map((spec) => spec.id).sort()).toEqual([
+      "answer",
+      "callout",
+      "chart",
+      "chemistry",
+      "clock",
+      "collapsible",
+      "comparison",
+      "copy",
+      "email",
+      "geometry",
+      "graph",
+      "keyvalue",
+      "learning_launch",
+      "math",
+      "mermaid",
+      "message",
+      "molecule",
+      "molecule3d",
+      "places",
+      "quote",
+      "social",
+      "sources",
+      "steps",
+    ]);
+    expect(
+      FENCES.filter((spec) => spec.owner === "model").map((spec) => spec.id).sort(),
+    ).toEqual([
+      "chart",
+      "chemistry",
+      "copy",
+      "email",
+      "math",
+      "mermaid",
+      "message",
+      "places",
+      "social",
+    ]);
+  });
+
   it("treats latex/tex as math fence aliases (open-stream typeset, not CodeBlock)", () => {
     expect(fenceIdForLang("latex")).toBe("math");
     expect(fenceIdForLang("tex")).toBe("math");

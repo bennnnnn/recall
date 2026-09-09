@@ -75,6 +75,7 @@ from app.services.chat.prompt_constants.routing import (
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
     IMAGE_GEN_HONESTY_HINT,
+    IMAGE_GEN_UNAVAILABLE_HINT,
     VISUALIZATION_HINTS,
     attach_chemistry_fence_hint,
     is_html_ui_question,
@@ -112,6 +113,7 @@ __all__ = [
     "GRAPH_NO_SUBSTITUTE_CLAUSE",
     "HOWTO_FORMAT_HINT",
     "IMAGE_GEN_HONESTY_HINT",
+    "IMAGE_GEN_UNAVAILABLE_HINT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
