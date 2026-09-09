@@ -21,6 +21,17 @@ const todo = { id: "todo-a", content: "Call Mom", due_at: original.toISOString()
 function event(type: "set" | "dismissed", date = original): DateTimePickerEvent {
   return { type, nativeEvent: { timestamp: date.getTime(), utcOffset: 0 } };
 }
+function duePickerProps(change = jest.fn(), extra: Record<string, unknown> = {}) {
+  return {
+    todos: [todo],
+    duePicker: { todo, date: original, recurrence: null as const },
+    onDismiss: jest.fn(),
+    onChange: change,
+    onConfirm: jest.fn(),
+    onRecurrenceChange: jest.fn(),
+    ...extra,
+  };
+}
 beforeEach(() => { jest.clearAllMocks(); jest.replaceProperty(Platform, "OS", "android"); });
 afterEach(() => jest.restoreAllMocks());
 
@@ -41,7 +52,8 @@ it("creates an Android reminder by choosing a date then a time", async () => {
 
 it("commits an Android due-date edit only after the time step", async () => {
   const change = jest.fn();
-  await render(<DuePickerModal todos={[todo]} duePicker={{ todo, date: original }} onDismiss={jest.fn()} onChange={change} onConfirm={jest.fn()} />);
+  const ui = await render(<DuePickerModal {...duePickerProps(change)} />);
+  await fireEvent.press(ui.getByLabelText("todos.due_date_required"));
   expect(mockPicker.mode).toBe("date");
   const firstCallback = mockPicker.onChange;
   const day = new Date(2026, 10, 2, 9, 30);
@@ -59,17 +71,17 @@ it("commits an Android due-date edit only after the time step", async () => {
 
 it.each(["date", "time"])("cancels Android %s selection without committing a due date", async (step) => {
   const change = jest.fn();
-  await render(<DuePickerModal todos={[todo]} duePicker={{ todo, date: original }} onDismiss={jest.fn()} onChange={change} onConfirm={jest.fn()} />);
+  const ui = await render(<DuePickerModal {...duePickerProps(change)} />);
+  await fireEvent.press(ui.getByLabelText("todos.due_date_required"));
   if (step === "time") await act(() => { mockPicker.onChange(event("set"), original); });
   await act(() => { mockPicker.onChange(event("dismissed")); });
-  expect(change).toHaveBeenCalledTimes(1);
-  expect(change.mock.calls[0][0].type).toBe("dismissed");
-  expect(change.mock.calls[0][1]).toBeUndefined();
+  expect(change).not.toHaveBeenCalled();
 });
 
 it("ignores a native callback after unmount", async () => {
   const change = jest.fn();
-  const ui = await render(<DuePickerModal todos={[todo]} duePicker={{ todo, date: original }} onDismiss={jest.fn()} onChange={change} onConfirm={jest.fn()} />);
+  const ui = await render(<DuePickerModal {...duePickerProps(change)} />);
+  await fireEvent.press(ui.getByLabelText("todos.due_date_required"));
   const callback = mockPicker.onChange;
   await ui.unmount();
   await act(() => { callback(event("set"), original); });
@@ -79,7 +91,7 @@ it("ignores a native callback after unmount", async () => {
 it("retains the native combined picker on iOS", async () => {
   jest.replaceProperty(Platform, "OS", "ios");
   const change = jest.fn();
-  await render(<DuePickerModal todos={[todo]} duePicker={{ todo, date: original }} onDismiss={jest.fn()} onChange={change} onConfirm={jest.fn()} />);
+  await render(<DuePickerModal {...duePickerProps(change)} />);
   expect(mockPicker.mode).toBe("datetime");
   await act(() => { mockPicker.onChange(event("set"), original); });
   expect(change).toHaveBeenCalledWith(event("set"), original);
@@ -87,11 +99,18 @@ it("retains the native combined picker on iOS", async () => {
 
 it("rejects an earlier reminder's picker callback after changing targets", async () => {
   const change = jest.fn();
-  const props = { todos: [todo], onDismiss: jest.fn(), onChange: change, onConfirm: jest.fn() };
-  const ui = await render(<DuePickerModal {...props} duePicker={{ todo, date: original }} />);
+  const props = duePickerProps(change);
+  const ui = await render(<DuePickerModal {...props} />);
+  await fireEvent.press(ui.getByLabelText("todos.due_date_required"));
   await act(() => { mockPicker.onChange(event("set"), original); });
   const oldTime = mockPicker.onChange;
-  await ui.rerender(<DuePickerModal {...props} duePicker={{ todo: { ...todo, id: "todo-b" }, date: original }} />);
+  await ui.rerender(
+    <DuePickerModal
+      {...props}
+      duePicker={{ todo: { ...todo, id: "todo-b" }, date: original, recurrence: null }}
+    />,
+  );
+  await fireEvent.press(ui.getByLabelText("todos.due_date_required"));
   await act(() => { oldTime(event("set"), original); });
   expect(change).not.toHaveBeenCalled();
   expect(mockPicker.mode).toBe("date");
@@ -99,11 +118,20 @@ it("rejects an earlier reminder's picker callback after changing targets", async
 
 it("ignores an already-open dialog callback while saving", async () => {
   const change = jest.fn();
-  const props = { todos: [todo], duePicker: { todo, date: original }, onDismiss: jest.fn(), onChange: change, onConfirm: jest.fn() };
+  const props = duePickerProps(change);
   const ui = await render(<DuePickerModal {...props} />);
+  await fireEvent.press(ui.getByLabelText("todos.due_date_required"));
   await act(() => { mockPicker.onChange(event("set"), original); });
   const oldTime = mockPicker.onChange;
   await ui.rerender(<DuePickerModal {...props} saving />);
   await act(() => { oldTime(event("set"), original); });
   expect(change).not.toHaveBeenCalled();
+});
+
+it("forwards a repeat change from the due picker", async () => {
+  const onRecurrenceChange = jest.fn();
+  const ui = await render(<DuePickerModal {...duePickerProps(jest.fn(), { onRecurrenceChange })} />);
+  await fireEvent.press(ui.getByLabelText("todos.repeat_label, todos.repeat_none"));
+  await fireEvent.press(ui.getByLabelText("todos.repeat_weekly"));
+  expect(onRecurrenceChange).toHaveBeenCalledWith("weekly");
 });

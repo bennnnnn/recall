@@ -45,3 +45,13 @@ def test_todo_rejects_whitespace_content(model):
         payload["due_at"] = "2026-09-05T08:00:00Z"
     with pytest.raises(ValidationError):
         getattr(schedule, model)(**payload)
+
+
+def test_todo_update_rejects_recurrence_without_due():
+    with pytest.raises(ValidationError, match="recurrence_rule requires due_at"):
+        TodoUpdate(recurrence_rule="weekly")
+
+
+def test_todo_update_accepts_recurrence_with_due():
+    body = TodoUpdate(due_at="2026-09-08T12:00:00Z", recurrence_rule="weekly")
+    assert body.recurrence_rule == "weekly"

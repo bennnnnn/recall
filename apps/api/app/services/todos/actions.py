@@ -16,7 +16,7 @@ from app.services import home as home_service
 from app.services import time_context as time_context_service
 from app.services.action_dispatch import ActionHandler, apply_action_batch
 from app.services.todos.prompt_context import _normalize, _topic_key
-from app.services.todos.recurrence import is_recurrence_rule, snap_first_due
+from app.services.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +198,20 @@ async def _todo_action_delete(state: _TodoApplyState, action: TodoActionItem) ->
     return 0
 
 
+def _set_due_fields(
+    item: TodoItem,
+    due_at: datetime,
+    action: TodoActionItem,
+    timezone: str | None,
+) -> dict[str, datetime | RecurrenceRule]:
+    effective_due = _rescheduled_due(item, due_at, timezone)
+    fields: dict[str, datetime | RecurrenceRule] = {"due_at": effective_due}
+    if action.recurrence_rule is not None:
+        fields["recurrence_rule"] = action.recurrence_rule
+        fields["due_at"] = snap_first_due(effective_due, action.recurrence_rule, timezone=timezone)
+    return fields
+
+
 async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -> int:
     due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
     if due_at is None:
@@ -211,14 +225,22 @@ async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -
                 continue
             if _due_local_date(open_item, state.user_timezone) != today:
                 continue
-            effective_due = _rescheduled_due(open_item, due_at, state.user_timezone)
-            await todos_repo.update(state.session, open_item, due_at=effective_due, commit=False)
+            await todos_repo.update(
+                state.session,
+                open_item,
+                commit=False,
+                **_set_due_fields(open_item, due_at, action, state.user_timezone),
+            )
             applied += 1
         return applied
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item:
-        effective_due = _rescheduled_due(item, due_at, state.user_timezone)
-        await todos_repo.update(state.session, item, due_at=effective_due, commit=False)
+        await todos_repo.update(
+            state.session,
+            item,
+            commit=False,
+            **_set_due_fields(item, due_at, action, state.user_timezone),
+        )
         return 1
     return 0
 

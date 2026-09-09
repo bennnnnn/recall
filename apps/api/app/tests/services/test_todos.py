@@ -71,6 +71,22 @@ async def test_update_todo_rejects_cleared_due_at():
 
 
 @pytest.mark.asyncio
+async def test_update_todo_rejects_recurrence_without_due():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    item = MagicMock()
+    item.due_at = None
+    item.recurrence_rule = None
+    with patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)):
+        with pytest.raises(todos_crud.TodosError) as exc:
+            await todos_crud.update_todo(session, user, uuid4(), {"recurrence_rule": "weekly"})
+    assert exc.value.status_code == 422
+    assert "due_at" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_create_todo_rejects_project_id():
     session = AsyncMock()
     user = MagicMock()
@@ -476,6 +492,41 @@ async def test_apply_todo_actions_set_due():
         )
     assert applied == 1
     update_mock.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_todo_actions_set_due_forwards_recurrence():
+    session = AsyncMock()
+    existing = _item("Pay rent", "Home")
+    due = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+    with (
+        patch.object(
+            todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            todos_repo,
+            "update",
+            AsyncMock(return_value=existing),
+        ) as update_mock,
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(
+                    action="set_due",
+                    topic="Home",
+                    content="Pay rent",
+                    due_at=due,
+                    recurrence_rule="weekly",
+                )
+            ],
+            user_timezone="UTC",
+        )
+    assert applied == 1
+    assert update_mock.await_args.kwargs["recurrence_rule"] == "weekly"
 
 
 def test_select_todos_for_prompt_prioritizes_overdue():
@@ -1026,6 +1077,32 @@ async def test_materialize_reminder_fences_set_due_confirms():
     assert "Moved: Walk — Monday, Jul 20, 3:00 PM." in updated
 
 
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_set_due_forwards_repeat():
+    session = AsyncMock()
+    existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
+    existing.due_at = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    text = (
+        '```reminder\n{"action":"set_due","title":"Walk",'
+        '"due_at":"2026-07-20T15:00:00-04:00","repeat":"weekly"}\n```'
+    )
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+        )
+    assert applied == 1
+    assert update_mock.await_args.kwargs["recurrence_rule"] == "weekly"
+    assert "Moved: Walk — Monday, Jul 20, 3:00 PM · weekly." in updated
+
+
 def test_format_schedule_result_set_line():
     from app.services.todos.reminder_fences import format_schedule_result
 
@@ -1045,6 +1122,8 @@ def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
     assert "```reminder" in hint
     assert '"action":"delete"' in hint
+    assert '"action":"set_due","title":"Walk"' in hint
+    assert '"repeat":"weekly"' in hint
     assert "Do not say the change is done" in hint
     assert "do not ask" in hint and "flight number" in hint
     assert "Emit the fence first" in hint

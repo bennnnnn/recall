@@ -24,7 +24,7 @@ TODO_HINT = (
     "Schedule writes via chat — REQUIRED fence (the app only saves from this fence). "
     "Emit the fence first, before any other text. One fence per item. "
     "due_at must be ISO-8601 with timezone offset (or Z). "
-    "Optional repeat on create: daily, weekdays, weekly, or monthly.\n"
+    "Optional repeat on create or reschedule: daily, weekdays, weekly, or monthly.\n"
     "Create:\n"
     "```reminder\n"
     '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00","repeat":"weekly"}\n'
@@ -34,7 +34,7 @@ TODO_HINT = (
     '{"action":"delete","title":"Walk"}\n'
     "```\n"
     "```reminder\n"
-    '{"action":"set_due","title":"Walk","due_at":"2026-07-20T15:00:00-04:00"}\n'
+    '{"action":"set_due","title":"Walk","due_at":"2026-07-20T15:00:00-04:00","repeat":"weekly"}\n'
     "```\n"
     "Do not say the change is done, coming, or set. The app appends the saved result "
     "after it applies (or a failure line). Without the fence, nothing is saved.\n"
