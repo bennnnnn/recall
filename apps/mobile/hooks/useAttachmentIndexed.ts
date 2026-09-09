@@ -4,16 +4,28 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 
 const INDEX_POLL_MS = 2000;
-const INDEX_POLL_MAX_MS = 60_000;
+export const INDEX_POLL_MAX_MS = 60_000;
 
-/** True once attachment RAG chunks exist (or indexing does not apply). */
-export function useAttachmentIndexed(attachmentId: string | null | undefined): boolean {
+export type AttachmentIndexStatus = {
+  indexed: boolean;
+  failed: boolean;
+};
+
+/** Indexed once attachment RAG chunks exist (or indexing does not apply). */
+export function useAttachmentIndexed(
+  attachmentId: string | null | undefined,
+): AttachmentIndexStatus {
   const token = useAuthToken();
-  const [result, setResult] = useState({ attachmentId, token, indexed: !attachmentId });
+  const [result, setResult] = useState({
+    attachmentId,
+    token,
+    indexed: !attachmentId,
+    failed: false,
+  });
 
   useEffect(() => {
     if (!attachmentId || !token) {
-      setResult({ attachmentId, token, indexed: !attachmentId });
+      setResult({ attachmentId, token, indexed: !attachmentId, failed: false });
       return;
     }
     let cancelled = false;
@@ -25,15 +37,20 @@ export function useAttachmentIndexed(attachmentId: string | null | undefined): b
         const row = await api.getAttachmentUrl(token, attachmentId);
         if (cancelled) return;
         if (row.indexed !== false) {
-          setResult({ attachmentId, token, indexed: true });
+          setResult({ attachmentId, token, indexed: true, failed: false });
           return;
         }
-        setResult({ attachmentId, token, indexed: false });
+        setResult({ attachmentId, token, indexed: false, failed: false });
       } catch {
         if (cancelled) return;
-        setResult({ attachmentId, token, indexed: false });
+        setResult({ attachmentId, token, indexed: false, failed: false });
       }
-      if (Date.now() - started >= INDEX_POLL_MAX_MS) return;
+      if (Date.now() - started >= INDEX_POLL_MAX_MS) {
+        if (!cancelled) {
+          setResult({ attachmentId, token, indexed: false, failed: true });
+        }
+        return;
+      }
       timer = setTimeout(() => {
         void poll();
       }, INDEX_POLL_MS);
@@ -45,5 +62,11 @@ export function useAttachmentIndexed(attachmentId: string | null | undefined): b
     };
   }, [attachmentId, token]);
 
-  return !attachmentId || (result.attachmentId === attachmentId && result.token === token && result.indexed);
+  if (!attachmentId) {
+    return { indexed: true, failed: false };
+  }
+  if (result.attachmentId !== attachmentId || result.token !== token) {
+    return { indexed: false, failed: false };
+  }
+  return { indexed: result.indexed, failed: result.failed };
 }

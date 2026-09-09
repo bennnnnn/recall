@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Worker crash mid-index dropped the job forever.** Dedupe SET NX used a 300s
+  running TTL while reclaim idle is 60s; skip then always `xack`ed. Mark
+  success as `done`; skip without ack while still `1`; keepalive refreshes
+  the running TTL. Chip stops saying “Still indexing…” after 60s.
+
 - **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
   typed English) hit the calculus verb so a Math note stamped, but
   `squared` is an unknown letter-run so extract returned None. Rewrite

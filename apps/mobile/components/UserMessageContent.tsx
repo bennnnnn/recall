@@ -51,7 +51,14 @@ export function UserMessageContent({ message }: Props) {
   const nonPdfFileLabel =
     message.local_file_name ??
     fileLabelFromContentType(nonPdfFile?.contentType, t("chat.attached_file"));
-  const fileIndexed = useAttachmentIndexed(nonPdfFile?.attachmentId);
+  const { indexed: fileIndexed, failed: fileIndexFailed } = useAttachmentIndexed(
+    nonPdfFile?.attachmentId,
+  );
+  const nonPdfFileStatus = fileIndexFailed
+    ? t("chat.file_index_failed")
+    : fileIndexed
+      ? nonPdfFileLabel
+      : t("chat.file_indexing");
   const showCaption =
     parsed.caption.length > 0 &&
     !(showPdf && (parsed.caption === pdfFileName || parsed.caption.endsWith(".pdf")));
@@ -93,13 +100,11 @@ export function UserMessageContent({ message }: Props) {
             {parsed.hasFileAttachment && !showPdf ? (
               <View
                 style={s.fileChip}
-                accessibilityLabel={
-                  fileIndexed ? nonPdfFileLabel : t("chat.file_indexing")
-                }
+                accessibilityLabel={nonPdfFileStatus}
               >
                 <Icon name="document-outline" size={16} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>
-                  {fileIndexed ? nonPdfFileLabel : t("chat.file_indexing")}
+                  {nonPdfFileStatus}
                 </Text>
               </View>
             ) : null}
