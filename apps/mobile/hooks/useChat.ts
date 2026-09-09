@@ -208,6 +208,22 @@ export function useChat(
     });
   }, []);
 
+  /** Server never saved this user turn — drop the optimistic bubble and keep Retry. */
+  const queueUnsavedSend = useCallback((pending: PendingSend, reason: RejectedSend["reason"]) => {
+    const boundChatId = viewingChatIdRef.current;
+    if (!boundChatId) return;
+    const rejected: RejectedSend = { ...pending, reason };
+    const queue = rejectedSendsRef.current.get(boundChatId) ?? [];
+    if (rejected.retryingRejected) queue.unshift(rejected);
+    else queue.push(rejected);
+    rejectedSendsRef.current.set(boundChatId, queue);
+    setRejectedSend(queue[0]);
+    if (rejected.messageId) {
+      setMessages((previous) => previous.filter((message) =>
+        message.id !== rejected.messageId || message.role !== "user"));
+    }
+  }, []);
+
   // Keep streamingRef in sync so onclose/onerror closures always see fresh value
   useEffect(() => {
     streamingRef.current = streaming;
@@ -368,19 +384,11 @@ export function useChat(
         // These codes explicitly guarantee this user turn was never saved.
         // A start/status event alone is not acceptance; answer events are.
         const pending = pendingSendRef.current;
+        pendingSendRef.current = null;
         const reason = payload.code === "busy" ? "send_rejected"
           : payload.code === "attachment_rejected" ? "attachment_rejected" : null;
-        const rejected: RejectedSend | null = pending && reason ? { ...pending, reason } : null;
-        pendingSendRef.current = null;
-        if (rejected && chatId) {
-          const queue = rejectedSendsRef.current.get(chatId) ?? [];
-          if (rejected.retryingRejected) queue.unshift(rejected);
-          else queue.push(rejected);
-          rejectedSendsRef.current.set(chatId, queue);
-          setRejectedSend(queue[0]);
-          setMessages((previous) => previous.filter((message) =>
-            message.id !== rejected.messageId || message.role !== "user"));
-        }
+        const queuedUnsaved = Boolean(pending && reason);
+        if (pending && reason) queueUnsavedSend(pending, reason);
         regenerateUiActiveRef.current = false;
         wsAuthFallbackRef.current = null;
         wsTurnRef.current = null;
@@ -420,7 +428,9 @@ export function useChat(
         }
         reportError(
           payload.message ?? t("chat.error_generic"),
-          rejected && chatId ? rejectedSendsRef.current.get(chatId)?.[0]?.reason : typeof payload.code === "string" ? payload.code : undefined,
+          queuedUnsaved
+            ? rejectedSendsRef.current.get(viewingChatIdRef.current ?? "")?.[0]?.reason
+            : typeof payload.code === "string" ? payload.code : undefined,
         );
       }
     },
@@ -428,6 +438,7 @@ export function useChat(
       appendStreamingPlaceholder,
       chatId,
       clearStreamingBubble,
+      queueUnsavedSend,
       restoreRegenerateBackup,
       reportError,
       updateStreamingDraft,
@@ -511,7 +522,51 @@ export function useChat(
         // A failed handshake must let the waiting send fall back to SSE.
         if (wsTurnRef.current !== ws) return;
         wsTurnRef.current = null;
+        const pending = pendingSendRef.current;
         pendingSendRef.current = null;
+        if (streamingRef.current || finalizingRef.current) {
+          setStreaming(false);
+          setFinalizing(false);
+          streamingRef.current = false;
+          finalizingRef.current = false;
+          const hadContent = assistantBuffer.current.trim().length > 0;
+          const draft = streamingDraftRef.current;
+          const failedRegenerateBackup = regenerateBackupRef.current;
+          regenerateBackupRef.current = null;
+          assistantBuffer.current = "";
+          updateStreamingDraft(null);
+          setSendingMessageId(null);
+          setMessages((prev) => {
+            const streamingMsg = prev.find((m) => m.id === "streaming");
+            if (!streamingMsg) return prev;
+            if (!hadContent) {
+              const withoutStreaming = prev.filter((m) => m.id !== "streaming");
+              if (failedRegenerateBackup) {
+                return restoreAssistantMessage(withoutStreaming, failedRegenerateBackup);
+              }
+              return withoutStreaming;
+            }
+            return prev.map((m) =>
+              m.id === "streaming"
+                ? {
+                    ...m,
+                    id: `streamed-${Date.now()}`,
+                    content: draft?.content ?? m.content,
+                    search_sources: draft?.search_sources ?? m.search_sources,
+                    generationStopped: true,
+                  }
+                : m,
+            );
+          });
+          if (!hadContent && !failedRegenerateBackup) {
+            if (pending) {
+              queueUnsavedSend(pending, "send_rejected");
+              reportError(t("chat.error_unreachable"), "send_rejected");
+            } else {
+              reportError(t("chat.error_connection_lost"));
+            }
+          }
+        }
         if (streamingRef.current || finalizingRef.current) {
           setStreaming(false);
           setFinalizing(false);
@@ -597,6 +652,7 @@ export function useChat(
     chatId,
     reportError,
     handleChatPayloadForChat,
+    queueUnsavedSend,
     updateStreamingDraft,
     isCurrentView,
     t,
@@ -643,6 +699,7 @@ export function useChat(
         });
       } catch (err) {
         if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal || isSseAbortError(err)) return;
+        const pending = pendingSendRef.current;
         pendingSendRef.current = null;
         setSendingMessageId(null);
         setStreaming(false);
@@ -651,6 +708,11 @@ export function useChat(
         finalizingRef.current = false;
         if (!preservePartialStream()) {
           clearStreamingBubble();
+          if (pending) {
+            queueUnsavedSend(pending, "send_rejected");
+            reportError(t("chat.error_unreachable"), "send_rejected");
+            return;
+          }
         }
         reportError(t("chat.error_unreachable"));
       }
@@ -662,6 +724,7 @@ export function useChat(
       handleChatPayloadForChat,
       preservePartialStream,
       clearStreamingBubble,
+      queueUnsavedSend,
       reportError,
       isCurrentView,
       t,

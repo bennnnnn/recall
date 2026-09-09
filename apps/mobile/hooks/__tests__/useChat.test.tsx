@@ -324,6 +324,45 @@ describe("useChat transport lifecycle", () => {
     }));
   });
 
+  it("treats an SSE transport failure as an unsaved send, not a regenerate", async () => {
+    (streamChatMessageSse as jest.Mock).mockRejectedValueOnce(new Error("offline"));
+    await render(<Probe chatId="a" />);
+    await act(async () => {
+      const pending = current.sendMessage("never arrived");
+      FakeSocket.instances[0].onerror();
+      await pending;
+    });
+    expect(current.messages.filter((message) => message.role === "user")).toHaveLength(0);
+    expect(current.rejectedSend?.content).toBe("never arrived");
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", "send_rejected");
+    (streamChatMessageSse as jest.Mock).mockResolvedValueOnce(undefined);
+    await act(async () => { expect(await current.retryRejectedSend()).toBe(true); });
+    expect(streamChatMessageSse).toHaveBeenLastCalledWith(expect.objectContaining({
+      content: "never arrived",
+    }));
+  });
+
+  it("does not treat a partial SSE stream as an unsaved send", async () => {
+    (streamChatMessageSse as jest.Mock).mockImplementationOnce(async ({ onEvent }) => {
+      onEvent({ type: "start" });
+      onEvent({ type: "token", content: "partial reply" });
+      jest.advanceTimersByTime(20);
+      throw new Error("offline");
+    });
+    await render(<Probe chatId="a" />);
+    await act(async () => {
+      const pending = current.sendMessage("question");
+      FakeSocket.instances[0].onerror();
+      await pending;
+    });
+    expect(current.rejectedSend).toBeNull();
+    expect(current.messages).toEqual(expect.arrayContaining([
+      expect.objectContaining({ content: "question", role: "user" }),
+      expect.objectContaining({ content: "partial reply", generationStopped: true }),
+    ]));
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", undefined);
+  });
+
   it("does not offer new-send retry for an error that may follow persistence", async () => {
     await render(<Probe chatId="a" />);
     const socket = await openSocket();
@@ -466,10 +505,13 @@ describe("useChat transport lifecycle", () => {
       const pending = current.sendMessage("possibly persisted");
       FakeSocket.instances[0].onerror();
       await pending;
-      expect(await current.retryRejectedSend()).toBe(false);
     });
-    expect(current.rejectedSend).toBeNull();
-    expect(current.messages.some((message) => message.content === "possibly persisted")).toBe(true);
+    // Client never saw tokens, so treat as unsaved: drop the optimistic bubble
+    // and keep Retry. A later user tap may duplicate if the server did persist;
+    // leaving it looking sent is worse.
+    expect(current.messages.filter((message) => message.role === "user")).toHaveLength(0);
+    expect(current.rejectedSend?.content).toBe("possibly persisted");
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", "send_rejected");
     expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
   });
 

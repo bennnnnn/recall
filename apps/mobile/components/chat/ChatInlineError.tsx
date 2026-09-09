@@ -66,7 +66,7 @@ export function ChatInlineError({
           <Text style={s.ctaText}>{t("chat.stop")}</Text>
         </Pressable>
       ) : null}
-      {(error.kind === "generic" || error.kind === "send_rejected") && onRetry ? (
+      {error.kind === "send_rejected" && onRetry ? (
         <Pressable
           style={s.cta}
           onPress={onRetry}
@@ -75,6 +75,17 @@ export function ChatInlineError({
           testID="chat-error-retry"
         >
           <Text style={s.ctaText}>{t("common.retry")}</Text>
+        </Pressable>
+      ) : null}
+      {error.kind === "generic" && onRetry ? (
+        <Pressable
+          style={s.cta}
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.regenerate_a11y")}
+          testID="chat-error-regenerate"
+        >
+          <Text style={s.ctaText}>{t("chat.regenerate")}</Text>
         </Pressable>
       ) : null}
       {error.kind === "attachment_rejected" && onRetry ? (
