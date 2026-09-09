@@ -1,3 +1,5 @@
+import i18n from "@/lib/i18n";
+
 export type DueTone = "overdue" | "today" | "soon" | "later";
 
 export function describeDueAt(iso: string | null | undefined): {
@@ -16,17 +18,19 @@ export function describeDueAt(iso: string | null | undefined): {
   );
 
   if (due.getTime() < now.getTime()) {
-    if (dayDiff === 0) return { label: "Overdue today", tone: "overdue" };
+    if (dayDiff === 0) return { label: i18n.t("todos.overdue_today"), tone: "overdue" };
     const days = Math.max(1, Math.abs(dayDiff));
-    return { label: `${days}d overdue`, tone: "overdue" };
+    return { label: i18n.t("todos.overdue_days", { count: days }), tone: "overdue" };
   }
   if (dayDiff === 0) {
     return {
-      label: `Today ${due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`,
+      label: i18n.t("todos.due_today_time", {
+        time: due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+      }),
       tone: "today",
     };
   }
-  if (dayDiff === 1) return { label: "Tomorrow", tone: "soon" };
+  if (dayDiff === 1) return { label: i18n.t("calendar.tomorrow_heading"), tone: "soon" };
   if (dayDiff <= 7) {
     return {
       label: due.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
