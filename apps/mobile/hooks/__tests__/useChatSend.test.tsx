@@ -21,6 +21,7 @@ const mockSwitchThread = jest.fn();
 const mockAdoptComposerThread = jest.fn();
 const mockStashFailedDraftForThread = jest.fn();
 let mockThreadKey = "new";
+const mockResetForNewSession = jest.fn();
 jest.mock("@/contexts/ComposerDraftContext", () => ({
   useComposerDraftApi: () => ({
     setInput: mockSetInput,
@@ -28,6 +29,7 @@ jest.mock("@/contexts/ComposerDraftContext", () => ({
     switchThread: mockSwitchThread,
     adoptComposerThread: mockAdoptComposerThread,
     stashFailedDraftForThread: mockStashFailedDraftForThread,
+    resetForNewSession: mockResetForNewSession,
     getThreadKey: () => mockThreadKey,
   }),
 }));
@@ -173,6 +175,17 @@ describe("useChatSend", () => {
     });
 
     expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("wipes composer drafts when the account session changes", async () => {
+    const view = await act(async () => render(<Probe />));
+    expect(mockResetForNewSession).not.toHaveBeenCalled();
+    (getSessionGeneration as jest.Mock).mockReturnValue(1);
+    await act(async () => {
+      view.rerender(<Probe />);
+    });
+    expect(mockResetForNewSession).toHaveBeenCalledTimes(1);
+    expect(mockSwitchThread).toHaveBeenCalledWith("new");
   });
 
   it("surfaces new-chat creation failures and restores the draft", async () => {

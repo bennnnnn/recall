@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Account B saw Account A's unsent composer draft.** Provider stays mounted
+  above the login Redirect; `switchThread` no-ops on the shared `"new"` key.
+  Reset drafts on session change and from `clearSignedOutAccount`.
 - **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
   typed English) hit the calculus verb so a Math note stamped, but
   `squared` is an unknown letter-run so extract returned None. Rewrite

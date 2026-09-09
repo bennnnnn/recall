@@ -1,6 +1,8 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,9 +12,11 @@ import {
   type SetStateAction,
 } from "react";
 
+import { subscribeComposerDraftReset } from "@/lib/chat/composerDraftReset";
 import {
   COMPOSER_NEW_THREAD_KEY,
   adoptNewComposerThread,
+  clearAllComposerDrafts,
   stashFailedSendDraft,
   takeThreadDraft,
 } from "@/lib/chat/composerThreadDraft";
@@ -23,6 +27,7 @@ type ComposerDraftApi = {
   switchThread: (nextKey: string) => void;
   adoptComposerThread: (nextKey: string) => void;
   stashFailedDraftForThread: (key: string, failedText: string) => void;
+  resetForNewSession: () => void;
   getThreadKey: () => string;
 };
 
@@ -40,6 +45,14 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
   inputRef.current = input;
   const draftsRef = useRef(new Map<string, string>());
   const threadKeyRef = useRef(COMPOSER_NEW_THREAD_KEY);
+
+  const resetForNewSession = useCallback(() => {
+    clearAllComposerDrafts(draftsRef.current);
+    threadKeyRef.current = COMPOSER_NEW_THREAD_KEY;
+    setInput("");
+  }, []);
+
+  useEffect(() => subscribeComposerDraftReset(resetForNewSession), [resetForNewSession]);
 
   const api = useMemo<ComposerDraftApi>(
     () => ({
@@ -69,9 +82,10 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
         if (threadKeyRef.current === key) return;
         stashFailedSendDraft(draftsRef.current, key, failedText);
       },
+      resetForNewSession,
       getThreadKey: () => threadKeyRef.current,
     }),
-    [],
+    [resetForNewSession],
   );
   const value = useMemo<ComposerDraftValue>(() => ({ input }), [input]);
 
