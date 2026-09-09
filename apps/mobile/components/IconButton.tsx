@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import { Icon } from "@/components/Icon";
-import { type IoniconName } from "@/lib/icons";
+import { IconSize, type IoniconName } from "@/lib/icons";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -17,12 +17,13 @@ type Props = {
   testID?: string;
 };
 
-/** 44×44 hit target around a smaller outline icon. */
+/** 44×44 hit target around a smaller outline icon. Prefer this over a
+ *  one-off Pressable wrapping `Icon` for standalone chrome controls. */
 export function IconButton({
   name,
   onPress,
   accessibilityLabel,
-  size = 20,
+  size = IconSize.sm,
   color,
   disabled = false,
   style,

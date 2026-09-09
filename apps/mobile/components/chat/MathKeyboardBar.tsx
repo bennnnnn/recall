@@ -18,6 +18,7 @@ import {
   type PadCell,
 } from "@/lib/mathKeyboardSymbols";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 export const MATH_KEYBOARD_PAD_HEIGHT = 320;
 
@@ -309,7 +310,7 @@ function PadKey({
         keyHeight={keyHeight}
         accent
       >
-        <Icon name="backspace-outline" size={20} color={theme.text} />
+        <Icon name="backspace-outline" size={IconSize.sm} color={theme.text} />
       </KeyBtn>
     );
   }

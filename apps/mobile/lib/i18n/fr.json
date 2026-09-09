@@ -199,6 +199,7 @@
   "chat.read_aloud_failed_body": "Couldn't play that aloud. Chat still works — try again.",
   "chat.read_aloud_unavailable_body": "Text-to-speech is not available on this device.",
   "chat.read_aloud_unavailable_title": "Read aloud unavailable",
+  "chat.regenerate": "Régénérer",
   "chat.regenerate_a11y": "Régénérer la réponse",
   "chat.remove_attachment_a11y": "Retirer la pièce jointe",
   "chat.rename": "Renommer",

@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { useSettingsProposal } from "@/hooks/useSettingsProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   proposal: SettingsProposal;
@@ -31,7 +32,7 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Icon name="options-outline" size={20} color={theme.primary} />
+        <Icon name="options-outline" size={IconSize.sm} color={theme.primary} />
         <Text style={s.title}>{t("settings.proposal_title")}</Text>
       </View>
       {proposal.changes.map((change) => (

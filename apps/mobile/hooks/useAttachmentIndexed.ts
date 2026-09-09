@@ -4,7 +4,8 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 
 const INDEX_POLL_MS = 2000;
-export const INDEX_POLL_MAX_MS = 60_000;
+/** Match jobs.py `_JOB_DONE_CLAIM_TTL_SECONDS` (300s) plus one poll slack. */
+export const INDEX_POLL_MAX_MS = 360_000;
 
 export type AttachmentIndexStatus = {
   indexed: boolean;

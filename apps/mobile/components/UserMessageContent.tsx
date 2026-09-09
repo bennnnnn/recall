@@ -21,6 +21,7 @@ import {
 import { shouldCollapseMessage } from "@/lib/markdown/messageFold";
 import { displayMathToInline } from "@/lib/math/solutionBars";
 import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 // Async-split pdf.js (~1.4MB) off the chat cold path — same pattern as
@@ -133,13 +134,13 @@ function makeStyles(C: Theme) {
     column: {
       maxWidth: "82%",
       alignItems: "flex-end",
-      gap: 8,
+      gap: Space.xs,
     },
     textBubble: {
       backgroundColor: C.userBubble,
       borderRadius: Radius.bubble,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
     },
     textBubbleBelowImage: {
       alignSelf: "flex-end",

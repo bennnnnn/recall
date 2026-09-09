@@ -256,12 +256,20 @@ async def enrich_final_content(
         from app.services.sympy_executor import run_sympy
 
         try:
-            assistant_text = await run_sympy(
-                seams.math_fence_service.validate_math_fences_worker,
-                assistant_text,
-                ctx.verified_math,
-                timeout=settings.math_solve_timeout_seconds,
-            )
+            # Direct verified replies already carry ```answer. Running that
+            # rewrite on the SymPy pool can queue behind an integral for no
+            # benefit — keep it in-process.
+            if ctx.instant_reply is not None and ctx.verified_math is not None:
+                assistant_text = seams.math_fence_service.validate_math_fences_worker(
+                    assistant_text, ctx.verified_math
+                )
+            else:
+                assistant_text = await run_sympy(
+                    seams.math_fence_service.validate_math_fences_worker,
+                    assistant_text,
+                    ctx.verified_math,
+                    timeout=settings.math_solve_timeout_seconds,
+                )
         except TimeoutError:
             logger.warning("validate_math_fences timed out; keeping raw assistant text")
             canonical = ctx.verified_math.canonical_fence if ctx.verified_math is not None else None

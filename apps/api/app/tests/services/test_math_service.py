@@ -66,6 +66,8 @@ def test_normalize_unicode_scripts_and_glyphs() -> None:
     assert math_service._normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
     assert math_service._normalize_latex_to_sympy("\u03c0") == "pi"
     assert math_service._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
+    assert math_service._normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
+    assert math_service._normalize_latex_to_sympy("\u221ax") == "sqrt(x)"
     assert math_service._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
     assert math_service._normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
     assert math_service._normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
@@ -202,6 +204,34 @@ def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
     assert "Quadratic formula" in steps_text
     # Discriminant of x^2 + 4x + 1 is 16 - 4 = 12.
     assert "12" in steps_text
+    assert "--" not in steps_text
+
+
+def test_solve_quadratic_negative_b_parenthesizes_discriminant() -> None:
+    """``x^2 - 5x + 6`` used to emit ``\\Delta = -5^{2} - 4(1)(6) = 1`` (false:
+    -5^2 is -25) and ``--5`` in the formula. Parenthesize b and use latex(-b)."""
+    result = math_service.solve_equation(
+        EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "\\Delta" in steps_text
+    assert "(-5)^{2}" in steps_text or "\\left(-5\\right)^{2}" in steps_text
+    assert "-5^{2}" not in steps_text.replace("(-5)^{2}", "")
+    assert "--" not in steps_text
+    assert "2(1)" not in steps_text
+    joined = " ".join(result.solutions_latex)
+    assert "2" in joined
+    assert "3" in joined
+
+
+def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
+    result = math_service.solve_equation(
+        EquationInput(lhs="2*x**2 - 4*x - 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "--" not in steps_text
+    assert "-4^{2}" not in steps_text
+    assert "(-4)^{2}" in steps_text or "\\left(-4\\right)^{2}" in steps_text
 
 
 def test_solve_linear_includes_worked_isolation_steps() -> None:
@@ -219,6 +249,17 @@ def test_solve_linear_shows_subtract_on_both_sides() -> None:
     steps_text = "\n".join(result.steps)
     assert "F + 3 - 3 = 3 - 3" in steps_text
     assert "F = 0" in steps_text
+
+
+def test_solve_linear_multiplies_by_reciprocal_for_half_x() -> None:
+    """x/2 + 1 = 4 should multiply by 2, not divide by 1/2."""
+    result = math_service.solve_equation(EquationInput(lhs="x/2 + 1", rhs="4", variables=["x"]))
+    steps_text = "\n".join(result.steps)
+    assert "Multiply" in steps_text
+    assert "2" in steps_text
+    assert "x = 6" in steps_text
+    assert "Divide both sides by" not in steps_text
+    assert r"\frac{\frac" not in steps_text
 
 
 def test_worked_steps_empty_for_unrecognized_form() -> None:

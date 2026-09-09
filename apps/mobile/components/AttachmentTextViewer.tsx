@@ -18,6 +18,7 @@ import { fetchAttachmentBytes } from "@/lib/fetchAttachmentBytes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 const MAX_PREVIEW_CHARS = 200_000;
 
@@ -83,13 +84,13 @@ export function AttachmentTextViewer({
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
           <Pressable onPress={onClose} hitSlop={8} accessibilityLabel={t("preview.close")}>
-            <Icon name="close" size={24} color={theme.text} />
+            <Icon name="close" size={IconSize.lg} color={theme.text} />
           </Pressable>
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
           <Pressable onPress={onShare} hitSlop={8} accessibilityLabel={t("preview.share")}>
-            <Icon name="share-outline" size={22} color={theme.primary} />
+            <Icon name="share-outline" size={IconSize.md} color={theme.primary} />
           </Pressable>
         </View>
         <View style={s.body}>

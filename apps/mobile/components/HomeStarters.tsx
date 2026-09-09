@@ -12,6 +12,7 @@ import { instantHomePlaceholder, welcomeStarters } from "@/lib/homeWelcome";
 import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
 import { firstOverdueHomeTodo, homeUrgentPrompt, listHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -175,11 +176,11 @@ function makeStyles(t: Theme) {
     urgentCard: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
+      gap: Space.sm,
       backgroundColor: t.dangerLight,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: Radius.lg,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
       paddingRight: 36,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: withAlpha(t.danger, 0.22),
@@ -188,9 +189,9 @@ function makeStyles(t: Theme) {
       position: "absolute",
       top: 6,
       right: 6,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
+      width: Space.lg,
+      height: Space.lg,
+      borderRadius: Radius.md,
       backgroundColor: t.surface,
       alignItems: "center",
       justifyContent: "center",
@@ -204,7 +205,7 @@ function makeStyles(t: Theme) {
     urgentTitle: { ...Type.navTitle, color: t.text },
     urgentDue: { fontSize: 12, fontWeight: "600", color: t.danger },
     startersBlock: { width: "100%", marginTop: 4 },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
+    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
     chip: {
       flexDirection: "row",
       alignItems: "center",
@@ -212,10 +213,10 @@ function makeStyles(t: Theme) {
       backgroundColor: t.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      borderRadius: 999,
-      paddingHorizontal: 14,
+      borderRadius: Radius.full,
+      paddingHorizontal: Space.md,
       paddingVertical: 10,
-      minHeight: 44,
+      minHeight: Space.minTouch,
       maxWidth: "100%",
     },
     chipText: { ...Type.secondary, fontWeight: "500", color: t.text },

@@ -10,6 +10,7 @@ import {
   formatProposalWhen,
 } from "@/lib/calendarProposal";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   proposal: CalendarProposal;
@@ -34,7 +35,7 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Icon name="calendar-outline" size={20} color={theme.primary} />
+        <Icon name="calendar-outline" size={IconSize.sm} color={theme.primary} />
         <Text style={s.title} numberOfLines={2}>
           {proposal.title}
         </Text>

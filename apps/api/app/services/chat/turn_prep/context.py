@@ -596,6 +596,14 @@ async def build_stream_prompt_context(
     math_unverified = (
         math_block is not None and verified_math is None and math_block.startswith("Math note:")
     )
+    if instant_reply is None and verified_math is not None:
+        from app.services.math_tools.direct import maybe_direct_math_reply
+
+        instant_reply = maybe_direct_math_reply(
+            verified_math,
+            content,
+            has_image_attachment=has_image_attachment,
+        )
     return TurnPromptBundle(
         prompt_messages=prompt_messages,
         meta=meta,

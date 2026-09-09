@@ -127,7 +127,14 @@ export function countTableColumns(node: AstNode): number {
 }
 
 export function detectStandaloneLink(node: AstNode): string | null {
-  const kids = node.children ?? [];
+  let kids = node.children ?? [];
+  // markdown-display flattens inlines then wraps them in `textgroup`.
+  while (
+    kids.length === 1 &&
+    (kids[0].type === "inline" || kids[0].type === "textgroup")
+  ) {
+    kids = kids[0].children ?? [];
+  }
   if (kids.length === 1 && kids[0].type === "link") {
     const href = kids[0].attributes?.href;
     return href && isStandaloneUrl(href) ? href : null;

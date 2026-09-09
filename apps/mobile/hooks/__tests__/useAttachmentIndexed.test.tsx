@@ -66,7 +66,7 @@ describe("useAttachmentIndexed", () => {
     expect(failed).toBe(false);
   });
 
-  it("marks indexing failed after the poll window", async () => {
+  it("keeps indexing through the job claim TTL, then marks failed", async () => {
     jest.useFakeTimers();
     mockGetAttachmentUrl.mockResolvedValue({ indexed: false });
     try {
@@ -74,6 +74,10 @@ describe("useAttachmentIndexed", () => {
         render(<Probe attachmentId="att-1" />);
       });
       await waitFor(() => expect(mockGetAttachmentUrl).toHaveBeenCalled());
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(failed).toBe(false);
       await act(async () => {
         jest.advanceTimersByTime(INDEX_POLL_MAX_MS);
       });

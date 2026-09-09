@@ -60,12 +60,23 @@ async def test_run_sympy_runs_in_subprocess():
 
 
 @pytest.mark.asyncio
+async def test_default_uses_isolated_one_worker_slots():
+    """Default is several isolated 1-worker pools, not one shared N-worker
+    pool (killing that would SIGTERM every in-flight sibling)."""
+    executor = ProcessPoolSympyExecutor()
+    assert executor._max_workers == 3
+    pool = executor._ensure_slot(0)
+    assert pool._max_workers == 1
+    executor.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_pool_size_bounded_to_one_worker():
-    """max_workers=1 — a runaway SymPy call occupies the single worker; the
-    pool must not grow unbounded (DoS protection)."""
+    """A slot is always max_workers=1 — a runaway occupies that subprocess
+    only. The executor must not grow unbounded (DoS protection)."""
     executor = ProcessPoolSympyExecutor(max_workers=1)
     assert executor._max_workers == 1
-    pool = executor._ensure_pool()
+    pool = executor._ensure_slot(0)
     assert pool._max_workers == 1
     executor.shutdown()
 
@@ -157,5 +168,61 @@ async def test_timeout_excludes_queue_wait():
         result = await run_sympy(_add, 2, 3, timeout=0.15)
         assert result == 5
         assert await occupier == 1
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_queue_wait_fails_closed_without_killing_occupant():
+    """Interactive math must not wait 60s for a busy slot — fail closed so
+    the turn can fall back to unverified prose."""
+    executor = ThreadSympyExecutor(max_workers=1, queue_wait_seconds=0.12)
+    set_sympy_executor(executor)
+    try:
+        occupier = asyncio.create_task(run_sympy(_sleep, 0.8, timeout=5))
+        await asyncio.sleep(0.05)
+        started = time.monotonic()
+        with pytest.raises(TimeoutError, match="slot wait"):
+            await run_sympy(_add, 2, 3, timeout=5)
+        assert time.monotonic() - started < 0.5
+        assert await occupier == 1
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_two_workers_run_in_parallel():
+    """Two slots must overlap; they must not serialize behind one 5s budget."""
+    executor = ThreadSympyExecutor(max_workers=2, queue_wait_seconds=2.0)
+    set_sympy_executor(executor)
+    try:
+        started = time.monotonic()
+        results = await asyncio.gather(
+            run_sympy(_sleep, 0.4, timeout=5),
+            run_sympy(_sleep, 0.4, timeout=5),
+        )
+        elapsed = time.monotonic() - started
+        assert results == [1, 1]
+        assert elapsed < 0.75
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_timeout_does_not_kill_sibling_slot():
+    """A timeout on one slot must not BrokenProcessPool a sibling solve."""
+    executor = ProcessPoolSympyExecutor(max_workers=2, queue_wait_seconds=2.0)
+    set_sympy_executor(executor)
+    try:
+        occupier = asyncio.create_task(run_sympy(_sleep_forever, None, timeout=8))
+        await asyncio.sleep(1.0)
+        started = time.monotonic()
+        result = await run_sympy(_add, 2, 3, timeout=10)
+        assert result == 5
+        assert time.monotonic() - started < 6.0
+        occupier.cancel()
+        with pytest.raises((TimeoutError, asyncio.CancelledError)):
+            await occupier
+        assert await run_sympy(_add, 4, 1, timeout=10) == 5
     finally:
         executor.shutdown()
