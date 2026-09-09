@@ -196,9 +196,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
   fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
-  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs before the LLM
-  explains (verified numbers injected into the prompt; Recall attaches geometry,
-  graph, and algebra ` ```answer ` after the stream). The composer **math keypad** inserts
+  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
+  verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
+  turn; “explain every step” still streams. Recall attaches geometry, graph, and
+  algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,

@@ -1,4 +1,4 @@
-"""Bounded executor for SymPy work — isolates CPU-bound math in a subprocess
+"""Bounded executor for SymPy work — isolates CPU-bound math in subprocesses
 with a hard kill on timeout.
 
 SymPy's ``solve``/``integrate``/``simplify`` are synchronous, CPU-bound, and
@@ -11,17 +11,17 @@ shared default thread pool:
    running the bad SymPy call until it finishes (or forever), leaking the
    thread and its CPU.
 
-This module provides a dedicated, bounded ``ProcessPoolExecutor`` so SymPy
-work is isolated to a single subprocess and a runaway can be SIGTERM'd. The
-executor is injectable so tests can swap in a thread-based variant (which
-preserves monkeypatching of module-level functions, since the subprocess
-can't resolve test-local patches).
+This module provides dedicated, bounded ``ProcessPoolExecutor`` slots so
+SymPy work is isolated and a runaway can be SIGTERM'd without killing
+siblings. The executor is injectable so tests can swap in a thread-based
+variant (which preserves monkeypatching of module-level functions, since the
+subprocess can't resolve test-local patches).
 
 Uses the ``spawn`` start method (not ``fork``) so the worker doesn't inherit
 the parent's threads/locks — the API process is multi-threaded (asyncio +
 thread pool) and ``fork`` in a multi-threaded process can deadlock in the
-child. The first call pays a one-time SymPy-import cost in the fresh worker;
-subsequent calls reuse the worker.
+child. The first call on a slot pays a one-time SymPy-import cost in the
+fresh worker; subsequent calls reuse that worker.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ import logging
 import multiprocessing as mp
 import time
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -40,16 +40,25 @@ _T = TypeVar("_T")
 
 # Use the spawn start method so the worker doesn't inherit the parent's
 # threads/locks (the API process is multi-threaded; fork() in a multi-
-# threaded process can deadlock in the child). The worker is created once
-# and reused, so the spawn cost (re-importing SymPy) is paid once per pool
-# lifetime, not per call.
+# threaded process can deadlock in the child). Each slot's worker is
+# created once and reused, so the spawn cost (re-importing SymPy) is
+# paid once per slot lifetime, not per call.
 _MP_CONTEXT = mp.get_context("spawn")
 
-# Wait for a worker slot without counting toward the solve timeout (and without
-# killing the in-flight occupant). A hung submit that never starts still
-# fails closed instead of blocking the request forever.
-_QUEUE_WAIT_SECONDS = 60.0
+# Interactive chat must not sit behind someone else's integral. Slot acquire
+# is independent of the per-job solve timeout and does not kill the occupant.
+DEFAULT_SYMPY_MAX_WORKERS = 3
+DEFAULT_SYMPY_QUEUE_WAIT_SECONDS = 2.0
+_MAX_SYMPY_WORKERS = 8
+# After a slot is acquired the 1-worker pool may still be spawning (first
+# SymPy import). That is not "queued behind another request" and must not
+# share the 2s interactive wait.
+_SPAWN_WAIT_SECONDS = 20.0
 _QUEUE_POLL_SECONDS = 0.01
+
+
+def _clamp_workers(max_workers: int) -> int:
+    return max(1, min(max_workers, _MAX_SYMPY_WORKERS))
 
 
 def _sympy_worker(fn: Callable[..., _T], *args: Any) -> _T:
@@ -74,43 +83,66 @@ class BoundedSympyExecutor:
 
 
 class ProcessPoolSympyExecutor(BoundedSympyExecutor):
-    """Dedicated, bounded ``ProcessPoolExecutor`` for SymPy work.
+    """Isolated 1-worker process pools for SymPy work.
 
-    ``max_workers=1`` so a runaway SymPy call is isolated to one subprocess
-    and can be hard-killed on timeout by SIGTERM'ing the worker. The pool is
-    recreated lazily after a kill so subsequent calls get a fresh worker.
+    A shared ``ProcessPoolExecutor(max_workers=N)`` cannot hard-kill one
+    runaway without terminating every in-flight sibling. Each slot is its
+    own ``max_workers=1`` pool so timeout/cancel SIGTERM's only that worker.
     """
 
-    def __init__(self, max_workers: int = 1) -> None:
-        self._max_workers = max_workers
-        self._pool: ProcessPoolExecutor | None = None
+    def __init__(
+        self,
+        max_workers: int = DEFAULT_SYMPY_MAX_WORKERS,
+        *,
+        queue_wait_seconds: float = DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
+    ) -> None:
+        self._max_workers = _clamp_workers(max_workers)
+        self._queue_wait_seconds = queue_wait_seconds
+        self._slots: list[ProcessPoolExecutor | None] = [None] * self._max_workers
+        self._free: asyncio.Queue[int] | None = None
 
-    def _ensure_pool(self) -> ProcessPoolExecutor:
-        if self._pool is None:
-            self._pool = ProcessPoolExecutor(max_workers=self._max_workers, mp_context=_MP_CONTEXT)
-        return self._pool
+    def _free_queue(self) -> asyncio.Queue[int]:
+        q = self._free
+        if q is None:
+            q = asyncio.Queue()
+            for i in range(self._max_workers):
+                q.put_nowait(i)
+            self._free = q
+        return q
 
-    def _kill_pool(self) -> None:
-        """Hard-kill the worker subprocess(es) and drop the pool.
+    def _ensure_slot(self, slot: int) -> ProcessPoolExecutor:
+        pool = self._slots[slot]
+        if pool is None:
+            pool = ProcessPoolExecutor(max_workers=1, mp_context=_MP_CONTEXT)
+            self._slots[slot] = pool
+        return pool
+
+    def _kill_slot(self, slot: int) -> None:
+        """Hard-kill one worker subprocess and drop that slot's pool.
 
         ``shutdown(wait=False)`` returns immediately but does NOT kill running
         workers — they keep executing their current task. Terminate directly
         via the pool's ``_processes`` map (PID -> multiprocessing.Process) so a
         runaway SymPy call is actually stopped, not just orphaned.
         """
-        pool = self._pool
-        self._pool = None
+        pool = self._slots[slot]
+        self._slots[slot] = None
         if pool is None:
             return
         for proc in getattr(pool, "_processes", {}).values():
             try:
                 proc.terminate()
             except Exception:  # best-effort cleanup of a dying process
-                logger.debug("proc.terminate failed during sympy pool kill", exc_info=True)
+                logger.debug("proc.terminate failed during sympy slot kill", exc_info=True)
         try:
             pool.shutdown(wait=False, cancel_futures=True)
         except Exception:  # best-effort cleanup
-            logger.debug("pool.shutdown failed during sympy pool kill", exc_info=True)
+            logger.debug("pool.shutdown failed during sympy slot kill", exc_info=True)
+
+    def _kill_all_slots(self) -> None:
+        for i in range(self._max_workers):
+            self._kill_slot(i)
+        self._free = None
 
     async def run(
         self,
@@ -118,24 +150,47 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         *args: Any,
         timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
     ) -> _T:
-        pool = self._ensure_pool()
+        slot: int | None = None
+        future: Future[_T] | None = None
         t_submit = time.monotonic()
-        future = pool.submit(_sympy_worker, fn, *args)
-        while not future.running() and not future.done():
-            if time.monotonic() - t_submit >= _QUEUE_WAIT_SECONDS:
-                future.cancel()
+        try:
+            try:
+                slot = await asyncio.wait_for(
+                    self._free_queue().get(),
+                    timeout=self._queue_wait_seconds,
+                )
+            except TimeoutError as exc:
                 logger.warning(
-                    "sympy queued %.3fs without starting (worker slot busy)",
+                    "sympy queued %.3fs without a free worker slot",
                     time.monotonic() - t_submit,
                 )
-                raise TimeoutError("SymPy worker slot wait timed out")
-            await asyncio.sleep(_QUEUE_POLL_SECONDS)
-        t_start = time.monotonic()
-        queue_s = t_start - t_submit
-        afut = asyncio.wrap_future(future)
-        try:
-            async with asyncio.timeout(timeout):
-                result = await afut
+                raise TimeoutError("SymPy worker slot wait timed out") from exc
+
+            queue_s = time.monotonic() - t_submit
+            pool = self._ensure_slot(slot)
+            future = pool.submit(_sympy_worker, fn, *args)
+            t_spawn = time.monotonic()
+            while not future.running() and not future.done():
+                if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:
+                    logger.warning("sympy worker failed to start after %.3fs", _SPAWN_WAIT_SECONDS)
+                    future.cancel()
+                    self._kill_slot(slot)
+                    raise TimeoutError("SymPy worker failed to start")
+                await asyncio.sleep(_QUEUE_POLL_SECONDS)
+            t_start = time.monotonic()
+            afut = asyncio.wrap_future(future)
+            try:
+                async with asyncio.timeout(timeout):
+                    result = await afut
+            except TimeoutError:
+                logger.warning(
+                    "sympy worker timed out after %.3fs (queued %.3fs)",
+                    timeout,
+                    queue_s,
+                )
+                future.cancel()
+                self._kill_slot(slot)
+                raise
             if queue_s >= 0.05:
                 logger.info(
                     "sympy queued=%.3fs ran=%.3fs",
@@ -143,38 +198,40 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                     time.monotonic() - t_start,
                 )
             return result
-        except TimeoutError:
-            logger.warning(
-                "sympy worker timed out after %.3fs (queued %.3fs)",
-                timeout,
-                queue_s,
-            )
-            future.cancel()
-            self._kill_pool()
-            raise
         except BaseException:
             # Request/WS cancel must kill the subprocess if *this* call owns
-            # the worker. A cancel while still queued is handled above (the
-            # loop has not wrapped the future yet).
-            future.cancel()
-            self._kill_pool()
+            # a slot. A cancel while still queued has slot is None.
+            if slot is not None:
+                if future is not None:
+                    future.cancel()
+                self._kill_slot(slot)
             raise
+        finally:
+            if slot is not None:
+                self._free_queue().put_nowait(slot)
 
     def shutdown(self) -> None:
-        self._kill_pool()
+        self._kill_all_slots()
 
 
 class ThreadSympyExecutor(BoundedSympyExecutor):
     """In-process thread-based executor — for tests (monkeypatch-friendly).
 
-    Uses a dedicated single-worker thread pool (NOT the shared default) so
-    SymPy work is still isolated from other ``to_thread`` callers. No hard
-    kill on timeout — the thread keeps running — but tests verify the
+    Uses a dedicated thread pool (NOT the shared default) so SymPy work is
+    still isolated from other ``to_thread`` callers. No hard kill on
+    timeout — the thread keeps running — but tests verify the
     timeout-fallback behavior, not the kill itself.
     """
 
-    def __init__(self, max_workers: int = 1) -> None:
-        self._pool = ThreadPoolExecutor(max_workers=max_workers)
+    def __init__(
+        self,
+        max_workers: int = 1,
+        *,
+        queue_wait_seconds: float = DEFAULT_SYMPY_QUEUE_WAIT_SECONDS,
+    ) -> None:
+        self._max_workers = _clamp_workers(max_workers)
+        self._queue_wait_seconds = queue_wait_seconds
+        self._pool = ThreadPoolExecutor(max_workers=self._max_workers)
 
     async def run(
         self,
@@ -185,7 +242,7 @@ class ThreadSympyExecutor(BoundedSympyExecutor):
         t_submit = time.monotonic()
         future = self._pool.submit(fn, *args)
         while not future.running() and not future.done():
-            if time.monotonic() - t_submit >= _QUEUE_WAIT_SECONDS:
+            if time.monotonic() - t_submit >= self._queue_wait_seconds:
                 future.cancel()
                 raise TimeoutError("SymPy worker slot wait timed out")
             await asyncio.sleep(_QUEUE_POLL_SECONDS)
@@ -206,7 +263,13 @@ _executor: BoundedSympyExecutor | None = None
 def get_sympy_executor() -> BoundedSympyExecutor:
     global _executor
     if _executor is None:
-        _executor = ProcessPoolSympyExecutor(max_workers=1)
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        _executor = ProcessPoolSympyExecutor(
+            max_workers=settings.sympy_max_workers,
+            queue_wait_seconds=settings.sympy_queue_wait_seconds,
+        )
     return _executor
 
 
@@ -235,7 +298,8 @@ async def run_sympy(
 
     Raises ``TimeoutError`` if the callable does not complete within
     ``timeout`` seconds of the worker starting (the subprocess is SIGTERM'd
-    in that case). Time spent queued behind another call does not count
-    toward ``timeout`` and does not kill the occupant.
+    in that case). Time spent waiting for a free slot does not count toward
+    ``timeout`` and does not kill the occupant. Interactive slot wait is capped
+    separately (default 2s) so one slow integral cannot stall ``1+1=x``.
     """
     return await get_sympy_executor().run(fn, *args, timeout=timeout)
