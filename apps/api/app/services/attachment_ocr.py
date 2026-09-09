@@ -10,7 +10,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.services.attachment_content import MAX_EXTRACT_CHARS
+from app.services.attachment_content import MAX_EXTRACT_CHARS, ExtractedText
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,15 @@ def _embedded_page_images(data: bytes, *, max_pages: int) -> list[tuple[str, byt
     return out
 
 
+def _pdf_page_count(data: bytes) -> int:
+    try:
+        from pypdf import PdfReader
+
+        return len(PdfReader(io.BytesIO(data)).pages)
+    except Exception:
+        return 0
+
+
 def _image_mime(raw: bytes, name: str) -> str:
     if raw[:8] == b"\x89PNG\r\n\x1a\n":
         return "image/png"
@@ -153,18 +162,29 @@ async def _ocr_one_page(
     return _page_text_from_response(response)
 
 
-async def ocr_scanned_pdf(settings: Settings, data: bytes) -> str | None:
+async def ocr_scanned_pdf(
+    settings: Settings,
+    data: bytes,
+    *,
+    max_chars: int | None = None,
+    max_pages: int | None = None,
+) -> ExtractedText | None:
     """Best-effort page OCR — never raises into the chat or index path."""
     if not data or not settings.attachment_ocr_enabled:
         return None
     if mock_llm.should_mock_llm(settings):
         return None
+    chars = MAX_EXTRACT_CHARS if max_chars is None else max_chars
+    pages_limit = settings.attachment_ocr_max_pages if max_pages is None else max_pages
+    timeout = settings.attachment_ocr_timeout_seconds
+    if pages_limit > settings.attachment_ocr_max_pages:
+        timeout = max(timeout, settings.attachment_ocr_index_timeout_seconds)
     try:
-        async with asyncio.timeout(settings.attachment_ocr_timeout_seconds):
+        async with asyncio.timeout(timeout):
             pages = await asyncio.to_thread(
                 render_pdf_pages,
                 data,
-                max_pages=settings.attachment_ocr_max_pages,
+                max_pages=pages_limit,
                 scale=settings.attachment_ocr_render_scale,
             )
             if not pages:
@@ -185,4 +205,12 @@ async def ocr_scanned_pdf(settings: Settings, data: bytes) -> str | None:
 
     parts = [text.strip() for text in texts if text and text.strip()]
     joined = "\n\n".join(parts).strip()
-    return joined[:MAX_EXTRACT_CHARS] if joined else None
+    if not joined:
+        return None
+    total_pages = _pdf_page_count(data)
+    return ExtractedText(
+        text=joined[:chars],
+        char_capped=len(joined) > chars,
+        page_capped=total_pages > pages_limit,
+        via_ocr=True,
+    )

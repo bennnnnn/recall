@@ -75,7 +75,9 @@ async def test_ocr_scanned_pdf_concatenates_pages():
     ):
         text = await ocr.ocr_scanned_pdf(settings, b"%PDF-fake")
 
-    assert text == "Page one text"
+    assert text is not None
+    assert text.text == "Page one text"
+    assert text.via_ocr is True
     assert vision.await_count == 2
 
 
@@ -99,7 +101,9 @@ async def test_ocr_scanned_pdf_joins_nonempty_pages():
         ),
     ):
         text = await ocr.ocr_scanned_pdf(settings, b"%PDF-fake")
-    assert text == "Heading\n\nBody paragraph"
+    assert text is not None
+    assert text.text == "Heading\n\nBody paragraph"
+    assert text.via_ocr is True
 
 
 @pytest.mark.asyncio
@@ -181,3 +185,70 @@ async def test_extract_async_timeout_does_not_ocr(monkeypatch):
     result = await extract_text_from_bytes_async("application/pdf", b"%PDF", settings)
     assert result is None
     ocr_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ocr_scanned_pdf_uses_caller_char_cap():
+    settings = Settings(
+        attachment_ocr_enabled=True,
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+    )
+    rendered = [("image/jpeg", b"\xff\xd8\xffpage1")]
+    with (
+        patch.object(ocr, "render_pdf_pages", return_value=rendered) as render,
+        patch.object(ocr, "_pdf_page_count", return_value=40),
+        patch(
+            "app.gateways.litellm_gateway.vision_completion",
+            AsyncMock(return_value=_vision_response("x" * 50)),
+        ),
+    ):
+        result = await ocr.ocr_scanned_pdf(
+            settings,
+            b"%PDF-fake",
+            max_chars=12,
+            max_pages=20,
+        )
+
+    assert render.call_args.kwargs["max_pages"] == 20
+    assert result is not None
+    assert result.text == "x" * 12
+    assert result.char_capped is True
+    assert result.page_capped is True
+    assert result.via_ocr is True
+
+
+@pytest.mark.asyncio
+async def test_extract_async_ocr_index_uses_index_caps(monkeypatch):
+    from app.services.attachment_content import (
+        MAX_EXTRACT_CHARS,
+        MAX_INDEX_EXTRACT_CHARS,
+        extract_text_from_bytes_async,
+    )
+
+    monkeypatch.setattr(
+        "app.services.attachment_content.extract_text_details",
+        lambda *_a, **_k: None,
+    )
+    captured: dict = {}
+
+    async def _ocr(_settings, _data, *, max_chars=None, max_pages=None):
+        captured["max_chars"] = max_chars
+        captured["max_pages"] = max_pages
+        from app.services.attachment_content import ExtractedText
+
+        return ExtractedText(text="scanned", via_ocr=True)
+
+    monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", _ocr)
+    settings = Settings(attachment_ocr_enabled=True, attachment_ocr_index_max_pages=20)
+    result = await extract_text_from_bytes_async(
+        "application/pdf",
+        b"%PDF",
+        settings,
+        max_chars=MAX_INDEX_EXTRACT_CHARS,
+        ocr_max_pages=settings.attachment_ocr_index_max_pages,
+    )
+    assert result == "scanned"
+    assert captured["max_chars"] == MAX_INDEX_EXTRACT_CHARS
+    assert captured["max_pages"] == 20
+    assert captured["max_chars"] != MAX_EXTRACT_CHARS

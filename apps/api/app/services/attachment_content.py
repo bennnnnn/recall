@@ -256,6 +256,7 @@ class ExtractedText:
     text: str
     char_capped: bool = False
     page_capped: bool = False
+    via_ocr: bool = False
 
 
 def file_excerpt_limit_note(
@@ -401,6 +402,7 @@ async def extract_text_details_async(
     *,
     max_chars: int = MAX_EXTRACT_CHARS,
     allow_ocr: bool = True,
+    ocr_max_pages: int | None = None,
 ) -> ExtractedText | None:
     """Offload the sync, CPU-bound parse to a worker thread with a timeout,
     so a large or adversarially crafted PDF/DOCX can't block the event loop —
@@ -428,8 +430,26 @@ async def extract_text_details_async(
     if allow_ocr and content_type == "application/pdf" and settings.attachment_ocr_enabled:
         from app.services.attachment_ocr import ocr_scanned_pdf
 
-        ocr_text = await ocr_scanned_pdf(settings, data)
-        return ExtractedText(text=ocr_text) if ocr_text else None
+        pages_for_ocr = (
+            ocr_max_pages
+            if ocr_max_pages is not None
+            else (
+                settings.attachment_ocr_index_max_pages
+                if max_chars > MAX_EXTRACT_CHARS
+                else settings.attachment_ocr_max_pages
+            )
+        )
+        ocr_result = await ocr_scanned_pdf(
+            settings,
+            data,
+            max_chars=max_chars,
+            max_pages=pages_for_ocr,
+        )
+        if ocr_result is None:
+            return None
+        if isinstance(ocr_result, ExtractedText):
+            return ocr_result
+        return ExtractedText(text=ocr_result, via_ocr=True)
     return None
 
 
@@ -440,6 +460,7 @@ async def extract_text_from_bytes_async(
     *,
     max_chars: int = MAX_EXTRACT_CHARS,
     allow_ocr: bool = True,
+    ocr_max_pages: int | None = None,
 ) -> str | None:
     details = await extract_text_details_async(
         content_type,
@@ -447,6 +468,7 @@ async def extract_text_from_bytes_async(
         settings,
         max_chars=max_chars,
         allow_ocr=allow_ocr,
+        ocr_max_pages=ocr_max_pages,
     )
     return None if details is None else details.text
 

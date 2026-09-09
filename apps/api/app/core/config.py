@@ -65,7 +65,10 @@ class Settings(BaseSettings):
     # extract timeout. Same excerpt + chunk/RAG path; no second pipeline.
     attachment_ocr_enabled: bool = True
     attachment_ocr_max_pages: int = 6
+    # Index job only — vision cost, not 500 text-layer pages.
+    attachment_ocr_index_max_pages: int = 20
     attachment_ocr_timeout_seconds: float = 30.0
+    attachment_ocr_index_timeout_seconds: float = 120.0
     attachment_ocr_page_timeout_seconds: float = 12.0
     attachment_ocr_render_scale: float = 1.5
     semantic_memory_enabled: bool = True

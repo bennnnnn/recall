@@ -229,7 +229,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   unread. A RAG miss is not treated as “not in the file.”
 - ✅ **Deeper file retrieval** — indexing reads up to 500 text-layer PDF pages / 200k
   characters (256 chunks by default), independently of the small inline excerpt.
-  Existing indexes require re-upload/reindex to gain the expanded coverage.
+  Scanned-PDF OCR on the index job is a separate ceiling (20 pages / 200k chars,
+  not 500 vision pages). Stored coverage drives the RAG prefix so OCR files are
+  not described as 500-page extracts. Existing indexes require re-upload/reindex
+  to gain the expanded coverage.
 - ✅ **Office text** — XLSX cells/formula text and PPTX text/tables/speaker notes.
   No formula execution, macros, embedded chart/image understanding, or external-link loading.
 - ✅ **Image edits** — owned reference bytes reach the image provider; hidden copies
@@ -781,8 +784,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   at turn start (excludes the recent window). Same shape as attachment RAG.
 - ✅ **Scanned-PDF OCR** — text-layer `pypdf` on **prepare** (no vision). Empty PDFs
   render pages (`pypdfium2`) and transcribe via `vision-chat` on the **index job**,
-  then the same excerpt + attachment RAG path. Cap + timeout in `attachment_ocr_*`.
-  Not a second extract pipeline.
+  then the same excerpt + attachment RAG path. Inline OCR stays at 6 pages / 12k
+  chars; index OCR uses 20 pages / 200k chars (`attachment_ocr_index_*`). Coverage is
+  stored on the attachment and the RAG prefix uses those ceilings, not a static
+  500/200k claim. Not a second extract pipeline.
 - ✅ **Owned tool loop enabled** — `mcp_tool_loop_enabled` defaults true. Heuristic
   SymPy still runs. Web search is the tool loop (source chips + wrap; forced search if
   the model skips). See [§29](#29-next-actions-product-decisions).
@@ -1111,8 +1116,9 @@ weakness. No video generation. Native share is enough unless we later decide we 
    the owned tool loop (source chips + wrap); a skipped `web_search` still runs
    one cached search. Add Docs/GitHub later as owned tools — not user MCP servers.
 2. ✅ **Scanned-PDF OCR** — text-layer extract on prepare (no vision); empty PDFs
-   render pages → `vision-chat` on the **index job** → same excerpt + chunk/embed
-   RAG. No second pipeline.
+   render pages → `vision-chat` on the **index job** (20 pages / 200k chars, not 500
+   vision calls) → same excerpt + chunk/embed RAG. Coverage is stored; the prompt
+   prefix uses those ceilings. No second pipeline.
 3. ✅ **Chat-history semantic RAG** — `message_index` after finalize; top-k at turn
    start excluding the recent window. Golden Rule 3: never dump the full transcript.
 4. ✅ **Reply-quality Lane 2** — “yes/go” follows the prior offer; requested length

@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **RAG said “first 500 PDF pages” after a 6-page OCR extract.** Indexing
+  called OCR with the inline 12k/6-page caps, stored no coverage, and the
+  prompt prefix was a static 500/200k string. Pass index char/page caps into
+  `ocr_scanned_pdf`, persist `index_coverage_json`, and build the prefix from
+  stored ceilings (OCR names the 20-page cap).
 - **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
   typed English) hit the calculus verb so a Math note stamped, but
   `squared` is an unknown letter-run so extract returned None. Rewrite
