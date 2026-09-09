@@ -7,6 +7,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { attachmentRecordExists } from "@/lib/api";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   /** Attachment id — used to build the authenticated /file URL. */
@@ -102,7 +103,7 @@ function GalleryThumbnailBase({
       {failed ? (
         <View style={[s.fallback, dimension]}>
           {compact ? null : (
-            <Icon name="image-outline" size={24} color={C.textTertiary} />
+            <Icon name="image-outline" size={IconSize.lg} color={C.textTertiary} />
           )}
           <MediaLoadRetry
             compact={compact}

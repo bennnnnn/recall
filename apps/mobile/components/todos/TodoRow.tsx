@@ -9,6 +9,7 @@ import type { Todo } from "@/lib/api";
 import { describeDueAt } from "@/lib/todos/dueDate";
 import { notifyWarning } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   todo: Todo;
@@ -63,7 +64,7 @@ export const TodoRow = memo(function TodoRow({
         ) : (
           <Icon
             name={todo.checked ? "checkbox" : "square-outline"}
-            size={22}
+            size={IconSize.md}
             color={todo.checked ? C.primary : C.textTertiary}
           />
         )}

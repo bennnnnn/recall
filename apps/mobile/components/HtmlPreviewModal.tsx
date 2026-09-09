@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
-import { type IoniconName } from "@/lib/icons";
+import { IconSize, type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
@@ -279,7 +279,7 @@ function ToolbarItem({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
     >
-      <Icon name={icon} size={24} color={color} />
+      <Icon name={icon} size={IconSize.lg} color={color} />
     </Pressable>
   );
 }
