@@ -1,9 +1,11 @@
 import {
   applyComposerTextChange,
   extractInsertedDelta,
+  MATH_GLYPH_RE,
   normalizePastedMath,
   PASTE_GROWTH_MIN,
   restoreCopiedFractions,
+  shouldProbeClipboardForImagePaste,
 } from "@/lib/mathPasteNormalize";
 
 describe("normalizePastedMath", () => {
@@ -14,8 +16,12 @@ describe("normalizePastedMath", () => {
     expect(normalizePastedMath("√9")).toBe("$\\sqrt{9}$");
     expect(normalizePastedMath("√x")).toBe("$\\sqrt{x}$");
     expect(normalizePastedMath("√{9}")).toBe("$\\sqrt{9}$");
+    expect(normalizePastedMath("6√4")).toBe("$6 \\times \\sqrt{4}$");
+    expect(normalizePastedMath("∛8")).toBe("$\\sqrt[3]{8}$");
+    expect(normalizePastedMath("∜16")).toBe("$\\sqrt[4]{16}$");
     expect(normalizePastedMath("a ≤ b ≠ c")).toBe("$a \\leq b \\neq c$");
     expect(normalizePastedMath("2 × π")).toBe("$2 \\times \\pi$");
+    expect(normalizePastedMath("2⋅x")).toBe("$2\\cdot x$");
   });
 
   it("leaves already-delimited math dollars in place", () => {
@@ -100,5 +106,29 @@ describe("extractInsertedDelta / applyComposerTextChange", () => {
       "\\[ 2x^2-7x+3=0 \\]\nFactor it:\n\\[ 2x-1=0 \\]\nor\n\\[ x-3=0 \\]";
     expect(normalizePastedMath(pasted)).toBe(pasted);
     expect(applyComposerTextChange("", pasted)).toBe(pasted);
+  });
+});
+
+describe("MATH_GLYPH_RE covers server _UNICODE_OP_SUBS", () => {
+  it("detects every operator glyph parse.py rewrites", () => {
+    // Keep in sync with apps/api/app/services/math_service/parse.py _UNICODE_OP_SUBS.
+    const serverOpGlyphs = ["×", "⋅", "·", "∗", "÷", "∕", "⁄", "−", "–", "—", "π", "∞"];
+    for (const glyph of serverOpGlyphs) {
+      expect(MATH_GLYPH_RE.test(glyph)).toBe(true);
+    }
+  });
+});
+
+describe("shouldProbeClipboardForImagePaste", () => {
+  it("does not probe ordinary typing or autocorrect", () => {
+    expect(shouldProbeClipboardForImagePaste("because")).toBe(false);
+    expect(shouldProbeClipboardForImagePaste(" world")).toBe(false);
+    expect(shouldProbeClipboardForImagePaste("he quick")).toBe(false);
+    expect(shouldProbeClipboardForImagePaste("x=")).toBe(false);
+  });
+
+  it("probes a math-glyph paste or a large insert", () => {
+    expect(shouldProbeClipboardForImagePaste("√16+x=20")).toBe(true);
+    expect(shouldProbeClipboardForImagePaste("a".repeat(40))).toBe(true);
   });
 });
