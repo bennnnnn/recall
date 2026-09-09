@@ -32,12 +32,20 @@ def _answer_block(answer: str) -> VerifiedMathBlock:
         ("1+1=x and explain every step", True),
         ("Factor x^2 - 5x + 6 and teach me how factoring works", True),
         ("show your work for 1+1", True),
+        ("Solve 1+1=x and show me your work", True),
         ("prove 1+1=2", True),
         ("approve this 1+1=x", False),
     ],
 )
 def test_wants_math_explanation(text: str, expected: bool) -> None:
     assert wants_math_explanation(text) is expected
+
+
+def test_compound_prompt_keeps_llm() -> None:
+    block = _answer_block("x = 1")
+    assert can_direct_verified_math_reply(block, "Solve x+1=2") is True
+    assert can_direct_verified_math_reply(block, "Solve x+1=2 and tell me a joke") is False
+    assert maybe_direct_math_reply(block, "Solve 1+1=x and show me your work") is None
 
 
 def test_can_direct_skips_graphs_and_camera() -> None:

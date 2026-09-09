@@ -12,6 +12,8 @@ _EXPLAIN_PHRASES: tuple[str, ...] = (
     "teach",
     "show work",
     "show your work",
+    "show me your work",
+    "show me work",
     "show the steps",
     "show me the steps",
     "show me how",
@@ -28,6 +30,49 @@ _EXPLAIN_PHRASES: tuple[str, ...] = (
     "how would",
 )
 
+# Imperative / polite glue around a closed compute. Two leftover English
+# words beyond this ("tell" + "joke") keep the LLM.
+_MATH_REQUEST_GLUE = frozenset(
+    {
+        "solve",
+        "isolate",
+        "factor",
+        "expand",
+        "simplify",
+        "calculate",
+        "compute",
+        "evaluate",
+        "determine",
+        "find",
+        "please",
+        "thanks",
+        "thank",
+        "now",
+        "quickly",
+        "briefly",
+        "here",
+        "what",
+        "whats",
+        "the",
+        "value",
+        "of",
+        "for",
+        "and",
+        "then",
+        "is",
+        "equals",
+        "equal",
+        "plus",
+        "minus",
+        "times",
+        "can",
+        "you",
+        "could",
+        "this",
+        "that",
+    }
+)
+
 _MAX_DIRECT_ANSWER_CHARS = 400
 
 
@@ -38,6 +83,29 @@ def wants_math_explanation(text: str) -> bool:
         return True
     padded = f" {lowered} "
     return " prove " in padded or " proof " in padded
+
+
+def _looks_math_token(tok: str) -> bool:
+    if not tok:
+        return True
+    return any(ch.isdigit() or ch in "=^*/+-%" for ch in tok)
+
+
+def leftover_non_math_request(text: str) -> bool:
+    """True when the message asks for something besides the verified value.
+
+    ``Solve x+1=2 and tell me a joke`` must not become an instant ``x = 1``.
+    Linear token walk — no regex on user text.
+    """
+    english = 0
+    for raw in text.replace("'", "").split():
+        tok = raw.lower().strip(".,?!:;")
+        if _looks_math_token(tok) or len(tok) < 3 or tok in _MATH_REQUEST_GLUE:
+            continue
+        english += 1
+        if english >= 2:
+            return True
+    return False
 
 
 def _solver_fences(verified: VerifiedMathBlock) -> list[dict[str, object]]:
@@ -64,6 +132,8 @@ def can_direct_verified_math_reply(
     if has_image_attachment:
         return False
     if wants_math_explanation(user_text):
+        return False
+    if leftover_non_math_request(user_text):
         return False
     answer = (verified.canonical_answer or "").strip()
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:
