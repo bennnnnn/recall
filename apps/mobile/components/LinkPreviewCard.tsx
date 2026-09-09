@@ -37,7 +37,12 @@ export function LinkPreviewCard({ url }: Props) {
 
   if (failed) {
     return (
-      <Pressable style={s.wrap} onPress={open}>
+      <Pressable
+        style={s.wrap}
+        onPress={open}
+        accessibilityRole="link"
+        accessibilityLabel={url}
+      >
         <Icon name="link-outline" size={16} color={theme.primary} />
         <Text style={s.url} numberOfLines={2}>
           {url}
@@ -55,7 +60,12 @@ export function LinkPreviewCard({ url }: Props) {
   }
 
   return (
-    <Pressable style={s.wrap} onPress={open}>
+    <Pressable
+      style={s.wrap}
+      onPress={open}
+      accessibilityRole="link"
+      accessibilityLabel={preview.title || preview.url}
+    >
       <Text style={s.title} numberOfLines={2}>
         {preview.title || preview.url}
       </Text>
