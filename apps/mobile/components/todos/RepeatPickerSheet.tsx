@@ -8,6 +8,7 @@ import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export const REPEAT_PICKER_VALUES: readonly (RecurrenceRule | null)[] = [
   null,
@@ -90,9 +91,9 @@ function makeStyles(C: Theme) {
       backgroundColor: C.primaryLight,
     },
     label: {
-      fontSize: 17,
-      color: C.text,
+      ...Type.navTitle,
       fontWeight: "400",
+      color: C.text,
       flex: 1,
     },
     labelActive: {

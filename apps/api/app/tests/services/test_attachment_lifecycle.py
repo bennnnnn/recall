@@ -1,6 +1,6 @@
 """Attachment lifecycle service tests."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -307,7 +307,7 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     orphan.source = "upload"
     orphan.library_visible = True
     orphan.verified_at = None
-    orphan.created_at = datetime.now(UTC)
+    orphan.created_at = datetime.now(UTC) - timedelta(hours=1)
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
@@ -345,6 +345,26 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     assert deleted == 1
     refund_upload.assert_awaited_once_with(fake_redis, user_id)
     refund_gen.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_passes_pending_grace_to_list():
+    settings = Settings(attachment_pending_orphan_hours=1, attachment_orphan_grace_hours=24)
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[]),
+        ) as list_orphans,
+        patch(
+            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    kwargs = list_orphans.await_args.kwargs
+    assert kwargs["older_than_hours"] == 24
+    assert kwargs["pending_older_than_hours"] == 1
 
 
 @pytest.mark.asyncio

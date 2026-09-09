@@ -1,8 +1,8 @@
 import { Href, useRouter } from "expo-router";
-import { Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   /** Where to go when there is no back stack (e.g. opened via deep link). */
@@ -14,20 +14,15 @@ export function StackBackButton({ fallback = "/" }: Props) {
   const { t } = useTranslation();
 
   return (
-    <Pressable
+    <IconButton
+      name="chevron-back"
+      size={IconSize.lg}
+      accessibilityLabel={t("common.back")}
       onPress={() => {
         if (router.canGoBack()) router.back();
         else router.replace(fallback);
       }}
-      hitSlop={8}
-      style={{ marginLeft: 4, padding: 4 }}
-      accessibilityRole="button"
-      accessibilityLabel={t("common.back")}
-    >
-      <Icon
-        name="chevron-back"
-        size={24}
-      />
-    </Pressable>
+      style={{ marginLeft: 4 }}
+    />
   );
 }

@@ -154,9 +154,7 @@ function makeStyles(theme: Theme) {
     },
     copy: { flex: 1, gap: 3 },
     title: {
-      ...Type.body,
-      fontSize: 17,
-      fontWeight: "700",
+      ...Type.h3,
       color: theme.text,
     },
     titleLocked: { color: theme.textTertiary, fontWeight: "600" },

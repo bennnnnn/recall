@@ -6,6 +6,7 @@ import { Icon } from "@/components/Icon";
 import { Layer } from "@/lib/layer";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   status: ConnectivityStatus;
@@ -47,7 +48,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.warning,
     },
     text: {
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "700",
       color: theme.onWarning,
     },

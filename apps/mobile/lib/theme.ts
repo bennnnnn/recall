@@ -38,7 +38,8 @@ export type Theme = {
   /** Placeholders and non-readable decoration only — not helper or metadata copy. */
   textDisabled: string;
 
-  // Bubbles
+  // Bubbles — user chip is a quiet brand tint, not success-green.
+  // Indigo = Recall / interactive; green is reserved for success.
   userBubble: string;
   userText: string;
   assistantBubble: string;
@@ -112,7 +113,7 @@ export const lightTheme: Theme = {
   textTertiary: "#67676F",
   textDisabled: "#8E8E96",
 
-  userBubble: "#EAF7F3",
+  userBubble: "#F0F1FF",
   userText: "#111113",
   assistantBubble: "#FFFFFF",
   assistantText: "#111113",
@@ -165,7 +166,7 @@ export const darkTheme: Theme = {
   textTertiary: "#8A8A92",
   textDisabled: "#7B7B83",
 
-  userBubble: "#12372E",
+  userBubble: "#2A2D6A",
   userText: "#F5F5F6",
   assistantBubble: "#0F0F10",
   assistantText: "#F5F5F6",

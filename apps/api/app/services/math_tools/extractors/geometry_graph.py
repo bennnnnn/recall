@@ -16,6 +16,11 @@ def _wants_geometry_angles(lower: str) -> bool:
 def _extract_solid_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
+    lower = cleaned.lower()
+    # Explicit convert … to … is a unit ask. SOLID runs first in the registry
+    # and used to steal ``convert 1 atmosphere to psi`` as a sphere.
+    if "convert" in lower and " to " in lower:
+        return None
     parsed = mtm.parse_solid(cleaned)
     if parsed is None:
         return None

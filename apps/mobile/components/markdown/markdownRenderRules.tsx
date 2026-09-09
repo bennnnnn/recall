@@ -236,12 +236,16 @@ function makeSharedRules(
       // exfil, content:). Only https/data/blob render; everything else is
       // dropped silently so a malicious or misformed URL can't auto-load.
       if (!isAllowedImageUri(src)) return null;
+      const alt = node.attributes?.alt?.trim() ?? "";
       return (
         <Image
           key={node.key}
           source={{ uri: src }}
           style={mdImg.image}
           resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel={alt || undefined}
+          accessible={alt.length > 0}
         />
       );
     },
@@ -307,6 +311,7 @@ function makeSharedRules(
         <Text
           key={node.key}
           style={styles.link}
+          accessibilityRole="link"
           onPress={() => {
             // Reject javascript:/data:/file:/etc. before handing to the OS link
             // handler — model-emitted markdown can include arbitrary URLs and

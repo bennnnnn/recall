@@ -15,6 +15,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
+import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   getPreviewWebView,
@@ -88,13 +89,13 @@ export function AttachmentPdfViewer({
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
           <Pressable onPress={onClose} hitSlop={8} accessibilityLabel={t("chat.pdf_close_a11y")}>
-            <Icon name="close" size={24} color={theme.text} />
+            <Icon name="close" size={IconSize.lg} color={theme.text} />
           </Pressable>
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
           <Pressable onPress={onShare} hitSlop={8} accessibilityLabel={t("chat.pdf_share_a11y")}>
-            <Icon name="share-outline" size={22} color={theme.primary} />
+            <Icon name="share-outline" size={IconSize.md} color={theme.primary} />
           </Pressable>
         </View>
         <View style={s.body}>

@@ -16,6 +16,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   message: string | null;
@@ -152,8 +153,7 @@ function makeStyles(theme: Theme) {
     },
     text: {
       flexShrink: 1,
-      fontSize: 15,
-      fontWeight: "600",
+      ...Type.callout,
       color: toastText,
       textAlign: "center",
     },

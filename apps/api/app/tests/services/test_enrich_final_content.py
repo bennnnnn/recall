@@ -261,3 +261,37 @@ async def test_unverified_math_note_appended_to_final_content(
         should_cancel=None,
     )
     assert "*Couldn't verify this with SymPy.*" in persisted
+
+
+@pytest.mark.asyncio
+async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.math_tools.block.common import VerifiedMathBlock
+
+    async def _must_not_run(*_a: Any, **_k: Any) -> str:
+        raise AssertionError("direct math must not queue fence rewrite on the pool")
+
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", _must_not_run)
+    ctx = _ctx()
+    ctx.instant_reply = "$x = 2$\n\n```answer\nx = 2\n```"
+    ctx.verified_math = VerifiedMathBlock(
+        text="verified",
+        canonical_fence={"type": "answer", "content": "x = 2"},
+        canonical_answer="x = 2",
+    )
+    ctx.user_message_content = "1+1=x"
+    ctx.math_unverified = False
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=ctx.instant_reply,
+        usage={"input": 0, "output": 8},
+        result={},
+        was_cancelled=False,
+        assistant_parts=[ctx.instant_reply],
+        should_cancel=None,
+    )
+    assert persisted == ctx.instant_reply

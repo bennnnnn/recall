@@ -579,7 +579,7 @@ describe("ChatComposer math keyboard", () => {
     expect(latest).toBe("$|5|997$");
   });
 
-  it("ABC keeps the visual fraction and lets you type words in front of it", async () => {
+  it("ABC keeps the visual fraction and parks the caret after it", async () => {
     let latest = "";
     function Harness() {
       const [input, setInput] = useState("");
@@ -596,6 +596,8 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-frac")).toBeTruthy();
     expect(queryByTestId("math-key-frac")).toBeNull();
     expect(queryByTestId("math-slot-num-caret-end")).toBeNull();
+    expect(getByTestId("math-slot-after-caret")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-slot-before"));
     expect(getByTestId("math-slot-before-caret")).toBeTruthy();
     const before = latest;
     const denTyped = before.replace("}{}", "}{g}");
@@ -611,6 +613,19 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-key-frac")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(queryByTestId("math-key-frac")).toBeNull();
+  });
+
+  it("rewrites × through the math-bar Paste control", async () => {
+    (Clipboard.getStringAsync as jest.Mock).mockResolvedValue("2 × 3");
+    const onChangeInput = jest.fn();
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} onChangeInput={onChangeInput} />,
+    );
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-paste"));
+    await waitFor(() => {
+      expect(onChangeInput).toHaveBeenCalledWith("$2 \\times 3$");
+    });
   });
 
   it("does not offer the math scanner just because the composer focused", async () => {

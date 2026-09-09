@@ -106,10 +106,11 @@ class Settings(BaseSettings):
     # so a near-limit user can't start a heavy image call that blows past the
     # daily cap. Real usage is still reconciled from the provider's usage chunk.
     image_attachment_reserve_tokens: int = 1200
-    # Orphan attachment reaper: delete bytes + rows for attachments never linked
-    # to a message (e.g. uploaded then the send failed, or unlinked by a message
-    # delete) once they're older than this grace window.
+    # Orphan attachment reaper: hidden send-clones (library_visible false)
+    # stay until this billed window. Unverified original uploads use the
+    # shorter pending window so a killed-app image slot can refund same-day.
     attachment_orphan_grace_hours: int = 24
+    attachment_pending_orphan_hours: int = 1
     attachment_orphan_reaper_interval_seconds: int = 3600
     # Bounded reaper batch — the scheduler re-runs, so a limit drains over time
     # instead of loading every orphan in the system into memory.
@@ -142,6 +143,11 @@ class Settings(BaseSettings):
     # this bounds how long a single pathological expression can occupy that thread
     # before the chat turn falls back to an unverified reply.
     math_solve_timeout_seconds: float = 5.0
+    # Isolated 1-worker process slots (not one shared N-worker pool — a
+    # timeout must SIGTERM only the runaway). Interactive slot wait is *not*
+    # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.
+    sympy_max_workers: int = 3
+    sympy_queue_wait_seconds: float = 2.0
     # math_image_extract.py's vision-chat call is a network round trip, not
     # local synchronous SymPy work — reusing math_solve_timeout_seconds's 5s
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that

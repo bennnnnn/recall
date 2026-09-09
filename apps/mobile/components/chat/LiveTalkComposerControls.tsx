@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { liveTalkMuteA11yKey } from "@/lib/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   muted: boolean;
@@ -32,7 +33,7 @@ export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props)
       >
         <Icon
           name={muted ? "mic-off" : "mic-outline"}
-          size={24}
+          size={IconSize.lg}
           color={muted ? theme.onPrimary : theme.text}
         />
       </Pressable>
@@ -43,7 +44,7 @@ export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props)
         accessibilityLabel={t("chat.live_talk_close_a11y")}
         testID="live-talk-close"
       >
-        <Icon name="close" size={22} color={theme.onPrimary} />
+        <Icon name="close" size={IconSize.md} color={theme.onPrimary} />
       </Pressable>
     </View>
   );
