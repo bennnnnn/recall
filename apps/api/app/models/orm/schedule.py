@@ -35,6 +35,10 @@ class TodoItem(Base):
             "due_at",
             postgresql_where=text("checked = false AND due_at IS NOT NULL"),
         ),
+        # Partial unique on (user_id, lower(content), due_at) for open dated
+        # rows lives in migration 0084 (`uq_todo_open_content_due`) so SQLite
+        # `__table__.create()` fixtures are not bound to a Postgres expression.
+        Index("ix_todo_user_id", "user_id", "id"),
         CheckConstraint("source IN ('user', 'gmail')", name="ck_todo_items_source"),
     )
 

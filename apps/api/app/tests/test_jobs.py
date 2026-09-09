@@ -730,7 +730,7 @@ async def test_process_entries_skips_duplicate_dedupe_key(fake_redis):
         [(entry_a, fields), (entry_b, dict(fields))],
     )
     assert calls["n"] == 1
-    assert await fake_redis.get(jobs.job_done_key("todosync:chat:msg1")) == "1"
+    assert await fake_redis.get(jobs.job_done_key("todosync:chat:msg1")) == jobs._DEDUPE_DONE
 
 
 @pytest.mark.asyncio
@@ -774,5 +774,72 @@ async def test_process_entries_claims_with_short_ttl_then_extends_on_success(fak
     await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
     assert calls["n"] == 1
     ttl = await fake_redis.ttl(jobs.job_done_key("ttl:test"))
-    # Extended to the full 24h window on success.
+    # Success overwrites the running claim with the 24h done marker.
+    assert await fake_redis.get(jobs.job_done_key("ttl:test")) == jobs._DEDUPE_DONE
     assert ttl > jobs._JOB_DONE_CLAIM_TTL_SECONDS
+
+
+def _pending_count(summary: object) -> int:
+    if isinstance(summary, dict):
+        return int(summary.get("pending") or summary.get("count") or 0)
+    if isinstance(summary, list | tuple) and summary:
+        return int(summary[0] or 0)
+    return 0
+
+
+@pytest.mark.asyncio
+async def test_process_entries_inflight_claim_does_not_ack(fake_redis):
+    """A reclaim that loses NX while the running TTL is still held must leave
+    the PEL entry so a later reclaim can run after the crashed worker's key
+    expires — not skip+xack (which dropped the job forever)."""
+    calls = {"n": 0}
+
+    async def handler(_settings, _payload):
+        calls["n"] += 1
+
+    jobs.register("inflight-job", handler)
+    await jobs._ensure_group(fake_redis)
+    fields = {
+        "type": "inflight-job",
+        "payload": "{}",
+        "dedupe_key": "attach:index:1",
+    }
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "tester", {jobs.JOBS_STREAM: ">"}, count=1)
+    await fake_redis.set(
+        jobs.job_done_key("attach:index:1"),
+        jobs._DEDUPE_RUNNING,
+        ex=jobs._JOB_DONE_CLAIM_TTL_SECONDS,
+    )
+    await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert calls["n"] == 0
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == 1
+
+
+@pytest.mark.asyncio
+async def test_process_entries_done_claim_skips_and_acks(fake_redis):
+    """A duplicate enqueue after success must skip the handler and ack."""
+    calls = {"n": 0}
+
+    async def handler(_settings, _payload):
+        calls["n"] += 1
+
+    jobs.register("done-job", handler)
+    await jobs._ensure_group(fake_redis)
+    fields = {
+        "type": "done-job",
+        "payload": "{}",
+        "dedupe_key": "attach:index:2",
+    }
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "tester", {jobs.JOBS_STREAM: ">"}, count=1)
+    await fake_redis.set(
+        jobs.job_done_key("attach:index:2"),
+        jobs._DEDUPE_DONE,
+        ex=jobs._JOB_DONE_TTL_SECONDS,
+    )
+    await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert calls["n"] == 0
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == 0

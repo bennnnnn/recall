@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem, User
@@ -90,16 +91,27 @@ async def create_todo(
         normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
     if normalized_due is None:
         recurrence_rule = None
-    item = await todos_repo.create(
-        session,
-        user_id=user.id,
-        content=content,
-        topic=topic or todos_repo.DEFAULT_TOPIC,
-        chat_id=chat_id,
-        project_id=project_id,
-        due_at=normalized_due,
-        recurrence_rule=recurrence_rule,
-    )
+    try:
+        item = await todos_repo.create(
+            session,
+            user_id=user.id,
+            content=content,
+            topic=topic or todos_repo.DEFAULT_TOPIC,
+            chat_id=chat_id,
+            project_id=project_id,
+            due_at=normalized_due,
+            recurrence_rule=recurrence_rule,
+        )
+    except IntegrityError as exc:
+        if not todos_repo.is_open_content_due_conflict(exc) or normalized_due is None:
+            raise
+        await session.rollback()
+        existing = await todos_repo.get_open_dated_duplicate(
+            session, user.id, content=content, due_at=normalized_due
+        )
+        if existing is None:
+            raise
+        return existing
     await home_service.invalidate_home_cache(user.id)
     return item
 
@@ -134,6 +146,8 @@ async def update_todo(
             raise TodosError("due_at cannot be cleared", status_code=422)
     rule = patch.get("recurrence_rule", item.recurrence_rule)
     due = patch["due_at"] if "due_at" in patch else item.due_at
+    if is_recurrence_rule(rule) and due is None:
+        raise TodosError("recurrence_rule requires due_at", status_code=422)
     if due is not None and is_recurrence_rule(rule):
         patch["due_at"] = snap_first_due(due, rule, timezone=user.timezone)
     updated = await todos_repo.update(session, item, **patch)

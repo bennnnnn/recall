@@ -126,8 +126,7 @@ function makeStyles(theme: Theme) {
       gap: Space.md,
     },
     rowLabel: {
-      ...Type.body,
-      fontSize: 17,
+      ...Type.navTitle,
       color: theme.text,
       flex: 1,
     },

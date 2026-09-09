@@ -38,6 +38,7 @@ REMINDER_TOPIC = "From email"
 _SUGGESTION_DEFAULT_HOUR = 18
 # Fan-out bound for per-message LLM extraction during sync (HTTP + periodic).
 _GMAIL_EXTRACT_CONCURRENCY = 5
+_IGNORED_SCAN_TITLE = "No reminder"
 
 GMAIL_HINT = (
     "The user may have Gmail connected (read-only) as a **separate integration** from their "
@@ -381,14 +382,19 @@ async def _extract_new_reminders(
     *,
     default_tz: str | None,
     known_ids: set[str],
-) -> list[tuple[GmailMessage, SuggestedReminderItem]]:
-    """Run ICS/LLM extraction with no DB session held."""
+) -> tuple[list[tuple[GmailMessage, SuggestedReminderItem]], list[GmailMessage]]:
+    """Run ICS/LLM extraction with no DB session held.
+
+    Returns (hits, ignored). Exceptions skip the message so the next cycle can retry.
+    """
     pending = [message for message in messages if message.id not in known_ids]
     if not pending:
-        return []
+        return [], []
     sem = asyncio.Semaphore(max(1, _GMAIL_EXTRACT_CONCURRENCY))
 
-    async def _one(message: GmailMessage) -> tuple[GmailMessage, SuggestedReminderItem | None]:
+    async def _one(
+        message: GmailMessage,
+    ) -> tuple[GmailMessage, SuggestedReminderItem | None] | None:
         async with sem:
             try:
                 return message, await _extract_reminder_item(
@@ -396,10 +402,20 @@ async def _extract_new_reminders(
                 )
             except Exception:
                 logger.exception("Failed to extract gmail message id=%s", message.id)
-                return message, None
+                return None
 
     results = await asyncio.gather(*(_one(message) for message in pending))
-    return [(message, item) for message, item in results if item is not None]
+    hits: list[tuple[GmailMessage, SuggestedReminderItem]] = []
+    ignored: list[GmailMessage] = []
+    for result in results:
+        if result is None:
+            continue
+        message, item = result
+        if item is None:
+            ignored.append(message)
+        else:
+            hits.append((message, item))
+    return hits, ignored
 
 
 async def _write_suggested_reminder(
@@ -427,20 +443,40 @@ async def _write_suggested_reminder(
     )
 
 
+async def _write_ignored_scan(
+    session: AsyncSession,
+    user_id: UUID,
+    message: GmailMessage,
+) -> None:
+    await suggested_repo.create(
+        session,
+        user_id=user_id,
+        gmail_message_id=message.id,
+        title=_IGNORED_SCAN_TITLE,
+        due_at=None,
+        notes=None,
+        confidence=0.0,
+        source_snippet=None,
+        source_sender=None,
+        status="ignored",
+    )
+
+
 def gmail_sync_is_due(
     last_sync_at: datetime | None,
     settings: Settings,
     *,
     force: bool = False,
 ) -> bool:
-    if force:
-        return True
     if last_sync_at is None:
         return True
     last = last_sync_at
     if last.tzinfo is None:
         last = last.replace(tzinfo=UTC)
-    return datetime.now(UTC) - last >= timedelta(seconds=settings.gmail_sync_interval_seconds)
+    elapsed = datetime.now(UTC) - last
+    if force:
+        return elapsed >= timedelta(seconds=settings.gmail_force_min_interval_seconds)
+    return elapsed >= timedelta(seconds=settings.gmail_sync_interval_seconds)
 
 
 async def sync_gmail_for_user(
@@ -494,7 +530,7 @@ async def sync_gmail_for_user(
     known_ids = await suggested_repo.existing_message_ids(
         session, user_id, [m.id for m in messages]
     )
-    extracted_rows = await _extract_new_reminders(
+    extracted_rows, ignored_messages = await _extract_new_reminders(
         settings,
         messages,
         default_tz=default_tz,
@@ -508,6 +544,12 @@ async def sync_gmail_for_user(
         except Exception:
             await session.rollback()
             logger.exception("Failed to process gmail message id=%s", message.id)
+    for message in ignored_messages:
+        try:
+            await _write_ignored_scan(session, user_id, message)
+        except Exception:
+            await session.rollback()
+            logger.exception("Failed to record ignored gmail scan id=%s", message.id)
 
     await gmail_repo.update_last_sync(session, user_id)
     return len(messages), created

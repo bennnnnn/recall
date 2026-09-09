@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { tap } from "@/lib/haptics";
+import { IconSize } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -114,7 +115,7 @@ export function DrawerHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("search.open_accessibility")}
               >
-                <Icon name="search-outline" size={20} color={theme.textSecondary} />
+                <Icon name="search-outline" size={IconSize.sm} color={theme.textSecondary} />
               </Pressable>
             </View>
           </View>

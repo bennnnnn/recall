@@ -24,6 +24,7 @@ import {
   STATIC_HTML_ORIGIN_WHITELIST,
   useStaticOnlyNavigation,
 } from "@/lib/webView";
+import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   clampMathWebViewHeight,
@@ -252,7 +253,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
               accessibilityLabel={t("preview.close")}
               style={s.modalClose}
             >
-              <Icon name="close" size={24} color={theme.text} />
+              <Icon name="close" size={IconSize.lg} color={theme.text} />
             </Pressable>
           </View>
           <WebView

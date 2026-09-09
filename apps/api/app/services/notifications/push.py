@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -44,6 +45,7 @@ from app.services.reminder_timing import (
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
+from app.services.todos import crud as todos_crud
 from app.services.todos.recurrence import is_recurrence_rule, next_recurring_due
 
 logger = logging.getLogger(__name__)
@@ -240,6 +242,34 @@ def _append_outbound(
         )
 
 
+async def log_aged_unsent_reminders(
+    session: AsyncSession,
+    *,
+    now: datetime | None = None,
+) -> int:
+    """Count open dated rows that aged out of the 48h overdue push window."""
+    when = now or datetime.now(UTC)
+    cutoff = when - timedelta(hours=OVERDUE_MAX_HOURS)
+    raw = await session.scalar(
+        select(func.count())
+        .select_from(TodoItem)
+        .where(
+            TodoItem.checked.is_(False),
+            TodoItem.due_at.isnot(None),
+            TodoItem.notification_sent_at.is_(None),
+            TodoItem.due_at < cutoff,
+        )
+    )
+    count = raw if isinstance(raw, int) else 0
+    if count:
+        logger.warning(
+            "Aged unsent reminders count=%s older_than_hours=%s",
+            count,
+            OVERDUE_MAX_HOURS,
+        )
+    return count
+
+
 async def process_todo_reminders(
     session: AsyncSession,
     *,
@@ -273,6 +303,8 @@ async def process_todo_reminders(
         tokens_by_user.setdefault(token.user_id, []).append(token)
 
     messages: list[OutboundPush] = []
+    tokenless_overdue: list[TodoItem] = []
+    timezone_by_user: dict[UUID, str | None] = {}
     for todo, user in rows:
         if todo.due_at is None:
             continue
@@ -285,6 +317,17 @@ async def process_todo_reminders(
                 continue
             user_tokens = tokens_by_user.get(todo.user_id, [])
             if not user_tokens:
+                logger.warning(
+                    "Todo reminder skipped; no push token user_id=%s todo_id=%s",
+                    todo.user_id,
+                    todo.id,
+                )
+                if todo.due_at <= now and is_recurrence_rule(
+                    getattr(todo, "recurrence_rule", None)
+                ):
+                    tokenless_overdue.append(todo)
+                    tz = getattr(user, "timezone", None)
+                    timezone_by_user[todo.user_id] = tz if isinstance(tz, str) else None
                 continue
             is_overdue = todo.due_at < now
             title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
@@ -304,6 +347,13 @@ async def process_todo_reminders(
         except Exception:
             logger.exception("Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id)
             continue
+
+    if tokenless_overdue:
+        by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
+        for item in tokenless_overdue:
+            by_timezone[timezone_by_user.get(item.user_id)].append(item)
+        for timezone, items in by_timezone.items():
+            await todos_crud._advance_past_recurring(session, items, timezone=timezone, now=now)
 
     return messages
 
@@ -608,6 +658,7 @@ async def collect_push_outbound(
     await poll_deferred_push_receipts(session, redis)
 
     now = now or datetime.now(UTC)
+    await log_aged_unsent_reminders(session, now=now)
 
     # Server owns dated-todo alerts (local expo-notifications is skipped while
     # the user has push enabled). Set false to force device-only scheduling.

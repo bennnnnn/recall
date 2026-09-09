@@ -19,6 +19,7 @@ from app.services.todos.prompt_context import (
     TodosPromptSections,
     build_todos_system_section,
     format_todos_block,
+    format_todos_voice_block,
     select_todos_for_prompt,
     should_inject_todos_prompt,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "build_todos_system_section",
     "format_chat_transcript",
     "format_todos_block",
+    "format_todos_voice_block",
     "materialize_reminder_fences",
     "query_implies_todos",
     "select_todos_for_prompt",

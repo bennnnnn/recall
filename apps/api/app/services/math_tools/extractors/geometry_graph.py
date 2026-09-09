@@ -6,7 +6,7 @@ import re
 
 from app.models.math_schemas import MathIntent
 from app.services.math_text_match.scan import MATH_MULTI_LETTER
-from app.services.math_tools.helpers import _strip_trailing_filler
+from app.services.math_tools.helpers import _strip_trailing_filler, math_expr_or_none
 
 
 def _wants_geometry_angles(lower: str) -> bool:
@@ -16,6 +16,11 @@ def _wants_geometry_angles(lower: str) -> bool:
 def _extract_solid_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
+    lower = cleaned.lower()
+    # Explicit convert … to … is a unit ask. SOLID runs first in the registry
+    # and used to steal ``convert 1 atmosphere to psi`` as a sphere.
+    if "convert" in lower and " to " in lower:
+        return None
     parsed = mtm.parse_solid(cleaned)
     if parsed is None:
         return None
@@ -573,7 +578,17 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
             num = None
         if num is not None:
             return MathIntent(kind="vertical", point_x=num, operation="graph")
-    expr = stripped.replace("^", "**")
+    # graph_expr already matched, so this turn is a plot ask. English leftovers
+    # ("Graph y", "the reason") must not reach solve-for-y (implicit
+    # multiplication → x**2/(G*a*h*p*r)) or fall through to the equation
+    # solver. Empty expr skips the verified fence; the honesty note still
+    # fires because needs_symbolic saw the graph cue.
+    guarded = math_expr_or_none(stripped)
+    if guarded is None:
+        return MathIntent(
+            kind="graph", expr="", operation="graph", graph_x_min=x_min, graph_x_max=x_max
+        )
+    expr = guarded.replace("^", "**")
     # An equation like "x=2y" is not a function expression — solve for y as
     # y = f(x) (e.g. "x/2") so sample_function can plot it. Without this,
     # sample_function gets an Equality and rejects it, so no verified graph

@@ -853,6 +853,40 @@ async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
 
 
 @pytest.mark.asyncio
+async def test_try_image_gen_dog_then_image_uses_prior_subject():
+    from app.services.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-gen-model"
+    generate = AsyncMock(return_value=(MagicMock(), asst_msg))
+    dog = MagicMock()
+    dog.role = "user"
+    dog.content = "Dog"
+
+    with (
+        patch("app.services.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.services.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.services.chat.stream.image_generation_service.generate_for_chat", generate),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="Image",
+            result=None,
+            create_user_message=True,
+            recent_messages=[dog],
+        )
+
+    assert handled is True
+    assert generate.await_args.kwargs["prompt"] == "Dog"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("status_code", [403, 404])
 async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     """403/404 must not delete the prior assistant (omit-until-success)."""

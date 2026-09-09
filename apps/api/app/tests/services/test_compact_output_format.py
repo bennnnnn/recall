@@ -1,5 +1,7 @@
 """Casual/slim turns must stay ChatGPT-shaped — not a funny table essay."""
 
+import pytest
+
 from app.services.chat.prompt_builder import _style_format_hints
 from app.services.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -212,6 +214,8 @@ def test_clarification_hint_asks_once_when_purpose_or_data_missing():
     assert "ask ONE question for that purpose" in CLARIFICATION_HINT
     assert "ask ONE question for the values" in CLARIFICATION_HINT
     assert "Do not interview for steps" in CLARIFICATION_HINT
+    assert "Function plots" in CLARIFICATION_HINT
+    assert "Python" in CLARIFICATION_HINT
     assert is_underspecified_writing_request("write me an email")
     assert is_underspecified_writing_request("escribeme un correo")
     assert not is_underspecified_writing_request("email my boss about PTO")
@@ -554,3 +558,60 @@ def test_compact_quote_turn_uses_blockquote_not_plain_prose():
     joined = "\n".join(parts)
     assert "Never emit a ```quote fence" in joined
     assert "No ## headings" not in joined
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("What can you help me with? Give a few concrete examples.", True),
+        ("What can you do?", True),
+        ("How can you help me?", True),
+        ("¿En qué puedes ayudarme? Dame algunos ejemplos concretos.", True),
+        ("En quoi peux-tu m'aider ? Donne quelques exemples concrets.", True),
+        ("What can you help me with on this FastAPI bug?", False),
+        ("Can you help me with Python?", False),
+        ("Write me an email about taking Friday off", False),
+        ("Who am I?", False),
+    ],
+)
+def test_is_capabilities_question(text, expected):
+    from app.services.chat.prompt_constants import (
+        is_capabilities_question,
+        is_email_or_message_request,
+        writing_request_kind,
+    )
+
+    assert is_capabilities_question(text) is expected
+    if expected:
+        assert writing_request_kind(text) is None
+        assert not is_email_or_message_request(text)
+
+
+def test_capabilities_overview_skips_email_draft_contract():
+    from app.services.chat.prompt_constants import (
+        CAPABILITIES_FORMAT_HINT,
+        CLARIFICATION_HINT,
+        COPY_DELIVERABLE_HINT,
+        EMAIL_DRAFT_HINT,
+        FORMAT_CONTRACT,
+        is_capabilities_question,
+    )
+
+    query = "What can you help me with? Give a few concrete examples."
+    assert is_capabilities_question(query)
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=False,
+    )
+    assert CAPABILITIES_FORMAT_HINT in parts
+    assert FORMAT_CONTRACT not in parts
+    assert COPY_DELIVERABLE_HINT not in parts
+    assert EMAIL_DRAFT_HINT not in parts
+    assert CLARIFICATION_HINT not in parts
+    joined = "\n".join(parts)
+    assert "Never emit ```email" in joined
+    assert "No ## headings" in joined
+    assert "put only send-ready text" not in joined.lower()

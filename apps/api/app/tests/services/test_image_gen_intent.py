@@ -4,7 +4,9 @@ import pytest
 
 from app.services.image_gen_intent import (
     could_be_image_revision,
+    could_be_image_thread_followup,
     extract_image_gen_prompt,
+    extract_image_gen_prompt_from_thread,
     extract_image_revision_prompt,
     image_gen_revision_context,
     is_image_only_assistant_content,
@@ -54,10 +56,44 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "Draw a right triangle with legs 3 and 4.",
         "draw the molecule caffeine",
         "a" * 501,
+        "Image",
+        "pic",
     ],
 )
 def test_extract_image_gen_prompt_rejects(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
+
+
+def test_extract_image_gen_prompt_from_thread_dog_then_image() -> None:
+    assert extract_image_gen_prompt_from_thread("Image", ["Dog"]) == "Dog"
+    assert extract_image_gen_prompt_from_thread("a picture", ["Dog"]) == "Dog"
+    assert extract_image_gen_prompt_from_thread("Image", []) is None
+    assert extract_image_gen_prompt_from_thread("Image", ["explain gravity"]) is None
+    assert extract_image_gen_prompt_from_thread("Image", ["create a todo"]) is None
+    assert extract_image_gen_prompt_from_thread("Image", ["hi"]) is None
+
+
+def test_extract_image_gen_prompt_from_thread_keeps_direct_asks() -> None:
+    assert extract_image_gen_prompt_from_thread("create a cat pic", ["Dog"]) == "cat"
+
+
+def test_extract_image_gen_prompt_from_thread_confirm_after_scene() -> None:
+    priors = ["Dog", "Image", "U pick"]
+    assert extract_image_gen_prompt_from_thread("That works", priors) == "Dog"
+    assert extract_image_gen_prompt_from_thread("I said u do it!", priors) == "Dog"
+    assert extract_image_gen_prompt_from_thread("that works", ["add milk"]) is None
+    assert extract_image_gen_prompt_from_thread("do it", ["draw a dog"]) == "dog"
+
+
+def test_extract_image_gen_prompt_from_thread_confirm_not_stale_image_ask() -> None:
+    assert extract_image_gen_prompt_from_thread("do it", ["draw a dog", "Paris"]) is None
+
+
+def test_could_be_image_thread_followup() -> None:
+    assert could_be_image_thread_followup("Image") is True
+    assert could_be_image_thread_followup("that works") is True
+    assert could_be_image_thread_followup("hi") is False
+    assert could_be_image_thread_followup("make it blue") is False
 
 
 def test_extract_image_revision_prompt_white_case() -> None:

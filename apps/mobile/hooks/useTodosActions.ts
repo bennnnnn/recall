@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -12,7 +12,7 @@ import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/lib/todo
 import { beginTodoMutation, getTodoMutationState } from "@/lib/todos/todoMutationState";
 import { DEFAULT_TOPIC } from "@/lib/todoTopics";
 
-type DuePicker = { todo: Todo; date: Date };
+type DuePicker = { todo: Todo; date: Date; recurrence: RecurrenceRule | null };
 type Params = {
   token: string | null;
   userId: string | undefined;
@@ -165,12 +165,16 @@ export function useTodosActions({ token, userId, todos, getTodos,
     ]);
   }, [token, canAct, owner, latestTodo, t, mutateRow]);
 
-  const applyDueDate = useCallback(async (todo: Todo, date: Date) => {
+  const applyDueDate = useCallback(async (
+    todo: Todo, date: Date, recurrence: RecurrenceRule | null,
+  ) => {
     if (!token || !canAct()) return false;
     if (!Number.isFinite(date.getTime())) { reportError("todos.error_due"); return false; }
     const dueIso = toDueAtIso(date);
-    return mutateRow(todo.id, (snapshot) => ({ ...snapshot, due_at: dueIso }),
-      () => api.updateTodo(token, todo.id, { due_at: dueIso }), "todos.error_due", {
+    return mutateRow(todo.id, (snapshot) => ({
+      ...snapshot, due_at: dueIso, recurrence_rule: recurrence,
+    }),
+      () => api.updateTodo(token, todo.id, { due_at: dueIso, recurrence_rule: recurrence }), "todos.error_due", {
         optimistic: () => goToDay(dayKeyForDue(date, dueIso)),
         saved: (updated) => goToDay(dayKeyForDue(date, updated.due_at ?? dueIso)),
         rollback: (snapshot) => {
@@ -184,19 +188,24 @@ export function useTodosActions({ token, userId, todos, getTodos,
     const current = latestTodo(todo.id);
     if (!current) return;
     const due = current.due_at ? new Date(current.due_at) : defaultDueDate();
-    setDuePicker({ todo: current, date: Number.isFinite(due.getTime()) ? due : defaultDueDate() });
+    setDuePicker({
+      todo: current,
+      date: Number.isFinite(due.getTime()) ? due : defaultDueDate(),
+      recurrence: current.recurrence_rule ?? null,
+    });
   }, [canAct, owner, latestTodo, setDuePicker]);
   const onDuePickerChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
     if (!canAct() || !duePicker || pickerRef.current.value !== duePicker) return;
     if (event.type === "dismissed") { setDuePicker(null); return; }
-    if (Platform.OS === "android") {
-      setDuePicker(null);
-      if (date) void applyDueDate(duePicker.todo, date);
-    } else if (date) setDuePicker({ ...duePicker, date });
-  }, [canAct, duePicker, setDuePicker, applyDueDate]);
+    if (date) setDuePicker({ ...duePicker, date });
+  }, [canAct, duePicker, setDuePicker]);
+  const onDueRecurrenceChange = useCallback((rule: RecurrenceRule | null) => {
+    if (!canAct() || !duePicker || pickerRef.current.value !== duePicker) return;
+    setDuePicker({ ...duePicker, recurrence: rule });
+  }, [canAct, duePicker, setDuePicker]);
   const confirmDuePicker = useCallback(async () => {
     if (!canAct() || !duePicker || pickerRef.current.value !== duePicker) return;
-    const saved = await applyDueDate(duePicker.todo, duePicker.date);
+    const saved = await applyDueDate(duePicker.todo, duePicker.date, duePicker.recurrence);
     if (saved && pickerRef.current.value === duePicker) setDuePicker(null);
   }, [canAct, duePicker, applyDueDate, setDuePicker]);
 
@@ -204,6 +213,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     togglingId: owner.mutations.togglingIds.values().next().value ?? null,
     busyTodoIds: new Set(owner.mutations.pendingIds),
     duePicker, setDuePicker, savingReminder: owner.mutations.createId !== null,
-    handleCreateReminder, handleToggle, handleDeleteItem, openDuePicker, onDuePickerChange, confirmDuePicker,
+    handleCreateReminder, handleToggle, handleDeleteItem, openDuePicker, onDuePickerChange,
+    onDueRecurrenceChange, confirmDuePicker,
   };
 }

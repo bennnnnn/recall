@@ -9,6 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import TodoItem
 
 DEFAULT_TOPIC = "General"
+OPEN_CONTENT_DUE_UNIQUE = "uq_todo_open_content_due"
+
+
+def is_open_content_due_conflict(exc: BaseException) -> bool:
+    """True when INSERT/UPDATE hit the open dated (user, title, due) unique."""
+    orig = getattr(exc, "orig", None)
+    constraint = getattr(getattr(orig, "diag", None), "constraint_name", None)
+    if constraint == OPEN_CONTENT_DUE_UNIQUE:
+        return True
+    blob = f"{exc} {orig if orig is not None else ''}".lower()
+    return OPEN_CONTENT_DUE_UNIQUE in blob
 
 
 async def list_due_soon(
@@ -111,6 +122,25 @@ async def list_topics(session: AsyncSession, user_id: UUID) -> list[str]:
 async def get_by_id(session: AsyncSession, todo_id: UUID, user_id: UUID) -> TodoItem | None:
     result = await session.execute(
         select(TodoItem).where(TodoItem.id == todo_id, TodoItem.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_open_dated_duplicate(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    content: str,
+    due_at: datetime,
+) -> TodoItem | None:
+    """Open reminder with the same case-insensitive title and due instant."""
+    result = await session.execute(
+        select(TodoItem).where(
+            TodoItem.user_id == user_id,
+            func.lower(TodoItem.content) == content.strip().lower(),
+            TodoItem.due_at == due_at,
+            TodoItem.checked.is_(False),
+        )
     )
     return result.scalar_one_or_none()
 

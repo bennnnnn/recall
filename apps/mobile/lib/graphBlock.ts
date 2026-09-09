@@ -435,7 +435,8 @@ export function schoolViewBounds(
   if (ySpan > yUnit * 2.5 && ySpan >= 20) {
     const defaultSample =
       xMin <= -9 && xMax >= 9 && xMin >= -12 && xMax <= 12;
-    if (defaultSample) {
+    const pathologicalY = ySpan > 1e6;
+    if ((defaultSample || pathologicalY) && xMin < 0 && xMax > 0) {
       xMin = -TEXTBOOK_HALF_X;
       xMax = TEXTBOOK_HALF_X;
     }

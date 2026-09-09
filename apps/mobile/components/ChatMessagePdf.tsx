@@ -19,6 +19,7 @@ import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
+import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import {
@@ -46,7 +47,7 @@ export function ChatMessagePdf({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme, compact), [theme, compact]);
   const token = useAuthToken();
-  const indexed = useAttachmentIndexed(attachmentId);
+  const { indexed, failed: indexFailed } = useAttachmentIndexed(attachmentId);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [previewBase64, setPreviewBase64] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -120,13 +121,15 @@ export function ChatMessagePdf({
         accessibilityRole="button"
       >
         <View style={s.iconWrap}>
-          <Icon name="document-text-outline" size={22} color={theme.primary} />
+          <Icon name="document-text-outline" size={IconSize.md} color={theme.primary} />
         </View>
         <View style={s.meta}>
           <Text style={s.name} numberOfLines={2}>
             {fileName}
           </Text>
-          <Text style={s.kind}>{indexed ? "PDF" : t("chat.file_indexing")}</Text>
+          <Text style={s.kind}>
+            {indexFailed ? t("chat.file_index_failed") : indexed ? "PDF" : t("chat.file_indexing")}
+          </Text>
         </View>
         <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
       </Pressable>

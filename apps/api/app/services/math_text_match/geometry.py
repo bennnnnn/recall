@@ -22,19 +22,43 @@ _SOLID_ALGEBRA_PHRASES = (
 )
 
 
+def _solid_word_index(lower: str, stem: str) -> int:
+    """``sphere`` / ``spheres``, not ``atmosphere`` / ``hemisphere``."""
+    start = 0
+    n = len(stem)
+    while True:
+        idx = lower.find(stem, start)
+        if idx == -1:
+            return -1
+        before_ok = idx == 0 or not lower[idx - 1].isalpha()
+        after = idx + n
+        if after < len(lower) and lower[after] == "s":
+            after += 1
+        after_ok = after >= len(lower) or not lower[after].isalpha()
+        if before_ok and after_ok:
+            return idx
+        start = idx + 1
+
+
 def classify_solid_shape(lower: str) -> SolidShape | None:
-    """3D homework shapes. Algebraic 'cube' (cube root, cubic) is not a solid."""
+    """3D homework shapes. Algebraic 'cube' (cube root, cubic) is not a solid.
+
+    Match on word boundaries so ``atmosphere`` is not a sphere and ``silicone``
+    is not a cone. English plurals (``spheres``) still count.
+    """
     if "rectangular prism" in lower or "rect prism" in lower or "cuboid" in lower:
         return "rectangular_prism"
-    if "cylinder" in lower:
+    if _solid_word_index(lower, "cylinder") != -1:
         return "cylinder"
-    if "cone" in lower:
+    if _solid_word_index(lower, "cone") != -1:
         return "cone"
-    if "sphere" in lower:
+    if _solid_word_index(lower, "sphere") != -1:
         return "sphere"
-    if "pyramid" in lower:
+    if _solid_word_index(lower, "pyramid") != -1:
         return "pyramid"
-    if "cube" in lower and not any(p in lower for p in _SOLID_ALGEBRA_PHRASES):
+    if _solid_word_index(lower, "cube") != -1 and not any(
+        p in lower for p in _SOLID_ALGEBRA_PHRASES
+    ):
         return "cube"
     return None
 

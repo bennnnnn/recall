@@ -34,6 +34,7 @@ import { useAuth, useAuthToken } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTranslation } from "react-i18next";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   message: Message;
@@ -95,7 +96,7 @@ function UserActions({
       >
         <Icon
           name={copied ? "checkmark-outline" : "copy-outline"}
-          size={20}
+          size={IconSize.sm}
           color={copied ? theme.primary : theme.textSecondary}
         />
         </Pressable>
@@ -196,7 +197,7 @@ function AssistantActions({
           >
             <Icon
               name={copied ? "checkmark-outline" : "copy-outline"}
-              size={20}
+              size={IconSize.sm}
               color={copied ? theme.primary : theme.textSecondary}
             />
           </Pressable>
@@ -210,7 +211,7 @@ function AssistantActions({
           >
             <Icon
               name={speaking ? "volume-high" : "volume-high-outline"}
-              size={20}
+              size={IconSize.sm}
               color={speaking ? theme.primary : theme.textSecondary}
             />
           </Pressable>
@@ -225,7 +226,7 @@ function AssistantActions({
       >
         <Icon
           name={feedback === "up" ? "thumbs-up" : "thumbs-up-outline"}
-          size={20}
+          size={IconSize.sm}
           color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
@@ -238,7 +239,7 @@ function AssistantActions({
       >
         <Icon
           name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
-          size={20}
+          size={IconSize.sm}
           color={feedback === "down" ? theme.danger : theme.textSecondary}
         />
       </Pressable>
@@ -258,7 +259,7 @@ function AssistantActions({
           {regenerating ? (
             <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Icon name="refresh-outline" size={20} color={theme.textSecondary} />
+            <Icon name="refresh-outline" size={IconSize.sm} color={theme.textSecondary} />
           )}
         </Pressable>
       ) : null}

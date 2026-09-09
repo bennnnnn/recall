@@ -32,6 +32,7 @@ from app.services.chat.prompt_constants import (
     BREVITY_REQUEST_HINT,
     BROAD_SELF_ANSWER_HINT,
     CALLOUT_FORMAT_HINT,
+    CAPABILITIES_FORMAT_HINT,
     CHART_FORMAT_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
@@ -46,6 +47,7 @@ from app.services.chat.prompt_constants import (
     HOWTO_FORMAT_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_INTENT_HINT,
+    MATH_SHORT_STEPS_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
@@ -68,6 +70,7 @@ from app.services.chat.prompt_constants import (
     is_bare_writing_line,
     is_brevity_request,
     is_callout_question,
+    is_capabilities_question,
     is_chart_question,
     is_email_or_message_request,
     is_howto_question,
@@ -80,7 +83,12 @@ from app.services.chat.prompt_constants import (
     is_underspecified_writing_request,
     writing_request_kind,
 )
-from app.services.chat.prompt_constants.visuals import is_html_ui_question
+from app.services.chat.prompt_constants.visuals import (
+    IMAGE_GEN_HONESTY_HINT,
+    IMAGE_GEN_UNAVAILABLE_HINT,
+    is_html_ui_question,
+    is_image_generation_mention,
+)
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
@@ -678,6 +686,7 @@ def _style_format_hints(
     is_day_plan: bool,
     minimal_personal_context: bool,
     compact: bool = False,
+    image_generation_enabled: bool = True,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
@@ -687,8 +696,19 @@ def _style_format_hints(
     Writing deliverables replace compact / short / FORMAT_CONTRACT so a
     paragraph ask is not also told to use bullets or a compare table.
     """
+    if query_text and is_capabilities_question(query_text):
+        # FORMAT_CONTRACT / COPY_DELIVERABLE / CLARIFICATION all teach
+        # ```email. A "what can you do" list then opens a draft card and
+        # swallows the rest of the reply.
+        return [
+            PRIVACY_HINT,
+            UNIVERSAL_FORMAT_BASELINE,
+            CAPABILITIES_FORMAT_HINT,
+            SHORT_MATH_SAFETY_HINT,
+        ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    math_intent, viz_intent = _math_viz_intent(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
@@ -733,14 +753,19 @@ def _style_format_hints(
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         parts.append(FORMAT_CONTRACT)
         parts.append(SHORT_MATH_SAFETY_HINT)
-        math_intent, viz_intent = _math_viz_intent(query_text)
-        if math_intent:
-            parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
         if viz_intent:
             parts.append(VISUALIZATION_HINTS)
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
+    if query_text and is_image_generation_mention(query_text):
+        parts.append(
+            IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
+        )
+    if math_intent:
+        parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
+        if style == "short" or compact:
+            parts.append(MATH_SHORT_STEPS_HINT)
     if query_text and is_brevity_request(query_text):
         parts.append(BREVITY_REQUEST_HINT)
     writing_kind = writing_request_kind(query_text) if query_text else None
@@ -960,6 +985,7 @@ async def build_prompt_messages(
                 is_day_plan=is_day_plan,
                 minimal_personal_context=minimal_personal_context,
                 compact=compact_format,
+                image_generation_enabled=settings.image_generation_enabled,
             )
         )
     else:
@@ -1006,7 +1032,7 @@ async def build_prompt_messages(
     elif load_memory:
         if blocks.memory_block:
             system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
-        if advice_memory:
+        if advice_memory and not (query_text and is_capabilities_question(query_text)):
             system_parts.append(ADVICE_PERSONALIZE_HINT)
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]

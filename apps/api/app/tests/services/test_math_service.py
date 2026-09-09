@@ -66,6 +66,8 @@ def test_normalize_unicode_scripts_and_glyphs() -> None:
     assert math_service._normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
     assert math_service._normalize_latex_to_sympy("\u03c0") == "pi"
     assert math_service._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
+    assert math_service._normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
+    assert math_service._normalize_latex_to_sympy("\u221ax") == "sqrt(x)"
     assert math_service._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
     assert math_service._normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
     assert math_service._normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
@@ -202,6 +204,34 @@ def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
     assert "Quadratic formula" in steps_text
     # Discriminant of x^2 + 4x + 1 is 16 - 4 = 12.
     assert "12" in steps_text
+    assert "--" not in steps_text
+
+
+def test_solve_quadratic_negative_b_parenthesizes_discriminant() -> None:
+    """``x^2 - 5x + 6`` used to emit ``\\Delta = -5^{2} - 4(1)(6) = 1`` (false:
+    -5^2 is -25) and ``--5`` in the formula. Parenthesize b and use latex(-b)."""
+    result = math_service.solve_equation(
+        EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "\\Delta" in steps_text
+    assert "(-5)^{2}" in steps_text or "\\left(-5\\right)^{2}" in steps_text
+    assert "-5^{2}" not in steps_text.replace("(-5)^{2}", "")
+    assert "--" not in steps_text
+    assert "2(1)" not in steps_text
+    joined = " ".join(result.solutions_latex)
+    assert "2" in joined
+    assert "3" in joined
+
+
+def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
+    result = math_service.solve_equation(
+        EquationInput(lhs="2*x**2 - 4*x - 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "--" not in steps_text
+    assert "-4^{2}" not in steps_text
+    assert "(-4)^{2}" in steps_text or "\\left(-4\\right)^{2}" in steps_text
 
 
 def test_solve_linear_includes_worked_isolation_steps() -> None:
@@ -219,6 +249,17 @@ def test_solve_linear_shows_subtract_on_both_sides() -> None:
     steps_text = "\n".join(result.steps)
     assert "F + 3 - 3 = 3 - 3" in steps_text
     assert "F = 0" in steps_text
+
+
+def test_solve_linear_multiplies_by_reciprocal_for_half_x() -> None:
+    """x/2 + 1 = 4 should multiply by 2, not divide by 1/2."""
+    result = math_service.solve_equation(EquationInput(lhs="x/2 + 1", rhs="4", variables=["x"]))
+    steps_text = "\n".join(result.steps)
+    assert "Multiply" in steps_text
+    assert "2" in steps_text
+    assert "x = 6" in steps_text
+    assert "Divide both sides by" not in steps_text
+    assert r"\frac{\frac" not in steps_text
 
 
 def test_worked_steps_empty_for_unrecognized_form() -> None:
@@ -314,6 +355,15 @@ def test_sample_function_rejects_relational_expr() -> None:
         )
 
 
+def test_sample_function_free_symbols_are_math_service_error() -> None:
+    """Leftover letters (``Graph`` → G·a·h·p·r) used to TypeError at np.asarray
+    and log as ``math_tools failed`` instead of a clean MathServiceError skip."""
+    with pytest.raises(math_service.MathServiceError, match="Could not sample"):
+        math_service.sample_function(
+            GraphSampleInput(expr="x**2/(G*a*h*p*r)", variable="x", x_min=-2, x_max=2, n=10)
+        )
+
+
 def test_number_line_from_x_gt_3() -> None:
     spec = math_service.number_line_spec_from_expr("x > 3")
     assert spec is not None
@@ -372,6 +422,28 @@ def test_sample_function_does_not_split_a_smooth_function(expr: str) -> None:
         GraphSampleInput(expr=expr, variable="x", x_min=-10, x_max=10, n=200)
     )
     assert len(result.segments) == 1
+
+
+def test_sample_function_zooms_undersampled_sine() -> None:
+    """sin(x) on [-1000, 1000] at 96 points aliases (~20 units/sample vs period 2π)."""
+    result = math_service.sample_function(
+        GraphSampleInput(expr="sin(x)", variable="x", x_min=-1000, x_max=1000, n=96)
+    )
+    width = result.x_max - result.x_min
+    assert width < 100
+    assert result.x_min < 0 < result.x_max
+    ys = [p[1] for p in result.points]
+    assert max(ys) > 0.5
+    assert min(ys) < -0.5
+
+
+def test_sample_function_keeps_explicit_count_on_a_short_window() -> None:
+    result = math_service.sample_function(
+        GraphSampleInput(expr="x**2", variable="x", x_min=-2, x_max=2, n=10)
+    )
+    assert len(result.points) == 10
+    assert result.x_min == pytest.approx(-2.0)
+    assert result.x_max == pytest.approx(2.0)
 
 
 def test_simplify_expression() -> None:
@@ -457,6 +529,13 @@ def test_compound_inequality_extract_and_solve() -> None:
 def test_differentiate_expression() -> None:
     result = math_service.differentiate_expression("x**2", "x")
     assert "2" in result.latex
+
+
+def test_differentiate_expression_second_order() -> None:
+    result = math_service.differentiate_expression("x**4 - 3*x**2", "x", 2)
+    # SymPy may leave 12x^{2}-6 or factor as 6(2x^{2}-1).
+    assert "x^{3}" not in result.latex
+    assert "2 x^{2}" in result.latex or "12" in result.latex
 
 
 def test_integrate_expression_marks_closed_form_result_as_solved() -> None:
@@ -593,6 +672,11 @@ def test_try_extract_equations_strips_trailing_sentence_period() -> None:
 
 def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
     assert math_service.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
+
+
+def test_try_extract_equations_collapses_chained_equals() -> None:
+    """``2x+3=3=7`` (doubled '=') must solve ``2x+3=7``, not ``2x+3=3``."""
+    assert math_service.try_extract_equations_from_text("Solve 2x + 3 = 3 = 7") == [("2x + 3", "7")]
 
 
 def test_try_extract_equations_strips_glued_english() -> None:

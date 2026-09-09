@@ -160,14 +160,140 @@ def test_extract_equation_sin_pi_x_still_solves_for_x() -> None:
         ("2x+3=7", True),
         ("y=x^2", True),
         ("a+b=10", True),
+        ("let x = 5", True),
         ("the meeting = 3pm", False),
         ("What's the weather?", False),
+        ("let x = the reason I'm late, it doesn't matter", False),
     ],
 )
 def test_needs_symbolic_math_bare_equation(text: str, expected: bool) -> None:
     """Bare algebraic equations (no 'solve'/'find' keyword) now trigger SymPy.
-    Prose with an '=' but no standalone single-letter variable does not."""
+    Prose with an '=' but no math sides does not."""
     assert math_tools.needs_symbolic_math(text) is expected
+
+
+def test_late_reason_prose_does_not_extract_an_equation() -> None:
+    assert math_tools.extract_math_intent("let x = the reason I'm late, it doesn't matter") is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "draw y=x^2",
+        "chart y=x^2",
+        "sketch y = x^2",
+        "visualize y=x^2",
+        "what does y=x^2 look like",
+        "show the shape of y=x^2",
+        "show y=x^2",
+    ],
+)
+def test_plot_phrasing_extracts_as_graph_not_equation(text: str) -> None:
+    """``draw y=x^2`` used to miss graph_expr and ship a verified *solve* of
+    y=x^2 (no diagram). Plot verbs must claim the graph kind."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert "Equation:" not in block.text
+    assert "a d r" not in block.text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "tell me about y=x^2",
+        "help me understand y=x^2",
+        "describe the curve y=x^3",
+        "explain why y=mx+b",
+        "my teacher wrote v=d/t on the board",
+        "the slope formula m=(y2-y1)/(x2-x1)",
+        "the answer key says x=5 but i got 6",
+        "i dont get why y=x^2 is a parabola",
+        "remind me what pv=nrt means",
+        "in chemistry pv=nrt is the gas law",
+        "summarize the identity sin^2+cos^2=1",
+        "how do I find the slope of y=x^2",
+    ],
+)
+def test_prose_mentioning_an_equation_is_not_a_verified_solve(text: str) -> None:
+    """Conversational mentions must not become kind=equation under a
+    'verified by SymPy' header. Graph/other kinds are allowed; a solve is not."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is None or intent.kind != "equation"
+    if intent is not None:
+        block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+        if block is not None:
+            assert "Equation:" not in block.text
+            singles = [tok for tok in block.text.split() if len(tok) == 1 and tok.isalpha()]
+            assert len(singles) < 3
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "solve 2x+3=7",
+        "find x if 2x+3=7",
+        "calculate 2x+3=7",
+        "what is x when 2x=10",
+        "2x+3=7",
+        "y=x^2",
+        "graph y=x^2",
+        "simplify 4x+2x=18",
+        "show me how to solve 2x+3=7",
+    ],
+)
+def test_imperative_and_bare_equations_still_extract(text: str) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind in {"equation", "graph"}
+
+
+def test_simplify_equation_falls_through_to_solve() -> None:
+    """``simplify 4x+2x=18`` used to match calculus simplify and fail verification."""
+    intent = math_tools.extract_math_intent("simplify 4x+2x=18")
+    assert intent is not None
+    assert intent.kind == "equation"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "3" in block.canonical_answer
+
+
+def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
+    """``Let x = 5. What is x + 2?`` must eval to 7, not stamp ```answer x = 5."""
+    intent = math_tools.extract_math_intent("Let x = 5. What is x + 2?")
+    assert intent is not None
+    assert intent.kind == "arithmetic"
+    assert intent.expr is not None
+    assert intent.expr.replace(" ", "") == "5+2"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "7" in block.canonical_answer
+    assert "x = 5" not in block.canonical_answer.replace(" ", "")
+    bare = math_tools.extract_math_intent("let x = 5")
+    assert bare is not None
+    assert bare.kind == "equation"
+
+
+def test_chained_equals_solves_the_intended_linear() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Solve 2x + 3 = 3 = 7")
+    assert intent is not None
+    assert intent.kind == "equation"
+    lhs = intent.lhs
+    rhs = intent.rhs
+    assert lhs is not None and rhs is not None
+    assert lhs.replace(" ", "") == "2x+3"
+    assert rhs.replace(" ", "") == "7"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "0" not in block.canonical_answer.split("=")[-1]
+    assert "2" in block.canonical_answer
 
 
 def test_extract_bare_equation_intent() -> None:
@@ -618,6 +744,8 @@ def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
     assert block.canonical_fence["base"] == 3
     assert block.canonical_fence["height"] == 4
     assert block.canonical_answer is None
+    assert "Opposite the base (3 cm) is 36.9°" in block.text
+    assert "opposite the height (4 cm) is 53.1°" in block.text
 
 
 def test_area_of_right_triangle_with_legs_still_answers_area() -> None:
@@ -731,6 +859,23 @@ def test_rectangular_prism_does_not_become_2d_rectangle() -> None:
 )
 def test_algebraic_cube_is_not_a_solid(text: str) -> None:
     intent = math_tools.extract_math_intent(text)
+    assert intent is None or intent.kind != "solid"
+
+
+def test_convert_atmosphere_is_unit_not_sphere() -> None:
+    intent = math_tools.extract_math_intent("convert 1 atmosphere to psi")
+    assert intent is not None
+    assert intent.kind == "unit"
+    assert intent.unit_from is not None
+    assert "atmosphere" in intent.unit_from.lower()
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert "Solid (sphere)" not in block.text
+    assert "Equation:" not in block.text
+
+
+def test_silicone_is_not_a_cone_solid() -> None:
+    intent = math_tools.extract_math_intent("how much silicone")
     assert intent is None or intent.kind != "solid"
 
 
@@ -881,6 +1026,16 @@ def test_verified_trig_sin_of_degrees() -> None:
         ("Graph y =Graph y = x².", "x**2"),
         (r"Graph y =Graph y = $x^{2}$.", "x**2"),
         (r"Graph y =Graph y$= x^$$= x^2.$", "x**2"),
+        ("Graph y = Graph y = x^2", "x**2"),
+        ("graph this: graph y=x^2", "x**2"),
+        ("graph theory then graph y=x^2", "x**2"),
+        ("draw y=x^2", "x**2"),
+        ("sketch y = x^2", "x**2"),
+        ("visualize y=x^2", "x**2"),
+        ("chart y=x^2", "x**2"),
+        ("what does y=x^2 look like", "x**2"),
+        ("show the shape of y=x^2", "x**2"),
+        ("Graph y =Graph y= x= x².", "x**2"),
     ],
 )
 def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
@@ -892,6 +1047,30 @@ def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: st
     assert intent is not None
     assert intent.kind == "graph"
     assert intent.expr == expected_expr
+
+
+def test_garbled_graph_ask_does_not_become_equation() -> None:
+    """English leftover after a graph cue must stay kind=graph (honesty note),
+    not fall through to the equation solver as a fabricated verified solve."""
+    settings = Settings(math_tools_enabled=True)
+    text = "graph x = the reason I am late"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert not intent.expr
+    assert intent.lhs is None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is None
+
+
+def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
+    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
+    from app.services.math_tools.block.common import DIAGRAM_OWNED_NOTE
+    from app.services.math_tools.prompt import _unverified_math_note
+
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in _unverified_math_note("graph")
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in DIAGRAM_OWNED_NOTE
+    assert "Do not offer Python" in DIAGRAM_OWNED_NOTE
 
 
 def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
@@ -1021,6 +1200,8 @@ def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr:
         ("factor x^2 - 1", "factor"),
         ("expand (x-1)(x+1)", "expand"),
         ("Factor the polynomial x^3 - 1", "factor"),
+        ("factor x^2-5x+6=0", "factor"),
+        ("expand (x+1)^2=x^2+2x+1", "expand"),
     ],
 )
 def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
@@ -1032,6 +1213,27 @@ def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
     assert intent.kind == "calculus"
     assert intent.operation == expected_op
     assert intent.expr
+
+
+def test_calculus_without_sympy_steps_asks_model_to_derive() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("factor x^2 - 1")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert "did not produce worked steps" in block.text
+    assert "numbered" in block.text
+    assert block.canonical_answer is not None
+
+
+def test_differentiate_block_copies_verified_steps() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("differentiate x^3 + 5")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert "did not produce worked steps" not in block.text
+    assert "Sum rule" in block.text or "Power rule" in block.text
 
 
 def test_extract_definite_integral_bounds() -> None:
@@ -1051,6 +1253,40 @@ def test_extract_indefinite_integral_has_no_bounds() -> None:
     assert intent.operation == "integrate"
     assert intent.integral_lower is None
     assert intent.integral_upper is None
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr",
+    [
+        ("Integrate x squared", "x^2"),
+        ("integrate x cubed", "x^3"),
+        ("What is the integral of x squared.", "x^2"),
+        ("differentiate x squared", "x^2"),
+    ],
+)
+def test_extract_english_squared_cubed(text: str, expected_expr: str) -> None:
+    """Speech / typed 'x squared' used to miss extract, then stamp unverified."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.expr == expected_expr
+
+
+def test_verified_integrate_x_squared_english() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("Integrate x squared")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "x^{3}" in compact or "x^3" in compact
+    assert "3" in compact
+
+
+def test_english_area_squared_does_not_become_are_caret() -> None:
+    """Rewrite only 1-letter / digit bases — not the word 'area'."""
+    assert math_tools.extract_math_intent("integrate area squared") is None
 
 
 @pytest.mark.parametrize(
@@ -1243,6 +1479,95 @@ def test_differentiate_expression_steps_name_rules() -> None:
     assert out.steps[-1].startswith("Result:")
     # The verified derivative of x^3 + 5 is 3*x^2.
     assert "3" in out.result and "x" in out.result
+
+
+def test_first_derivative_phrasing_stays_order_one() -> None:
+    intent = math_tools.extract_math_intent("find the derivative of sin(x)cos(x)")
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 1
+
+
+def test_second_derivative_is_not_the_first() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the second derivative of x^4 - 3x^2"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    # f' = 4x^3 - 6x; f'' = 12x^2 - 6 (possibly factored). Must not ship f'.
+    assert "x^{3}" not in block.canonical_answer
+    assert "2 x^{2}" in block.canonical_answer or "12" in block.canonical_answer
+
+
+def test_second_derivative_of_y_equals_polynomial_verifies() -> None:
+    """``y = x^3 - 3x`` used to fail extract, then stamp Couldn't verify."""
+    settings = Settings(math_tools_enabled=True)
+    text = "Find the second derivative of y = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    assert "=" not in (intent.expr or "")
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "6x" in compact or "6 x" in block.canonical_answer
+
+
+def test_dydx_if_y_equals_differentiates_the_rhs() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "Find dy/dx if y = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 1
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "3x^2" in compact or "3x^{2}" in compact or "3 x^{2}" in block.canonical_answer
+
+
+def test_dsolve_first_order_separable() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "solve the differential equation dy/dx = y"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.operation == "dsolve"
+    assert intent.expr is not None
+    assert intent.expr.lower().startswith("dy/dx")
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    low = block.canonical_answer.lower()
+    assert "e" in low or "exp" in low or "c" in low
+
+
+def test_critical_points_are_not_a_fake_equation_solve() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the critical points of f(x) = x^3 - 3x"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "critical_points"
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "re(" not in block.canonical_answer
+    assert "1" in block.canonical_answer and "-1" in block.canonical_answer
+
+
+def test_maclaurin_aliases_taylor_at_zero() -> None:
+    intent = math_tools.extract_math_intent("maclaurin series of e^x")
+    assert intent is not None
+    assert intent.operation == "taylor"
+    assert intent.limit_point == "0"
 
 
 @pytest.mark.asyncio
@@ -1739,6 +2064,24 @@ async def test_default_graph_sample_stays_compact_for_chat_bubbles() -> None:
     assert verified.canonical_fence is not None
     assert len(verified.canonical_fence["points"]) == settings.math_graph_max_points
     assert settings.math_graph_max_points <= 120
+
+
+@pytest.mark.asyncio
+async def test_wide_sine_graph_zooms_instead_of_aliasing() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph y = sin(x) from -1000 to 1000"}],
+        "Graph y = sin(x) from -1000 to 1000",
+        settings,
+    )
+    assert verified is not None
+    fence = verified.canonical_fence
+    assert fence is not None
+    assert fence["type"] == "function"
+    assert fence["x_max"] - fence["x_min"] < 100
+    ys = [p[1] for p in fence["points"]]
+    assert max(ys) > 0.5
+    assert min(ys) < -0.5
 
 
 @pytest.mark.asyncio

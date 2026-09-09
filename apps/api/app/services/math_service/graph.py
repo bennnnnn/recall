@@ -59,6 +59,53 @@ def _split_into_segments(
     return [seg for seg in segments if seg]
 
 
+_MAX_GRAPH_SAMPLES = 500
+_OSCILLATION_SAMPLES_PER_PERIOD = 16
+_OSCILLATION_PERIODS_IN_VIEW = 8
+
+
+def _oscillation_period(parsed: Any, sym: Symbol) -> float | None:
+    """2π/|ω| (or π/|ω| for tan) when the expr contains sin/cos/tan of a linear arg."""
+    from sympy import cos, sin, tan
+
+    for fn, base in ((tan, math.pi), (sin, 2 * math.pi), (cos, 2 * math.pi)):
+        for atom in parsed.atoms(fn):
+            arg = atom.args[0]
+            if not arg.has(sym):
+                continue
+            deriv = arg.diff(sym)
+            try:
+                omega = abs(float(deriv))
+            except (TypeError, ValueError):
+                continue
+            if omega > 0:
+                return base / omega
+    return None
+
+
+def _adapt_sample_window(
+    x_min: float, x_max: float, n: int, period: float | None
+) -> tuple[float, float, int]:
+    """Raise n or zoom so an oscillation is not aliased by a huge domain."""
+    if period is None or period <= 0:
+        return x_min, x_max, n
+    width = x_max - x_min
+    if width <= 0:
+        return x_min, x_max, n
+    needed = width / period * _OSCILLATION_SAMPLES_PER_PERIOD
+    if needed <= n:
+        return x_min, x_max, n
+    if needed <= _MAX_GRAPH_SAMPLES:
+        return x_min, x_max, min(_MAX_GRAPH_SAMPLES, max(n, int(math.ceil(needed))))
+    mid = 0.0 if x_min < 0 < x_max else (x_min + x_max) / 2.0
+    half = (_OSCILLATION_PERIODS_IN_VIEW * period) / 2.0
+    zoom_n = min(
+        _MAX_GRAPH_SAMPLES,
+        max(n, int(_OSCILLATION_PERIODS_IN_VIEW * _OSCILLATION_SAMPLES_PER_PERIOD)),
+    )
+    return mid - half, mid + half, zoom_n
+
+
 def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if data.x_max <= data.x_min:
         raise MathServiceError("x_max must be greater than x_min")
@@ -72,13 +119,15 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     from sympy.utilities.lambdify import lambdify
 
     numpy_fn = lambdify(sym, parsed, modules=["numpy"])
-    xs = np.linspace(data.x_min, data.x_max, data.n)
+    x_min, x_max, n = _adapt_sample_window(
+        data.x_min, data.x_max, data.n, _oscillation_period(parsed, sym)
+    )
+    xs = np.linspace(x_min, x_max, n)
     try:
         ys = numpy_fn(xs)
+        ys = np.asarray(ys, dtype=float)
     except Exception as exc:
         raise MathServiceError(f"Could not sample function: {data.expr}") from exc
-
-    ys = np.asarray(ys, dtype=float)
     points: list[list[float]] = []
     for x_val, y_val in zip(xs, ys, strict=False):
         if not np.isfinite(y_val):
@@ -88,8 +137,8 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     return GraphSampleResult(
         expr=data.expr,
         variable=data.variable,
-        x_min=data.x_min,
-        x_max=data.x_max,
+        x_min=x_min,
+        x_max=x_max,
         points=points,
         segments=_split_into_segments(points),
     )

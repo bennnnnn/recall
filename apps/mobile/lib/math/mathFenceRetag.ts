@@ -115,15 +115,12 @@ export function looksLikeLatexFence(content: string): boolean {
 }
 
 /**
- * True when inline `$...$` math contains a LaTeX environment
- * (`\begin{matrix}`, `\begin{cases}`, `\begin{aligned}`, `array`, `gathered`,
- * `split`, `bmatrix`/`pmatrix`/`vmatrix`, …) that the native `MathText`
- * renderer can't lay out — those need the KaTeX WebView. Everything else
- * (fractions, `\sqrt`, `\mathbb`, accents, Greek, …) is handled natively and
- * stays inline; only environments route to the block-inline WebView chip.
+ * True when inline `$...$` math needs the KaTeX WebView: a LaTeX
+ * environment (`\begin{matrix}`, cases, aligned, …) or a large operator
+ * (`\sum` / `\prod` / `\int` / `\binom`) that native MathText paints tiny.
  */
 export function isHeavyInlineMath(latex: string): boolean {
-  return /\\begin\{[\w*]+\}/.test(latex);
+  return /\\begin\{[\w*]+\}/.test(latex) || /\\(sum|prod|int|binom)(?![A-Za-z])/.test(latex);
 }
 
 const INLINE_MATH_FENCE_MAX = 48;

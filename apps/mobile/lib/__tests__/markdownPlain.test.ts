@@ -62,6 +62,13 @@ describe("markdownPlain", () => {
     expect(copy).not.toContain("userid");
   });
 
+  it("copies inline math as readable text, not raw $ / \\frac", () => {
+    const copy = markdownToCopyText("The answer is $\\frac{2}{3}$.");
+    expect(copy).toContain("2/3");
+    expect(copy).not.toContain("$");
+    expect(copy).not.toContain("\\frac");
+  });
+
   it("does not strip a numeric-only answer fence", () => {
     expect(markdownToCopyText("```answer\n42\n```")).toBe("42");
     expect(markdownToSpeechText("```answer\n42\n```")).toBe("42");

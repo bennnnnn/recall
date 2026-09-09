@@ -78,6 +78,7 @@ async def create(
     confidence: float,
     source_snippet: str | None,
     source_sender: str | None = None,
+    status: str = "pending",
 ) -> SuggestedReminder:
     row = SuggestedReminder(
         user_id=user_id,
@@ -88,7 +89,7 @@ async def create(
         confidence=confidence,
         source_snippet=source_snippet,
         source_sender=source_sender,
-        status="pending",
+        status=status,
     )
     session.add(row)
     await session.commit()

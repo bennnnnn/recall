@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text } from "react-native";
 import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
 export const ACTION_SHEET_ICON_SIZE = 20;
@@ -61,9 +62,9 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     label: {
-      fontSize: 17,
-      color: C.text,
+      ...Type.navTitle,
       fontWeight: "400",
+      color: C.text,
       flex: 1,
     },
     labelDanger: {

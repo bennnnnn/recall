@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal, Self
 from uuid import UUID
 
@@ -19,6 +19,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
@@ -39,13 +40,16 @@ logger = logging.getLogger(__name__)
 
 _REMINDER_FENCE = re.compile(r"```reminder\s*\n([\s\S]*?)```", re.IGNORECASE)
 _INVALID_FENCE = "*Could not set that reminder — the format was invalid.*"
-_USER_REMIND = re.compile(
-    r"remind\s+me\s+(?:to\s+)?(?P<title>.+?)\s+"
-    r"(?P<day>today|tomorrow)\s+at\s+"
-    r"(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s*"
-    r"(?P<ampm>a\.?m\.?|p\.?m\.?)",
-    re.IGNORECASE,
+_WEEKDAYS = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
 )
+_DAY_NAMES = frozenset(("today", "tomorrow", *_WEEKDAYS))
 _FAIL_VERB = {
     "add": "set",
     "delete": "delete",
@@ -175,34 +179,163 @@ def _parse_fence(raw: str) -> _ReminderFence | None:
         return None
 
 
-def _explicit_user_remind(
-    user_text: str | None, user_timezone: str | None
-) -> _ReminderFence | None:
-    """Parse 'remind me … today/tomorrow at 6pm' from the user — never invent a clock."""
-    if not user_text:
+def _find_phrase(haystack: str, needle: str, *, start: int = 0) -> int:
+    """Return the index of ``needle`` as a whole-word phrase, or -1."""
+    pos = start
+    needle_len = len(needle)
+    while True:
+        idx = haystack.find(needle, pos)
+        if idx < 0:
+            return -1
+        before_ok = idx == 0 or not haystack[idx - 1].isalpha()
+        after = idx + needle_len
+        after_ok = after >= len(haystack) or not haystack[after].isalpha()
+        if before_ok and after_ok:
+            return idx
+        pos = idx + 1
+
+
+def _skip_spaces(text: str, index: int) -> int:
+    length = len(text)
+    while index < length and text[index].isspace():
+        index += 1
+    return index
+
+
+def _parse_ampm(text: str, index: int) -> tuple[str, int] | None:
+    length = len(text)
+    index = _skip_spaces(text, index)
+    if index >= length:
         return None
-    match = _USER_REMIND.search(user_text)
-    if match is None:
+    letter = text[index].lower()
+    if letter not in ("a", "p"):
         return None
-    title = match.group("title").strip().strip("\"'").rstrip(".,;:")
-    if not title:
+    index += 1
+    if index < length and text[index] == ".":
+        index += 1
+    if index >= length or text[index].lower() != "m":
         return None
-    hour = int(match.group("hour"))
-    minute = int(match.group("minute") or 0)
-    ampm = match.group("ampm").lower().replace(".", "")
+    index += 1
+    if index < length and text[index] == ".":
+        index += 1
+    return letter, index
+
+
+def _parse_clock(text: str, index: int) -> tuple[int, int] | None:
+    """Parse ``H[:MM] am/pm`` starting at ``index``. Linear digit walk, no regex."""
+    length = len(text)
+    index = _skip_spaces(text, index)
+    if index >= length or not text[index].isdigit():
+        return None
+    hour = 0
+    digits = 0
+    while index < length and text[index].isdigit() and digits < 2:
+        hour = hour * 10 + (ord(text[index]) - 48)
+        index += 1
+        digits += 1
+    minute = 0
+    if index < length and text[index] == ":":
+        index += 1
+        if index + 1 >= length or not (text[index].isdigit() and text[index + 1].isdigit()):
+            return None
+        minute = (ord(text[index]) - 48) * 10 + (ord(text[index + 1]) - 48)
+        index += 2
+    parsed = _parse_ampm(text, index)
+    if parsed is None:
+        return None
+    meridiem, _end = parsed
     if hour == 12:
-        hour = 0 if ampm.startswith("a") else 12
-    elif ampm.startswith("p"):
+        hour = 0 if meridiem == "a" else 12
+    elif meridiem == "p":
         hour += 12
     if hour > 23 or minute > 59:
         return None
+    return hour, minute
+
+
+def _last_at_separator(haystack: str, start: int) -> int:
+    """Index of the last `` at `` separator at or after ``start``, or -1."""
+    last = -1
+    pos = start
+    while True:
+        idx = haystack.find(" at ", pos)
+        if idx < 0:
+            return last
+        last = idx
+        pos = idx + 1
+
+
+def _due_date_for_day(day_name: str, now: datetime) -> date | None:
+    if day_name == "today":
+        return now.date()
+    if day_name == "tomorrow":
+        return now.date() + timedelta(days=1)
+    try:
+        weekday = _WEEKDAYS.index(day_name)
+    except ValueError:
+        return None
+    delta = (weekday - now.weekday()) % 7
+    return now.date() + timedelta(days=delta)
+
+
+def parse_spoken_remind(
+    user_text: str | None,
+    *,
+    user_timezone: str | None = None,
+    now: datetime | None = None,
+) -> tuple[str, datetime] | None:
+    """Linear parse of ``remind me [to] TITLE DAY at H[:MM] am/pm``.
+
+    DAY is today, tomorrow, or a weekday name. Missing clocks are not invented.
+    """
+    if not user_text:
+        return None
+    lowered = user_text.lower()
+    remind_at = _find_phrase(lowered, "remind me")
+    if remind_at < 0:
+        return None
+    cursor = _skip_spaces(user_text, remind_at + len("remind me"))
+    if lowered.startswith("to", cursor) and (
+        cursor + 2 >= len(lowered) or not lowered[cursor + 2].isalpha()
+    ):
+        cursor = _skip_spaces(user_text, cursor + 2)
+    title_start = cursor
+    last_at = _last_at_separator(lowered, title_start)
+    if last_at < 0:
+        return None
+    clock = _parse_clock(user_text, last_at + len(" at "))
+    if clock is None:
+        return None
+    before = user_text[title_start:last_at].rstrip()
+    if not before:
+        return None
+    split = before.rfind(" ")
+    day_raw = before[split + 1 :] if split >= 0 else before
+    day_token = day_raw.strip().strip("\"'").rstrip(".,;:").lower()
+    if day_token not in _DAY_NAMES:
+        return None
+    title = (before[:split] if split >= 0 else "").strip().strip("\"'").rstrip(".,;:")
+    if not title:
+        return None
     tz = time_context_service.resolve_timezone(user_timezone)
-    now = datetime.now(tz)
-    day = now.date()
-    if match.group("day").lower() == "tomorrow":
-        day = day + timedelta(days=1)
+    when = now.astimezone(tz) if now is not None else datetime.now(tz)
+    day = _due_date_for_day(day_token, when)
+    if day is None:
+        return None
+    hour, minute = clock
     due = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
-    return _ReminderFence(action="add", title=title[:500], due_at=due)
+    return title[:500], due
+
+
+def _explicit_user_remind(
+    user_text: str | None, user_timezone: str | None
+) -> _ReminderFence | None:
+    """Parse 'remind me … today/tomorrow/weekday at 6pm' from the user — never invent a clock."""
+    parsed = parse_spoken_remind(user_text, user_timezone=user_timezone)
+    if parsed is None:
+        return None
+    title, due = parsed
+    return _ReminderFence(action="add", title=title, due_at=due)
 
 
 async def _load_existing(state: _ReminderFenceCreateState) -> None:
@@ -251,15 +384,34 @@ async def _create_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
             user_timezone=state.user_timezone,
             ok=True,
         ), True
-    new_todo = await todos_repo.create(
-        state.session,
-        user_id=state.user_id,
-        content=title,
-        topic=REMINDER_TOPIC,
-        chat_id=state.chat_id,
-        due_at=due_at,
-        recurrence_rule=draft.repeat,
-    )
+    try:
+        new_todo = await todos_repo.create(
+            state.session,
+            user_id=state.user_id,
+            content=title,
+            topic=REMINDER_TOPIC,
+            chat_id=state.chat_id,
+            due_at=due_at,
+            recurrence_rule=draft.repeat,
+        )
+    except IntegrityError as exc:
+        if not todos_repo.is_open_content_due_conflict(exc):
+            raise
+        await state.session.rollback()
+        existing = await todos_repo.get_open_dated_duplicate(
+            state.session, state.user_id, content=title, due_at=due_at
+        )
+        if existing is None:
+            raise
+        saved_due = existing.due_at if existing.due_at is not None else due_at
+        return format_schedule_result(
+            action="add",
+            title=title,
+            due_at=saved_due,
+            repeat=getattr(existing, "recurrence_rule", None) or draft.repeat,
+            user_timezone=state.user_timezone,
+            ok=True,
+        ), True
     state.existing.append(new_todo)
     logger.info(
         "Reminder fence applied: user_id=%s chat_id=%s title=%s",
@@ -285,6 +437,7 @@ async def _mutate_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
         topic=REMINDER_TOPIC,
         content=title,
         due_at=draft.due_at,
+        recurrence_rule=draft.repeat if draft.action == "set_due" else None,
     )
     applied = await apply_todo_actions(
         state.session,
@@ -303,7 +456,7 @@ async def _mutate_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
         action=draft.action,
         title=title,
         due_at=due_at,
-        repeat=None,
+        repeat=draft.repeat if draft.action == "set_due" else None,
         user_timezone=state.user_timezone,
         ok=ok,
     ), ok

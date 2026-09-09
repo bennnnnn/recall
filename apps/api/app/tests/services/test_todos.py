@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -31,6 +32,18 @@ class _FakeSessionCM:
 
 def _session_local_side_effect(session: AsyncMock):
     return [_FakeSessionCM(session), _FakeSessionCM(session)]
+
+
+@asynccontextmanager
+async def _nested_savepoint():
+    yield
+
+
+def _session_with_savepoint() -> AsyncMock:
+    """AsyncMock session whose begin_nested() is sync, like SQLAlchemy's."""
+    session = AsyncMock()
+    session.begin_nested = MagicMock(side_effect=_nested_savepoint)
+    return session
 
 
 def test_todo_create_requires_due_at():
@@ -71,6 +84,22 @@ async def test_update_todo_rejects_cleared_due_at():
 
 
 @pytest.mark.asyncio
+async def test_update_todo_rejects_recurrence_without_due():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    item = MagicMock()
+    item.due_at = None
+    item.recurrence_rule = None
+    with patch.object(todos_crud.todos_repo, "get_by_id", AsyncMock(return_value=item)):
+        with pytest.raises(todos_crud.TodosError) as exc:
+            await todos_crud.update_todo(session, user, uuid4(), {"recurrence_rule": "weekly"})
+    assert exc.value.status_code == 422
+    assert "due_at" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_create_todo_rejects_project_id():
     session = AsyncMock()
     user = MagicMock()
@@ -87,6 +116,58 @@ async def test_create_todo_rejects_project_id():
             due_at=datetime.now(UTC),
         )
     assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_todo_unique_violation_returns_existing():
+    from sqlalchemy.exc import IntegrityError
+
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    due = datetime(2026, 9, 8, 15, tzinfo=UTC)
+    existing = MagicMock()
+    existing.id = uuid4()
+    existing.content = "Call mom"
+    existing.due_at = due
+    with (
+        patch.object(
+            todos_crud.todos_repo,
+            "create",
+            AsyncMock(
+                side_effect=IntegrityError("insert", {}, Exception("uq_todo_open_content_due"))
+            ),
+        ),
+        patch.object(
+            todos_crud.todos_repo,
+            "get_open_dated_duplicate",
+            AsyncMock(return_value=existing),
+        ) as lookup,
+        patch.object(todos_crud.home_service, "invalidate_home_cache", AsyncMock()) as invalidate,
+    ):
+        item = await todos_crud.create_todo(
+            session,
+            user,
+            content="Call mom",
+            topic="Reminders",
+            chat_id=None,
+            project_id=None,
+            due_at=due,
+        )
+    assert item is existing
+    lookup.assert_awaited_once()
+    invalidate.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+
+
+def test_is_open_content_due_conflict_reads_constraint_name():
+    from sqlalchemy.exc import IntegrityError
+
+    hit = IntegrityError("insert", {}, Exception("uq_todo_open_content_due"))
+    other = IntegrityError("insert", {}, Exception("todo_items_pkey"))
+    assert todos_repo.is_open_content_due_conflict(hit)
+    assert not todos_repo.is_open_content_due_conflict(other)
 
 
 def _item(content: str, topic: str = "Groceries", checked: bool = False):
@@ -402,6 +483,21 @@ def test_format_todos_block_schedule_only():
     assert "Milk" not in block
 
 
+def test_format_todos_voice_block_is_plain_and_skips_undated():
+    due_item = _item("Reading at 10", "General")
+    due_item.due_at = datetime(2026, 7, 1, 10, 0, tzinfo=UTC)
+    block = todos_service.format_todos_voice_block(
+        [due_item, _item("Milk", "Groceries")],
+        user_timezone="UTC",
+    )
+    assert "User Schedule" in block
+    assert "Reading at 10" in block
+    assert "10:00" in block
+    assert "### " not in block
+    assert "Milk" not in block
+    assert todos_service.format_todos_voice_block([_item("Milk")]) == ""
+
+
 @pytest.mark.asyncio
 async def test_apply_todo_actions_complete():
     session = AsyncMock()
@@ -463,6 +559,41 @@ async def test_apply_todo_actions_set_due():
     update_mock.assert_awaited()
 
 
+@pytest.mark.asyncio
+async def test_apply_todo_actions_set_due_forwards_recurrence():
+    session = AsyncMock()
+    existing = _item("Pay rent", "Home")
+    due = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+    with (
+        patch.object(
+            todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            todos_repo,
+            "update",
+            AsyncMock(return_value=existing),
+        ) as update_mock,
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(
+                    action="set_due",
+                    topic="Home",
+                    content="Pay rent",
+                    due_at=due,
+                    recurrence_rule="weekly",
+                )
+            ],
+            user_timezone="UTC",
+        )
+    assert applied == 1
+    assert update_mock.await_args.kwargs["recurrence_rule"] == "weekly"
+
+
 def test_select_todos_for_prompt_prioritizes_overdue():
     now = datetime.now(UTC)
     overdue = _item("Overdue task")
@@ -487,6 +618,8 @@ def test_select_todos_for_prompt_prioritizes_overdue():
 def test_query_implies_todos():
     assert todos_service.query_implies_todos("What's on my todo list?")
     assert todos_service.query_implies_todos("mis recordatorios")
+    assert todos_service.query_implies_todos("remind me to call mom tomorrow at 5pm")
+    assert todos_service.query_implies_todos("Can you remind me")
     assert not todos_service.query_implies_todos("Add milk to my grocery list")
     assert todos_service.query_implies_todos("mark laundry done")
     assert todos_service.query_implies_todos("move dentist to tomorrow")
@@ -649,7 +782,7 @@ def test_transcript_implies_todo_sync_ignores_schedule_listings():
 @pytest.mark.asyncio
 async def test_apply_todo_actions_reminder_without_topic():
     """Dated reminder adds work even when the extractor omits a list title."""
-    session = AsyncMock()
+    session = _session_with_savepoint()
     due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     with (
         patch.object(
@@ -731,6 +864,50 @@ async def test_materialize_reminder_fences_creates_todo():
     # 3pm ET → 19:00 UTC
     assert kwargs["due_at"].hour == due.hour
     invalidate_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_unique_race_returns_existing():
+    from sqlalchemy.exc import IntegrityError
+
+    session = AsyncMock()
+    due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    existing = MagicMock()
+    existing.content = "2026 FIFA World Cup Final"
+    existing.due_at = due
+    existing.recurrence_rule = None
+    existing.checked = False
+    text = (
+        "```reminder\n"
+        '{"title":"2026 FIFA World Cup Final","due_at":"2026-07-19T15:00:00-04:00"}\n'
+        "```\n"
+    )
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(
+            todos_repo,
+            "create",
+            AsyncMock(
+                side_effect=IntegrityError("insert", {}, Exception("uq_todo_open_content_due"))
+            ),
+        ),
+        patch.object(
+            todos_repo,
+            "get_open_dated_duplicate",
+            AsyncMock(return_value=existing),
+        ),
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+        )
+    assert created == 1
+    assert "Set: 2026 FIFA World Cup Final" in updated
+    session.rollback.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1009,6 +1186,32 @@ async def test_materialize_reminder_fences_set_due_confirms():
     assert "Moved: Walk — Monday, Jul 20, 3:00 PM." in updated
 
 
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_set_due_forwards_repeat():
+    session = AsyncMock()
+    existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)
+    existing.due_at = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    text = (
+        '```reminder\n{"action":"set_due","title":"Walk",'
+        '"due_at":"2026-07-20T15:00:00-04:00","repeat":"weekly"}\n```'
+    )
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+        )
+    assert applied == 1
+    assert update_mock.await_args.kwargs["recurrence_rule"] == "weekly"
+    assert "Moved: Walk — Monday, Jul 20, 3:00 PM · weekly." in updated
+
+
 def test_format_schedule_result_set_line():
     from app.services.todos.reminder_fences import format_schedule_result
 
@@ -1028,6 +1231,8 @@ def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
     assert "```reminder" in hint
     assert '"action":"delete"' in hint
+    assert '"action":"set_due","title":"Walk"' in hint
+    assert '"repeat":"weekly"' in hint
     assert "Do not say the change is done" in hint
     assert "do not ask" in hint and "flight number" in hint
     assert "Emit the fence first" in hint
@@ -1107,7 +1312,7 @@ async def test_apply_todo_actions_dedupes_add():
 async def test_apply_todo_actions_add_appends_for_same_batch_dedupe():
     """After an add, the next action must see the new row in state.items
     without a full list_for_user reload."""
-    session = AsyncMock()
+    session = _session_with_savepoint()
     due = datetime.now(UTC) + timedelta(days=1)
     created = _item("Eggs", "Groceries")
     created.due_at = due
@@ -1128,6 +1333,41 @@ async def test_apply_todo_actions_add_appends_for_same_batch_dedupe():
     assert create_mock.await_args.kwargs.get("commit") is False
     assert list_mock.await_count == 1
     session.commit.assert_awaited_once()
+    session.begin_nested.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_todo_actions_unique_violation_counts_zero():
+    from sqlalchemy.exc import IntegrityError
+
+    session = _session_with_savepoint()
+    due = datetime.now(UTC) + timedelta(days=1)
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(
+            todos_repo,
+            "create",
+            AsyncMock(
+                side_effect=IntegrityError("insert", {}, Exception("uq_todo_open_content_due"))
+            ),
+        ) as create_mock,
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(
+                    action="add",
+                    topic="Reminders",
+                    content="Call mom",
+                    due_at=due,
+                ),
+            ],
+        )
+    assert applied == 0
+    create_mock.assert_awaited_once()
+    session.rollback.assert_not_awaited()
+    session.begin_nested.assert_called_once()
 
 
 @pytest.mark.asyncio

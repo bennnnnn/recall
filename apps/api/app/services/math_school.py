@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from pint import UnitRegistry
 from sympy import (
+    Derivative,
+    Eq,
     Function,
     Symbol,
     cos,
+    diff,
     dsolve,
     factorial,
     latex,
@@ -16,6 +20,7 @@ from sympy import (
     pi,
     simplify,
     sin,
+    solve,
     tan,
 )
 
@@ -66,6 +71,9 @@ _UNIT_ALIASES = {
     "fahrenheit": "degF",
     "k": "kelvin",
     "kelvin": "kelvin",
+    "fl-oz": "fluid_ounce",
+    "floz": "fluid_ounce",
+    "fl oz": "fluid_ounce",
 }
 
 
@@ -188,36 +196,57 @@ def convert_unit(value: float, src: str, dest: str) -> str:
     """
     ureg = _get_unit_registry()
 
-    def _normalize(unit: str) -> str:
-        key = unit.lower().strip()
-        # Check the alias dict with the full string first (handles "inches",
-        # "feet", "celsius", "fahrenheit", "m/s2", etc.), then try the
-        # plural-stripped form (handles "meters" → "meter", "seconds" → "second").
-        # Only strip plurals from simple word units (no "/" or "^") so compound
-        # units like "m/s" aren't broken into "m/", and only from 2+ char words
-        # so "s" (second) and "m" (meter) aren't reduced to "".
+    def _candidates(unit: str) -> list[str]:
+        raw = unit.strip()
+        key = raw.lower()
+        out: list[str] = []
+
+        def add(item: str) -> None:
+            if item and item not in out:
+                out.append(item)
+
         if key in _UNIT_ALIASES:
-            return _UNIT_ALIASES[key]
-        if "/" in key or "^" in key:
-            return key  # compound unit — pass through to Pint as-is
-        stripped = key.rstrip("s") if len(key) > 1 else key
-        if stripped in _UNIT_ALIASES:
-            return _UNIT_ALIASES[stripped]
-        return stripped
+            add(_UNIT_ALIASES[key])
+            return out
+        if "/" not in key and "^" not in key and len(key) > 1:
+            stripped = key.rstrip("s")
+            if stripped in _UNIT_ALIASES:
+                add(_UNIT_ALIASES[stripped])
+                return out
+        # Pint is case-sensitive (J joule, N newton). Prefer the original
+        # spelling, then lowercase, so the converter pad's ``J``/``N``/``Pa``
+        # survive. Do not lowercase first.
+        add(raw)
+        add(key)
+        return out
+
+    def _quantity(value: float, unit: str) -> Any:
+        last_exc: Exception | None = None
+        for cand in _candidates(unit):
+            try:
+                return value * ureg(cand)
+            except Exception as exc:
+                last_exc = exc
+                try:
+                    return ureg.Quantity(value, cand)
+                except Exception as inner:
+                    last_exc = inner
+                    continue
+        raise MathServiceError(f"unsupported conversion {src} to {dest}") from last_exc
 
     try:
-        src_unit = _normalize(src)
-        dest_unit = _normalize(dest)
-        # Pint offset units (degC, degF) can't be multiplied by a scalar
-        # directly — use Quantity() which handles the offset correctly.
-        try:
-            quantity = value * ureg(src_unit)
-        except Exception:
-            quantity = ureg.Quantity(value, src_unit)
-        result = quantity.to(dest_unit)
-        # Use :.10g for enough precision that test tolerances pass (the old
-        # hardcoded dicts used :g which only gave 6 significant digits).
-        return f"{float(result.magnitude):.10g}"
+        quantity = _quantity(value, src)
+        last_exc: Exception | None = None
+        for dest_cand in _candidates(dest):
+            try:
+                result = quantity.to(dest_cand)
+                return f"{float(result.magnitude):.10g}"
+            except Exception as exc:
+                last_exc = exc
+                continue
+        raise MathServiceError(f"unsupported conversion {src} to {dest}") from last_exc
+    except MathServiceError:
+        raise
     except Exception as exc:
         raise MathServiceError(f"unsupported conversion {src} to {dest}") from exc
 
@@ -243,18 +272,49 @@ def partial_derivative(expr: str, variable: str) -> MathExprResult:
 
 
 def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
-    """First-order ODE: ``dy/dx = ...`` or ``y' = ...`` in ``expr`` as Eq."""
+    """First-order ODE ``dy/dx = ...`` or ``y' = ...``. Build ``Eq`` in SymPy.
+
+    Do not feed ``Derivative(y(x), x) = ...`` through the generic expression
+    parser — ``y(x)`` is not a allowed free-form parse.
+    """
     y = Function("y")
     ivar = Symbol(variable)
-    text = expr.replace("y'", f"Derivative(y({variable}), {variable})")
-    text = text.replace("dy/dx", f"Derivative(y({variable}), {variable})")
-    parsed = _parse_expression(text, [variable])
+    text = expr.strip()
+    eq_at = text.find("=")
+    if eq_at == -1:
+        raise MathServiceError("could not solve ODE")
+    lhs_raw = text[:eq_at].strip()
+    rhs_raw = text[eq_at + 1 :].strip()
+    lhs_key = lhs_raw.lower().replace(" ", "")
+    if lhs_key not in {"dy/dx", "y'"}:
+        raise MathServiceError("could not solve ODE")
+    parsed_rhs = _parse_expression(rhs_raw, [variable, "y"])
+    parsed_rhs = parsed_rhs.subs(Symbol("y"), y(ivar))
+    eq = Eq(Derivative(y(ivar), ivar), parsed_rhs)
     try:
-        sol = dsolve(parsed, y(ivar))
+        sol = dsolve(eq, y(ivar))
     except Exception as exc:
         raise MathServiceError("could not solve ODE") from exc
     tex = str(latex(sol))
     return MathExprResult(result=tex, latex=tex, solved=True)
+
+
+def critical_points(expr: str, variable: str = "x") -> MathExprResult:
+    """Solve ``f'(x) = 0`` for polynomial/elementary ``f``."""
+    if not (expr or "").strip():
+        raise MathServiceError("could not find critical points")
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    deriv = diff(parsed, sym)
+    try:
+        sols = solve(deriv, sym)
+    except Exception as exc:
+        raise MathServiceError("could not find critical points") from exc
+    if not sols:
+        tex = r"\emptyset"
+    else:
+        tex = ", ".join(str(latex(s)) for s in sols)
+    return MathExprResult(result=str(sols), latex=tex, solved=True)
 
 
 def evaluate_trig_expr(expr: str) -> str:

@@ -408,6 +408,141 @@ def extract_image_gen_prompt(text: str) -> str | None:
     return None
 
 
+_NOUN_ONLY_FILLER = frozenset({"please", "a", "an", "the", "just"})
+_GENERATE_NOW_EXACT = frozenset(
+    {
+        "that works",
+        "that will work",
+        "that works for me",
+        "do it",
+        "do that",
+        "go ahead",
+        "go for it",
+        "generate it",
+        "generate that",
+        "generate the image",
+        "generate the picture",
+        "you do it",
+        "u do it",
+        "you pick",
+        "u pick",
+        "you choose",
+        "u choose",
+    }
+)
+
+
+def is_image_noun_only_message(text: str) -> bool:
+    """True for a bare image/pic/photo ask with no subject on this line."""
+    tokens = _strip_polite(_tokens(text.strip().rstrip(".!?")))
+    kept = [tok for tok in tokens if tok.lower() not in _NOUN_ONLY_FILLER]
+    if not kept:
+        return False
+    return all(tok.lower() in _IMAGE_NOUNS for tok in kept)
+
+
+def is_image_gen_generate_now(text: str) -> bool:
+    """True when this line is 'do it' / 'that works' / 'u pick' after a scene."""
+    collapsed = " ".join(text.strip().lower().split()).rstrip(".!?").strip()
+    if not collapsed or len(collapsed) > 40:
+        return False
+    if collapsed in _GENERATE_NOW_EXACT:
+        return True
+    padded = f" {collapsed} "
+    return " do it " in padded or " u do it " in padded or " you do it " in padded
+
+
+def could_be_image_thread_followup(text: str) -> bool:
+    """True if this line might complete a prior 'dog' + 'image' thread.
+
+    Used to skip the Neon recent-message lookup when the text cannot be a
+    follow-up even with prior subject context.
+    """
+    return is_image_noun_only_message(text) or is_image_gen_generate_now(text)
+
+
+def _thread_subject_from_user(text: str) -> str | None:
+    """Prior user line usable as a generate subject (short concrete noun)."""
+    trimmed = text.strip()
+    if not trimmed or len(trimmed) > 80 or "?" in trimmed:
+        return None
+    if is_image_noun_only_message(trimmed) or is_image_gen_generate_now(trimmed):
+        return None
+    existing = extract_image_gen_prompt(trimmed)
+    if existing:
+        return existing
+    words = trimmed.split()
+    if not words or len(words) > 6:
+        return None
+    first = words[0].lower().rstrip(".!,")
+    if first in _NOT_REVISION_STARTERS:
+        return None
+    if _has_non_image_subject(trimmed) or _has_non_image_draw(trimmed):
+        return None
+    cleaned = _clean_prompt(trimmed)
+    if not cleaned or cleaned.lower() in _NON_REVISION:
+        return None
+    return cleaned
+
+
+def prior_user_contents_for_image_gen(messages: list[Any], current: str) -> list[str]:
+    """Oldest-first user bodies, excluding the in-flight current line if present."""
+    current_stripped = current.strip()
+    out: list[str] = []
+    for row in messages:
+        role = getattr(row, "role", None)
+        content = getattr(row, "content", None)
+        if role is None and isinstance(row, dict):
+            role = row.get("role")
+            content = row.get("content")
+        if role != "user" or not isinstance(content, str):
+            continue
+        out.append(content)
+    if out and out[-1].strip() == current_stripped:
+        out.pop()
+    return out
+
+
+def extract_image_gen_prompt_from_thread(
+    text: str,
+    prior_user_contents: list[str],
+) -> str | None:
+    """Same as ``extract_image_gen_prompt``, plus 'Dog' then 'Image' follow-ups.
+
+    Mirrors mobile ``extractImageGenPromptFromThread``.
+    """
+    direct = extract_image_gen_prompt(text)
+    if direct:
+        return direct
+    if is_image_noun_only_message(text):
+        for prior in reversed(prior_user_contents):
+            subject = _thread_subject_from_user(prior)
+            if subject:
+                return subject
+        return None
+    if not is_image_gen_generate_now(text):
+        return None
+    return _subject_from_active_image_exchange(prior_user_contents)
+
+
+def _subject_from_active_image_exchange(prior_user_contents: list[str]) -> str | None:
+    """Confirm ("do it") only against the current image exchange, not any older ask."""
+    skipped_noun_only = False
+    for prior in reversed(prior_user_contents):
+        if is_image_gen_generate_now(prior):
+            continue
+        if is_image_noun_only_message(prior):
+            skipped_noun_only = True
+            continue
+        explicit = extract_image_gen_prompt(prior)
+        if explicit:
+            return explicit
+        if skipped_noun_only:
+            return _thread_subject_from_user(prior)
+        return None
+    return None
+
+
 _NON_REVISION = frozenset(
     {
         "ok",

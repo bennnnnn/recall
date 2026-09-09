@@ -8,6 +8,11 @@ import { syncTodoReminders, cancelTodoReminder } from "@/lib/todos/todoReminders
 let mockSession = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reminderSeen", () => ({ markReminderIdsSeen: jest.fn(async () => undefined) }));
 jest.mock("@/lib/todos/todoReminders", () => ({
