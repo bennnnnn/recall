@@ -106,10 +106,11 @@ class Settings(BaseSettings):
     # so a near-limit user can't start a heavy image call that blows past the
     # daily cap. Real usage is still reconciled from the provider's usage chunk.
     image_attachment_reserve_tokens: int = 1200
-    # Orphan attachment reaper: delete bytes + rows for attachments never linked
-    # to a message (e.g. uploaded then the send failed, or unlinked by a message
-    # delete) once they're older than this grace window.
+    # Orphan attachment reaper: hidden send-clones (library_visible false)
+    # stay until this billed window. Unverified original uploads use the
+    # shorter pending window so a killed-app image slot can refund same-day.
     attachment_orphan_grace_hours: int = 24
+    attachment_pending_orphan_hours: int = 1
     attachment_orphan_reaper_interval_seconds: int = 3600
     # Bounded reaper batch — the scheduler re-runs, so a limit drains over time
     # instead of loading every orphan in the system into memory.
