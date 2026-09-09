@@ -17,6 +17,8 @@ export const Radius = {
   bubble: 18,
   /** 20 — sheet top corners */
   sheet: 20,
+  /** 24 — composer input well */
+  composer: 24,
   /** Pill / fully rounded */
   full: 999,
 } as const;

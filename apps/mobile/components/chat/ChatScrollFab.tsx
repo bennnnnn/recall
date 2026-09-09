@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chatScrollLogic";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   visible: boolean;
@@ -32,7 +33,7 @@ export function ChatScrollFab({ visible, bottomOffset, scrollAwayCount, onPress 
         accessibilityRole="button"
         accessibilityLabel={t("chat.scroll_to_latest")}
       >
-        <Icon name="chevron-down" size={22} color={C.text} />
+        <Icon name="chevron-down" size={IconSize.md} color={C.text} />
         {badgeLabel ? (
           <View style={s.badge}>
             <Text style={s.badgeText}>{badgeLabel}</Text>

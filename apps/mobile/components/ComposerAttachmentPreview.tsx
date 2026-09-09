@@ -3,8 +3,10 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "rea
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
-import { Theme, useTheme } from "@/lib/theme";
 import type { PendingAttachment } from "@/lib/attachments";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   attachment: PendingAttachment;
@@ -77,9 +79,9 @@ function makeStyles(C: Theme) {
     imageWrap: {
       width: 88,
       height: 112,
-      borderRadius: 18,
+      borderRadius: Radius.bubble,
       overflow: "hidden",
-      marginBottom: 8,
+      marginBottom: Space.xs,
       backgroundColor: C.surfaceAlt,
     },
     image: {
@@ -108,17 +110,17 @@ function makeStyles(C: Theme) {
     fileWrap: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      marginBottom: 8,
+      gap: Space.xs,
+      marginBottom: Space.xs,
       paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: 12,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.md,
       backgroundColor: C.surfaceAlt,
     },
     fileIcon: {
       width: 32,
       height: 32,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.primaryLight,

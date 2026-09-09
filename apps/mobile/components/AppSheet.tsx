@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -134,10 +136,10 @@ export function AppSheet({
         variant === "bottom" &&
           (floating
             ? {
-                marginHorizontal: 16,
-                marginBottom: keyboardOpen ? 12 : Math.max(insets.bottom, 8) + 12,
-                paddingBottom: Math.max(minBottomPadding, 12),
-                borderRadius: 20,
+                marginHorizontal: Space.md,
+                marginBottom: keyboardOpen ? Space.sm : Math.max(insets.bottom, Space.xs) + Space.sm,
+                paddingBottom: Math.max(minBottomPadding, Space.sm),
+                borderRadius: Radius.sheet,
               }
             : {
                 paddingBottom: keyboardOpen
@@ -218,12 +220,12 @@ function makeStyles(t: Theme) {
     },
     panelBottom: {
       backgroundColor: t.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: Radius.sheet,
+      borderTopRightRadius: Radius.sheet,
     },
     panelCenter: {
       backgroundColor: t.bg,
-      borderRadius: 20,
+      borderRadius: Radius.sheet,
       width: "100%",
       maxWidth: 420,
     },
@@ -241,8 +243,8 @@ function makeStyles(t: Theme) {
       height: 4,
       borderRadius: 2,
       backgroundColor: t.border,
-      marginTop: 8,
-      marginBottom: 4,
+      marginTop: Space.xs,
+      marginBottom: Space.xxs,
     },
     scrollContent: {
       flexGrow: 0,

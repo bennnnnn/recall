@@ -196,9 +196,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
   fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
-  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs before the LLM
-  explains (verified numbers injected into the prompt; Recall attaches geometry,
-  graph, and algebra ` ```answer ` after the stream). The composer **math keypad** inserts
+  `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
+  verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
+  turn; “explain every step” still streams. Recall attaches geometry, graph, and
+  algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
@@ -936,7 +937,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 
 | Capability | Status |
 |------------|--------|
-| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed uploads stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
+| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
 | Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |

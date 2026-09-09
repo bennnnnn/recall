@@ -36,10 +36,24 @@ export const Type = {
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
+  /** 13pt compact chrome — banners, inline alerts, supporting meta that
+   *  sat between caption (12) and secondary (14). Override weight at the site. */
+  compact: {
+    fontSize: 13,
+    fontWeight: "400",
+    lineHeight: 18,
+  },
   /** Compact control labels */
   label: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  /** 15pt callout — toasts and dense card titles between body (16) and
+   *  secondary (14). */
+  callout: {
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 21,
   },
   /** Screen / section titles */
   title: {

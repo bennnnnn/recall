@@ -15,6 +15,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   current: number;
@@ -91,7 +92,7 @@ export function LessonPlayHeader({
           hitSlop={8}
           style={s.iconBtn}
         >
-          <Icon name="ellipsis-vertical" size={22} color={theme.text} />
+          <Icon name="ellipsis-vertical" size={IconSize.md} color={theme.text} />
         </Pressable>
       </View>
       <View style={s.barRow}>

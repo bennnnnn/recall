@@ -118,3 +118,13 @@ def test_reuse_completed_and_previous_day_uploads_cannot_refund_today(change):
     assert has_current_upload_reservation(SimpleNamespace(**values))
     values.update(change)
     assert not has_current_upload_reservation(SimpleNamespace(**values))
+
+
+def test_hour_old_same_day_upload_still_has_reservation():
+    values = SimpleNamespace(
+        source="upload",
+        library_visible=True,
+        verified_at=None,
+        created_at=datetime.now(UTC) - timedelta(hours=1),
+    )
+    assert has_current_upload_reservation(values)

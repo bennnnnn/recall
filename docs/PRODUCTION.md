@@ -45,7 +45,8 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
 - [ ] Bucket lifecycle: abort incomplete multipart after 7 days. Account delete
   purges known keys then enqueues a `storage_sweep` job that `list`+`delete`s
   leftover objects under `{user_id}/` (covers Redis reaper never running). Do
-  not weaken `reap_orphan_attachments`. Unconfirmed uploads are reaped after
+  not weaken `reap_orphan_attachments`. Unconfirmed original uploads are reaped
+  after `attachment_pending_orphan_hours` (default 1h). Hidden clones stay until
   `attachment_orphan_grace_hours` (default 24h) — that billed window is
   intentional. Optionally add an R2 lifecycle rule
   that expires unprefixed leftovers as a last resort.

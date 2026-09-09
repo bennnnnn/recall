@@ -62,3 +62,8 @@ export function stashFailedSendDraft(
     drafts.set(key, failedText);
   }
 }
+
+/** Account change — drop every thread slot so the next sign-in cannot inherit text. */
+export function clearAllComposerDrafts(drafts: Map<string, string>): void {
+  drafts.clear();
+}

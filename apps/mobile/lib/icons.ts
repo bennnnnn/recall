@@ -4,7 +4,8 @@ import type { Theme } from "@/lib/theme";
 
 export type IoniconName = keyof typeof Ionicons.glyphMap;
 
-/** Repeated chrome icon sizes. Domain graphics may keep other pixel sizes. */
+/** Repeated chrome icon sizes. Prefer these over raw 20/22/24 on `Icon`.
+ *  Domain graphics may keep other pixel sizes. */
 export const IconSize = {
   sm: 20,
   md: 22,
