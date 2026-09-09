@@ -8,6 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.services.live_talk import (
     LiveTalkSessionContext,
+    build_realtime_instructions,
     last_user_line,
     load_live_talk_session_context,
     persist_live_talk_turn,
@@ -449,3 +450,10 @@ async def test_persist_live_talk_turn_enqueues_todos_when_reminder_not_applied()
 
     jobs = [call.args[1] for call in enqueue.await_args_list]
     assert "todos" in jobs
+
+
+def test_live_talk_schedule_hint_does_not_confirm_unverified_writes():
+    text = build_realtime_instructions()
+    assert "Confirm in one short sentence" not in text
+    assert "Do not say the reminder is saved" in text
+    assert "weekday" in text.lower()

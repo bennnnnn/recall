@@ -48,9 +48,12 @@ _LIVE_TALK_SCHEDULE_HINT = (
     "Recall Schedule holds the user's dated reminders. If they ask what's due or on their "
     "schedule, answer from the list below (or say it is empty). Do not invent items. "
     "Speak day names and clock times. "
-    "Recall saves a reminder when they say remind me … today or tomorrow at an exact clock "
-    "(for example 5pm or 7:30 am). Confirm in one short sentence after that. "
-    "If they omit the clock, ask for one — never invent a time. "
+    "The app can save a reminder only when they say remind me … today, tomorrow, or a weekday "
+    "at an exact clock with am or pm (for example 5pm or 7:30 am). "
+    "Do not say the reminder is saved, set, or on their schedule. The app applies it after "
+    "this turn and appends the result (or a failure). "
+    "If they omit the clock or use a date that is not today, tomorrow, or a weekday, ask them "
+    "to rephrase with a clock and am/pm, or to type it in chat. Never invent a time. "
     "Do not say you cannot create reminders."
 )
 
