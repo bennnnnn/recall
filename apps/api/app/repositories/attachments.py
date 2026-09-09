@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -315,6 +316,26 @@ async def list_orphans(
         .limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def set_index_coverage(
+    session: AsyncSession,
+    *,
+    attachment_id: UUID,
+    user_id: UUID,
+    coverage: dict[str, Any],
+    commit: bool = True,
+) -> None:
+    """Persist extract ceilings used for this file's RAG chunks."""
+    from sqlalchemy import update as sql_update
+
+    await session.execute(
+        sql_update(Attachment)
+        .where(Attachment.id == attachment_id, Attachment.user_id == user_id)
+        .values(index_coverage_json=json.dumps(coverage))
+    )
+    if commit:
+        await session.commit()
 
 
 async def mark_verified(session: AsyncSession, attachment_id: UUID, *, commit: bool = True) -> None:

@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.services.attachment_content import ExtractedText
 from app.services.attachment_rag import chunk_text, index_attachment, retrieve_for_prompt
 
 
@@ -60,6 +61,7 @@ async def test_retrieve_for_prompt_includes_filename_and_page():
     file_row = MagicMock()
     file_row.id = att_id
     file_row.original_filename = "notes.pdf"
+    file_row.index_coverage_json = None
 
     with (
         patch("app.services.attachment_rag.SessionLocal", _session_cm()),
@@ -253,7 +255,7 @@ async def test_index_attachment_uses_short_lived_sessions():
         nonlocal extract_called
         extract_called = True
         assert live == 0
-        return "hello from the attachment"
+        return ExtractedText(text="hello from the attachment")
 
     with (
         patch("app.services.attachment_rag.SessionLocal", _cm),
@@ -266,7 +268,7 @@ async def test_index_attachment_uses_short_lived_sessions():
             AsyncMock(return_value=b"hello from the attachment"),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
+            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
             _extract,
         ),
         patch(
@@ -277,6 +279,10 @@ async def test_index_attachment_uses_short_lived_sessions():
             "app.services.attachment_rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ) as replace_mock,
+        patch(
+            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            AsyncMock(),
+        ),
     ):
         count = await index_attachment(
             settings,
@@ -356,8 +362,8 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
             AsyncMock(return_value=b"chunk one. chunk two."),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
-            AsyncMock(return_value="chunk one. chunk two."),
+            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            AsyncMock(return_value=ExtractedText(text="chunk one. chunk two.")),
         ),
         patch(
             "app.services.attachment_rag.embedding_gateway.embed_text",
@@ -367,6 +373,10 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
             "app.services.attachment_rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ) as replace_mock,
+        patch(
+            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            AsyncMock(),
+        ),
     ):
         count = await index_attachment(
             settings,
@@ -398,8 +408,8 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
             AsyncMock(return_value=b"chunk one. chunk two."),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
-            AsyncMock(return_value="chunk one. chunk two."),
+            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            AsyncMock(return_value=ExtractedText(text="chunk one. chunk two.")),
         ),
         patch(
             "app.services.attachment_rag.embedding_gateway.embed_text",
@@ -421,8 +431,7 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
 
 @pytest.mark.asyncio
 async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
-    """The indexing path must use MAX_INDEX_EXTRACT_CHARS (50k), not the inline
-    excerpt cap (12k), so the full document is chunked for RAG."""
+    """Indexing uses MAX_INDEX_EXTRACT_CHARS (200k), not the inline excerpt cap."""
     settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
     row = MagicMock()
     row.id = uuid4()
@@ -432,9 +441,10 @@ async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
 
     captured: dict = {}
 
-    async def _extract(_ct, _data, _settings, *, max_chars=12000):
+    async def _extract(_ct, _data, _settings, *, max_chars=12000, ocr_max_pages=None, **_k):
         captured["max_chars"] = max_chars
-        return "text content"
+        captured["ocr_max_pages"] = ocr_max_pages
+        return ExtractedText(text="text content")
 
     with (
         patch("app.services.attachment_rag.SessionLocal", _session_cm()),
@@ -447,7 +457,7 @@ async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
             AsyncMock(return_value=b"text content"),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
+            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
             _extract,
         ),
         patch(
@@ -458,6 +468,10 @@ async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
             "app.services.attachment_rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ),
+        patch(
+            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            AsyncMock(),
+        ) as coverage_mock,
     ):
         await index_attachment(
             settings,
@@ -469,4 +483,110 @@ async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
     from app.services.attachment_content import MAX_INDEX_EXTRACT_CHARS
 
     assert captured["max_chars"] == MAX_INDEX_EXTRACT_CHARS
+    assert captured["ocr_max_pages"] == settings.attachment_ocr_index_max_pages
     assert MAX_INDEX_EXTRACT_CHARS > 12000
+    coverage_mock.assert_awaited_once()
+    payload = coverage_mock.await_args.kwargs["coverage"]
+    assert payload["via_ocr"] is False
+    assert payload["max_chars"] == MAX_INDEX_EXTRACT_CHARS
+    assert payload["max_pages"] == 500
+
+
+@pytest.mark.asyncio
+async def test_index_attachment_stores_ocr_coverage():
+    settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/scan"
+    row.content_type = "application/pdf"
+
+    async def _extract(*_a, **_k):
+        return ExtractedText(text="scanned homework", via_ocr=True, page_capped=True)
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"%PDF"),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            _extract,
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1] * 1536),
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            AsyncMock(),
+        ) as coverage_mock,
+    ):
+        count = await index_attachment(
+            settings,
+            user_id=row.user_id,
+            attachment_id=row.id,
+            chat_id=uuid4(),
+        )
+
+    assert count == 1
+    payload = coverage_mock.await_args.kwargs["coverage"]
+    assert payload["via_ocr"] is True
+    assert payload["max_pages"] == settings.attachment_ocr_index_max_pages
+    assert payload["page_capped"] is True
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_prompt_uses_stored_ocr_coverage():
+    settings = Settings(mock_llm_enabled=True, attachment_rag_enabled=True)
+    att_id = uuid4()
+    chunk = MagicMock()
+    chunk.attachment_id = att_id
+    chunk.text = "scanned homework"
+    file_row = MagicMock()
+    file_row.id = att_id
+    file_row.original_filename = "scan.pdf"
+    file_row.index_coverage_json = (
+        '{"via_ocr": true, "max_pages": 20, "max_chars": 200000, '
+        '"page_capped": true, "char_capped": false}'
+    )
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.get_or_embed_query",
+            AsyncMock(return_value=[0.1] * 1536),
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.search_semantic",
+            AsyncMock(return_value=[chunk]),
+        ),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_ids",
+            AsyncMock(return_value=[file_row]),
+        ),
+        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+    ):
+        block = await retrieve_for_prompt(
+            settings=settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            query="what does the scan say?",
+        )
+
+    assert "first 20 OCR'd PDF pages" in block
+    assert "200000" in block
+    assert "first 500 PDF pages" not in block

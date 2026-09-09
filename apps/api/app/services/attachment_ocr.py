@@ -10,7 +10,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.services.attachment_content import MAX_EXTRACT_CHARS
+from app.services.attachment_content import MAX_EXTRACT_CHARS, ExtractedText
 
 logger = logging.getLogger(__name__)
 
@@ -32,17 +32,28 @@ def render_pdf_pages(
     scale: float,
 ) -> list[tuple[str, bytes]]:
     """Render PDF pages to JPEG bytes. Never raises."""
+    pages, _total = render_pdf_pages_and_count(data, max_pages=max_pages, scale=scale)
+    return pages
+
+
+def render_pdf_pages_and_count(
+    data: bytes,
+    *,
+    max_pages: int,
+    scale: float,
+) -> tuple[list[tuple[str, bytes]], int]:
+    """Render pages and the document's page count (0 if unknown). Never raises."""
     try:
-        rendered = _render_with_pdfium(data, max_pages=max_pages, scale=scale)
+        rendered, total = _render_with_pdfium(data, max_pages=max_pages, scale=scale)
         if rendered:
-            return rendered
+            return rendered, total
     except Exception:
         logger.warning("PDF page render failed; trying embedded images", exc_info=True)
     try:
         return _embedded_page_images(data, max_pages=max_pages)
     except Exception:
         logger.warning("PDF embedded-image extract failed", exc_info=True)
-        return []
+        return [], 0
 
 
 def _render_with_pdfium(
@@ -50,13 +61,14 @@ def _render_with_pdfium(
     *,
     max_pages: int,
     scale: float,
-) -> list[tuple[str, bytes]]:
+) -> tuple[list[tuple[str, bytes]], int]:
     import pypdfium2 as pdfium
 
     pdf = pdfium.PdfDocument(data)
     out: list[tuple[str, bytes]] = []
     try:
-        page_count = min(len(pdf), max_pages)
+        total = len(pdf)
+        page_count = min(total, max_pages)
         for index in range(page_count):
             page = pdf[index]
             bitmap = page.render(scale=scale)
@@ -70,13 +82,14 @@ def _render_with_pdfium(
                 page.close()
     finally:
         pdf.close()
-    return out
+    return out, total
 
 
-def _embedded_page_images(data: bytes, *, max_pages: int) -> list[tuple[str, bytes]]:
+def _embedded_page_images(data: bytes, *, max_pages: int) -> tuple[list[tuple[str, bytes]], int]:
     from pypdf import PdfReader
 
     reader = PdfReader(io.BytesIO(data))
+    total = len(reader.pages)
     out: list[tuple[str, bytes]] = []
     for page in reader.pages[:max_pages]:
         for img in getattr(page, "images", None) or []:
@@ -86,8 +99,8 @@ def _embedded_page_images(data: bytes, *, max_pages: int) -> list[tuple[str, byt
             mime = _image_mime(raw, str(getattr(img, "name", "") or ""))
             out.append((mime, raw))
             if len(out) >= max_pages:
-                return out
-    return out
+                return out, total
+    return out, total
 
 
 def _image_mime(raw: bytes, name: str) -> str:
@@ -153,18 +166,29 @@ async def _ocr_one_page(
     return _page_text_from_response(response)
 
 
-async def ocr_scanned_pdf(settings: Settings, data: bytes) -> str | None:
+async def ocr_scanned_pdf(
+    settings: Settings,
+    data: bytes,
+    *,
+    max_chars: int | None = None,
+    max_pages: int | None = None,
+) -> ExtractedText | None:
     """Best-effort page OCR — never raises into the chat or index path."""
     if not data or not settings.attachment_ocr_enabled:
         return None
     if mock_llm.should_mock_llm(settings):
         return None
+    chars = MAX_EXTRACT_CHARS if max_chars is None else max_chars
+    pages_limit = settings.attachment_ocr_max_pages if max_pages is None else max_pages
+    timeout = settings.attachment_ocr_timeout_seconds
+    if pages_limit > settings.attachment_ocr_max_pages:
+        timeout = max(timeout, settings.attachment_ocr_index_timeout_seconds)
     try:
-        async with asyncio.timeout(settings.attachment_ocr_timeout_seconds):
-            pages = await asyncio.to_thread(
-                render_pdf_pages,
+        async with asyncio.timeout(timeout):
+            pages, total_pages = await asyncio.to_thread(
+                render_pdf_pages_and_count,
                 data,
-                max_pages=settings.attachment_ocr_max_pages,
+                max_pages=pages_limit,
                 scale=settings.attachment_ocr_render_scale,
             )
             if not pages:
@@ -185,4 +209,11 @@ async def ocr_scanned_pdf(settings: Settings, data: bytes) -> str | None:
 
     parts = [text.strip() for text in texts if text and text.strip()]
     joined = "\n\n".join(parts).strip()
-    return joined[:MAX_EXTRACT_CHARS] if joined else None
+    if not joined:
+        return None
+    return ExtractedText(
+        text=joined[:chars],
+        char_capped=len(joined) > chars,
+        page_capped=total_pages > pages_limit,
+        via_ocr=True,
+    )
