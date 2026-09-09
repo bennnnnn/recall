@@ -190,12 +190,18 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
         # of re-deriving (and corrupting) the algebra when b != 0.
         discriminant = simplify(c1**2 - 4 * c2 * c0)
         steps.append(
-            f"Discriminant: \\Delta = {latex(c1)}^{{2}} - 4({latex(c2)})({latex(c0)}) "
+            f"Discriminant: \\Delta = ({latex(c1)})^{{2}} - 4({latex(c2)})({latex(c0)}) "
             f"= {latex(discriminant)}"
         )
+        if c2 == 1:
+            denom = "2"
+        elif c2 == -1:
+            denom = "-2"
+        else:
+            denom = f"2({latex(c2)})"
         steps.append(
-            f"Quadratic formula: {variable} = \\frac{{-{latex(c1)} \\pm "
-            f"\\sqrt{{{latex(discriminant)}}}}}{{2({latex(c2)})}}"
+            f"Quadratic formula: {variable} = \\frac{{{latex(-c1)} \\pm "
+            f"\\sqrt{{{latex(discriminant)}}}}}{{{denom}}}"
         )
         return steps
 
