@@ -142,6 +142,53 @@ describe("ComposerDraftContext", () => {
     expect(view.getByTestId("draft").props.children).toBe("");
   });
 
+  it("does not stash the live draft when reset and switchThread run in the same tick", async () => {
+    function Probe() {
+      const { setInput, switchThread, resetForNewSession } = useComposerDraftApi();
+      return (
+        <>
+          <Pressable testID="type" onPress={() => setInput("account A secret")}>
+            <Text>type</Text>
+          </Pressable>
+          <Pressable
+            testID="reset-then-switch"
+            onPress={() => {
+              resetForNewSession();
+              switchThread("chat-b");
+            }}
+          >
+            <Text>reset then switch</Text>
+          </Pressable>
+          <Pressable testID="to-new" onPress={() => switchThread("new")}>
+            <Text>new</Text>
+          </Pressable>
+        </>
+      );
+    }
+
+    const view = await act(async () =>
+      render(
+        <ComposerDraftProvider>
+          <ValueProbe />
+          <Probe />
+        </ComposerDraftProvider>,
+      ),
+    );
+
+    await act(async () => {
+      fireEvent.press(view.getByTestId("type"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByTestId("reset-then-switch"));
+    });
+    expect(view.getByTestId("draft").props.children).toBe("");
+
+    await act(async () => {
+      fireEvent.press(view.getByTestId("to-new"));
+    });
+    expect(view.getByTestId("draft").props.children).toBe("");
+  });
+
   it("clears drafts when sign-out broadcasts a reset", async () => {
     const view = await act(async () =>
       render(

@@ -49,6 +49,9 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
   const resetForNewSession = useCallback(() => {
     clearAllComposerDrafts(draftsRef.current);
     threadKeyRef.current = COMPOSER_NEW_THREAD_KEY;
+    // switchThread may run in the same tick (useChatSend on session change).
+    // setInput("") does not update this ref until the next render.
+    inputRef.current = "";
     setInput("");
   }, []);
 
