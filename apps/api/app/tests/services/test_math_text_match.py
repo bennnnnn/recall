@@ -224,6 +224,21 @@ class TestParseSolid:
         assert mtm.parse_solid("what is a cylinder") is None
         assert mtm.parse_solid("cube root of 8") is None
 
+    def test_sphere_is_not_a_substring_of_atmosphere(self):
+        assert mtm.classify_solid_shape("atmosphere") is None
+        assert mtm.classify_solid_shape("hemisphere") is None
+        assert mtm.classify_solid_shape("biosphere") is None
+        assert mtm.classify_solid_shape("volume of a sphere radius 5") == "sphere"
+        assert mtm.classify_solid_shape("volume of spheres with radius 3") == "sphere"
+        assert mtm.classify_solid_shape("cylinders") == "cylinder"
+        assert mtm.classify_solid_shape("cones") == "cone"
+        assert mtm.classify_solid_shape("pyramids") == "pyramid"
+        assert mtm.classify_solid_shape("cubes") == "cube"
+
+    def test_cone_is_not_a_substring_of_silicone(self):
+        assert mtm.classify_solid_shape("silicone") is None
+        assert mtm.classify_solid_shape("volume of a cone radius 3 height 4") == "cone"
+
 
 class TestNumberAfter:
     def test_number_after_label(self):

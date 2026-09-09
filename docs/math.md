@@ -73,7 +73,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Linear algebra | 2×2–4×4 det and inverse | `matrix` |
 | Calc II (thin) | Taylor / Maclaurin, partials, first-order `dsolve`, 2nd/3rd derivative. Polar/parametric/double integrals stay LLM | `calculus` |
 | Probability | Binomial PMF, expected value of a list | `probability` |
-| Complex / units | Simplify `a+bi`; length/mass/time/temp convert | `complex`, `unit` |
+| Complex / units | Simplify `a+bi`; Pint unit convert (SI case-sensitive symbols) | `complex`, `unit` |
 | Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse | `graph` / `graph_pair` |
 | Precalc / Calc I | simplify, factor, expand, d/dx, ∫, definite ∫, limits, series sum, Newton | `calculus`, `limit`, `series`, `numerical_method` |
 | Stats (descriptive) | mean, median, mode, variance, stdev | `statistics` |
@@ -100,7 +100,7 @@ Still not a verified kind (the model may answer; it must **not** claim SymPy):
 1. **Trig identities** — remain LLM-only. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with relative side units (not invented cm). SSS still uses law of cosines for angles-from-sides.
 2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
 3. **Linear algebra** beyond 4×4 det / inverse (no multiply / rref / eigen; no general NL matrix parsing).
-4. **Full unit catalogs** (only common length/mass/time/temp).
+4. **Unit-symbol casing** — Pint already covers energy/force/pressure/etc. Symbols that need uppercase (`J`, `N`, `Pa`) must be passed through with original case (lowercasing before lookup used to drop them). `fl-oz` aliases to Pint `fluid_ounce`.
 5. **Physics beyond the verified templates** — friction, tension, normal-force systems, momentum/collisions, rotation, circuits, waves, thermodynamics, relativity, coupled ODEs, and free-body diagrams remain LLM-only.
 
 New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.
