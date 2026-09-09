@@ -23,6 +23,7 @@ import {
   applyComposerTextChange,
   extractInsertedDelta,
   shouldProbeClipboardForImagePaste,
+  normalizePastedMath,
 } from "@/lib/mathPasteNormalize";
 import { spliceMathBackspace, stepMathCaret } from "@/lib/mathDraftSlots";
 
@@ -157,11 +158,11 @@ export function useMathKeyboardInsert(options: {
       const sel = pinRef.current ?? selection;
       const before = textRef.current.slice(0, sel.start);
       const after = textRef.current.slice(sel.end);
-      const spliced = before + text + after;
-      const converted = applyComposerTextChange(textRef.current, spliced);
-      const caret = converted.length - after.length;
-      textRef.current = converted;
-      setInput(converted);
+      const convertedChunk = normalizePastedMath(text);
+      const spliced = before + convertedChunk + after;
+      const caret = before.length + convertedChunk.length;
+      textRef.current = spliced;
+      setInput(spliced);
       pinSelection({ start: caret, end: caret });
     },
     [pinSelection, selection, setInput],

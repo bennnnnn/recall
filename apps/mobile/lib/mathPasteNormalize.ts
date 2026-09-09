@@ -52,7 +52,7 @@ const OP_GLYPHS: [string, string][] = [
 ];
 
 export const MATH_GLYPH_RE =
-  /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞√∛∜×÷±∓≤≥≠≈∞π·⋅∗∕⁄−–—²³¹⁰⁴⁵⁶⁷⁸⁹⁺⁻₀-₉]/;
+  /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞√∛∜×÷±∓≤≥≠≈∞π·⋅∗∕⁄−²³¹⁰⁴⁵⁶⁷⁸⁹⁺⁻₀-₉]/;
 
 const RADICAL_PREFIX: Record<string, string> = {
   "√": "\\sqrt",

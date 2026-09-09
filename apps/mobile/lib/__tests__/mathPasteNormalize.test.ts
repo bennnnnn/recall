@@ -4,6 +4,7 @@ import {
   MATH_GLYPH_RE,
   normalizePastedMath,
   PASTE_GROWTH_MIN,
+  pastedDeltaLooksLikeMath,
   restoreCopiedFractions,
   shouldProbeClipboardForImagePaste,
 } from "@/lib/mathPasteNormalize";
@@ -110,12 +111,21 @@ describe("extractInsertedDelta / applyComposerTextChange", () => {
 });
 
 describe("MATH_GLYPH_RE covers server _UNICODE_OP_SUBS", () => {
-  it("detects every operator glyph parse.py rewrites", () => {
+  it("detects math operator glyphs parse.py rewrites, not prose dashes", () => {
     // Keep in sync with apps/api/app/services/math_service/parse.py _UNICODE_OP_SUBS.
-    const serverOpGlyphs = ["×", "⋅", "·", "∗", "÷", "∕", "⁄", "−", "–", "—", "π", "∞"];
+    // En/em dashes are rewritten only after other math evidence — they must
+    // not make `wait—what?` look like a formula.
+    const serverOpGlyphs = ["×", "⋅", "·", "∗", "÷", "∕", "⁄", "−", "π", "∞"];
     for (const glyph of serverOpGlyphs) {
       expect(MATH_GLYPH_RE.test(glyph)).toBe(true);
     }
+    expect(MATH_GLYPH_RE.test("–")).toBe(false);
+    expect(MATH_GLYPH_RE.test("—")).toBe(false);
+  });
+
+  it("does not wrap short prose that only contains an em dash", () => {
+    expect(pastedDeltaLooksLikeMath("wait—what?")).toBe(false);
+    expect(normalizePastedMath("wait—what?")).toBe("wait—what?");
   });
 });
 

@@ -27,6 +27,19 @@ describe("useMathKeyboardInsert", () => {
     expect(result.current.input).toBe("$2 \\times 3$");
   });
 
+  it("normalizes math-bar paste even when replacing a longer selection", async () => {
+    const { result } = await renderHook(() => useHarness("abcdefgh"));
+    await act(() => {
+      result.current.math.onSelectionChange({
+        nativeEvent: { selection: { start: 0, end: 8 } },
+      } as Parameters<typeof result.current.math.onSelectionChange>[0]);
+    });
+    await act(async () => {
+      await result.current.math.pasteText("2 × 3");
+    });
+    expect(result.current.input).toBe("$2 \\times 3$");
+  });
+
   it("pins the caret after the last formula when the bar closes", async () => {
     const { result } = await renderHook(() => useHarness("solve $x^2+1$"));
     await act(() => {
