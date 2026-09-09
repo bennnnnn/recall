@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # "running" but no longer checking in is treated as dead. Sleep between ticks
 # is chunked so a 15-minute Gmail interval does not look stale.
 _HEARTBEAT_STALE_THRESHOLD_S = 120.0
-_HEARTBEAT_SLEEP_CHUNK_S = 30.0
+_HEARTBEAT_SLEEP_CHUNK_S = 30
 
 _tasks: dict[str, asyncio.Task[None]] = {}
 _heartbeats: dict[str, float] = {}
