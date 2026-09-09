@@ -220,9 +220,8 @@ async def _build_verified_block_async(
     which are synchronous and can take arbitrarily long on a pathological
     expression. Running them on the shared default ``asyncio.to_thread`` pool
     would (a) starve unrelated async work and (b) leak the thread on timeout
-    (the await cancels but the thread keeps running). The bounded
-    ``ProcessPoolExecutor`` isolates SymPy to a single subprocess that can be
-    hard-killed on timeout.
+    (the await cancels but the thread keeps running). Isolated 1-worker
+    process slots can be hard-killed on timeout without terminating siblings.
     """
     from app.services import math_tools as mt
     from app.services.sympy_executor import run_sympy

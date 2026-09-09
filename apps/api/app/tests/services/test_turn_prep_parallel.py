@@ -620,3 +620,148 @@ async def test_non_create_turn_skips_calendar_write_session():
         )
 
     load_write.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_verified_closed_math_sets_instant_reply(fake_redis) -> None:
+    from app.services.math_tools.block.common import VerifiedMathBlock
+
+    user = _make_user()
+    chat = _make_chat()
+    verified = VerifiedMathBlock(
+        text="verified",
+        canonical_fence={"type": "answer", "content": "x = 2"},
+        canonical_answer="x = 2",
+    )
+    messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "1+1=x"}]
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=list(messages)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, "MATH_BLOCK", [], verified)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "1+1=x",
+            "free-chat",
+            Settings(
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                web_search_enabled=False,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    assert bundle.verified_math is verified
+    assert bundle.instant_reply is not None
+    assert "x = 2" in bundle.instant_reply
+    assert "```answer" in bundle.instant_reply
+
+
+@pytest.mark.asyncio
+async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None:
+    from app.services.math_tools.block.common import VerifiedMathBlock
+
+    user = _make_user()
+    chat = _make_chat()
+    content = "Solve 1+1=x and explain every step"
+    verified = VerifiedMathBlock(
+        text="verified",
+        canonical_fence={"type": "answer", "content": "x = 2"},
+        canonical_answer="x = 2",
+    )
+    messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=list(messages)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, "MATH_BLOCK", [], verified)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "free-chat",
+            Settings(
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                web_search_enabled=False,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    assert bundle.verified_math is verified
+    assert bundle.instant_reply is None
