@@ -12,20 +12,17 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-<<<<<<< HEAD
 - **RAG said “first 500 PDF pages” after a 6-page OCR extract.** Indexing
   called OCR with the inline 12k/6-page caps, stored no coverage, and the
   prompt prefix was a static 500/200k string. Pass index char/page caps into
   `ocr_scanned_pdf`, persist `index_coverage_json`, and build the prefix from
   stored ceilings (OCR names the 20-page cap). Page count comes from the
   render worker, not a second parse on the event loop.
-=======
 - **Worker crash mid-index dropped the job forever.** Dedupe SET NX used a 300s
   running TTL while reclaim idle is 60s; skip then always `xack`ed. Mark
   success as `done`; skip without ack while still `1`; keepalive refreshes
   the running TTL. Chip keeps polling past that 300s claim so a retry around
   five minutes can flip “Still indexing…” instead of a permanent fail.
->>>>>>> origin/main
 - **Generic Retry regenerated a turn that never reached the server.** SSE/WS
   transport failure left the optimistic user bubble looking sent and the error
   CTA called `regenerate`. Queue it as `send_rejected` (Retry = resend);
