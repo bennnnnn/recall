@@ -202,6 +202,21 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
     return steps
 
 
+def _reciprocal_if_proper_fraction(coeff: Any) -> Any | None:
+    """``x/2`` → multiply by 2, not divide by ``1/2`` (avoids nested fractions)."""
+    rat = simplify(coeff)
+    if not getattr(rat, "is_number", False) or not getattr(rat, "is_rational", False):
+        return None
+    numer, denom = rat.as_numer_denom()
+    if not getattr(numer, "is_integer", False) or not getattr(denom, "is_integer", False):
+        return None
+    if denom in (0, 1, -1):
+        return None
+    if abs(int(numer)) >= abs(int(denom)):
+        return None
+    return simplify(1 / rat)
+
+
 def _linear_both_sides_steps(lhs: Any, rhs: Any, var: Any, c1: Any, c0: Any) -> list[str]:
     """Verified linear steps that apply add/subtract/divide to both sides."""
     if not hasattr(lhs, "as_independent") or var not in getattr(lhs, "free_symbols", set()):
@@ -231,11 +246,19 @@ def _linear_both_sides_steps(lhs: Any, rhs: Any, var: Any, c1: Any, c0: Any) -> 
     isolated = simplify(-c0 / c1)
     final = f"{var} = {latex(isolated)}"
     if coeff != 0 and coeff != 1 and coeff != -1:
-        steps.append(
-            f"Divide both sides by {latex(coeff)}: "
-            f"\\frac{{{latex(cur_lhs)}}}{{{latex(coeff)}}} = "
-            f"\\frac{{{latex(cur_rhs)}}}{{{latex(coeff)}}}"
-        )
+        multiplier = _reciprocal_if_proper_fraction(coeff)
+        if multiplier is not None:
+            steps.append(
+                f"Multiply both sides by {latex(multiplier)}: "
+                f"{latex(multiplier)} \\cdot ({latex(cur_lhs)}) = "
+                f"{latex(multiplier)} \\cdot ({latex(cur_rhs)})"
+            )
+        else:
+            steps.append(
+                f"Divide both sides by {latex(coeff)}: "
+                f"\\frac{{{latex(cur_lhs)}}}{{{latex(coeff)}}} = "
+                f"\\frac{{{latex(cur_rhs)}}}{{{latex(coeff)}}}"
+            )
         steps.append(f"Simplify: {final}")
     elif coeff == -1:
         steps.append(f"Multiply both sides by -1: {latex(-cur_lhs)} = {latex(-cur_rhs)}")
