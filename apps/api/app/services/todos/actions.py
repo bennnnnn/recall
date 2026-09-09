@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
@@ -153,16 +154,28 @@ async def _todo_action_add(state: _TodoApplyState, action: TodoActionItem) -> in
     recurrence = action.recurrence_rule
     if recurrence:
         due_at = snap_first_due(due_at, recurrence, timezone=state.user_timezone)
-    new_todo = await todos_repo.create(
-        state.session,
-        user_id=state.user_id,
-        content=content,
-        topic=topic,
-        chat_id=state.chat_id,
-        due_at=due_at,
-        recurrence_rule=recurrence,
-        commit=False,
-    )
+    try:
+        # SAVEPOINT so a unique-index race rolls back this INSERT only —
+        # session.rollback() would discard earlier commit=False writes.
+        async with state.session.begin_nested():
+            new_todo = await todos_repo.create(
+                state.session,
+                user_id=state.user_id,
+                content=content,
+                topic=topic,
+                chat_id=state.chat_id,
+                due_at=due_at,
+                recurrence_rule=recurrence,
+                commit=False,
+            )
+    except IntegrityError as exc:
+        if not todos_repo.is_open_content_due_conflict(exc):
+            raise
+        logger.debug(
+            "add reminder raced with an existing open dated row for user_id=%s; skipping",
+            state.user_id,
+        )
+        return 0
     state.items.append(new_todo)
     return 1
 

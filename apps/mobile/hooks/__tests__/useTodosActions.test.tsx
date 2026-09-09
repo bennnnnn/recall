@@ -10,6 +10,11 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,

@@ -413,13 +413,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
 _TEMPLATES["todo_reminder"] = {
     "en": {
         "subject": "{title}: {content}",
-        "text": (
-            "Hi {name},\n\n"
-            "{title}\n\n"
-            "{content}\n\n"
-            "Open Recall to mark it done.\n\n"
-            "— Recall"
-        ),
+        "text": ("Hi {name},\n\n{title}\n\n{content}\n\nOpen Recall to mark it done.\n\n— Recall"),
         "html": (
             "<p>Hi {name},</p>"
             "<p><strong>{title}</strong></p>"
