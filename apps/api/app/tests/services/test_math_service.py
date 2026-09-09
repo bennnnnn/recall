@@ -202,6 +202,34 @@ def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
     assert "Quadratic formula" in steps_text
     # Discriminant of x^2 + 4x + 1 is 16 - 4 = 12.
     assert "12" in steps_text
+    assert "--" not in steps_text
+
+
+def test_solve_quadratic_negative_b_parenthesizes_discriminant() -> None:
+    """``x^2 - 5x + 6`` used to emit ``\\Delta = -5^{2} - 4(1)(6) = 1`` (false:
+    -5^2 is -25) and ``--5`` in the formula. Parenthesize b and use latex(-b)."""
+    result = math_service.solve_equation(
+        EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "\\Delta" in steps_text
+    assert "(-5)^{2}" in steps_text or "\\left(-5\\right)^{2}" in steps_text
+    assert "-5^{2}" not in steps_text.replace("(-5)^{2}", "")
+    assert "--" not in steps_text
+    assert "2(1)" not in steps_text
+    joined = " ".join(result.solutions_latex)
+    assert "2" in joined
+    assert "3" in joined
+
+
+def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
+    result = math_service.solve_equation(
+        EquationInput(lhs="2*x**2 - 4*x - 6", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "--" not in steps_text
+    assert "-4^{2}" not in steps_text
+    assert "(-4)^{2}" in steps_text or "\\left(-4\\right)^{2}" in steps_text
 
 
 def test_solve_linear_includes_worked_isolation_steps() -> None:
