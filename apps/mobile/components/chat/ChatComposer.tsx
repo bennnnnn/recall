@@ -37,6 +37,7 @@ import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlots";
 import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -47,7 +48,7 @@ export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
 const MATH_KEYBOARD_CHIP_HEIGHT = 44;
 /** Space above the floating keypad so message action icons are not flush with it. */
-const MATH_KEYBOARD_CHIP_GAP = 12;
+const MATH_KEYBOARD_CHIP_GAP = Space.sm;
 export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
@@ -449,13 +450,13 @@ function makeStyles(theme: Theme) {
       zIndex: 110,
       overflow: "visible",
       backgroundColor: theme.composerBg,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingTop: 2,
     },
     composerDocked: {
       overflow: "visible",
       backgroundColor: theme.composerBg,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingTop: 2,
     },
     composerAnchor: { position: "relative", overflow: "visible" },
@@ -464,25 +465,25 @@ function makeStyles(theme: Theme) {
     liveTalkRow: {
       flexDirection: "row",
       alignItems: "flex-end",
-      gap: 8,
+      gap: Space.xs,
     },
     inputWrap: {
       backgroundColor: theme.inputBg,
-      borderRadius: Radius.lg,
-      paddingHorizontal: 12,
-      paddingTop: 8,
-      paddingBottom: 8,
+      borderRadius: Radius.composer,
+      paddingHorizontal: Space.sm,
+      paddingTop: Space.xs,
+      paddingBottom: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
     },
     inputWrapFlex: { flex: 1, minWidth: 0 },
     tokenHint: {
-      marginTop: 4,
+      marginTop: Space.xxs,
       marginLeft: 40,
       ...Type.meta,
       color: theme.textTertiary,
     },
-    inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+    inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
     inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },
     emptyCaret: {
       position: "absolute",
@@ -493,8 +494,8 @@ function makeStyles(theme: Theme) {
       zIndex: 2,
     },
     attachBtn: {
-      width: 44,
-      height: 44,
+      width: Space.minTouch,
+      height: Space.minTouch,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 0,
@@ -502,13 +503,13 @@ function makeStyles(theme: Theme) {
     chip: {
       position: "absolute",
       left: 0,
-      top: -(MATH_KEYBOARD_CHIP_HEIGHT + 4),
+      top: -(MATH_KEYBOARD_CHIP_HEIGHT + Space.xxs),
       zIndex: 1,
-      minWidth: 44,
-      minHeight: 44,
-      height: 44,
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
+      height: Space.minTouch,
       paddingHorizontal: 10,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: "transparent",
@@ -532,9 +533,9 @@ function makeStyles(theme: Theme) {
       flex: 0,
     },
     sendBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: Space.minTouch,
+      height: Space.minTouch,
+      borderRadius: Radius.full,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
@@ -544,7 +545,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "flex-end",
       gap: 6,
-      minHeight: 44,
+      minHeight: Space.minTouch,
     },
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },
@@ -552,11 +553,11 @@ function makeStyles(theme: Theme) {
     scanHint: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
       marginBottom: 6,
       paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: 10,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.sm,
       backgroundColor: theme.primaryLight,
     },
     scanHintText: { flex: 1, fontSize: 13, color: theme.text },
