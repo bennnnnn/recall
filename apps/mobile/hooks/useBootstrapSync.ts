@@ -74,7 +74,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   }, [token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !userId) return;
     const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
@@ -87,13 +87,18 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cleanup = attachPushForegroundSync(
         token,
         pushEnabled,
+        (enabled) => {
+          if (cancelled || generation !== getSessionGeneration()) return;
+          setUser((current) => current?.id === userId
+            ? { ...current, push_notifications_enabled: enabled } : current);
+        },
       );
     }).catch(() => {});
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [token, pushEnabled]);
+  }, [token, userId, pushEnabled, setUser]);
 
   useEffect(() => {
     if (reminderLeadMinutes == null) return;

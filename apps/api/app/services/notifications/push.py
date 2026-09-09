@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -44,6 +45,7 @@ from app.services.reminder_timing import (
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
+from app.services.todos import crud as todos_crud
 from app.services.todos.recurrence import is_recurrence_rule, next_recurring_due
 
 logger = logging.getLogger(__name__)
@@ -273,6 +275,8 @@ async def process_todo_reminders(
         tokens_by_user.setdefault(token.user_id, []).append(token)
 
     messages: list[OutboundPush] = []
+    tokenless_overdue: list[TodoItem] = []
+    timezone_by_user: dict[UUID, str | None] = {}
     for todo, user in rows:
         if todo.due_at is None:
             continue
@@ -285,6 +289,17 @@ async def process_todo_reminders(
                 continue
             user_tokens = tokens_by_user.get(todo.user_id, [])
             if not user_tokens:
+                logger.warning(
+                    "Todo reminder skipped; no push token user_id=%s todo_id=%s",
+                    todo.user_id,
+                    todo.id,
+                )
+                if todo.due_at <= now and is_recurrence_rule(
+                    getattr(todo, "recurrence_rule", None)
+                ):
+                    tokenless_overdue.append(todo)
+                    tz = getattr(user, "timezone", None)
+                    timezone_by_user[todo.user_id] = tz if isinstance(tz, str) else None
                 continue
             is_overdue = todo.due_at < now
             title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
@@ -304,6 +319,13 @@ async def process_todo_reminders(
         except Exception:
             logger.exception("Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id)
             continue
+
+    if tokenless_overdue:
+        by_timezone: dict[str | None, list[TodoItem]] = defaultdict(list)
+        for item in tokenless_overdue:
+            by_timezone[timezone_by_user.get(item.user_id)].append(item)
+        for timezone, items in by_timezone.items():
+            await todos_crud._advance_past_recurring(session, items, timezone=timezone, now=now)
 
     return messages
 

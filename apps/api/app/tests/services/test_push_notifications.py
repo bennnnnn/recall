@@ -86,6 +86,91 @@ async def test_process_todo_reminders_respects_user_lead():
 
 
 @pytest.mark.asyncio
+async def test_process_todo_reminders_logs_when_user_has_no_token(caplog):
+    session = AsyncMock()
+    user_id = uuid4()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+
+    todo = MagicMock()
+    todo.user_id = user_id
+    todo.id = uuid4()
+    todo.content = "Call dentist"
+    todo.due_at = now + timedelta(minutes=5)
+    todo.notification_sent_at = None
+    todo.recurrence_rule = None
+
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    user.reminder_lead_minutes = 10
+    user.timezone = "UTC"
+
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(todo, user)])))
+
+    with (
+        patch.object(
+            push_service.push_repo,
+            "list_for_users",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            push_service.todos_crud,
+            "_advance_past_recurring",
+            AsyncMock(return_value=False),
+        ) as advance,
+        caplog.at_level("WARNING"),
+    ):
+        messages = await push_service.process_todo_reminders(session, now=now)
+
+    assert messages == []
+    advance.assert_not_awaited()
+    assert "no push token" in caplog.text
+    assert str(todo.id) in caplog.text
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_todo_reminders_advances_tokenless_overdue_recurring():
+    session = AsyncMock()
+    user_id = uuid4()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+
+    todo = MagicMock()
+    todo.user_id = user_id
+    todo.id = uuid4()
+    todo.content = "Standup"
+    todo.due_at = now - timedelta(minutes=5)
+    todo.notification_sent_at = None
+    todo.recurrence_rule = "daily"
+
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    user.reminder_lead_minutes = 10
+    user.timezone = "UTC"
+
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(todo, user)])))
+
+    with (
+        patch.object(
+            push_service.push_repo,
+            "list_for_users",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            push_service.todos_crud,
+            "_advance_past_recurring",
+            AsyncMock(return_value=True),
+        ) as advance,
+    ):
+        messages = await push_service.process_todo_reminders(session, now=now)
+
+    assert messages == []
+    advance.assert_awaited_once()
+    assert advance.await_args.args[1] == [todo]
+    assert advance.await_args.kwargs["timezone"] == "UTC"
+    assert advance.await_args.kwargs["now"] == now
+
+
+@pytest.mark.asyncio
 async def test_process_todo_reminders_skips_when_push_disabled():
     session = AsyncMock()
     session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))

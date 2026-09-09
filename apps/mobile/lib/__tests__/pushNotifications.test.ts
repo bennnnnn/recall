@@ -3,6 +3,7 @@ jest.mock("@/lib/api", () => ({
     registerPushToken: jest.fn().mockResolvedValue(undefined),
     unregisterPushToken: jest.fn().mockResolvedValue(undefined),
     recordProductEvents: jest.fn().mockResolvedValue(undefined),
+    updateMe: jest.fn().mockResolvedValue({}),
   },
 }));
 
@@ -35,6 +36,7 @@ import { api } from "@/lib/api";
 import {
   attachPushForegroundSync,
   ensureNotificationPermission,
+  getNotificationPermissionGranted,
   registerRemotePushToken,
   unregisterRemotePushToken,
 } from "@/lib/pushNotifications";
@@ -43,19 +45,22 @@ const registerMock = api.registerPushToken as jest.MockedFunction<typeof api.reg
 const unregisterMock = api.unregisterPushToken as jest.MockedFunction<
   typeof api.unregisterPushToken
 >;
+const updateMeMock = api.updateMe as jest.MockedFunction<typeof api.updateMe>;
 
 describe("push gating on user.push_notifications_enabled", () => {
   beforeEach(() => {
     Platform.OS = "ios";
     registerMock.mockClear();
     unregisterMock.mockClear();
+    updateMeMock.mockClear();
     (api.recordProductEvents as jest.Mock).mockClear();
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockReset();
     (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
   });
 
   it("registerRemotePushToken registers when pushNotificationsEnabled=true", async () => {
-    await registerRemotePushToken("tok", true);
+    await expect(registerRemotePushToken("tok", true)).resolves.toBe("registered");
     expect(registerMock).toHaveBeenCalledTimes(1);
     expect(registerMock).toHaveBeenCalledWith(
       "tok",
@@ -64,6 +69,7 @@ describe("push gating on user.push_notifications_enabled", () => {
         device_id: "dev-1",
       }),
     );
+    expect(updateMeMock).not.toHaveBeenCalled();
   });
 
   it("records the result only when the OS permission prompt is shown", async () => {
@@ -87,8 +93,24 @@ describe("push gating on user.push_notifications_enabled", () => {
   it("registerRemotePushToken is a no-op when pushNotificationsEnabled=false", async () => {
     // Without this gate, the backend holds a live push token for a user who
     // opted out and keeps sending them notifications.
-    await registerRemotePushToken("tok", false);
+    await expect(registerRemotePushToken("tok", false)).resolves.toBe("skipped");
     expect(registerMock).not.toHaveBeenCalled();
+    expect(updateMeMock).not.toHaveBeenCalled();
+  });
+
+  it("registerRemotePushToken flips the server pref off when OS permission is denied", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+
+    await expect(registerRemotePushToken("tok", true)).resolves.toBe("disabled_permission");
+    expect(registerMock).not.toHaveBeenCalled();
+    expect(updateMeMock).toHaveBeenCalledWith("tok", { push_notifications_enabled: false });
+  });
+
+  it("getNotificationPermissionGranted is read-only and does not prompt", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    await expect(getNotificationPermissionGranted()).resolves.toBe(false);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it("unregisterRemotePushToken calls the server unregister endpoint", async () => {
@@ -121,6 +143,16 @@ describe("push gating on user.push_notifications_enabled", () => {
     const cleanupOff = attachPushForegroundSync("tok", false);
     expect(typeof cleanupOff).toBe("function");
     cleanupOff();
+  });
+
+  it("attachPushForegroundSync notifies when permission denial disables the pref", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    const onPref = jest.fn();
+    const cleanup = attachPushForegroundSync("tok", true, onPref);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(onPref).toHaveBeenCalledWith(false);
+    cleanup();
   });
 
   it("attachPushForegroundSync is a no-op when apiToken is null", () => {
