@@ -346,9 +346,21 @@ def test_gmail_sync_is_due():
 
     settings = Settings()
     assert email_service.gmail_sync_is_due(None, settings) is True
-    assert email_service.gmail_sync_is_due(datetime.now(UTC), settings, force=True) is True
+    assert email_service.gmail_sync_is_due(datetime.now(UTC), settings) is False
     old = datetime.now(UTC) - timedelta(days=2)
     assert email_service.gmail_sync_is_due(old, settings) is True
+
+
+def test_gmail_sync_force_respects_cooldown():
+    from app.core.config import Settings
+    from app.services import email as email_service
+
+    settings = Settings(gmail_force_min_interval_seconds=60)
+    assert email_service.gmail_sync_is_due(None, settings, force=True) is True
+    assert email_service.gmail_sync_is_due(datetime.now(UTC), settings, force=True) is False
+    cooled = datetime.now(UTC) - timedelta(seconds=61)
+    assert email_service.gmail_sync_is_due(cooled, settings, force=True) is True
+    assert email_service.gmail_sync_is_due(cooled, settings, force=False) is False
 
 
 def test_messages_from_cache_roundtrip():
@@ -681,6 +693,75 @@ async def test_sync_gmail_gathers_llm_extracts_before_writes():
     assert reminders_created == 3
     assert extract_calls == ["g0", "g1", "g2"]
     assert create_mock.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_records_ignored_scans_and_skips_known_ids():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.services import email as email_service
+
+    session = AsyncMock()
+    settings = Settings()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    message = GmailMessage(
+        id="g-empty",
+        subject="Hello",
+        snippet="just saying hi",
+        body_text="hey",
+        received_at=None,
+        ics_content=None,
+    )
+    user = MagicMock()
+    user.timezone = "UTC"
+
+    with (
+        patch("app.services.email.gmail_gateway.is_configured", return_value=True),
+        patch("app.services.email.gmail_repo.get_for_user", AsyncMock(return_value=conn)),
+        patch(
+            "app.services.email.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=[message]),
+        ),
+        patch("app.services.email.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.services.email.suggested_repo.existing_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch("app.services.email._extract_with_llm", AsyncMock(return_value=None)) as llm,
+        patch("app.services.email.suggested_repo.create", AsyncMock()) as create_mock,
+        patch("app.services.email.gmail_repo.update_last_sync", AsyncMock()),
+    ):
+        count, created = await email_service.sync_gmail_for_user(session, settings, user_id)
+
+    assert count == 1
+    assert created == 0
+    llm.assert_awaited_once()
+    assert create_mock.await_args.kwargs["status"] == "ignored"
+    assert create_mock.await_args.kwargs["gmail_message_id"] == "g-empty"
+
+    llm.reset_mock()
+    create_mock.reset_mock()
+    with (
+        patch("app.services.email.gmail_gateway.is_configured", return_value=True),
+        patch("app.services.email.gmail_repo.get_for_user", AsyncMock(return_value=conn)),
+        patch(
+            "app.services.email.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=[message]),
+        ),
+        patch("app.services.email.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.services.email.suggested_repo.existing_message_ids",
+            AsyncMock(return_value={"g-empty"}),
+        ),
+        patch("app.services.email._extract_with_llm", llm),
+        patch("app.services.email.suggested_repo.create", create_mock),
+        patch("app.services.email.gmail_repo.update_last_sync", AsyncMock()),
+    ):
+        await email_service.sync_gmail_for_user(session, settings, user_id)
+
+    llm.assert_not_awaited()
+    create_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     gmail_max_messages: int = 30
     gmail_cache_ttl: int = 300
     gmail_sync_interval_seconds: int = 3600
+    # Manual Settings sync (`force=true`) still cannot run more often than this.
+    gmail_force_min_interval_seconds: int = 60
     # How many users' Gmail accounts the periodic sync cycle syncs concurrently
     # (each has its own DB session and outbound Gmail API calls).
     gmail_periodic_sync_concurrency: int = 5
