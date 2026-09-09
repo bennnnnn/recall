@@ -12,6 +12,11 @@ jest.mock("react-i18next", () => ({
     t: (key: string) => key,
   }),
 }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,

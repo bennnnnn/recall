@@ -19,6 +19,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
@@ -383,15 +384,34 @@ async def _create_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
             user_timezone=state.user_timezone,
             ok=True,
         ), True
-    new_todo = await todos_repo.create(
-        state.session,
-        user_id=state.user_id,
-        content=title,
-        topic=REMINDER_TOPIC,
-        chat_id=state.chat_id,
-        due_at=due_at,
-        recurrence_rule=draft.repeat,
-    )
+    try:
+        new_todo = await todos_repo.create(
+            state.session,
+            user_id=state.user_id,
+            content=title,
+            topic=REMINDER_TOPIC,
+            chat_id=state.chat_id,
+            due_at=due_at,
+            recurrence_rule=draft.repeat,
+        )
+    except IntegrityError as exc:
+        if not todos_repo.is_open_content_due_conflict(exc):
+            raise
+        await state.session.rollback()
+        existing = await todos_repo.get_open_dated_duplicate(
+            state.session, state.user_id, content=title, due_at=due_at
+        )
+        if existing is None:
+            raise
+        saved_due = existing.due_at if existing.due_at is not None else due_at
+        return format_schedule_result(
+            action="add",
+            title=title,
+            due_at=saved_due,
+            repeat=getattr(existing, "recurrence_rule", None) or draft.repeat,
+            user_timezone=state.user_timezone,
+            ok=True,
+        ), True
     state.existing.append(new_todo)
     logger.info(
         "Reminder fence applied: user_id=%s chat_id=%s title=%s",

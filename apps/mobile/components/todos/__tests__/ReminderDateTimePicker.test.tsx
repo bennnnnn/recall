@@ -11,6 +11,11 @@ let mockForm: { onSave: () => void };
 const mockT = (key: string) => key;
 jest.mock("@react-native-community/datetimepicker", () => ({ __esModule: true, default: (props: Picker) => { mockPicker = props; return null; } }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/Icon", () => ({ Icon: () => null }));
 jest.mock("@/lib/haptics", () => ({ selection: jest.fn() }));

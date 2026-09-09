@@ -14,6 +14,11 @@ let mockBlur: (() => void) | undefined;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 jest.mock("expo-router", () => ({ useFocusEffect: (callback: () => (() => void) | undefined) => {
   const react = jest.requireActual<typeof React>("react");
   react.useEffect(() => { mockBlur = callback(); return mockBlur; }, [callback]);
