@@ -32,6 +32,7 @@ describe("type and space tokens", () => {
   it("owns chrome radius, icon, and overlay layers", () => {
     expect(Radius.md).toBe(12);
     expect(Radius.sheet).toBe(20);
+    expect(Radius.composer).toBe(24);
     expect(IconSize.sm).toBe(20);
     expect(IconSize.md).toBe(22);
     expect(IconSize.lg).toBe(24);
