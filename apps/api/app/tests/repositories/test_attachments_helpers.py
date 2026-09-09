@@ -64,3 +64,30 @@ async def test_list_orphans_sql_skips_verified_library_rows():
     assert "verified_at" in sql
     assert "library_visible" in sql
     assert "is null" in sql
+
+
+@pytest.mark.asyncio
+async def test_list_orphans_sql_uses_shorter_pending_cutoff():
+    from sqlalchemy.dialects import postgresql
+
+    session = AsyncMock()
+    captured: dict = {}
+
+    async def _capture(stmt):
+        captured["stmt"] = stmt
+        result = MagicMock()
+        result.scalars.return_value = MagicMock(all=MagicMock(return_value=[]))
+        return result
+
+    session.execute = _capture
+    await attachments_repo.list_orphans(
+        session, older_than_hours=24, pending_older_than_hours=1, limit=50
+    )
+
+    compiled = captured["stmt"].compile(dialect=postgresql.dialect())
+    from datetime import datetime as dt
+
+    created = [value for value in compiled.params.values() if isinstance(value, dt)]
+    assert len(created) == 2
+    newer, older = max(created), min(created)
+    assert (newer - older).total_seconds() == pytest.approx(23 * 3600, abs=2)

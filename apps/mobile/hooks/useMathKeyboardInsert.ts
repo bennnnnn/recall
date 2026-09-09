@@ -18,8 +18,13 @@ import {
   type MathKeyboardSymbol,
   type TextSelection,
 } from "@/lib/mathKeyboardSymbols";
-import { applyPinnedTextChange } from "@/lib/math/mathComposerChange";
-import { applyComposerTextChange, extractInsertedDelta } from "@/lib/mathPasteNormalize";
+import { applyPinnedTextChange, caretAfterMathBarClose } from "@/lib/math/mathComposerChange";
+import {
+  applyComposerTextChange,
+  extractInsertedDelta,
+  shouldProbeClipboardForImagePaste,
+  normalizePastedMath,
+} from "@/lib/mathPasteNormalize";
 import { spliceMathBackspace, stepMathCaret } from "@/lib/mathDraftSlots";
 
 export const MATH_PAD_FALLBACK_HEIGHT = 320;
@@ -78,7 +83,7 @@ export function useMathKeyboardInsert(options: {
       setInput(converted);
       pinSelection({ start: caret, end: caret });
       const delta = extractInsertedDelta(input, next);
-      if (delta && onImageOnlyPaste) {
+      if (delta && onImageOnlyPaste && shouldProbeClipboardForImagePaste(delta)) {
         void clipboardIsImageOnly().then((imageOnly) => {
           if (imageOnly) onImageOnlyPaste();
         });
@@ -153,10 +158,11 @@ export function useMathKeyboardInsert(options: {
       const sel = pinRef.current ?? selection;
       const before = textRef.current.slice(0, sel.start);
       const after = textRef.current.slice(sel.end);
-      const next = before + text + after;
-      const caret = sel.start + text.length;
-      textRef.current = next;
-      setInput(next);
+      const convertedChunk = normalizePastedMath(text);
+      const spliced = before + convertedChunk + after;
+      const caret = before.length + convertedChunk.length;
+      textRef.current = spliced;
+      setInput(spliced);
       pinSelection({ start: caret, end: caret });
     },
     [pinSelection, selection, setInput],
@@ -173,9 +179,9 @@ export function useMathKeyboardInsert(options: {
   const toggleMathBar = useCallback(() => {
     if (mathBarOpen) {
       mathBarOpenRef.current = false;
-      // Sit in front of `$...$` so ABC types words beside the formula, not
-      // raw LaTeX inside a slot.
-      pinSelection({ start: 0, end: 0 });
+      const text = textRef.current;
+      const caret = caretAfterMathBarClose(text);
+      pinSelection({ start: caret, end: caret });
       setMathBarOpen(false);
       return;
     }

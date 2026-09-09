@@ -81,6 +81,20 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     tail = _calc_expr_tail(cleaned)
     raw = _strip_trailing_filler(tail) if tail is not None else cleaned
     raw = peel_function_definition(raw)
+    # ``simplify 4x+2x=18`` is an equation, not a simplify-of-equality. Fall
+    # through so the algebra extractor can solve it. Explicit factor/expand
+    # of a single ``poly=0`` stays calculus; a worked multi-equation paste
+    # (`Factor it:` then 2x-1=0) must not steal the quadratic.
+    if calc_op == "simplify" and "=" in raw:
+        return None
+    if calc_op in {"factor", "expand"} and "=" in raw:
+        from app.services import math_service
+
+        pairs = math_service.try_extract_equations_from_text(cleaned)
+        if len(pairs) >= 2:
+            return None
+        if pairs and pairs[0][1].strip() in {"0", "0.0"}:
+            raw = pairs[0][0]
     integral_lower: str | None = None
     integral_upper: str | None = None
     if calc_op == "integrate":

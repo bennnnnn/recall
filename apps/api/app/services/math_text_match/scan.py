@@ -424,7 +424,9 @@ def has_draw_shape(lower: str, shape: str) -> bool:
 
 def has_math_keyword(lower: str) -> bool:
     compact = lower.replace(" ", "")
-    if "y=" in compact:
+    # Bare ``y=x^2`` is a math ask. ``tell me about y=x^2`` is prose that
+    # happens to mention a formula — do not pull it into SymPy as a solve.
+    if "y=" in compact and not has_unknown_english_run(lower):
         return True
     # ``graph``/``plot`` are whole tokens (or glued onto a variable), not
     # substrings — ``paragraph`` must not look like a graph ask. ``show`` /

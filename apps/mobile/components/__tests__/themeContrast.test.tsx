@@ -37,6 +37,13 @@ describe("semantic text contrast", () => {
     expect(contrastRatio(theme.textSecondary, theme.surfaceAlt)).toBeGreaterThanOrEqual(AA);
   });
 
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s userText is AA on the user bubble", (_name, theme) => {
+    expect(contrastRatio(theme.userText, theme.userBubble)).toBeGreaterThanOrEqual(AA);
+  });
+
   it("textDisabled may sit below AA (placeholders / decoration only)", () => {
     expect(contrastRatio(lightTheme.textDisabled, lightTheme.surfaceAlt)).toBeLessThan(AA);
     expect(contrastRatio(darkTheme.textDisabled, darkTheme.surfaceAlt)).toBeLessThan(AA);

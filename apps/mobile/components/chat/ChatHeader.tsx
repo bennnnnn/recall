@@ -13,6 +13,7 @@ import {
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/lib/icons";
 
 type Props = {
   paddingTop: number;
@@ -86,9 +87,9 @@ export const ChatHeader = memo(function ChatHeader({
           accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
         >
           {fromLibrary ? (
-            <Icon name="chevron-back" size={22} color={theme.text} />
+            <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
           ) : (
-            <HamburgerIcon size={22} color={theme.text} />
+            <HamburgerIcon size={IconSize.md} color={theme.text} />
           )}
         </Pressable>
         {headerTitleLabel ? (
@@ -120,7 +121,7 @@ export const ChatHeader = memo(function ChatHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
               >
-                <NewChatIcon size={22} color={theme.text} />
+                <NewChatIcon size={IconSize.md} color={theme.text} />
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
@@ -132,7 +133,7 @@ export const ChatHeader = memo(function ChatHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.menu")}
               >
-                <Icon name="ellipsis-vertical" size={22} color={theme.text} />
+                <Icon name="ellipsis-vertical" size={IconSize.md} color={theme.text} />
               </Pressable>
             </View>
           ) : null}
