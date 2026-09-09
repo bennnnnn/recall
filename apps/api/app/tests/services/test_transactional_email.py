@@ -59,6 +59,9 @@ def test_build_todo_reminder_includes_content():
     assert "Call mom" in subject
     assert "Call mom" in text
     assert "Ada" in html
+    assert "snooze" not in text.lower()
+    assert "snooze" not in html.lower()
+    assert "mark it done" in text
 
 
 def test_build_todo_reminder_escapes_html_but_not_text():

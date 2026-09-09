@@ -417,14 +417,14 @@ _TEMPLATES["todo_reminder"] = {
             "Hi {name},\n\n"
             "{title}\n\n"
             "{content}\n\n"
-            "Open Recall to mark it done or snooze.\n\n"
+            "Open Recall to mark it done.\n\n"
             "— Recall"
         ),
         "html": (
             "<p>Hi {name},</p>"
             "<p><strong>{title}</strong></p>"
             "<p>{content}</p>"
-            "<p>Open Recall to mark it done or snooze.</p>"
+            "<p>Open Recall to mark it done.</p>"
             "<p>— Recall</p>"
         ),
     },
