@@ -117,7 +117,7 @@ IMAGE_GEN_HONESTY_HINT = (
 # to resubmit a generate ask (that loops through the same disabled intercept).
 IMAGE_GEN_UNAVAILABLE_HINT = (
     "In-chat image generation is not available. Do not tell the user to resubmit "
-    "or to send \"generate an image of …\". Never send them to DALL-E, Midjourney, "
+    'or to send "generate an image of …". Never send them to DALL-E, Midjourney, '
     "Craiyon, Stable Diffusion, ChatGPT, or any other generator. Answer in chat."
 )
 
