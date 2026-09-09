@@ -38,12 +38,17 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("react-native-gesture-handler", () => ({ GestureHandlerRootView: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
+jest.mock("@/lib/i18n", () => ({
+  __esModule: true,
+  default: { t: (key: string) => key },
+  ensureLocale: jest.fn(),
+}));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
 jest.mock("@/components/AddFab", () => ({ AddFab: (props: typeof mockAdd) => { mockAdd = props; return null; } }));
 jest.mock("@/components/todos/AddReminderSheet", () => ({ AddReminderSheet: (props: typeof mockSheet) => { mockSheet = props; return null; } }));
 jest.mock("@/components/todos/DuePickerModal", () => ({ DuePickerModal: () => null }));
-jest.mock("@/components/todos/TodosFlashList", () => ({ TodosFlashList: (props: typeof mockList & { listHeader: React.ReactNode }) => { mockList = props; return props.listHeader; } }));
+jest.mock("@/components/todos/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => { mockList = props; return props.listHeader; } }));
 jest.mock("@/components/todos/TodosScreenHeader", () => ({ TodosScreenHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
 jest.mock("@/hooks/useTodosCalendarIntegration", () => ({ useTodosCalendarIntegration: () => ({}) }));
 jest.mock("@/hooks/useTodosActions", () => ({ useTodosActions: (params: typeof mockActionParams) => {
