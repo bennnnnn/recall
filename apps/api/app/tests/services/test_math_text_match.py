@@ -89,6 +89,9 @@ class TestNeedsSymbolic:
             "explain kinetic energy",
             "find the friction on a 5 kg block",
             "find the tension in a 10 kg rope",
+            "tell me about y=x^2",
+            "the answer key says x=5 but i got 6",
+            "chart of rainfall",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):
@@ -260,6 +263,15 @@ class TestGraphExpr:
             # First capture is prose; last unprefixed graph/plot is the formula.
             ("graph this: graph y=x^2", "x^2"),
             ("graph theory then graph y=x^2", "x^2"),
+            ("draw y=x^2", "x^2"),
+            ("chart y=x^2", "x^2"),
+            ("sketch y = x^2", "x^2"),
+            ("visualize y=x^2", "x^2"),
+            ("visualise y=x^2", "x^2"),
+            ("what does y=x^2 look like", "x^2"),
+            ("show the shape of y=x^2", "x^2"),
+            ("show y=x^2", "x^2"),
+            ("draw this: draw y=x^2", "x^2"),
         ],
     )
     def test_graph_expr(self, text, expected):
@@ -274,6 +286,13 @@ class TestGraphExpr:
     def test_graph_expr_none_without_trigger(self):
         assert mtm.graph_expr("x^2") is None
         assert mtm.graph_expr("write a paragraph about trees") is None
+
+    def test_soft_plot_prefix_skips_geometry_and_vega(self):
+        assert mtm.graph_expr("draw a triangle") is None
+        assert mtm.graph_expr("chart of rainfall") is None
+        assert mtm.graph_expr("make a bar chart of monthly rainfall") is None
+        assert mtm.graph_expr("show me how to solve") is None
+        assert mtm.graph_expr("show me the weather") is None
 
     @pytest.mark.parametrize(
         "text, expected",

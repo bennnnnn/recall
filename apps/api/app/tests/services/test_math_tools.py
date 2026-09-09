@@ -176,6 +176,92 @@ def test_late_reason_prose_does_not_extract_an_equation() -> None:
     assert math_tools.extract_math_intent("let x = the reason I'm late, it doesn't matter") is None
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "draw y=x^2",
+        "chart y=x^2",
+        "sketch y = x^2",
+        "visualize y=x^2",
+        "what does y=x^2 look like",
+        "show the shape of y=x^2",
+        "show y=x^2",
+    ],
+)
+def test_plot_phrasing_extracts_as_graph_not_equation(text: str) -> None:
+    """``draw y=x^2`` used to miss graph_expr and ship a verified *solve* of
+    y=x^2 (no diagram). Plot verbs must claim the graph kind."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert "Equation:" not in block.text
+    assert "a d r" not in block.text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "tell me about y=x^2",
+        "help me understand y=x^2",
+        "describe the curve y=x^3",
+        "explain why y=mx+b",
+        "my teacher wrote v=d/t on the board",
+        "the slope formula m=(y2-y1)/(x2-x1)",
+        "the answer key says x=5 but i got 6",
+        "i dont get why y=x^2 is a parabola",
+        "remind me what pv=nrt means",
+        "in chemistry pv=nrt is the gas law",
+        "summarize the identity sin^2+cos^2=1",
+        "how do I find the slope of y=x^2",
+    ],
+)
+def test_prose_mentioning_an_equation_is_not_a_verified_solve(text: str) -> None:
+    """Conversational mentions must not become kind=equation under a
+    'verified by SymPy' header. Graph/other kinds are allowed; a solve is not."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is None or intent.kind != "equation"
+    if intent is not None:
+        block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+        if block is not None:
+            assert "Equation:" not in block.text
+            singles = [tok for tok in block.text.split() if len(tok) == 1 and tok.isalpha()]
+            assert len(singles) < 3
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "solve 2x+3=7",
+        "find x if 2x+3=7",
+        "calculate 2x+3=7",
+        "what is x when 2x=10",
+        "2x+3=7",
+        "y=x^2",
+        "graph y=x^2",
+        "simplify 4x+2x=18",
+        "show me how to solve 2x+3=7",
+    ],
+)
+def test_imperative_and_bare_equations_still_extract(text: str) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind in {"equation", "graph"}
+
+
+def test_simplify_equation_falls_through_to_solve() -> None:
+    """``simplify 4x+2x=18`` used to match calculus simplify and fail verification."""
+    intent = math_tools.extract_math_intent("simplify 4x+2x=18")
+    assert intent is not None
+    assert intent.kind == "equation"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "3" in block.canonical_answer
+
+
 def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
     """``Let x = 5. What is x + 2?`` must eval to 7, not stamp ```answer x = 5."""
     intent = math_tools.extract_math_intent("Let x = 5. What is x + 2?")
@@ -926,6 +1012,12 @@ def test_verified_trig_sin_of_degrees() -> None:
         ("Graph y = Graph y = x^2", "x**2"),
         ("graph this: graph y=x^2", "x**2"),
         ("graph theory then graph y=x^2", "x**2"),
+        ("draw y=x^2", "x**2"),
+        ("sketch y = x^2", "x**2"),
+        ("visualize y=x^2", "x**2"),
+        ("chart y=x^2", "x**2"),
+        ("what does y=x^2 look like", "x**2"),
+        ("show the shape of y=x^2", "x**2"),
         ("Graph y =Graph y= x= x².", "x**2"),
     ],
 )
@@ -1091,6 +1183,8 @@ def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr:
         ("factor x^2 - 1", "factor"),
         ("expand (x-1)(x+1)", "expand"),
         ("Factor the polynomial x^3 - 1", "factor"),
+        ("factor x^2-5x+6=0", "factor"),
+        ("expand (x+1)^2=x^2+2x+1", "expand"),
     ],
 )
 def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
