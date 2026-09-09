@@ -7,6 +7,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/lib/chat/chatTitle";
+import { IconSize } from "@/lib/icons";
 
 export type ConversationRowStyles = {
   row: ViewStyle;
@@ -83,7 +84,7 @@ export const ConversationRow = memo(function ConversationRow({
         <View style={r.rowIcon}>
           <Icon
             name={selected ? "checkbox" : "square-outline"}
-            size={20}
+            size={IconSize.sm}
             color={selected ? theme.primary : theme.textTertiary}
           />
         </View>

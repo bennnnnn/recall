@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import type { GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
+import { IconSize } from "@/lib/icons";
 import {
   addMonths,
   buildMonthCells,
@@ -75,7 +76,7 @@ export function ReminderCalendar({
           accessibilityRole="button"
           accessibilityLabel={t("calendar.prev_month")}
         >
-          <Icon name="chevron-back" size={20} color={theme.text} />
+          <Icon name="chevron-back" size={IconSize.sm} color={theme.text} />
         </Pressable>
         <Text style={s.monthLabel}>{monthLabel}</Text>
         <Pressable
@@ -84,7 +85,7 @@ export function ReminderCalendar({
           accessibilityRole="button"
           accessibilityLabel={t("calendar.next_month")}
         >
-          <Icon name="chevron-forward" size={20} color={theme.text} />
+          <Icon name="chevron-forward" size={IconSize.sm} color={theme.text} />
         </Pressable>
       </View>
 

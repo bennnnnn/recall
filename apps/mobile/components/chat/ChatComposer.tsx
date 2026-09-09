@@ -39,6 +39,7 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/mathDraftSlot
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/lib/icons";
 
 function noopComposerInput(_text: string) {}
 
@@ -262,7 +263,7 @@ export const ChatComposer = memo(function ChatComposer({
                 {attachPicking ? (
                   <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Icon name="attach-outline" size={22} color={theme.primary} />
+                  <Icon name="attach-outline" size={IconSize.md} color={theme.primary} />
                 )}
               </Pressable>
               {voiceRecording || voiceTranscribing ? (
