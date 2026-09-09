@@ -16,8 +16,11 @@ _SOLVE_FOR_VAR_RE = re.compile(
     r"(?:solve\s+for|find|solve)\s+(?:the\s+value\s+of\s+)?([a-zA-Z])(?![a-zA-Z])",
     re.IGNORECASE,
 )
-_SOLVE_CUES = (
-    "solve",
+# Whole-word cues that mean "solve this" even mid-sentence (`show me how to
+# solve 2x+3=7`). `find` is not here — "how do I find the slope of y=x^2"
+# is not a solve request.
+_SOLVE_WORD_CUES = ("solve", "isolate", "factor", "expand")
+_LEADING_SOLVE_CUES = (
     "find",
     "calculate",
     "compute",
@@ -26,9 +29,6 @@ _SOLVE_CUES = (
     "simplify",
     "what is",
     "what's",
-    "isolate",
-    "factor",
-    "expand",
 )
 _PLOT_VERB_PREFIXES = (
     "draw ",
@@ -36,6 +36,7 @@ _PLOT_VERB_PREFIXES = (
     "visualize ",
     "visualise ",
     "chart ",
+    "show ",
     "graph ",
     "plot ",
 )
@@ -43,9 +44,43 @@ _TRAILING_OK_WORDS = frozenset({"please", "thanks", "now", "quickly", "briefly",
 _EQ_BIND_PREFIXES = ("let ", "set ", "given ", "if ", "when ", "where ")
 
 
-def _has_solve_cue(cleaned: str) -> bool:
+def _has_whole_word(cleaned: str, word: str) -> bool:
     lower = cleaned.lower()
-    return any(cue in lower for cue in _SOLVE_CUES)
+    start = 0
+    n = len(word)
+    while True:
+        idx = lower.find(word, start)
+        if idx == -1:
+            return False
+        before_ok = idx == 0 or not lower[idx - 1].isalpha()
+        after = idx + n
+        after_ok = after >= len(lower) or not lower[after].isalpha()
+        if before_ok and after_ok:
+            return True
+        start = idx + 1
+
+
+def _leading_after_polite(cleaned: str) -> str:
+    s = cleaned.strip()
+    low = s.lower()
+    for polite in ("please ", "can you ", "could you "):
+        if low.startswith(polite):
+            s = s[len(polite) :].lstrip()
+            low = s.lower()
+    return low
+
+
+def _has_solve_cue(cleaned: str, equation_text: str = "") -> bool:
+    """True for an imperative solve / requested variable, not a buried cue."""
+    if equation_text and _requested_variable(cleaned, equation_text) is not None:
+        return True
+    if any(_has_whole_word(cleaned, word) for word in _SOLVE_WORD_CUES):
+        return True
+    low = _leading_after_polite(cleaned)
+    for cue in _LEADING_SOLVE_CUES:
+        if low.startswith(cue) and (len(low) == len(cue) or not low[len(cue)].isalpha()):
+            return True
+    return False
 
 
 def _blank_extracted_equation(core: str, lhs: str, rhs: str) -> str:
@@ -69,7 +104,7 @@ def _leftover_prose_blocks_solve(cleaned: str, lhs: str, rhs: str) -> bool:
     ``2x+3=7please`` / ``2x + 3 = 7 please`` still solve. ``tell me about
     y=x^2`` does not.
     """
-    if _has_solve_cue(cleaned):
+    if _has_solve_cue(cleaned, f"{lhs}={rhs}"):
         return False
     core = _equation_core_after_leadin(cleaned)
     s = _blank_extracted_equation(core, lhs, rhs)

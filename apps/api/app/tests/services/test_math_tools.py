@@ -185,6 +185,7 @@ def test_late_reason_prose_does_not_extract_an_equation() -> None:
         "visualize y=x^2",
         "what does y=x^2 look like",
         "show the shape of y=x^2",
+        "show y=x^2",
     ],
 )
 def test_plot_phrasing_extracts_as_graph_not_equation(text: str) -> None:
@@ -214,6 +215,7 @@ def test_plot_phrasing_extracts_as_graph_not_equation(text: str) -> None:
         "remind me what pv=nrt means",
         "in chemistry pv=nrt is the gas law",
         "summarize the identity sin^2+cos^2=1",
+        "how do I find the slope of y=x^2",
     ],
 )
 def test_prose_mentioning_an_equation_is_not_a_verified_solve(text: str) -> None:
@@ -240,6 +242,7 @@ def test_prose_mentioning_an_equation_is_not_a_verified_solve(text: str) -> None
         "y=x^2",
         "graph y=x^2",
         "simplify 4x+2x=18",
+        "show me how to solve 2x+3=7",
     ],
 )
 def test_imperative_and_bare_equations_still_extract(text: str) -> None:
@@ -1180,6 +1183,8 @@ def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr:
         ("factor x^2 - 1", "factor"),
         ("expand (x-1)(x+1)", "expand"),
         ("Factor the polynomial x^3 - 1", "factor"),
+        ("factor x^2-5x+6=0", "factor"),
+        ("expand (x+1)^2=x^2+2x+1", "expand"),
     ],
 )
 def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:

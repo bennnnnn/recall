@@ -25,6 +25,7 @@ _GRAPH_PLOT_SOFT_PREFIXES = (
     "visualize ",
     "visualise ",
     "chart ",
+    "show ",
 )
 _LOOKS_LIKE_CUES = ("look like", "looks like", "shape of")
 

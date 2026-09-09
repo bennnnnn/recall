@@ -270,6 +270,7 @@ class TestGraphExpr:
             ("visualise y=x^2", "x^2"),
             ("what does y=x^2 look like", "x^2"),
             ("show the shape of y=x^2", "x^2"),
+            ("show y=x^2", "x^2"),
             ("draw this: draw y=x^2", "x^2"),
         ],
     )
@@ -290,6 +291,8 @@ class TestGraphExpr:
         assert mtm.graph_expr("draw a triangle") is None
         assert mtm.graph_expr("chart of rainfall") is None
         assert mtm.graph_expr("make a bar chart of monthly rainfall") is None
+        assert mtm.graph_expr("show me how to solve") is None
+        assert mtm.graph_expr("show me the weather") is None
 
     @pytest.mark.parametrize(
         "text, expected",
