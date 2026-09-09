@@ -81,6 +81,10 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     tail = _calc_expr_tail(cleaned)
     raw = _strip_trailing_filler(tail) if tail is not None else cleaned
     raw = peel_function_definition(raw)
+    # ``simplify 4x+2x=18`` is an equation, not a simplify-of-equality. Fall
+    # through so the algebra extractor can solve it.
+    if calc_op in {"simplify", "factor", "expand"} and "=" in raw:
+        return None
     integral_lower: str | None = None
     integral_upper: str | None = None
     if calc_op == "integrate":
