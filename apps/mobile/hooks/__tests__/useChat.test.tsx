@@ -137,6 +137,7 @@ describe("useChat transport lifecycle", () => {
       expect.objectContaining({ content: "partial reply", generationStopped: true }),
     ]));
     expect(current.messages.some((message) => message.id === "streaming")).toBe(false);
+    expect(onError).toHaveBeenCalledWith("chat.error_connection_lost", undefined);
   });
 
   it("ignores a previous view's SSE rejection after navigating away and back", async () => {

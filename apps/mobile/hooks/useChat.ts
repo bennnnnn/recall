@@ -558,51 +558,15 @@ export function useChat(
                 : m,
             );
           });
-          if (!hadContent && !failedRegenerateBackup) {
+          if (hadContent) {
+            reportError(t("chat.error_connection_lost"));
+          } else if (!failedRegenerateBackup) {
             if (pending) {
               queueUnsavedSend(pending, "send_rejected");
               reportError(t("chat.error_unreachable"), "send_rejected");
             } else {
               reportError(t("chat.error_connection_lost"));
             }
-          }
-        }
-        if (streamingRef.current || finalizingRef.current) {
-          setStreaming(false);
-          setFinalizing(false);
-          streamingRef.current = false;
-          finalizingRef.current = false;
-          const hadContent = assistantBuffer.current.trim().length > 0;
-          const draft = streamingDraftRef.current;
-          const failedRegenerateBackup = regenerateBackupRef.current;
-          regenerateBackupRef.current = null;
-          assistantBuffer.current = "";
-          updateStreamingDraft(null);
-          setSendingMessageId(null);
-          setMessages((prev) => {
-            const streamingMsg = prev.find((m) => m.id === "streaming");
-            if (!streamingMsg) return prev;
-            if (!hadContent) {
-              const withoutStreaming = prev.filter((m) => m.id !== "streaming");
-              if (failedRegenerateBackup) {
-                return restoreAssistantMessage(withoutStreaming, failedRegenerateBackup);
-              }
-              return withoutStreaming;
-            }
-            return prev.map((m) =>
-              m.id === "streaming"
-                ? {
-                    ...m,
-                    id: `streamed-${Date.now()}`,
-                    content: draft?.content ?? m.content,
-                    search_sources: draft?.search_sources ?? m.search_sources,
-                    generationStopped: true,
-                  }
-                : m,
-            );
-          });
-          if (!hadContent && !failedRegenerateBackup) {
-            reportError(t("chat.error_connection_lost"));
           }
         }
       };
