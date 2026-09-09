@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Generic Retry regenerated a turn that never reached the server.** SSE/WS
+  transport failure left the optimistic user bubble looking sent and the error
+  CTA called `regenerate`. Queue it as `send_rejected` (Retry = resend);
+  Regenerate only after tokens already arrived.
 - **Account B saw Account A's unsent composer draft.** Provider stays mounted
   above the login Redirect; `switchThread` no-ops on the shared `"new"` key.
   Reset drafts on session change and from `clearSignedOutAccount`.
