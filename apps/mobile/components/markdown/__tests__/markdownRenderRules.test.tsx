@@ -7,9 +7,20 @@ import { makeMdStyles } from "@/components/markdown/markdownContentStyles";
 import { lightTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-jest.mock("@/components/LinkPreviewCard", () => ({
-  LinkPreviewCard: "LinkPreviewCard",
-}));
+jest.mock("@/components/LinkPreviewCard", () => {
+  const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    LinkPreviewCard: ({ url }: { url: string }) => (
+      <Pressable
+        testID="link-preview-card"
+        accessibilityRole="link"
+        accessibilityLabel={url}
+      >
+        <Text>{url}</Text>
+      </Pressable>
+    ),
+  };
+});
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
 jest.mock("expo-haptics", () => ({
@@ -255,5 +266,19 @@ describe("markdown render rules", () => {
       <MarkdownContent content={"See [the docs](https://example.com/docs)"} />,
     );
     expect(getByRole("link", { name: /the docs/ })).toBeOnTheScreen();
+  });
+
+  it("renders a preview card for a standalone markdown link", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"https://example.com/docs"} />,
+    );
+    expect(getByTestId("link-preview-card")).toBeOnTheScreen();
+  });
+
+  it("renders a preview card for a standalone labeled markdown link", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"[the docs](https://example.com/docs)"} />,
+    );
+    expect(getByTestId("link-preview-card")).toBeOnTheScreen();
   });
 });
