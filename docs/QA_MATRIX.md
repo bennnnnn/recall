@@ -199,13 +199,14 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 
 | # | Test | iOS | Low-end Android | Notes |
 |---|------|-----|-----------------|-------|
-| 15.1 | Open a thread with **200+ messages** and fling-scroll both directions | ☐ | ☐ | FlashList should not freeze; cells recycle. Watch memory. |
+| 15.1 | Open a thread with **200+ messages**, tap **Load earlier** until 200+ rows are in the list, then fling-scroll both directions | ☐ | ☐ | Opening a chat only fetches 40 messages. Keep tapping Load earlier until the list actually has 200+. FlashList should not freeze; cells recycle. Watch memory. |
 | 15.2 | Stream a **~2k token** assistant reply (long explanation) | ☐ | ☐ | First token promptly; scroll stays usable; no multi-second freeze at `done`. |
 | 15.3 | Stream a **~5k token** reply (or two stacked long turns) | ☐ | ☐ | Same as 15.2. If the model caps lower, note actual length. |
 | 15.4 | Thread with **math** (`$…$` / display) plus a **chart** and **Mermaid** WebView | ☐ | ☐ | Scroll past each fence; expand/collapse chart if clipped; no blank WebViews after scroll-back. |
 | 15.5 | Stack **geometry + graph + chemistry** in one thread, then background the app 30s and return | ☐ | ☐ | SVGs/WebViews recover; no white cards. |
-| 15.6 | Send while a previous stream is still painting (or immediately after `done`) | ☐ | ☐ | Composer stays responsive; no double-send; typing indicator is honest. |
-| 15.7 | 10 minutes of mixed chat (send, scroll, open drawer, rotate if Android) | ☐ | ☐ | Thermal/jank after warmup. Stop if the OS kills the app. |
+| 15.6 | While a reply is streaming, confirm Send is **Stop** and a second send cannot start | ☐ | ☐ | The send control is Stop during `streamActive`; a second send is rejected. Stop cancels. Typing indicator is honest. |
+| 15.7 | Immediately after `done`, send another message | ☐ | ☐ | Send is back; composer stays responsive; no double-send. |
+| 15.8 | 10 minutes of mixed chat (send, scroll, open drawer, rotate if Android) | ☐ | ☐ | Thermal/jank after warmup. Stop if the OS kills the app. |
 
 **Pass bar:** the chat remains usable (scroll, send, stop) on the low-end Android. Cosmetic hitch on first WebView mount is OK; a multi-second freeze or crash is a blocker.
 
