@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Asked for a dog image, got a DALL-E copy-paste prompt.** Intercept only
+  sees the current line (`Image` / `that works` are not `draw me a dog`),
+  and compact turns never get the image-gen hint (viz_intent is
+  chart/mermaid/HTML). Follow-up `Dog` then `Image`; never tell the model
+  Recall cannot generate or to send the user off-app.
 - **`Couldn't verify` under a correct ∫ x².** `Integrate x squared` (speech /
   typed English) hit the calculus verb so a Math note stamped, but
   `squared` is an unknown letter-run so extract returned None. Rewrite

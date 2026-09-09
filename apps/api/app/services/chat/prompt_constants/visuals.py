@@ -56,8 +56,12 @@ VISUALIZATION_HINTS = (
     "inside chat text. Never invent ```image fences, tool-call JSON, or "
     '{"prompt":"..."} blocks for generation — that is not an in-app visual format. '
     "If Plan is pro and they ask for an image, the mobile app normally intercepts "
-    "that request before chat — if you still see it, reply briefly without claiming "
-    "an image is being attached or inventing ```image / prompt JSON. "
+    "that request before chat — if you still see it, tell them to send "
+    '"generate an image of …" with the subject. Never claim an image is attached '
+    "and never invent ```image / prompt JSON. "
+    "Never say Recall cannot generate images. Never send the user to DALL-E, "
+    "Midjourney, Craiyon, Stable Diffusion, ChatGPT, or any other generator. "
+    "Never write a copy-paste prompt for an external app. "
     "Do NOT say generation is Pro-only or ask them to upgrade. "
     "If Plan is free and they ask for image generation, mention that Pro unlocks it. "
     "If they want a photo/illustration and are NOT asking "
@@ -96,3 +100,61 @@ VISUALIZATION_HINTS = (
     "near them — nearest/closest/nearby — regardless of category.\n\n"
     "For uploaded images, describe or answer about what you see — do not redraw them in HTML."
 )
+
+# Compact/slim turns never get VISUALIZATION_HINTS (viz_intent is chart/mermaid/HTML
+# only). A "Dog" / "Image" thread then invented "Recall can't generate" + DALL-E.
+IMAGE_GEN_HONESTY_HINT = (
+    "Recall generates pictures in this chat for Pro (the app intercepts clear asks). "
+    "Never say Recall cannot generate images. Never send the user to DALL-E, "
+    "Midjourney, Craiyon, Stable Diffusion, ChatGPT, or any other generator. "
+    "Never write a copy-paste prompt for an external app. "
+    "If Plan is pro and this turn still reached you, tell them to send "
+    '"generate an image of …" with the subject — do not claim an image is attached. '
+    "If Plan is free, mention Pro unlocks in-chat generation."
+)
+
+_IMAGE_GEN_MENTION_WORDS = (
+    "image",
+    "images",
+    "picture",
+    "pictures",
+    "pic",
+    "pics",
+    "photo",
+    "photos",
+    "illustration",
+    "illustrations",
+    "artwork",
+    "artworks",
+    "portrait",
+    "portraits",
+    "midjourney",
+    "craiyon",
+)
+
+
+def _has_whole_word(haystack_lower: str, word: str) -> bool:
+    start = 0
+    n = len(word)
+    while True:
+        idx = haystack_lower.find(word, start)
+        if idx < 0:
+            return False
+        before = haystack_lower[idx - 1] if idx > 0 else " "
+        after = haystack_lower[idx + n] if idx + n < len(haystack_lower) else " "
+        if not before.isalnum() and not after.isalnum():
+            return True
+        start = idx + n
+
+
+def is_image_generation_mention(text: str) -> bool:
+    """True when the user turn is about a picture / generator (linear scan)."""
+    lower = text.lower()
+    if not lower:
+        return False
+    if "dall-e" in lower or "dalle" in lower or "stable diffusion" in lower:
+        return True
+    for word in _IMAGE_GEN_MENTION_WORDS:
+        if _has_whole_word(lower, word):
+            return True
+    return False

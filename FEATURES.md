@@ -181,8 +181,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
 - ✅ **Image generation (Pro)** — Type an image request in the composer and send (e.g. "draw me a
-  cat"); the user bubble keeps that wording (not rewritten to "Generate image: …"). Pro users
-  get daily-limited generations stored as chat attachments. No separate prompt sheet. Stop
+  cat" or "Dog" then "Image"); the user bubble keeps that wording (not rewritten to "Generate
+  image: …"). Pro users get daily-limited generations stored as chat attachments. No separate
+  prompt sheet, and the model must not send people to DALL-E / Midjourney. Stop
   mid-generation keeps the user message and shows canceled/failed + Retry. Tap the result to
   view full-screen and save via the system share sheet.
 - 🔜 **Music generation** — same composer-send path as image gen (no prompt sheet): user asks

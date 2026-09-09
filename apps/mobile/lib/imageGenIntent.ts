@@ -325,3 +325,151 @@ export function extractImageGenPrompt(text: string): string | null {
 
   return null;
 }
+
+const IMAGE_NOUN_SET = new Set([
+  "image",
+  "images",
+  "picture",
+  "pictures",
+  "pic",
+  "pics",
+  "photo",
+  "photos",
+  "illustration",
+  "illustrations",
+  "artwork",
+  "artworks",
+  "drawing",
+  "drawings",
+  "portrait",
+  "portraits",
+]);
+
+const NOUN_ONLY_FILLER = new Set(["please", "a", "an", "the", "just"]);
+
+const NOT_THREAD_SUBJECT = new Set([
+  "hi",
+  "hello",
+  "hey",
+  "hiya",
+  "yo",
+  "sup",
+  "bye",
+  "goodbye",
+  "cya",
+  "see ya",
+  "sounds good",
+  "makes sense",
+  "understood",
+]);
+
+const GENERATE_NOW_EXACT = new Set([
+  "that works",
+  "that will work",
+  "that works for me",
+  "do it",
+  "do that",
+  "go ahead",
+  "go for it",
+  "generate it",
+  "generate that",
+  "generate the image",
+  "generate the picture",
+  "you do it",
+  "u do it",
+  "you pick",
+  "u pick",
+  "you choose",
+  "u choose",
+]);
+
+function skipImageGenHistoryRow(row: { id: string }): boolean {
+  return (
+    row.id === "streaming" ||
+    row.id === IMAGE_GEN_PENDING_ASSISTANT_ID ||
+    row.id === IMAGE_GEN_FAILED_ASSISTANT_ID ||
+    row.id.startsWith("local-")
+  );
+}
+
+function tokenWord(token: string): string {
+  return token.toLowerCase().replace(/[.!?]+$/g, "");
+}
+
+export function isImageNounOnlyMessage(text: string): boolean {
+  const trimmed = text.trim().replace(/[.!?]+$/g, "").trim();
+  if (!trimmed) return false;
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const kept = tokens.filter((tok) => {
+    const word = tokenWord(tok);
+    return !NOUN_ONLY_FILLER.has(word);
+  });
+  if (kept.length === 0) return false;
+  return kept.every((tok) => IMAGE_NOUN_SET.has(tokenWord(tok)));
+}
+
+export function isImageGenGenerateNow(text: string): boolean {
+  const collapsed = text.trim().toLowerCase().replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
+  if (!collapsed || collapsed.length > 40) return false;
+  if (GENERATE_NOW_EXACT.has(collapsed)) return true;
+  const padded = ` ${collapsed} `;
+  return padded.includes(" do it ") || padded.includes(" u do it ") || padded.includes(" you do it ");
+}
+
+function threadSubjectFromUser(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 80 || trimmed.includes("?")) return null;
+  if (isImageNounOnlyMessage(trimmed) || isImageGenGenerateNow(trimmed)) return null;
+  const existing = extractImageGenPrompt(trimmed);
+  if (existing) return existing;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 6) return null;
+  const first = tokenWord(words[0] ?? "");
+  if (NOT_REVISION_STARTERS.has(first)) return null;
+  if (isNonImageSubject(trimmed)) return null;
+  const cleaned = cleanPrompt(trimmed);
+  if (!cleaned || NON_REVISION.test(cleaned) || NOT_THREAD_SUBJECT.has(cleaned.toLowerCase())) {
+    return null;
+  }
+  return cleaned;
+}
+
+/**
+ * Current line plus prior user bubbles: "Dog" then "Image" / "that works".
+ * Mirrors API ``extract_image_gen_prompt_from_thread``.
+ */
+export function extractImageGenPromptFromThread(
+  text: string,
+  messages: ReadonlyArray<{ id: string; role: string; content: string; model?: string | null }>,
+): string | null {
+  const direct = extractImageGenPrompt(text);
+  if (direct) return direct;
+  const priors: string[] = [];
+  for (const row of messages) {
+    if (skipImageGenHistoryRow(row)) continue;
+    if (row.role === "user") priors.push(row.content);
+  }
+  if (priors.length && priors[priors.length - 1]?.trim() === text.trim()) {
+    priors.pop();
+  }
+  if (isImageNounOnlyMessage(text)) {
+    for (let i = priors.length - 1; i >= 0; i -= 1) {
+      const subject = threadSubjectFromUser(priors[i] ?? "");
+      if (subject) return subject;
+    }
+    return null;
+  }
+  if (!isImageGenGenerateNow(text)) return null;
+  if (
+    !priors.some(
+      (prior) => isImageNounOnlyMessage(prior) || extractImageGenPrompt(prior) !== null,
+    )
+  ) {
+    return null;
+  }
+  for (let i = priors.length - 1; i >= 0; i -= 1) {
+    const subject = threadSubjectFromUser(priors[i] ?? "");
+    if (subject) return subject;
+  }
+  return null;
+}
