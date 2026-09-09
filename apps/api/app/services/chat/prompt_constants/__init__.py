@@ -74,9 +74,12 @@ from app.services.chat.prompt_constants.routing import (
 )
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
+    IMAGE_GEN_HONESTY_HINT,
+    IMAGE_GEN_UNAVAILABLE_HINT,
     VISUALIZATION_HINTS,
     attach_chemistry_fence_hint,
     is_html_ui_question,
+    is_image_generation_mention,
 )
 from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
@@ -109,6 +112,8 @@ __all__ = [
     "FORMAT_CONTRACT",
     "GRAPH_NO_SUBSTITUTE_CLAUSE",
     "HOWTO_FORMAT_HINT",
+    "IMAGE_GEN_HONESTY_HINT",
+    "IMAGE_GEN_UNAVAILABLE_HINT",
     "INTENT_FORMAT_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_INTENT_HINT",
@@ -145,6 +150,7 @@ __all__ = [
     "is_email_or_message_request",
     "is_howto_question",
     "is_html_ui_question",
+    "is_image_generation_mention",
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",

@@ -83,7 +83,12 @@ from app.services.chat.prompt_constants import (
     is_underspecified_writing_request,
     writing_request_kind,
 )
-from app.services.chat.prompt_constants.visuals import is_html_ui_question
+from app.services.chat.prompt_constants.visuals import (
+    IMAGE_GEN_HONESTY_HINT,
+    IMAGE_GEN_UNAVAILABLE_HINT,
+    is_html_ui_question,
+    is_image_generation_mention,
+)
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
@@ -681,6 +686,7 @@ def _style_format_hints(
     is_day_plan: bool,
     minimal_personal_context: bool,
     compact: bool = False,
+    image_generation_enabled: bool = True,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
@@ -752,6 +758,10 @@ def _style_format_hints(
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
+    if query_text and is_image_generation_mention(query_text):
+        parts.append(
+            IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
+        )
     if math_intent:
         parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
         if style == "short" or compact:
@@ -975,6 +985,7 @@ async def build_prompt_messages(
                 is_day_plan=is_day_plan,
                 minimal_personal_context=minimal_personal_context,
                 compact=compact_format,
+                image_generation_enabled=settings.image_generation_enabled,
             )
         )
     else:

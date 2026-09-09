@@ -22,7 +22,7 @@ import {
 import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
 import { flushEmailDrafts } from "@/lib/emailDraftFlush";
 import {
-  extractImageGenPrompt,
+  extractImageGenPromptFromThread,
   extractAttachedImageEditPrompt,
   extractImageRevisionPrompt,
   imageGenRevisionContext,
@@ -322,7 +322,7 @@ export function useChatSend({
         const revision = pendingAttachment?.kind === "image"
           ? extractAttachedImageEditPrompt(text)
           : extractImageRevisionPrompt(text, revisionContext);
-        const imagePrompt = extractImageGenPrompt(text) ?? revision;
+        const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
           sendInFlightRef.current = true;

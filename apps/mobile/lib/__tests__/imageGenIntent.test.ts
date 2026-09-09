@@ -1,5 +1,6 @@
 import {
   extractImageGenPrompt,
+  extractImageGenPromptFromThread,
   extractImageRevisionPrompt,
   imageGenRevisionContext,
   isImageOnlyAssistantContent,
@@ -202,5 +203,39 @@ describe("image revision follow-ups", () => {
         },
       ]),
     ).toEqual({ lastAssistantIsImageOnly: false, previousSubject: null, referenceAttachmentId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" });
+  });
+});
+
+describe("extractImageGenPromptFromThread", () => {
+  const user = (id: string, content: string) => ({ id, role: "user" as const, content });
+
+  it("treats Image after Dog as a dog generate", () => {
+    expect(extractImageGenPromptFromThread("Image", [user("u1", "Dog")])).toBe("Dog");
+    expect(extractImageGenPromptFromThread("a picture", [user("u1", "Dog")])).toBe("Dog");
+  });
+
+  it("does not generate a bare Image with no subject", () => {
+    expect(extractImageGenPromptFromThread("Image", [])).toBeNull();
+    expect(extractImageGenPromptFromThread("Image", [user("u1", "explain gravity")])).toBeNull();
+    expect(extractImageGenPromptFromThread("Image", [user("u1", "create a todo")])).toBeNull();
+    expect(extractImageGenPromptFromThread("Image", [user("u1", "hi")])).toBeNull();
+  });
+
+  it("keeps a one-shot create-a-pic ask", () => {
+    expect(extractImageGenPromptFromThread("create a cat pic", [user("u1", "Dog")])).toBe("cat");
+  });
+
+  it("generates after that works / do it when the thread already asked for an image", () => {
+    const msgs = [user("u1", "Dog"), user("u2", "Image"), user("u3", "U pick")];
+    expect(extractImageGenPromptFromThread("That works", msgs)).toBe("Dog");
+    expect(extractImageGenPromptFromThread("I said u do it!", msgs)).toBe("Dog");
+    expect(extractImageGenPromptFromThread("that works", [user("u1", "add milk")])).toBeNull();
+    expect(extractImageGenPromptFromThread("do it", [user("u1", "draw a dog")])).toBe("dog");
+  });
+
+  it("does not treat do it as image-gen after the topic moved", () => {
+    expect(
+      extractImageGenPromptFromThread("do it", [user("u1", "draw a dog"), user("u2", "Paris")]),
+    ).toBeNull();
   });
 });

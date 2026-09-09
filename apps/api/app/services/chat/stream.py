@@ -94,13 +94,22 @@ from app.services.image_gen_intent import (
     could_be_image_revision as could_be_image_revision,
 )
 from app.services.image_gen_intent import (
+    could_be_image_thread_followup as could_be_image_thread_followup,
+)
+from app.services.image_gen_intent import (
     extract_image_gen_prompt as extract_image_gen_prompt,
+)
+from app.services.image_gen_intent import (
+    extract_image_gen_prompt_from_thread as extract_image_gen_prompt_from_thread,
 )
 from app.services.image_gen_intent import (
     extract_image_revision_prompt as extract_image_revision_prompt,
 )
 from app.services.image_gen_intent import (
     image_gen_revision_context as image_gen_revision_context,
+)
+from app.services.image_gen_intent import (
+    prior_user_contents_for_image_gen as prior_user_contents_for_image_gen,
 )
 from app.services.image_lookup_intent import (
     extract_image_lookup_query as extract_image_lookup_query,
