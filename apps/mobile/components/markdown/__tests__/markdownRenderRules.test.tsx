@@ -242,4 +242,18 @@ describe("markdown render rules", () => {
     expect(queryByText("1.")).toBeNull();
     expect(queryByText("2.")).toBeNull();
   });
+
+  it("exposes markdown image alt text to the screen reader", async () => {
+    const { getByLabelText } = await render(
+      <MarkdownContent content={"![A red triangle](https://example.com/tri.png)"} />,
+    );
+    expect(getByLabelText("A red triangle")).toBeOnTheScreen();
+  });
+
+  it("marks markdown links with the link role", async () => {
+    const { getByRole } = await render(
+      <MarkdownContent content={"See [the docs](https://example.com/docs)"} />,
+    );
+    expect(getByRole("link", { name: /the docs/ })).toBeOnTheScreen();
+  });
 });
