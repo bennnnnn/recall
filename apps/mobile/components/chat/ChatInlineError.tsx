@@ -7,6 +7,7 @@ import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -133,7 +134,7 @@ function makeStyles(theme: Theme) {
     },
     body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 8 },
     icon: { marginTop: 1, flexShrink: 0 },
-    text: { flex: 1, fontSize: 13, lineHeight: 18, color: theme.text },
+    text: { flex: 1, ...Type.compact, color: theme.text },
     cta: {
       backgroundColor: theme.primary,
       borderRadius: Radius.full,
@@ -141,7 +142,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 6,
       flexShrink: 0,
     },
-    ctaText: { color: theme.onPrimary, fontSize: 12, fontWeight: "700" },
+    ctaText: { ...Type.caption, fontWeight: "700", color: theme.onPrimary },
     close: { padding: 4, flexShrink: 0 },
   });
 }

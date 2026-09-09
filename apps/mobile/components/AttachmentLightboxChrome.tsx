@@ -3,10 +3,11 @@ import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { Type } from "@/lib/type";
 
 const LIGHTBOX_FG = "#FFFFFF";
 const ICON_CHIP_BG = "rgba(255, 255, 255, 0.18)";
@@ -251,7 +252,8 @@ const s = StyleSheet.create({
   },
   menuLabel: {
     flex: 1,
-    fontSize: 17,
+    ...Type.navTitle,
+    fontWeight: "400",
     color: LIGHTBOX_FG,
   },
 });
