@@ -20,7 +20,7 @@ from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -240,6 +240,34 @@ def _append_outbound(
                 dedupe_ttl_seconds=dedupe_ttl_seconds,
             )
         )
+
+
+async def log_aged_unsent_reminders(
+    session: AsyncSession,
+    *,
+    now: datetime | None = None,
+) -> int:
+    """Count open dated rows that aged out of the 48h overdue push window."""
+    when = now or datetime.now(UTC)
+    cutoff = when - timedelta(hours=OVERDUE_MAX_HOURS)
+    raw = await session.scalar(
+        select(func.count())
+        .select_from(TodoItem)
+        .where(
+            TodoItem.checked.is_(False),
+            TodoItem.due_at.isnot(None),
+            TodoItem.notification_sent_at.is_(None),
+            TodoItem.due_at < cutoff,
+        )
+    )
+    count = raw if isinstance(raw, int) else 0
+    if count:
+        logger.warning(
+            "Aged unsent reminders count=%s older_than_hours=%s",
+            count,
+            OVERDUE_MAX_HOURS,
+        )
+    return count
 
 
 async def process_todo_reminders(
@@ -630,6 +658,7 @@ async def collect_push_outbound(
     await poll_deferred_push_receipts(session, redis)
 
     now = now or datetime.now(UTC)
+    await log_aged_unsent_reminders(session, now=now)
 
     # Server owns dated-todo alerts (local expo-notifications is skipped while
     # the user has push enabled). Set false to force device-only scheduling.
