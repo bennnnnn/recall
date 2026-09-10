@@ -180,6 +180,7 @@ async def test_extract_skips_when_user_missing():
 async def test_extract_skips_non_candidate_small_talk():
     apply = AsyncMock()
     revise = AsyncMock()
+    stamp = AsyncMock()
     _, session_locals = _extraction_sessions()
     with (
         patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
@@ -191,8 +192,13 @@ async def test_extract_skips_non_candidate_small_talk():
             "app.background.memory_extraction.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
+        patch(
+            "app.background.memory_extraction.expand_memory_extract_transcript",
+            AsyncMock(return_value=("hey there", "cursor-1")),
+        ),
         patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
         patch("app.background.memory_extraction.apply_memory_facts", apply),
+        patch("app.background.memory_extraction.stamp_extract_cursor", stamp),
     ):
         await extract_and_store_memories(
             Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="hey there"
@@ -200,6 +206,22 @@ async def test_extract_skips_non_candidate_small_talk():
 
     revise.assert_not_awaited()
     apply.assert_not_awaited()
+    stamp.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extract_runs_on_favorite_color_self_fact():
+    extraction = _ops(_add("fact", "Favorite color is blue."))
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="My favorite color is blue.",
+        )
+    apply.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -365,15 +387,26 @@ async def test_extract_applies_add_without_rewriting_unrelated_facts():
 
 
 @pytest.mark.asyncio
-async def test_extract_skips_highly_sensitive_unless_remember_or_opt_in():
+@pytest.mark.parametrize(
+    "sensitivity,text,transcript",
+    [
+        ("highly_sensitive", "User is Catholic.", "I am Catholic."),
+        ("health", "User has a peanut allergy.", "I have a peanut allergy."),
+        ("finance", "User salary is $200k.", "I am paid a $200k salary."),
+        ("legal", "User is divorcing.", "I am divorcing."),
+        ("relationship", "User has a girlfriend.", "I have a girlfriend."),
+        ("identity", "User ethnicity is listed.", "I am Catholic."),
+    ],
+)
+async def test_extract_skips_sensitive_unless_remember_or_opt_in(sensitivity, text, transcript):
     settings = Settings(memory_min_confidence=0.4)
     extraction = _ops(
         MemoryFactOp(
             op="add",
             type="fact",
-            text="User is Catholic.",
+            text=text,
             confidence=0.9,
-            sensitivity="highly_sensitive",
+            sensitivity=sensitivity,
         )
     )
     apply = AsyncMock()
@@ -383,9 +416,39 @@ async def test_extract_skips_highly_sensitive_unless_remember_or_opt_in():
             settings,
             user_id=uuid4(),
             chat_id=uuid4(),
-            transcript="I am Catholic.",
+            transcript=transcript,
         )
     apply.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extract_persists_health_when_include_sensitive():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = _ops(
+        MemoryFactOp(
+            op="add",
+            type="fact",
+            text="User has a peanut allergy.",
+            confidence=0.9,
+            sensitivity="health",
+        )
+    )
+    apply = AsyncMock()
+    user = _user()
+    user.memory_include_sensitive = True
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(
+        session_locals=session_locals, extraction=extraction, apply=apply, user=user
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="I have a peanut allergy.",
+        )
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert writes[0].sensitivity == "health"
 
 
 @pytest.mark.asyncio

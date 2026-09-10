@@ -93,8 +93,9 @@ _HIGHLY_SENSITIVE_NEEDLES = (
     "sex life",
 )
 _CANDIDATE_CUES = (
-    "i am ",
-    "i'm ",
+    "i am",
+    "i'm",
+    "i've",
     "i work",
     "i live",
     "i prefer",
@@ -102,14 +103,25 @@ _CANDIDATE_CUES = (
     "i hate",
     "i love",
     "i moved",
-    "i use ",
+    "i use",
     "i drink",
+    "i own",
+    "i study",
+    "i recently",
     "my name",
     "my dog",
     "my cat",
+    "my favorite",
+    "my favourite",
     "i'm trying",
     "i'm learning",
     "i have a",
+    "we moved",
+    "we live",
+    "we are",
+    "call me",
+    "moved to",
+    "go by",
 )
 
 
@@ -197,10 +209,10 @@ def is_memory_candidate(text: str) -> bool:
     """Cheap gate: skip the memory model when the user line has no self-claim."""
     if is_explicit_memory_command(text):
         return True
-    lowered = (text or "").lower()
+    lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
     if not lowered:
         return False
-    return any(cue in lowered for cue in _CANDIDATE_CUES)
+    return any(contains_phrase(lowered, cue) for cue in _CANDIDATE_CUES)
 
 
 def merge_explicit_remember_fact(prior: str, incoming: str) -> str:

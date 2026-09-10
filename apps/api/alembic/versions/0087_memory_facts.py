@@ -14,7 +14,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 import sqlalchemy as sa
 from alembic import op
@@ -30,6 +30,37 @@ _AS_OF_PREFIX_RE = re.compile(r"^As of (\d{4}-\d{2}-\d{2}):\s*", re.IGNORECASE)
 def _split_sentences(text: str) -> list[str]:
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     return [part.strip() for part in parts if part.strip()]
+
+
+def _keep_source_embedding(facts: list[str]) -> bool:
+    """Keep the blob vector only when this row did not split into extra facts."""
+    return len(facts) == 1
+
+
+def _keeper_and_merged(items: Sequence[Any]) -> tuple[Any, str]:
+    """One row per (user, type) for downgrade uniqueness — all statuses fold in."""
+    keeper = max(
+        items,
+        key=lambda item: (
+            1 if getattr(item, "status", "active") == "active" else 0,
+            item.updated_at,
+        ),
+    )
+    parts: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        clean = " ".join((getattr(item, "text", None) or "").strip().split()).rstrip(".")
+        if not clean:
+            continue
+        key = clean.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        parts.append(clean)
+    merged = ". ".join(parts)
+    if merged and not merged.endswith("."):
+        merged += "."
+    return keeper, merged[:8000] or str(getattr(keeper, "text", "") or "")
 
 
 def _strip_as_of(text: str) -> tuple[str, datetime | None]:
@@ -133,19 +164,32 @@ def upgrade() -> None:
             )
             continue
         first, *rest = facts
-        conn.execute(
-            sa.text(
-                "UPDATE memories SET text = :text, last_confirmed_at = COALESCE("
-                ":confirmed, updated_at), "
-                "embedding = NULL, embedding_json = NULL, embedding_text_hash = NULL "
-                "WHERE id = :id"
-            ),
-            {
-                "text": first,
-                "confirmed": as_of,
-                "id": row.id,
-            },
-        )
+        if _keep_source_embedding(facts):
+            conn.execute(
+                sa.text(
+                    "UPDATE memories SET text = :text, last_confirmed_at = COALESCE("
+                    ":confirmed, updated_at) WHERE id = :id"
+                ),
+                {
+                    "text": first,
+                    "confirmed": as_of,
+                    "id": row.id,
+                },
+            )
+        else:
+            conn.execute(
+                sa.text(
+                    "UPDATE memories SET text = :text, last_confirmed_at = COALESCE("
+                    ":confirmed, updated_at), "
+                    "embedding = NULL, embedding_json = NULL, embedding_text_hash = NULL "
+                    "WHERE id = :id"
+                ),
+                {
+                    "text": first,
+                    "confirmed": as_of,
+                    "id": row.id,
+                },
+            )
         for fact in rest:
             conn.execute(
                 sa.text(
@@ -180,11 +224,13 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     conn = op.get_bind()
+    # Drop the self-FK first so folding inactive rows cannot violate it.
+    op.drop_constraint("fk_memories_superseded_by_id", "memories", type_="foreignkey")
     rows = conn.execute(
         sa.text(
             "SELECT id, user_id, type, text, confidence, source_chat_id, "
-            "created_at, updated_at FROM memories "
-            "WHERE status = 'active' ORDER BY user_id, type, updated_at ASC"
+            "created_at, updated_at, status FROM memories "
+            "ORDER BY user_id, type, updated_at ASC"
         )
     ).fetchall()
     grouped: dict[tuple[object, str], list] = defaultdict(list)
@@ -193,24 +239,10 @@ def downgrade() -> None:
     for (_user_id, _mem_type), items in grouped.items():
         if len(items) <= 1:
             continue
-        keeper = max(items, key=lambda item: item.updated_at)
-        parts: list[str] = []
-        seen: set[str] = set()
-        for item in items:
-            clean = " ".join((item.text or "").strip().split()).rstrip(".")
-            if not clean:
-                continue
-            key = clean.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            parts.append(clean)
-        merged = ". ".join(parts)
-        if merged and not merged.endswith("."):
-            merged += "."
+        keeper, merged = _keeper_and_merged(items)
         conn.execute(
             sa.text("UPDATE memories SET text = :text WHERE id = :id"),
-            {"text": merged[:8000] or keeper.text, "id": keeper.id},
+            {"text": merged, "id": keeper.id},
         )
         for item in items:
             if item.id != keeper.id:
@@ -219,7 +251,6 @@ def downgrade() -> None:
     op.drop_constraint("ck_memories_sensitivity", "memories", type_="check")
     op.drop_constraint("ck_memories_status", "memories", type_="check")
     op.drop_constraint("fk_memories_source_message_id", "memories", type_="foreignkey")
-    op.drop_constraint("fk_memories_superseded_by_id", "memories", type_="foreignkey")
     op.drop_index("ix_memories_user_type_status", table_name="memories")
     op.drop_index("ix_memories_user_status", table_name="memories")
     op.drop_column("memories", "source_message_id")

@@ -127,6 +127,50 @@ def test_is_sensitive_memory_text_flags_health_and_finance():
     assert is_sensitive_memory_text("Likes Italian cooking") is False
 
 
+@pytest.mark.parametrize(
+    "sensitivity,text",
+    [
+        ("health", "Has a peanut allergy"),
+        ("legal", "User is divorcing"),
+        ("finance", "Salary is $200k"),
+        ("relationship", "User has a girlfriend"),
+        ("identity", "User ethnicity is listed"),
+        ("highly_sensitive", "User is Catholic"),
+        ("", "Has a peanut allergy"),
+    ],
+)
+def test_should_skip_sensitive_persist_without_opt_in(sensitivity, text):
+    from app.services.memory.facts import should_skip_sensitive_persist
+
+    assert (
+        should_skip_sensitive_persist(
+            sensitivity=sensitivity,
+            text=text,
+            explicit_remember=False,
+            include_sensitive=False,
+        )
+        is True
+    )
+    assert (
+        should_skip_sensitive_persist(
+            sensitivity=sensitivity,
+            text=text,
+            explicit_remember=True,
+            include_sensitive=False,
+        )
+        is False
+    )
+    assert (
+        should_skip_sensitive_persist(
+            sensitivity=sensitivity,
+            text=text,
+            explicit_remember=False,
+            include_sensitive=True,
+        )
+        is False
+    )
+
+
 def test_exclude_sensitive_for_query_injects_only_on_matching_asks():
     assert exclude_sensitive_for_query(None) is True
     assert exclude_sensitive_for_query("  ") is True
@@ -348,6 +392,22 @@ def test_select_memories_for_prompt_includes_project_fact_focus():
     assert [m.type for m in omitted] == ["profile", "preference", "fact", "focus"]
 
 
+def test_select_memories_semantic_includes_unembedded_gated_facts():
+    settings = Settings(
+        memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.35
+    )
+    profile = _memory("profile", "Name is Sam", 1.0)
+    profile.embedding_json = "[1.0, 0.0, 0.0]"
+    fact = _memory("fact", "Favorite color is blue", 1.0)
+    fact.embedding_json = None
+    selected = select_memories_semantic(
+        [profile, fact],
+        [1.0, 0.0, 0.0],
+        settings,
+    )
+    assert [m.text for m in selected] == ["Name is Sam", "Favorite color is blue"]
+
+
 def test_select_memories_semantic_ranks_by_similarity():
     settings = Settings(
         memory_min_confidence=0.0, memory_inject_limit=2, memory_min_similarity=0.15
@@ -413,8 +473,9 @@ def test_format_memory_block_respects_char_budget():
     long_pref = _memory("preference", "x" * 2000, 1.0)
     other = _memory("focus", "Ship the quiz this week", 1.0)
     block = format_memory_block([long_pref, other], max_chars=200)
-    assert "Ship the quiz" not in block
-    assert "x" * 20 in block
+    assert "Ship the quiz" in block
+    assert "x" * 20 not in block
+    assert len(block) <= 200
     assert not block.endswith("…")
 
 
@@ -424,7 +485,7 @@ def test_format_memory_block_keeps_relevant_focus_over_unread_tail():
     profile = _memory("profile", "Name is Sam. " + ("bio " * 200), 1.0)
     focus = _memory("focus", "Ship the quiz this week", 1.0)
     block = format_memory_block([profile, focus], max_chars=180)
-    assert "Ship the quiz" not in block or "Name is Sam" in block
+    assert "Ship the quiz" in block
     assert "…" not in block
 
 
@@ -432,6 +493,9 @@ def test_is_memory_candidate_skips_small_talk():
     assert is_memory_candidate("hey there") is False
     assert is_memory_candidate("I like Python") is True
     assert is_memory_candidate("Remember that my dog is Max") is True
+    assert is_memory_candidate("My favorite color is blue") is True
+    assert is_memory_candidate("We moved to Boston") is True
+    assert is_memory_candidate("Call me Sam") is True
 
 
 def test_facts_need_consolidation_detects_exact_and_near_duplicates():
@@ -490,7 +554,7 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
-    """Unembedded gated types are skipped; always-inject types still return."""
+    """Unembedded gated facts still pack via fallback; identity core stays."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -520,7 +584,7 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
     db_search.assert_not_awaited()
-    assert result == [unembedded_profile]
+    assert result == [unembedded_profile, unembedded_fact]
 
 
 @pytest.mark.asyncio

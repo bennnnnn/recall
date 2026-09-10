@@ -14,13 +14,16 @@ Long-term memory is **one retrievable fact per row**, not one growing paragraph 
 ## Extract / retrieve
 
 Extraction returns ops (`add|update|supersede|delete`). Writes are optimistic per fact
-(skip if the matched row changed under the lock). Embeddings update only for touched rows.
+(skip if the matched row changed under the lock). Embeddings update for touched rows plus
+a bounded stale backfill per pass.
 
 Retrieval scores active facts (cosine + importance + recency), always injects a tiny
 identity core, then packs **whole facts** into `memory_inject_max_chars`. No mid-fact `…` cut.
+Facts without embeddings still pack via fallback score so a migrate split cannot hide them.
 
-Highly sensitive facts are not auto-stored unless the user said “remember” or
-`memory_include_sensitive` is on. Extraction stays post-turn (never on TTFT).
+Sensitive facts (health, legal, finance, relationship, identity, highly_sensitive) are not
+auto-stored unless the user said “remember” or `memory_include_sensitive` is on. Extraction
+stays post-turn (never on TTFT).
 
 ## Out of scope
 

@@ -35,7 +35,7 @@ from app.models.orm import Memory
 from app.services.memory.text import (
     classify_memory_sensitivity,
     contains_phrase,
-    is_highly_sensitive_text,
+    is_sensitive_memory_text,
 )
 
 TYPE_PRIORITY = {"profile": 0, "preference": 1, "project": 2, "fact": 3, "focus": 4}
@@ -60,7 +60,6 @@ _COMM_PREF_CUES = (
 )
 _IDENTITY_PROFILE_LIMIT = 3
 _IDENTITY_PREF_LIMIT = 2
-HIGHLY_SENSITIVE = "highly_sensitive"
 
 
 def fallback_score(memory: Any) -> float:
@@ -113,7 +112,9 @@ def should_skip_sensitive_persist(
     classified = sensitivity or classify_memory_sensitivity(text)
     if include_sensitive or explicit_remember:
         return False
-    return classified == HIGHLY_SENSITIVE or is_highly_sensitive_text(text)
+    if classified != "normal":
+        return True
+    return is_sensitive_memory_text(text)
 
 
 def render_memory_block(memories: list[Any]) -> str:
@@ -137,12 +138,9 @@ def pack_memories(memories: list[Any], *, max_chars: int) -> list[Any]:
     packed: list[Any] = []
     for memory in memories:
         trial = [*packed, memory]
-        block = render_memory_block(trial)
-        if packed and len(block) > max_chars:
+        if len(render_memory_block(trial)) > max_chars:
             continue
         packed.append(memory)
-        if len(block) > max_chars:
-            break
     return packed
 
 

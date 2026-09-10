@@ -86,7 +86,11 @@ def _writes_from_ops(
             explicit_remember=explicit_remember,
             include_sensitive=include_sensitive,
         ) and op.op in {"add", "update", "supersede"}:
-            logger.info("Skipping highly_sensitive memory persist op=%s", op.op)
+            logger.info(
+                "Skipping sensitive memory persist op=%s sensitivity=%s",
+                op.op,
+                sensitivity,
+            )
             skipped += 1
             continue
         if op.op != "delete" and not text:
@@ -144,8 +148,6 @@ async def extract_and_store_memories(
                     "memory_extract_yield user_id=%s applied=0 skipped=candidate",
                     user_id,
                 )
-                if newest_cursor:
-                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 return None
 
             result = await memory_llm.revise_memory_facts(

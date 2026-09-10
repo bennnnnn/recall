@@ -281,6 +281,12 @@ class Settings(BaseSettings):
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     memory_active_fact_cap: int = 150
+    # Bound provider embedding fan-out after extract or a migrate backfill.
+    memory_embed_concurrency: int = 6
+    # Untouched stale vectors embedded per apply pass. Touched rows always
+    # embed; leftover NULLs wait for a later pass instead of bursting 150
+    # HTTP calls on the first write after migration.
+    memory_embed_backfill_per_pass: int = 16
     # Hard cap on formatted memory block chars injected into the system prompt.
     memory_inject_max_chars: int = 1500
     # Hard cap on formatted quiz exclusion-list chars injected into the system

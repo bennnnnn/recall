@@ -90,6 +90,8 @@ def select_memories_semantic(
             continue
         vec = parse_embedding(getattr(memory, "embedding_json", None))
         if vec is None:
+            # Migrated / not-yet-embedded facts must still be retrievable.
+            scored.append((fallback_score(memory), memory))
             continue
         cosine = cosine_similarity(query_embedding, vec)
         if min_sim > 0 and cosine < min_sim:

@@ -53,20 +53,20 @@ async def apply_memory_facts(
                 session, user_id, include_muted=False, include_superseded=False
             )
             touched_set = set(touched)
+            backfill_left = max(0, settings.memory_embed_backfill_per_pass)
             for memory in updated:
-                if memory.id not in touched_set and not (
-                    memory.embedding is None
-                    or memory.embedding_json is None
-                    or memory.embedding_text_hash != embedding_text_hash(memory.text)
-                ):
-                    continue
                 needs_embed = (
                     memory.embedding is None
                     or memory.embedding_json is None
                     or memory.embedding_text_hash != embedding_text_hash(memory.text)
                 )
-                if needs_embed:
-                    embed_needed.append((memory.id, memory.text))
+                if not needs_embed:
+                    continue
+                if memory.id not in touched_set:
+                    if backfill_left <= 0:
+                        continue
+                    backfill_left -= 1
+                embed_needed.append((memory.id, memory.text))
             await session.commit()
         except Exception:
             await session.rollback()
@@ -76,9 +76,13 @@ async def apply_memory_facts(
         await _invalidate_memory_caches(user_id)
         return
 
-    vectors = await asyncio.gather(
-        *(embedding_gateway.embed_text(settings, text) for _, text in embed_needed)
-    )
+    semaphore = asyncio.Semaphore(max(1, settings.memory_embed_concurrency))
+
+    async def _embed(text: str) -> list[float] | None:
+        async with semaphore:
+            return await embedding_gateway.embed_text(settings, text)
+
+    vectors = await asyncio.gather(*(_embed(text) for _, text in embed_needed))
     to_write: list[tuple[UUID, str, list[float], str, str]] = []
     for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
         if vec:

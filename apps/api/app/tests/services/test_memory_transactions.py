@@ -1,10 +1,12 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
-from app.services.memory.apply import apply_memory_section_rows
+from app.repositories.memory_writes import MemoryFactWrite
+from app.services.memory.apply import apply_memory_facts, apply_memory_section_rows
 
 
 class _SessionContext:
@@ -77,3 +79,55 @@ async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
     session.rollback.assert_awaited_once()
     invalidate_memory.assert_not_awaited()
     invalidate_home.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
+    import asyncio
+
+    session = AsyncMock()
+    stale = [
+        SimpleNamespace(
+            id=uuid4(),
+            text=f"Fact {index}",
+            embedding=None,
+            embedding_json=None,
+            embedding_text_hash=None,
+        )
+        for index in range(12)
+    ]
+    memories = AsyncMock()
+    memories.apply_writes = AsyncMock(return_value=[stale[0].id])
+    memories.list_for_user = AsyncMock(return_value=stale)
+    memories.update_embedding_if_current = AsyncMock()
+
+    current = 0
+    peak = 0
+
+    async def embed(_settings: Settings, _text: str) -> list[float]:
+        nonlocal current, peak
+        current += 1
+        peak = max(peak, current)
+        await asyncio.sleep(0.02)
+        current -= 1
+        return [0.1, 0.2]
+
+    def session_factory() -> _SessionContext:
+        return _SessionContext(session)
+
+    with (
+        patch("app.gateways.embedding_gateway.embed_text", embed),
+        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.1, 0.2]"),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await apply_memory_facts(
+            Settings(memory_embed_concurrency=3, memory_embed_backfill_per_pass=4),
+            user_id=uuid4(),
+            writes=[MemoryFactWrite(op="add", type="fact", text="Fact 0", confidence=0.9)],
+            session_factory=session_factory,
+            memories=memories,
+        )
+
+    assert peak <= 3
+    assert memories.update_embedding_if_current.await_count == 5
