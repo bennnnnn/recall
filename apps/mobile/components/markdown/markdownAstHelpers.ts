@@ -38,6 +38,22 @@ export function shouldNumberListItem(parent: unknown): boolean {
   return immediateAncestorType(parent) === "ordered_list";
 }
 
+function isListNodeType(type: string | undefined): boolean {
+  return type === "bullet_list" || type === "ordered_list" || type === "list";
+}
+
+/** Parent topics with sub-items should not also wear a disc — that reads as two
+ *  layers of the same marker (Strengths •, then • Personalized). */
+export function listItemHasNestedList(node: AstNode): boolean {
+  for (const child of node.children ?? []) {
+    if (isListNodeType(child.type)) return true;
+    for (const grand of child.children ?? []) {
+      if (isListNodeType(grand.type)) return true;
+    }
+  }
+  return false;
+}
+
 export function listItemDisplayNumber(parent: unknown, index: number): number {
   if (!Array.isArray(parent) || parent.length === 0) return index + 1;
   const list = parent[0] as { attributes?: { start?: number } };
