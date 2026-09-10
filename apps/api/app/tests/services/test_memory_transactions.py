@@ -41,8 +41,8 @@ async def test_apply_memory_rows_commits_once_after_repository_writes():
             memories=memories,
         )
 
-    memories.upsert_sections.assert_awaited_once()
-    assert memories.upsert_sections.await_args.kwargs["commit"] is False
+    memories.apply_writes.assert_awaited_once()
+    assert memories.apply_writes.await_args.kwargs["commit"] is False
     session.commit.assert_awaited_once()
     session.rollback.assert_not_awaited()
 
@@ -72,7 +72,7 @@ async def test_apply_memory_rows_rolls_back_when_post_write_read_fails():
                 memories=memories,
             )
 
-    assert memories.upsert_sections.await_args.kwargs["commit"] is False
+    assert memories.apply_writes.await_args.kwargs["commit"] is False
     session.commit.assert_not_awaited()
     session.rollback.assert_awaited_once()
     invalidate_memory.assert_not_awaited()

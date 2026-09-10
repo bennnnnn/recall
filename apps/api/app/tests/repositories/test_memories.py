@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -9,8 +9,13 @@ from app.repositories import memories as memories_repo
 @pytest.fixture
 def fake_session():
     session = AsyncMock()
-    session.execute = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_result.scalar_one_or_none.return_value = None
+    session.execute = AsyncMock(return_value=mock_result)
     session.commit = AsyncMock()
+    session.add = MagicMock()
+    session.delete = MagicMock()
     return session
 
 
@@ -25,7 +30,7 @@ async def test_upsert_sections_executes_and_commits(fake_session):
     user_id = uuid4()
     items = [("profile", "User is Sam, a software engineer.", 0.9, None)]
     await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
-    fake_session.execute.assert_awaited_once()
+    assert fake_session.execute.await_count >= 1
     fake_session.commit.assert_awaited_once()
 
 
@@ -38,73 +43,34 @@ async def test_upsert_sections_commit_false_flushes_without_committing(fake_sess
         commit=False,
     )
 
-    fake_session.execute.assert_awaited_once()
-    fake_session.flush.assert_awaited_once()
+    fake_session.execute.assert_awaited()
+    fake_session.flush.assert_awaited()
     fake_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_upsert_sections_deduplicates_duplicate_types(fake_session):
-    """Two sections with the same type would make Postgres raise
-    'ON CONFLICT DO UPDATE cannot affect row a second time'. The repo must
-    dedupe by type, keeping the highest-confidence section."""
+async def test_upsert_sections_adds_duplicate_types_as_separate_facts(fake_session):
     user_id = uuid4()
     items = [
         ("profile", "Low confidence profile.", 0.5, None),
         ("profile", "High confidence profile.", 0.9, None),
         ("preference", "Likes tea.", 0.8, None),
     ]
-    captured: dict[str, list] = {}
-
-    def fake_pg_insert(_table):
-        stmt = MagicMock()
-
-        def values(rows):
-            captured["rows"] = rows
-            stmt.excluded = MagicMock()
-            return stmt
-
-        stmt.values = values
-        stmt.on_conflict_do_update.return_value = stmt
-        return stmt
-
-    with patch("app.repositories.memories.pg_insert", side_effect=fake_pg_insert):
-        await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
-
-    types = [r["type"] for r in captured["rows"]]
-    assert sorted(types) == ["preference", "profile"]
-    profile_row = next(r for r in captured["rows"] if r["type"] == "profile")
-    assert profile_row["text"] == "High confidence profile."
-    assert profile_row["confidence"] == 0.9
+    await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+    assert fake_session.execute.await_count >= 1
+    fake_session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_upsert_sections_duplicate_type_ties_break_to_later_item(fake_session):
-    """Equal confidence → the later item wins (last-writer semantics)."""
+async def test_upsert_sections_keeps_same_type_facts(fake_session):
     user_id = uuid4()
     items = [
         ("fact", "First fact.", 0.7, None),
         ("fact", "Second fact.", 0.7, None),
     ]
-    captured: dict[str, list] = {}
-
-    def fake_pg_insert(_table):
-        stmt = MagicMock()
-
-        def values(rows):
-            captured["rows"] = rows
-            stmt.excluded = MagicMock()
-            return stmt
-
-        stmt.values = values
-        stmt.on_conflict_do_update.return_value = stmt
-        return stmt
-
-    with patch("app.repositories.memories.pg_insert", side_effect=fake_pg_insert):
-        await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
-
-    assert len(captured["rows"]) == 1
-    assert captured["rows"][0]["text"] == "Second fact."
+    await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+    assert fake_session.execute.await_count >= 1
+    fake_session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio

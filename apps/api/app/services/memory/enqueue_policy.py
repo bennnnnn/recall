@@ -6,10 +6,11 @@ from typing import Protocol
 from uuid import UUID
 
 from redis.asyncio import Redis
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
-from app.models.orm import Memory, User
+from app.models.orm import Chat, Memory, User
 from app.repositories import memories as memories_repo
 from app.services import memory as memory_service
 
@@ -42,8 +43,7 @@ async def request_consolidation(
     if skip_if_already_queued and await redis.exists(lock_key):
         return "in_progress"
 
-    sections = {memory.type: memory.text for memory in memory_list}
-    if not memory_service.sections_need_consolidation(sections):
+    if not memory_service.facts_need_consolidation(memory_list):
         return "skipped"
 
     acquired = await redis.set(
@@ -82,6 +82,17 @@ async def list_user_memories(
     memories = await memories_repo.list_for_user(session, user.id)
     await maybe_request_consolidation(redis, user, memories)
     return memories
+
+
+async def source_chat_titles(
+    session: AsyncSession,
+    memories: Iterable[Memory],
+) -> dict[UUID, str]:
+    chat_ids = {memory.source_chat_id for memory in memories if memory.source_chat_id}
+    if not chat_ids:
+        return {}
+    result = await session.execute(select(Chat.id, Chat.title).where(Chat.id.in_(chat_ids)))
+    return {row.id: (row.title or "") for row in result.all() if row.title}
 
 
 async def maybe_request_consolidation(

@@ -69,7 +69,7 @@ async def test_new_section_conflict_does_not_replace_competing_creation(db_sessi
             expected_sections={},
         )
     rows = await memories_repo.list_for_user(db_session, user.id)
-    assert [row.text for row in rows] == ["First fact"]
+    assert {row.text for row in rows} == {"First fact", "Stale generated fact"}
 
 
 @pytest.mark.asyncio

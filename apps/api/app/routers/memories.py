@@ -15,6 +15,8 @@ from app.services.memory import enqueue_policy
 
 router = APIRouter(prefix="/memories", tags=["memories"])
 
+_LOCK_BUSY_DETAIL = "Memory is being updated right now — try again in a moment."
+
 
 @router.get("", response_model=list[MemoryOut])
 async def list_memories(
@@ -26,7 +28,15 @@ async def list_memories(
         get_redis_client(),
         user,
     )
-    return [MemoryOut.model_validate(m) for m in memories]
+    titles = await enqueue_policy.source_chat_titles(session, memories)
+    outs: list[MemoryOut] = []
+    for memory in memories:
+        item = MemoryOut.model_validate(memory)
+        title = titles.get(memory.source_chat_id) if memory.source_chat_id else None
+        if title:
+            item = item.model_copy(update={"source_chat_title": title})
+        outs.append(item)
+    return outs
 
 
 @router.post("/consolidate", status_code=status.HTTP_202_ACCEPTED)
@@ -42,7 +52,26 @@ async def consolidate_memories(
     return {"status": result}
 
 
-_LOCK_BUSY_DETAIL = "Memory is being updated right now — try again in a moment."
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_memories(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await memory_service.delete_all_memories(session, user.id)
+    except memory_service.MemoryWriteLockBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
+
+
+@router.post("/disable-and-clear", status_code=status.HTTP_204_NO_CONTENT)
+async def disable_and_clear_memories(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await memory_service.disable_and_clear_memories(session, user.id)
+    except memory_service.MemoryWriteLockBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
 
 
 @router.delete("/type/{memory_type}", status_code=status.HTTP_204_NO_CONTENT)
@@ -69,7 +98,7 @@ async def update_memory(
 ) -> MemoryOut:
     try:
         updated = await memory_service.update_memory(
-            session, settings, user.id, memory_id, body.text
+            session, settings, user.id, memory_id, body.text, status=body.status
         )
     except memory_service.MemoryWriteLockBusyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
@@ -108,10 +137,6 @@ async def delete_memory_fact(
 ) -> None:
     if fact_index < 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid fact index")
-    # fact_text (the fact as the client actually displayed it) lets the
-    # service locate it by content instead of trusting a positional index
-    # that may have gone stale — see the BUG FIX comment in
-    # memory_service.delete_memory_fact.
     try:
         deleted = await memory_service.delete_memory_fact(
             session, settings, user.id, memory_id, fact_index, expected_text=fact_text

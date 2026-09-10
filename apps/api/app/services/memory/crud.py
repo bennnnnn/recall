@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import Memory
+from app.services.memory.facts import MUTED_STATUS
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ async def delete_memory_fact(
     *,
     expected_text: str | None = None,
 ) -> bool:
+    """Legacy sentence-index delete. Atomic rows delete the whole fact."""
     from app.gateways import embedding_gateway
     from app.repositories import memories as memories_repo
 
@@ -36,6 +38,22 @@ async def delete_memory_fact(
         if memory is None:
             return False
         facts = seams.split_memory_facts(memory.text)
+        if len(facts) <= 1:
+            if expected_text is not None:
+                expected = seams.normalize_memory_text(expected_text).lower()
+                actual = seams.normalize_memory_text(memory.text).lower()
+                if expected and expected not in actual and actual not in expected:
+                    return False
+            deleted = await memories_repo.delete_by_id(session, user_id, memory_id, commit=False)
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+            if deleted:
+                await _invalidate_caches(seams, user_id)
+            return deleted
+
         target_index = fact_index
         if expected_text is not None:
             normalized_expected = seams.normalize_memory_text(expected_text).lower()
@@ -67,8 +85,9 @@ async def delete_memory_fact(
             return deleted
 
         new_text = seams.join_memory_facts(facts)
+        stored = seams.normalize_memory_text(new_text)
         try:
-            new_vec = await embedding_gateway.embed_text(settings, new_text)
+            new_vec = await embedding_gateway.embed_text(settings, stored)
         except Exception:
             logger.debug("Memory re-embed on fact delete failed", exc_info=True)
             new_vec = None
@@ -78,10 +97,10 @@ async def delete_memory_fact(
                     session,
                     user_id,
                     memory_id,
-                    new_text,
+                    stored,
                     new_vec,
                     embedding_gateway.serialize_embedding(new_vec),
-                    embedding_text_hash=seams.embedding_text_hash(new_text),
+                    embedding_text_hash=seams.embedding_text_hash(stored),
                     commit=False,
                 )
             else:
@@ -89,7 +108,7 @@ async def delete_memory_fact(
                     session,
                     user_id,
                     memory_id,
-                    new_text,
+                    stored,
                     commit=False,
                 )
             if updated is not None:
@@ -111,45 +130,58 @@ async def update_memory(
     settings: Settings,
     user_id: UUID,
     memory_id: UUID,
-    text: str,
+    text: str | None,
+    *,
+    status: str | None = None,
 ) -> Memory | None:
     from app.gateways import embedding_gateway
     from app.repositories import memories as memories_repo
 
-    clean = seams.normalize_memory_text(seams.strip_memory_as_of(text))
-    if not clean:
+    clean: str | None = None
+    if text is not None:
+        clean = seams.normalize_memory_text(seams.strip_memory_as_of(text))
+        if not clean:
+            raise seams.MemoryEmptyTextError()
+    if clean is None and status is None:
         raise seams.MemoryEmptyTextError()
-    stamped = seams.stamp_memory_as_of(clean)
     lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
     try:
         memory = await memories_repo.get_by_id(session, user_id, memory_id)
         if memory is None:
             return None
+        updated: Memory | None = memory
         try:
-            new_vec = await embedding_gateway.embed_text(settings, stamped)
-        except Exception:
-            logger.debug("Memory re-embed on edit failed", exc_info=True)
-            new_vec = None
-        try:
-            if new_vec is not None:
-                updated = await memories_repo.update_text_and_embedding(
-                    session,
-                    user_id,
-                    memory_id,
-                    stamped,
-                    new_vec,
-                    embedding_gateway.serialize_embedding(new_vec),
-                    embedding_text_hash=seams.embedding_text_hash(stamped),
-                    commit=False,
+            if status is not None:
+                updated = await memories_repo.update_status(
+                    session, user_id, memory_id, status, commit=False
                 )
-            else:
-                updated = await memories_repo.update_text(
-                    session,
-                    user_id,
-                    memory_id,
-                    stamped,
-                    commit=False,
-                )
+                if updated is None:
+                    return None
+            if clean is not None:
+                try:
+                    new_vec = await embedding_gateway.embed_text(settings, clean)
+                except Exception:
+                    logger.debug("Memory re-embed on edit failed", exc_info=True)
+                    new_vec = None
+                if new_vec is not None:
+                    updated = await memories_repo.update_text_and_embedding(
+                        session,
+                        user_id,
+                        memory_id,
+                        clean,
+                        new_vec,
+                        embedding_gateway.serialize_embedding(new_vec),
+                        embedding_text_hash=seams.embedding_text_hash(clean),
+                        commit=False,
+                    )
+                else:
+                    updated = await memories_repo.update_text(
+                        session,
+                        user_id,
+                        memory_id,
+                        clean,
+                        commit=False,
+                    )
             if updated is not None:
                 await session.commit()
                 await session.refresh(updated)
@@ -215,5 +247,80 @@ async def delete_memory_section(
         if removed:
             await _invalidate_caches(seams, user_id)
         return removed > 0
+    finally:
+        await seams.release_memory_write_lock(user_id, lock_token)
+
+
+async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) -> int:
+    from app.repositories import memories as memories_repo
+
+    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
+    try:
+        try:
+            removed = await memories_repo.delete_all_for_user(session, user_id, commit=False)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        if removed:
+            await _invalidate_caches(seams, user_id)
+        return removed
+    finally:
+        await seams.release_memory_write_lock(user_id, lock_token)
+
+
+async def disable_and_clear_memories(
+    seams: Any,
+    session: AsyncSession,
+    user_id: UUID,
+) -> int:
+    from app.repositories import memories as memories_repo
+    from app.repositories import users as users_repo
+
+    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
+    try:
+        try:
+            if not await memories_repo.lock_memory_enabled(session, user_id):
+                # Still allow wipe + disable even when already off.
+                pass
+            user = await users_repo.get_by_id(session, user_id)
+            if user is None:
+                return 0
+            removed = await memories_repo.delete_all_for_user(session, user_id, commit=False)
+            user.memory_enabled = False
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        await _invalidate_caches(seams, user_id)
+        return removed
+    finally:
+        await seams.release_memory_write_lock(user_id, lock_token)
+
+
+async def mute_memory(
+    seams: Any,
+    session: AsyncSession,
+    user_id: UUID,
+    memory_id: UUID,
+) -> Memory | None:
+    from app.repositories import memories as memories_repo
+
+    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
+    try:
+        updated: Memory | None = None
+        try:
+            updated = await memories_repo.update_status(
+                session, user_id, memory_id, MUTED_STATUS, commit=False
+            )
+            if updated is not None:
+                await session.commit()
+                await session.refresh(updated)
+        except Exception:
+            await session.rollback()
+            raise
+        if updated is not None:
+            await _invalidate_caches(seams, user_id)
+        return updated
     finally:
         await seams.release_memory_write_lock(user_id, lock_token)

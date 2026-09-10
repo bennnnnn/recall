@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import ExitStack, contextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -7,8 +8,12 @@ import pytest
 
 from app.background.memory_extraction import extract_and_store_memories
 from app.core.config import Settings
-from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
+from app.models.schemas.common import MemoryType
+from app.repositories.memory_writes import MemoryFactWrite
 from app.services.memory import embedding_text_hash
+
+_CANDIDATE = "I like using Vim every day at work."
 
 
 class _FakeSessionCM:
@@ -28,12 +33,20 @@ def _extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessio
     return session, [_FakeSessionCM(session) for _ in range(count)]
 
 
+def _ops(*ops: MemoryFactOp) -> MemoryFactUpdateResult:
+    return MemoryFactUpdateResult(ops=list(ops))
+
+
+def _add(memory_type: MemoryType, text: str, confidence: float = 0.9) -> MemoryFactOp:
+    return MemoryFactOp(op="add", type=memory_type, text=text, confidence=confidence)
+
+
+def _user() -> MagicMock:
+    return MagicMock(memory_enabled=True, memory_include_sensitive=False)
+
+
 @pytest.fixture
 def _real_memory_lock():
-    """Opt a test out of the always-free lock stub below, to exercise the
-    real acquire_memory_write_lock/release_memory_write_lock against a real
-    (fake) Redis backend — see
-    test_extraction_and_consolidation_do_not_race_the_same_user."""
     return True
 
 
@@ -66,10 +79,6 @@ def _memory_extract_backlog_noop():
 
 @pytest.fixture(autouse=True)
 def _memory_write_lock_always_free(request: pytest.FixtureRequest):
-    """extract_and_store_memories now acquires memwrite:{user_id} before its
-    read-modify-write section (guards against a concurrent consolidation
-    pass racing it). Most of these tests exercise extraction logic, not
-    Redis locking, so default the lock to always-acquired."""
     if "_real_memory_lock" in request.fixturenames:
         yield
         return
@@ -83,52 +92,63 @@ def _memory_write_lock_always_free(request: pytest.FixtureRequest):
         yield
 
 
+@contextmanager
+def _extract_patches(
+    *,
+    session_locals: list[_FakeSessionCM],
+    extraction: MemoryFactUpdateResult | None,
+    apply: AsyncMock,
+    listed: list | None = None,
+    user: MagicMock | None = None,
+):
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals)
+        )
+        stack.enter_context(
+            patch(
+                "app.background.memory_extraction.users_repo.get_by_id",
+                AsyncMock(return_value=user or _user()),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.background.memory_extraction.memories_repo.list_for_user",
+                AsyncMock(return_value=listed or []),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.background.memory_extraction.memory_llm.revise_memory_facts",
+                AsyncMock(return_value=extraction),
+            )
+        )
+        stack.enter_context(patch("app.background.memory_extraction.apply_memory_facts", apply))
+        yield
+
+
 @pytest.mark.asyncio
 async def test_extract_and_store_all_sections_below_confidence_skips_upsert():
-    """When every extracted section falls below memory_min_confidence, the
-    function must return before touching the DB at all — not just filter
-    down to a partial write (already covered by
-    test_extract_and_store_filters_confidence in test_services.py)."""
     settings = Settings(memory_min_confidence=0.7)
-    extraction = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(type="fact", summary="Low conf fact one.", confidence=0.2),
-            MemorySectionItem(type="fact", summary="Low conf fact two.", confidence=0.3),
-        ]
+    extraction = _ops(
+        _add("fact", "Low conf fact one.", 0.2),
+        _add("fact", "Low conf fact two.", 0.3),
     )
-    upsert = AsyncMock()
+    apply = AsyncMock()
     _, session_locals = _extraction_sessions()
 
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-    ):
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
         await extract_and_store_memories(
-            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
         )
 
-    upsert.assert_not_awaited()
+    apply.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_extract_skips_when_user_missing():
-    """A deleted user (stale job) must short-circuit before any LLM/DB work —
-    the prior `user is None or memory_enabled` check inverted this and let
-    extraction run against a deleted account."""
     settings = Settings(memory_min_confidence=0.4)
-    upsert = AsyncMock()
+    apply = AsyncMock()
     revise = AsyncMock()
     _, session_locals = _extraction_sessions()
 
@@ -143,67 +163,69 @@ async def test_extract_skips_when_user_missing():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             revise,
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.background.memory_extraction.apply_memory_facts", apply),
     ):
         await extract_and_store_memories(
-            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
         )
 
-    upsert.assert_not_awaited()
+    apply.assert_not_awaited()
     revise.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_drops_section_with_empty_summary_after_normalize():
-    """A summary that normalizes to an empty string (e.g. all punctuation)
-    must be dropped, not upserted as a blank memory row."""
-    settings = Settings(memory_min_confidence=0.4)
-    extraction = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(type="fact", summary="...", confidence=0.9),
-            MemorySectionItem(type="fact", summary="Uses Vim daily.", confidence=0.9),
-        ]
-    )
-    upsert = AsyncMock()
-    _, session_locals = _extraction_sessions(count=2)
-
+async def test_extract_skips_non_candidate_small_talk():
+    apply = AsyncMock()
+    revise = AsyncMock()
+    _, session_locals = _extraction_sessions()
     with (
         patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+            AsyncMock(return_value=_user()),
         ),
         patch(
             "app.background.memory_extraction.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
+        patch("app.background.memory_extraction.apply_memory_facts", apply),
     ):
         await extract_and_store_memories(
-            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="hey there"
         )
 
-    upsert.assert_awaited_once()
-    items = upsert.call_args.kwargs["items"]
-    assert len(items) == 1
-    assert items[0][1].startswith("As of ")
-    assert items[0][1].endswith("Uses Vim daily")
+    revise.assert_not_awaited()
+    apply.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_extract_explicit_remember_merges_short_preference():
-    """A long preference section plus 'remember that I drink oat milk' used
-    to drop the new fact: the LLM rewrite was shorter than 50% of the prior
-    text, so accept_memory_section_rewrite skipped the upsert."""
+async def test_extract_and_store_drops_section_with_empty_summary_after_normalize():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = _ops(
+        _add("fact", "..."),
+        _add("fact", "Uses Vim daily."),
+    )
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
+        )
+
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert len(writes) == 1
+    assert writes[0].text == "Uses Vim daily"
+    assert not writes[0].text.startswith("As of ")
+
+
+@pytest.mark.asyncio
+async def test_extract_explicit_remember_adds_short_preference():
     settings = Settings(memory_min_confidence=0.4)
     pref_id = uuid4()
     prior = (
@@ -211,44 +233,15 @@ async def test_extract_explicit_remember_merges_short_preference():
         "alternating between teach then use, use then define, and occasional "
         "multiple-choice questions"
     )
-    extraction = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(type="preference", summary="Drinks oat milk.", confidence=0.9),
-        ]
-    )
-    listed = SimpleNamespace(
-        id=pref_id,
-        type="preference",
-        text=prior,
-        embedding=[0.1],
-        embedding_json=[0.1],
-        embedding_text_hash=embedding_text_hash(prior),
-    )
-    upsert = AsyncMock()
-    _, session_locals = _extraction_sessions(count=2)
+    extraction = _ops(_add("preference", "Drinks oat milk."))
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
 
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(
-                side_effect=[
-                    [SimpleNamespace(id=pref_id, type="preference", text=prior)],
-                    [listed],
-                ]
-            ),
-        ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=[SimpleNamespace(id=pref_id, type="preference", text=prior, status="active")],
     ):
         await extract_and_store_memories(
             settings,
@@ -257,49 +250,34 @@ async def test_extract_explicit_remember_merges_short_preference():
             transcript="User: Remember that I drink oat milk.",
         )
 
-    upsert.assert_awaited_once()
-    items = upsert.call_args.kwargs["items"]
-    assert len(items) == 1
-    text = items[0][1]
-    assert "oat milk" in text.lower()
-    assert "varied learning formats" in text
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert len(writes) == 1
+    assert writes[0].op == "add"
+    assert "oat milk" in writes[0].text.lower()
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_deletes_section_on_explicit_forget():
+async def test_extract_and_store_deletes_fact_on_explicit_forget():
     settings = Settings(memory_min_confidence=0.4)
     fact_id = uuid4()
-    extraction = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="fact", summary="", confidence=0.9)]
+    extraction = _ops(
+        MemoryFactOp(
+            op="delete",
+            type="fact",
+            text="",
+            confidence=0.9,
+            match_text="Lives in Boston",
+        )
     )
-    delete_by_type = AsyncMock(return_value=1)
-    session, session_locals = _extraction_sessions(count=2)
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
 
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(
-                return_value=[
-                    SimpleNamespace(id=fact_id, type="fact", text="Lives in Boston"),
-                ]
-            ),
-        ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
-        patch(
-            "app.background.memory_extraction.memories_repo.delete_by_type",
-            delete_by_type,
-        ),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=[SimpleNamespace(id=fact_id, type="fact", text="Lives in Boston", status="active")],
     ):
         await extract_and_store_memories(
             settings,
@@ -308,8 +286,10 @@ async def test_extract_and_store_deletes_section_on_explicit_forget():
             transcript="User: Please forget that I live in Boston",
         )
 
-    delete_by_type.assert_awaited_once()
-    assert delete_by_type.await_args.args[2] == "fact"
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert writes[0].op == "delete"
+    assert writes[0].match_text == "Lives in Boston"
 
 
 @pytest.mark.asyncio
@@ -317,46 +297,32 @@ async def test_extract_forget_does_not_clear_unrelated_nonempty_sections():
     settings = Settings(memory_min_confidence=0.4)
     fact_id = uuid4()
     pref_id = uuid4()
-    extraction = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(type="fact", summary="", confidence=0.9),
-            MemorySectionItem(type="preference", summary="Tea.", confidence=0.9),
-        ]
+    extraction = _ops(
+        MemoryFactOp(
+            op="delete",
+            type="fact",
+            text="",
+            confidence=0.9,
+            match_text="Lives in Boston",
+        ),
+        _add("preference", "Tea."),
     )
-    delete_by_type = AsyncMock(return_value=1)
-    upsert = AsyncMock()
-    _, session_locals = _extraction_sessions(count=2)
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
 
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(
-                return_value=[
-                    SimpleNamespace(id=fact_id, type="fact", text="Lives in Boston"),
-                    SimpleNamespace(
-                        id=pref_id,
-                        type="preference",
-                        text="Drinks strong coffee every morning and afternoon.",
-                    ),
-                ]
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=[
+            SimpleNamespace(id=fact_id, type="fact", text="Lives in Boston", status="active"),
+            SimpleNamespace(
+                id=pref_id,
+                type="preference",
+                text="Drinks strong coffee every morning and afternoon.",
+                status="active",
             ),
-        ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-        patch(
-            "app.background.memory_extraction.memories_repo.delete_by_type",
-            delete_by_type,
-        ),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+        ],
     ):
         await extract_and_store_memories(
             settings,
@@ -365,133 +331,121 @@ async def test_extract_forget_does_not_clear_unrelated_nonempty_sections():
             transcript="User: Please forget that I live in Boston",
         )
 
-    delete_by_type.assert_awaited_once()
-    assert delete_by_type.await_args.args[2] == "fact"
-    upsert.assert_not_awaited()
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert {write.op for write in writes} == {"delete", "add"}
+    assert any(write.op == "delete" and write.match_text == "Lives in Boston" for write in writes)
+    assert any(write.op == "add" and "Tea" in write.text for write in writes)
 
 
 @pytest.mark.asyncio
-async def test_extract_rejects_rewrite_that_drops_prior_anchors():
-    """Whole-section extraction must not upsert a rewrite that drops stable
-    fact anchors — same preservation gate consolidation already uses."""
+async def test_extract_applies_add_without_rewriting_unrelated_facts():
     settings = Settings(memory_min_confidence=0.4)
     prior = "User's name is Bini. User works at Hooh. User is a developer."
-    extraction = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary="Bini is a software developer building mobile apps.",
-                confidence=0.95,
-            )
-        ]
-    )
-    upsert = AsyncMock()
-    existing = [SimpleNamespace(id=uuid4(), type="profile", text=prior)]
+    extraction = _ops(_add("profile", "Bini is building Recall."))
+    apply = AsyncMock()
+    existing = [SimpleNamespace(id=uuid4(), type="profile", text=prior, status="active")]
     _, session_locals = _extraction_sessions()
 
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(return_value=existing),
-        ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-    ):
-        await extract_and_store_memories(
-            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I build apps"
-        )
-
-    upsert.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_extract_accepts_rewrite_that_preserves_anchors_and_adds_fact():
-    settings = Settings(memory_min_confidence=0.4)
-    prior = "User's name is Bini. User works at Hooh. User is a developer."
-    rewritten = "Bini is a developer at Hooh building Recall."
-    extraction = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="profile", summary=rewritten, confidence=0.95)]
-    )
-    upsert = AsyncMock()
-    existing = [SimpleNamespace(id=uuid4(), type="profile", text=prior)]
-    _, session_locals = _extraction_sessions(count=2)
-
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(side_effect=[existing, []]),
-        ),
-        patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
-            AsyncMock(return_value=extraction),
-        ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=existing,
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="I am building Recall"
         )
 
-    upsert.assert_awaited_once()
-    items = upsert.call_args.kwargs["items"]
-    assert len(items) == 1
-    assert items[0][0] == "profile"
-    assert items[0][1].startswith("As of ")
-    assert "Bini" in items[0][1]
-    assert "Hooh" in items[0][1]
-    assert "Recall" in items[0][1]
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert writes[0].op == "add"
+    assert "Recall" in writes[0].text
+    assert "Hooh" not in writes[0].text
+
+
+@pytest.mark.asyncio
+async def test_extract_skips_highly_sensitive_unless_remember_or_opt_in():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = _ops(
+        MemoryFactOp(
+            op="add",
+            type="fact",
+            text="User is Catholic.",
+            confidence=0.9,
+            sensitivity="highly_sensitive",
+        )
+    )
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="I am Catholic.",
+        )
+    apply.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extract_persists_highly_sensitive_on_explicit_remember():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = _ops(
+        MemoryFactOp(
+            op="add",
+            type="fact",
+            text="User is Catholic.",
+            confidence=0.9,
+            sensitivity="highly_sensitive",
+        )
+    )
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: Remember that I am Catholic.",
+        )
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert writes[0].sensitivity == "highly_sensitive"
 
 
 @pytest.mark.asyncio
 async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write):
-    """Persist vectors against the same text that was sent to the provider."""
     settings = Settings(memory_min_confidence=0.4)
-    extraction = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="fact", summary="Owns a bicycle.", confidence=0.9)]
-    )
-
+    extraction = _ops(_add("fact", "Owns a bicycle."))
     memory_id = uuid4()
-    # Phase-1 list_for_user row: needs an id so phase 1 can record (id, text).
     listed = SimpleNamespace(
         id=memory_id,
         type="fact",
         text="Owns a bicycle",
+        status="active",
         embedding=None,
         embedding_json=None,
         embedding_text_hash=None,
     )
     vector = [0.4, 0.5, 0.6]
-
+    apply_writes = AsyncMock(return_value=[memory_id])
     session, session_locals = _extraction_sessions(count=3)
     with (
         patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+            AsyncMock(return_value=_user()),
         ),
         patch(
             "app.background.memory_extraction.memories_repo.list_for_user",
             AsyncMock(side_effect=[[], [listed]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch("app.background.memory_extraction.memories_repo.apply_writes", apply_writes),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
         patch("app.services.home.invalidate_home_cache", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=vector)),
@@ -501,7 +455,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         ),
     ):
         await extract_and_store_memories(
-            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
         )
 
     embedding_write.assert_awaited_once()
@@ -513,49 +467,44 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
         embedding_text_hash(listed.text),
     )
     assert embedding_write.await_args.kwargs == {"commit": False}
-    assert listed.embedding is None
 
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("_real_memory_lock")
 async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis):
-    """Integration coverage for the PR 1 fix: extraction and consolidation
-    triggered back-to-back for the SAME user must not both win the
-    memwrite:{user_id} lock — exactly one performs the write, the other
-    detects the lock is held and skips. Runs the REAL
-    acquire_memory_write_lock/release_memory_write_lock against a real (fake)
-    Redis backend, not the always-free stub the other tests in this file use."""
     from app.background.memory_consolidation import consolidate_user_memory_sections
 
     user_id = uuid4()
-
-    # Repeated-sentence text so consolidation's deterministic dedupe pre-pass
-    # fires without needing to mock merge_memory_section too.
-    messy_text = "Prefers concise answers. Prefers concise answers. Prefers concise answers."
-    shared_memory = SimpleNamespace(
+    text = "Prefers concise answers."
+    keep = SimpleNamespace(
         id=uuid4(),
         type="preference",
-        text=messy_text,
+        text=text,
+        status="active",
+        last_confirmed_at=None,
+        updated_at=0,
         embedding=[0.1, 0.2, 0.3],
         embedding_json="[0.1,0.2,0.3]",
-        embedding_text_hash=embedding_text_hash(messy_text),
+        embedding_text_hash=embedding_text_hash(text),
     )
-
-    extraction_result = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="fact", summary="Uses Vim daily.", confidence=0.9)]
+    extra = SimpleNamespace(
+        id=uuid4(),
+        type="preference",
+        text=text,
+        status="active",
+        last_confirmed_at=None,
+        updated_at=0,
+        embedding=[0.1, 0.2, 0.3],
+        embedding_json="[0.1,0.2,0.3]",
+        embedding_text_hash=embedding_text_hash(text),
     )
+    extraction_result = _ops(_add("fact", "Uses Vim daily."))
 
-    async def _slow_revise(*_args: object, **_kwargs: object) -> MemorySectionUpdateResult:
-        # Forces a genuine event-loop yield while extraction still holds the
-        # lock, so consolidation's concurrent acquire attempt actually lands
-        # mid-critical-section instead of asyncio.gather happening to run
-        # one coroutine to full completion (acquire -> work -> release)
-        # before the other ever starts.
+    async def _slow_revise(*_args: object, **_kwargs: object) -> MemoryFactUpdateResult:
         await asyncio.sleep(0.05)
         return extraction_result
 
-    upsert = AsyncMock()
-
+    apply = AsyncMock()
     extraction_session, _ = _extraction_sessions()
     consolidation_session = AsyncMock()
     consolidation_session.commit = AsyncMock()
@@ -572,17 +521,22 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         ),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+            AsyncMock(return_value=_user()),
+        ),
+        patch(
+            "app.background.memory_consolidation.users_repo.get_by_id",
+            AsyncMock(return_value=_user()),
         ),
         patch(
             "app.repositories.memories.list_for_user",
-            AsyncMock(return_value=[shared_memory]),
+            AsyncMock(return_value=[keep, extra]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=_slow_revise),
         ),
-        patch("app.repositories.memories.upsert_sections", upsert),
+        patch("app.services.memory.extraction_workflow.apply_memory_facts", apply),
+        patch("app.services.memory.consolidation_workflow.apply_memory_facts", apply),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
         patch("app.services.home.invalidate_home_cache", AsyncMock()),
     ):
@@ -591,12 +545,9 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
                 Settings(memory_min_confidence=0.4),
                 user_id=user_id,
                 chat_id=uuid4(),
-                transcript="chat",
+                transcript=_CANDIDATE,
             ),
             consolidate_user_memory_sections(Settings(memory_min_confidence=0.4), user_id=user_id),
         )
 
-    # Exactly one of the two write paths actually ran — the other saw the
-    # lock held and skipped entirely, rather than both silently overwriting
-    # each other's section text.
-    assert upsert.await_count == 1
+    assert apply.await_count == 1

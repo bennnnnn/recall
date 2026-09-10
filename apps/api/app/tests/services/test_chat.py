@@ -997,7 +997,8 @@ def test_short_confirmation_after_offer_is_not_lightweight():
         ("escribeme un correo", True),
         ("የእኔ ፕሮጀክቶች ምንድን ናቸው", True),
         ("explain how transformers work", False),
-        ("what should I eat tonight", False),
+        ("what was that thing we discussed earlier", True),
+        ("what was that thing earlier", True),
     ],
 )
 def test_needs_rich_context(text, expected):

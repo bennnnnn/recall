@@ -39,6 +39,9 @@ from app.models.schemas.chats import (
     TitleGenerationResult,
 )
 from app.models.schemas.common import (
+    MemoryOpKind,
+    MemorySensitivity,
+    MemoryStatus,
     MemoryType,
     MessageFeedback,
     MessageRole,
@@ -111,6 +114,8 @@ from app.models.schemas.learning import (
     VocabStatus,
 )
 from app.models.schemas.memory import (
+    MemoryFactOp,
+    MemoryFactUpdateResult,
     MemoryOut,
     MemorySectionItem,
     MemorySectionUpdateResult,
@@ -178,9 +183,14 @@ __all__ = [
     "LearningStats",
     "LearningUpdate",
     "LogoutRequest",
+    "MemoryFactOp",
+    "MemoryFactUpdateResult",
+    "MemoryOpKind",
     "MemoryOut",
     "MemorySectionItem",
     "MemorySectionUpdateResult",
+    "MemorySensitivity",
+    "MemoryStatus",
     "MemoryType",
     "MemoryUpdate",
     "MessageFeedback",

@@ -9,11 +9,13 @@ from app.services.memory import (
     consolidation_rewrite_preserves_facts,
     exclude_sensitive_for_query,
     extract_consolidation_anchors,
+    facts_need_consolidation,
     is_diet_health_memory_text,
     is_explicit_forget_command,
     is_explicit_memory_command,
     is_food_or_diet_memory_text,
     is_food_or_diet_query,
+    is_memory_candidate,
     is_sensitive_memory_text,
     merge_explicit_remember_fact,
     normalize_memory_text,
@@ -42,7 +44,11 @@ def _memory(type_: str, text: str, confidence: float | None):
     m.type = type_
     m.text = text
     m.confidence = confidence
+    m.status = "active"
+    m.sensitivity = "normal"
+    m.importance = 0.5
     m.updated_at = 0
+    m.last_confirmed_at = None
     return m
 
 
@@ -405,9 +411,37 @@ def test_format_memory_block_respects_char_budget():
     from app.services.memory import format_memory_block
 
     long_pref = _memory("preference", "x" * 2000, 1.0)
-    block = format_memory_block([long_pref], max_chars=200)
-    assert len(block) <= 200
-    assert block.endswith("…")
+    other = _memory("focus", "Ship the quiz this week", 1.0)
+    block = format_memory_block([long_pref, other], max_chars=200)
+    assert "Ship the quiz" not in block
+    assert "x" * 20 in block
+    assert not block.endswith("…")
+
+
+def test_format_memory_block_keeps_relevant_focus_over_unread_tail():
+    from app.services.memory import format_memory_block
+
+    profile = _memory("profile", "Name is Sam. " + ("bio " * 200), 1.0)
+    focus = _memory("focus", "Ship the quiz this week", 1.0)
+    block = format_memory_block([profile, focus], max_chars=180)
+    assert "Ship the quiz" not in block or "Name is Sam" in block
+    assert "…" not in block
+
+
+def test_is_memory_candidate_skips_small_talk():
+    assert is_memory_candidate("hey there") is False
+    assert is_memory_candidate("I like Python") is True
+    assert is_memory_candidate("Remember that my dog is Max") is True
+
+
+def test_facts_need_consolidation_detects_exact_and_near_duplicates():
+    a = _memory("fact", "Bini likes tea in the morning.", 1.0)
+    b = _memory("fact", "Bini likes tea in the morning.", 1.0)
+    c = _memory("fact", "Bini likes tea in the morning now.", 1.0)
+    unique = _memory("preference", "Drinks tea.", 1.0)
+    assert facts_need_consolidation([a, unique]) is False
+    assert facts_need_consolidation([a, b]) is True
+    assert facts_need_consolidation([a, c]) is True
 
 
 def test_select_memories_omits_project_section_for_project_chats():
@@ -1014,7 +1048,7 @@ async def test_update_memory_rewrites_text_and_reembeds():
         updated = await update_memory(session, settings, user_id, memory.id, "Likes hiking trails")
 
     assert updated is not None
-    assert updated.text.startswith("As of ")
+    assert not updated.text.startswith("As of ")
     assert "Likes hiking trails" in updated.text
     update_embed.assert_awaited_once()
     invalidate.assert_awaited_once()

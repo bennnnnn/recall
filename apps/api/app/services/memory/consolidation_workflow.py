@@ -1,6 +1,5 @@
-"""Consolidate duplicate facts in persisted memory sections."""
+"""Consolidate near-duplicate atomic memory facts."""
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from uuid import UUID
@@ -11,92 +10,95 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
+from app.repositories.memory_writes import MemoryFactWrite
 from app.services import memory_llm
 from app.services.memory import (
     accept_memory_section_rewrite,
     acquire_memory_write_lock,
-    join_memory_facts,
+    facts_need_consolidation,
     normalize_memory_text,
     release_memory_write_lock,
-    section_needs_consolidation,
-    sections_need_consolidation,
-    split_memory_facts,
-    stamp_memory_as_of,
 )
-from app.services.memory.apply import apply_memory_section_rows
+from app.services.memory.apply import apply_memory_facts
+from app.services.memory.consolidation import fact_text_jaccard
+from app.services.memory.facts import is_active_memory
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class _ConsolidationSnapshot:
-    sections: dict[str, str]
-    existing_rows: dict[str, tuple[UUID, str]]
+class _Pair:
+    keep_id: UUID
+    drop_id: UUID
+    keep_text: str
+    drop_text: str
+    memory_type: str
 
 
-async def _load_consolidation_snapshot(
-    session: AsyncSession,
-    user_id: UUID,
-) -> _ConsolidationSnapshot | None:
+_NEAR_DUP_JACCARD = 0.8
+
+
+def _duplicate_pairs(facts: list) -> list[_Pair]:
+    active = [fact for fact in facts if is_active_memory(fact) and normalize_memory_text(fact.text)]
+    by_key: dict[tuple[str, str], list] = {}
+    for fact in active:
+        key = (fact.type, normalize_memory_text(fact.text).lower())
+        by_key.setdefault(key, []).append(fact)
+    pairs: list[_Pair] = []
+    used: set[UUID] = set()
+    for (_type, _text), group in by_key.items():
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda fact: fact.last_confirmed_at or fact.updated_at, reverse=True)
+        keeper = group[0]
+        used.add(keeper.id)
+        for extra in group[1:]:
+            used.add(extra.id)
+            pairs.append(
+                _Pair(
+                    keep_id=keeper.id,
+                    drop_id=extra.id,
+                    keep_text=keeper.text,
+                    drop_text=extra.text,
+                    memory_type=keeper.type,
+                )
+            )
+    remaining = [fact for fact in active if fact.id not in used]
+    remaining.sort(key=lambda fact: fact.last_confirmed_at or fact.updated_at, reverse=True)
+    claimed: set[UUID] = set()
+    for index, left in enumerate(remaining):
+        if left.id in claimed:
+            continue
+        for right in remaining[index + 1 :]:
+            if right.id in claimed or right.type != left.type:
+                continue
+            if fact_text_jaccard(left.text, right.text) < _NEAR_DUP_JACCARD:
+                continue
+            claimed.add(right.id)
+            pairs.append(
+                _Pair(
+                    keep_id=left.id,
+                    drop_id=right.id,
+                    keep_text=left.text,
+                    drop_text=right.text,
+                    memory_type=left.type,
+                )
+            )
+    return pairs
+
+
+async def _load_pairs(
+    session: AsyncSession, user_id: UUID
+) -> tuple[dict[UUID, str], list[_Pair]] | None:
     user = await users_repo.get_by_id(session, user_id)
     if user is None or not getattr(user, "memory_enabled", True):
         return None
-    existing = await memories_repo.list_for_user(session, user_id)
-    if not existing:
-        return None
-    sections = {memory.type: memory.text for memory in existing}
-    if not sections_need_consolidation(sections):
-        return None
-    return _ConsolidationSnapshot(
-        sections=sections,
-        existing_rows={memory.type: (memory.id, memory.text) for memory in existing},
+    existing = await memories_repo.list_for_user(
+        session, user_id, include_muted=False, include_superseded=False
     )
-
-
-async def _merge_one_section(
-    settings: Settings,
-    section_type: str,
-    prior: str,
-) -> tuple[str, str, float, UUID | None] | None:
-    if not section_needs_consolidation(prior):
+    if not existing or not facts_need_consolidation(existing):
         return None
-    deduped = join_memory_facts(split_memory_facts(prior))
-    draft = deduped if deduped else prior
-    if draft != normalize_memory_text(prior) and not section_needs_consolidation(draft):
-        accepted = accept_memory_section_rewrite(
-            section_type=section_type,
-            prior=prior,
-            summary=draft,
-            confidence=0.95,
-            min_confidence=settings.memory_min_confidence,
-            enforce_length_floor=False,
-        )
-        if accepted and accepted != normalize_memory_text(prior):
-            return (section_type, stamp_memory_as_of(accepted), 0.95, None)
-        return None
-
-    merged = await memory_llm.merge_memory_section(
-        settings,
-        section_type=section_type,
-        prior_text=draft,
-    )
-    if merged is None:
-        return None
-    accepted = accept_memory_section_rewrite(
-        section_type=section_type,
-        prior=prior,
-        summary=merged.summary,
-        confidence=merged.confidence,
-        min_confidence=settings.memory_min_confidence,
-    )
-    if accepted and accepted != normalize_memory_text(prior):
-        return (
-            section_type,
-            stamp_memory_as_of(accepted),
-            merged.confidence,
-            None,
-        )
-    return None
+    return {fact.id: fact.text for fact in existing}, _duplicate_pairs(existing)
 
 
 async def consolidate_user_memory_sections(
@@ -115,37 +117,61 @@ async def consolidate_user_memory_sections(
             return "skipped_lock"
         try:
             async with SessionLocal() as session:
-                snapshot = await _load_consolidation_snapshot(session, user_id)
-            if snapshot is None:
+                loaded = await _load_pairs(session, user_id)
+            if loaded is None:
                 return False
-
-            results = await asyncio.gather(
-                *(
-                    _merge_one_section(settings, section_type, prior)
-                    for section_type, prior in snapshot.sections.items()
-                ),
-                return_exceptions=True,
-            )
-            rows: list[tuple[str, str, float, UUID | None]] = []
-            for result in results:
-                if isinstance(result, BaseException):
-                    logger.warning(
-                        "Memory consolidation section merge failed for user_id=%s",
-                        user_id,
-                        exc_info=result,
+            expected, pairs = loaded
+            writes: list[MemoryFactWrite] = []
+            for pair in pairs:
+                keep_norm = normalize_memory_text(pair.keep_text).lower()
+                drop_norm = normalize_memory_text(pair.drop_text).lower()
+                summary = pair.keep_text
+                if keep_norm != drop_norm:
+                    draft = f"{pair.keep_text} {pair.drop_text}"
+                    merged = await memory_llm.merge_memory_section(
+                        settings,
+                        section_type=pair.memory_type,
+                        prior_text=draft,
                     )
-                elif result is not None:
-                    rows.append(result)
-            if not rows:
+                    if merged is not None:
+                        accepted = accept_memory_section_rewrite(
+                            section_type=pair.memory_type,
+                            prior=pair.keep_text,
+                            summary=merged.summary,
+                            confidence=merged.confidence,
+                            min_confidence=settings.memory_min_confidence,
+                            enforce_length_floor=False,
+                        )
+                        if accepted:
+                            summary = accepted
+                    if normalize_memory_text(summary) != normalize_memory_text(pair.keep_text):
+                        writes.append(
+                            MemoryFactWrite(
+                                op="update",
+                                type=pair.memory_type,
+                                text=summary,
+                                confidence=0.9,
+                                match_text=pair.keep_text,
+                            )
+                        )
+                writes.append(
+                    MemoryFactWrite(
+                        op="delete",
+                        type=pair.memory_type,
+                        text="",
+                        confidence=1.0,
+                        match_text=pair.drop_text,
+                    )
+                )
+            if not writes:
                 return False
-
-            await apply_memory_section_rows(
+            await apply_memory_facts(
                 settings,
                 user_id=user_id,
-                rows=rows,
+                writes=writes,
                 session_factory=SessionLocal,
                 memories=memories_repo,
-                expected_sections=snapshot.existing_rows,
+                expected_facts=expected,
             )
             return True
         finally:

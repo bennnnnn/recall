@@ -9,20 +9,107 @@ import hashlib
 import re
 from datetime import UTC, date, datetime
 
+from app.models.memory_ops import normalize_memory_text as normalize_memory_text
 from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
 
 _AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)
 
 
-_SENSITIVE_MEMORY_RE = re.compile(
-    r"\b("
-    r"allerg(?:y|ies|ic)|diagnos(?:is|ed)|cancer|depress(?:ion|ed)|anxi(?:ety|ous)|"
-    r"therapist|psychiatr|medication|prescri(?:be|ption)|pregnant|hiv\b|diabetes|"
-    r"lawsuit|attorney|\blawyer\b|divorc(?:e|ing)|"
-    r"salary|mortgage|credit\s*card|bank\s*account|\bdebt\b|"
-    r"boyfriend|girlfriend|husband|wife|spouse|affair|\bdating\b"
-    r")\b",
-    re.IGNORECASE,
+def contains_phrase(haystack: str, needle: str) -> bool:
+    """True when ``needle`` appears with alphanumeric boundaries (CodeQL-safe)."""
+    if not haystack or not needle:
+        return False
+    h = haystack.lower()
+    n = needle.lower()
+    start = 0
+    while True:
+        index = h.find(n, start)
+        if index < 0:
+            return False
+        before_ok = index == 0 or not h[index - 1].isalnum()
+        after = index + len(n)
+        after_ok = after >= len(h) or not h[after].isalnum()
+        if before_ok and after_ok:
+            return True
+        start = index + 1
+
+
+_HEALTH_NEEDLES = (
+    "allergy",
+    "allergies",
+    "allergic",
+    "diagnosis",
+    "diagnosed",
+    "cancer",
+    "depression",
+    "depressed",
+    "anxiety",
+    "anxious",
+    "therapist",
+    "psychiatrist",
+    "psychiatric",
+    "medication",
+    "prescribe",
+    "prescription",
+    "pregnant",
+    "hiv",
+    "diabetes",
+)
+_LEGAL_NEEDLES = ("lawsuit", "attorney", "lawyer", "divorce", "divorcing")
+_FINANCE_NEEDLES = (
+    "salary",
+    "mortgage",
+    "credit card",
+    "bank account",
+    "debt",
+)
+_RELATIONSHIP_NEEDLES = (
+    "boyfriend",
+    "girlfriend",
+    "husband",
+    "wife",
+    "spouse",
+    "affair",
+    "dating",
+)
+_HIGHLY_SENSITIVE_NEEDLES = (
+    "ethnicity",
+    "ethnic origin",
+    "religion",
+    "muslim",
+    "jewish",
+    "christianity",
+    "christian",
+    "catholic",
+    "hindu",
+    "buddhist",
+    "political party",
+    "sexual orientation",
+    "homosexual",
+    "gay",
+    "lesbian",
+    "bisexual",
+    "transgender",
+    "sex life",
+)
+_CANDIDATE_CUES = (
+    "i am ",
+    "i'm ",
+    "i work",
+    "i live",
+    "i prefer",
+    "i like",
+    "i hate",
+    "i love",
+    "i moved",
+    "i use ",
+    "i drink",
+    "my name",
+    "my dog",
+    "my cat",
+    "i'm trying",
+    "i'm learning",
+    "i have a",
 )
 
 
@@ -87,6 +174,35 @@ def is_explicit_forget_command(text: str) -> bool:
     return False
 
 
+def classify_memory_sensitivity(text: str) -> str:
+    haystack = strip_memory_as_of(text).lower()
+    if any(contains_phrase(haystack, needle) for needle in _HIGHLY_SENSITIVE_NEEDLES):
+        return "highly_sensitive"
+    if any(contains_phrase(haystack, needle) for needle in _HEALTH_NEEDLES):
+        return "health"
+    if any(contains_phrase(haystack, needle) for needle in _LEGAL_NEEDLES):
+        return "legal"
+    if any(contains_phrase(haystack, needle) for needle in _FINANCE_NEEDLES):
+        return "finance"
+    if any(contains_phrase(haystack, needle) for needle in _RELATIONSHIP_NEEDLES):
+        return "relationship"
+    return "normal"
+
+
+def is_highly_sensitive_text(text: str) -> bool:
+    return classify_memory_sensitivity(text) == "highly_sensitive"
+
+
+def is_memory_candidate(text: str) -> bool:
+    """Cheap gate: skip the memory model when the user line has no self-claim."""
+    if is_explicit_memory_command(text):
+        return True
+    lowered = (text or "").lower()
+    if not lowered:
+        return False
+    return any(cue in lowered for cue in _CANDIDATE_CUES)
+
+
 def merge_explicit_remember_fact(prior: str, incoming: str) -> str:
     """Keep prior section text and add an explicit-remember fact the LLM omitted.
 
@@ -100,11 +216,6 @@ def merge_explicit_remember_fact(prior: str, incoming: str) -> str:
 def _forget_marker_is_negated(lowered: str, index: int) -> bool:
     before = lowered[:index]
     return before.endswith("don't ") or before.endswith("do not ") or before.endswith("dont ")
-
-
-def normalize_memory_text(text: str) -> str:
-    clean = re.sub(r"\s+", " ", text.strip()).rstrip(".")
-    return clean
 
 
 def strip_memory_as_of(text: str) -> str:
@@ -122,8 +233,8 @@ def stamp_memory_as_of(text: str, *, as_of: date | None = None) -> str:
 
 
 def is_sensitive_memory_text(text: str) -> bool:
-    """True when text looks like health/legal/finance/relationship content."""
-    return bool(_SENSITIVE_MEMORY_RE.search(strip_memory_as_of(text)))
+    """True when text looks like health/legal/finance/relationship/highly-sensitive content."""
+    return classify_memory_sensitivity(text) != "normal"
 
 
 _DIET_HEALTH_MEMORY_RE = re.compile(

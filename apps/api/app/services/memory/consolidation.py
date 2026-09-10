@@ -7,6 +7,8 @@ machinery so the rules can be read and tested on their own.
 
 import logging
 import re
+from collections.abc import Iterable
+from typing import Any
 
 from app.services.memory.text import (
     _split_sentences,
@@ -39,6 +41,49 @@ _CONSOLIDATION_ANCHOR_STOP = frozenset(
         "have",
     }
 )
+
+
+_NEAR_DUP_JACCARD = 0.8
+
+
+def _fact_tokens(text: str) -> frozenset[str]:
+    return frozenset(part for part in normalize_memory_text(text).lower().split() if part)
+
+
+def fact_text_jaccard(left: str, right: str) -> float:
+    a = _fact_tokens(left)
+    b = _fact_tokens(right)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def facts_need_consolidation(memories: Iterable[Any]) -> bool:
+    """True when two active facts are exact or near duplicates."""
+    active: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for memory in memories:
+        status = str(getattr(memory, "status", None) or "active")
+        if status != "active":
+            continue
+        text = normalize_memory_text(getattr(memory, "text", ""))
+        if not text:
+            continue
+        key = (str(getattr(memory, "type", "")), text.lower())
+        if key in seen:
+            return True
+        seen.add(key)
+        active.append(key)
+    for index, (left_type, left_text) in enumerate(active):
+        left_tokens = _fact_tokens(left_text)
+        if not left_tokens:
+            continue
+        for right_type, right_text in active[index + 1 :]:
+            if left_type != right_type:
+                continue
+            if fact_text_jaccard(left_text, right_text) >= _NEAR_DUP_JACCARD:
+                return True
+    return False
 
 
 def section_needs_consolidation(text: str) -> bool:

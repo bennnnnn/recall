@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.services import memory as memory_service
 from app.services.memory import extraction_workflow
 from app.services.memory.apply import apply_memory_section_rows
@@ -34,6 +34,8 @@ def memory_session():
         session.refresh.side_effect = sync_session.refresh
         session.flush.side_effect = sync_session.flush
         session.get.side_effect = sync_session.get
+        session.add.side_effect = sync_session.add
+        session.delete.side_effect = sync_session.delete
 
         async def enter():
             sync_session.expire_all()
@@ -158,12 +160,14 @@ async def test_extraction_cannot_restore_memory_after_manual_change(
     sync_session, session = memory_session
     row = _memory(sync_session)
     owner_id, memory_id = row.user_id, row.id
-    result = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
+    result = MemoryFactUpdateResult(
+        ops=[
+            MemoryFactOp(
+                op="update",
                 type="fact",
-                summary="Owns a bicycle. Likes hiking. Enjoys camping.",
+                text="Owns a bicycle. Likes hiking. Enjoys camping.",
                 confidence=0.95,
+                match_text="Owns a bicycle. Likes hiking.",
             )
         ]
     )
@@ -197,15 +201,15 @@ async def test_extraction_cannot_restore_memory_after_manual_change(
         patch.object(
             extraction_workflow,
             "expand_memory_extract_transcript",
-            AsyncMock(return_value=("I enjoy camping", None)),
+            AsyncMock(return_value=("I like camping", None)),
         ),
         patch.object(
-            extraction_workflow.memory_llm, "revise_memory_sections", AsyncMock(side_effect=revise)
+            extraction_workflow.memory_llm, "revise_memory_facts", AsyncMock(side_effect=revise)
         ),
         patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)),
     ):
         await extraction_workflow.extract_and_store_memories(
-            Settings(), user_id=owner_id, chat_id=uuid4(), transcript="I enjoy camping"
+            Settings(), user_id=owner_id, chat_id=uuid4(), transcript="I like camping"
         )
 
     sync_session.expire_all()

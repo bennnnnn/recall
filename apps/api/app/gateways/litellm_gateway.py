@@ -14,6 +14,8 @@ from app.gateways import mock_llm
 from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 from app.models.schemas import (
+    MemoryFactOp,
+    MemoryFactUpdateResult,
     MemorySectionItem,
     MemorySectionUpdateResult,
 )
@@ -576,12 +578,33 @@ async def _complete_structured_once[T: BaseModel](
     try:
         return schema.model_validate(data)
     except Exception:
+        if schema is MemoryFactUpdateResult and isinstance(data, dict):
+            fact_partial = _parse_memory_facts_partial(data)
+            if fact_partial is not None:
+                return cast(T, fact_partial)
         if schema is MemorySectionUpdateResult and isinstance(data, dict):
-            partial = _parse_memory_sections_partial(data)
-            if partial is not None:
-                return cast(T, partial)
+            section_partial = _parse_memory_sections_partial(data)
+            if section_partial is not None:
+                return cast(T, section_partial)
         logger.debug("Structured completion: validation failed for %s", model_alias)
         return None
+
+
+def _parse_memory_facts_partial(data: dict[str, object]) -> MemoryFactUpdateResult | None:
+    raw_ops = data.get("ops")
+    if not isinstance(raw_ops, list):
+        return None
+    valid: list[MemoryFactOp] = []
+    for item in raw_ops:
+        if not isinstance(item, dict):
+            continue
+        try:
+            valid.append(MemoryFactOp.model_validate(item))
+        except Exception:
+            logger.debug("Skipping invalid memory fact op", exc_info=True)
+    if not valid:
+        return None
+    return MemoryFactUpdateResult(ops=valid)
 
 
 def _parse_memory_sections_partial(data: dict[str, object]) -> MemorySectionUpdateResult | None:

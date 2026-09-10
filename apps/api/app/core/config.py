@@ -280,6 +280,7 @@ class Settings(BaseSettings):
     context_db_concurrency: int = 3
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
+    memory_active_fact_cap: int = 150
     # Hard cap on formatted memory block chars injected into the system prompt.
     memory_inject_max_chars: int = 1500
     # Hard cap on formatted quiz exclusion-list chars injected into the system

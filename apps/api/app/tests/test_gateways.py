@@ -360,8 +360,8 @@ async def test_generate_title_retries_fallback_on_outage():
         {},
     )
     assert result is not None
-    assert len(result.sections) == 1
-    assert result.sections[0].type == "focus"
+    assert len(result.ops) == 1
+    assert result.ops[0].type == "focus"
 
 
 @pytest.mark.asyncio
