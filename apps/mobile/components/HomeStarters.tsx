@@ -8,7 +8,7 @@ import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/lib/todos/dueDate";
-import { instantHomePlaceholder, welcomeStarters } from "@/lib/homeWelcome";
+import { instantHomePlaceholder, welcomeStarterIcon, welcomeStarters } from "@/lib/homeWelcome";
 import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
 import { firstOverdueHomeTodo, homeUrgentPrompt, listHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
@@ -50,7 +50,7 @@ function OverdueReminderRow({
           accessibilityRole="button"
           accessibilityLabel={todo.content}
         >
-          <Icon name="alert-circle-outline" size={18} color={theme.danger} />
+              <Icon name="alert-circle-outline" size={18} color={theme.warning} />
           <View style={s.urgentMain}>
             <Text style={s.urgentTitle} numberOfLines={2}>
               {todo.content}
@@ -61,7 +61,7 @@ function OverdueReminderRow({
               </Text>
             ) : null}
           </View>
-          <Icon name="chevron-forward" size={16} color={theme.danger} />
+          <Icon name="chevron-forward" size={16} color={theme.warning} />
         </Pressable>
         <Pressable
           style={s.urgentDismiss}
@@ -140,7 +140,7 @@ export function HomeStarters({ onSelect }: Props) {
               accessibilityRole="button"
               accessibilityLabel={starter.text}
             >
-              <Icon name="bulb-outline" size={14} color={theme.primary} />
+              <Icon name={welcomeStarterIcon(index)} size={14} color={theme.primary} />
               <Text style={s.chipText} numberOfLines={2}>
                 {starter.text}
               </Text>
@@ -167,7 +167,7 @@ function makeStyles(t: Theme) {
       marginBottom: 8,
     },
     sectionLabelUrgent: {
-      color: t.danger,
+      color: t.warning,
     },
     urgentBlock: { width: "100%", gap: 8, marginTop: 4 },
     urgentCardWrap: {
@@ -177,13 +177,13 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
-      backgroundColor: t.dangerLight,
+      backgroundColor: withAlpha(t.warning, 0.12),
       borderRadius: Radius.lg,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       paddingRight: 36,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: withAlpha(t.danger, 0.22),
+      borderColor: withAlpha(t.warning, 0.28),
     },
     urgentDismiss: {
       position: "absolute",
@@ -199,11 +199,11 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
     },
     urgentCardOverdue: {
-      borderColor: t.danger,
+      borderColor: t.warning,
     },
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
-    urgentDue: { fontSize: 12, fontWeight: "600", color: t.danger },
+    urgentDue: { fontSize: 12, fontWeight: "600", color: t.warning },
     startersBlock: { width: "100%", marginTop: 4 },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
     chip: {

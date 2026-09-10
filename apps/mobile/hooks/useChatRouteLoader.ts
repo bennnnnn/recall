@@ -489,7 +489,7 @@ export function useChatRouteLoader({
       });
       setHasMoreOlder(page.has_more);
     } catch {
-      if (isCurrent()) showActionBanner(t("common.error"), "cloud-offline-outline");
+      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle-outline");
     } finally {
       if (isCurrent()) {
         olderRequestRef.current = null;

@@ -89,6 +89,18 @@ describe("ChatComposer math keyboard", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
+    const { queryByText, getByLabelText, rerender } = await render(
+      <ChatComposer {...baseProps} input="hi" />,
+    );
+    expect(queryByText("↑")).toBeNull();
+    expect(getByLabelText("chat.send_a11y")).toBeTruthy();
+
+    await rerender(<ChatComposer {...baseProps} input="hi" streaming />);
+    expect(queryByText("■")).toBeNull();
+    expect(getByLabelText("chat.stop_a11y")).toBeTruthy();
+  });
+
   it("hides the math pill when the chat is not about math", async () => {
     const { queryByTestId } = await render(
       <ChatComposer {...baseProps} mathContext={false} input="" />,

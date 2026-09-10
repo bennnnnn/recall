@@ -71,7 +71,6 @@ export const ChatHeader = memo(function ChatHeader({
         <Pressable
           style={({ pressed }) => [
             s.headerBtn,
-            menuOverlayOpen && s.headerBtnMuted,
             pressed && !menuOverlayOpen && s.headerBtnPressed,
           ]}
           onPress={() => {
@@ -173,23 +172,14 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
       borderRadius: 10,
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
     },
-    headerBtnMuted: { backgroundColor: theme.surface },
     headerBtnPressed: { backgroundColor: theme.surfaceAlt },
     headerRight: { flexDirection: "row", alignItems: "center", gap: 2 },
     actionGroup: {
       flexDirection: "row",
       alignItems: "center",
       height: 44,
-      borderRadius: 10,
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
       overflow: "hidden",
-      paddingHorizontal: 2,
     },
     actionGroupBtn: {
       width: 44,

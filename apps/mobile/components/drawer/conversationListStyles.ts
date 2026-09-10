@@ -173,7 +173,6 @@ export function makeConversationListStyles(theme: Theme) {
       justifyContent: "center",
       padding: Space.xs,
       borderRadius: Radius.sm,
-      backgroundColor: theme.primary,
     },
     selectionBar: {
       position: "absolute",

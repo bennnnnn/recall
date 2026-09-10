@@ -259,7 +259,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
 - ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
-  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded / latency.
+  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
+  p50 latency is under **Advanced**.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
@@ -331,8 +332,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
   prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
 - ✅ **Prompt token budgeting UI** — Settings → Models shows today's used / daily
-  limit (input · output split) and the server prompt window
-  (`context_token_budget`, last `recent_message_window` messages). The composer
+  limit. Input · output split, the server prompt window
+  (`context_token_budget`, last `recent_message_window` messages), and p50
+  latency sit behind **Advanced**. The composer
   shows a local draft estimate when the text is large enough to matter.
 - 🔜 Response caching.
 
@@ -825,6 +827,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   Reduce Motion helpers, in-tree ActionBanner overlay host, recoverable
   `Alert.alert` sweep, and unused UI file cleanup. Do not restyle or
   reintroduce banned UX.
+- ✅ **Mobile consumer polish (audit 2026-09)** — generic `StateView` errors use
+  an alert icon (cloud-offline only for real connectivity); Models diagnostics
+  behind Advanced; quieter chat-header chrome; drawer Settings is a ghost
+  control; Home overdue uses warning, not danger; starter chips have distinct
+  icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 
