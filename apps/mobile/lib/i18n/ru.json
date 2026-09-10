@@ -520,6 +520,8 @@
   "rich.mermaid_live": "Mermaid Live",
   "rich.message_draft": "Черновик сообщения",
   "rich.perimeter": "Периметр:",
+  "rich.post_draft_facebook": "Черновик · Facebook",
+  "rich.post_draft_instagram": "Черновик · Instagram",
   "rich.post_draft_linkedin": "Черновик · LinkedIn",
   "rich.post_draft_x": "Черновик · X",
   "rich.reply_draft": "Черновик ответа",

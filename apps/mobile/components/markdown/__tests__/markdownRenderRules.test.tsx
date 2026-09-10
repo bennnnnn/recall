@@ -245,6 +245,14 @@ describe("markdown render rules", () => {
     expect(queryByText("3.")).toBeNull();
   });
 
+  it("renders a facebook fence as a post draft, not highlighted code", async () => {
+    const md = "```facebook\nHey everyone,\n\nJust wanted to share a quick update on my healing.\n```";
+    const { getByText, queryByText } = await render(<MarkdownContent content={md} />);
+    expect(queryByText(/^facebook:/)).toBeNull();
+    expect(getByText(/Just wanted to share a quick update/)).toBeOnTheScreen();
+    expect(getByText("Post draft · Facebook")).toBeOnTheScreen();
+  });
+
   it("does not number a flat top-level bullet list", async () => {
     const md = `- Even number
 - Composite number`;

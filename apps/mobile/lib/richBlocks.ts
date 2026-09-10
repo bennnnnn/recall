@@ -1,4 +1,5 @@
 import { sanitizeEmailDraft } from "@/lib/emailDraftSanitize";
+import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { parseGeometrySpec } from "@/lib/geometryBlock";
 import { parseGraphSpec } from "@/lib/graphBlock";
 
@@ -22,7 +23,7 @@ export type CollapsibleDraft = {
   body: string;
 };
 
-export type SocialPlatform = "twitter" | "linkedin" | "generic";
+export type SocialPlatform = "twitter" | "linkedin" | "facebook" | "instagram" | "generic";
 
 const CALLOUT_LANGS = new Set([
   "tip",
@@ -37,6 +38,14 @@ const SOCIAL_LANGS: Record<string, SocialPlatform> = {
   tweet: "twitter",
   x: "twitter",
   linkedin: "linkedin",
+  facebook: "facebook",
+  fb: "facebook",
+  instagram: "instagram",
+  insta: "instagram",
+  ig: "instagram",
+  tiktok: "generic",
+  threads: "generic",
+  caption: "generic",
   social: "generic",
 };
 const MESSAGE_LANGS = new Set(["sms", "message", "reply"]);
@@ -77,7 +86,13 @@ export function parseCalloutKind(lang: string): CalloutKind {
 }
 
 export function parseSocialPlatform(lang: string): SocialPlatform | null {
-  return SOCIAL_LANGS[lang.trim().toLowerCase()] ?? null;
+  const l = lang.trim().toLowerCase();
+  const mapped = SOCIAL_LANGS[l];
+  if (mapped) return mapped;
+  // Registered social aliases we forgot to name still become a post card,
+  // never a syntax-highlighted code block.
+  if (fenceIdForLang(l) === "social") return "generic";
+  return null;
 }
 
 export function isMessageLang(lang: string): boolean {

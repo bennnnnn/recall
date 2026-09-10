@@ -15,6 +15,8 @@ function platformMeta(
   return {
     twitter: { label: t("rich.post_draft_x"), icon: "logo-twitter" },
     linkedin: { label: t("rich.post_draft_linkedin"), icon: "logo-linkedin" },
+    facebook: { label: t("rich.post_draft_facebook"), icon: "logo-facebook" },
+    instagram: { label: t("rich.post_draft_instagram"), icon: "logo-instagram" },
     generic: { label: t("rich.social_post_draft"), icon: "megaphone-outline" },
   };
 }

@@ -520,6 +520,8 @@
   "rich.mermaid_live": "Mermaid Live",
   "rich.message_draft": "Borrador de mensaje",
   "rich.perimeter": "Perímetro:",
+  "rich.post_draft_facebook": "Borrador · Facebook",
+  "rich.post_draft_instagram": "Borrador · Instagram",
   "rich.post_draft_linkedin": "Borrador · LinkedIn",
   "rich.post_draft_x": "Borrador · X",
   "rich.reply_draft": "Borrador de respuesta",
