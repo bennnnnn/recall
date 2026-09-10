@@ -49,7 +49,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >
-        <Icon name="settings-outline" size={IconSize.md} color={theme.onPrimary} />
+        <Icon name="settings-outline" size={IconSize.md} color={theme.text} />
       </Pressable>
     </View>
   );

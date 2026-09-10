@@ -149,6 +149,42 @@ export function SettingsValueRow({
   );
 }
 
+export function SettingsDisclosureRow({
+  title,
+  subtitle,
+  icon,
+  expanded,
+  onToggle,
+  styles,
+  theme,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: IoniconName;
+  expanded: boolean;
+  onToggle: () => void;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+    >
+      <SettingsRowChrome
+        icon={icon}
+        title={title}
+        subtitle={subtitle}
+        chevron={expanded ? "up" : "down"}
+        styles={styles}
+        theme={theme}
+      />
+    </Pressable>
+  );
+}
+
 export function SettingsInlinePicker({
   icon,
   title,

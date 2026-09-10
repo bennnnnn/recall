@@ -39,6 +39,7 @@ export function DrawerListHeader({
         <StateView
           variant="error"
           compact
+          icon="cloud-offline-outline"
           message={t("drawer.cant_reach")}
           onRetry={onRetry}
           retryLabel={t("common.retry")}
