@@ -752,7 +752,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision extract → SymPy on the supported subset. Unverified fall-through is labeled in the reply (`Couldn't verify this with SymPy.`). Not every photographed problem verifies. Camera capture needs a **dev build** (native module; Expo Go cannot shoot).
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → crop + torch / pinch-zoom / photos → OCR preview (“I read this as”) → **Solve**. Mathpix transcribes when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); Gemini vision interprets word problems / low-confidence reads; SymPy verifies. Confirmed readings are not re-OCR’d on send. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -818,6 +818,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   “Chemical structure” label for that pair.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex live voice (later).
+- 🔜 **Math scanner capture-quality** — on-device blur/glare/perspective correction and a
+  real homework-photo OCR benchmark (handwritten/printed, lighting, tilt). Torch, zoom,
+  OCR read-back, and Mathpix routing are shipped; do not market “industry-leading OCR”
+  until that corpus exists.
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 - ✅ **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt

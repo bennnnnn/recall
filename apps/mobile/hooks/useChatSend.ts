@@ -40,7 +40,7 @@ import {
   defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
-import { composerTextAfterMathScan } from "@/lib/mathCameraPrompt";
+import { composerTextAfterMathScan, composerTextAfterMathScanConfirm } from "@/lib/mathCameraPrompt";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -282,14 +282,14 @@ export function useChatSend({
         });
         return;
       }
-      if (streaming && (text || pendingAttachment)) {
+      if (streaming && (text || pendingAttachmentRef.current)) {
         onStreamBusy?.();
         return;
       }
       if (
         shouldBlockSend({
           text,
-          hasAttachment: Boolean(pendingAttachment),
+          hasAttachment: Boolean(pendingAttachmentRef.current),
           streaming,
           token,
           creating: creatingRef.current,
@@ -300,6 +300,7 @@ export function useChatSend({
         return;
       tap();
       if (onBeforeSend?.(text) === true) return;
+      const queuedAttachment = pendingAttachmentRef.current;
 
       // Reference-photo lookup ("show me an ear") wants a real photo, not AI
       // art — checked first so generation's bare colloquial fallback can't
@@ -307,7 +308,7 @@ export function useChatSend({
       // here skips the generate-image intercept below and falls through to
       // the normal send; the backend's image_search tool/intercept attaches
       // the photo as an ordinary assistant message.
-      const isImageLookup = !pendingAttachment && Boolean(extractImageLookupQuery(text));
+      const isImageLookup = !queuedAttachment && Boolean(extractImageLookupQuery(text));
 
       // Image-gen intent → /images/generate from the composer (no sheet, no LLM stub).
       // Do not gate on client isPro — plan can be stale while the API still knows Pro;
@@ -316,10 +317,10 @@ export function useChatSend({
       if (
         !isImageLookup &&
         onGenerateImage &&
-        (!pendingAttachment || pendingAttachment.kind === "image")
+        (!queuedAttachment || queuedAttachment.kind === "image")
       ) {
         const revisionContext = imageGenRevisionContext(messages);
-        const revision = pendingAttachment?.kind === "image"
+        const revision = queuedAttachment?.kind === "image"
           ? extractAttachedImageEditPrompt(text)
           : extractImageRevisionPrompt(text, revisionContext);
         const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
@@ -335,7 +336,7 @@ export function useChatSend({
           setInput("");
           setPendingAttachment(null);
           Keyboard.dismiss();
-          const reference = pendingAttachment ? { attachment: pendingAttachment }
+          const reference = queuedAttachment ? { attachment: queuedAttachment }
             : revision && revisionContext.referenceAttachmentId
               ? { ids: [revisionContext.referenceAttachmentId] } : undefined;
           if (reference) onGenerateImage(imagePrompt, text, reference);
@@ -347,7 +348,7 @@ export function useChatSend({
       const authToken = token;
       if (!authToken) return;
 
-      let attached = pendingAttachment;
+      let attached = queuedAttachment;
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
       setSendPhase(attached ? "uploading" : "preparing");
@@ -485,7 +486,6 @@ export function useChatSend({
       setSendPhase("idle");
     },
     [
-      pendingAttachment,
       setPendingAttachment,
       session,
       inputRef,
@@ -611,12 +611,18 @@ export function useChatSend({
     [attachBusy, composerThread, feedback, router, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
-  const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
+  const handleMathScanCaptured = useCallback((
+    pending: PendingAttachment,
+    options?: { confirmedReading?: string },
+  ) => {
     setPendingAttachment(pending);
-    const existing = inputRef.current;
-    setInput(composerTextAfterMathScan(existing, defaultMathCameraPrompt()));
+    const text = options && "confirmedReading" in options
+      ? composerTextAfterMathScanConfirm(options.confirmedReading ?? "")
+      : composerTextAfterMathScan(inputRef.current, defaultMathCameraPrompt());
+    setInput(text);
     setMathScannerOpen(false);
-  }, [setInput, setPendingAttachment, inputRef]);
+    void handleSend(text);
+  }, [handleSend, setInput, setPendingAttachment, inputRef]);
 
   return {
     setInput,

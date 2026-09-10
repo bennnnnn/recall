@@ -382,7 +382,10 @@ _SOCIAL_WRITING = re.compile(
     r"(?:(?:(?:very\s+)?(?:short|long|brief|concise|detailed|formal|informal|"
     r"professional|personal|promotional|funny|casual)|"
     r"\d+(?:[- ](?:word|character)))\s+){0,2}"
-    r"(?:linkedin (?:post|note)|instagram caption|social(?: media)? post|"
+    r"(?:linkedin (?:(?:update)\s+)?(?:post|note)|"
+    r"facebook (?:(?:update)\s+)?(?:post|status)|fb post|"
+    r"instagram (?:caption|post|story)|tiktok (?:caption|post)|threads post|"
+    r"social(?: media)? post|"
     r"twitter post|x post|tweet|caption|dating (?:app )?bio)\b",
     re.IGNORECASE,
 )

@@ -1,11 +1,15 @@
 import {
   MAX_REGION_RATIO,
   MIN_REGION_RATIO,
+  clampCameraZoom,
   clampScanRegion,
   defaultScanRegion,
+  regionIsDefault,
   regionToImageCrop,
+  resizeScanRegionFromCorner,
   scaleScanRegion,
   translateScanRegion,
+  zoomFromPinch,
 } from "@/lib/math/mathScannerRegion";
 
 describe("defaultScanRegion", () => {
@@ -76,6 +80,58 @@ describe("translateScanRegion", () => {
     const moved = translateScanRegion(base, -0.5, -0.5);
     expect(moved.x).toBe(0);
     expect(moved.y).toBe(0);
+  });
+});
+
+describe("resizeScanRegionFromCorner", () => {
+  it("grows the bottom-right corner while keeping the opposite corner", () => {
+    const base = { x: 0.2, y: 0.2, width: 0.4, height: 0.3 };
+    const resized = resizeScanRegionFromCorner(base, "br", 0.1, 0.05);
+    expect(resized.x).toBeCloseTo(0.2, 5);
+    expect(resized.y).toBeCloseTo(0.2, 5);
+    expect(resized.width).toBeCloseTo(0.5, 5);
+    expect(resized.height).toBeCloseTo(0.35, 5);
+  });
+
+  it("shrinks from the top-left without inverting the rectangle", () => {
+    const base = { x: 0.3, y: 0.3, width: 0.4, height: 0.4 };
+    const resized = resizeScanRegionFromCorner(base, "tl", 0.2, 0.2);
+    expect(resized.width).toBeGreaterThanOrEqual(MIN_REGION_RATIO);
+    expect(resized.height).toBeGreaterThanOrEqual(MIN_REGION_RATIO);
+    expect(resized.x + resized.width).toBeCloseTo(0.7, 5);
+    expect(resized.y + resized.height).toBeCloseTo(0.7, 5);
+  });
+
+  it("stays fully on-screen when a corner is dragged off the edge", () => {
+    const base = { x: 0.1, y: 0.1, width: 0.4, height: 0.4 };
+    const resized = resizeScanRegionFromCorner(base, "tl", -0.5, -0.5);
+    expect(resized.x).toBe(0);
+    expect(resized.y).toBe(0);
+    expect(resized.x + resized.width).toBeLessThanOrEqual(1);
+    expect(resized.y + resized.height).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("regionIsDefault", () => {
+  it("is true for the default region and false after a move", () => {
+    expect(regionIsDefault(defaultScanRegion())).toBe(true);
+    expect(regionIsDefault(translateScanRegion(defaultScanRegion(), 0.1, 0))).toBe(false);
+  });
+});
+
+describe("clampCameraZoom / zoomFromPinch", () => {
+  it("clamps zoom to 0..1", () => {
+    expect(clampCameraZoom(-0.2)).toBe(0);
+    expect(clampCameraZoom(1.4)).toBe(1);
+    expect(clampCameraZoom(0.25)).toBe(0.25);
+    expect(clampCameraZoom(Number.NaN)).toBe(0);
+  });
+
+  it("maps pinch scale onto zoom without jumping to 1 on a small pinch", () => {
+    expect(zoomFromPinch(0, 1)).toBe(0);
+    expect(zoomFromPinch(0, 1.4)).toBeCloseTo(0.2, 5);
+    expect(zoomFromPinch(0.8, 0.2)).toBe(0.4);
+    expect(zoomFromPinch(0.9, 3)).toBe(1);
   });
 });
 

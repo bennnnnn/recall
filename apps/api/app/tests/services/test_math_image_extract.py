@@ -16,12 +16,47 @@ def test_math_camera_prompt_matches_mobile_constant():
     exact-match trigger phrase, not translated copy, so a drift on either
     side silently disables the camera-math verified augmentation."""
     assert mie.MATH_CAMERA_PROMPT == "Solve the math problem in this image step by step."
+    assert mie.MATH_CAMERA_CONFIRMED_PREFIX == "I read this as:"
 
 
 def test_is_math_camera_prompt():
     assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT)
     assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT.upper())
+    assert mie.is_math_camera_prompt(
+        f"{mie.MATH_CAMERA_PROMPT}\n\n{mie.MATH_CAMERA_CONFIRMED_PREFIX} 2x+7=15"
+    )
     assert not mie.is_math_camera_prompt("What's in this image?")
+
+
+def test_confirmed_math_reading():
+    assert mie.confirmed_math_reading(mie.MATH_CAMERA_PROMPT) is None
+    assert (
+        mie.confirmed_math_reading(
+            f"{mie.MATH_CAMERA_PROMPT}\n\n{mie.MATH_CAMERA_CONFIRMED_PREFIX} 2*x+7 = 15"
+        )
+        == "2*x+7 = 15"
+    )
+    assert (
+        mie.confirmed_math_reading(
+            f"{mie.MATH_CAMERA_PROMPT}\n\n{mie.MATH_CAMERA_CONFIRMED_PREFIX} 2x=1\n\n[Image: x]"
+        )
+        == "2x=1"
+    )
+
+
+def test_camera_math_display_text():
+    eq = MathImageExtract(kind="equation", lhs="2*x+3", rhs="7", found=True)
+    assert mie.camera_math_display_text(eq) == "2*x+3 = 7"
+    system = MathImageExtract(
+        kind="system",
+        lhs="x+y",
+        rhs="5",
+        equations=[("x+y", "5"), ("x-y", "1")],
+        found=True,
+    )
+    assert mie.camera_math_display_text(system) == "x+y = 5\nx-y = 1"
+    calc = MathImageExtract(kind="calculus", operation="differentiate", expr="x**2", found=True)
+    assert mie.camera_math_display_text(calc) == "differentiate x**2"
 
 
 def test_camera_math_user_suffix_omits_structured_kinds():
@@ -83,6 +118,7 @@ async def test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout():
         math_image_extract_timeout_seconds=2.0,
         mock_llm_enabled=False,
         openrouter_api_key="test-key",
+        mathpix_enabled=False,
     )
 
     async def _slow_completion(**_kwargs):
@@ -112,7 +148,13 @@ def _fake_response(content: str) -> MagicMock:
 
 
 def _real_path_settings() -> Settings:
-    return Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
+    return Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_enabled=False,
+        mathpix_app_id="",
+        mathpix_app_key="",
+    )
 
 
 @pytest.mark.asyncio
@@ -335,7 +377,9 @@ async def test_extract_equation_failure_logs_at_warning_not_debug(caplog):
     in prod logs at the default level. The vision call now lives in the
     litellm gateway (vision_completion), which owns the provider-error log —
     so the WARNING signal must surface there, not in the service logger."""
-    settings = Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
+    settings = Settings(
+        mock_llm_enabled=False, openrouter_api_key="test-key", mathpix_enabled=False
+    )
 
     with (
         patch(

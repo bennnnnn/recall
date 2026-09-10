@@ -40,7 +40,26 @@ _MIN_RICH_REPLY_CHARS = 40
 _JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
 _ANSWER_LANGS = frozenset({"answer", "result", "final"})
 _DRAFT_FENCE_LANGS = frozenset(
-    {"email", "message", "sms", "reply", "twitter", "tweet", "x", "linkedin", "social", "copy"}
+    {
+        "email",
+        "message",
+        "sms",
+        "reply",
+        "twitter",
+        "tweet",
+        "x",
+        "linkedin",
+        "facebook",
+        "fb",
+        "instagram",
+        "insta",
+        "ig",
+        "tiktok",
+        "threads",
+        "caption",
+        "social",
+        "copy",
+    }
 )
 
 _DRAFT_INSTRUCTION_PATTERNS = (

@@ -409,6 +409,15 @@ async def test_prepare_chat_turn_ocr_skipped_for_unrelated_caption():
 
 
 @pytest.mark.asyncio
+async def test_prepare_chat_turn_skips_ocr_when_student_confirmed_reading():
+    """A scanner-confirmed reading must not be overwritten by a second vision call."""
+    extract_mock = await _run_prepare_chat_turn_with_caption(
+        "Solve the math problem in this image step by step.\n\nI read this as: 2*x+7 = 15"
+    )
+    extract_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_process_attachments_reuses_verified_bytes_for_format():
     """R2 verify downloads once; format must not re-read the same object."""
     from app.services.chat.turn_prep.attachments import _process_attachments

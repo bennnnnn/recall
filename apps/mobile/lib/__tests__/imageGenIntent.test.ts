@@ -6,6 +6,10 @@ import {
   isImageOnlyAssistantContent,
   subjectFromImageGenUserMessage,
 } from "@/lib/imageGenIntent";
+import {
+  MATH_CAMERA_PROMPT,
+  composerTextAfterMathScanConfirm,
+} from "@/lib/mathCameraPrompt";
 
 describe("extractImageGenPrompt", () => {
   it("extracts from create a cat pic", () => {
@@ -42,6 +46,11 @@ describe("extractImageGenPrompt", () => {
 
   it("returns null for normal chat", () => {
     expect(extractImageGenPrompt("explain quantum entanglement")).toBeNull();
+  });
+
+  it("does not treat the camera-math caption as image gen", () => {
+    expect(extractImageGenPrompt(MATH_CAMERA_PROMPT)).toBeNull();
+    expect(extractImageGenPrompt(composerTextAfterMathScanConfirm("x=2"))).toBeNull();
   });
 
   it("returns null for create-a-todo style app actions", () => {

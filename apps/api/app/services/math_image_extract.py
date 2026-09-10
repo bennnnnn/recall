@@ -55,17 +55,39 @@ _EXTRACT_PROMPT = (
 )
 
 # Must stay byte-for-byte identical to MATH_CAMERA_PROMPT in
-# apps/mobile/lib/attachments.ts — this is an exact-match trigger phrase
+# apps/mobile/lib/mathCameraPrompt.ts — this is an exact-match trigger phrase
 # (is_math_camera_prompt below), not user-facing copy, so it doesn't go
 # through i18n. If either side's wording changes without the other, the
 # verified-math augmentation silently stops firing for the camera flow.
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
+MATH_CAMERA_CONFIRMED_PREFIX = "I read this as:"
 
 _SOLVE_KINDS = frozenset({"equation", "system", "inequality"})
+_OCR_HINT_MAX = 2000
 
 
 def is_math_camera_prompt(text: str) -> bool:
-    return text.strip().casefold() == MATH_CAMERA_PROMPT.casefold()
+    stripped = text.strip()
+    folded = stripped.casefold()
+    prompt = MATH_CAMERA_PROMPT.casefold()
+    return folded == prompt or folded.startswith(prompt + "\n")
+
+
+def confirmed_math_reading(text: str) -> str | None:
+    """User-confirmed OCR line from the scanner caption. Linear scan."""
+    needle = MATH_CAMERA_CONFIRMED_PREFIX.casefold()
+    folded = text.casefold()
+    idx = folded.find(needle)
+    if idx < 0:
+        return None
+    rest = text[idx + len(MATH_CAMERA_CONFIRMED_PREFIX) :].strip()
+    if not rest:
+        return None
+    blank = rest.find("\n\n")
+    if blank >= 0:
+        rest = rest[:blank]
+    reading = rest.strip()
+    return reading or None
 
 
 def camera_math_user_suffix(extracted: MathImageExtract) -> str | None:
@@ -84,13 +106,70 @@ def camera_math_user_suffix(extracted: MathImageExtract) -> str | None:
     return f"Solve: {extracted.lhs} = {extracted.rhs}"
 
 
-async def extract_equation_from_image(
+def camera_math_display_text(extracted: MathImageExtract) -> str | None:
+    """Human-readable OCR read-back for the scanner preview."""
+    if not extracted.found:
+        return None
+    kind = extracted.kind
+    if kind == "inequality":
+        cmp_op = extracted.comparator if extracted.comparator else "="
+        return f"{extracted.lhs} {cmp_op} {extracted.rhs}"
+    if kind == "system" and extracted.equations:
+        return "\n".join(f"{lhs} = {rhs}" for lhs, rhs in extracted.equations)
+    if kind == "calculus" and extracted.expr and extracted.operation:
+        op = extracted.operation
+        if op == "integrate" and extracted.integral_lower and extracted.integral_upper:
+            return (
+                f"integrate {extracted.expr} from {extracted.integral_lower} "
+                f"to {extracted.integral_upper}"
+            )
+        return f"{op} {extracted.expr}"
+    if kind == "limit" and extracted.expr:
+        return f"limit {extracted.expr} as x -> {extracted.limit_point}"
+    if kind == "graph" and extracted.expr:
+        return f"y = {extracted.expr}"
+    if kind == "rectangle" and extracted.width is not None and extracted.height is not None:
+        return f"rectangle {extracted.width} x {extracted.height} {extracted.unit}"
+    if kind == "circle" and extracted.radius is not None:
+        return f"circle radius {extracted.radius} {extracted.unit}"
+    if (
+        kind == "triangle_sides"
+        and extracted.tri_a is not None
+        and extracted.tri_b is not None
+        and extracted.tri_c is not None
+    ):
+        return (
+            f"triangle sides {extracted.tri_a}, {extracted.tri_b}, "
+            f"{extracted.tri_c} {extracted.unit}"
+        )
+    if kind == "statistics" and extracted.stats_numbers and extracted.stats_op:
+        nums = ", ".join(str(n) for n in extracted.stats_numbers)
+        return f"{extracted.stats_op} of {nums}"
+    if extracted.lhs.strip() not in ("", "0") or extracted.rhs.strip() not in ("", "0"):
+        return f"{extracted.lhs} = {extracted.rhs}"
+    return None
+
+
+def _extract_prompt(ocr_hint: str | None) -> str:
+    if not ocr_hint:
+        return _EXTRACT_PROMPT
+    hint = ocr_hint.strip()
+    if len(hint) > _OCR_HINT_MAX:
+        hint = hint[:_OCR_HINT_MAX]
+    return (
+        f"{_EXTRACT_PROMPT} An OCR engine transcribed this image as:\n{hint}\n"
+        "Treat that transcription as a hint; prefer the image if they disagree."
+    )
+
+
+async def vision_extract_equation(
     settings: Settings,
     *,
     content_type: str,
     data: bytes,
+    ocr_hint: str | None = None,
 ) -> MathImageExtract | None:
-    """Best-effort vision extract — never raises into the chat path."""
+    """Gemini/vision-chat structured extract. Never raises into the chat path."""
     if not data:
         return None
     if mock_llm.should_mock_llm(settings):
@@ -103,7 +182,7 @@ async def extract_equation_from_image(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": _EXTRACT_PROMPT},
+                    {"type": "text", "text": _extract_prompt(ocr_hint)},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:{mime};base64,{encoded}"},
@@ -142,3 +221,16 @@ async def extract_equation_from_image(
         # in prod logs at the default level.
         logger.warning("math image extract failed", exc_info=True)
         return None
+
+
+async def extract_equation_from_image(
+    settings: Settings,
+    *,
+    content_type: str,
+    data: bytes,
+) -> MathImageExtract | None:
+    """Best-effort extract — Mathpix when configured, else vision-chat."""
+    from app.services.math_ocr import extract_math_from_image
+
+    result = await extract_math_from_image(settings, content_type=content_type, data=data)
+    return result.extract

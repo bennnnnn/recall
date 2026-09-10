@@ -11,6 +11,7 @@ from app.services.image_gen_intent import (
     image_gen_revision_context,
     is_image_only_assistant_content,
 )
+from app.services.math_image_extract import MATH_CAMERA_PROMPT
 
 
 @pytest.mark.parametrize(
@@ -58,6 +59,8 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "a" * 501,
         "Image",
         "pic",
+        MATH_CAMERA_PROMPT,
+        f"{MATH_CAMERA_PROMPT}\n\nI read this as: x=2",
     ],
 )
 def test_extract_image_gen_prompt_rejects(text: str) -> None:

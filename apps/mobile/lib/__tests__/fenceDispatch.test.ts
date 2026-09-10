@@ -44,6 +44,8 @@ describe("classifyFence — explicit tags win", () => {
     const post =
       "Python is a strong choice for prototyping, while JavaScript shines on the frontend. Both belong in a modern toolkit.";
     expect(classifyFence("linkedin", post).kind).toBe("rich");
+    expect(classifyFence("facebook", post).kind).toBe("rich");
+    expect(classifyFence("instagram", post).kind).toBe("rich");
   });
 
   it("demotes an email fence that swallowed a capabilities list", () => {
@@ -58,7 +60,7 @@ describe("classifyFence — explicit tags win", () => {
     expect(classifyFence("sms", leaked).kind).toBe("prose");
   });
 
-  it.each(["email", "message", "sms", "reply", "linkedin", "social", "copy"])(
+  it.each(["email", "message", "sms", "reply", "linkedin", "social", "facebook", "instagram", "copy"])(
     "streams an open %s fence as prose, never as code",
     (lang) => {
       expect(classifyOpenFencePreview(lang, "Draft still streaming")).toBe("prose");
