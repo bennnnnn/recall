@@ -156,6 +156,16 @@ class Settings(BaseSettings):
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
     # were still legitimately in flight.
     math_image_extract_timeout_seconds: float = 20.0
+    # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
+    # Images always send metadata.improve_mathpix=false — student homework is
+    # not opted into Mathpix QA storage.
+    mathpix_app_id: str = ""
+    mathpix_app_key: str = ""
+    mathpix_enabled: bool = True
+    mathpix_timeout_seconds: float = 8.0
+    # Below this 0..1 confidence, a Mathpix transcription still needs Gemini.
+    mathpix_confidence_min: float = 0.72
+    math_scan_extract_per_minute: int = 12
 
     # Background LLM resilience: if the primary memory-model provider is down,
     # retry background jobs (memory/todo/project extraction, titles, summaries)

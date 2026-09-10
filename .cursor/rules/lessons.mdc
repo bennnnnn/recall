@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Solve-with-camera generated an image instead of solving.** The caption
+  “Solve the math problem in this image…” is ≤80 chars and matches the short
+  image-noun heuristic; a short “I read this as: x=2” line often stays under
+  80 too. Skip image-gen when `is_math_camera_prompt` / `isMathCameraPrompt`.
 - **Asked for a dog image, got a DALL-E copy-paste prompt.** Intercept only
   sees the current line (`Image` / `that works` are not `draw me a dog`),
   and compact turns never get the image-gen hint (viz_intent is

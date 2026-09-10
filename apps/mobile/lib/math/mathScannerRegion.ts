@@ -53,6 +53,66 @@ export function translateScanRegion(base: ScanRegion, dxRatio: number, dyRatio: 
   return clampScanRegion({ ...base, x: base.x + dxRatio, y: base.y + dyRatio });
 }
 
+export type ScanCorner = "tl" | "tr" | "bl" | "br";
+
+/** Resize by dragging one corner. The opposite corner stays put until the
+ * min-size clamp kicks in; then the whole region is re-clamped on-screen. */
+export function resizeScanRegionFromCorner(
+  base: ScanRegion,
+  corner: ScanCorner,
+  dxRatio: number,
+  dyRatio: number,
+): ScanRegion {
+  let left = base.x;
+  let top = base.y;
+  let right = base.x + base.width;
+  let bottom = base.y + base.height;
+  if (corner === "tl" || corner === "bl") left += dxRatio;
+  if (corner === "tr" || corner === "br") right += dxRatio;
+  if (corner === "tl" || corner === "tr") top += dyRatio;
+  if (corner === "bl" || corner === "br") bottom += dyRatio;
+
+  if (right - left < MIN_REGION_RATIO) {
+    if (corner === "tl" || corner === "bl") left = right - MIN_REGION_RATIO;
+    else right = left + MIN_REGION_RATIO;
+  }
+  if (bottom - top < MIN_REGION_RATIO) {
+    if (corner === "tl" || corner === "tr") top = bottom - MIN_REGION_RATIO;
+    else bottom = top + MIN_REGION_RATIO;
+  }
+  return clampScanRegion({
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  });
+}
+
+export function regionsClose(a: ScanRegion, b: ScanRegion, epsilon = 1e-3): boolean {
+  return (
+    Math.abs(a.x - b.x) < epsilon &&
+    Math.abs(a.y - b.y) < epsilon &&
+    Math.abs(a.width - b.width) < epsilon &&
+    Math.abs(a.height - b.height) < epsilon
+  );
+}
+
+export function regionIsDefault(region: ScanRegion): boolean {
+  return regionsClose(clampScanRegion(region), clampScanRegion(defaultScanRegion()));
+}
+
+/** CameraView zoom is 0..1 (fraction of device max). */
+export function clampCameraZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) return 0;
+  return Math.min(1, Math.max(0, zoom));
+}
+
+/** Map a pinch `scale` onto CameraView zoom. Scale 1 keeps `startZoom`. */
+export function zoomFromPinch(startZoom: number, scale: number): number {
+  const nextScale = Number.isFinite(scale) ? scale : 1;
+  return clampCameraZoom(startZoom + (nextScale - 1) * 0.5);
+}
+
 /**
  * Map a screen-space (ratio) region to pixel crop coordinates for
  * ImageManipulator. CameraView fills the window with object-fit cover;

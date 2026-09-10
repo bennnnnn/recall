@@ -373,8 +373,14 @@ def _match_image_noun_message(tokens: list[str]) -> str | None:
 
 def extract_image_gen_prompt(text: str) -> str | None:
     """Return the image subject if ``text`` is a clear image-gen ask, else None."""
+    from app.services.math_image_extract import is_math_camera_prompt
+
     trimmed = text.strip()
     if not trimmed or len(trimmed) > 500:
+        return None
+    # Camera-math captions contain "image" and are often ≤80 chars, which the
+    # short image-noun heuristic would steal as a generate-image ask.
+    if is_math_camera_prompt(trimmed):
         return None
 
     if trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
