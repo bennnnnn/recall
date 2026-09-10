@@ -259,7 +259,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
 - ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
-  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded / latency.
+  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
+  p50 latency is under **Advanced**.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
@@ -331,8 +332,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
   prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
 - ✅ **Prompt token budgeting UI** — Settings → Models shows today's used / daily
-  limit (input · output split) and the server prompt window
-  (`context_token_budget`, last `recent_message_window` messages). The composer
+  limit. Input · output split, the server prompt window
+  (`context_token_budget`, last `recent_message_window` messages), and p50
+  latency sit behind **Advanced**. The composer
   shows a local draft estimate when the text is large enough to matter.
 - 🔜 Response caching.
 
@@ -750,7 +752,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision extract → SymPy on the supported subset. Unverified fall-through is labeled in the reply (`Couldn't verify this with SymPy.`). Not every photographed problem verifies. Camera capture needs a **dev build** (native module; Expo Go cannot shoot).
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → crop + torch / pinch-zoom / photos → OCR preview (“I read this as”) → **Solve**. Mathpix transcribes when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); Gemini vision interprets word problems / low-confidence reads; SymPy verifies. Confirmed readings are not re-OCR’d on send. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -816,6 +818,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   “Chemical structure” label for that pair.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex live voice (later).
+- 🔜 **Math scanner capture-quality** — on-device blur/glare/perspective correction and a
+  real homework-photo OCR benchmark (handwritten/printed, lighting, tilt). Torch, zoom,
+  OCR read-back, and Mathpix routing are shipped; do not market “industry-leading OCR”
+  until that corpus exists.
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 - ✅ **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
@@ -825,6 +831,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   Reduce Motion helpers, in-tree ActionBanner overlay host, recoverable
   `Alert.alert` sweep, and unused UI file cleanup. Do not restyle or
   reintroduce banned UX.
+- ✅ **Mobile consumer polish (audit 2026-09)** — generic `StateView` errors use
+  an alert icon (cloud-offline only for real connectivity); Models diagnostics
+  behind Advanced; quieter chat-header chrome; drawer Settings is a ghost
+  control; Home overdue uses warning, not danger; starter chips have distinct
+  icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 

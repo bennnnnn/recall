@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import {
@@ -48,8 +49,14 @@ export function MathConverterUnitSheet({
     >
       <View style={s.header}>
         <Text style={s.title}>{t("chat.math_converter_select_unit")}</Text>
-        <Pressable onPress={onClose} hitSlop={8} testID="math-converter-picker-close">
-          <Text style={s.close}>×</Text>
+        <Pressable
+          onPress={onClose}
+          hitSlop={8}
+          testID="math-converter-picker-close"
+          accessibilityRole="button"
+          accessibilityLabel={t("common.close")}
+        >
+          <Icon name="close" size={20} color={theme.textSecondary} />
         </Pressable>
       </View>
       <ScrollView
@@ -115,7 +122,6 @@ const makeStyles = (theme: Theme) =>
       marginBottom: 10,
     },
     title: { ...Type.navTitle, color: theme.text },
-    close: { fontSize: 24, color: theme.textSecondary, paddingHorizontal: 4 },
     cats: { gap: 8, paddingBottom: 12 },
     cat: {
       paddingHorizontal: 12,

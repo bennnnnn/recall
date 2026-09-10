@@ -5,6 +5,7 @@ import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
+import { mathScanApi } from "@/lib/api/mathScan";
 import { memoriesApi } from "@/lib/api/memories";
 import { projectsApi } from "@/lib/api/projects";
 import { speechApi } from "@/lib/api/speech";
@@ -41,4 +42,5 @@ export const api = {
   ...attachmentsApi,
   ...imagesApi,
   ...speechApi,
+  ...mathScanApi,
 };

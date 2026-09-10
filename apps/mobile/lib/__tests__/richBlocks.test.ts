@@ -3,6 +3,7 @@ import {
   parseEmailDraft,
   parseKeyValue,
   parseQuoteAttribution,
+  parseSocialPlatform,
   parseSteps,
 } from "@/lib/richBlocks";
 import { fullEmailText } from "@/lib/emailCompose";
@@ -170,5 +171,24 @@ describe("parseSteps", () => {
 
   it("fails closed on unstructured prose", () => {
     expect(parseSteps("Just mix and bake until done.")).toEqual([]);
+  });
+});
+
+describe("parseSocialPlatform", () => {
+  it("maps facebook and instagram tags to those cards", () => {
+    expect(parseSocialPlatform("facebook")).toBe("facebook");
+    expect(parseSocialPlatform("fb")).toBe("facebook");
+    expect(parseSocialPlatform("instagram")).toBe("instagram");
+    expect(parseSocialPlatform("ig")).toBe("instagram");
+  });
+
+  it("maps other social aliases to a generic post card", () => {
+    expect(parseSocialPlatform("social")).toBe("generic");
+    expect(parseSocialPlatform("tiktok")).toBe("generic");
+    expect(parseSocialPlatform("caption")).toBe("generic");
+  });
+
+  it("returns null for programming languages", () => {
+    expect(parseSocialPlatform("python")).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
  * Matched intents generate immediately on send — no confirmation sheet.
  */
 
+import { isMathCameraPrompt } from "@/lib/mathCameraPrompt";
 import { parseMessageImages } from "@/lib/messageAttachments";
 
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
@@ -289,6 +290,9 @@ function extractShortDrawSubject(trimmed: string): string | null {
 export function extractImageGenPrompt(text: string): string | null {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 500) return null;
+  // Camera-math captions contain "image" and are often ≤80 chars, which the
+  // short image-noun heuristic would steal as a generate-image ask.
+  if (isMathCameraPrompt(trimmed)) return null;
 
   let match = trimmed.match(VERB_THEN_IMAGE);
   if (match?.[1]) {

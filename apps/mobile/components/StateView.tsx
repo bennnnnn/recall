@@ -46,7 +46,7 @@ export function StateView({
   }
 
   const defaultIcon: IconName =
-    variant === "error" ? "cloud-offline-outline" : "folder-open-outline";
+    variant === "error" ? "alert-circle-outline" : "folder-open-outline";
 
   return (
     <View style={s.wrap}>

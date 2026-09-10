@@ -220,7 +220,7 @@ export const ChatComposer = memo(function ChatComposer({
                 <Text style={s.scanHintCta}>{t("chat.math_paste_scan_cta")}</Text>
               </Pressable>
               <Pressable onPress={() => setScanHint(false)} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
-                <Text style={s.scanHintDismiss}>×</Text>
+                <Icon name="close" size={16} color={theme.textSecondary} />
               </Pressable>
             </View>
           ) : null}
@@ -340,7 +340,7 @@ export const ChatComposer = memo(function ChatComposer({
                     accessibilityRole="button"
                     accessibilityLabel={t("chat.stop_a11y")}
                   >
-                    <Text style={s.sendIcon}>■</Text>
+                    <Icon name="stop" size={14} color={theme.onPrimary} />
                   </Pressable>
                 ) : (
                   <>
@@ -385,9 +385,11 @@ export const ChatComposer = memo(function ChatComposer({
                         {sendBusy ? (
                           <ActivityIndicator size="small" color={theme.textTertiary} />
                         ) : (
-                          <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>
-                            ↑
-                          </Text>
+                          <Icon
+                            name="arrow-up"
+                            size={18}
+                            color={isOffline ? theme.textTertiary : theme.onPrimary}
+                          />
                         )}
                       </Pressable>
                     ) : null}
@@ -548,9 +550,7 @@ function makeStyles(theme: Theme) {
       gap: 6,
       minHeight: Space.minTouch,
     },
-    sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },
-    sendIconDisabled: { color: theme.textTertiary },
     scanHint: {
       flexDirection: "row",
       alignItems: "center",
@@ -563,6 +563,5 @@ function makeStyles(theme: Theme) {
     },
     scanHintText: { flex: 1, fontSize: 13, color: theme.text },
     scanHintCta: { fontSize: 13, fontWeight: "700", color: theme.primary },
-    scanHintDismiss: { fontSize: 18, color: theme.textSecondary, paddingHorizontal: 4 },
   });
 }

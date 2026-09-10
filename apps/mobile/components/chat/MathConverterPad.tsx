@@ -144,7 +144,6 @@ export const MathConverterPad = memo(function MathConverterPad({
                   onPress={ask}
                   theme={theme}
                   accent
-                  trailing={streaming ? "■" : "↑"}
                 />
               ) : cell === "insert" ? (
                 <Key
@@ -223,7 +222,6 @@ function Key({
   onPress,
   theme,
   accent,
-  trailing,
   disabled,
 }: {
   label: string;
@@ -231,7 +229,6 @@ function Key({
   onPress: () => void;
   theme: Theme;
   accent?: boolean;
-  trailing?: string;
   disabled?: boolean;
 }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -247,7 +244,6 @@ function Key({
     >
       <View style={s.keyInner}>
         <Text style={s.keyLabel}>{label}</Text>
-        {trailing ? <Text style={s.keyTrailing}>{trailing}</Text> : null}
       </View>
     </Pressable>
   );
@@ -296,6 +292,5 @@ const makeStyles = (theme: Theme) =>
     keyDisabled: { opacity: 0.4 },
     keyInner: { flexDirection: "row", alignItems: "center", gap: 4 },
     keyLabel: { fontSize: 17, fontWeight: "600", color: theme.text },
-    keyTrailing: { fontSize: 16, fontWeight: "700", color: theme.primary },
     pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
   });

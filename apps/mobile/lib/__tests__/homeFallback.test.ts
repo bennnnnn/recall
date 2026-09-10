@@ -2,6 +2,7 @@ import i18n from "@/lib/i18n";
 import {
   instantHomePlaceholder,
   localGreeting,
+  welcomeStarterIcon,
   welcomeStarters,
 } from "@/lib/homeWelcome";
 
@@ -45,5 +46,10 @@ describe("instantHomePlaceholder", () => {
     const texts = welcomeStarters().map((s) => s.text).join(" ");
     expect(texts.toLowerCase()).not.toContain("today");
     expect(texts.toLowerCase()).not.toContain("tonight");
+  });
+
+  it("gives the two welcome chips distinct icons", () => {
+    expect(welcomeStarterIcon(0)).toBe("sparkles-outline");
+    expect(welcomeStarterIcon(1)).toBe("help-circle-outline");
   });
 });

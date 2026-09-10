@@ -251,32 +251,46 @@ async def _process_attachment_inputs(
     # alone — this must not fire a vision call on every unrelated photo.
     caption = content.strip()
     looks_like_math_caption = bool(caption) and math_text_match.has_math_keyword(caption.lower())
+    confirmed_reading = math_image_extract_service.confirmed_math_reading(content)
     if (
         has_image_attachment
         and image_attachments
-        and (math_image_extract_service.is_math_camera_prompt(content) or looks_like_math_caption)
+        and (
+            confirmed_reading
+            or math_image_extract_service.is_math_camera_prompt(content)
+            or looks_like_math_caption
+        )
     ):
         if on_status is not None:
             await on_status("calculating")
-        mime, storage_key = image_attachments[0]
-        image_bytes = bytes_by_key.get(storage_key)
-        if image_bytes is None:
-            image_bytes = await attachment_content_service.read_attachment_bytes(
-                gateway, storage_key
-            )
-            if image_bytes:
-                bytes_by_key[storage_key] = image_bytes
-        if image_bytes:
-            extracted = await math_image_extract_service.extract_equation_from_image(
-                settings, content_type=mime, data=image_bytes
-            )
+        if confirmed_reading:
+            # The student already verified OCR in the scanner. Re-running
+            # vision here can silently solve a different equation.
+            from app.services.math_ocr import extract_from_confirmed_reading
+
+            extracted = extract_from_confirmed_reading(confirmed_reading)
             if extracted is not None:
                 image_math_extract = extracted
-                suffix = math_image_extract_service.camera_math_user_suffix(extracted)
-                # Prompt/stream path sees Solve: for equations; stored bubble
-                # keeps the image marker + original caption only.
-                if suffix:
-                    content = f"{content}\n\n{suffix}"
+        else:
+            mime, storage_key = image_attachments[0]
+            image_bytes = bytes_by_key.get(storage_key)
+            if image_bytes is None:
+                image_bytes = await attachment_content_service.read_attachment_bytes(
+                    gateway, storage_key
+                )
+                if image_bytes:
+                    bytes_by_key[storage_key] = image_bytes
+            if image_bytes:
+                extracted = await math_image_extract_service.extract_equation_from_image(
+                    settings, content_type=mime, data=image_bytes
+                )
+                if extracted is not None:
+                    image_math_extract = extracted
+                    suffix = math_image_extract_service.camera_math_user_suffix(extracted)
+                    # Prompt/stream path sees Solve: for equations; stored bubble
+                    # keeps the image marker + original caption only.
+                    if suffix:
+                        content = f"{content}\n\n{suffix}"
 
     return _AttachmentProcessResult(
         user=user,
