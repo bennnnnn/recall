@@ -12,7 +12,7 @@ import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Theme, withAlpha } from "@/lib/theme";
+import { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
@@ -36,6 +36,7 @@ export function SettingsGroup({
 
 function SettingsRowChrome({
   icon,
+  leading,
   title,
   subtitle,
   value,
@@ -46,6 +47,7 @@ function SettingsRowChrome({
   theme,
 }: {
   icon?: IoniconName;
+  leading?: ReactNode;
   title: string;
   subtitle?: string;
   value?: string;
@@ -57,9 +59,7 @@ function SettingsRowChrome({
 }) {
   return (
     <>
-      {icon ? (
-        <Icon name={icon} danger={danger} />
-      ) : null}
+      {leading ?? (icon ? <Icon name={icon} danger={danger} /> : null)}
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>
           {title}
@@ -87,6 +87,7 @@ export function SettingsLinkRow({
   subtitle,
   value,
   icon,
+  leading,
   danger,
   onPress,
   styles,
@@ -96,6 +97,7 @@ export function SettingsLinkRow({
   subtitle?: string;
   value?: string;
   icon?: IoniconName;
+  leading?: ReactNode;
   danger?: boolean;
   onPress: () => void;
   styles: SettingsStyles;
@@ -109,6 +111,7 @@ export function SettingsLinkRow({
     >
       <SettingsRowChrome
         icon={icon}
+        leading={leading}
         title={title}
         subtitle={subtitle}
         value={value}
@@ -126,6 +129,7 @@ export function SettingsValueRow({
   subtitle,
   value,
   icon,
+  leading,
   styles,
   theme,
 }: {
@@ -133,6 +137,7 @@ export function SettingsValueRow({
   subtitle?: string;
   value?: string;
   icon?: IoniconName;
+  leading?: ReactNode;
   styles: SettingsStyles;
   theme: Theme;
 }) {
@@ -140,6 +145,7 @@ export function SettingsValueRow({
     <View style={styles.menuRow} accessibilityRole="text">
       <SettingsRowChrome
         icon={icon}
+        leading={leading}
         title={title}
         subtitle={subtitle}
         value={value}
@@ -359,6 +365,43 @@ export function IntegrationPanel({
   );
 }
 
+export function SettingsActionButton({
+  label,
+  onPress,
+  danger,
+  disabled,
+  styles,
+}: {
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+  styles: SettingsStyles;
+}) {
+  return (
+    <Pressable
+      style={styles.linkBtn}
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
+    >
+      <Text style={danger ? styles.linkBtnDanger : styles.linkBtnText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export function ConnectedAppMark({
+  name,
+  color,
+}: {
+  name: IoniconName;
+  color: string;
+}) {
+  return <Icon name={name} color={color} />;
+}
+
 export function makeSettingsStyles(t: Theme) {
   return StyleSheet.create({
     center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
@@ -391,27 +434,30 @@ export function makeSettingsStyles(t: Theme) {
     rowPressed: { opacity: 0.55 },
 
     profileHeader: {
-      width: "100%",
+      flexDirection: "row",
       alignItems: "center",
-      gap: Space.xs,
+      gap: Space.sm,
+      minHeight: 72,
       marginBottom: Space.sm,
-      paddingTop: Space.sm,
-      paddingBottom: Space.sm,
+      paddingVertical: Space.sm,
+      paddingHorizontal: 4,
     },
     profileAvatarWrap: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
       overflow: "hidden",
       alignItems: "center",
       justifyContent: "center",
-      alignSelf: "center",
-      backgroundColor: t.surfaceAlt,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
+      backgroundColor: t.surface,
+    },
+    profileMeta: { flex: 1, minWidth: 0, gap: 2 },
+    profileName: {
+      ...Type.callout,
+      color: t.text,
     },
     profileEmail: {
-      ...Type.secondary,
+      ...Type.compact,
       color: t.textSecondary,
     },
     profilePlan: {
@@ -419,29 +465,28 @@ export function makeSettingsStyles(t: Theme) {
       color: t.textSecondary,
     },
     planPill: {
-      marginTop: Space.xxs,
+      alignSelf: "flex-start",
+      marginTop: 2,
       paddingHorizontal: 10,
       paddingVertical: Space.xxs,
       borderRadius: Radius.full,
       backgroundColor: t.primaryLight,
     },
     planPillPro: {
-      backgroundColor: withAlpha(t.warning, 0.16),
+      backgroundColor: t.primaryLight,
     },
     planPillText: {
       ...Type.caption,
       fontWeight: "700",
       color: t.primary,
     },
-    planPillTextPro: { color: t.warning },
-    accountPro: { color: t.warning },
+    planPillTextPro: { color: t.primary },
+    accountPro: { color: t.primary },
     section: { marginTop: Space.lg },
     sectionLabel: {
-      ...Type.caption,
-      fontWeight: "700",
+      ...Type.compact,
+      fontWeight: "600",
       color: t.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
       marginLeft: Space.xxs,
       marginBottom: Space.xs,
     },
@@ -453,10 +498,8 @@ export function makeSettingsStyles(t: Theme) {
       marginBottom: Space.xs,
     },
     group: {
-      backgroundColor: t.surfaceAlt,
+      backgroundColor: t.surface,
       borderRadius: Radius.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
       padding: Space.sm,
       gap: Space.xs,
     },
@@ -485,11 +528,9 @@ export function makeSettingsStyles(t: Theme) {
       gap: Space.xxs,
     },
     pickerTitle: {
-      ...Type.caption,
-      fontWeight: "700",
+      ...Type.compact,
+      fontWeight: "600",
       color: t.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
       marginBottom: Space.xs,
     },
     pickerOption: {
@@ -525,16 +566,27 @@ export function makeSettingsStyles(t: Theme) {
       maxWidth: "55%",
     },
     linkValue: {
-      ...Type.secondary,
+      ...Type.compact,
       color: t.textTertiary,
     },
     rowBody: { flex: 1 },
-    rowTitle: { ...Type.secondary, fontWeight: "600", color: t.text },
+    rowTitle: { ...Type.callout, color: t.text },
     meta: {
-      ...Type.caption,
-      fontWeight: "400",
+      ...Type.compact,
       color: t.textTertiary,
       marginTop: 1,
+    },
+    usageTrack: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: t.border,
+      overflow: "hidden",
+      marginTop: Space.xs,
+    },
+    usageFill: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: t.primary,
     },
     linkBtn: {
       minHeight: 44,
@@ -596,10 +648,8 @@ export function makeSettingsStyles(t: Theme) {
       borderTopColor: t.border,
     },
     footerGroup: {
-      backgroundColor: t.surfaceAlt,
+      backgroundColor: t.surface,
       borderRadius: Radius.xl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
       overflow: "hidden",
     },
     menuStack: { gap: Space.sm },

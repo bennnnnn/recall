@@ -1,19 +1,22 @@
-import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLayoutEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { Icon } from "@/components/Icon";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { LearningPathList } from "@/components/projects/LearningPathList";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
+import { LessonMapOverflowMenu } from "./LessonMapOverflowMenu";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { chapterKey } from "@/lib/projects/chapterAccess";
 import { branchAccess, domainAccess, groupPathByDomain } from "@/lib/projects/domainPath";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
+import { IconSize } from "@/lib/icons";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -29,9 +32,26 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const router = useRouter();
+  const navigation = useNavigation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = typeof id === "string" ? id : undefined;
   const { project, loading, loadError, load, isCurrentOwner } = useProjectDetail(projectId);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => setMenuOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityLabel={t("lesson.menu")}
+          hitSlop={12}
+        >
+          <Icon name="ellipsis-horizontal" size={IconSize.md} color={theme.text} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, t, theme.text]);
 
   if (!token) return <Redirect href="/login" />;
   if (!projectId) return <Redirect href="/projects" />;
@@ -88,6 +108,12 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           variant="error"
           title={t("projects.load_failed")}
           onRetry={() => void load({ force: true })}
+        />
+      ) : null}
+      {menuOpen ? (
+        <LessonMapOverflowMenu
+          project={project}
+          isCurrent={() => isCurrent() && isCurrentOwner()}
         />
       ) : null}
       {stats && dailyGoal > 0 ? (

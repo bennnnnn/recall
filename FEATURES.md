@@ -249,7 +249,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (calendar-proposal style): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
-  No open settings tool. Daily learning goal still Settings-only.
+  No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
 - ✅ **Auto routing** — an **Auto** chip (composer + Settings) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Short follow-ups of a hard turn inherit
   that turn’s tier; a new topic drops back to Flash. No extra LLM call.
@@ -303,7 +303,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   delayed background writes cannot overwrite changed/deleted sections and recheck the
   learning toggle before saving. See [review and release checks](docs/MEMORY_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
-  (editable in Settings → Profile) and injected into the chat system profile block.
+  (editable in Settings → Personalization → About you) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
   into the system prompt on **later turns in the same chat** (`chat_id` on chunks — **not**
   a user-wide file library). Prepare uses the **text layer only**; scanned-PDF vision OCR
@@ -358,19 +358,31 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account** — shows email and plan; profile picture from Google (initials fallback).
-  Profile (name, age, country, job, plan) is a row under that header.
-- ✅ **Settings chrome** — identity header, then App / Data & privacy on the home list, plus the
-  same icon wells and one-line subtitles on nested screens. Choice rows
-  (appearance, style, tone, language, reminder lead, daily goal) open a
-  floating popup — they do **not** expand inside the gray card. Same destinations.
-- ✅ **Structured profile** — name, age, country, and job editable in Settings → Profile;
-  plan (Free / Pro) is shown there. Persisted on `users` and injected into the chat
-  system prompt (see [§6](#6-memory-remembering-the-user)).
-- ✅ **Default model** — Flash / Pro.
-- ✅ **Response style** — short / balanced / detailed (changes the assistant's verbosity).
-- ✅ **Memory** — on/off toggle + link to manage saved memories.
-- ✅ **Usage** — today's token meter.
+- ✅ **Account header** — tappable row (avatar, name, email, Pro/Free) opens Account
+  (name, email, sign-in method, plan). Age / country / job live under Personalization →
+  About you. Persisted on `users` and injected into the chat system prompt
+  (see [§6](#6-memory-remembering-the-user)).
+- ✅ **Settings chrome** — Experience / Connections / Advanced / Data & privacy / Support.
+  Sentence-case group labels; nested screens omit row icons except connected-app marks
+  and danger/status rows. Learning settings are not on this list (lesson map ⋯).
+  Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a
+  floating popup — they do **not** expand inside the gray card.
+- ✅ **Appearance** — System / Light / Dark (on-device).
+- ✅ **Personalization** — response length, tone labels, language sheet, custom
+  instructions, About you. Stored tone ids stay `soft` / `casual` / `professional` / `funny`.
+- ✅ **Voice & read aloud** — Device voice vs Enhanced voice.
+- ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
+- ✅ **Connected apps** — Calendar and Gmail list + detail (connect / disconnect / sync).
+- ✅ **Notifications** — push (On only if pref and OS permission), email reminders,
+  quiet hours, reminder lead.
+- ✅ **Models** — Auto, model toggles, daily used/limit bar. Token-window / p50 under
+  Advanced in `__DEV__` only.
+- ✅ **Data controls** — archived chats, archive all, delete all chats (Library stays),
+  export, use current location, delete account.
+- ✅ **Security** — session list + revoke + sign out of all devices. No MFA.
+- ✅ **Help & feedback** — Report a problem / Send feedback via the OS share sheet
+  (version, plan, locale). No fake Help Center URL.
+- ✅ **Usage** — today's token meter on Models.
 - ✅ **Sign out.**
 - ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
   (with items) as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
@@ -379,12 +391,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   then signs out.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
-  Preferences. Some older hardcoded English strings remain (see i18n backlog).
+  Settings → Appearance.
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
   `expo-notifications`; requires a dev build for full native support).
 - ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; learning-review,
   todo-due, email-suggestion, and **calendar meeting** notifications (requires dev build + EAS
-  project ID).
+  project ID). Quiet hours skip push and reminder email without marking them sent.
 - ✅ **Email reminders** — opt-in todo-due + learning nudge emails (Resend); Settings
   toggle; worker scheduler only (welcome + Pro receipt unchanged).
 
@@ -630,7 +642,7 @@ were removed. Programming help lives in main chat.
   `programming`.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
-  there). Compact stats, daily goals, and PDF export live in Settings/Learning.
+  there). Compact stats, daily goals, and PDF export live on the lesson map ⋯ menu.
   Recall manages lesson content; there are no manual content edit/delete controls.
 - ✅ **Project kinds** — create only offers `en` / `es` (English and Spanish vocab catalogs). Legacy kinds (`trivia`,
   `programming`, `math`, …) are rejected on create. Other languages and Anki SM-2 due-queue UI are not shipped.
@@ -644,7 +656,7 @@ were removed. Programming help lives in main chat.
   part of speech, word/expression/phrasal-verb/idiom/proverb classification,
   verb and noun subtypes, simple gloss, status (new / learning / mastered), SM-2 fields.
 - ✅ **Saved practice** — question attempts and completed words are recorded separately; compact stats summary (learned / this week / streak)
-  lives in Settings/Learning, not the main lesson flow.
+  lives on the lesson map ⋯ menu, not the main lesson flow.
 - ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
   `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
   (word, pronunciation, meaning, examples) as a tap-to-hear dictionary card,
@@ -675,9 +687,9 @@ were removed. Programming help lives in main chat.
   There is no due-queue of old mastered words across groups. Reopening a
   **completed** group on the map is a same-group scan (correct answers already
   marked) that updates scheduling; it does not assemble a cross-group queue.
-  Settings has PDF export, not a deck browser.
+  Settings has PDF export on the lesson map ⋯ menu, not a deck browser.
 - ❌ **Class CEFR level** — unused. Vocab is the full catalog for everyone;
-  Settings has daily goal + PDF; Recall manages lesson content. Chat extract `set_level` is a no-op.
+  the lesson map ⋯ menu has daily goal + PDF; Recall manages lesson content. Chat extract `set_level` is a no-op.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges use actual study activity, including attempts and completed reviews. Partial
   practice is not reported as a skipped day (streak count is not in notification text).
@@ -724,7 +736,7 @@ were removed. Programming help lives in main chat.
   met, the map today bar uses the same success fill as the class list card.
   The main flow is
   Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
-  screen). Compact stats, daily goals, and PDF export live in Settings/Learning.
+  screen). Compact stats, daily goals, and PDF export live on the lesson map ⋯ menu.
   Recall manages lesson content; there are no manual content edit/delete controls.
   Today’s progress sits above the path tree. Locked chapters stay
   visible until the current one is complete. No generic `learning` kind, lesson

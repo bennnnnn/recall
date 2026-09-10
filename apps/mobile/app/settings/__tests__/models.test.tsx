@@ -72,14 +72,14 @@ jest.mock("@/components/UpgradeSheet", () => ({
 }));
 
 describe("models settings", () => {
-  it("hides token split, prompt window, and p50 until Advanced is opened", async () => {
+  it("shows usage used/limit and hides diagnostics until Advanced is opened", async () => {
     const { getByText, queryByText } = await render(<ModelsSettingsScreen />);
 
-    expect(getByText("settings.usage_today")).toBeTruthy();
+    expect(getByText("settings.usage_daily")).toBeTruthy();
     expect(queryByText("settings.usage_split")).toBeNull();
     expect(queryByText("settings.prompt_window")).toBeNull();
     expect(queryByText("settings.model_latency")).toBeNull();
-    expect(getByText("settings.tts_cloud")).toBeTruthy();
+    expect(queryByText("settings.tts_cloud")).toBeNull();
 
     await fireEvent.press(getByText("settings.advanced"));
 

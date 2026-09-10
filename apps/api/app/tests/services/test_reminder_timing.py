@@ -6,6 +6,7 @@ import pytest
 
 from app.services.reminder_timing import (
     DEFAULT_REMINDER_LEAD_MINUTES,
+    in_quiet_hours,
     learning_dedupe_key,
     reminder_title,
     resolve_reminder_lead_minutes,
@@ -80,3 +81,43 @@ def test_learning_dedupe_key_scopes_by_prefix_user_and_day():
     assert push_key == f"recall:push:learning:{user_id}:2026-07-12"
     assert email_key == f"recall:email:learning:{user_id}:2026-07-12"
     assert push_key != email_key
+
+
+def _quiet_user(*, enabled: bool = True, start: int = 1320, end: int = 420, tz: str = "UTC"):
+    user = MagicMock()
+    user.quiet_hours_enabled = enabled
+    user.quiet_hours_start_minute = start
+    user.quiet_hours_end_minute = end
+    user.timezone = tz
+    return user
+
+
+def test_in_quiet_hours_disabled_and_magicmock_are_false():
+    user = MagicMock()
+    user.timezone = "UTC"
+    assert in_quiet_hours(user) is False
+    assert (
+        in_quiet_hours(_quiet_user(enabled=False), now=datetime(2026, 1, 2, 23, 0, tzinfo=UTC))
+        is False
+    )
+
+
+def test_in_quiet_hours_wraps_midnight():
+    user = _quiet_user()
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 22, 0, tzinfo=UTC)) is True
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 23, 30, tzinfo=UTC)) is True
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 6, 59, tzinfo=UTC)) is True
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 7, 0, tzinfo=UTC)) is False
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 12, 0, tzinfo=UTC)) is False
+
+
+def test_in_quiet_hours_same_start_and_end_is_never_quiet():
+    user = _quiet_user(start=600, end=600)
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 10, 0, tzinfo=UTC)) is False
+
+
+def test_in_quiet_hours_same_day_window():
+    user = _quiet_user(start=540, end=720)
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 9, 0, tzinfo=UTC)) is True
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 12, 0, tzinfo=UTC)) is False
+    assert in_quiet_hours(user, now=datetime(2026, 1, 2, 8, 59, tzinfo=UTC)) is False

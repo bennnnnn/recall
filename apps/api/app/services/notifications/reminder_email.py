@@ -23,6 +23,7 @@ from app.services.notifications import transactional_email as tx_email
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    in_quiet_hours,
     reminder_title,
     resolve_reminder_lead_minutes,
     should_notify_todo,
@@ -72,6 +73,8 @@ async def process_todo_reminder_emails(
         if todo.due_at is None or not user.email:
             continue
         try:
+            if in_quiet_hours(user, now=now):
+                continue
             lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
             if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
                 continue
@@ -124,7 +127,7 @@ async def process_learning_nudge_emails(
 ) -> int:
     effective_now = now or datetime.now(UTC)
     result = await session.execute(select(User).where(User.email_reminders_enabled.is_(True)))
-    users = list(result.scalars().all())
+    users = [user for user in result.scalars().all() if not in_quiet_hours(user, now=effective_now)]
     if not users:
         return 0
 

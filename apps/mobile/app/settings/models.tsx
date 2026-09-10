@@ -15,7 +15,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
-import { useTtsPreference } from "@/hooks/useTtsPreference";
 import { useUsage } from "@/hooks/useUsage";
 import {
   formatTokenCount,
@@ -25,12 +24,13 @@ import {
 } from "@/lib/quota";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
-import { TTS_DEVICE_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
   for (const id of a) {
-    if (!b.has(id)) return false;
+    if (!b.has(id)) {
+      return false;
+    }
   }
   return true;
 }
@@ -43,21 +43,13 @@ type DraftPrefs = {
 export default function ModelsSettingsScreen() {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
-  const {
-    models,
-    isPro,
-    autoEnabled,
-    modelEnabledSet,
-  } = useModels();
-  const { ttsModel, selectTtsModel } = useTtsPreference();
+  const { models, isPro, autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const usage = useUsage();
-  // Local draft so the Switch doesn't snap back while Auth/Models context
-  // catches up (and so a racing /auth/me echo can't flash the old value).
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const savingRef = useRef(false);
@@ -113,6 +105,10 @@ export default function ModelsSettingsScreen() {
     patchPreferences(effectiveAuto, next, modelId);
   };
 
+  const used = usage ? usageUsedTokens(usage) : 0;
+  const limit = usage?.daily_limit ?? 0;
+  const usagePct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+
   return (
     <>
       <ScrollView
@@ -120,25 +116,30 @@ export default function ModelsSettingsScreen() {
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
         <SettingsGroup label={t("settings.usage_group")} styles={s}>
-          <SettingsValueRow
-            icon="speedometer-outline"
-            title={t("settings.usage_today")}
-            value={
-              usage
-                ? t("settings.usage_today_value", {
-                    used: formatTokenCount(usageUsedTokens(usage)),
-                    limit: formatTokenCount(usage.daily_limit),
-                  })
-                : undefined
-            }
-            styles={s}
-            theme={theme}
-          />
+          <View style={s.menuRow}>
+            <View style={s.rowBody}>
+              <Text style={s.rowTitle}>{t("settings.usage_daily")}</Text>
+              <Text style={s.meta}>
+                {usage
+                  ? t("settings.usage_today_value", {
+                      used: formatTokenCount(used),
+                      limit: formatTokenCount(limit),
+                    })
+                  : " "}
+              </Text>
+              <View
+                style={s.usageTrack}
+                accessibilityRole="progressbar"
+                accessibilityValue={{ min: 0, max: 100, now: usagePct }}
+              >
+                <View style={[s.usageFill, { width: `${usagePct}%` }]} />
+              </View>
+            </View>
+          </View>
         </SettingsGroup>
 
         <SettingsGroup styles={s}>
           <SettingsSwitchRow
-            icon="flash-outline"
             title={t("settings.model_auto")}
             subtitle={t("settings.model_auto_summary")}
             value={effectiveAuto}
@@ -203,89 +204,62 @@ export default function ModelsSettingsScreen() {
           })}
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.tts")} styles={s}>
-          <SettingsSwitchRow
-            icon="phone-portrait-outline"
-            title={t("settings.tts_device")}
-            subtitle={t("settings.tts_device_meta")}
-            value={ttsModel === TTS_DEVICE_MODEL}
-            onValueChange={(enabled) => {
-              if (enabled) selectTtsModel(TTS_DEVICE_MODEL);
-            }}
-            styles={s}
-            theme={theme}
-          />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsSwitchRow
-            icon="volume-high-outline"
-            title={t("settings.tts_cloud")}
-            subtitle={t("settings.tts_openai_meta")}
-            value={ttsModel === TTS_QUALITY_MODEL}
-            onValueChange={(enabled) => {
-              if (enabled) selectTtsModel(TTS_QUALITY_MODEL);
-            }}
-            styles={s}
-            theme={theme}
-          />
-        </SettingsGroup>
-
-        <SettingsGroup styles={s}>
-          <SettingsDisclosureRow
-            icon="options-outline"
-            title={t("settings.advanced")}
-            expanded={advancedOpen}
-            onToggle={() => setAdvancedOpen((open) => !open)}
-            styles={s}
-            theme={theme}
-          />
-          {advancedOpen ? (
-            <>
-              <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-              <SettingsValueRow
-                icon="speedometer-outline"
-                title={t("settings.usage_split")}
-                value={
-                  usage
-                    ? t("settings.usage_today_split", {
-                        input: formatTokenCount(usage.input_tokens),
-                        output: formatTokenCount(usage.output_tokens),
-                      })
-                    : undefined
-                }
-                styles={s}
-                theme={theme}
-              />
-              <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-              <SettingsValueRow
-                icon="layers-outline"
-                title={t("settings.prompt_window")}
-                value={t("settings.prompt_window_value", {
-                  tokens: formatTokenCount(promptWindowTokens(usage)),
-                })}
-                subtitle={t("settings.prompt_window_summary", {
-                  count: promptWindowMessages(usage),
-                })}
-                styles={s}
-                theme={theme}
-              />
-              {models.map((option) =>
-                option.latency_p50_ms != null && option.latency_p50_ms > 0 ? (
-                  <View key={`latency-${option.id}`}>
-                    <View style={s.menuSeparator} />
-                    <SettingsValueRow
-                      title={option.label}
-                      value={t("settings.model_latency", {
-                        ms: option.latency_p50_ms,
-                      })}
-                      styles={s}
-                      theme={theme}
-                    />
-                  </View>
-                ) : null,
-              )}
-            </>
-          ) : null}
-        </SettingsGroup>
+        {__DEV__ ? (
+          <SettingsGroup styles={s}>
+            <SettingsDisclosureRow
+              title={t("settings.advanced")}
+              expanded={advancedOpen}
+              onToggle={() => setAdvancedOpen((open) => !open)}
+              styles={s}
+              theme={theme}
+            />
+            {advancedOpen ? (
+              <>
+                <View style={s.menuSeparator} />
+                <SettingsValueRow
+                  title={t("settings.usage_split")}
+                  value={
+                    usage
+                      ? t("settings.usage_today_split", {
+                          input: formatTokenCount(usage.input_tokens),
+                          output: formatTokenCount(usage.output_tokens),
+                        })
+                      : undefined
+                  }
+                  styles={s}
+                  theme={theme}
+                />
+                <View style={s.menuSeparator} />
+                <SettingsValueRow
+                  title={t("settings.prompt_window")}
+                  value={t("settings.prompt_window_value", {
+                    tokens: formatTokenCount(promptWindowTokens(usage)),
+                  })}
+                  subtitle={t("settings.prompt_window_summary", {
+                    count: promptWindowMessages(usage),
+                  })}
+                  styles={s}
+                  theme={theme}
+                />
+                {models.map((option) =>
+                  option.latency_p50_ms != null && option.latency_p50_ms > 0 ? (
+                    <View key={`latency-${option.id}`}>
+                      <View style={s.menuSeparator} />
+                      <SettingsValueRow
+                        title={option.label}
+                        value={t("settings.model_latency", {
+                          ms: option.latency_p50_ms,
+                        })}
+                        styles={s}
+                        theme={theme}
+                      />
+                    </View>
+                  ) : null,
+                )}
+              </>
+            ) : null}
+          </SettingsGroup>
+        ) : null}
       </ScrollView>
       <UpgradeSheet
         visible={upgradeVisible}

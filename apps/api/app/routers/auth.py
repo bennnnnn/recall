@@ -19,6 +19,8 @@ from app.models.orm import User
 from app.models.schemas import (
     AppleAuthRequest,
     AuthResponse,
+    AuthSessionListOut,
+    AuthSessionOut,
     DevAuthRequest,
     GoogleAuthRequest,
     LogoutRequest,
@@ -80,7 +82,14 @@ async def google_login(
 ) -> JSONResponse:
     await _enforce_login_rate_limit(redis, request, settings, provider="google")
     try:
-        auth = await auth_service.login_with_google(session, settings, body.id_token, redis)
+        auth = await auth_service.login_with_google(
+            session,
+            settings,
+            body.id_token,
+            redis,
+            device_label=body.device_label,
+            platform=body.platform,
+        )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
@@ -104,6 +113,8 @@ async def apple_login(
             body.id_token,
             redis,
             name=body.name,
+            device_label=body.device_label,
+            platform=body.platform,
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
@@ -141,6 +152,8 @@ async def dev_login(
             email=body.email,
             name=body.name,
             redis=redis,
+            device_label=body.device_label,
+            platform=body.platform,
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
@@ -192,7 +205,12 @@ async def refresh_session(
         web_session.require_web_csrf(request)
     try:
         access_token, refresh_token, user = await tokens_service.refresh_token_pair(
-            redis, presented, session, settings
+            redis,
+            presented,
+            session,
+            settings,
+            device_label=body.device_label,
+            platform=body.platform,
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
@@ -240,6 +258,101 @@ async def logout(
         raise redis_unavailable_http_exception(exc) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    if web_session.is_web_origin(request, settings):
+        web_session.clear_web_session_cookies(response, settings)
+    return response
+
+
+def _bearer_access_token(request: Request) -> str | None:
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+        return token or None
+    return None
+
+
+def _optional_str(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+@router.get("/sessions", response_model=AuthSessionListOut)
+async def list_sessions(
+    request: Request,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> AuthSessionListOut:
+    access_token = _bearer_access_token(request)
+    current_id = (
+        tokens_service.session_id_from_access_token(access_token, settings)
+        if access_token
+        else None
+    )
+    try:
+        rows = await tokens_service.list_sessions(redis, user.id, current_session_id=current_id)
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
+    sessions = [
+        AuthSessionOut(
+            id=str(row["id"]),
+            device_label=_optional_str(row.get("device_label")),
+            platform=_optional_str(row.get("platform")),
+            created_at=_optional_str(row.get("created_at")),
+            last_seen_at=_optional_str(row.get("last_seen_at")),
+            current=bool(row.get("current")),
+        )
+        for row in rows
+    ]
+    return AuthSessionListOut(sessions=sessions)
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_session(
+    session_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> None:
+    access_token = _bearer_access_token(request)
+    current_id = (
+        tokens_service.session_id_from_access_token(access_token, settings)
+        if access_token
+        else None
+    )
+    try:
+        await tokens_service.revoke_session(
+            redis,
+            user.id,
+            session_id,
+            current_session_id=current_id,
+        )
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
+    except tokens_service.CurrentSessionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except tokens_service.SessionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+async def logout_all(
+    request: Request,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> Response:
+    access_token = _bearer_access_token(request)
+    try:
+        await tokens_service.purge_user_sessions(redis, user.id, settings)
+        if access_token:
+            await tokens_service.revoke_access_token(redis, access_token, settings)
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     if web_session.is_web_origin(request, settings):
         web_session.clear_web_session_cookies(response, settings)

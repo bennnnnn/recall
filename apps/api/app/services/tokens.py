@@ -7,11 +7,13 @@ when a successful rotation's response was lost.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import secrets
 from datetime import UTC, datetime
-from typing import NoReturn
-from uuid import UUID
+from typing import Any, NoReturn
+from uuid import UUID, uuid4
 
 import jwt
 from redis.asyncio import Redis
@@ -66,14 +68,86 @@ def _revoked_since_key(user_id: UUID) -> str:
     return f"{_REVOKED_SINCE_PREFIX}{user_id}"
 
 
-async def issue_token_pair(redis: Redis, user_id: UUID, settings: Settings) -> tuple[str, str]:
-    access_token = create_access_token(user_id, settings)
+def _legacy_session_id(refresh_token: str) -> str:
+    return hashlib.sha256(refresh_token.encode()).hexdigest()[:32]
+
+
+def parse_refresh_record(raw: str | bytes, refresh_token: str) -> dict[str, Any]:
+    text = _redis_str(raw)
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict) and "user_id" in data:
+            session_id = data.get("session_id")
+            if not isinstance(session_id, str) or not session_id:
+                data["session_id"] = _legacy_session_id(refresh_token)
+            return data
+    except json.JSONDecodeError:
+        pass
+    return {
+        "user_id": text,
+        "session_id": _legacy_session_id(refresh_token),
+        "created_at": None,
+        "last_seen_at": None,
+        "device_label": None,
+        "platform": None,
+    }
+
+
+def _refresh_payload(
+    user_id: UUID,
+    session_id: str,
+    *,
+    created_at: str,
+    last_seen_at: str,
+    device_label: str | None,
+    platform: str | None,
+) -> str:
+    return json.dumps(
+        {
+            "user_id": str(user_id),
+            "session_id": session_id,
+            "created_at": created_at,
+            "last_seen_at": last_seen_at,
+            "device_label": device_label,
+            "platform": platform,
+        }
+    )
+
+
+def session_id_from_access_token(token: str, settings: Settings) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return None
+    sid = payload.get("sid")
+    return str(sid) if isinstance(sid, str) and sid else None
+
+
+async def issue_token_pair(
+    redis: Redis,
+    user_id: UUID,
+    settings: Settings,
+    *,
+    device_label: str | None = None,
+    platform: str | None = None,
+) -> tuple[str, str]:
+    session_id = str(uuid4())
+    now = datetime.now(UTC).isoformat()
+    access_token = create_access_token(user_id, settings, session_id=session_id)
     refresh_token = secrets.token_urlsafe(32)
     ttl = settings.jwt_refresh_expire_days * 86_400
     user_set_key = _user_refresh_set_key(user_id)
+    payload = _refresh_payload(
+        user_id,
+        session_id,
+        created_at=now,
+        last_seen_at=now,
+        device_label=device_label,
+        platform=platform,
+    )
     try:
         async with redis.pipeline(transaction=True) as pipe:
-            pipe.set(_refresh_key(refresh_token), str(user_id), ex=ttl)
+            pipe.set(_refresh_key(refresh_token), payload, ex=ttl)
             pipe.sadd(user_set_key, refresh_token)
             pipe.expire(user_set_key, ttl)
             await pipe.execute()
@@ -143,13 +217,17 @@ async def refresh_token_pair(
     refresh_token: str,
     session: AsyncSession,
     settings: Settings,
+    *,
+    device_label: str | None = None,
+    platform: str | None = None,
 ) -> tuple[str, str, UserOut]:
     try:
         key = _refresh_key(refresh_token)
         user_id_raw = await redis.get(key)
         if user_id_raw is None:
             await _reject_invalid_refresh(redis, refresh_token, settings)
-        user_id = UUID(_redis_str(user_id_raw))
+        record = parse_refresh_record(user_id_raw, refresh_token)
+        user_id = UUID(str(record["user_id"]))
 
         # Finish fallible DB reads / response validation before consuming the
         # credential. A transient failure must leave it available for retry.
@@ -158,10 +236,28 @@ async def refresh_token_pair(
             await revoke_refresh_token(redis, refresh_token)
             raise GoogleAuthError("User not found")
         user_out = UserOut.model_validate(user)
-        access_token = create_access_token(user_id, settings)
+        session_id = str(record.get("session_id") or uuid4())
+        created_raw = record.get("created_at")
+        created_at = created_raw if isinstance(created_raw, str) else datetime.now(UTC).isoformat()
+        now = datetime.now(UTC).isoformat()
+        existing_label = (
+            record.get("device_label") if isinstance(record.get("device_label"), str) else None
+        )
+        existing_platform = (
+            record.get("platform") if isinstance(record.get("platform"), str) else None
+        )
+        access_token = create_access_token(user_id, settings, session_id=session_id)
         new_refresh = secrets.token_urlsafe(32)
         ttl = settings.jwt_refresh_expire_days * 86_400
         user_set_key = _user_refresh_set_key(user_id)
+        payload = _refresh_payload(
+            user_id,
+            session_id,
+            created_at=created_at,
+            last_seen_at=now,
+            device_label=device_label or existing_label,
+            platform=platform or existing_platform,
+        )
         async with redis.pipeline(transaction=True) as pipe:
             try:
                 await pipe.watch(key)
@@ -175,7 +271,7 @@ async def refresh_token_pair(
                     ex=_REUSE_DETECTION_WINDOW_SECONDS,
                 )
                 pipe.srem(user_set_key, refresh_token)
-                pipe.set(_refresh_key(new_refresh), str(user_id), ex=ttl)
+                pipe.set(_refresh_key(new_refresh), payload, ex=ttl)
                 pipe.sadd(user_set_key, new_refresh)
                 pipe.expire(user_set_key, ttl)
                 await pipe.execute()
@@ -223,7 +319,8 @@ async def revoke_refresh_token(redis: Redis, refresh_token: str | None) -> None:
                     pipe.multi()
                     pipe.delete(key)
                     if user_id_raw is not None:
-                        user_id = UUID(_redis_str(user_id_raw))
+                        record = parse_refresh_record(user_id_raw, refresh_token)
+                        user_id = UUID(str(record["user_id"]))
                         pipe.srem(_user_refresh_set_key(user_id), refresh_token)
                     await pipe.execute()
                     return
@@ -269,3 +366,71 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
         logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
     return user_id
+
+
+class SessionNotFoundError(GoogleAuthError):
+    """The requested refresh session is not in the live set."""
+
+
+class CurrentSessionError(GoogleAuthError):
+    """Caller tried to revoke the session they are currently using."""
+
+
+async def list_sessions(
+    redis: Redis,
+    user_id: UUID,
+    *,
+    current_session_id: str | None,
+) -> list[dict[str, Any]]:
+    user_set_key = _user_refresh_set_key(user_id)
+    try:
+        tokens = await redis.smembers(user_set_key)
+    except RedisError as exc:
+        logger.warning("Session list failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
+    sessions: list[dict[str, Any]] = []
+    for raw_token in tokens:
+        refresh_token = _redis_str(raw_token)
+        raw = await redis.get(_refresh_key(refresh_token))
+        if raw is None:
+            continue
+        record = parse_refresh_record(raw, refresh_token)
+        session_id = str(record.get("session_id") or _legacy_session_id(refresh_token))
+        sessions.append(
+            {
+                "id": session_id,
+                "device_label": record.get("device_label")
+                if isinstance(record.get("device_label"), str)
+                else None,
+                "platform": record.get("platform")
+                if isinstance(record.get("platform"), str)
+                else None,
+                "created_at": record.get("created_at")
+                if isinstance(record.get("created_at"), str)
+                else None,
+                "last_seen_at": record.get("last_seen_at")
+                if isinstance(record.get("last_seen_at"), str)
+                else None,
+                "current": bool(current_session_id) and session_id == current_session_id,
+                "_refresh_token": refresh_token,
+            }
+        )
+    sessions.sort(key=lambda item: item.get("last_seen_at") or "", reverse=True)
+    return sessions
+
+
+async def revoke_session(
+    redis: Redis,
+    user_id: UUID,
+    session_id: str,
+    *,
+    current_session_id: str | None,
+) -> None:
+    if current_session_id and session_id == current_session_id:
+        raise CurrentSessionError("Cannot revoke the current session")
+    sessions = await list_sessions(redis, user_id, current_session_id=current_session_id)
+    match = next((item for item in sessions if item["id"] == session_id), None)
+    if match is None:
+        raise SessionNotFoundError("Session not found")
+    refresh_token = str(match["_refresh_token"])
+    await revoke_refresh_token(redis, refresh_token)

@@ -1,24 +1,27 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Avatar } from "@/components/Avatar";
+import { Icon } from "@/components/Icon";
 import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
+import { useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { LANGUAGES } from "@/lib/i18n/languages";
 import { prefetchMemories } from "@/lib/cache/memoryListCache";
 import {
   connectedCountFromStatus,
   fetchIntegrationStatus,
   getCachedConnectedCount,
 } from "@/lib/cache/integrationStatusCache";
+import { getDisplayName } from "@/lib/profile";
+import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -26,18 +29,26 @@ export default function SettingsScreen() {
   const { token, user, signOut } = useAuth();
   const { t } = useTranslation();
   const { isPro, autoEnabled, modelEnabledSet } = useModels();
+  const { preference: appearancePreference } = useAppearance();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
+  const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
 
   const refreshSummary = useCallback(async () => {
     if (!token) return;
-    const integrationsR = await Promise.allSettled([fetchIntegrationStatus(token)]);
-    if (integrationsR[0].status === "fulfilled" && integrationsR[0].value) {
-      setConnectedCount(connectedCountFromStatus(integrationsR[0].value));
+    const [integrationsR, pushGranted] = await Promise.allSettled([
+      fetchIntegrationStatus(token),
+      getNotificationPermissionGranted(),
+    ]);
+    if (integrationsR.status === "fulfilled" && integrationsR.value) {
+      setConnectedCount(connectedCountFromStatus(integrationsR.value));
+    }
+    if (pushGranted.status === "fulfilled") {
+      setOsPushGranted(pushGranted.value);
     }
   }, [token]);
 
@@ -47,11 +58,16 @@ export default function SettingsScreen() {
     }, [refreshSummary]),
   );
 
+  useEffect(() => {
+    void getNotificationPermissionGranted()
+      .then(setOsPushGranted)
+      .catch(() => setOsPushGranted(false));
+  }, []);
+
   if (!token) return <Redirect href="/login" />;
 
   const planLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
-  const selectedLanguage =
-    LANGUAGES.find((l) => l.code === (user?.locale ?? "en")) ?? LANGUAGES[0];
+  const displayName = getDisplayName(user?.name, t("common.you"));
   const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
   const modelsValue = autoEnabled
     ? t("settings.model_auto")
@@ -60,6 +76,14 @@ export default function SettingsScreen() {
     connectedCount > 0
       ? t("settings.integrations_connected", { count: connectedCount })
       : t("settings.integration_not_connected");
+  const notificationsOn =
+    Boolean(user?.push_notifications_enabled) && osPushGranted === true;
+  const notificationsValue =
+    osPushGranted == null
+      ? undefined
+      : notificationsOn
+        ? t("settings.on")
+        : t("settings.off");
 
   return (
     <View style={s.root}>
@@ -67,39 +91,38 @@ export default function SettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
-        <View style={s.profileHeader}>
+        <Pressable
+          style={({ pressed }) => [s.profileHeader, pressed && s.rowPressed]}
+          onPress={() => router.push("/settings/profile")}
+          accessibilityRole="button"
+          accessibilityLabel={t("settings.account")}
+        >
           <View style={s.profileAvatarWrap}>
-            <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={80} />
+            <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={60} />
           </View>
-          {user?.email ? (
-            <Text style={s.profileEmail} numberOfLines={1}>
-              {user.email}
+          <View style={s.profileMeta}>
+            <Text style={s.profileName} numberOfLines={1}>
+              {displayName}
             </Text>
-          ) : null}
-          <View style={[s.planPill, isPro && s.planPillPro]}>
-            <Text style={[s.planPillText, isPro && s.planPillTextPro]}>
-              {planLabel}
-            </Text>
+            {user?.email ? (
+              <Text style={s.profileEmail} numberOfLines={1}>
+                {user.email}
+              </Text>
+            ) : null}
+            <View style={s.planPill}>
+              <Text style={s.planPillText}>{planLabel}</Text>
+            </View>
           </View>
-        </View>
+          <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+        </Pressable>
 
-        <SettingsGroup styles={s}>
+        <SettingsGroup label={t("settings.experience")} styles={s}>
           <SettingsLinkRow
-            icon="person-outline"
-            title={t("settings.profile")}
-            onPress={() => router.push("/settings/profile")}
-            styles={s}
-            theme={theme}
-          />
-        </SettingsGroup>
-
-        <SettingsGroup label={t("settings.app")} styles={s}>
-          <SettingsLinkRow
-            icon="sparkles-outline"
-            title={t("settings.model")}
-            subtitle={t("settings.model_summary")}
-            value={modelsValue}
-            onPress={() => router.push("/settings/models")}
+            icon="contrast-outline"
+            title={t("settings.appearance")}
+            subtitle={t("settings.appearance_summary")}
+            value={t(`settings.appearance_${appearancePreference}`)}
+            onPress={() => router.push("/settings/appearance")}
             styles={s}
             theme={theme}
           />
@@ -108,17 +131,7 @@ export default function SettingsScreen() {
             icon="color-palette-outline"
             title={t("settings.personalization")}
             subtitle={t("settings.personalization_summary")}
-            value={selectedLanguage.label}
             onPress={() => router.push("/settings/preferences")}
-            styles={s}
-            theme={theme}
-          />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
-            icon="school-outline"
-            title={t("settings.learning.title")}
-            subtitle={t("settings.learning_summary")}
-            onPress={() => router.push("/settings/learning")}
             styles={s}
             theme={theme}
           />
@@ -137,10 +150,21 @@ export default function SettingsScreen() {
           />
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
+            icon="volume-high-outline"
+            title={t("settings.voice")}
+            subtitle={t("settings.voice_summary")}
+            onPress={() => router.push("/settings/voice")}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.connections")} styles={s}>
+          <SettingsLinkRow
             icon="notifications-outline"
             title={t("settings.notifications")}
             subtitle={t("settings.notifications_summary")}
-            value={user?.push_notifications_enabled ? t("settings.on") : t("settings.off")}
+            value={notificationsValue}
             onPress={() => router.push("/settings/notifications")}
             styles={s}
             theme={theme}
@@ -148,10 +172,22 @@ export default function SettingsScreen() {
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
             icon="link-outline"
-            title={t("settings.integrations")}
-            subtitle={t("settings.integrations_manage")}
+            title={t("settings.connected_apps")}
+            subtitle={t("settings.connected_apps_summary")}
             value={integrationsValue}
             onPress={() => router.push("/settings/integrations")}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.advanced")} styles={s}>
+          <SettingsLinkRow
+            icon="sparkles-outline"
+            title={t("settings.model")}
+            subtitle={t("settings.model_summary")}
+            value={modelsValue}
+            onPress={() => router.push("/settings/models")}
             styles={s}
             theme={theme}
           />
@@ -163,6 +199,26 @@ export default function SettingsScreen() {
             title={t("settings.data_controls")}
             subtitle={t("settings.data_controls_summary")}
             onPress={() => router.push("/settings/data-controls")}
+            styles={s}
+            theme={theme}
+          />
+          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+          <SettingsLinkRow
+            icon="lock-closed-outline"
+            title={t("settings.security")}
+            subtitle={t("settings.security_summary")}
+            onPress={() => router.push("/settings/security")}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup label={t("settings.support")} styles={s}>
+          <SettingsLinkRow
+            icon="help-circle-outline"
+            title={t("settings.help")}
+            subtitle={t("settings.help_summary")}
+            onPress={() => router.push("/settings/help")}
             styles={s}
             theme={theme}
           />

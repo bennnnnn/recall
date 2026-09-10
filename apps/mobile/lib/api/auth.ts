@@ -3,12 +3,13 @@ import i18n from "@/lib/i18n";
 
 import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";
 import type { AuthResult } from "@/lib/api/types";
+import { deviceSessionFields } from "@/lib/deviceSession";
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
   const response = await fetchWithTimeout(apiUrl("/auth/google"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken }),
+    body: JSON.stringify({ id_token: idToken, ...deviceSessionFields() }),
   });
   if (!response.ok) {
     const detail = await response.text();
@@ -24,7 +25,7 @@ export async function loginWithApple(
   const response = await fetchWithTimeout(apiUrl("/auth/apple"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken, name: name ?? null }),
+    body: JSON.stringify({ id_token: idToken, name: name ?? null, ...deviceSessionFields() }),
   });
   if (!response.ok) {
     const detail = await response.text();
@@ -40,7 +41,7 @@ export async function loginWithDev(
   const response = await fetchWithTimeout(apiUrl("/auth/dev"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name }),
+    body: JSON.stringify({ email, name, ...deviceSessionFields() }),
   });
   if (!response.ok) {
     const text = await response.text();

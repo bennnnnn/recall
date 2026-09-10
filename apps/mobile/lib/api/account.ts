@@ -1,5 +1,5 @@
 import { fetchExportText, request } from "@/lib/api/client";
-import type { User } from "@/lib/api/types";
+import type { AuthSession, User } from "@/lib/api/types";
 
 export type SettingsProposalApplied = {
   field: string;
@@ -34,4 +34,12 @@ export const accountApi = {
   exportDataText: (token: string) => fetchExportText(token),
   deleteAccount: (token: string) =>
     request<void>("/auth/me", token, { method: "DELETE" }, true, 120_000),
+  listSessions: (token: string) =>
+    request<{ sessions: AuthSession[] }>("/auth/sessions", token),
+  revokeSession: (token: string, sessionId: string) =>
+    request<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, token, {
+      method: "DELETE",
+    }),
+  logoutAll: (token: string) =>
+    request<void>("/auth/logout-all", token, { method: "POST" }),
 };

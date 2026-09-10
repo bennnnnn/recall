@@ -33,6 +33,14 @@ def _fake_user(**kw) -> User:
     u.age = kw.get("age", None)
     u.country = kw.get("country", None)
     u.job = kw.get("job", None)
+    u.push_notifications_enabled = kw.get("push_notifications_enabled", True)
+    u.email_reminders_enabled = kw.get("email_reminders_enabled", False)
+    u.reminder_lead_minutes = kw.get("reminder_lead_minutes", 10)
+    u.quiet_hours_enabled = kw.get("quiet_hours_enabled", False)
+    u.quiet_hours_start_minute = kw.get("quiet_hours_start_minute", 1320)
+    u.quiet_hours_end_minute = kw.get("quiet_hours_end_minute", 420)
+    u.google_sub = kw.get("google_sub", "google-sub")
+    u.apple_sub = kw.get("apple_sub", None)
     u.created_at = datetime(2024, 1, 1)
     return u
 

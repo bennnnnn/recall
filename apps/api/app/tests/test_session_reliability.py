@@ -15,6 +15,10 @@ from app.services import tokens
 from app.tests.test_routers import _fake_user
 
 
+def _refresh_user_id(raw: str | bytes, refresh: str) -> str:
+    return str(tokens.parse_refresh_record(raw, refresh)["user_id"])
+
+
 @pytest.mark.asyncio
 async def test_refresh_database_failure_preserves_credential_for_retry(fake_redis):
     user = _fake_user()
@@ -95,7 +99,9 @@ async def test_refresh_redis_failure_before_commit_preserves_credential(fake_red
         with pytest.raises(RedisUnavailableError):
             await tokens.refresh_token_pair(fake_redis, refresh, AsyncMock(), settings)
 
-    assert await fake_redis.get(f"refresh:{refresh}") == str(user.id)
+    raw = await fake_redis.get(f"refresh:{refresh}")
+    assert isinstance(raw, bytes | str)
+    assert _refresh_user_id(raw, refresh) == str(user.id)
     assert await fake_redis.get(f"refresh_used:{refresh}") is None
 
 
@@ -115,7 +121,9 @@ async def test_refresh_lost_watch_connection_keeps_session_retryable(fake_redis)
         pytest.raises(RedisUnavailableError),
     ):
         await tokens.refresh_token_pair(fake_redis, refresh, AsyncMock(), settings)
-    assert await fake_redis.get(f"refresh:{refresh}") == str(user.id)
+    raw = await fake_redis.get(f"refresh:{refresh}")
+    assert isinstance(raw, bytes | str)
+    assert _refresh_user_id(raw, refresh) == str(user.id)
 
 
 @pytest.mark.asyncio
@@ -202,7 +210,9 @@ async def test_repeated_transaction_conflicts_fail_retryably_without_hanging(fak
             await tokens.purge_user_sessions(fake_redis, user.id, settings)
         else:
             await tokens.revoke_refresh_token(fake_redis, refresh)
-    assert await fake_redis.get(f"refresh:{refresh}") == str(user.id)
+    raw = await fake_redis.get(f"refresh:{refresh}")
+    assert isinstance(raw, bytes | str)
+    assert _refresh_user_id(raw, refresh) == str(user.id)
 
 
 @pytest.mark.asyncio

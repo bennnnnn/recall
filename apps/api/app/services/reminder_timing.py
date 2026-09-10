@@ -44,6 +44,29 @@ def should_notify_todo(
 # BUG FIX (nit): user_local_hour/user_day_key/learning_dedupe_key were
 # copy-pasted between push_notifications.py and reminder_emails.py with only
 # the Redis key prefix differing. Shared here so the two can't drift apart.
+def in_quiet_hours(user: User, now: datetime | None = None) -> bool:
+    """True when the user has quiet hours on and ``now`` is inside the window.
+
+    ``quiet_hours_enabled is not True`` so MagicMocks in tests are not treated as
+    opted-in. A zero-length window (start == end) is never quiet. Ranges that
+    wrap midnight (e.g. 22:00–07:00) use the user's timezone.
+    """
+    if getattr(user, "quiet_hours_enabled", False) is not True:
+        return False
+    start = getattr(user, "quiet_hours_start_minute", None)
+    end = getattr(user, "quiet_hours_end_minute", None)
+    if not isinstance(start, int) or not isinstance(end, int):
+        return False
+    if start == end or not (0 <= start <= 1439 and 0 <= end <= 1439):
+        return False
+    tz = time_context_service.resolve_timezone(getattr(user, "timezone", None))
+    instant = now.astimezone(tz) if now is not None else datetime.now(tz)
+    minute = instant.hour * 60 + instant.minute
+    if start < end:
+        return start <= minute < end
+    return minute >= start or minute < end
+
+
 def user_local_hour(user: User, *, now: datetime | None = None) -> int:
     tz = time_context_service.resolve_timezone(user.timezone)
     instant = now.astimezone(tz) if now is not None else datetime.now(tz)

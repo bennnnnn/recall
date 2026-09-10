@@ -1,42 +1,45 @@
 import { useMemo } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { Redirect } from "expo-router";
+import { ScrollView, View } from "react-native";
+import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { IntegrationPanel, makeSettingsStyles, SettingsGroup } from "@/components/settings/settingsUi";
 import { StateView } from "@/components/StateView";
+import {
+  ConnectedAppMark,
+  makeSettingsStyles,
+  SettingsGroup,
+  SettingsLinkRow,
+} from "@/components/settings/settingsUi";
 import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function IntegrationsSettingsScreen() {
+export default function ConnectedAppsScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const {
-    calendarStatus,
-    calendarBusy,
-    gmailStatus,
-    gmailBusy,
-    loadError,
-    connectCalendar,
-    disconnectCalendar,
-    syncGmail,
-    connectGmail,
-    disconnectGmail,
-    refresh,
-  } = useSettingsIntegrations();
+  const router = useRouter();
+  const { calendarStatus, gmailStatus, loadError, refresh } = useSettingsIntegrations();
 
   if (!token) return <Redirect href="/login" />;
+
+  const calendarValue =
+    calendarStatus?.connected && calendarStatus.email
+      ? calendarStatus.email
+      : t("settings.integration_not_connected");
+  const gmailValue =
+    gmailStatus?.connected && gmailStatus.email
+      ? gmailStatus.email
+      : t("settings.integration_not_connected");
 
   return (
     <ScrollView
       style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg, gap: Space.md }]}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
     >
       {loadError ? (
         <StateView
@@ -48,78 +51,29 @@ export default function IntegrationsSettingsScreen() {
         />
       ) : null}
       <SettingsGroup styles={s}>
-        <IntegrationPanel
-          icon="calendar-outline"
+        <SettingsLinkRow
+          leading={<ConnectedAppMark name="logo-google" color={theme.brand.google} />}
           title={t("settings.calendar_title")}
           subtitle={t("settings.calendar_desc")}
-          showDivider={false}
-          summary={
-            calendarStatus?.connected && calendarStatus.email
-              ? t("settings.calendar_connected", { email: calendarStatus.email })
-              : t("settings.integration_not_connected")
+          value={calendarValue}
+          onPress={() =>
+            router.push({ pathname: "/settings/connected-app", params: { id: "calendar" } })
           }
-          busy={calendarBusy}
           styles={s}
           theme={theme}
-        >
-          {calendarStatus?.connected && !calendarStatus.can_write ? (
-            <Pressable onPress={() => void connectCalendar(true)} hitSlop={8}>
-              <Text style={s.linkBtnText}>{t("settings.calendar_upgrade_write")}</Text>
-            </Pressable>
-          ) : null}
-          <View style={s.integrationActions}>
-            {calendarBusy ? null : calendarStatus?.connected ? (
-              <Pressable style={s.linkBtn} onPress={disconnectCalendar} hitSlop={8}>
-                <Text style={s.linkBtnDanger}>{t("settings.calendar_disconnect")}</Text>
-              </Pressable>
-            ) : (
-              <Pressable style={s.linkBtn} onPress={() => void connectCalendar(false)} hitSlop={8}>
-                <Text style={s.linkBtnText}>{t("settings.calendar_connect")}</Text>
-              </Pressable>
-            )}
-          </View>
-        </IntegrationPanel>
-      </SettingsGroup>
-
-      <SettingsGroup styles={s}>
-        <IntegrationPanel
-          icon="mail-outline"
+        />
+        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <SettingsLinkRow
+          leading={<ConnectedAppMark name="mail" color={theme.brand.gmail} />}
           title={t("settings.gmail_title")}
           subtitle={t("settings.gmail_desc")}
-          showDivider={false}
-          summary={
-            gmailStatus?.connected && gmailStatus.email
-              ? t("settings.gmail_connected", { email: gmailStatus.email })
-              : t("settings.integration_not_connected")
+          value={gmailValue}
+          onPress={() =>
+            router.push({ pathname: "/settings/connected-app", params: { id: "gmail" } })
           }
-          busy={gmailBusy}
           styles={s}
           theme={theme}
-        >
-          {gmailStatus?.connected && gmailStatus.last_sync_at ? (
-            <Text style={s.meta}>
-              {t("settings.gmail_last_sync", {
-                when: new Date(gmailStatus.last_sync_at).toLocaleString(),
-              })}
-            </Text>
-          ) : null}
-          <View style={s.integrationActions}>
-            {gmailBusy ? null : gmailStatus?.connected ? (
-              <View style={s.rowActions}>
-                <Pressable style={s.linkBtn} onPress={() => void syncGmail()} hitSlop={8}>
-                  <Text style={s.linkBtnText}>{t("settings.gmail_sync")}</Text>
-                </Pressable>
-                <Pressable style={s.linkBtn} onPress={disconnectGmail} hitSlop={8}>
-                  <Text style={s.linkBtnDanger}>{t("settings.gmail_disconnect")}</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable style={s.linkBtn} onPress={connectGmail} hitSlop={8}>
-                <Text style={s.linkBtnText}>{t("settings.gmail_connect")}</Text>
-              </Pressable>
-            )}
-          </View>
-        </IntegrationPanel>
+        />
       </SettingsGroup>
     </ScrollView>
   );

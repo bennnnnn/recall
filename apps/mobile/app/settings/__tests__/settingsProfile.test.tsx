@@ -30,6 +30,7 @@ jest.mock("@/contexts/AuthContext", () => ({
       locale: "en",
       memory_enabled: true,
       push_notifications_enabled: true,
+      sign_in_provider: "dev",
     },
     signOut: jest.fn(),
     updateUser: jest.fn(),
@@ -41,6 +42,12 @@ jest.mock("@/hooks/useModels", () => ({
     autoEnabled: false,
     modelEnabledSet: new Set(["free-chat"]),
   }),
+}));
+jest.mock("@/contexts/AppearanceContext", () => ({
+  useAppearance: () => ({ preference: "system" }),
+}));
+jest.mock("@/lib/pushNotifications", () => ({
+  getNotificationPermissionGranted: jest.fn(async () => true),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
@@ -56,6 +63,9 @@ jest.mock("@/lib/cache/integrationStatusCache", () => ({
 jest.mock("@/components/UpgradeSheet", () => ({
   UpgradeSheet: () => null,
 }));
+jest.mock("@/lib/purchases", () => ({
+  restorePurchases: jest.fn(),
+}));
 jest.mock("@/components/AppSheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -65,28 +75,30 @@ jest.mock("@/components/AppSheet", () => {
 
 describe("settings home", () => {
   it("keeps age, country, and job off the root list", async () => {
-    const { queryByText, getByText } = await render(<SettingsScreen />);
+    const { queryByText, getByText, getByLabelText } = await render(<SettingsScreen />);
     expect(queryByText("settings.age_label")).toBeNull();
     expect(queryByText("settings.job_label")).toBeNull();
-    expect(queryByText("settings.account_label")).toBeNull();
-    expect(getByText("settings.profile")).toBeTruthy();
+    expect(queryByText("settings.profile")).toBeNull();
+    expect(getByText("settings.experience")).toBeTruthy();
+    expect(getByLabelText("settings.account")).toBeTruthy();
   });
 
-  it("opens profile from the Profile row above App", async () => {
-    const { getByText } = await render(<SettingsScreen />);
-    await fireEvent.press(getByText("settings.profile"));
+  it("opens Account from the tappable header", async () => {
+    const { getByLabelText } = await render(<SettingsScreen />);
+    await fireEvent.press(getByLabelText("settings.account"));
     expect(mockPush).toHaveBeenCalledWith("/settings/profile");
   });
 });
 
-describe("settings profile", () => {
-  it("lists profile fields and names the row Plan, not Account", async () => {
+describe("settings account", () => {
+  it("lists account identity, not about-you fields", async () => {
     const { getByText, queryByText } = await render(<ProfileSettingsScreen />);
     expect(getByText("settings.name_label")).toBeTruthy();
-    expect(getByText("settings.age_label")).toBeTruthy();
-    expect(getByText("settings.country_label")).toBeTruthy();
-    expect(getByText("settings.job_label")).toBeTruthy();
+    expect(getByText("settings.email")).toBeTruthy();
+    expect(getByText("settings.sign_in_method")).toBeTruthy();
     expect(getByText("settings.plan_label")).toBeTruthy();
-    expect(queryByText("settings.account_label")).toBeNull();
+    expect(queryByText("settings.age_label")).toBeNull();
+    expect(queryByText("settings.country_label")).toBeNull();
+    expect(queryByText("settings.job_label")).toBeNull();
   });
 });

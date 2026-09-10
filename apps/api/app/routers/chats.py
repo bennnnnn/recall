@@ -63,6 +63,29 @@ async def list_chats(
     return await chats_service.list_chats_grouped(session, user, limit=limit)
 
 
+@router.post("/archive-all", status_code=status.HTTP_204_NO_CONTENT)
+async def archive_all_chats(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await chats_service.archive_all_chats(session, user)
+    except chats_service.ChatsError as exc:
+        raise _map_error(exc) from exc
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_chats(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> None:
+    try:
+        await chats_service.delete_all_chats(session, user, settings=settings)
+    except chats_service.ChatsError as exc:
+        raise _map_error(exc) from exc
+
+
 @router.patch("/{chat_id}", response_model=ChatOut)
 async def rename_chat(
     chat_id: UUID,

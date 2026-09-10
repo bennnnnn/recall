@@ -29,16 +29,14 @@ export default function AboutScreen() {
     >
       <SettingsGroup styles={s}>
         <SettingsLinkRow
-          icon="shield-checkmark-outline"
           title={t("privacy.title")}
           subtitle={t("settings.privacy_summary")}
           onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
           styles={s}
           theme={theme}
         />
-        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <View style={s.menuSeparator} />
         <SettingsLinkRow
-          icon="document-text-outline"
           title={t("terms.title")}
           subtitle={t("settings.terms_summary")}
           onPress={() => void openAllowedUrl(getLegalTermsUrl())}
@@ -48,7 +46,6 @@ export default function AboutScreen() {
       </SettingsGroup>
       <SettingsGroup styles={s}>
         <SettingsValueRow
-          icon="phone-portrait-outline"
           title={t("settings.about_version")}
           value={appVersion}
           styles={s}

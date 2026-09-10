@@ -41,6 +41,7 @@ jest.mock("expo-router", () => ({
   Redirect: () => null,
   useRouter: () => ({ push: mockPush, replace: jest.fn() }),
   useLocalSearchParams: () => ({ id: "p" }),
+  useNavigation: () => ({ setOptions: jest.fn() }),
   useFocusEffect: (callback: () => void) =>
     jest.requireActual("react").useEffect(callback, [callback]),
 }));
@@ -76,6 +77,12 @@ jest.mock("@/lib/motion", () => ({
 }));
 jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",
+}));
+jest.mock("@/hooks/useAccountViewOwner", () => ({
+  useAccountViewOwner: () => ({ key: "1", isCurrent: () => true }),
+}));
+jest.mock("@/app/projects/[id]/lesson/LessonMapOverflowMenu", () => ({
+  LessonMapOverflowMenu: () => null,
 }));
 jest.mock("react-i18next", () => {
   const strings = require("@/lib/i18n/en.json");

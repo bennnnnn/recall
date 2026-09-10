@@ -33,6 +33,9 @@ async def login_with_google(
     settings: Settings,
     id_token: str,
     redis: Redis,
+    *,
+    device_label: str | None = None,
+    platform: str | None = None,
 ) -> AuthResponse:
     payload = await verify_google_id_token(id_token, settings)
     google_sub = payload["sub"]
@@ -80,7 +83,13 @@ async def login_with_google(
         # Best-effort: never let a welcome email block signup.
         await jobs.enqueue_welcome_email(redis, user.id)
 
-    access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)
+    access_token, refresh_token = await tokens_service.issue_token_pair(
+        redis,
+        user.id,
+        settings,
+        device_label=device_label,
+        platform=platform,
+    )
     return AuthResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -95,6 +104,8 @@ async def login_with_apple(
     redis: Redis,
     *,
     name: str | None = None,
+    device_label: str | None = None,
+    platform: str | None = None,
 ) -> AuthResponse:
     # L1: validate the client-supplied display name (trim, collapse, length)
     name = normalize_display_name(name)
@@ -145,7 +156,13 @@ async def login_with_apple(
     if is_new_user and settings.email_enabled:
         await jobs.enqueue_welcome_email(redis, user.id)
 
-    access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)
+    access_token, refresh_token = await tokens_service.issue_token_pair(
+        redis,
+        user.id,
+        settings,
+        device_label=device_label,
+        platform=platform,
+    )
     return AuthResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -160,6 +177,8 @@ async def login_dev(
     email: str,
     name: str,
     redis: Redis,
+    device_label: str | None = None,
+    platform: str | None = None,
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
         raise GoogleAuthError("Dev auth is disabled")
@@ -184,7 +203,13 @@ async def login_dev(
     if is_new_user and settings.email_enabled:
         await jobs.enqueue_welcome_email(redis, user.id)
 
-    access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)
+    access_token, refresh_token = await tokens_service.issue_token_pair(
+        redis,
+        user.id,
+        settings,
+        device_label=device_label,
+        platform=platform,
+    )
     return AuthResponse(
         access_token=access_token,
         refresh_token=refresh_token,

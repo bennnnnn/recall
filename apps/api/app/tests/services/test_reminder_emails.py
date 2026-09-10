@@ -148,6 +148,30 @@ async def test_process_todo_reminder_emails_skips_when_opted_out():
 
 
 @pytest.mark.asyncio
+async def test_process_todo_reminder_emails_skips_quiet_hours():
+    now = datetime(2026, 6, 28, 23, 0, tzinfo=UTC)
+    user = _user()
+    user.quiet_hours_enabled = True
+    user.quiet_hours_start_minute = 1320
+    user.quiet_hours_end_minute = 420
+    user.timezone = "UTC"
+    todo = _todo(due_at=now + timedelta(minutes=5), user_id=user.id)
+    session = AsyncMock()
+    result = MagicMock()
+    result.all.return_value = [(todo, user)]
+    session.execute = AsyncMock(return_value=result)
+
+    with patch(
+        "app.services.reminder_emails.tx_email.send_todo_reminder",
+        AsyncMock(return_value=True),
+    ) as send:
+        count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
+
+    assert count == 0
+    send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_run_email_reminder_cycle_respects_kill_switch():
     session = AsyncMock()
     redis = AsyncMock()
