@@ -23,7 +23,11 @@ import {
   isDiagramFenceId,
   isMathDiagramLang,
 } from "@/lib/fenceRegistry";
-import { looksLikeLatexFence, looksLikeMathFenceBody } from "@/lib/math/mathFenceRetag";
+import {
+  isMathFenceInterruptLine,
+  looksLikeLatexFence,
+  looksLikeMathFenceBody,
+} from "@/lib/math/mathFenceRetag";
 import { detectJsonRichFenceKind } from "@/lib/richBlocks";
 import {
   isClockFenceBody,
@@ -51,6 +55,13 @@ export type FenceDecision = {
 export function isFakeImageGenFence(lang: string): boolean {
   const l = lang.trim().toLowerCase();
   return l === "image" || l === "img" || l === "image-gen" || l === "imagen";
+}
+
+function looksLikeMisparsedMarkdownWalkthrough(content: string): boolean {
+  if (content.includes("```math") || content.includes("```latex") || content.includes("```tex")) {
+    return true;
+  }
+  return content.split("\n").some((line) => isMathFenceInterruptLine(line));
 }
 
 /** Untagged / copy / prose tags — the only place content heuristics may run. */
@@ -97,6 +108,12 @@ export function classifyFence(lang: string, content: string): FenceDecision {
     ) {
       return { kind: "clock", lang: l };
     }
+  }
+
+  // CommonMark indented-code of a numbered solve step (`2. **Simplify:**`
+  // plus a nested ```math). Never a programming card.
+  if (!l && looksLikeMisparsedMarkdownWalkthrough(content)) {
+    return { kind: "prose", lang: l };
   }
 
   if (l === "copy") {

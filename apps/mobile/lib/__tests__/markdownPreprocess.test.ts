@@ -627,6 +627,67 @@ represents`;
     expect(asText).not.toMatch(/\\frac\{4x\}/);
   });
 
+  it("BUG FIX regression: 4-space-indented Simplify is not a code card", () => {
+    // Live screenshot: step 1 kept mid-line ```math + raw \\frac, and
+    // CommonMark ate `    2. **Simplify:**` + nested ```math as indented code
+    // (gray Prism card, asterisks visible, `1` highlighted).
+    const input = [
+      "Got it! Since you wrote 4x = and then 4, the full equation is:",
+      "",
+      "**Equation to solve:**",
+      "4x = 4",
+      "",
+      "---",
+      "",
+      "**Step-by-Step Solution:**",
+      "1. **Divide both sides by 4** to isolate x: ```math",
+      "   " + String.raw`\frac{4x}{4} = \frac{4}{4}`,
+      "",
+      "    2. **Simplify:**",
+      "",
+      "    ```math",
+      "    x = 1",
+      "    ```",
+      "",
+      "✅ **Check the answer:** Plug x = 1 back in:",
+      "4(1) = 4 ✓",
+    ].join("\n");
+    const out = preprocessMarkdown(input);
+    const tokens = markdownItInstance.parse(out, {});
+    const codeBlocks = tokens.filter((t) => t.type === "code_block");
+    const fences = tokens.filter((t) => t.type === "fence");
+    const inline = tokens
+      .filter((t) => t.type === "inline")
+      .map((t) => t.content)
+      .join("\n");
+    expect(codeBlocks.some((t) => /Simplify|```/.test(t.content))).toBe(false);
+    expect(fences.some((t) => t.content.includes("Simplify"))).toBe(false);
+    expect(inline).not.toContain("```");
+    const fracInFence = fences.some(
+      (t) => (t.info ?? "").trim() === "math" && t.content.includes("\\frac"),
+    );
+    const fracInMath = /\$[^$]*\\frac\{4x\}/.test(inline);
+    expect(fracInFence || fracInMath).toBe(true);
+    expect(
+      fences.some((t) => /x\s*=\s*1/.test(t.content)) || /\$x\s*=\s*1\$/.test(inline),
+    ).toBe(true);
+    expect(inline).toContain("**Simplify:**");
+  });
+
+  it("BUG FIX regression: glued ``` math (space after ticks) still lifts", () => {
+    const out = breakAttachedMathFences("isolate x: ``` math");
+    expect(out).not.toMatch(/x: ``` math/);
+    expect(out).toContain("isolate x:");
+    expect(out).toContain("```math");
+  });
+
+  it("BUG FIX regression: glued ````math (4 ticks) still lifts", () => {
+    const out = breakAttachedMathFences("isolate x: ````math");
+    expect(out).not.toMatch(/x: `+math/);
+    expect(out).toContain("isolate x:");
+    expect(out).toContain("```math");
+  });
+
   it("BUG FIX regression: lifts glued code fence openers for all langs, not just math", () => {
     // The model also glues code fence openers to prose
     // ("Here's the code: ```python print('hello')```"). The old
