@@ -33,6 +33,33 @@ const DOCUMENT_MIME_TYPES = [
 ];
 
 let nativePickerActive = false;
+let nativePickerGeneration = 0;
+
+/** Hung native pickers must not leave picking dead for the rest of the session. */
+export const NATIVE_PICKER_WATCHDOG_MS = 60_000;
+
+export class NativePickerBusyError extends Error {
+  constructor() {
+    super("NATIVE_PICKER_BUSY");
+    this.name = "NativePickerBusyError";
+  }
+}
+
+export class NativePickerTimeoutError extends Error {
+  constructor() {
+    super("NATIVE_PICKER_TIMEOUT");
+    this.name = "NativePickerTimeoutError";
+  }
+}
+
+export class PhotoLibraryPermissionError extends Error {
+  readonly needsSettings: boolean;
+  constructor(needsSettings: boolean) {
+    super("PHOTO_LIBRARY_PERMISSION");
+    this.name = "PhotoLibraryPermissionError";
+    this.needsSettings = needsSettings;
+  }
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -44,22 +71,39 @@ function isPickerConflictError(error: unknown): boolean {
 }
 
 async function withNativePicker<T>(run: () => Promise<T>): Promise<T | null> {
-  if (nativePickerActive) return null;
+  if (nativePickerActive) throw new NativePickerBusyError();
   nativePickerActive = true;
+  const generation = ++nativePickerGeneration;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     let lastError: unknown;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      try {
-        return await run();
-      } catch (error) {
-        lastError = error;
-        if (!isPickerConflictError(error) || attempt === 3) throw error;
-        await sleep(300 * (attempt + 1));
+    const runWithRetries = async () => {
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        try {
+          return await run();
+        } catch (error) {
+          lastError = error;
+          if (!isPickerConflictError(error) || attempt === 3) throw error;
+          await sleep(300 * (attempt + 1));
+        }
       }
-    }
-    throw lastError;
+      throw lastError;
+    };
+    return await Promise.race([
+      runWithRetries(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          if (generation === nativePickerGeneration) {
+            reject(new NativePickerTimeoutError());
+          }
+        }, NATIVE_PICKER_WATCHDOG_MS);
+      }),
+    ]);
   } finally {
-    nativePickerActive = false;
+    if (timer !== undefined) clearTimeout(timer);
+    if (generation === nativePickerGeneration) {
+      nativePickerActive = false;
+    }
   }
 }
 
@@ -167,9 +211,12 @@ export function messageTextForSend(
 
 export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!permission.granted && !cameraPermissionNeedsSettings(permission)) {
+      permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    }
     if (!permission.granted) {
-      throw new Error("Photo library permission is required to attach photos.");
+      throw new PhotoLibraryPermissionError(cameraPermissionNeedsSettings(permission));
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({

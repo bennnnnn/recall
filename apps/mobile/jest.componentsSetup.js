@@ -30,7 +30,9 @@ jestGlobals.mock("react-native-reanimated", () => {
       in: () => id,
     },
     runOnJS: (fn) => fn,
+    runOnUI: (fn) => (...args) => fn(...args),
     useAnimatedStyle: (factory) => (typeof factory === "function" ? factory() : {}),
+    useAnimatedReaction: () => undefined,
     useSharedValue: (value) => ({ value }),
     withSpring: id,
     withTiming: id,
@@ -45,20 +47,30 @@ jestGlobals.mock("react-native-reanimated", () => {
 });
 
 jestGlobals.mock("react-native-gesture-handler", () => {
-  const { View: RNView } = require("react-native");
+  const { View: RNView, Pressable: RNPressable } = require("react-native");
   const chain = () => {
-    const api = {};
-    api.enabled = () => api;
-    api.activeOffsetY = () => api;
-    api.failOffsetX = () => api;
-    api.onUpdate = () => api;
-    api.onEnd = () => api;
+    const api = new Proxy(
+      {},
+      {
+        get: (_target, prop) => {
+          if (prop === "then") return undefined;
+          return () => api;
+        },
+      },
+    );
     return api;
   };
   return {
-    Gesture: { Pan: () => chain() },
+    Gesture: {
+      Pan: () => chain(),
+      Pinch: () => chain(),
+      Tap: () => chain(),
+      Simultaneous: () => chain(),
+      Exclusive: () => chain(),
+    },
     GestureDetector: ({ children }) => children,
     GestureHandlerRootView: RNView,
+    Pressable: RNPressable,
     ScrollView: require("react-native").ScrollView,
     Swipeable: RNView,
   };

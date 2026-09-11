@@ -1,15 +1,17 @@
 import {
-  FOCUS_SQUARE_SIZE,
+  HANDLE_HIT_MAX,
+  HANDLE_HIT_MIN,
   MAX_REGION_RATIO,
   MIN_REGION_RATIO,
   clampCameraZoom,
-  clampFocusInRegion,
   clampScanRegion,
   defaultScanRegion,
+  handleHitSize,
   regionIsDefault,
   regionToImageCrop,
   resizeScanRegionFromCorner,
   scaleScanRegion,
+  scanChromeInset,
   translateScanRegion,
   zoomFromPinch,
 } from "@/lib/math/mathScannerRegion";
@@ -43,6 +45,13 @@ describe("clampScanRegion", () => {
     const offRight = clampScanRegion({ x: 0.9, y: 0.9, width: 0.4, height: 0.3 });
     expect(offRight.x).toBe(0.6); // 1 - width
     expect(offRight.y).toBe(0.7); // 1 - height
+  });
+
+  it("stays out from under chrome insets", () => {
+    const inset = { top: 0.12, right: 0, bottom: 0.22, left: 0 };
+    const clamped = clampScanRegion({ x: 0, y: 0, width: 0.5, height: 0.4 }, inset);
+    expect(clamped.y).toBeGreaterThanOrEqual(0.12);
+    expect(clamped.y + clamped.height).toBeLessThanOrEqual(0.78 + 1e-9);
   });
 });
 
@@ -137,24 +146,18 @@ describe("clampCameraZoom / zoomFromPinch", () => {
   });
 });
 
-describe("clampFocusInRegion", () => {
-  it("keeps the focus-square center inside the crop", () => {
-    const next = clampFocusInRegion(10, 12, 300, 160);
-    expect(next).toEqual({ x: FOCUS_SQUARE_SIZE / 2, y: FOCUS_SQUARE_SIZE / 2, size: FOCUS_SQUARE_SIZE });
+describe("handleHitSize / scanChromeInset", () => {
+  it("shrinks handle hits so a min-size rect stays pannable", () => {
+    expect(handleHitSize(200, 200)).toBe(HANDLE_HIT_MAX);
+    expect(handleHitSize(40, 40)).toBe(HANDLE_HIT_MIN);
+    expect(handleHitSize(47, 47)).toBeLessThan(HANDLE_HIT_MAX);
   });
 
-  it("ignores taps outside the crop", () => {
-    expect(clampFocusInRegion(-1, 10, 300, 160)).toBeNull();
-    expect(clampFocusInRegion(10, 400, 300, 160)).toBeNull();
-  });
-
-  it("shrinks the square when the crop is narrower than the default", () => {
-    const next = clampFocusInRegion(20, 20, 40, 200);
-    expect(next).not.toBeNull();
-    expect(next?.size).toBe(40);
-    expect(next?.x).toBe(20);
-    expect((next?.x ?? 0) - (next?.size ?? 0) / 2).toBeGreaterThanOrEqual(0);
-    expect((next?.x ?? 0) + (next?.size ?? 0) / 2).toBeLessThanOrEqual(40);
+  it("converts safe-area chrome into ratio insets", () => {
+    const inset = scanChromeInset(390, 844, { top: 47, bottom: 34 });
+    expect(inset.top).toBeGreaterThan(0);
+    expect(inset.bottom).toBeGreaterThan(0);
+    expect(inset.top + inset.bottom).toBeLessThan(0.8);
   });
 });
 

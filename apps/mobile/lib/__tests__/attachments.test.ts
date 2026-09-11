@@ -9,7 +9,7 @@ import { File } from "expo-file-system";
 import { api } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 import { requestRaw } from "@/lib/api/client";
-import { pickDocument, pickFromPhotoLibrary, uploadChatAttachment } from "@/lib/attachments";
+import { pickDocument, pickFromPhotoLibrary, uploadChatAttachment, NativePickerBusyError } from "@/lib/attachments";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -20,7 +20,8 @@ jest.mock("expo-file-system", () => ({ File: jest.fn() }));
 jest.mock("expo-file-system/legacy", () => ({ getInfoAsync: jest.fn(async () => ({ exists: true, size: 3 })) }));
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
 jest.mock("expo-image-picker", () => ({
-  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  getMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
   launchImageLibraryAsync: jest.fn(),
 }));
 jest.mock("expo-image-manipulator", () => ({
@@ -95,6 +96,39 @@ it("converts a HEIC photo when the picker omits MIME metadata", async () => {
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///photo.HEIC", fileName: "photo.HEIC", width: 10, height: 10 }] });
   await expect(pickFromPhotoLibrary()).resolves.toMatchObject({ contentType: "image/jpeg", localUri: "file:///converted.jpg" });
   expect(ImageManipulator.manipulateAsync).toHaveBeenCalled();
+});
+
+it("throws when the photo library permission is permanently denied", async () => {
+  jest.mocked(ImagePicker.getMediaLibraryPermissionsAsync).mockResolvedValueOnce({
+    granted: false,
+    canAskAgain: false,
+  } as ImagePicker.MediaLibraryPermissionResponse);
+  await expect(pickFromPhotoLibrary()).rejects.toMatchObject({
+    name: "PhotoLibraryPermissionError",
+    needsSettings: true,
+  });
+  expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
+});
+
+it("throws instead of silently no-oping when a native picker is already open", async () => {
+  let release!: (value: ImagePicker.ImagePickerResult) => void;
+  jest.mocked(ImagePicker.launchImageLibraryAsync).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const first = pickFromPhotoLibrary();
+  for (
+    let i = 0;
+    i < 50 && jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.length === 0;
+    i += 1
+  ) {
+    await Promise.resolve();
+  }
+  await expect(pickFromPhotoLibrary()).rejects.toBeInstanceOf(NativePickerBusyError);
+  release({ canceled: true, assets: null });
+  await expect(first).resolves.toBeNull();
 });
 
 it("does not classify unknown document types as JPEG photos", async () => {

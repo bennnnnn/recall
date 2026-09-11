@@ -390,6 +390,9 @@ function ChatScreen() {
   const closeMathScanner = useCallback(() => {
     setMathScannerOpen(false);
   }, [setMathScannerOpen]);
+  const openMathScanner = useCallback(() => {
+    setMathScannerOpen(true);
+  }, [setMathScannerOpen]);
 
   useEffect(() => {
     setActiveChatIdGlobal(chatId);
@@ -552,7 +555,7 @@ function ChatScreen() {
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
-      onOpenMathScanner: () => setMathScannerOpen(true),
+      onOpenMathScanner: openMathScanner,
       onMathChromeHeightChange: setMathChromeExtra,
     },
     quotaNudge,

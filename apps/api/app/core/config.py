@@ -165,7 +165,6 @@ class Settings(BaseSettings):
     mathpix_timeout_seconds: float = 8.0
     # Below this 0..1 confidence, a Mathpix transcription still needs Gemini.
     mathpix_confidence_min: float = 0.72
-    math_scan_extract_per_minute: int = 12
 
     # Background LLM resilience: if the primary memory-model provider is down,
     # retry background jobs (memory/todo/project extraction, titles, summaries)
