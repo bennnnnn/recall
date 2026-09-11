@@ -361,8 +361,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Account** — shows email and plan; profile picture from Google (initials fallback).
   Profile (name, age, country, job, plan) is a row under that header.
 - ✅ **Settings chrome** — identity header, then App / Data & privacy on the home list, plus the
-  same icon wells and one-line subtitles on nested screens. Choice rows expand
-  inline (no picker sheet). Same destinations.
+  same icon wells and one-line subtitles on nested screens. Choice rows
+  (appearance, style, tone, language, reminder lead, daily goal) open a
+  floating popup — they do **not** expand inside the gray card. Same destinations.
 - ✅ **Structured profile** — name, age, country, and job editable in Settings → Profile;
   plan (Free / Pro) is shown there. Persisted on `users` and injected into the chat
   system prompt (see [§6](#6-memory-remembering-the-user)).

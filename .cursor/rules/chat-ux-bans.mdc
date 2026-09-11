@@ -80,3 +80,9 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
   question, feedback, and the next entry. The map may show groups and progress.
 - Do **not** add a searchable word catalog, page of vocabulary cards, or separate
   Vocabulary browse button. Remove the route, component, and copy if replacing it.
+
+## 13. No inline Settings choice expand
+- Appearance, style, tone, language, reminder lead, and daily goal open a
+  **floating popup** (`SettingsPickerSheet`). Do **not** expand options inside
+  the gray card (`inlineOptionWell` / accordion). FEATURES must not say
+  “expand inline”. Do not revive PR #707’s in-list picker.
