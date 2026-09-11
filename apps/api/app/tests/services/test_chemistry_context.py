@@ -339,3 +339,46 @@ async def test_build_chemistry_context_dilution() -> None:
     assert block is not None
     assert "Verified dilution" in block
     assert "2.0000" in block or "2" in block
+
+
+async def test_build_chemistry_context_stoich_named_product_not_first_rhs() -> None:
+    """'how much H2O' must not verify CO2 just because it appears first in the equation."""
+    block = await chemistry_context.build_chemistry_context(
+        "how much H2O from 2 mol C2H6 in C2H6 + O2 -> CO2 + H2O",
+        MagicMock(),
+    )
+    assert block is not None
+    assert "Verified stoichiometry" in block
+    assert "H2O" in block
+    assert "mol CO2" not in block
+
+
+async def test_build_chemistry_context_element_as_is_not_arsenic() -> None:
+    block = await chemistry_context.build_chemistry_context(
+        "Which element is used as a semiconductor?",
+        MagicMock(),
+    )
+    assert block is None or "Arsenic" not in block
+    if block is not None:
+        assert "Verified element data" not in block
+
+
+async def test_build_chemistry_context_dilution_ml_keeps_ml() -> None:
+    block = await chemistry_context.build_chemistry_context(
+        "dilute a solution: M1=1 V1=100 mL M2=0.5",
+        MagicMock(),
+    )
+    assert block is not None
+    assert "Verified dilution" in block
+    assert "200" in block
+    assert "mL" in block
+    assert "200.0000 L" not in block
+    assert "100.0000 L" not in block
+
+
+async def test_build_chemistry_context_gas_law_zero_pressure_does_not_crash() -> None:
+    block = await chemistry_context.build_chemistry_context(
+        "PV=nRT find the volume of 1 mol at 0 atm and 273 K",
+        MagicMock(),
+    )
+    assert block is None or "Verified gas law" not in block

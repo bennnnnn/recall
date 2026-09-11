@@ -137,9 +137,16 @@ _VOLUME_L_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*(?:L|liters?|litres?)\b")
 _MOLES_BARE_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*mol(?:e|es)?\b", re.IGNORECASE)
 _KELVIN_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*K\b")
 _M1_RE = re.compile(r"\bM1\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
-_V1_RE = re.compile(r"\bV1\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_VOLUME_UNIT = r"(mL|ml|L|liters?|litres?)?"
+_V1_RE = re.compile(
+    rf"\bV1\s*=\s*(-?\d+(?:\.\d+)?)\s*{_VOLUME_UNIT}",
+    re.IGNORECASE,
+)
 _M2_RE = re.compile(r"\bM2\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
-_V2_RE = re.compile(r"\bV2\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_V2_RE = re.compile(
+    rf"\bV2\s*=\s*(-?\d+(?:\.\d+)?)\s*{_VOLUME_UNIT}",
+    re.IGNORECASE,
+)
 
 _ELEMENT_NAMES = tuple(
     sorted(
@@ -219,12 +226,41 @@ def _mol_amounts(content: str) -> list[tuple[str, float]]:
     return found
 
 
+def _question_without_equation(content: str) -> str:
+    """Drop the chemical equation so product matching cannot hit the RHS."""
+    eq_match = _EQUATION_RE.search(content)
+    if eq_match is None:
+        return content
+    return f"{content[: eq_match.start()]} {content[eq_match.end() :]}".strip()
+
+
+def _formula_mentioned(formula: str, question: str) -> bool:
+    """True when ``formula`` appears in the question, not as a prefix of a longer one."""
+    needle = formula.lower()
+    haystack = question.lower()
+    start = 0
+    while True:
+        found = haystack.find(needle, start)
+        if found < 0:
+            return False
+        after = found + len(needle)
+        if after < len(haystack) and haystack[after].isalnum():
+            start = found + 1
+            continue
+        return True
+
+
 def _target_formula(content: str, products: dict[str, int]) -> str | None:
-    lower = content.lower()
-    for formula in products:
-        if formula.lower() in lower:
-            return formula
-    return next(iter(products), None)
+    """Named product in the question only — never default to the first RHS species."""
+    question = _question_without_equation(content)
+    matches = [
+        formula
+        for formula in sorted(products, key=len, reverse=True)
+        if _formula_mentioned(formula, question)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
 
 
 def _first_float(pattern: re.Pattern[str], content: str) -> float | None:
@@ -232,6 +268,25 @@ def _first_float(pattern: re.Pattern[str], content: str) -> float | None:
     if match is None:
         return None
     return float(match.group(1))
+
+
+def _normalize_volume_unit(raw: str | None) -> str:
+    if raw is None or not raw.strip():
+        return "L"
+    if raw.strip().lower() == "ml":
+        return "mL"
+    return "L"
+
+
+def _volume_assignment(pattern: re.Pattern[str], content: str) -> tuple[float, str] | None:
+    match = pattern.search(content)
+    if match is None:
+        return None
+    return float(match.group(1)), _normalize_volume_unit(match.group(2))
+
+
+def _to_liters(value: float, unit: str) -> float:
+    return value / 1000.0 if unit == "mL" else value
 
 
 def _element_info(content: str) -> dict[str, float | int | str] | None:
@@ -244,8 +299,6 @@ def _element_info(content: str) -> dict[str, float | int | str] | None:
     padded = f" {content} "
     for symbol in PERIODIC_TABLE:
         if f" {symbol} " in padded or f" {symbol}?" in padded:
-            return chemistry_service.get_element_info(symbol)
-        if f" {symbol.lower()} " in lower:
             return chemistry_service.get_element_info(symbol)
     return None
 
@@ -324,12 +377,13 @@ async def build_chemistry_context(
                 known, amount = amounts[0]
                 balanced = chemistry_service.balance_equation(equation)
                 target = _target_formula(content, balanced.products) if balanced.balanced else None
-                stoich_result = chemistry_service.stoichiometry(equation, known, amount, target)
-                if stoich_result.error is None:
-                    return (
-                        f"[Verified stoichiometry]\n{stoich_result.answer}\n"
-                        f"Use this value verbatim."
-                    )
+                if target is not None:
+                    stoich_result = chemistry_service.stoichiometry(equation, known, amount, target)
+                    if stoich_result.error is None:
+                        return (
+                            f"[Verified stoichiometry]\n{stoich_result.answer}\n"
+                            f"Use this value verbatim."
+                        )
             balanced = chemistry_service.balance_equation(equation)
             if balanced.balanced:
                 return (
@@ -395,23 +449,38 @@ async def build_chemistry_context(
         temperature = _first_float(_KELVIN_RE, content)
         given = [pressure, volume, moles, temperature]
         if sum(1 for v in given if v is None) == 1:
-            gas = chemistry_service.ideal_gas_law(
-                pressure=pressure,
-                volume=volume,
-                moles=moles,
-                temperature=temperature,
-            )
-            if gas.error is None:
-                return f"[Verified gas law]\n{gas.answer}\nUse this value verbatim."
+            try:
+                gas = chemistry_service.ideal_gas_law(
+                    pressure=pressure,
+                    volume=volume,
+                    moles=moles,
+                    temperature=temperature,
+                )
+            except ZeroDivisionError:
+                logger.info("gas-law context hit a zero denominator", exc_info=True)
+            else:
+                if gas.error is None:
+                    return f"[Verified gas law]\n{gas.answer}\nUse this value verbatim."
 
     # Solution chemistry — molarity / dilution when numbers are present.
     if _SOLUTION_CUE.search(content):
         m1 = _first_float(_M1_RE, content)
-        v1 = _first_float(_V1_RE, content)
+        v1_parsed = _volume_assignment(_V1_RE, content)
         m2 = _first_float(_M2_RE, content)
-        v2 = _first_float(_V2_RE, content)
+        v2_parsed = _volume_assignment(_V2_RE, content)
+        v1 = v1_parsed[0] if v1_parsed is not None else None
+        v2 = v2_parsed[0] if v2_parsed is not None else None
+        volume_unit = "L"
+        if v1_parsed is not None and v2_parsed is not None and v1_parsed[1] != v2_parsed[1]:
+            v1 = _to_liters(*v1_parsed)
+            v2 = _to_liters(*v2_parsed)
+            volume_unit = "L"
+        elif v1_parsed is not None:
+            volume_unit = v1_parsed[1]
+        elif v2_parsed is not None:
+            volume_unit = v2_parsed[1]
         if m1 is not None and v1 is not None and (m2 is None) != (v2 is None):
-            dil = chemistry_service.dilution(m1, v1, v2=v2, m2=m2)
+            dil = chemistry_service.dilution(m1, v1, v2=v2, m2=m2, volume_unit=volume_unit)
             if dil.error is None:
                 return f"[Verified dilution]\n{dil.answer}\nUse this value verbatim."
         moles = _first_float(_MOLES_BARE_RE, content)

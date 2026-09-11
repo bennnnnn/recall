@@ -411,6 +411,17 @@ def test_ideal_gas_law_two_unknown() -> None:
     assert result.error is not None
 
 
+def test_ideal_gas_law_zero_pressure() -> None:
+    result = chemistry_service.ideal_gas_law(pressure=0, moles=1, temperature=273)
+    assert result.error is not None
+    assert result.value is None
+
+
+def test_ideal_gas_law_zero_volume() -> None:
+    result = chemistry_service.ideal_gas_law(volume=0, moles=1, temperature=273)
+    assert result.error is not None
+
+
 # ---------------------------------------------------------------------------
 # Solution chemistry
 # ---------------------------------------------------------------------------
@@ -449,6 +460,14 @@ def test_dilution_no_unknown() -> None:
 def test_dilution_two_unknown() -> None:
     result = chemistry_service.dilution(m1=2.0, v1=1.0)
     assert result.error is not None
+
+
+def test_dilution_ml_labels_ml() -> None:
+    result = chemistry_service.dilution(m1=1.0, v1=100.0, m2=0.5, volume_unit="mL")
+    assert result.error is None
+    assert result.value == pytest.approx(200.0)
+    assert "mL" in result.answer
+    assert " L" not in result.answer
 
 
 # ---------------------------------------------------------------------------
