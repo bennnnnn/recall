@@ -340,9 +340,7 @@ async def build_stream_prompt_context(
         # calendar/email needs a connection check. Skip year/date/time
         # instant-replies when a photo is attached — vision should see it.
         if not has_image_attachment:
-            now_reply = time_context_service.maybe_local_now_reply(
-                content, local_tz, user_locale
-            )
+            now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
             if now_reply is not None:
                 return now_reply
         if time_context_service.is_location_question(content):
