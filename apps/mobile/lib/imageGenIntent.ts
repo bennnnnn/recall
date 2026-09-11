@@ -257,6 +257,16 @@ const NON_IMAGE_SUBJECT = new RegExp(
       "proofs?",
       "worksheets?",
       "assignments?",
+      // How-to / listicle heads — same as imageLookupIntent. Do not add
+      // "way" (milky way) or "guide" (tour-guide photos).
+      "stops",
+      "ways",
+      "tips?",
+      "secrets?",
+      "habits?",
+      "tricks?",
+      "stages?",
+      "phases?",
     ].join("|") +
     String.raw`)\b`,
   "i",
@@ -322,7 +332,11 @@ export function extractImageGenPrompt(text: string): string | null {
       .replace(IMAGE_NOUN, "")
       .replace(/^(?:an?\s+)/i, "")
       .trim();
-    if (stripped.length >= 2 && !/\b(?:script|code|compression|format|file)\b/i.test(stripped)) {
+    if (
+      stripped.length >= 2 &&
+      !/\b(?:script|code|compression|format|file)\b/i.test(stripped) &&
+      !isNonImageSubject(stripped)
+    ) {
       return cleanPrompt(stripped);
     }
   }

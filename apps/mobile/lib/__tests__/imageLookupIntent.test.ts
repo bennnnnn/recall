@@ -30,6 +30,12 @@ describe("extractImageLookupQuery", () => {
     "show me the graph",
     "show me a flowchart",
     "show me the steps",
+    "Show me THE STOPS OF BECOMING SMART",
+    "show me the stops of becoming smart",
+    "show me the steps of becoming smart",
+    "show me ways to be smarter",
+    "show me five tips, please",
+    "show me ways, please",
     "show me the answer",
     "show me the equation",
     "let me see my notes",
@@ -72,5 +78,11 @@ describe("extractImageLookupQuery", () => {
       expect(extractImageGenPrompt(text)).not.toBeNull();
       expect(extractImageLookupQuery(text)).toBeNull();
     }
+  });
+
+  it("does not fall through how-to picture phrasing to generation", () => {
+    const text = "show me a picture of ways to be smarter";
+    expect(extractImageLookupQuery(text)).toBeNull();
+    expect(extractImageGenPrompt(text)).toBeNull();
   });
 });

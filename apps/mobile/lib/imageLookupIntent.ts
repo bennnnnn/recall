@@ -30,6 +30,10 @@ const NON_IMAGE_WORDS = new Set([
   "equation", "equations", "question", "questions", "exercise", "exercises",
   "homework", "solution", "solutions", "answer", "answers", "proof", "proofs",
   "worksheet", "worksheets", "assignment", "assignments", "step", "steps",
+  // How-to / listicle heads — not stock infographics. Do not add "way"
+  // (milky way) or "guide" (tour-guide photos).
+  "stops", "ways", "tips", "tip", "secrets", "habits", "tricks", "stages",
+  "phases",
   "graph", "graphs", "chart", "charts", "diagram", "diagrams",
   "flowchart", "flowcharts",
   "table",
@@ -46,10 +50,16 @@ const NON_IMAGE_WORDS = new Set([
 
 const EXPLANATION_CUES = new Set([
   "how", "why", "when", "where", "what", "solve", "explain", "prove",
-  "calculate", "compute", "work", "works", "mean", "means",
+  "calculate", "compute", "work", "works", "mean", "means", "becoming",
 ]);
 
 const MAX_SUBJECT_WORDS = 8;
+
+const EDGE_PUNCT = /^[.,!?;:"'()[\]]+|[.,!?;:"'()[\]]+$/g;
+
+function foldToken(word: string): string {
+  return word.toLowerCase().replace(EDGE_PUNCT, "");
+}
 
 function tokens(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
@@ -58,10 +68,11 @@ function tokens(text: string): string[] {
 function cleanSubject(raw: string): string | null {
   const subject = raw.trim().replace(/[.!?]+$/g, "").trim();
   if (!subject || subject.length < 2) return null;
-  const words = subject.toLowerCase().split(/\s+/);
+  const words = subject.split(/\s+/);
   if (!words.length || words.length > MAX_SUBJECT_WORDS) return null;
-  if (POSSESSIVES.has(words[0])) return null;
-  if (words.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
+  const folded = words.map(foldToken);
+  if (!folded[0] || POSSESSIVES.has(folded[0])) return null;
+  if (folded.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
   return subject;
 }
 

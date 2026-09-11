@@ -51,6 +51,8 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "draw me an example",
         "create an image of my tasks",
         "make a picture of my todo list",
+        "show me a picture of ways to be smarter",
+        "create an image of tips for studying",
         "Draw a mermaid flowchart for brewing coffee.",
         "draw a mermaid flowchart of making a cup of coffee",
         "draw a right triangle with legs 3 and 4",

@@ -120,6 +120,17 @@ _NON_IMAGE_WORDS = frozenset(
         "assignments",
         "step",
         "steps",
+        # How-to / listicle heads — "show me the stops of becoming smart"
+        # (typo of steps) must not become a stock infographic.
+        "stops",
+        "ways",
+        "tips",
+        "tip",
+        "secrets",
+        "habits",
+        "tricks",
+        "stages",
+        "phases",
         "graph",
         "graphs",
         "chart",
@@ -197,6 +208,7 @@ _EXPLANATION_CUES = frozenset(
         "works",
         "mean",
         "means",
+        "becoming",
     }
 )
 
@@ -207,16 +219,22 @@ def _tokens(text: str) -> list[str]:
     return text.split()
 
 
+def _fold_token(word: str) -> str:
+    """Lowercase and strip edge punctuation so ``tips,`` matches ``tips``."""
+    return word.lower().strip(".,!?;:\"'()[]")
+
+
 def _clean_subject(raw: str) -> str | None:
     subject = raw.strip().rstrip(".!?").strip()
     if not subject or len(subject) < 2:
         return None
-    words = subject.lower().split()
+    words = subject.split()
     if not words or len(words) > _MAX_SUBJECT_WORDS:
         return None
-    if words[0] in _POSSESSIVES:
+    folded = [_fold_token(w) for w in words]
+    if not folded[0] or folded[0] in _POSSESSIVES:
         return None
-    if any(w in _NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in words):
+    if any(w in _NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in folded):
         return None
     return subject
 
