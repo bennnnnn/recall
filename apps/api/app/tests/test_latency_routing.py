@@ -64,4 +64,6 @@ async def test_visible_stream_passes_latency_routing_to_litellm() -> None:
         )
 
     assert text == "hello"
-    assert completion.await_args.kwargs["extra_body"] == {"provider": {"sort": "latency"}}
+    call = completion.await_args
+    assert call is not None
+    assert call.kwargs["extra_body"] == {"provider": {"sort": "latency"}}
