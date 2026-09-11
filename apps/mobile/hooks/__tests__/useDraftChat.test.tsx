@@ -1,6 +1,6 @@
 import React from "react";
 import { Text } from "react-native";
-import { render, waitFor } from "@testing-library/react-native";
+import { render, screen, waitFor } from "@testing-library/react-native";
 
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { api } from "@/lib/api";
@@ -28,12 +28,14 @@ describe("useDraftChat latency prewarm", () => {
   });
 
   it("creates a fresh draft before the first Send tap", async () => {
-    const view = render(<Probe />);
+    render(<Probe />);
 
     expect(api.createChat).not.toHaveBeenCalled();
-    await waitFor(() => expect(api.createChat).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(api.createChat).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("draft-id").props.children).toBe("draft-1");
+    });
     expect(api.createChat).toHaveBeenCalledWith("token", "auto", undefined, undefined);
-    await waitFor(() => expect(view.getByTestId("draft-id").props.children).toBe("draft-1"));
   });
 
   it("does not create a competing draft while an existing chat is opening", () => {
