@@ -176,6 +176,7 @@ class MathIntent(BaseModel):
         Literal[
             "position",
             "velocity",
+            "speed",
             "acceleration",
             "time_to_ground",
             "range",

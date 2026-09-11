@@ -109,6 +109,12 @@ def _canonical_replacement(
             "number_line",
         }:
             return json.dumps(fence, separators=(",", ":"))
+        if fence.get("type") == "trajectory" and data_type in {
+            "function",
+            "vertical",
+            "trajectory",
+        }:
+            return json.dumps(fence, separators=(",", ":"))
     return None
 
 

@@ -34,52 +34,6 @@ from app.services.math_text_match.scan import (
     two_numbers_after,
 )
 
-_SUPPORTED_PHYSICS_CUES = (
-    # 1D kinematics under gravity.
-    "dropped",
-    "free fall",
-    "freefall",
-    "falls from",
-    "fall from",
-    "thrown upward",
-    "thrown down",
-    "thrown downward",
-    "launched upward",
-    "launched downward",
-    "how long to fall",
-    "time to hit",
-    "velocity after",
-    "speed after",
-    "height after",
-    "position after",
-    # Vacuum projectile motion.
-    "projectile",
-    "launched at angle",
-    "launched at an angle",
-    "fired at angle",
-    "thrown at angle",
-    "thrown at an angle",
-    "maximum height",
-    "max height",
-    # Scalar F = ma.
-    "net force",
-    "newton's second law",
-    "newtons second law",
-    "force of",
-    "force required",
-    "what is the force",
-    "what's the force",
-    "acceleration given",
-    "given force",
-    # Scalar energy/work/power formulas.
-    "kinetic energy",
-    "potential energy",
-    "work done",
-    "work is done",
-    "how much work",
-    "power of",
-)
-
 
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     cleaned = prepare(text)
@@ -233,8 +187,9 @@ def supported_physics_cue(cleaned: str) -> bool:
     """A numeric problem supported by the narrow verified physics solver."""
     if not any(ch.isdigit() for ch in cleaned):
         return False
-    lower = cleaned.lower()
-    return any(cue in lower for cue in _SUPPORTED_PHYSICS_CUES)
+    from app.services.math_tools.physics import has_supported_physics_cue
+
+    return has_supported_physics_cue(cleaned.lower())
 
 
 def looks_like_bare_arithmetic(text: str) -> bool:

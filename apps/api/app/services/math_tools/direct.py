@@ -131,6 +131,8 @@ def can_direct_verified_math_reply(
     """
     if has_image_attachment:
         return False
+    if not verified.allow_direct:
+        return False
     if wants_math_explanation(user_text):
         return False
     if leftover_non_math_request(user_text):

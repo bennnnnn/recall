@@ -51,7 +51,7 @@ def _build_physics_block(
 
     if result.graph_specs:
         return _diagram_block(lines, result.graph_specs[0], result.answer_value)
-    return _finish_with_answer(lines, result.answer_value)
+    return _finish_with_answer(lines, result.answer_value, allow_direct=False)
 
 
 PHYSICS_BLOCK_BUILDERS = {

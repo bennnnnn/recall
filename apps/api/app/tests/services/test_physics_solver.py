@@ -71,6 +71,45 @@ def test_kinematics_velocity_op() -> None:
     assert abs(float(result.answer_value.split()[0]) - (-9.81)) < 0.01
 
 
+def test_kinematics_speed_op_is_magnitude() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="speed",
+        physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81, "t": 1.0},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2", "t": "s"},
+        operation="solve",
+    )
+    result = physics_solver.solve_kinematics(intent)
+    assert abs(float(result.answer_value.split()[0]) - 9.81) < 0.01
+    assert float(result.answer_value.split()[0]) > 0
+
+
+def test_kinematics_thrown_down_latex_parenthesises_negative_v0() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="time_to_ground",
+        physics_params={"h0": 20.0, "v0": -5.0, "g": 9.81},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2"},
+        operation="solve",
+    )
+    result = physics_solver.solve_kinematics(intent)
+    assert r"(-5)^{2}" in result.answer
+    assert "-5^2" not in result.answer
+    assert abs(float(result.answer_value.split()[0]) - 1.57) < 0.02
+
+
+def test_params_in_si_rejects_length_as_velocity() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="time_to_ground",
+        physics_params={"h0": 20.0, "v0": 5.0, "g": 9.81},
+        physics_units={"h0": "m", "v0": "miles", "g": "m/s^2"},
+        operation="solve",
+    )
+    with pytest.raises(MathServiceError, match="not a m/s"):
+        physics_solver.solve_kinematics(intent)
+
+
 def test_kinematics_position_op_uses_requested_time() -> None:
     intent = MathIntent(
         kind="kinematics",

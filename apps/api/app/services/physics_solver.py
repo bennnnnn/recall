@@ -26,29 +26,64 @@ class PhysicsResult:
     graph_specs: list[GraphBlockSpec] = field(default_factory=list)
 
 
-def _to_si(value: float, unit: str) -> float:
+def _latex_num(value: float, *, square: bool = False) -> str:
+    """Format a number for LaTeX so ``-5^2`` is not read as ``-(5^2)``."""
+    text = f"{value:g}"
+    if value < 0:
+        text = f"({text})"
+    if square:
+        return f"{text}^{{2}}"
+    return text
+
+
+_PARAM_SI_UNIT = {
+    "h0": "m",
+    "h": "m",
+    "d": "m",
+    "v0": "m/s",
+    "v": "m/s",
+    "t": "s",
+    "g": "m/s**2",
+    "a": "m/s**2",
+    "F": "N",
+    "m": "kg",
+}
+
+_UNIT_ALIASES = {
+    "m/s2": "m/s**2",
+    "m/s^2": "m/s**2",
+    "deg": "deg",
+    "degrees": "deg",
+    "°": "deg",
+    "miles per hour": "mph",
+    "miles": "mile",
+}
+
+
+def _to_si(value: float, unit: str, expected_si: str | None = None) -> float:
     """Convert a value with a unit string to its SI base using Pint.
 
     Returns the value unchanged if the unit is empty (assumed already SI).
+    When ``expected_si`` is set, a dimensionality mismatch raises
+    ``MathServiceError`` instead of silently converting length-as-velocity.
     """
     if not unit:
         return value
     from app.services.math_school import _get_unit_registry
 
     ureg = _get_unit_registry()
-    # Normalize common user-facing aliases.
-    alias = {
-        "m/s2": "m/s**2",
-        "m/s^2": "m/s**2",
-        "deg": "deg",
-        "degrees": "deg",
-        "°": "deg",
-    }.get(unit.lower(), unit)
+    alias = _UNIT_ALIASES.get(unit.lower(), unit)
     try:
         quantity = value * ureg(alias)
-        # Convert to base SI (meter, kilogram, second, kelvin, ampere).
+        if expected_si:
+            expected = ureg(expected_si)
+            if quantity.dimensionality != expected.dimensionality:
+                raise MathServiceError(f"unit {unit!r} is not a {expected_si}")
+            return float(quantity.to(expected).magnitude)
         base = quantity.to_base_units()
         return float(base.magnitude)
+    except MathServiceError:
+        raise
     except Exception as exc:
         raise MathServiceError(f"unsupported unit: {unit}") from exc
 
@@ -61,10 +96,13 @@ def _params_in_si(intent: MathIntent) -> dict[str, float]:
     for key, val in params.items():
         unit = units.get(key, "")
         if key == "angle":
-            # Angle is in degrees — convert to radians for SymPy trig.
-            out[key] = math.radians(val) if unit.lower() in ("deg", "degrees", "°", "") else val
+            lower_unit = unit.lower()
+            if lower_unit in ("rad", "radian", "radians"):
+                out[key] = val
+            else:
+                out[key] = math.radians(val) if lower_unit in ("deg", "degrees", "°", "") else val
         else:
-            out[key] = _to_si(val, unit)
+            out[key] = _to_si(val, unit, _PARAM_SI_UNIT.get(key))
     return out
 
 
@@ -95,7 +133,7 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
         return float(valid[0])
 
     # Past impact, h(t) is negative and v(t) is still "in air" — not a fact.
-    if op in ("position", "velocity"):
+    if op in ("position", "velocity", "speed"):
         t_asked = p.get("t")
         t_land = _time_to_ground()
         if t_asked is not None and t_land is not None and float(t_asked) > t_land:
@@ -107,14 +145,15 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
         if landed is None:
             raise MathServiceError("no positive real time to ground")
         t_val = landed
+        v0_sq = _latex_num(v0, square=True)
         answer_latex = (
             r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g} = "
-            rf"\frac{{{v0:g} + \sqrt{{{v0:g}^2 + 2 \cdot {g:g} \cdot {h0:g}}}}}"
+            rf"\frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
             rf"{{{g:g}}} "
             rf"\approx {t_val:.2f} \text{{ s}}"
         )
         answer_value = f"{t_val:.2f} s"
-    elif op == "velocity":
+    elif op in ("velocity", "speed"):
         # Need a time — look for a time param, else use time_to_ground.
         t_param = p.get("t")
         if t_param is None:
@@ -124,6 +163,8 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
             t_param = landed
         t_val = float(t_param)
         v_val = float(v0 - g * t_val)
+        if op == "speed":
+            v_val = abs(v_val)
         answer_latex = rf"v = v_0 - g \cdot t \approx {v_val:.2f} \text{{ m/s}}"
         answer_value = f"{v_val:.2f} m/s"
     elif op == "position":
@@ -135,7 +176,9 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
         answer_latex = rf"h = h_0 + v_0 t - \frac{{1}}{{2}} g t^2 \approx {h_val:.2f} \text{{ m}}"
         answer_value = f"{h_val:.2f} m"
     elif op == "acceleration":
-        # Constant g.
+        # Constant g for free-fall templates only. The extractor returns
+        # None unless a gravity-motion cue is present — do not use this
+        # for two-point velocity acceleration.
         answer_latex = rf"a = -g = {-g:g} \text{{ m/s}}^2"
         answer_value = f"{-g:g} m/s^2"
         return PhysicsResult(answer=answer_latex, answer_value=answer_value)
@@ -211,9 +254,11 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
             r_val = v0 * math.cos(theta) * t_flight
         else:
             r_val = v0**2 * math.sin(2 * theta) / g
+        deg = math.degrees(theta)
+        v0_sq = _latex_num(v0, square=True)
         answer_latex = (
             rf"R = \frac{{v_0^2 \sin(2\theta)}}{{g}} = "
-            rf"\frac{{{v0:g}^2 \cdot \sin({math.degrees(theta):.1f}^\circ \cdot 2)}}{{{g:g}}} "
+            rf"\frac{{{v0_sq} \cdot \sin({deg:.1f}^\circ \cdot 2)}}{{{g:g}}} "
             rf"\approx {r_val:.2f} \text{{ m}}"
             if h0 <= 0
             else rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
@@ -305,8 +350,9 @@ def solve_energy(intent: MathIntent) -> PhysicsResult:
 
     if op == "kinetic_energy":
         ke_val = 0.5 * p["m"] * p["v"] ** 2
+        v_sq = _latex_num(p["v"], square=True)
         answer_latex = (
-            rf"KE = \frac{{1}}{{2}} m v^2 = \frac{{1}}{{2}} \cdot {p['m']:g} \cdot {p['v']:g}^2 "
+            rf"KE = \frac{{1}}{{2}} m v^2 = \frac{{1}}{{2}} \cdot {p['m']:g} \cdot {v_sq} "
             rf"\approx {ke_val:.2f} \text{{ J}}"
         )
         answer_value = f"{ke_val:.2f} J"

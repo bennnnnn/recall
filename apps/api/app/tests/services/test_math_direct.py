@@ -48,6 +48,17 @@ def test_compound_prompt_keeps_llm() -> None:
     assert maybe_direct_math_reply(block, "Solve 1+1=x and show me your work") is None
 
 
+def test_can_direct_skips_force_energy_unlabeled_quantity() -> None:
+    block = VerifiedMathBlock(
+        text="verified",
+        canonical_fence={"type": "answer", "content": "5.00 m/s^2"},
+        canonical_answer="5.00 m/s^2",
+        allow_direct=False,
+    )
+    assert can_direct_verified_math_reply(block, "A force of 10 N on 2 kg") is False
+    assert maybe_direct_math_reply(block, "A force of 10 N on 2 kg") is None
+
+
 def test_can_direct_skips_graphs_and_camera() -> None:
     graph = VerifiedMathBlock(
         text="plot",
