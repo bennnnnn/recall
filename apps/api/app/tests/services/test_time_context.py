@@ -6,11 +6,17 @@ import pytest
 from app.services.time_context import (
     describe_due_at,
     effective_timezone,
+    format_date_answer,
     format_digital_clock,
     format_location_answer,
     format_time_answer,
+    format_year_answer,
+    is_current_date_question,
+    is_local_now_question,
     is_location_question,
     is_time_question,
+    is_year_question,
+    maybe_local_now_reply,
     normalize_due_at,
 )
 
@@ -63,6 +69,80 @@ def test_describe_due_at_skips_checked():
 )
 def test_is_time_question(text, expected):
     assert is_time_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("what year is it", True),
+        ("What year is it?", True),
+        ("what year is it now", True),
+        ("what year", False),
+        ("current year", True),
+        ("what's the current year", True),
+        ("What’s the year", True),  # curly apostrophe
+        ("what year are we in", True),
+        ("tell me the year", True),
+        ("what year did WWII end", False),
+        ("what year was I born", False),
+        ("what year is it in Japan", False),
+        ("what time is it", False),
+        ("U sure?", False),
+    ],
+)
+def test_is_year_question(text, expected):
+    assert is_year_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("what's the date", True),
+        ("what is the date", True),
+        ("what's today's date", True),
+        ("what date is it", True),
+        ("current date", True),
+        ("what day is it", True),
+        ("what day is it today", True),
+        ("what day", False),
+        ("what's today", False),
+        ("what is today", False),
+        ("what date is Christmas", False),
+        ("what day is Christmas", False),
+        ("what time is it", False),
+    ],
+)
+def test_is_current_date_question(text, expected):
+    assert is_current_date_question(text) is expected
+
+
+def test_is_local_now_question_covers_time_year_and_date():
+    assert is_local_now_question("what time is it") is True
+    assert is_local_now_question("what year is it") is True
+    assert is_local_now_question("what's the date") is True
+    assert is_local_now_question("what year did WWII end") is False
+
+
+def test_format_year_answer_uses_timezone_year():
+    now = datetime.now(ZoneInfo("UTC"))
+    assert format_year_answer("UTC") == f"It's {now.year}."
+
+
+def test_format_date_answer_uses_local_calendar_day():
+    now = datetime.now(ZoneInfo("UTC"))
+    assert format_date_answer("UTC") == f"{now.strftime('%A, %B')} {now.day}, {now.year}."
+
+
+def test_maybe_local_now_reply_dispatches():
+    assert maybe_local_now_reply("what time is it", "UTC") == "```clock\n```"
+    now = datetime.now(ZoneInfo("UTC"))
+    assert maybe_local_now_reply("what year is it", "UTC") == f"It's {now.year}."
+    assert maybe_local_now_reply("what's the date", "UTC") == (
+        f"{now.strftime('%A, %B')} {now.day}, {now.year}."
+    )
+    assert maybe_local_now_reply("what year did WWII end", "UTC") is None
+    assert maybe_local_now_reply("what year", "UTC") is None
+    assert maybe_local_now_reply("what day", "UTC") is None
 
 
 @pytest.mark.parametrize(

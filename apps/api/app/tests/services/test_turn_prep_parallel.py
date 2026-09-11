@@ -18,6 +18,7 @@ import pytest
 from app.core.config import Settings
 from app.services.chat.turn_prep.context import build_stream_prompt_context
 from app.services.chat.turn_prep.mode import _TurnMode
+from app.services.time_context import format_date_answer, format_year_answer
 
 
 class _FakeSessionCM:
@@ -72,7 +73,13 @@ def _slim_turn_mode() -> _TurnMode:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "content,expected_instant_reply",
-    [("Again", None), ("tell me again", None), ("what time is it", "```clock\n```")],
+    [
+        ("Again", None),
+        ("tell me again", None),
+        ("what time is it", "```clock\n```"),
+        ("what year is it", format_year_answer(None)),
+        ("what's the date", format_date_answer(None)),
+    ],
 )
 async def test_followup_keeps_conversation_context_instead_of_instant_clock(
     content, expected_instant_reply, fake_redis
@@ -121,6 +128,53 @@ async def test_followup_keeps_conversation_context_instead_of_instant_clock(
     assert bundle.instant_reply == expected_instant_reply
     assert bundle.prompt_messages == messages
     assert build_prompt.await_args.kwargs["query_text"] == content
+
+
+@pytest.mark.asyncio
+async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_redis):
+    """A photo of a clock/calendar/document must go to vision, not Instant year."""
+    user = _make_user()
+    chat = _make_chat()
+    content = "what year is it"
+    messages = [
+        {"role": "system", "content": "BASE"},
+        {"role": "user", "content": content},
+    ]
+    build_prompt = AsyncMock(return_value=list(messages))
+    with (
+        patch("app.services.chat.turn_prep.context.build_prompt_messages", build_prompt),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "free-chat",
+            Settings(
+                _env_file=None,
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=False,
+                web_search_enabled=False,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            has_image_attachment=True,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    assert bundle.instant_reply is None
 
 
 @pytest.mark.asyncio

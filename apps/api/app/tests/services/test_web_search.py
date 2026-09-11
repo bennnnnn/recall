@@ -32,6 +32,8 @@ from app.services.web_search import (
         ("Ethiopias game score", True),
         ("explain Python decorators", False),
         ("what time is it", False),
+        ("what year is it", False),
+        ("what's the date", False),
         ("where am I?", False),
         ("Where am iI", False),
         ("help me write an email to my boss", False),
