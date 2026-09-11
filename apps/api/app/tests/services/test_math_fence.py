@@ -218,6 +218,29 @@ def test_rewrites_inequality_function_fence_to_canonical_number_line() -> None:
     assert data["intervals"][0]["start"] == 3.0
 
 
+def test_rewrites_function_graph_to_canonical_trajectory() -> None:
+    points = [[0.0, 20.0], [1.0, 15.095], [2.02, 0.0]]
+    canonical = {
+        "type": "trajectory",
+        "expr": "h(t) = 20 - 0.5*9.81*t^2",
+        "variable": "t",
+        "x_min": 0.0,
+        "x_max": 2.02,
+        "points": points,
+        "title": "Height vs. Time",
+        "trajectory_type": "position_vs_time",
+    }
+    content = (
+        '```graph\n{"type":"function","expr":"h = h_0 + v_0 t - 0.5 g t^2","title":"height"}\n```'
+    )
+    out = validate_math_fences(content, verified=_verified(canonical))
+    assert "Could not render" not in out
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["type"] == "trajectory"
+    assert data["points"] == points
+
+
 def test_corrects_hallucinated_geometry_values_to_canonical() -> None:
     """The model claimed a wrong diagonal — the real computed value must win."""
     canonical = {

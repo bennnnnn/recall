@@ -203,6 +203,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
+- ✅ **Physics (narrow verified)** — 1D gravity kinematics, vacuum projectile range / max
+  height (quadratic time-of-flight when a launch height is given), scalar F=ma, and
+  KE / PE / work / power. Trajectory ` ```graph ` fences only for kinematics and projectile;
+  force and energy are numbers. The solver gate is the union of those extractor cues.
+  Moon/Mars gravity is a whole-token match (`marsh` stays Earth). See
+  [docs/math.md](./docs/math.md).
 - ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,
   molar mass (Hill formulas vs organic SMILES — `CO` is 28 g/mol, `CCO` is ethanol),
   hydrates, stoich / limiting reagent, pH, ideal gas, molarity / dilution, element

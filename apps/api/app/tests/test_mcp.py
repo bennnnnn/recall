@@ -130,6 +130,14 @@ def test_mcp_registry_sympy_absent_when_math_tools_disabled():
     assert get("sympy") is not None
 
 
+def test_sympy_adapter_describe_does_not_advertise_physics() -> None:
+    description = SympyAdapter(Settings()).describe().lower()
+    assert "kinematics" not in description
+    assert "projectile" not in description
+    assert "f=ma" not in description
+    assert "scalar-energy" not in description
+
+
 @pytest.mark.asyncio
 async def test_sympy_adapter_rejects_rce_payload_via_solve():
     """The model can call this tool directly — it must not be a second,

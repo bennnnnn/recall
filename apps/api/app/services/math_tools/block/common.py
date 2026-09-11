@@ -26,6 +26,10 @@ class VerifiedMathBlock:
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
     canonical_fences: list[dict[str, Any]] = field(default_factory=list)
+    # Force/energy answers are unlabeled quantities — keep the LLM so
+    # MATH_SOLVER_HINT can name the symbol. Geometry/graph already skip
+    # direct reply via their fence type.
+    allow_direct: bool = True
 
 
 def _answer_canonical(content: str) -> dict[str, str]:
@@ -44,6 +48,7 @@ def _finish_with_answer(
     answer: str,
     *,
     preface: str | None = None,
+    allow_direct: bool = True,
 ) -> VerifiedMathBlock:
     """Record the verified answer for post-stream attach; do not put a fence in the hint."""
     if preface:
@@ -53,6 +58,7 @@ def _finish_with_answer(
         text="\n".join(lines),
         canonical_fence=_answer_canonical(answer),
         canonical_answer=answer,
+        allow_direct=allow_direct,
     )
 
 

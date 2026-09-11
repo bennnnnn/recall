@@ -117,6 +117,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             canonical_fence=block.canonical_fence,
             canonical_answer=block.canonical_answer,
             canonical_fences=block.canonical_fences,
+            allow_direct=block.allow_direct,
         )
     except math_service.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)

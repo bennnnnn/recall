@@ -62,8 +62,7 @@ class SympyAdapter:
             "differentiate, integrate (optional lower/upper for definite), factor, "
             "expand, limits, series, Newton's method, first-order ODEs (dsolve), "
             "rectangle/square/circle "
-            "geometry, graphs (optional second curve via expr2), and verified "
-            "kinematics/projectile/F=ma/scalar-energy word problems."
+            "geometry, and graphs (optional second curve via expr2)."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:

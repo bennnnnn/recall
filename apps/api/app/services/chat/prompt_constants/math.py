@@ -88,13 +88,12 @@ MATH_SOLVER_HINT = (
     "- Physics problems (kinematics, projectile motion, forces, energy): when a "
     "verified physics block is present, use its exact numbers — do NOT recompute "
     "the time, velocity, range, or energy. Always include units in the setup "
-    "(g = 9.81 m/s^2, h0 = 20 m, v0 = 0 m/s). Start with the general equation "
-    "(e.g. $h = h_0 + v_0 t - \\frac{1}{2} g t^2$), then substitute the known "
-    "values. State the numeric result once "
-    "in `$...$` (no extra boxed restatement). Do NOT re-list sampled points in prose. "
-    "Trajectory graphs are only for kinematics (height vs time) and projectile "
-    "motion (x-y path). Force and energy answers are numbers only — do not invent "
-    "a trajectory plot."
+    "(e.g. g = 9.81 m/s^2 on Earth, with the given h0 and v0). Start with the "
+    "general equation, then substitute the known values. State the numeric "
+    "result once in `$...$` (no extra boxed restatement). Do NOT re-list sampled "
+    "points in prose. Do NOT emit ```graph. Trajectory graphs are only for kinematics "
+    "(height vs time) and projectile motion (x-y path). Force and energy answers "
+    "are numbers only — do not invent a trajectory plot."
 )
 
 # When the user is practicing/learning math and gives a wrong answer (or asks

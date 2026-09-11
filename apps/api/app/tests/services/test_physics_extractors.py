@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.services.math_tools.physics import (
+    _VALUE_UNIT_RE,
+    _detect_gravity,
     _extract_energy_intent,
     _extract_force_intent,
     _extract_kinematics_intent,
@@ -131,6 +133,86 @@ def test_kinematics_moon_gravity() -> None:
     assert intent.physics_params["g"] == 1.62
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A ball is dropped from 20 m into a marsh. How long until it hits?",
+        "A ball is dropped from 20 m in the moonlight. How long until it hits?",
+        "A marshal dropped a ball from 20 m. How long until it hits?",
+    ],
+)
+def test_kinematics_marsh_and_moonlight_are_earth_g(text: str) -> None:
+    intent = _extract_kinematics_intent(text)
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["g"] == 9.81
+    assert _detect_gravity(text) == 9.81
+
+
+def test_kinematics_thrown_up_not_only_thrown_upward() -> None:
+    intent = _extract_kinematics_intent("A ball is thrown up at 15 m/s. How long until it lands?")
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_params is not None
+    assert intent.physics_params["v0"] == 15.0
+
+
+def test_kinematics_speed_after_is_speed_op() -> None:
+    intent = _extract_kinematics_intent("A ball is dropped from 20 m. What is its speed after 1 s?")
+    assert intent is not None
+    assert intent.physics_op == "speed"
+    assert intent.physics_params is not None
+    assert intent.physics_params["t"] == 1.0
+
+
+def test_kinematics_find_v_when_t_is_velocity_not_impact_time() -> None:
+    """``t = 1 s`` is a given; do not strip it and default to time_to_ground."""
+    intent = _extract_kinematics_intent("A ball is dropped from 20 m; find v when t = 1 s")
+    assert intent is not None
+    assert intent.physics_op == "velocity"
+    assert intent.physics_params is not None
+    assert intent.physics_params["t"] == 1.0
+    assert intent.physics_params["h0"] == 20.0
+
+
+def test_kinematics_unlabeled_free_fall_height() -> None:
+    intent = _extract_kinematics_intent("How long does an object free fall 20 m?")
+    assert intent is not None
+    assert intent.physics_op == "time_to_ground"
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+
+
+def test_kinematics_textbook_h_assignment_is_not_algebra() -> None:
+    intent = _extract_kinematics_intent(
+        "A ball is dropped from h = 20 m. How long until it hits the ground?"
+    )
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+
+
+def test_kinematics_v0_h0_assignments_are_not_algebra() -> None:
+    intent = _extract_kinematics_intent(
+        "A ball is dropped. Given v0 = 0 and h0 = 20 m, how long until it hits?"
+    )
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+    assert intent.physics_params["v0"] == 0.0
+
+
+def test_kinematics_car_acceleration_is_not_minus_g() -> None:
+    assert (
+        _extract_kinematics_intent(
+            "A car speeds up from 0 to 30 m/s in 5 s. What is the acceleration of the car?"
+        )
+        is None
+    )
+
+
 def test_kinematics_explicit_g() -> None:
     intent = _extract_kinematics_intent(
         "A ball is dropped from 20m with g = 1.6, how long to hit the ground?"
@@ -185,6 +267,39 @@ def test_projectile_max_height() -> None:
     )
     assert intent is not None
     assert intent.physics_op == "max_height"
+
+
+def test_projectile_wall_away_is_not_launch_height() -> None:
+    intent = _extract_projectile_intent(
+        "A projectile is launched at 20 m/s at 30 degrees. A wall is 15 m away. What is the range?"
+    )
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert "h0" not in intent.physics_params
+    assert intent.physics_params["v0"] == 20.0
+    assert intent.physics_params["angle"] == 30.0
+
+
+def test_projectile_fired_at_an_angle() -> None:
+    intent = _extract_projectile_intent(
+        "A projectile is fired at an angle of 25 degrees at 40 m/s. What is the range?"
+    )
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["v0"] == 40.0
+    assert intent.physics_params["angle"] == 25.0
+
+
+def test_projectile_textbook_assignments() -> None:
+    intent = _extract_projectile_intent(
+        "Projectile: v0 = 20 m/s, angle = 30 deg. Find the maximum height."
+    )
+    assert intent is not None
+    assert intent.kind == "projectile"
+    assert intent.physics_op == "max_height"
+    assert intent.physics_params is not None
+    assert intent.physics_params["v0"] == 20.0
+    assert intent.physics_params["angle"] == 30.0
 
 
 def test_projectile_missing_angle_returns_none() -> None:
@@ -380,3 +495,28 @@ def test_energy_does_not_claim_conservation_problem() -> None:
         )
         is None
     )
+
+
+def test_energy_what_is_the_power_without_power_of() -> None:
+    intent = _extract_energy_intent("A force of 200 N moves an object at 3 m/s. What is the power?")
+    assert intent is not None
+    assert intent.physics_op == "power"
+    assert intent.physics_params is not None
+    assert intent.physics_params["F"] == 200.0
+    assert intent.physics_params["v"] == 3.0
+
+
+@pytest.mark.parametrize(
+    "text, unit_prefix",
+    [
+        ("5 miles", "mile"),
+        ("20 minutes", "minute"),
+        ("3 mi", "mi"),
+        ("20 m/s", "m/s"),
+        ("7 inches", "in"),
+    ],
+)
+def test_value_unit_re_does_not_read_miles_as_metres(text: str, unit_prefix: str) -> None:
+    match = _VALUE_UNIT_RE.match(text)
+    assert match is not None
+    assert (match.group(2) or "").lower().startswith(unit_prefix)

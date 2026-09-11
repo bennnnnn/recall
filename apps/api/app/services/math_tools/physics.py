@@ -15,15 +15,17 @@ from typing import Literal
 
 from app.models.schemas.math import MathIntent
 from app.services import math_text_match as mtm
+from app.services.math_text_match.scan import word_index
 
 logger = logging.getLogger(__name__)
 
-# Length units for drop height — ``m`` is last so ``mm``/``cm`` win first.
+# Length units for drop height — longer spellings before ``m`` so ``miles``
+# is not read as metres. ``m`` still has a trailing-boundary lookahead.
 _LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
-    r"meters?|metres?|m|feet|ft|yards?|yd|inches?|in|miles?|mi"
+    r"miles?|mi|meters?|metres?|m|feet|ft|yards?|yd|inches?|in"
 )
-_VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s"
+_VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 
 # Default gravitational acceleration (m/s^2). Earth gravity unless the user
 # says otherwise ("on the moon", "g = 1.6").
@@ -35,9 +37,12 @@ _G_DEFAULT = 9.81
 # Trailing boundary so ``m`` cannot bind inside ``miles`` / ``min``.
 _VALUE_UNIT_RE = re.compile(
     r"(-?\d+(?:\.\d+)?)\s*"
-    r"(m/s\^?2|m/s|m\^?2/s\^?2|km/h|mph|m/s2|cm/s|mm/s|"
-    r"km|cm|mm|m|mi|ft|yd|in|"
-    r"kg|g|mg|lb|lbs|oz|"
+    r"(m/s\^?2|m/s2|m/s|m\^?2/s\^?2|km/h|mph|miles\s+per\s+hour|cm/s|mm/s|"
+    r"kilometers?|centimeters?|millimeters?|"
+    r"miles?|minutes?|milliseconds?|seconds?|hours?|"
+    r"meters?|metres?|inches?|yards?|feet|"
+    r"km|cm|mm|mi|ft|yd|in|"
+    r"kg|mg|lb|lbs|oz|"
     r"N|J|W|Pa|Hz|"
     r"s|ms|sec|min|hr|h|"
     r"deg|degrees|°|rad|radians)?"
@@ -105,8 +110,9 @@ def _find_value_with_specific_unit(
     nearest one of them; otherwise use the first matching value. This avoids
     binding an earlier unrelated quantity to the requested mass/force/etc.
 
-    ``require_keyword`` (h0 only): if none of the keywords appear, return
+    ``require_keyword`` (projectile h0): if none of the keywords appear, return
     None instead of the first unlabeled length (``wall is 15 m away``).
+    Kinematics unlabeled ``free fall 20 m`` still binds.
     """
     matches = list(
         re.finditer(
@@ -143,6 +149,8 @@ def _find_value_with_specific_unit(
                 return min(distances)
 
             match = min(matches, key=distance_to_keyword)
+        elif require_keyword:
+            return None
 
     return float(match.group(1)), match.group(2)
 
@@ -157,42 +165,51 @@ def _detect_gravity(text: str) -> float:
     m = re.search(r"\bgravity\s*(?:of|is|=)?\s*(-?\d+(?:\.\d+)?)", lower)
     if m:
         return float(m.group(1))
-    if "moon" in lower:
+    if word_index(lower, "moon") != -1:
         return 1.62
-    if "mars" in lower:
+    if word_index(lower, "mars") != -1:
         return 3.71
     return _G_DEFAULT
 
 
+_PARAM_ASSIGN_RE = re.compile(
+    r"\b(?:gravity|theta|angle|h0|v0|h|F|m|g)\s*=\s*(?=-?\d)",
+    re.IGNORECASE,
+)
+_T_ASSIGN_RE = re.compile(r"\bt\s*=\s*(?=-?\d)", re.IGNORECASE)
+
+
 def _strip_param_assignments(text: str) -> str:
-    """Remove "g = 1.6", "gravity = 9.8" style parameter specs so has_equation
-    doesn't mistake them for equations to solve (the physics solver handles
-    these as knowns, not as algebra).
+    """Remove ``h0 =`` / ``v0 =`` / ``g =`` labels so has_equation does not
+    treat textbook knowns as algebra. The number and unit stay for scanners.
+
+    Do not strip ``t`` / ``v`` / ``a`` / ``d`` — those are often the unknown
+    (``find v when t = 1 s``) and stripping them silently solves the wrong op.
     """
-    return re.sub(
-        r"\b(?:g|gravity)\s*=\s*-?\d+(?:\.\d+)?(?:\s*m/s\^?2)?",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
+    return _PARAM_ASSIGN_RE.sub("", text)
 
 
 # ---------------------------------------------------------------------------
 # Kinematics: 1D motion under gravity (free fall, dropped, thrown up/down)
 # ---------------------------------------------------------------------------
 
-_KINEMATICS_CUES = (
+_GRAVITY_MOTION_CUES = (
     "dropped",
     "free fall",
     "freefall",
     "falls from",
     "fall from",
+    "falls off",
     "thrown upward",
-    "thrown upward",
+    "thrown up",
     "thrown down",
     "thrown downward",
     "launched upward",
     "launched downward",
+)
+
+_KINEMATICS_CUES = (
+    *_GRAVITY_MOTION_CUES,
     "how long until",
     "how long to hit",
     "how long to reach",
@@ -201,10 +218,42 @@ _KINEMATICS_CUES = (
     "time to reach",
     "velocity after",
     "speed after",
+    "speed when",
     "height after",
     "position after",
     "acceleration of",
 )
+
+_H0_KEYWORDS = (
+    "from",
+    "initial height",
+    "height of",
+    "high",
+    "above",
+    "cliff",
+    "off",
+    "ledge",
+    "h0",
+    "dropped",
+)
+
+
+def _asks_speed(lower: str) -> bool:
+    return "speed after" in lower or "speed when" in lower
+
+
+def _asks_velocity(lower: str) -> bool:
+    if "velocity after" in lower or "velocity when" in lower:
+        return True
+    if "what is its velocity" in lower or "what is the velocity" in lower:
+        return True
+    if "v when" in lower:
+        return True
+    return re.search(r"\b(?:find|what is)\s+v\b", lower) is not None
+
+
+def _asks_position(lower: str) -> bool:
+    return "height after" in lower or "position after" in lower
 
 
 def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
@@ -212,18 +261,29 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     # Must have a kinematics cue AND at least one number.
     if not any(cue in lower for cue in _KINEMATICS_CUES):
         return None
+    asks_speed = _asks_speed(lower)
+    asks_velocity = _asks_velocity(lower)
+    asks_position = _asks_position(lower)
     # Defer to the equation extractor if there's an explicit "=" equation —
     # but strip "g = 1.6" parameter specs first (those are knowns, not algebra).
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    # When they asked for v/speed/position at a time, ``t = 1`` is a given,
+    # not the problem to solve.
+    stripped = _strip_param_assignments(cleaned)
+    if asks_speed or asks_velocity or asks_position:
+        stripped = _T_ASSIGN_RE.sub("", stripped)
+    if mtm.has_equation(stripped):
         return None
 
     # Initial height (h0): length units only so "5 kg" is not a drop height.
+    # Unlabeled ``free fall 20 m`` still binds; projectile keeps require_keyword
+    # so a wall ``15 m away`` is not a launch height.
     h0: float | None = None
     h0_unit = "m"
     hu = _find_value_with_specific_unit(
         cleaned,
         _LENGTH_UNIT_PATTERN,
-        ("from", "initial height", "height of", "high", "above", "cliff"),
+        _H0_KEYWORDS,
+        require_keyword=False,
     )
     if hu is not None:
         h0, h0_unit = hu
@@ -255,17 +315,23 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
         return None
 
     # Decide what the user is asking for.
-    op: Literal["position", "velocity", "acceleration", "time_to_ground"] = "time_to_ground"
-    if "velocity after" in lower or "speed after" in lower:
+    op: Literal["position", "velocity", "speed", "acceleration", "time_to_ground"] = (
+        "time_to_ground"
+    )
+    if asks_speed:
+        op = "speed"
+    elif asks_velocity:
         op = "velocity"
-    elif "height after" in lower or "position after" in lower:
+    elif asks_position:
         op = "position"
     elif "acceleration" in lower:
+        if not any(cue in lower for cue in _GRAVITY_MOTION_CUES):
+            return None
         op = "acceleration"
 
     time_value: float | None = None
     time_unit = "s"
-    if op in ("position", "velocity"):
+    if op in ("position", "velocity", "speed"):
         time_match = _find_value_with_specific_unit(
             cleaned,
             r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
@@ -306,6 +372,7 @@ _PROJECTILE_CUES = (
     "launched at angle",
     "launched at an angle",
     "fired at angle",
+    "fired at an angle",
     "thrown at angle",
     "thrown at an angle",
     "range of",
@@ -328,7 +395,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     v0: float | None = None
     v0_unit = "m/s"
     speed_m = re.search(
-        r"(-?\d+(?:\.\d+)?)\s*(m/s|km/h|mph|cm/s|mm/s)",
+        r"(-?\d+(?:\.\d+)?)\s*(m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour)",
         cleaned,
         re.IGNORECASE,
     )
@@ -344,14 +411,22 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     angle: float | None = None
     # Prefer "angle of N" / "at an angle of N" — unambiguous.
     angle_m = re.search(
-        r"(?:angle\s*(?:of)?\s*|at\s+an\s+angle\s*(?:of)?\s*)(-?\d+(?:\.\d+)?)\s*(?:degrees?|°|deg)?",
+        r"(?:angle\s*(?:of|=)?\s*|at\s+an\s+angle\s*(?:of)?\s*)(-?\d+(?:\.\d+)?)\s*"
+        r"(?:degrees?|°|deg|radians?|rad)?",
         lower,
     )
     if angle_m is None:
         # Fall back to "at N degrees/°/deg" — only when the unit word is
         # present so "at 15 m/s" (speed) isn't mistaken for an angle.
+        # ``°`` is not a word char, so a trailing ``\b`` would miss ``30°?``.
         angle_m = re.search(
-            r"\bat\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|°|deg)\b",
+            r"\bat\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|°|deg)(?![A-Za-z0-9])",
+            lower,
+        )
+    if angle_m is None:
+        # After stripping ``angle = 30``, only ``30 deg`` remains.
+        angle_m = re.search(
+            r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
             lower,
         )
     if angle_m:
@@ -365,7 +440,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     hu = _find_value_with_specific_unit(
         cleaned,
         _LENGTH_UNIT_PATTERN,
-        ("from", "initial height", "height of", "high", "above", "cliff"),
+        ("from", "initial height", "height of", "high", "above", "cliff", "h0"),
         require_keyword=True,
     )
     if hu is not None:
@@ -379,8 +454,9 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
         op = "range"  # trajectory implies range + plot
 
     g = _detect_gravity(cleaned)
+    angle_unit = "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg"
     params: dict[str, float] = {"v0": v0, "angle": angle, "g": g}
-    units: dict[str, str] = {"v0": v0_unit or "m/s", "angle": "deg", "g": "m/s^2"}
+    units: dict[str, str] = {"v0": v0_unit or "m/s", "angle": angle_unit, "g": "m/s^2"}
     if h0 is not None:
         params["h0"] = h0
         units["h0"] = h0_unit or "m"
@@ -485,6 +561,8 @@ _ENERGY_CUES = (
     "how much work",
     "work of",
     "power of",
+    "what is the power",
+    "what's the power",
     "energy of",
 )
 
@@ -628,3 +706,12 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_force_intent,
     _extract_energy_intent,
 )
+
+PHYSICS_CUES: tuple[str, ...] = tuple(
+    dict.fromkeys((*_KINEMATICS_CUES, *_PROJECTILE_CUES, *_FORCE_CUES, *_ENERGY_CUES))
+)
+
+
+def has_supported_physics_cue(lower: str) -> bool:
+    """True when a verified physics template could match this (lowercased) text."""
+    return any(cue in lower for cue in PHYSICS_CUES)
