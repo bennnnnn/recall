@@ -1,9 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { rememberCreatedChat } from "@/lib/cache/chatListCache";
 import type { QuizMode } from "@/lib/quizMode";
 import { resolveActiveChatId } from "@/lib/chatDraftLogic";
+
+const DRAFT_PREWARM_DELAY_MS = 125;
 
 type Options = {
   token: string | null;
@@ -18,6 +20,8 @@ export function useDraftChat({ token, chatId }: Options) {
   const draftCreatePromiseRef = useRef<Promise<string | null> | null>(null);
   const skipLoadForChatIdRef = useRef<string | null>(null);
   const creatingRef = useRef(false);
+  const chatIdRef = useRef(chatId);
+  chatIdRef.current = chatId;
 
   const discardEmptyChat = useCallback(
     (id: string | null) => {
@@ -84,6 +88,19 @@ export function useDraftChat({ token, chatId }: Options) {
     },
     [token, chatId],
   );
+
+  // Hide the first-message create-chat round trip behind the time the user
+  // spends looking at / typing into a fresh conversation. Delay one beat so an
+  // existing route can synchronously claim chatId first; the ref check avoids
+  // creating a throwaway draft while chat history is opening.
+  useEffect(() => {
+    if (!token || chatId || draftChatIdRef.current || draftCreatePromiseRef.current) return;
+    const timer = setTimeout(() => {
+      if (chatIdRef.current || draftChatIdRef.current || draftCreatePromiseRef.current) return;
+      void prepareDraftChat();
+    }, DRAFT_PREWARM_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [token, chatId, prepareDraftChat]);
 
   return {
     draftChatId,
