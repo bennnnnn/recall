@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
+import { api, type Project, type ProjectKind } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
 
@@ -11,7 +11,6 @@ type CreateProjectInput = {
   kind?: ProjectKind;
   target_language?: string;
   native_language?: string | null;
-  level?: LanguageLevel;
   daily_goal?: number | null;
 };
 
@@ -22,7 +21,6 @@ type UpdateProjectInput = Partial<
     | "description"
     | "kind"
     | "archived"
-    | "level"
     | "target_language"
     | "native_language"
     | "daily_goal"

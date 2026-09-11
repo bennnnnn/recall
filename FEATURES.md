@@ -637,10 +637,11 @@ stay in the app; they are not Learning class types. Trivia / general-knowledge q
 were removed. Programming help lives in main chat.
 
 ### v1 (shipped foundation)
-- ✅ **`projects` table** — title, description, `kind` (`language` only; `vocabulary` is a
-  write alias), archive flag. DB CHECK rejects `general` / `trivia` / `learning` /
-  `programming`.
-- ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
+- ✅ **`projects` table** — title, description, `kind` (`language` only; `vocabulary` is
+  still coerced to `language` on write), archive flag. DB CHECK rejects `general` /
+  `trivia` / `learning` / `programming`. Class CEFR `level` is not in the API.
+- ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`. Practice is
+  `POST /projects/{id}/items/{item_id}/practice`. There is no item PATCH.
 - ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
   there). Compact stats, daily goals, and PDF export live on the lesson map ⋯ menu.
   Recall manages lesson content; there are no manual content edit/delete controls.
@@ -688,8 +689,9 @@ were removed. Programming help lives in main chat.
   **completed** group on the map is a same-group scan (correct answers already
   marked) that updates scheduling; it does not assemble a cross-group queue.
   Settings has PDF export on the lesson map ⋯ menu, not a deck browser.
-- ❌ **Class CEFR level** — unused. Vocab is the full catalog for everyone;
-  the lesson map ⋯ menu has daily goal + PDF; Recall manages lesson content. Chat extract `set_level` is a no-op.
+- ❌ **Class CEFR level** — removed from the Learning API. Vocab is the full catalog
+  for everyone; the lesson map ⋯ menu has daily goal + PDF. Chat no longer extracts
+  `set_level`. A leftover `projects.level` column stays `level1` in the DB.
 - ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
   nudges use actual study activity, including attempts and completed reviews. Partial
   practice is not reported as a skipped day (streak count is not in notification text).
@@ -700,6 +702,7 @@ were removed. Programming help lives in main chat.
   visit-owned cancellation. Right/wrong answers always play bundled sound cues; they
   do not speak “correct” / “try again” and they do not change the global recording mode.
   The shared pronunciation helper outside the lesson retains URL/cloud/device fallback.
+  Learning items do not carry `pronunciation_url`.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on word completion. Due counts include learning items and mastered words
   scheduled for review; a dedicated cross-group review queue remains deferred.

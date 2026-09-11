@@ -103,9 +103,8 @@ export type Todo = {
   updated_at: string;
 };
 
-/** Product learning kinds: vocabulary (one project per target language). */
-export type ProjectKind = "language" | "vocabulary";
-export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
+/** Product learning kinds: one class per target language. */
+export type ProjectKind = "language";
 export type VocabStatus = "new" | "learning" | "mastered";
 
 export type PathChapterProgress = {
@@ -123,7 +122,6 @@ export type Project = {
   kind: ProjectKind;
   target_language: string;
   native_language: string | null;
-  level: LanguageLevel;
   daily_goal: number | null;
   archived: boolean;
   created_at: string;
@@ -153,7 +151,6 @@ export type ProjectItem = {
   last_reviewed_at: string | null;
   last_incorrect_at?: string | null;
   review_count: number;
-  pronunciation_url: string | null;
   created_at: string;
 };
 
@@ -175,7 +172,6 @@ export type ProjectStats = {
   streak_days?: number;
   days_inactive?: number | null;
   quiz_accuracy_pct?: number | null;
-  suggested_level?: "up" | "down" | null;
 };
 
 export type ProjectDailyHistoryDay = {
@@ -253,7 +249,6 @@ export type HomeProjectHighlight = {
   streak_days?: number;
   days_inactive?: number | null;
   due_for_review?: number;
-  suggested_level?: "up" | "down" | null;
 };
 
 export type HomeScreen = {

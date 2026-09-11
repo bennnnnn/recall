@@ -26,7 +26,6 @@ function item(content: string, status: ProjectItem["status"] = "new"): ProjectIt
     mastered_at: null,
     last_reviewed_at: null,
     review_count: 0,
-    pronunciation_url: null,
     created_at: "2026-01-01T00:00:00Z",
   };
 }

@@ -6,12 +6,16 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 
 # Product learning kinds: vocabulary (one class per target language).
 # `vocabulary` is accepted as a write alias and normalized to `language`.
-LearningKind = Literal["language", "vocabulary"]
+LearningKind = Literal["language"]
 ProjectKind = LearningKind
 
-LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level6"]
-
 VocabStatus = Literal["new", "learning", "mastered"]
+
+
+def coerce_learning_kind(value: object) -> object:
+    if isinstance(value, str) and value.strip().casefold() == "vocabulary":
+        return "language"
+    return value
 
 
 class PathChapterProgress(BaseModel):
@@ -23,7 +27,7 @@ class PathChapterProgress(BaseModel):
 
 
 class LearningOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True, title="ProjectOut")
+    model_config = ConfigDict(from_attributes=True, title="LearningOut")
 
     id: UUID
     title: str
@@ -31,12 +35,16 @@ class LearningOut(BaseModel):
     kind: LearningKind
     target_language: str = "en"
     native_language: str | None = None
-    level: LanguageLevel = "level1"
     daily_goal: int | None = None
     archived: bool
     created_at: datetime
     updated_at: datetime
     learning_path: list[str] = Field(default_factory=list)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def normalize_kind(cls, value: object) -> object:
+        return coerce_learning_kind(value)
 
     @field_validator("learning_path", mode="before")
     @classmethod
@@ -60,32 +68,40 @@ class LearningOut(BaseModel):
 
 
 class LearningCreate(BaseModel):
-    model_config = ConfigDict(title="ProjectCreate")
+    model_config = ConfigDict(title="LearningCreate")
 
     title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
     kind: LearningKind = "language"
     target_language: str = Field(default="en", max_length=10)
     native_language: str | None = Field(default=None, max_length=10)
-    level: LanguageLevel = "level1"
     daily_goal: int | None = Field(default=None, ge=1, le=50)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def normalize_kind(cls, value: object) -> object:
+        return coerce_learning_kind(value)
 
 
 class LearningUpdate(BaseModel):
-    model_config = ConfigDict(title="ProjectUpdate")
+    model_config = ConfigDict(title="LearningUpdate")
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
     kind: LearningKind | None = None
     target_language: str | None = Field(default=None, max_length=10)
     native_language: str | None = Field(default=None, max_length=10)
-    level: LanguageLevel | None = None
     daily_goal: int | None = Field(default=None, ge=1, le=50)
     archived: bool | None = None
 
+    @field_validator("kind", mode="before")
+    @classmethod
+    def normalize_kind(cls, value: object) -> object:
+        return coerce_learning_kind(value)
+
 
 class LearningItemOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True, title="ProjectItemOut")
+    model_config = ConfigDict(from_attributes=True, title="LearningItemOut")
 
     id: UUID
     list_title: str
@@ -109,7 +125,6 @@ class LearningItemOut(BaseModel):
     ease_factor: float = 2.5
     interval_days: int = 0
     due_at: datetime | None = None
-    pronunciation_url: str | None
     created_at: datetime
 
     @computed_field  # type: ignore[prop-decorator]
@@ -141,7 +156,7 @@ class LearningPracticeOut(BaseModel):
 
 
 class LearningStats(BaseModel):
-    model_config = ConfigDict(title="ProjectStats")
+    model_config = ConfigDict(title="LearningStats")
 
     total: int = 0
     new_count: int = 0
@@ -161,13 +176,12 @@ class LearningStats(BaseModel):
     streak_days: int = 0
     days_inactive: int | None = None
     quiz_accuracy_pct: int | None = Field(default=None, ge=0, le=100)
-    suggested_level: Literal["up", "down"] | None = None
 
 
 class LearningListOut(LearningOut):
     """Learning list row; language classes include lightweight stats for list cards."""
 
-    model_config = ConfigDict(from_attributes=True, title="ProjectListOut")
+    model_config = ConfigDict(from_attributes=True, title="LearningListOut")
 
     stats: LearningStats | None = None
 
@@ -176,7 +190,7 @@ DailyHistoryStatus = Literal["complete", "partial", "skipped", "today", "inactiv
 
 
 class LearningDailyHistoryDay(BaseModel):
-    model_config = ConfigDict(title="ProjectDailyHistoryDay")
+    model_config = ConfigDict(title="LearningDailyHistoryDay")
 
     date: str
     weekday: int = Field(ge=0, le=6)
@@ -190,30 +204,14 @@ class LearningDailyHistoryDay(BaseModel):
 
 
 class LearningListGroup(BaseModel):
-    model_config = ConfigDict(title="ProjectListGroup")
+    model_config = ConfigDict(title="LearningListGroup")
 
     list_title: str
     items: list[LearningItemOut] = Field(default_factory=list)
 
 
-class LearningItemUpdate(BaseModel):
-    model_config = ConfigDict(title="ProjectItemUpdate")
-
-    status: VocabStatus | None = None
-    definition: str | None = Field(default=None, max_length=2000)
-    was_correct: bool | None = None
-
-    @field_validator("definition")
-    @classmethod
-    def validate_definition(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        text = value.strip()
-        return text or None
-
-
 class LearningDetailOut(LearningOut):
-    model_config = ConfigDict(from_attributes=True, title="ProjectDetailOut")
+    model_config = ConfigDict(from_attributes=True, title="LearningDetailOut")
 
     mastered_count: int = 0
     total_count: int = 0
@@ -227,13 +225,12 @@ class LearningDetailOut(LearningOut):
 
 
 class LearningActionItem(BaseModel):
-    model_config = ConfigDict(title="ProjectActionItem")
+    model_config = ConfigDict(title="LearningActionItem")
 
     action: Literal[
         "create_project",
         "delete_project",
         "set_description",
-        "set_level",
         "add",
         "start_learning",
         "master",
@@ -245,18 +242,20 @@ class LearningActionItem(BaseModel):
     kind: LearningKind | None = None
     target_language: str | None = Field(default=None, max_length=10)
     description: str | None = Field(default=None, max_length=4000)
-    level: LanguageLevel | None = None
     list_title: str = Field(default="General", max_length=200)
     content: str = Field(default="", max_length=1000)
     note: str | None = Field(default=None, max_length=2000)
     definition: str | None = Field(default=None, max_length=2000)
     example_sentence: str | None = Field(default=None, max_length=2000)
 
+    @field_validator("kind", mode="before")
+    @classmethod
+    def normalize_kind(cls, value: object) -> object:
+        return coerce_learning_kind(value)
+
     @model_validator(mode="after")
     def validate_action_fields(self) -> Self:
-        if self.action in ("delete_project", "delete_list", "set_level"):
-            if self.action == "set_level" and not self.level:
-                raise ValueError("set_level requires level")
+        if self.action in ("delete_project", "delete_list"):
             return self
         if self.action == "create_project":
             if not self.kind:
@@ -276,7 +275,7 @@ class LearningActionItem(BaseModel):
 
 
 class LearningExtractionResult(BaseModel):
-    model_config = ConfigDict(title="ProjectExtractionResult")
+    model_config = ConfigDict(title="LearningExtractionResult")
 
     actions: list[LearningActionItem] = Field(default_factory=list)
 
@@ -289,7 +288,6 @@ ProjectStats = LearningStats
 ProjectListOut = LearningListOut
 ProjectDailyHistoryDay = LearningDailyHistoryDay
 ProjectListGroup = LearningListGroup
-ProjectItemUpdate = LearningItemUpdate
 ProjectDetailOut = LearningDetailOut
 ProjectActionItem = LearningActionItem
 ProjectExtractionResult = LearningExtractionResult

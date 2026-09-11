@@ -39,8 +39,6 @@ async def create_item(
     )
     if existing is not None:
         return existing
-    # Do not call dictionaryapi on the quiz/turn-prep hot path — that HTTP round
-    # trip blocked grading. Persist without pronunciation; fill async later if needed.
     try:
         return await project_items_repo.create(
             session,
@@ -56,7 +54,6 @@ async def create_item(
             simple_gloss=simple_gloss,
             chat_id=chat_id,
             status=status,
-            pronunciation_url=None,
             catalog_entry_id=catalog_entry_id,
             commit=commit,
         )

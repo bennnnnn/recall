@@ -103,7 +103,6 @@ async def _project_action_create_project(
                 title=title,
                 description=(action.description or "").strip() or None,
                 kind=kind,
-                level=action.level or "level1",
                 target_language=target_language if kind == "language" else "en",
                 native_language=state.native_language if kind == "language" else None,
                 commit=False,
@@ -176,12 +175,6 @@ async def _project_action_set_description(
     desc = (action.description or "").strip() or None
     await projects_repo.update(state.session, matched, commit=False, description=desc)
     return 1
-
-
-async def _project_action_set_level(state: _ProjectApplyState, action: ProjectActionItem) -> int:
-    """Class level is unused; ignore leftover extractor output."""
-    del state, action
-    return 0
 
 
 async def _project_action_add(state: _ProjectApplyState, action: ProjectActionItem) -> int:
@@ -356,7 +349,6 @@ _PROJECT_ACTION_HANDLERS: dict[str, ActionHandler[_ProjectApplyState, ProjectAct
     "create_project": _project_action_create_project,
     "delete_project": _project_action_delete_project,
     "set_description": _project_action_set_description,
-    "set_level": _project_action_set_level,
     "add": _project_action_add,
     "start_learning": _project_action_start_learning,
     "master": _project_action_master,

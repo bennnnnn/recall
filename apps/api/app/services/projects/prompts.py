@@ -95,14 +95,11 @@ def language_tutor_hint(target_language: str | None = "en") -> str:
     """Tutor rules for a vocabulary project; `None` is generic (several languages)."""
     if target_language is None:
         vocab = "vocabulary"
-        skill = "skill level in that language"
     else:
         name = language_display_name(target_language)
         vocab = f"{name} vocabulary"
-        skill = f"{name} skill level"
     return (
         f"Active **language** project — **{vocab}**.\n"
-        f"The project **level** is the user's **{skill}** (level1=beginner … level6=fluent).\n"
         "Answer questions about progress, saved words, and study advice in prose.\n"
         "Do NOT run a quiz in this chat. Do NOT emit ```vocab_quiz or ```vocab_card.\n"
         "If they ask to practice, quiz, continue a class, or start today's lesson, "

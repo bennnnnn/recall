@@ -1,13 +1,7 @@
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 
 import { request } from "@/lib/api/client";
-import type {
-  LanguageLevel,
-  Project,
-  ProjectDetail,
-  ProjectItem,
-  ProjectKind,
-} from "@/lib/api/types";
+import type { Project, ProjectDetail, ProjectItem, ProjectKind } from "@/lib/api/types";
 
 export const projectsApi = {
   listProjects: (token: string) => {
@@ -51,7 +45,6 @@ export const projectsApi = {
       kind?: ProjectKind;
       target_language?: string;
       native_language?: string | null;
-      level?: LanguageLevel;
       daily_goal?: number | null;
     },
   ) =>
@@ -69,7 +62,6 @@ export const projectsApi = {
         | "description"
         | "kind"
         | "archived"
-        | "level"
         | "target_language"
         | "native_language"
         | "daily_goal"

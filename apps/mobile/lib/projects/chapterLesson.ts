@@ -120,7 +120,6 @@ export function itemToCard(item: ProjectItem): LessonVocabCard {
           .filter(Boolean),
       ),
     ],
-    pronunciationUrl: item.pronunciation_url,
     vocabularyKind: item.vocabulary_kind,
     verbKind: item.verb_kind,
     nounKind: item.noun_kind,

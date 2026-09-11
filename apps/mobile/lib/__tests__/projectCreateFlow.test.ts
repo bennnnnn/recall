@@ -1,5 +1,4 @@
 import {
-  CREATE_DEFAULT_LEVEL,
   createStepProgress,
   canAddLearningProject,
   resolveProjectDescription,
@@ -19,7 +18,6 @@ describe("projectCreateFlow", () => {
   it("uses the language label as the class title on create", () => {
     expect(languageClassTitle("es")).toBe("Español");
     expect(languageClassTitle("en")).toBe("English");
-    expect(CREATE_DEFAULT_LEVEL).toBe("level1");
   });
 
   it("drops description when it matches title", () => {
@@ -41,7 +39,6 @@ describe("projectCreateFlow", () => {
       title: "English",
       description: "",
       kind: "language",
-      level: "level1",
       target_language: "en",
       native_language: null,
       daily_goal: 5,
