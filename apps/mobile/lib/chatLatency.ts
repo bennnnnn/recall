@@ -33,7 +33,9 @@ export function chatTtftBucket(elapsedMs: number): ChatTtftBucket {
  * inference, so the sample captures nearly all latency the user actually sees.
  */
 export function markChatTtftStart(createdAt: string, hasAttachment: boolean): void {
-  if (__DEV__) return;
+  // Metro defines __DEV__, but plain Jest/Node does not. `typeof` keeps this
+  // production-only measurement safe in both runtimes without test globals.
+  if (typeof __DEV__ !== "undefined" && __DEV__) return;
   const parsed = Date.parse(createdAt);
   pending = {
     startedAtMs: Number.isFinite(parsed) ? parsed : Date.now(),
