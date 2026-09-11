@@ -1,7 +1,15 @@
-import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel, shouldIgnoreStoppedStreamEvent } from "@/lib/chatSocketReduce";
+import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel, parseChatWsPayload, shouldIgnoreStoppedStreamEvent } from "@/lib/chatSocketReduce";
 import type { Message } from "@/lib/api";
 
 describe("chatSocketReduce", () => {
+  it("parseChatWsPayload parses tokens without recording TTFT", () => {
+    expect(parseChatWsPayload('{"type":"token","content":"hi"}')).toEqual({
+      type: "token",
+      content: "hi",
+    });
+    expect(parseChatWsPayload("not-json")).toBeNull();
+  });
+
   it("appendToken concatenates stream chunks", () => {
     expect(appendToken("Hi", " there")).toBe("Hi there");
     expect(appendToken("Hi", undefined)).toBe("Hi");

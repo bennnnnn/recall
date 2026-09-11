@@ -36,7 +36,7 @@ export function buildOptimisticUserMessage(options: {
   // This is the first durable UI-visible point after Send is accepted. Start
   // the production TTFT sample before attachment upload / draft creation /
   // transport setup so those costs are included in perceived latency.
-  markChatTtftStart(options.createdAt, Boolean(options.attached));
+  markChatTtftStart(options.optimisticId, options.createdAt, Boolean(options.attached));
   const sendText = messageTextForSend(options.text, options.attached);
   const display =
     options.text.trim() ||

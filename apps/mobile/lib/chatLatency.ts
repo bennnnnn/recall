@@ -9,12 +9,19 @@ export type ChatTtftBucket =
 export type ChatTransport = "ws" | "sse";
 
 type PendingChatTtft = {
+  turnId: string;
   startedAtMs: number;
   transport: ChatTransport;
   hasAttachment: boolean;
 };
 
 let pending: PendingChatTtft | null = null;
+
+function isTtftSamplingEnabled(): boolean {
+  // Metro defines __DEV__, but plain Jest/Node does not. `typeof` keeps this
+  // production-only measurement safe in both runtimes without test globals.
+  return typeof __DEV__ === "undefined" || !__DEV__;
+}
 
 /** Bucket user-bubble -> first-token latency without storing arbitrary timing values. */
 export function chatTtftBucket(elapsedMs: number): ChatTtftBucket {
@@ -31,13 +38,19 @@ export function chatTtftBucket(elapsedMs: number): ChatTtftBucket {
  * Start when the optimistic user bubble is created. This happens before file
  * upload, draft-chat creation, transport connection, backend prep, and model
  * inference, so the sample captures nearly all latency the user actually sees.
+ *
+ * `turnId` is the optimistic user-message id. Leftover SSE from a previous
+ * chat must not stamp or consume a later send's sample.
  */
-export function markChatTtftStart(createdAt: string, hasAttachment: boolean): void {
-  // Metro defines __DEV__, but plain Jest/Node does not. `typeof` keeps this
-  // production-only measurement safe in both runtimes without test globals.
-  if (typeof __DEV__ !== "undefined" && __DEV__) return;
+export function markChatTtftStart(
+  turnId: string,
+  createdAt: string,
+  hasAttachment: boolean,
+): void {
+  if (!isTtftSamplingEnabled() || !turnId) return;
   const parsed = Date.parse(createdAt);
   pending = {
+    turnId,
     startedAtMs: Number.isFinite(parsed) ? parsed : Date.now(),
     transport: "ws",
     hasAttachment,
@@ -45,14 +58,20 @@ export function markChatTtftStart(createdAt: string, hasAttachment: boolean): vo
 }
 
 /** SSE is a fallback; the optimistic default is WebSocket until this is called. */
-export function markChatTtftTransport(transport: ChatTransport): void {
-  if (!pending) return;
+export function markChatTtftTransport(turnId: string | null | undefined, transport: ChatTransport): void {
+  if (!pending || !turnId || pending.turnId !== turnId) return;
   pending.transport = transport;
 }
 
-/** Record at most once, on the first actual answer token. */
-export function markChatFirstToken(payloadType: string): void {
-  if (payloadType !== "token" || !pending) return;
+/**
+ * Record at most once, on the first actual answer token accepted for this
+ * originating stream. Leftover parse of another chat's SSE must not match.
+ */
+export function markChatFirstToken(
+  turnId: string | null | undefined,
+  payloadType: string,
+): void {
+  if (payloadType !== "token" || !pending || !turnId || pending.turnId !== turnId) return;
   const sample = pending;
   pending = null;
   const elapsedMs = Math.max(0, Date.now() - sample.startedAtMs);
@@ -73,7 +92,8 @@ export function markChatFirstToken(payloadType: string): void {
     });
 }
 
-/** Tests and session resets may explicitly discard an unfinished sample. */
-export function clearPendingChatTtft(): void {
+/** Drop an unfinished sample. Omit `turnId` to discard whatever is pending. */
+export function clearPendingChatTtft(turnId?: string | null): void {
+  if (turnId != null && pending?.turnId !== turnId) return;
   pending = null;
 }

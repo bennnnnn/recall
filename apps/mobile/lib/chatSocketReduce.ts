@@ -1,5 +1,4 @@
 import type { Message, SearchSource } from "@/lib/api";
-import { markChatFirstToken } from "@/lib/chatLatency";
 import { parseSearchSources, parseSearchSourcesJson, stripSearchSourcesFromContent } from "@/lib/searchSources";
 
 export type ChatWsPayload = {
@@ -37,9 +36,7 @@ export function shouldIgnoreStoppedStreamEvent(
 
 export function parseChatWsPayload(raw: string): ChatWsPayload | null {
   try {
-    const payload = JSON.parse(raw) as ChatWsPayload;
-    markChatFirstToken(payload.type);
-    return payload;
+    return JSON.parse(raw) as ChatWsPayload;
   } catch {
     return null;
   }
