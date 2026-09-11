@@ -11,9 +11,13 @@ PubChem is a free public API; no key required.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
+
+from redis.asyncio import Redis
 
 from app.gateways.http_client import get_pooled_client
 
@@ -22,6 +26,7 @@ logger = logging.getLogger(__name__)
 PUG_REST_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 PUG_VIEW_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug_view"
 DEFAULT_TIMEOUT_SECONDS = 10.0
+_CACHE_TTL_SECONDS = 24 * 60 * 60
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,39 @@ class PubChemResult:
     error: str | None = None
 
 
+def _name_cache_key(name: str) -> str:
+    return f"pubchem:name:{name.strip().lower()}"
+
+
+def _compound_from_cache(raw: str) -> PubChemCompound | None:
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    try:
+        return PubChemCompound(
+            cid=int(data["cid"]),
+            name=str(data["name"]),
+            smiles=str(data["smiles"]),
+            molecular_formula=str(data["molecular_formula"]),
+            molecular_weight=float(data["molecular_weight"]),
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
+def _compound_to_cache(compound: PubChemCompound) -> str:
+    return json.dumps(
+        {
+            "cid": compound.cid,
+            "name": compound.name,
+            "smiles": compound.smiles,
+            "molecular_formula": compound.molecular_formula,
+            "molecular_weight": compound.molecular_weight,
+        }
+    )
+
+
 async def _pug_get(url: str, params: dict[str, str]) -> dict[str, Any] | None:
     """GET from PUG-REST with JSON Accept header. Returns None on failure."""
     client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
@@ -58,7 +96,7 @@ async def _pug_get(url: str, params: dict[str, str]) -> dict[str, Any] | None:
         return None
 
 
-async def lookup_by_name(name: str) -> PubChemResult:
+async def lookup_by_name(name: str, redis: Redis | None = None) -> PubChemResult:
     """Resolve a compound name (e.g. 'aspirin') to a PubChem compound.
 
     Returns PubChemResult with error set when the name is not found.
@@ -67,9 +105,24 @@ async def lookup_by_name(name: str) -> PubChemResult:
     if not name:
         return PubChemResult(error="empty name")
 
+    cache_key = _name_cache_key(name)
+    if redis is not None:
+        try:
+            cached = await redis.get(cache_key)
+            if cached is not None:
+                raw = cached.decode() if isinstance(cached, bytes) else cached
+                compound = _compound_from_cache(raw)
+                if compound is not None:
+                    return PubChemResult(compound=compound)
+        except Exception:
+            logger.debug("PubChem cache read failed", exc_info=True)
+
     # PUG-REST: /compound/name/<name>/property/CanonicalSMILES,MolecularFormula,'
     # MolecularWeight,IUPACName/JSON
-    url = f"{PUG_REST_URL}/compound/name/{name}/property/CanonicalSMILES,MolecularFormula,MolecularWeight/JSON"
+    url = (
+        f"{PUG_REST_URL}/compound/name/{quote(name, safe='')}/property/"
+        "CanonicalSMILES,MolecularFormula,MolecularWeight/JSON"
+    )
     data = await _pug_get(url, {})
     if data is None:
         return PubChemResult(error=f"compound '{name}' not found")
@@ -83,15 +136,19 @@ async def lookup_by_name(name: str) -> PubChemResult:
         smiles = str(props.get("CanonicalSMILES", ""))
         formula = str(props.get("MolecularFormula", ""))
         weight = float(props.get("MolecularWeight", 0.0))
-        return PubChemResult(
-            compound=PubChemCompound(
-                cid=cid,
-                name=name,
-                smiles=smiles,
-                molecular_formula=formula,
-                molecular_weight=weight,
-            )
+        compound = PubChemCompound(
+            cid=cid,
+            name=name,
+            smiles=smiles,
+            molecular_formula=formula,
+            molecular_weight=weight,
         )
+        if redis is not None:
+            try:
+                await redis.set(cache_key, _compound_to_cache(compound), ex=_CACHE_TTL_SECONDS)
+            except Exception:
+                logger.debug("PubChem cache write failed", exc_info=True)
+        return PubChemResult(compound=compound)
     except (KeyError, ValueError, TypeError) as exc:
         return PubChemResult(error=f"PubChem response parse error: {exc}")
 
@@ -105,7 +162,10 @@ async def lookup_by_smiles(smiles: str) -> PubChemResult:
     if not smiles:
         return PubChemResult(error="empty SMILES")
 
-    url = f"{PUG_REST_URL}/compound/smiles/{smiles}/property/CanonicalSMILES,MolecularFormula,MolecularWeight/JSON"
+    url = (
+        f"{PUG_REST_URL}/compound/smiles/{quote(smiles, safe='')}/property/"
+        "CanonicalSMILES,MolecularFormula,MolecularWeight/JSON"
+    )
     data = await _pug_get(url, {})
     if data is None:
         return PubChemResult(error="SMILES not found in PubChem")
