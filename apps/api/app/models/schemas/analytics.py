@@ -9,6 +9,7 @@ ProductEventName = Literal[
     "purchase_succeeded",
     "purchase_failed",
     "push_permission",
+    "chat_ttft",
 ]
 
 
