@@ -361,6 +361,9 @@ def _calc_expr_tail(cleaned: str) -> str | None:
         if ddx is not None and (best_at is None or ddx < best_at):
             return ddx_tail
     if best_at is None:
+        of_at = lower.find(" of ")
+        if of_at != -1 and "'" in cleaned[:of_at]:
+            return cleaned[of_at + 4 :]
         return None
     return cleaned[best_end:]
 

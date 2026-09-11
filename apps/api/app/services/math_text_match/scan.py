@@ -486,6 +486,56 @@ def _to_ascii_arith(expr: str) -> str:
     return out
 
 
+def _binary_ops_only_minus_or_slash(compact: str) -> bool:
+    """True when every binary operator is ``-`` or ``/`` (dates, phone numbers)."""
+    for ch in compact:
+        if ch in "+*^":
+            return False
+    return True
+
+
+def _looks_like_date_or_phone(compact: str) -> bool:
+    """Structural dates (``9/7/2026``) and phones (``1-800-273-8255``).
+
+    Linear scan — not a blanket reject of every ``-``/``/`` chain, so
+    ``10-3-2`` and ``100/5/2`` stay calculator arithmetic.
+    """
+    if not compact or compact[0] == "-":
+        return False
+    groups: list[int] = []
+    seps: list[str] = []
+    i = 0
+    n = len(compact)
+    while i < n:
+        ch = compact[i]
+        if ch.isdigit():
+            j = i + 1
+            while j < n and compact[j].isdigit():
+                j += 1
+            groups.append(j - i)
+            i = j
+            continue
+        if ch in "-/":
+            seps.append(ch)
+            i += 1
+            continue
+        return False
+    if not seps or len(groups) != len(seps) + 1:
+        return False
+    all_slash = all(sep == "/" for sep in seps)
+    all_minus = all(sep == "-" for sep in seps)
+    if not (all_slash or all_minus):
+        return False
+    if len(groups) == 3:
+        a, b, c = groups
+        if a <= 2 and b <= 2 and c in (2, 4):
+            return True
+        if a == 4 and b <= 2 and c <= 2:
+            return True
+        return all_minus and a == 3 and b == 3 and c == 4
+    return all_minus and len(groups) >= 4 and sum(groups) >= 7
+
+
 def _count_binary_arith_ops(compact: str) -> int:
     """Binary ``+ - * / ^`` in an ASCII expression. Leading/unary ``-`` is not an op."""
     ops = 0
@@ -531,6 +581,8 @@ def bare_arithmetic_expr(text: str) -> str | None:
     Conservative on a single ``-`` / ``/`` (dates, phone numbers, scores).
     Auto-accept only with ``*``, ``^``, times/divide glyphs, two or
     more operators, or a cue word (``what is``, ``calculate``, ...).
+    Uncued ``-``/``/`` chains that look like a date or phone are rejected;
+    chained arithmetic such as ``10-3-2`` is not.
     """
     if not text or len(text) > _MAX:
         return None
@@ -551,6 +603,15 @@ def bare_arithmetic_expr(text: str) -> str | None:
         return None
     unambiguous = any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
     if not (unambiguous or ops >= 2 or had_cue):
+        return None
+    # Dates / phones: structural ``9/7/2026`` / ``1-800-273-8255``, not
+    # every minus-or-slash chain (``10-3-2``). Keep ``8-8*2`` and cued ``9/9``.
+    if (
+        not had_cue
+        and not unambiguous
+        and _binary_ops_only_minus_or_slash(compact)
+        and _looks_like_date_or_phone(compact)
+    ):
         return None
     return collapse_ws(_to_ascii_arith(stripped))
 

@@ -26,10 +26,25 @@ class PhysicsResult:
     graph_specs: list[GraphBlockSpec] = field(default_factory=list)
 
 
-def _to_si(value: float, unit: str) -> float:
+_PARAM_SI_DIMENSIONS: dict[str, str] = {
+    "h0": "meter",
+    "h": "meter",
+    "d": "meter",
+    "v0": "meter / second",
+    "v": "meter / second",
+    "m": "kilogram",
+    "F": "newton",
+    "t": "second",
+    "a": "meter / second ** 2",
+    "g": "meter / second ** 2",
+}
+
+
+def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
     """Convert a value with a unit string to its SI base using Pint.
 
     Returns the value unchanged if the unit is empty (assumed already SI).
+    Raises when ``expected_key`` has a known dimension and the unit does not match.
     """
     if not unit:
         return value
@@ -46,9 +61,16 @@ def _to_si(value: float, unit: str) -> float:
     }.get(unit.lower(), unit)
     try:
         quantity = value * ureg(alias)
+        dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
+        if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
+            raise MathServiceError(
+                f"unit {unit} does not match expected dimension for {expected_key}"
+            )
         # Convert to base SI (meter, kilogram, second, kelvin, ampere).
         base = quantity.to_base_units()
         return float(base.magnitude)
+    except MathServiceError:
+        raise
     except Exception as exc:
         raise MathServiceError(f"unsupported unit: {unit}") from exc
 
@@ -64,7 +86,7 @@ def _params_in_si(intent: MathIntent) -> dict[str, float]:
             # Angle is in degrees — convert to radians for SymPy trig.
             out[key] = math.radians(val) if unit.lower() in ("deg", "degrees", "°", "") else val
         else:
-            out[key] = _to_si(val, unit)
+            out[key] = _to_si(val, unit, expected_key=key)
     return out
 
 

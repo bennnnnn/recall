@@ -55,6 +55,8 @@ _MIN_CURVE_POINTS = 48
 _MAX_ANSWER_FENCES = 4
 _MAX_GEOMETRY_FENCES = 4
 _MAX_GRAPH_FENCES = 2
+_ANSWER_FENCE_LANGS = ("answer", "result", "final")
+_CHART_ALIAS_LANGS = ("chart", "vega", "vega-lite", "plot")
 _DIAGRAM_FAIL_NOTE = "\n*Could not render that diagram.*\n"
 
 _GEOMETRY_TYPES = frozenset(
@@ -563,7 +565,7 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     answer_body = _canonical_answer_body(verified)
     if (
         answer_body
-        and not has_closed_fence(content, "answer")
+        and not any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS)
         and not _prose_already_states_answer(content, answer_body)
         and not _prose_states_conflicting_var_equals(content, answer_body)
     ):
@@ -585,10 +587,12 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     return "\n\n".join(extras) + "\n"
 
 
-def _replace_answer_fence(raw: str, original: str, answer_body: str | None) -> str:
-    """Rewrite ```answer bodies from SymPy when this turn computed one."""
+def _replace_answer_fence(raw: str, answer_body: str | None) -> str:
+    """Rewrite ```answer / ```result / ```final from SymPy, or demote to prose."""
     if not answer_body:
-        return original
+        body = raw.strip()
+        # Keep a trailing newline so the next fence opener stays on its own line.
+        return f"{body}\n" if body else ""
     return f"```answer\n{answer_body}\n```"
 
 
@@ -659,12 +663,13 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     # of the structured tool_calls API — strip it so unverified graph JSON
     # never ships. Canonical diagrams are appended after rewrite.
     content = convert_function_call_text(content)
-    content = map_closed_fences(
-        content,
-        "answer",
-        lambda body: _replace_answer_fence(body, f"```answer\n{body}```", answer_body),
-        max_count=_MAX_ANSWER_FENCES,
-    )
+    for lang in _ANSWER_FENCE_LANGS:
+        content = map_closed_fences(
+            content,
+            lang,
+            lambda body: _replace_answer_fence(body, answer_body),
+            max_count=_MAX_ANSWER_FENCES,
+        )
     content = map_closed_fences(
         content,
         "geometry",
@@ -696,14 +701,22 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     # Vega ```chart is a different product from a verified function plot.
     # Drop the model's chart when we already own a ```graph fence.
     if verified is not None and _verified_includes_graph(verified):
-        content = strip_closed_fences(content, "chart")
+        for lang in _CHART_ALIAS_LANGS:
+            content = strip_closed_fences(content, lang)
         content = strip_closed_fences(content, "mermaid")
         content = strip_gfm_pipe_tables(content)
         content = strip_hand_sketch_filler(content)
     return _append_missing_canonical_fences(content, verified)
 
 
-_FENCE_VALIDATE_MARKERS = ("```answer", "```graph", "```geometry", "```math")
+_FENCE_VALIDATE_MARKERS = (
+    "```answer",
+    "```result",
+    "```final",
+    "```graph",
+    "```geometry",
+    "```math",
+)
 
 
 def needs_math_fence_validate(content: str, verified: VerifiedMathBlock | None) -> bool:
@@ -717,3 +730,19 @@ def needs_math_fence_validate(content: str, verified: VerifiedMathBlock | None) 
 def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
     """Picklable entry for ``sympy_executor.run_sympy`` (positional args only)."""
     return validate_math_fences(content, verified=verified)
+
+
+_UNVERIFIED_MATH_NOTE = "*Couldn't verify this with SymPy.*"
+
+
+def append_unverified_math_note(content: str) -> str:
+    """Honest label when camera/solver intent fired but SymPy produced nothing.
+
+    Italic markdown in the reply body — not a banned assistant status chip.
+    """
+    if _UNVERIFIED_MATH_NOTE in content:
+        return content
+    stripped = content.rstrip()
+    if not stripped:
+        return _UNVERIFIED_MATH_NOTE
+    return f"{stripped}\n\n{_UNVERIFIED_MATH_NOTE}"

@@ -32,6 +32,7 @@ _G_DEFAULT = 9.81
 # A number followed by an optional unit word. Captures the numeric value and
 # the trailing unit (m, cm, km, ft, mi, m/s, m/s^2, kg, g, N, J, W, ...).
 # The unit is matched loosely — we validate via Pint in the solver.
+# Trailing boundary so ``m`` cannot bind inside ``miles`` / ``min``.
 _VALUE_UNIT_RE = re.compile(
     r"(-?\d+(?:\.\d+)?)\s*"
     r"(m/s\^?2|m/s|m\^?2/s\^?2|km/h|mph|m/s2|cm/s|mm/s|"
@@ -39,7 +40,8 @@ _VALUE_UNIT_RE = re.compile(
     r"kg|g|mg|lb|lbs|oz|"
     r"N|J|W|Pa|Hz|"
     r"s|ms|sec|min|hr|h|"
-    r"deg|degrees|°|rad|radians)?",
+    r"deg|degrees|°|rad|radians)?"
+    r"(?![A-Za-z0-9/^])",
     re.IGNORECASE,
 )
 
@@ -91,13 +93,20 @@ def _find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[flo
 
 
 def _find_value_with_specific_unit(
-    text: str, unit_pattern: str, keywords: tuple[str, ...] = ()
+    text: str,
+    unit_pattern: str,
+    keywords: tuple[str, ...] = (),
+    *,
+    require_keyword: bool = False,
 ) -> tuple[float, str] | None:
     """Find a number followed by a specific unit (e.g. "20 N", "5 kg").
 
     When keywords are present in the text, prefer the unit-bearing value
     nearest one of them; otherwise use the first matching value. This avoids
     binding an earlier unrelated quantity to the requested mass/force/etc.
+
+    ``require_keyword`` (h0 only): if none of the keywords appear, return
+    None instead of the first unlabeled length (``wall is 15 m away``).
     """
     matches = list(
         re.finditer(
@@ -118,6 +127,8 @@ def _find_value_with_specific_unit(
             while (idx := lower.find(keyword.lower(), start)) != -1:
                 keyword_spans.append((idx, idx + len(keyword)))
                 start = idx + len(keyword)
+        if require_keyword and not keyword_spans:
+            return None
         if keyword_spans:
 
             def distance_to_keyword(candidate: re.Match[str]) -> int:
@@ -355,6 +366,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
         cleaned,
         _LENGTH_UNIT_PATTERN,
         ("from", "initial height", "height of", "high", "above", "cliff"),
+        require_keyword=True,
     )
     if hu is not None:
         h0, h0_unit = hu
