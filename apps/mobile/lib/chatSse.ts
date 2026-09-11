@@ -1,5 +1,6 @@
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
+import { markChatTtftTransport } from "@/lib/chatLatency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/lib/chatSocketReduce";
@@ -40,6 +41,9 @@ async function streamChatSseRequest(
   options: StreamChatSseClient,
   extraBody: Record<string, unknown> = {},
 ): Promise<void> {
+  // If WS failed over, attribute the pending real-device TTFT sample to SSE.
+  // Regenerate has no pending new-message sample, so this is a no-op there.
+  markChatTtftTransport("sse");
   // Route through lib/api's requestSse so this stream shares the REST path's
   // 401→refresh→retry behaviour and the lib/api boundary stays the single
   // network egress point (no bare fetch(getApiUrl()...) here).
