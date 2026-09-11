@@ -1453,3 +1453,28 @@ async def test_delete_memory_releases_lock_even_when_delete_fails():
     invalidate.assert_not_awaited()
     acquire_lock.assert_awaited_once_with(user_id)
     release_lock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_all_memories_releases_lock():
+    from app.services.memory import delete_all_memories
+
+    user_id = uuid4()
+    session = AsyncMock()
+
+    with (
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ) as acquire_lock,
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()) as release_lock,
+        patch("app.repositories.memories.delete_all_for_user", AsyncMock(return_value=3)),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        removed = await delete_all_memories(session, user_id)
+
+    assert removed == 3
+    invalidate.assert_awaited_once()
+    acquire_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once()

@@ -217,3 +217,42 @@ async def set_archived(session: AsyncSession, chat: Chat, archived: bool) -> Cha
     await session.commit()
     await session.refresh(chat)
     return chat
+
+
+async def archive_all_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    commit: bool = True,
+) -> int:
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            update(Chat)
+            .where(Chat.user_id == user_id, Chat.archived.is_(False))
+            .values(archived=True, pinned=False)
+            .execution_options(synchronize_session=False)
+        ),
+    )
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return int(result.rowcount or 0)
+
+
+async def delete_all_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    commit: bool = True,
+) -> int:
+    result = cast(
+        CursorResult[Any],
+        await session.execute(delete(Chat).where(Chat.user_id == user_id)),
+    )
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return int(result.rowcount or 0)

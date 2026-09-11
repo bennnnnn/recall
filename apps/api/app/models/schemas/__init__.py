@@ -11,6 +11,8 @@ from app.models.schemas.attachments import (
 from app.models.schemas.auth import (
     AppleAuthRequest,
     AuthResponse,
+    AuthSessionListOut,
+    AuthSessionOut,
     DevAuthRequest,
     GoogleAuthRequest,
     LogoutRequest,
@@ -142,6 +144,8 @@ __all__ = [
     "AttachmentPresignIn",
     "AttachmentPresignOut",
     "AuthResponse",
+    "AuthSessionListOut",
+    "AuthSessionOut",
     "CalendarConflictOut",
     "CalendarConflictsOut",
     "CalendarEventProposalIn",

@@ -71,7 +71,6 @@ def _verified_block_rectangle(
         perimeter=rect_geo.perimeter,
         labels=rect_geo.labels,
     )
-    lines.append("Do NOT recompute diagonal, angle, area, or perimeter.")
     if intent.wants_perimeter:
         answer = f"{rect_geo.perimeter:g}"
     elif intent.wants_diagonal and not intent.wants_area:
@@ -109,7 +108,6 @@ def _verified_block_square(
         perimeter=square_geo.perimeter,
         labels=square_geo.labels,
     )
-    lines.append("Do NOT recompute diagonal, area, or perimeter.")
     return _diagram_block(lines, spec, f"{square_geo.area:g}")
 
 
@@ -137,7 +135,6 @@ def _verified_block_solid(
         if key in {"volume", "surface_area"}:
             continue
         lines.append(f"{key}={value}")
-    lines.append("Do NOT recompute volume or surface area.")
     if intent.wants_surface_area and not intent.wants_volume:
         answer = geo.labels["surface_area"].rsplit(" ", 1)[0]
     else:
@@ -171,7 +168,6 @@ def _verified_block_circle(
         circumference=circle_geo.circumference,
         labels=circle_geo.labels,
     )
-    lines.append("Do NOT recompute diameter, area, or circumference.")
     # The verified final answer must match what the user asked for —
     # "circumference of circle r=4" used to return the area (≈50.27)
     # because the canonical answer was unconditionally the area. Honor an
@@ -208,7 +204,6 @@ def _verified_block_triangle(
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
-    lines.append("Do NOT recompute area.")
     return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
 
 
@@ -244,10 +239,7 @@ def _verified_block_right_triangle(
         area=rt_geo.area,
         labels=rt_geo.labels,
     )
-    lines.append("Do NOT recompute hypotenuse, area, or interior angles.")
-    lines.append(
-        "Put all three interior-angle degree labels on the vertices (not only the 90° square)."
-    )
+    lines.append("Interior-angle labels: all three vertices (not only the 90° square).")
     # Draw-and-label asks are the diagram — do not attach a leftover area pill
     # (6x4 default used to dump a gray "12" under a 3-4-5 request).
     answer = f"{rt_geo.area:g}" if intent.wants_area else None
@@ -297,10 +289,7 @@ def _verified_block_triangle_sides(
             f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
         )
         return _diagram_block(lines, tri_spec, answer)
-    lines.append(
-        "Do NOT recompute area, perimeter, or angles — "
-        "this is Heron's formula + the law of cosines."
-    )
+    lines.append("Area via Heron's formula; angles via the law of cosines.")
     return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
 
 
@@ -333,7 +322,7 @@ def _verified_block_trapezoid(
         area=trap_geo.area,
         labels=trap_geo.labels,
     )
-    lines.append("Do NOT recompute area — area = (top + bottom) / 2 \\times height.")
+    lines.append("area = (top + bottom) / 2 \\times height")
     return _diagram_block(lines, trap_spec, f"{trap_geo.area:g}")
 
 
@@ -364,7 +353,6 @@ def _verified_block_parallelogram(
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,
     )
-    lines.append("Do NOT recompute area or perimeter.")
     return _diagram_block(lines, para_spec, f"{para_geo.area:g}")
 
 
@@ -391,5 +379,5 @@ def _verified_block_sector(
         area=sector_geo.area,
         labels=sector_geo.labels,
     )
-    lines.append("Do NOT recompute arc length or area.")
-    return _diagram_block(lines, sector_spec, f"{sector_geo.area:g}")
+    answer = f"{sector_geo.area:g}" if intent.wants_area else f"{sector_geo.arc_length:.2f}"
+    return _diagram_block(lines, sector_spec, answer)

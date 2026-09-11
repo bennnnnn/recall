@@ -16,7 +16,7 @@ Camera math is a specialization of step 1: fixed prompt → vision extract → s
 
 ## Tool-loop path (`MCP_TOOL_LOOP_ENABLED=true`, default)
 
-Heuristic pre-solve and web-search injection **still run**. The model may also call the `sympy` / `web_search` / `calendar` / `generate_image` tools for follow-ups. Tool results that include a `canonical_fence` / `canonical_answer` in `ToolResult.data` are collected into `VerifiedMathBlock` so post-stream still rewrites or appends fences. Direct verified replies skip this loop. Tool **content** is prose + verified numbers, not fence JSON.
+Heuristic pre-solve and web-search injection **still run**. The model may also call the `sympy` / `web_search` / `calendar` / `generate_image` tools for follow-ups. The math-triggered loop is skipped when `extract_math_intent` is `None` (bare detection without an extractor used to burn the full timeout). Tool results that include a `canonical_fence` / `canonical_answer` in `ToolResult.data` are collected into `VerifiedMathBlock` so post-stream still rewrites or appends fences. Direct verified replies skip this loop. Tool **content** is prose + verified numbers, not fence JSON. Plain replies without fences skip the post-stream SymPy rewrite (`needs_math_fence_validate`).
 
 ## Formula emit rule (prompts must agree)
 
@@ -60,7 +60,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 
 | Band | Covered as verified | How |
 |------|---------------------|-----|
-| Arithmetic (1–6) | Bare digits+ops when `bare_arithmetic_expr` agrees (`7*8`, `8-8*2`, cued `what is 9/9`). A lone `-`/`/` (`9/9`, `10-3`, phone/date) is not verified unless a cue word is present. | `arithmetic` |
+| Arithmetic (1–6) | Bare digits+ops when `bare_arithmetic_expr` agrees (`7*8`, `8-8*2`, cued `what is 9/9`). A lone `-`/`/` (`9/9`, `10-3`, phone/date) is not verified unless a cue word is present. Equations (`1/2+1/3 = x`) and simplify/factor too. | `arithmetic`, `_extract_equation_intent`, calculus `simplify` |
 | Pre-algebra | Fractions/exponents in equations; gcd/lcm/primes/mod | `equation`, `number_theory` |
 | Algebra I–II | One equation, systems (≤4), inequalities + shaded region | `equation`, `system`, `inequality` + `number_line` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
@@ -69,7 +69,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
-| Physics (narrow) | 1D gravity kinematics, vacuum projectile range/max height, scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; trajectory `graph` fences only for kinematics/projectile |
+| Physics (narrow) | 1D gravity kinematics, projectile range/max height (vacuum formula when no height; quadratic time-of-flight when `h0` is given), scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; trajectory `graph` fences only for kinematics/projectile |
 | Linear algebra | 2×2–4×4 det and inverse | `matrix` |
 | Calc II (thin) | Taylor / Maclaurin, partials, first-order `dsolve`, 2nd/3rd derivative. Polar/parametric/double integrals stay LLM | `calculus` |
 | Probability | Binomial PMF, expected value of a list | `probability` |
@@ -95,7 +95,7 @@ flowchart TB
 
 ### School-homework gaps (unverified LLM)
 
-Still not a verified kind (the model may answer; it must **not** claim SymPy):
+Still not a verified kind (the model may answer; it must **not** claim a verified result):
 
 1. **Trig identities** — remain LLM-only. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with relative side units (not invented cm). SSS still uses law of cosines for angles-from-sides.
 2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.

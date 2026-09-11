@@ -39,7 +39,11 @@ export default function SettingsLayout() {
       <Stack.Screen name="index" options={{ title: t("settings.title") }} />
       <Stack.Screen
         name="profile"
-        options={subScreen(t("settings.profile"), header)}
+        options={subScreen(t("settings.account"), header)}
+      />
+      <Stack.Screen
+        name="appearance"
+        options={subScreen(t("settings.appearance"), header)}
       />
       <Stack.Screen
         name="models"
@@ -50,8 +54,8 @@ export default function SettingsLayout() {
         options={subScreen(t("settings.personalization"), header)}
       />
       <Stack.Screen
-        name="learning"
-        options={subScreen(t("settings.learning.title"), header)}
+        name="voice"
+        options={subScreen(t("settings.voice"), header)}
       />
       <Stack.Screen
         name="memory-settings"
@@ -63,11 +67,27 @@ export default function SettingsLayout() {
       />
       <Stack.Screen
         name="integrations"
-        options={subScreen(t("settings.integrations"), header)}
+        options={subScreen(t("settings.connected_apps"), header)}
+      />
+      <Stack.Screen
+        name="connected-app"
+        options={subScreen(t("settings.connected_apps"), header)}
       />
       <Stack.Screen
         name="data-controls"
         options={subScreen(t("settings.data_controls"), header)}
+      />
+      <Stack.Screen
+        name="archived-chats"
+        options={subScreen(t("settings.archived_chats"), header)}
+      />
+      <Stack.Screen
+        name="security"
+        options={subScreen(t("settings.security"), header)}
+      />
+      <Stack.Screen
+        name="help"
+        options={subScreen(t("settings.help"), header)}
       />
       <Stack.Screen
         name="about"

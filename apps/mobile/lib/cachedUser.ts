@@ -75,6 +75,10 @@ const DEFAULT_USER_FIELDS: Omit<User, keyof CachedUser> = {
   country: null,
   job: null,
   created_at: "",
+  sign_in_provider: undefined,
+  quiet_hours_enabled: false,
+  quiet_hours_start_minute: 1320,
+  quiet_hours_end_minute: 420,
 };
 
 /** Construct a full ``User`` from a cached subset + safe defaults for the

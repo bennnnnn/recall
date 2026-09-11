@@ -19,6 +19,9 @@ type Props = {
   options: Option[];
   selectedKey: string;
   disabled?: boolean;
+  /** Optional; some Settings screens pass a sheet title. The card itself is unlabeled. */
+  title?: string;
+  busy?: boolean;
   onClose: () => void;
   onSelect: (key: string) => void;
 };
@@ -28,11 +31,13 @@ export function SettingsPickerSheet({
   options,
   selectedKey,
   disabled,
+  busy,
   onClose,
   onSelect,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const locked = Boolean(disabled || busy);
 
   return (
     <AppSheet
@@ -54,11 +59,12 @@ export function SettingsPickerSheet({
             <Pressable
               key={option.key}
               style={({ pressed }) => [s.option, pressed && s.optionPressed]}
-              disabled={disabled}
+              disabled={locked}
               accessibilityRole="radio"
-              accessibilityState={{ selected: active, disabled: Boolean(disabled) }}
+              accessibilityState={{ selected: active, disabled: locked }}
               accessibilityLabel={option.label}
               onPress={() => {
+                if (locked) return;
                 if (!active) onSelect(option.key);
                 onClose();
               }}

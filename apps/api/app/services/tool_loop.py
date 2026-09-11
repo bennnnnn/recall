@@ -304,6 +304,12 @@ def turn_needs_tool_loop(
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
+        from app.services.math_tools.extract import extract_math_intent
+
+        # Detection without an extractor is the 7*8 trap: the sympy tool
+        # calls the same extractor and burns the round timeout for nothing.
+        if extract_math_intent(text) is None:
+            return False
         return True
     # Reference-photo lookup ("show me an ear") is checked before generation
     # so its disjoint trigger phrasing (show / let … see / what does … look

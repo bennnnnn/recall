@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, Platform, ScrollView, View } from "react-native";
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -8,6 +11,7 @@ import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsInlinePicker,
+  SettingsLinkRow,
   SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +33,9 @@ import {
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
+const DEFAULT_QUIET_START = 1320;
+const DEFAULT_QUIET_END = 420;
+
 let pending: { session: number; action: string } | null = null;
 const listeners = new Set<() => void>();
 function subscribe(listener: () => void) {
@@ -36,6 +43,23 @@ function subscribe(listener: () => void) {
   return () => { listeners.delete(listener); };
 }
 function notify() { listeners.forEach((listener) => listener()); }
+
+function dateFromMinute(minutes: number): Date {
+  const date = new Date();
+  date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  return date;
+}
+
+function minuteFromDate(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function formatClock(minutes: number): string {
+  return dateFromMinute(minutes).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default function NotificationsSettingsScreen() {
   const view = useAccountViewOwner();
@@ -53,6 +77,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
+  const [pickingQuiet, setPickingQuiet] = useState<"start" | "end" | null>(null);
   const session = getSessionGeneration();
   const busyAction = useSyncExternalStore(subscribe, () => pending?.session === session ? pending.action : null);
   const sameAccount = useCallback(() => Boolean(token) && session === getSessionGeneration(), [token, session]);
@@ -97,6 +122,10 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     return () => { active = false; };
   }, [isCurrent, reportError, user?.reminder_lead_minutes]);
 
+  const quietEnabled = user?.quiet_hours_enabled === true;
+  const quietStart = user?.quiet_hours_start_minute ?? DEFAULT_QUIET_START;
+  const quietEnd = user?.quiet_hours_end_minute ?? DEFAULT_QUIET_END;
+
   const saveReminderLead = useCallback(async (minutes: number) => {
     const request = begin("lead");
     if (!request) return;
@@ -104,7 +133,6 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     const normalized = normalizeReminderLeadMinutes(minutes);
     try {
       setReminderLeadMinutesState(normalized);
-      // Profile/bootstrap and TodosProvider own preference persistence and scheduling.
       await updateUser({ reminder_lead_minutes: normalized });
     } catch {
       if (isCurrent()) setReminderLeadMinutesState(previous);
@@ -149,6 +177,46 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     finally { finish(request); }
   }, [begin, updateUser, reportError, finish]);
 
+  const toggleQuietHours = useCallback(async (enabled: boolean) => {
+    const request = begin("quiet");
+    if (!request) return;
+    try {
+      await updateUser({ quiet_hours_enabled: enabled });
+    } catch {
+      reportError("common.error");
+    } finally {
+      finish(request);
+    }
+  }, [begin, updateUser, reportError, finish]);
+
+  const onQuietPickerChange = useCallback(
+    (which: "start" | "end", event: DateTimePickerEvent, date?: Date) => {
+      if (event.type === "dismissed") {
+        setPickingQuiet(null);
+        return;
+      }
+      if (Platform.OS === "android") setPickingQuiet(null);
+      if (!date) return;
+      const minutes = minuteFromDate(date);
+      void (async () => {
+        const request = begin(`quiet-${which}`);
+        if (!request) return;
+        try {
+          if (which === "start") {
+            await updateUser({ quiet_hours_start_minute: minutes });
+          } else {
+            await updateUser({ quiet_hours_end_minute: minutes });
+          }
+        } catch {
+          reportError("common.error");
+        } finally {
+          finish(request);
+        }
+      })();
+    },
+    [begin, updateUser, reportError, finish],
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   return (
@@ -159,7 +227,6 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
       >
         <SettingsGroup label={t("settings.notifications")} styles={s}>
           <SettingsSwitchRow
-            icon="notifications-outline"
             title={t("settings.push_notifications")}
             subtitle={t("settings.push_notifications_desc")}
             value={(user?.push_notifications_enabled ?? true) && osPushGranted === true}
@@ -169,9 +236,8 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
             styles={s}
             theme={theme}
           />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+          <View style={s.menuSeparator} />
           <SettingsSwitchRow
-            icon="mail-outline"
             title={t("settings.email_reminders")}
             subtitle={t("settings.email_reminders_summary")}
             value={user?.email_reminders_enabled ?? false}
@@ -183,9 +249,67 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           />
         </SettingsGroup>
 
+        <SettingsGroup label={t("settings.quiet_hours")} styles={s}>
+          <SettingsSwitchRow
+            title={t("settings.quiet_hours")}
+            subtitle={t("settings.quiet_hours_desc")}
+            value={quietEnabled}
+            disabled={busyAction !== null}
+            busy={busyAction === "quiet"}
+            onValueChange={(v) => void toggleQuietHours(v)}
+            styles={s}
+            theme={theme}
+          />
+          {quietEnabled ? (
+            <>
+              <View style={s.menuSeparator} />
+              <SettingsLinkRow
+                title={t("settings.quiet_hours")}
+                value={t("settings.quiet_hours_range", {
+                  start: formatClock(quietStart),
+                  end: formatClock(quietEnd),
+                })}
+                onPress={() => {
+                  if (isCurrent()) setPickingQuiet((cur) => (cur ? null : "start"));
+                }}
+                styles={s}
+                theme={theme}
+              />
+              <View style={s.menuSeparator} />
+              <SettingsLinkRow
+                title={t("settings.quiet_hours_start")}
+                value={formatClock(quietStart)}
+                onPress={() => {
+                  if (isCurrent()) setPickingQuiet("start");
+                }}
+                styles={s}
+                theme={theme}
+              />
+              <View style={s.menuSeparator} />
+              <SettingsLinkRow
+                title={t("settings.quiet_hours_end")}
+                value={formatClock(quietEnd)}
+                onPress={() => {
+                  if (isCurrent()) setPickingQuiet("end");
+                }}
+                styles={s}
+                theme={theme}
+              />
+            </>
+          ) : null}
+        </SettingsGroup>
+
+        {pickingQuiet && quietEnabled ? (
+          <DateTimePicker
+            mode="time"
+            value={dateFromMinute(pickingQuiet === "start" ? quietStart : quietEnd)}
+            onChange={(event, date) => onQuietPickerChange(pickingQuiet, event, date)}
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+          />
+        ) : null}
+
         <SettingsGroup label={t("settings.reminders")} styles={s}>
           <SettingsInlinePicker
-            icon="alarm-outline"
             title={t("settings.reminder_lead")}
             subtitle={t("settings.reminder_lead_desc")}
             value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}

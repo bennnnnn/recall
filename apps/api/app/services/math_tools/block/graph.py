@@ -25,7 +25,6 @@ def _verified_block_point(
         points=[[px, py]],
     )
     lines.append(f"Point: ({px:g}, {py:g})")
-    lines.append("Do NOT invent a function or extra points through this marker.")
     return _diagram_block(lines, point_spec, f"({px:g}, {py:g})")
 
 
@@ -45,10 +44,6 @@ def _verified_block_vertical(
         title=f"x = {vx:g}",
     )
     lines.append(f"Vertical line: x = {vx:g}.")
-    lines.append(
-        "At most one short sentence naming the line. Do not list intercepts, "
-        "example points, or parallel/perpendicular facts — the plot shows that."
-    )
     # No numeric ```answer pill: this turn is the diagram, not "x equals 6".
     return _diagram_block(lines, vert_spec)
 
@@ -113,12 +108,6 @@ def _verified_block_graph(
         segments=sample.segments if has_discontinuity else [],
     )
     lines.append(f"Function samples for {sample.expr}: {len(sample.points)} points.")
-    lines.append(
-        "At most one short sentence naming the curve. Do not include a "
-        "coordinate table, ASCII sketch, or hand-drawing instructions — "
-        "the plot is the figure. Do not ask for a domain or output format "
-        "and do not offer Python or Colab."
-    )
     if has_discontinuity:
         lines.append(
             f"NOTE: {sample.expr} has a discontinuity in this range (e.g. a vertical "
@@ -173,9 +162,5 @@ def _verified_block_graph_pair(
     lines.append(
         f"Function samples for y={sample1.expr} ({len(sample1.points)} points) and "
         f"y={sample2.expr} ({len(sample2.points)} points), same x-range for direct comparison."
-    )
-    lines.append(
-        "At most one short sentence comparing the two curves. Do not include "
-        "a coordinate table or ASCII sketch — the overlay plot is the figure."
     )
     return _diagram_block(lines, graph_spec)

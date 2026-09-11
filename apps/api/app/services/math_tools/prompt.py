@@ -164,7 +164,7 @@ async def build_math_augmentation(
         return "\n".join(lines), None
 
     if intent is None:
-        return _unverified_math_note("unknown"), None
+        return None, None
 
     from app.services import math_tools as mt
 
@@ -180,10 +180,10 @@ def _unverified_math_note(kind: str) -> str:
     """System note when symbolic intent fired but no VerifiedMathBlock landed."""
     return (
         "Math note: a symbolic problem was detected "
-        f"(kind={kind}), but SymPy could not produce a verified result "
+        f"(kind={kind}), but a verified result could not be produced "
         "(timeout, unsupported expression, or incomplete extract).\n"
         "Explain carefully and show your work. Do NOT claim the answer was "
-        "SymPy-verified. Write the result in `$...$` and mark uncertainty when "
+        "verified. Write the result in `$...$` and mark uncertainty when "
         "you are unsure. Do NOT emit ```answer, ```geometry, or ```graph. "
         "Do not invent geometry/graph dimensions or point lists. "
         "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "

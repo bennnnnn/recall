@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 
 import type { AuthResult, User } from "@/lib/api/types";
+import { deviceSessionFields } from "@/lib/deviceSession";
 
 let onUnauthorized: (() => void) | null = null;
 let onTokenRefresh: ((accessToken: string, user?: User) => void) | null = null;
@@ -68,7 +69,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     const response = await fetchWithTimeout(apiUrl("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      body: JSON.stringify({ refresh_token: refreshToken, ...deviceSessionFields() }),
     });
     requireSession(generation);
     if (response.status === 401) return null;

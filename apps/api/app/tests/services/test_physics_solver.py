@@ -154,6 +154,23 @@ def test_projectile_range_45_degrees() -> None:
     assert spec.points[-1][1] == 0.0
 
 
+def test_projectile_range_from_cliff_uses_quadratic_tof() -> None:
+    intent = MathIntent(
+        kind="projectile",
+        physics_op="range",
+        physics_params={"v0": 20.0, "angle": 30.0, "h0": 10.0, "g": 9.81},
+        physics_units={"v0": "m/s", "angle": "deg", "h0": "m", "g": "m/s^2"},
+        operation="solve",
+    )
+    result = physics_solver.solve_projectile(intent)
+    range_m = float(result.answer_value.split()[0])
+    # Vacuum formula is ~35.31 m; cliff quadratic TOF is ~48 m.
+    assert range_m > 40.0
+    assert abs(range_m - 48.0) < 1.5
+    assert result.graph_specs[0].points[0][1] == 10.0
+    assert result.graph_specs[0].points[-1][1] == 0.0
+
+
 def test_projectile_max_height() -> None:
     intent = MathIntent(
         kind="projectile",

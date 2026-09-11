@@ -120,6 +120,33 @@ async def archive_chat(session: AsyncSession, user: User, chat_id: UUID, *, arch
     return await chats_repo.set_archived(session, chat, archived)
 
 
+async def archive_all_chats(session: AsyncSession, user: User) -> int:
+    try:
+        count = await chats_repo.archive_all_for_user(session, user.id, commit=False)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    return count
+
+
+async def delete_all_chats(
+    session: AsyncSession,
+    user: User,
+    *,
+    settings: Settings,
+) -> int:
+    """Remove every conversation. Library attachments stay (message_id SET NULL)."""
+    _ = settings
+    try:
+        count = await chats_repo.delete_all_for_user(session, user.id, commit=False)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    return count
+
+
 async def delete_chat(
     session: AsyncSession,
     user: User,

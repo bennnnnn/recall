@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.core.validation import (
     LOCALE_NAMES,
@@ -31,6 +31,9 @@ class UserOut(BaseModel):
     push_notifications_enabled: bool = True
     email_reminders_enabled: bool = False
     reminder_lead_minutes: int = 10
+    quiet_hours_enabled: bool = False
+    quiet_hours_start_minute: int = 1320
+    quiet_hours_end_minute: int = 420
     locale: str = "en"
     timezone: str = "UTC"
     location: str | None = None
@@ -40,6 +43,21 @@ class UserOut(BaseModel):
     country: str | None = None
     job: str | None = None
     created_at: datetime
+    google_sub: str | None = Field(default=None, exclude=True)
+    apple_sub: str | None = Field(default=None, exclude=True)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def sign_in_provider(self) -> str:
+        google = self.google_sub if isinstance(self.google_sub, str) and self.google_sub else None
+        apple = self.apple_sub if isinstance(self.apple_sub, str) and self.apple_sub else None
+        if google and not google.startswith("dev:"):
+            return "google"
+        if apple:
+            return "apple"
+        if google and google.startswith("dev:"):
+            return "dev"
+        return "dev"
 
 
 class UserUpdate(BaseModel):
@@ -54,6 +72,9 @@ class UserUpdate(BaseModel):
     push_notifications_enabled: bool | None = None
     email_reminders_enabled: bool | None = None
     reminder_lead_minutes: int | None = Field(default=None, ge=5, le=60)
+    quiet_hours_enabled: bool | None = None
+    quiet_hours_start_minute: int | None = Field(default=None, ge=0, le=1439)
+    quiet_hours_end_minute: int | None = Field(default=None, ge=0, le=1439)
     locale: str | None = None
     timezone: str | None = Field(default=None, max_length=64)
     location: str | None = Field(default=None, max_length=128)
@@ -147,16 +168,21 @@ class UserUpdate(BaseModel):
             raise ValueError("Invalid IANA timezone name.") from exc
 
 
-class GoogleAuthRequest(BaseModel):
+class DeviceSessionIn(BaseModel):
+    device_label: str | None = Field(default=None, max_length=80)
+    platform: str | None = Field(default=None, max_length=16)
+
+
+class GoogleAuthRequest(DeviceSessionIn):
     id_token: str
 
 
-class AppleAuthRequest(BaseModel):
+class AppleAuthRequest(DeviceSessionIn):
     id_token: str
     name: str | None = None
 
 
-class DevAuthRequest(BaseModel):
+class DevAuthRequest(DeviceSessionIn):
     email: str = "dev@recall.local"
     name: str = "bini"
 
@@ -169,8 +195,21 @@ class AuthResponse(BaseModel):
     csrf_token: str | None = None
 
 
-class RefreshRequest(BaseModel):
+class RefreshRequest(DeviceSessionIn):
     refresh_token: str | None = None
+
+
+class AuthSessionOut(BaseModel):
+    id: str
+    device_label: str | None = None
+    platform: str | None = None
+    created_at: str | None = None
+    last_seen_at: str | None = None
+    current: bool = False
+
+
+class AuthSessionListOut(BaseModel):
+    sessions: list[AuthSessionOut]
 
 
 class LogoutRequest(BaseModel):

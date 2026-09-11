@@ -160,6 +160,17 @@ def test_projectile_launched_at_angle() -> None:
     assert intent.physics_params["angle"] == 45.0
 
 
+def test_projectile_stores_cliff_height() -> None:
+    intent = _extract_projectile_intent(
+        "A projectile is launched at 20 m/s at 30 degrees from a 10 m cliff. What is its range?"
+    )
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 10.0
+    assert intent.physics_params["v0"] == 20.0
+    assert intent.physics_params["angle"] == 30.0
+
+
 def test_projectile_max_height() -> None:
     intent = _extract_projectile_intent(
         "A projectile is launched at 20 m/s at 30 degrees. What is its maximum height?"

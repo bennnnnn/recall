@@ -142,6 +142,8 @@ def _angle_vectors(text: str) -> list[list[float]]:
 def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     if mtm.has_equation(cleaned):
         return None
+    if mtm.calc_op(cleaned) is not None:
+        return None
     lower = cleaned.lower()
     padded = f" {lower} "
     func = None
@@ -170,10 +172,38 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
         rest = rest[2:].lstrip()
     if rest.startswith("("):
         rest = rest[1:].lstrip()
+    rest_low = rest.lower()
+    radian_arg = None
+    if rest_low.startswith("pi"):
+        radian_arg = "pi"
+        rest_after = rest_low[2:].lstrip()
+        if rest_after.startswith("/"):
+            den = rest_after[1:].lstrip()
+            digits = 0
+            while digits < len(den) and den[digits].isdigit():
+                digits += 1
+            if digits:
+                radian_arg = f"pi/{den[:digits]}"
+    elif rest_low.startswith("e") and (len(rest_low) == 1 or not rest_low[1].isalpha()):
+        radian_arg = "e"
+    if radian_arg is not None:
+        canon = _TRIG_CANON.get(func, func)
+        return MathIntent(
+            kind="trig",
+            school_op=canon,
+            expr=f"{canon}({radian_arg})",
+            operation="solve",
+        )
     if not rest or not rest[0].isdigit():
         return None
     num = mtm._NUM.search(cleaned, idx)
     if num is None:
+        return None
+    after_num = cleaned[num.end() :].lstrip()
+    if after_num.startswith(")"):
+        after_num = after_num[1:].lstrip()
+    # ``sin(2x)`` is an expression, not a degree evaluation.
+    if after_num and after_num[0].isalpha() and not after_num.lower().startswith("deg"):
         return None
     degrees = float(num.group(0))
     canon = _TRIG_CANON.get(func, func)
@@ -190,7 +220,9 @@ def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     pct = lower.find("% of ")
     if pct != -1:
-        rate_m = mtm._NUM.search(cleaned[:pct])
+        rate_m = None
+        for match in mtm._NUM.finditer(cleaned[:pct]):
+            rate_m = match
         base_m = mtm._NUM.search(cleaned, pct + 5)
         if rate_m and base_m:
             return MathIntent(
@@ -215,6 +247,21 @@ def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
     return None
 
 
+def _extract_average_speed_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if "average speed" not in lower and "average velocity" not in lower:
+        return None
+    nums = [float(m.group(0)) for m in mtm._NUM.finditer(cleaned)]
+    if len(nums) < 2 or nums[1] == 0:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="eval",
+        expr=f"{nums[0]}/{nums[1]}",
+        operation="solve",
+    )
+
+
 def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     substituted = substituted_eval_expr(cleaned)
     if substituted is not None:
@@ -224,6 +271,9 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
+    speed = _extract_average_speed_intent(cleaned)
+    if speed is not None:
+        return speed
     expr = mtm.bare_arithmetic_expr(cleaned)
     if expr is None:
         return None
@@ -300,7 +350,10 @@ def _first_order_ode_equation(cleaned: str) -> str | None:
 
 def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if "taylor" in lower or "maclaurin" in lower:
+    taylor_ok = (
+        "taylor of " in lower or "maclaurin" in lower or ("taylor" in lower and "series" in lower)
+    )
+    if taylor_ok:
         expr = mtm.graph_expr(cleaned) or cleaned
         n = mtm.number_after(cleaned, "order") or mtm.number_after(cleaned, "degree") or 5
         point = "0"
@@ -325,7 +378,12 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
             limit_point=point,
             variable="x",
         )
-    if "partial" in lower:
+    if "partial" in lower and (
+        "partial of " in lower
+        or "partial derivative" in lower
+        or " wrt" in lower
+        or "with respect to" in lower
+    ):
         var = "x"
         if "wrt" in lower:
             after = cleaned.lower().find("wrt")

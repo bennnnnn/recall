@@ -805,9 +805,12 @@ def test_does_not_duplicate_existing_answer_fence() -> None:
     assert "x = 99" not in out
 
 
-def test_append_unverified_math_note_once() -> None:
-    from app.services.math_fence import append_unverified_math_note
+def test_needs_math_fence_validate_skips_plain_replies() -> None:
+    from app.services.math_fence import needs_math_fence_validate
 
-    labeled = append_unverified_math_note("The roots are $x=1$.")
-    assert labeled.endswith("*Couldn't verify this with SymPy.*")
-    assert append_unverified_math_note(labeled) == labeled
+    assert needs_math_fence_validate("hi there", None) is False
+    assert needs_math_fence_validate("```answer\nx = 1\n```", None) is True
+    from app.services.math_tools.block.common import VerifiedMathBlock
+
+    verified = VerifiedMathBlock(text="x = 1", canonical_answer="1")
+    assert needs_math_fence_validate("plain", verified) is True

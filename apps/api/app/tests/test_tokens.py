@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import jwt
 import pytest
 
 from app.core.access_tokens import create_access_token
@@ -203,3 +204,62 @@ async def test_purge_user_sessions_raises_on_redis_failure(fake_redis):
         pytest.raises(RuntimeError, match="redis down"),
     ):
         await tokens_service.purge_user_sessions(fake_redis, user_id, settings)
+
+
+@pytest.mark.asyncio
+async def test_issue_stores_json_session_and_legacy_plain_user_id_still_refreshes(fake_redis):
+    settings = Settings(jwt_secret="x" * 32)
+    from app.tests.test_routers import _fake_user
+
+    user = _fake_user()
+    session = AsyncMock()
+    access, refresh = await tokens_service.issue_token_pair(
+        fake_redis, user.id, settings, device_label="Pixel 8", platform="android"
+    )
+    raw = await fake_redis.get(f"refresh:{refresh}")
+    record = tokens_service.parse_refresh_record(raw, refresh)
+    assert record["user_id"] == str(user.id)
+    assert record["device_label"] == "Pixel 8"
+    payload = jwt.decode(access, settings.jwt_secret, algorithms=["HS256"])
+    assert payload.get("sid") == record["session_id"]
+
+    legacy = "legacy-refresh-token"
+    await fake_redis.set(f"refresh:{legacy}", str(user.id))
+    await fake_redis.sadd(f"refresh_user:{user.id}", legacy)
+    with patch("app.services.tokens.users_repo.get_by_id", AsyncMock(return_value=user)):
+        new_access, new_refresh, user_out = await tokens_service.refresh_token_pair(
+            fake_redis, legacy, session, settings, device_label="iPhone"
+        )
+    assert user_out.id == user.id
+    assert new_access != access
+    rotated = tokens_service.parse_refresh_record(
+        await fake_redis.get(f"refresh:{new_refresh}"), new_refresh
+    )
+    assert rotated["device_label"] == "iPhone"
+
+
+@pytest.mark.asyncio
+async def test_list_and_revoke_sessions(fake_redis):
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    access, _refresh = await tokens_service.issue_token_pair(
+        fake_redis, user_id, settings, device_label="iPad"
+    )
+    await tokens_service.issue_token_pair(fake_redis, user_id, settings, device_label="Mac")
+    current = tokens_service.session_id_from_access_token(access, settings)
+    sessions = await tokens_service.list_sessions(fake_redis, user_id, current_session_id=current)
+    assert len(sessions) == 2
+    current_row = next(row for row in sessions if row["current"])
+    other = next(row for row in sessions if not row["current"])
+    assert current_row["device_label"] == "iPad"
+
+    with pytest.raises(tokens_service.CurrentSessionError):
+        await tokens_service.revoke_session(
+            fake_redis, user_id, current_row["id"], current_session_id=current
+        )
+    await tokens_service.revoke_session(
+        fake_redis, user_id, other["id"], current_session_id=current
+    )
+    remaining = await tokens_service.list_sessions(fake_redis, user_id, current_session_id=current)
+    assert len(remaining) == 1
+    assert remaining[0]["current"] is True

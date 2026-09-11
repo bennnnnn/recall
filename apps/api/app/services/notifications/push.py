@@ -41,6 +41,7 @@ from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    in_quiet_hours,
     reminder_title,
     resolve_reminder_lead_minutes,
     should_notify_todo,
@@ -312,6 +313,8 @@ async def process_todo_reminders(
         # used to propagate out of the loop and drop every other user's
         # reminders for this cycle. Isolate and skip just this row.
         try:
+            if in_quiet_hours(user, now=now):
+                continue
             lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
             if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
                 continue
@@ -363,8 +366,7 @@ async def process_email_suggestions(
     *,
     now: datetime | None = None,
 ) -> list[OutboundPush]:
-    # Inbox suggestions are not hour-gated; accept `now` for dispatcher parity.
-    _ = now or datetime.now(UTC)
+    when = now or datetime.now(UTC)
     has_token = exists(select(PushToken.id).where(PushToken.user_id == SuggestedReminder.user_id))
     result = await session.execute(
         select(SuggestedReminder, User)
@@ -398,6 +400,8 @@ async def process_email_suggestions(
         # BUG FIX (was cycle-fatal): isolate per-user failures so one bad
         # reminder batch doesn't drop every other user's email suggestions.
         try:
+            if in_quiet_hours(users[user_id], now=when):
+                continue
             user_tokens = tokens_by_user.get(user_id, [])
             if not user_tokens:
                 # EXISTS filtered candidates; skip if tokens vanished mid-cycle.
@@ -442,7 +446,7 @@ async def process_learning_nudges(
         .where(User.push_notifications_enabled.is_(True))
         .distinct()
     )
-    users = list(result.scalars().all())
+    users = [user for user in result.scalars().all() if not in_quiet_hours(user, now=effective_now)]
     if not users:
         return []
 
@@ -521,6 +525,8 @@ async def process_calendar_nudges(
         # BUG FIX (was cycle-fatal): isolate per-user failures so one user's
         # bad calendar data doesn't drop nudges for every other user.
         try:
+            if in_quiet_hours(user, now=now):
+                continue
             events = await calendar_service.fetch_upcoming_events(session, redis, user, settings)
             due = calendar_nudge_service.events_needing_nudge(events, now=now, lead_minutes=lead)
             if not due:

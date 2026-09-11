@@ -79,10 +79,11 @@ def test_convert_celsius_to_fahrenheit() -> None:
 
 
 def test_convert_fahrenheit_to_celsius() -> None:
-    result = float(math_school.convert_unit(32.0, "F", "C"))
-    assert abs(result - 0.0) < 1e-6
-    result = float(math_school.convert_unit(212.0, "F", "C"))
-    assert abs(result - 100.0) < 1e-6
+    result = math_school.convert_unit(32.0, "F", "C")
+    assert result == "0"
+    assert abs(float(result) - 0.0) < 1e-6
+    result = math_school.convert_unit(212.0, "F", "C")
+    assert abs(float(result) - 100.0) < 1e-6
 
 
 def test_convert_celsius_to_kelvin() -> None:

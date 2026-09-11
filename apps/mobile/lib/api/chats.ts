@@ -65,6 +65,10 @@ export const chatsApi = {
     }),
   deleteChat: (token: string, chatId: string) =>
     request<void>(`/chats/${chatId}`, token, { method: "DELETE" }),
+  archiveAllChats: (token: string) =>
+    request<void>("/chats/archive-all", token, { method: "POST" }),
+  deleteAllChats: (token: string) =>
+    request<void>("/chats", token, { method: "DELETE" }),
   deleteChatIfEmpty: (token: string, chatId: string) =>
     shareEmptyChatCheck(chatId, async () => {
       const page = normalizeMessagePage(

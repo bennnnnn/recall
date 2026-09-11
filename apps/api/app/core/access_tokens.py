@@ -15,10 +15,10 @@ class AccessTokenError(Exception):
     """Raised when an access JWT is missing, malformed, or otherwise invalid."""
 
 
-def create_access_token(user_id: UUID, settings: Settings) -> str:
+def create_access_token(user_id: UUID, settings: Settings, *, session_id: str | None = None) -> str:
     now = datetime.now(UTC)
     expire = now + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {
+    payload: dict[str, object] = {
         "sub": str(user_id),
         "exp": expire,
         # Keep subsecond precision so a fresh sign-in after session revocation
@@ -26,6 +26,8 @@ def create_access_token(user_id: UUID, settings: Settings) -> str:
         "iat": now.timestamp(),
         "jti": secrets.token_urlsafe(16),
     }
+    if session_id:
+        payload["sid"] = session_id
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 

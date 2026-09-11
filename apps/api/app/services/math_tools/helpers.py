@@ -121,6 +121,22 @@ def _strip_trailing_filler(expr: str) -> str:
     return s
 
 
+def _strip_trailing_differential(expr: str) -> str:
+    """Peel ``dx`` / ``d x`` so implicit multiplication does not eat the integrand."""
+    s = collapse_ws(expr)
+    if len(s) > _MAX_MATH_INPUT:
+        s = s[:_MAX_MATH_INPUT]
+    lower = s.lower()
+    for token in (" dx", " dy", " d x", " d y"):
+        if lower.endswith(token):
+            return s[: -len(token)].rstrip()
+        marker = token + " from "
+        idx = lower.find(marker)
+        if idx != -1:
+            return (s[:idx] + s[idx + len(token) :]).rstrip()
+    return s
+
+
 _EXPR_LEADINS = (
     "the polynomial ",
     "the expression ",

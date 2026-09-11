@@ -26,6 +26,10 @@ export type User = {
   country: string | null;
   job: string | null;
   created_at: string;
+  sign_in_provider?: "google" | "apple" | "dev";
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start_minute?: number;
+  quiet_hours_end_minute?: number;
 };
 
 export type Chat = {
@@ -337,4 +341,13 @@ export type AuthResult = {
   access_token: string;
   refresh_token: string;
   user: User;
+};
+
+export type AuthSession = {
+  id: string;
+  device_label: string | null;
+  platform: string | null;
+  created_at: string | null;
+  last_seen_at: string | null;
+  current: boolean;
 };

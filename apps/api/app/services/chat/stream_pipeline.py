@@ -263,7 +263,9 @@ async def enrich_final_content(
                 assistant_text = seams.math_fence_service.validate_math_fences_worker(
                     assistant_text, ctx.verified_math
                 )
-            else:
+            elif seams.math_fence_service.needs_math_fence_validate(
+                assistant_text, ctx.verified_math
+            ):
                 assistant_text = await run_sympy(
                     seams.math_fence_service.validate_math_fences_worker,
                     assistant_text,

@@ -37,14 +37,17 @@ def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
     BOTH the keyword AND 2+ numbers after it, so plain prose ("what do you
     mean by X") without any data list never matches."""
     lower = text.lower()
-    best: tuple[int, StatsOp] | None = None
+    best: tuple[int, StatsOp, str] | None = None
     for phrase, op in _STATS_WORDS:
         idx = word_index(lower, phrase)
         if idx != -1 and (best is None or idx < best[0]):
-            best = (idx, op)
+            after = lower[idx + len(phrase) :].lstrip()
+            if op == "mean" and (after.startswith("speed") or after.startswith("velocity")):
+                continue
+            best = (idx, op, phrase)
     if best is None:
         return None
-    idx, op = best
+    idx, op, _phrase = best
     numbers = [float(m.group(0)) for m in _NUM.finditer(text, idx)]
     if len(numbers) < 2:
         return None

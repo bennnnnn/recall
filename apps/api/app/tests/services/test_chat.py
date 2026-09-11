@@ -482,8 +482,8 @@ def test_math_formula_shape_rule_is_unified():
     assert "F + 3 - 3 = 3 - 3" in MATH_INTENT_HINT
     assert "empty bullet" in MATH_INTENT_HINT
     assert "SAME line as the `-`" in MATH_INTENT_HINT
-    assert "one long" in MATH_INTENT_HINT
-    assert "never omit the colon" in MATH_INTENT_HINT
+    assert "never omit the colon" not in MATH_INTENT_HINT
+    assert "You can check" not in MATH_INTENT_HINT
     assert r"\pm" in MATH_INTENT_HINT
     assert "finished" in MATH_INTENT_HINT
 
@@ -498,7 +498,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "never invent" in lower
     assert "illustrative" in lower
     assert "only when a verified" in lower
-    assert "do not claim sympy verification" in lower
+    assert "do not claim verification" in lower
     assert "trajectory graphs are only for kinematics" in lower
     assert "force and energy answers are numbers only" in lower
     from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE

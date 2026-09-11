@@ -11,7 +11,6 @@ from app.models.math_schemas import (
 )
 from app.services import math_service
 from app.services.math_tools.block.common import (
-    SOLVER_OWNED_FENCES_NOTE,
     VerifiedMathBlock,
     _diagram_block,
     _finish_with_answer,
@@ -35,19 +34,6 @@ def _verified_block_equation(
     answer = _format_equation_answer(
         result.canonical_solutions_latex or result.solutions_latex,
         result.solution_kind,
-    )
-    lines.append(
-        "Formula shape: INLINE $...$ for every step (never backticks around "
-        "`$...$`; never ```math for step equations — those stream blank). "
-        "A ```math fence is OK only for a standalone final display equation. "
-        "Do NOT recompute the solutions. Show worked steps by COPYING the "
-        "verified steps above verbatim — including any 'both sides' line "
-        "(e.g. F + 3 - 3 = 3 - 3) before you simplify. Do NOT skip to "
-        "F = 3 - 3. Do NOT derive intermediate algebra yourself. "
-        "Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters. "
-        "For several roots: real vs complex in compact $...$ with \\pm "
-        "(conjugates). Do NOT dump a numbered list of every root with stacked "
-        "fractions — Recall's answer box already lists them."
     )
     return _finish_with_answer(lines, answer)
 
@@ -92,12 +78,6 @@ def _verified_block_inequality(
     line_spec = math_service.number_line_spec_from_expr(ineq_text[:max_len], intent.variable)
     if line_spec is not None:
         return _diagram_block(lines, line_spec, answer)
-    lines.append(
-        "Formula shape: INLINE $...$ for the inequality and its solution "
-        "set (never backticks around `$...$`). Do NOT recompute — copy the "
-        "verified solution above verbatim. Render unions with \\lor "
-        "(e.g. $x < -1 \\lor x > 1$) exactly as given."
-    )
     return _finish_with_answer(lines, answer)
 
 
@@ -120,12 +100,6 @@ def _verified_block_system(
     sys_result = math_service.solve_system(sys_input)
     lines.extend(sys_result.steps)
     answer = _format_system_answer(sys_result.solutions, sys_result.solution_kind)
-    lines.append(
-        "Formula shape: INLINE $...$ for every step (never backticks around "
-        "`$...$`; never ```math for step equations). Do NOT recompute the "
-        "solutions. Show worked steps by COPYING the verified steps above "
-        "verbatim — do NOT derive intermediate algebra yourself."
-    )
     return _finish_with_answer(lines, answer)
 
 
@@ -146,12 +120,7 @@ def _verified_block_numerical_method(
     if not newton_result.converged or newton_result.root is None:
         lines.append(
             f"Did not converge within {newton_result.iterations_used} iterations "
-            "(the derivative may have vanished, or more iterations are needed) — "
-            "do NOT present a root as found."
-        )
-        lines.append(
-            "Do NOT recompute or invent different iteration values. Show the "
-            "worked steps by COPYING the verified iteration table above verbatim."
+            "(the derivative may have vanished, or more iterations are needed)."
         )
         # No ```answer — post-stream must not force a root that was not found.
         return VerifiedMathBlock(text="\n".join(lines))
@@ -160,12 +129,4 @@ def _verified_block_numerical_method(
         f"Converged after {newton_result.iterations_used} iterations: root ≈ {newton_result.root}"
     )
     answer = f"{newton_result.root:g}"
-    return _finish_with_answer(
-        lines,
-        answer,
-        preface=(
-            "Do NOT recompute or invent different iteration values. Show the "
-            "worked steps by COPYING the verified iteration table above verbatim. "
-            + SOLVER_OWNED_FENCES_NOTE
-        ),
-    )
+    return _finish_with_answer(lines, answer)

@@ -64,6 +64,13 @@ class User(Base):
         Boolean, default=False, server_default="false"
     )
     reminder_lead_minutes: Mapped[int] = mapped_column(Integer, default=10, server_default="10")
+    quiet_hours_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    quiet_hours_start_minute: Mapped[int] = mapped_column(
+        Integer, default=1320, server_default="1320"
+    )
+    quiet_hours_end_minute: Mapped[int] = mapped_column(Integer, default=420, server_default="420")
     custom_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     locale: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
