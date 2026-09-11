@@ -11,6 +11,7 @@ import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
+import { isLanguageProject } from "@/lib/languageLevels";
 import { type IoniconName } from "@/lib/icons";
 import { formatDailyGoalShort, resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
@@ -19,7 +20,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 function kindIcon(kind: string): IoniconName {
-  if (kind === "language" || kind === "vocabulary") return "language-outline";
+  if (isLanguageProject(kind)) return "language-outline";
   return "folder-outline";
 }
 

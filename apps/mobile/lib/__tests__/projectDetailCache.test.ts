@@ -30,7 +30,6 @@ const detail = {
   kind: "language" as const,
   target_language: "en",
   native_language: null,
-  level: "level1" as const,
   daily_goal: 5,
   archived: false,
   created_at: "2026-01-01T00:00:00Z",

@@ -9,10 +9,9 @@ from app.services.projects.items import create_item
 
 
 @pytest.mark.asyncio
-async def test_create_item_skips_pronunciation_lookup():
+async def test_create_item_does_not_look_up_pronunciation():
     session = AsyncMock()
     created = MagicMock()
-    created.pronunciation_url = None
 
     with (
         patch(
@@ -23,10 +22,6 @@ async def test_create_item_skips_pronunciation_lookup():
             "app.services.projects.items.project_items_repo.create",
             new=AsyncMock(return_value=created),
         ) as create_mock,
-        patch(
-            "app.gateways.pronunciation_lookup.lookup_pronunciation_url",
-            new=AsyncMock(return_value="https://example.com/a.mp3"),
-        ) as lookup_mock,
     ):
         item = await create_item(
             session,
@@ -36,8 +31,7 @@ async def test_create_item_skips_pronunciation_lookup():
         )
 
     assert item is created
-    lookup_mock.assert_not_awaited()
-    assert create_mock.await_args.kwargs["pronunciation_url"] is None
+    assert "pronunciation_url" not in create_mock.await_args.kwargs
 
 
 @pytest.mark.asyncio

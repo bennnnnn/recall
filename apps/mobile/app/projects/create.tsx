@@ -23,7 +23,6 @@ import {
 import { findLanguageProject } from "@/lib/projects/languageProject";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import {
-  CREATE_DEFAULT_LEVEL,
   canAddLearningProject,
   createStepProgress,
   languageClassTitle,
@@ -87,7 +86,6 @@ function CreateLearningView({ owner }: { owner: ReturnType<typeof useAccountView
       kind: "language" as const,
       target_language: targetLanguage,
       native_language: null,
-      level: CREATE_DEFAULT_LEVEL,
       daily_goal: dailyGoal,
       archived: false,
       created_at: now,
@@ -100,7 +98,6 @@ function CreateLearningView({ owner }: { owner: ReturnType<typeof useAccountView
         title,
         description: "",
         kind: "language",
-        level: CREATE_DEFAULT_LEVEL,
         target_language: targetLanguage,
         daily_goal: dailyGoal,
       });

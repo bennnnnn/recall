@@ -178,7 +178,6 @@ function item(partial: Partial<ProjectItem> & Pick<ProjectItem, "id" | "content"
     mastered_at: null,
     last_reviewed_at: null,
     review_count: 0,
-    pronunciation_url: null,
     created_at: "2026-01-01T00:00:00Z",
     ...partial,
   };
@@ -209,7 +208,6 @@ describe("projectLearningToPrintHtml", () => {
       kind: "language",
       target_language: "en",
       native_language: null,
-      level: "level2",
       daily_goal: 5,
       archived: false,
       created_at: "2026-01-01T00:00:00Z",
@@ -272,7 +270,6 @@ describe("projectLearningToPrintHtml", () => {
       kind: "language",
       target_language: "en",
       native_language: null,
-      level: "level1",
       daily_goal: 10,
       archived: false,
       created_at: "2026-01-01T00:00:00Z",

@@ -1719,7 +1719,7 @@ async def test_apply_project_actions_blocks_delete_list_by_default():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_ignores_set_level():
+async def test_apply_project_actions_set_description():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
@@ -1748,11 +1748,6 @@ async def test_apply_project_actions_ignores_set_level():
                     action="set_description",
                     project_title="English",
                     description="Travel vocab",
-                ),
-                ProjectActionItem(
-                    action="set_level",
-                    project_title="English",
-                    level="level3",
                 ),
             ],
         )
@@ -2224,8 +2219,7 @@ def test_language_tutor_hint_uses_target_language():
 
     hint = language_tutor_hint("es")
     assert "Spanish vocabulary" in hint
-    assert "Spanish skill level" in hint
-    assert "English skill level" not in hint
+    assert "skill level" not in hint
     assert "Do NOT run a quiz in this chat" in hint
     assert "learning_launch" in hint
 

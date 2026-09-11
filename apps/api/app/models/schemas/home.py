@@ -44,7 +44,6 @@ class HomeProjectHighlight(BaseModel):
     streak_days: int = 0
     days_inactive: int | None = None
     due_for_review: int = 0
-    suggested_level: Literal["up", "down"] | None = None
 
 
 class HomeScreenOut(BaseModel):

@@ -9,7 +9,6 @@ function baseDetail(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
     kind: "language",
     target_language: "en",
     native_language: null,
-    level: "level1",
     daily_goal: 5,
     archived: false,
     created_at: "2026-01-01T00:00:00Z",

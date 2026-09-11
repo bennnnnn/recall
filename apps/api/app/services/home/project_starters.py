@@ -107,7 +107,6 @@ def project_highlight(
         streak_days=int(enriched.get("streak_days") or 0),
         days_inactive=enriched.get("days_inactive"),
         due_for_review=stats.due_for_review,
-        suggested_level=enriched.get("suggested_level"),
     )
 
 

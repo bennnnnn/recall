@@ -1,14 +1,12 @@
-import type { LanguageLevel, Project, ProjectKind } from "@/lib/api";
+import type { Project, ProjectKind } from "@/lib/api";
 import { LEARNING_LANGUAGES, languageLabel } from "@/lib/i18n/languages";
+import { isLanguageProject } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
 
 export type CreateStep = "language" | "daily";
 
-/** API still requires a class level; unused for vocab (full catalog for everyone). */
-export const CREATE_DEFAULT_LEVEL: LanguageLevel = "level1";
-
-export function createStepsForKind(kind: ProjectKind | null): CreateStep[] {
-  if (kind === "language" || kind === "vocabulary") return ["language", "daily"];
+export function createStepsForKind(kind: ProjectKind | string | null): CreateStep[] {
+  if (isLanguageProject(kind ?? "language")) return ["language", "daily"];
   return ["language"];
 }
 
@@ -29,7 +27,7 @@ export function fallbackProjectTitle(
   kind: ProjectKind,
   t: (key: string) => string,
 ): string {
-  if (kind === "language" || kind === "vocabulary") {
+  if (isLanguageProject(kind)) {
     return languageClassTitle();
   }
   return t("projects.kind.language");

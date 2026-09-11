@@ -116,7 +116,6 @@ def _project_header(project: Project) -> dict[str, Any]:
         "kind": project.kind,
         "target_language": project.target_language,
         "native_language": project.native_language,
-        "level": project.level,
         "daily_goal": project.daily_goal,
         "archived": project.archived,
         "created_at": project.created_at.isoformat(),

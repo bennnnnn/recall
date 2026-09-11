@@ -169,7 +169,6 @@ async def list_projects_for_user(
                 "kind": normalize_project_kind(item.kind),
                 "target_language": item.target_language,
                 "native_language": item.native_language,
-                "level": item.level,
                 "daily_goal": item.daily_goal,
                 "learning_path": parse_learning_path(item),
                 "archived": item.archived,
@@ -191,7 +190,6 @@ async def create_learning_project(
     kind: str,
     target_language: str = "en",
     native_language: str | None = None,
-    level: str = "level1",
     daily_goal: int | None = None,
 ) -> Project:
     """Create a language project; raises ValueError with a stable code."""
@@ -221,7 +219,6 @@ async def create_learning_project(
         kind=normalized,
         target_language=resolved_target,
         native_language=resolved_native,
-        level=level,
         daily_goal=daily_goal if normalized in LEARNING_PRODUCT_KINDS else None,
         timezone_name=time_context_service.effective_timezone(user.timezone, None),
     )
@@ -276,28 +273,6 @@ async def update_learning_project(
             timezone_name=tz_name,
         )
     updated = await projects_repo.update(session, item, **patch)
-    await home_service.invalidate_home_cache(user.id)
-    return updated
-
-
-async def update_learning_project_item(
-    session: AsyncSession,
-    user: User,
-    project_id: UUID,
-    item_id: UUID,
-    fields: dict[str, Any],
-) -> ProjectItem:
-    from app.services.projects.items import update_item
-
-    project = await projects_repo.get_by_id(session, project_id, user.id)
-    if project is None or not is_learning_product_kind(project.kind):
-        raise ProjectsError("Project not found", status_code=404)
-    if not fields:
-        raise ProjectsError("No fields to update", status_code=400)
-    item = await project_items_repo.get_by_id(session, item_id, user.id, project_id)
-    if not item:
-        raise ProjectsError("Item not found", status_code=404)
-    updated = await update_item(session, item, **fields)
     await home_service.invalidate_home_cache(user.id)
     return updated
 

@@ -82,7 +82,6 @@ def enrich_learning_stats(
     else:
         stats["streak_days"] = 0
     stats["quiz_accuracy_pct"] = quiz_accuracy_pct(items)
-    stats["suggested_level"] = None
     return stats
 
 

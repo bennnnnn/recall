@@ -11,7 +11,6 @@ from app.models.schemas import (
     ProjectCreate,
     ProjectDetailOut,
     ProjectItemOut,
-    ProjectItemUpdate,
     ProjectListOut,
     ProjectOut,
     ProjectUpdate,
@@ -67,7 +66,6 @@ async def create_project(
             kind=body.kind,
             target_language=body.target_language,
             native_language=body.native_language,
-            level=body.level,
             daily_goal=body.daily_goal,
         )
     except ValueError as exc:
@@ -149,23 +147,6 @@ async def list_daily_items(
             offset=offset,
         )
     return [ProjectItemOut.model_validate(i) for i in items]
-
-
-@router.patch("/{project_id}/items/{item_id}", response_model=ProjectItemOut)
-async def update_project_item(
-    project_id: UUID,
-    item_id: UUID,
-    body: ProjectItemUpdate,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> ProjectItemOut:
-    try:
-        updated = await projects_crud.update_learning_project_item(
-            session, user, project_id, item_id, body.model_dump(exclude_unset=True)
-        )
-    except projects_crud.ProjectsError as exc:
-        raise _map_error(exc) from exc
-    return ProjectItemOut.model_validate(updated)
 
 
 @router.post("/{project_id}/items/{item_id}/practice", response_model=LearningPracticeOut)

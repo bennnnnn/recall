@@ -44,7 +44,6 @@ const word = (id: string, content: string): ProjectItem => ({
   mastered_at: null,
   last_reviewed_at: null,
   review_count: 0,
-  pronunciation_url: null,
   created_at: "2026-09-04",
 });
 let mockProject: ProjectDetail;

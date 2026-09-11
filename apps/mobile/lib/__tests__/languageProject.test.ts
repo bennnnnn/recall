@@ -9,7 +9,6 @@ const english: Project = {
   kind: "language",
   target_language: "en",
   native_language: null,
-  level: "level1",
   daily_goal: 10,
   archived: false,
   created_at: "2024-01-01T00:00:00Z",
