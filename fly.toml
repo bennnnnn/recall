@@ -13,6 +13,16 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
 
 [env]
   PROCESS_ROLE = "api"
+  # Keep a second LLM call out of normal time-to-first-token. Obvious current/
+  # search intents still use the deterministic web-search gates and tool loop.
+  WEB_SEARCH_CLASSIFIER_ENABLED = "false"
+  # Semantic memory remains enabled, but a slow query-embedding provider must
+  # fall back quickly to the type-priority memory block instead of holding TTFT.
+  MEMORY_QUERY_EMBED_TIMEOUT_SECONDS = "0.75"
+  # Fail a provider connection quickly enough for the existing model fallback
+  # chain to help. Once streaming starts, 30s without any chunk is unhealthy.
+  CHAT_STREAM_CONNECT_TIMEOUT_SECONDS = "5"
+  CHAT_STREAM_TIMEOUT_SECONDS = "30"
 
 # Run migrations once per deploy (not on every app machine boot).
 [deploy]
