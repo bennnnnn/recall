@@ -55,6 +55,12 @@ const EXPLANATION_CUES = new Set([
 
 const MAX_SUBJECT_WORDS = 8;
 
+const EDGE_PUNCT = /^[.,!?;:"'()[\]]+|[.,!?;:"'()[\]]+$/g;
+
+function foldToken(word: string): string {
+  return word.toLowerCase().replace(EDGE_PUNCT, "");
+}
+
 function tokens(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
@@ -62,10 +68,11 @@ function tokens(text: string): string[] {
 function cleanSubject(raw: string): string | null {
   const subject = raw.trim().replace(/[.!?]+$/g, "").trim();
   if (!subject || subject.length < 2) return null;
-  const words = subject.toLowerCase().split(/\s+/);
+  const words = subject.split(/\s+/);
   if (!words.length || words.length > MAX_SUBJECT_WORDS) return null;
-  if (POSSESSIVES.has(words[0])) return null;
-  if (words.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
+  const folded = words.map(foldToken);
+  if (!folded[0] || POSSESSIVES.has(folded[0])) return null;
+  if (folded.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
   return subject;
 }
 

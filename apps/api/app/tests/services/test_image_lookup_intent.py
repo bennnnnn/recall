@@ -44,6 +44,8 @@ def test_extracts_lookup_subject(text: str, expected: str) -> None:
         "show me the stops of becoming smart",
         "show me the steps of becoming smart",
         "show me ways to be smarter",
+        "show me five tips, please",
+        "show me ways, please",
         "show me the answer",
         "show me the equation",
         "let me see my notes",
@@ -88,3 +90,10 @@ def test_disjoint_from_generation_verbs() -> None:
     for text in generation_only:
         assert extract_image_gen_prompt(text) is not None
         assert extract_image_lookup_query(text) is None
+
+
+def test_howto_picture_phrase_is_not_lookup_or_generation() -> None:
+    """Denied lookup how-to must not fall through to image generation."""
+    text = "show me a picture of ways to be smarter"
+    assert extract_image_lookup_query(text) is None
+    assert extract_image_gen_prompt(text) is None

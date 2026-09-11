@@ -158,6 +158,17 @@ _NON_IMAGE_WORDS = frozenset(
         "worksheets",
         "assignment",
         "assignments",
+        # How-to / listicle heads — same as image_lookup_intent. Do not add
+        # "way" (milky way) or "guide" (tour-guide photos).
+        "stops",
+        "ways",
+        "tips",
+        "tip",
+        "secrets",
+        "habits",
+        "tricks",
+        "stages",
+        "phases",
     },
 )
 
@@ -237,12 +248,19 @@ def _clean_prompt(raw: str) -> str | None:
     return prompt
 
 
+def _fold_token(word: str) -> str:
+    """Lowercase and strip edge punctuation so ``tips,`` matches ``tips``."""
+    return word.lower().strip(".,!?;:\"'()[]")
+
+
 def _has_non_image_subject(subject: str) -> bool:
-    words = subject.lower().split()
+    words = subject.split()
     for i, word in enumerate(words):
-        if word in _NON_IMAGE_WORDS:
+        key = _fold_token(word)
+        if key in _NON_IMAGE_WORDS:
             return True
-        if word == "pull" and i + 1 < len(words) and words[i + 1] in {"request", "requests"}:
+        nxt = _fold_token(words[i + 1]) if i + 1 < len(words) else ""
+        if key == "pull" and nxt in {"request", "requests"}:
             return True
     return False
 

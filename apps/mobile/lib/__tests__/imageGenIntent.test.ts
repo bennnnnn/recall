@@ -70,6 +70,8 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("generate a picture of a diagram")).toBeNull();
     expect(extractImageGenPrompt("draw me a diagram")).toBeNull();
     expect(extractImageGenPrompt("Draw a mermaid flowchart for brewing coffee.")).toBeNull();
+    expect(extractImageGenPrompt("show me a picture of ways to be smarter")).toBeNull();
+    expect(extractImageGenPrompt("create an image of tips for studying")).toBeNull();
   });
 
   it("returns null for draw a conclusion", () => {
