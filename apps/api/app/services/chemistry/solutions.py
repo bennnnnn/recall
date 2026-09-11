@@ -84,6 +84,8 @@ def ideal_gas_law(
         # P = nRT / V
         if volume is None or moles is None or temperature is None:
             return GasLawResult(answer="", error="missing required values")
+        if volume == 0:
+            return GasLawResult(answer="", error="volume must be non-zero")
         p = (moles * R * temperature) / volume
         return GasLawResult(
             answer=f"P = nRT/V = ({moles} * {R} * {temperature}) / {volume} = {p:.4f} atm",
@@ -93,6 +95,8 @@ def ideal_gas_law(
         # V = nRT / P
         if pressure is None or moles is None or temperature is None:
             return GasLawResult(answer="", error="missing required values")
+        if pressure == 0:
+            return GasLawResult(answer="", error="pressure must be non-zero")
         v = (moles * R * temperature) / pressure
         return GasLawResult(
             answer=f"V = nRT/P = ({moles} * {R} * {temperature}) / {pressure} = {v:.4f} L",
@@ -102,6 +106,8 @@ def ideal_gas_law(
         # n = PV / RT
         if pressure is None or volume is None or temperature is None:
             return GasLawResult(answer="", error="missing required values")
+        if temperature == 0:
+            return GasLawResult(answer="", error="temperature must be non-zero")
         n = (pressure * volume) / (R * temperature)
         return GasLawResult(
             answer=f"n = PV/RT = ({pressure} * {volume}) / ({R} * {temperature}) = {n:.4f} mol",
@@ -110,6 +116,8 @@ def ideal_gas_law(
     # temperature is None → T = PV / nR
     if pressure is None or volume is None or moles is None:
         return GasLawResult(answer="", error="missing required values")
+    if moles == 0:
+        return GasLawResult(answer="", error="moles must be non-zero")
     t = (pressure * volume) / (moles * R)
     return GasLawResult(
         answer=f"T = PV/nR = ({pressure} * {volume}) / ({moles} * {R}) = {t:.4f} K",
@@ -142,11 +150,14 @@ def dilution(
     v1: float,
     v2: float | None = None,
     m2: float | None = None,
+    volume_unit: str = "L",
 ) -> SolutionResult:
     """Solve M1V1 = M2V2 for the missing variable.
 
-    Exactly one of V2 or M2 must be None.
+    Exactly one of V2 or M2 must be None. Volumes stay in ``volume_unit``
+    (``L`` or ``mL``) so 100 mL does not become 100 L.
     """
+    unit_label = "mL" if volume_unit.lower() == "ml" else "L"
     if v2 is None and m2 is None:
         return SolutionResult(answer="", error="one of V2 or M2 must be unknown")
     if v2 is not None and m2 is not None:
@@ -157,7 +168,7 @@ def dilution(
             return SolutionResult(answer="", error="M2 must be non-zero")
         v = (m1 * v1) / m2
         return SolutionResult(
-            answer=f"V2 = M1V1/M2 = ({m1} * {v1}) / {m2} = {v:.4f} L",
+            answer=f"V2 = M1V1/M2 = ({m1} * {v1}) / {m2} = {v:.4f} {unit_label}",
             value=round(v, 4),
         )
     # m2 is None → M2 = M1V1 / V2

@@ -507,7 +507,9 @@ async def build_stream_prompt_context(
 
         web_coro = _fetch_web_with_priors()
         if settings.chemistry_enabled and needs_chem:
-            chem_coro = chemistry_context_service.build_chemistry_context(content, settings)
+            chem_coro = chemistry_context_service.build_chemistry_context(
+                content, settings, redis=redis
+            )
         if settings.mcp_tools_enabled and calendar_service.is_calendar_create_request(content):
             write_coro = _load_has_calendar_write(user.id)
 

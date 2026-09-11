@@ -35,7 +35,7 @@ CHEMISTRY_FENCE_HINT = (
     "with a plain SMILES string — never geometry, graph, mermaid, HTML/SVG, "
     "`$...$`, or ```math. One molecule per fence; optional caption above the SMILES. "
     "Use verified SMILES from the system block verbatim when present. "
-    "Do not emit ```molecule3d — Recall attaches 3D after ```smiles. "
+    "Do not emit ```molecule3d; do not mention attaching or 3D fences. "
     "Do not add 2D/3D section headings around the structure. "
     "Do not emit a molecule card unless this turn is actually about a chemical structure."
 )

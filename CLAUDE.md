@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -125,6 +125,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `math_tools/`, `math_service/`, `math_fence.py`, `sympy_executor.py` | `MathText` / `MathView` / `geometry` / `graph` |
+| Chemistry (RDKit / PubChem) | `services/chemistry/`, `gateways/pubchem_gateway.py`, `chemistry_fence.py` | `chemistryFence.ts`, smiles + `molecule3d` |
 | Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `email.py` | `settings/integrations.tsx` |
 | Push / email out | `push_notifications.py`, `transactional_email.py`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
@@ -134,7 +135,7 @@ What exists in code today. Product caveats: FEATURES.md.
 
 **Routers registered in** `main.py`: health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, images, ws.
 
-**Service packages:** `services/chat`, `memory`, `learning`, `todos`, `web_search`, `home`, plus top-level modules (math_*, speech, calendar, …). New chat-loop code belongs in `services/chat/`. New IO belongs in a gateway or repository, not a router.
+**Service packages:** `services/chat`, `memory`, `learning`, `todos`, `web_search`, `home`, `chemistry`, plus top-level modules (math_*, speech, calendar, …). New chat-loop code belongs in `services/chat/`. New IO belongs in a gateway or repository, not a router.
 
 ## Seams (plug in / plug out)
 
@@ -154,7 +155,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `chemistry_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -163,10 +164,10 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation
-4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve
+4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve, chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
-7. Post-stream math fence correction (`math_fence.py`)
+7. Post-stream math fence correction (`math_fence.py`) and chemistry fence enrich (`chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
 9. `enqueue_post_turn_jobs` — topic, memory, todos, projects, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
 
@@ -286,7 +287,7 @@ JWT_SECRET=...
 
 ## Key Dependencies (external services)
 
-Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In · Tavily (web search) · R2 (attachments) · Sentry · RevenueCat
+Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In · Tavily (web search) · PubChem · R2 (attachments) · Sentry · RevenueCat
 
 **Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings, attachment RAG, and chat-history RAG.
 
