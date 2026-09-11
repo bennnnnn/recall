@@ -28,7 +28,7 @@ async def test_build_prompt_includes_web_search_hint():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.projects.load_projects_for_prompt",
+            "app.services.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(

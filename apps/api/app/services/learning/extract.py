@@ -6,14 +6,14 @@ import json
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.models.schemas import ProjectExtractionResult
+from app.models.schemas import LearningExtractionResult
 
 
-async def extract_project_actions(
+async def extract_learning_actions(
     settings: Settings,
     transcript: str,
     snapshot: dict[str, object],
-) -> ProjectExtractionResult | None:
+) -> LearningExtractionResult | None:
     if mock_llm.should_mock_llm(settings):
         return await mock_llm.mock_project_actions(transcript, snapshot)
 
@@ -64,6 +64,6 @@ async def extract_project_actions(
         settings=settings,
         model_alias="memory-model",
         messages=messages,
-        schema=ProjectExtractionResult,
+        schema=LearningExtractionResult,
         max_tokens=768,
     )

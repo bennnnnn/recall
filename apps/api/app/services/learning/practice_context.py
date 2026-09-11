@@ -5,22 +5,22 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Project, ProjectItem
+from app.models.orm import Learning, LearningItem
+from app.repositories import learning_items as items_repo
 from app.repositories import learning_practice as practice_repo
-from app.repositories import project_items as items_repo
 from app.services.learning.daily import (
     build_daily_history,
     parse_daily_goal_history,
     resolve_daily_goal,
 )
 from app.services.learning.practice_history import merge_practice_history
-from app.services.projects.stats import stats_from_items
+from app.services.learning.stats import stats_from_items
 
 
 async def load_activity_context(
     session: AsyncSession,
-    projects: list[Project],
-    items: list[ProjectItem],
+    projects: list[Learning],
+    items: list[LearningItem],
     *,
     timezone_name: str,
 ) -> str:
@@ -33,7 +33,7 @@ async def load_activity_context(
     misses = await items_repo.list_miss_events_for_items(
         session, [item.id for item in items], since=since
     )
-    by_project: dict[UUID, list[ProjectItem]] = {project.id: [] for project in projects}
+    by_project: dict[UUID, list[LearningItem]] = {project.id: [] for project in projects}
     for item in items:
         if item.project_id in by_project:
             by_project[item.project_id].append(item)

@@ -1,4 +1,4 @@
-"""Project blocks injected into the chat system prompt."""
+"""Learning blocks injected into the chat system prompt."""
 
 from __future__ import annotations
 
@@ -11,10 +11,19 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.orm import Project, ProjectItem, User
-from app.models.schemas.projects import PathChapterProgress
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
+from app.models.orm import Learning, LearningItem, User
+from app.models.schemas.learning import PathChapterProgress
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
+from app.services.learning import stats as learning_stats
+from app.services.learning.common import (
+    DEFAULT_LIST,
+    _is_language_project,
+    _item_status,
+    _language_daily_goal,
+    _list_key,
+    language_display_name,
+)
 from app.services.learning.path import (
     build_path_progress,
     format_path_prompt_lines,
@@ -24,21 +33,12 @@ from app.services.learning.path import (
     up_next_chapter,
     with_learning_path,
 )
-from app.services.projects import stats as project_stats
-from app.services.projects.common import (
-    DEFAULT_LIST,
-    _is_language_project,
-    _item_status,
-    _language_daily_goal,
-    _list_key,
-    language_display_name,
-)
-from app.services.projects.prompts import (
+from app.services.learning.prompts import (
     CHAT_LEARNING_HANDOFF_HINT,
     _language_tutor_hint,
     _quiz_mode_banner,
 )
-from app.services.projects.quiz_context import (
+from app.services.learning.quiz_context import (
     _format_covered_quiz_lines,
     _format_failed_review_lines,
 )
@@ -47,10 +47,10 @@ from app.services.projects.quiz_context import (
 _PROGRESS_ITEM_LIMIT = 2000
 
 
-def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> str:
+def format_learning_block(projects: list[Learning], items: list[LearningItem]) -> str:
     if not projects:
         return ""
-    by_project: dict[UUID, list[ProjectItem]] = {}
+    by_project: dict[UUID, list[LearningItem]] = {}
     for item in items:
         by_project.setdefault(item.project_id, []).append(item)
 
@@ -95,7 +95,7 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
         if not project_items:
             lines.append("- (no words yet)")
             continue
-        by_list: dict[str, list[ProjectItem]] = {}
+        by_list: dict[str, list[LearningItem]] = {}
         for item in project_items:
             lst = item.list_title.strip() or DEFAULT_LIST
             by_list.setdefault(lst, []).append(item)
@@ -116,7 +116,7 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
     return "\n".join(lines)
 
 
-def _format_vocab_line(item: ProjectItem) -> str:
+def _format_vocab_line(item: LearningItem) -> str:
     status = _item_status(item)
     mark = "✓" if status == "mastered" else ("◐" if status == "learning" else "○")
     defn = f" — {item.definition}" if item.definition else ""
@@ -125,7 +125,7 @@ def _format_vocab_line(item: ProjectItem) -> str:
     return f"- {mark} {item.content}{defn}{ex} ({status})"
 
 
-def format_path_overview_lines(project: object, items: list[ProjectItem]) -> list[str]:
+def format_path_overview_lines(project: object, items: list[LearningItem]) -> list[str]:
     """Domain + current-domain branch checkmarks — no lemmas."""
     progress = build_path_progress(project, items)
     if not progress:
@@ -156,11 +156,11 @@ def format_path_overview_lines(project: object, items: list[ProjectItem]) -> lis
     return lines
 
 
-def format_learning_overview_block(projects: Sequence[Any], items: list[ProjectItem]) -> str:
+def format_learning_overview_block(projects: Sequence[Any], items: list[LearningItem]) -> str:
     """Main-chat Learning inject: class + path checkmarks, no catalog dump."""
     if not projects:
         return ""
-    by_project: dict[UUID, list[ProjectItem]] = {}
+    by_project: dict[UUID, list[LearningItem]] = {}
     for item in items:
         by_project.setdefault(item.project_id, []).append(item)
 
@@ -189,8 +189,8 @@ def format_learning_overview_block(projects: Sequence[Any], items: list[ProjectI
     return "\n".join(lines)
 
 
-def format_current_chapter_block(project: Any, items: list[ProjectItem]) -> str:
-    """Project-chat inject: current chapter ○/◐ words only."""
+def format_current_chapter_block(project: Any, items: list[LearningItem]) -> str:
+    """Learning-chat inject: current chapter ○/◐ words only."""
     current = up_next_chapter(project, items)
     chapter_items = items_in_chapter(items, current)
     pool, mastered_skip = _quiz_pool_items(chapter_items)
@@ -221,7 +221,7 @@ def format_current_chapter_block(project: Any, items: list[ProjectItem]) -> str:
     return "\n".join(lines)
 
 
-def _stats_for_items(items: list[ProjectItem]) -> dict[str, int]:
+def _stats_for_items(items: list[LearningItem]) -> dict[str, int]:
     """Prompt-side project stats.
 
     Delegates to ``repositories.project_items.stats_from_items`` so the
@@ -233,10 +233,10 @@ def _stats_for_items(items: list[ProjectItem]) -> dict[str, int]:
     ``last_reviewed_at or created_at``). The mismatch meant the prompt
     claimed a different review queue than the app showed.
     """
-    return project_stats.stats_from_items(items)
+    return learning_stats.stats_from_items(items)
 
 
-def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
+def _format_today_session_line(project: Learning, stats: dict[str, int]) -> str:
     from app.services import daily_learning
 
     daily_goal = daily_learning.resolve_daily_goal(project)
@@ -257,12 +257,12 @@ def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
     )
 
 
-def _quiz_pool_items(items: list[ProjectItem]) -> tuple[list[ProjectItem], int]:
+def _quiz_pool_items(items: list[LearningItem]) -> tuple[list[LearningItem], int]:
     pool = [i for i in items if _item_status(i) != "mastered"]
     return pool, len(items) - len(pool)
 
 
-async def load_project_for_prompt(
+async def load_learning_for_prompt(
     session: AsyncSession,
     user_id: UUID,
     project_id: UUID,
@@ -274,10 +274,10 @@ async def load_project_for_prompt(
     from app.repositories import users as users_repo
     from app.services import time_context as time_context_service
 
-    project = await projects_repo.get_by_id(session, project_id, user_id)
+    project = await learning_repo.get_by_id(session, project_id, user_id)
     if project is None:
         return ""
-    items = await project_items_repo.list_for_user(
+    items = await learning_items_repo.list_for_user(
         session,
         user_id,
         project_id=project_id,
@@ -306,7 +306,7 @@ async def load_project_for_prompt(
         if failed_lines:
             block = f"{block}{''.join(failed_lines)}"
     else:
-        block = format_projects_block([project], items)
+        block = format_learning_block([project], items)
     today_line = ""
     if _is_language_project(project):
         user = await users_repo.get_by_id(session, user_id)
@@ -314,7 +314,7 @@ async def load_project_for_prompt(
             user.timezone if user else None,
             client_timezone,
         )
-        stats = project_stats.stats_from_items(items, timezone_name=tz_name)
+        stats = learning_stats.stats_from_items(items, timezone_name=tz_name)
         from app.services.learning.practice_context import load_activity_context
 
         activity = await load_activity_context(session, [project], items, timezone_name=tz_name)
@@ -333,18 +333,18 @@ async def load_project_for_prompt(
     return block
 
 
-async def load_projects_for_prompt(
+async def load_learning_classes_for_prompt(
     session: AsyncSession,
     user_id: UUID,
     settings: Settings,
 ) -> str:
-    projects = await projects_repo.list_for_user(
+    projects = await learning_repo.list_for_user(
         session, user_id, limit=settings.project_inject_limit
     )
     if not projects:
         return "The user has no active Learning class. Do not invent lessons, progress, words, or skipped practice."
     project_ids = [p.id for p in projects]
-    items = await project_items_repo.list_for_user(
+    items = await learning_items_repo.list_for_user(
         session,
         user_id,
         project_ids=project_ids,
@@ -352,7 +352,7 @@ async def load_projects_for_prompt(
     )
     from app.services.learning.path_seed import apply_full_catalog_path, current_catalog_items
 
-    by_project: dict[UUID, list[ProjectItem]] = {}
+    by_project: dict[UUID, list[LearningItem]] = {}
     for item in items:
         by_project.setdefault(item.project_id, []).append(item)
     items = []
@@ -377,7 +377,7 @@ async def load_projects_for_prompt(
     return block
 
 
-def _daily_learning_quiz_label(project: Project) -> tuple[str, str]:
+def _daily_learning_quiz_label(project: Learning) -> tuple[str, str]:
     """Return (quiz_type_label, progress_unit) for prompt injection."""
     return "vocabulary quiz", "words mastered today"
 
@@ -393,7 +393,7 @@ async def load_daily_learning_summary_for_prompt(
     from app.services import daily_learning
     from app.services import time_context as time_context_service
 
-    projects = await projects_repo.list_for_user(
+    projects = await learning_repo.list_for_user(
         session, user.id, limit=settings.project_inject_limit
     )
     tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
@@ -407,7 +407,7 @@ async def load_daily_learning_summary_for_prompt(
             "Do not mention vocabulary quiz, invent 0/N stats, "
             "or urge practice — even if older memories mention English learning."
         )
-    stats_by_project = await project_stats.count_stats_by_project(
+    stats_by_project = await learning_stats.count_stats_by_learning(
         session,
         [project.id for project in learning_projects],
         timezone_by_project={project.id: tz_name for project in learning_projects},
@@ -469,7 +469,7 @@ def _today_local_date(timezone_name: str) -> date:
     return datetime.now(UTC).astimezone(tz).date()
 
 
-def _format_today_word_names(items: list[ProjectItem]) -> str:
+def _format_today_word_names(items: list[LearningItem]) -> str:
     names = [item.content.strip() for item in items if (item.content or "").strip()]
     return ", ".join(names)
 
@@ -485,7 +485,7 @@ async def load_today_learning_words_for_prompt(
     from app.core.learning_policy import day_bounds_utc
     from app.services import time_context as time_context_service
 
-    projects = await projects_repo.list_for_user(
+    projects = await learning_repo.list_for_user(
         session, user.id, limit=settings.project_inject_limit
     )
     learning_projects = [project for project in projects if _is_language_project(project)]
@@ -502,7 +502,7 @@ async def load_today_learning_words_for_prompt(
     lines = [header, _TODAY_WORDS_ACCESS_HINT]
     any_words = False
     for project in learning_projects:
-        mastered = await project_items_repo.list_by_activity_date(
+        mastered = await learning_items_repo.list_by_activity_date(
             session,
             user.id,
             project.id,
@@ -510,7 +510,7 @@ async def load_today_learning_words_for_prompt(
             end=end,
             include_partial=True,
         )
-        missed = await project_items_repo.list_missed_by_activity_date(
+        missed = await learning_items_repo.list_missed_by_activity_date(
             session,
             user.id,
             project.id,

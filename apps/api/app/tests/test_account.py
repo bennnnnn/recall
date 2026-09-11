@@ -336,11 +336,11 @@ async def test_build_export_structure(
             AsyncMock(return_value=[todo]),
         ),
         patch(
-            "app.services.export_service.projects_repo.list_for_user",
+            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.export_service.project_items_repo.list_for_projects",
+            "app.services.export_service.learning_items_repo.list_for_learning",
             AsyncMock(return_value=[item]),
         ),
         patch(
@@ -428,7 +428,7 @@ async def test_build_export_includes_archived_chats():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.projects_repo.list_for_user",
+            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -498,7 +498,7 @@ async def test_build_export_pages_messages_per_chat():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.projects_repo.list_for_user",
+            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -548,7 +548,7 @@ async def test_build_export_pages_memories():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.projects_repo.list_for_user",
+            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -597,7 +597,7 @@ async def test_build_export_caps_memories():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.projects_repo.list_for_user",
+            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -650,7 +650,7 @@ async def test_build_export_includes_attachment_with_presigned_url():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.projects_repo.list_for_user",
+            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(

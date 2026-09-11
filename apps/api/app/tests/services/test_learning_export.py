@@ -77,7 +77,7 @@ async def test_export_caps_practice_history_and_releases_session_before_yielding
         (export_service.chats_repo, "list_for_user"),
         (export_service.memories_repo, "list_range"),
         (export_service.todos_repo, "list_for_user"),
-        (export_service.projects_repo, "list_for_user"),
+        (export_service.learning_repo, "list_for_user"),
         (export_service.attachments_repo, "list_for_user"),
         (export_service.product_events_repo, "list_for_user"),
     ]:

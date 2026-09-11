@@ -1,13 +1,13 @@
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 
 import { request } from "@/lib/api/client";
-import type { Project, ProjectDetail, ProjectItem, ProjectKind } from "@/lib/api/types";
+import type { Learning, LearningDetail, LearningItem, LearningKind } from "@/lib/api/types";
 
-export const projectsApi = {
+export const learningApi = {
   listProjects: (token: string) => {
     const tz = getDeviceTimezone();
     const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
-    return request<Project[]>(`/projects${qs}`, token);
+    return request<Learning[]>(`/projects${qs}`, token);
   },
   getProject: (token: string, id: string, opts?: { includeLists?: boolean }) => {
     const tz = getDeviceTimezone();
@@ -15,7 +15,7 @@ export const projectsApi = {
     if (tz) params.set("client_timezone", tz);
     if (opts?.includeLists) params.set("include_lists", "true");
     const qs = params.toString();
-    return request<ProjectDetail>(`/projects/${id}${qs ? `?${qs}` : ""}`, token);
+    return request<LearningDetail>(`/projects/${id}${qs ? `?${qs}` : ""}`, token);
   },
 
   getProjectDailyItems: (
@@ -34,7 +34,7 @@ export const projectsApi = {
     });
     if (options?.bucket) params.set("bucket", options.bucket);
     if (tz) params.set("client_timezone", tz);
-    return request<ProjectItem[]>(`/projects/${projectId}/daily-items?${params.toString()}`, token);
+    return request<LearningItem[]>(`/projects/${projectId}/daily-items?${params.toString()}`, token);
   },
 
   createProject: (
@@ -42,13 +42,13 @@ export const projectsApi = {
     body: {
       title: string;
       description?: string | null;
-      kind?: ProjectKind;
+      kind?: LearningKind;
       target_language?: string;
       native_language?: string | null;
       daily_goal?: number | null;
     },
   ) =>
-    request<Project>("/projects", token, {
+    request<Learning>("/projects", token, {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -57,7 +57,7 @@ export const projectsApi = {
     id: string,
     patch: Partial<
       Pick<
-        Project,
+        Learning,
         | "title"
         | "description"
         | "kind"
@@ -68,7 +68,7 @@ export const projectsApi = {
       >
     >,
   ) =>
-    request<Project>(`/projects/${id}`, token, {
+    request<Learning>(`/projects/${id}`, token, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
@@ -78,7 +78,7 @@ export const projectsApi = {
     itemId: string,
     outcome: { attempt_id: string; was_correct: boolean; completes_word: boolean },
   ) =>
-    request<{ item: ProjectItem; recorded: boolean; newly_mastered: boolean }>(
+    request<{ item: LearningItem; recorded: boolean; newly_mastered: boolean }>(
       `/projects/${projectId}/items/${itemId}/practice`,
       token,
       {

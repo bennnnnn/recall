@@ -21,8 +21,8 @@ from uuid import UUID
 from app.background import (
     attachment_indexing,
     gmail_sync,
+    learning_sync,
     message_indexing,
-    project_sync,
     todo_sync,
     topic_generation,
 )
@@ -177,7 +177,7 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
 async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
     if await _spend_capped(settings):
         return
-    await project_sync.sync_projects_from_chat(
+    await learning_sync.sync_learning_from_chat(
         settings,
         user_id=UUID(payload["user_id"]),
         chat_id=UUID(payload["chat_id"]),
@@ -187,7 +187,7 @@ async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
 
 async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> None:
     # Curated catalog reconciliation has no provider calls or AI spending.
-    from app.services.projects.path_seed import seed_language_path
+    from app.services.learning.path_seed import seed_language_path
 
     await seed_language_path(
         settings,

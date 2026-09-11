@@ -1,4 +1,4 @@
-"""Project-item create/update and daily activity list wrappers."""
+"""Learning-item create/update and daily activity list wrappers."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import ProjectItem, QuizMissEvent
-from app.repositories import project_items as project_items_repo
-from app.repositories.project_items import DEFAULT_LIST
-from app.services.daily_learning import day_bounds_utc
-from app.services.sm2 import apply_sm2, quality_for_status
+from app.core.learning_policy import day_bounds_utc
+from app.models.orm import LearningItem, QuizMissEvent
+from app.repositories import learning_items as learning_items_repo
+from app.repositories.learning_items import DEFAULT_LIST
+from app.services.learning.spaced_repetition import apply_sm2, quality_for_status
 
 
 async def create_item(
@@ -33,14 +33,14 @@ async def create_item(
     status: str = "new",
     catalog_entry_id: UUID | None = None,
     commit: bool = True,
-) -> ProjectItem:
-    existing = await project_items_repo.get_by_list_content(
+) -> LearningItem:
+    existing = await learning_items_repo.get_by_list_content(
         session, project_id, list_title, content
     )
     if existing is not None:
         return existing
     try:
-        return await project_items_repo.create(
+        return await learning_items_repo.create(
             session,
             user_id=user_id,
             project_id=project_id,
@@ -61,7 +61,7 @@ async def create_item(
         if not commit:
             raise
         await session.rollback()
-        found = await project_items_repo.get_by_list_content(
+        found = await learning_items_repo.get_by_list_content(
             session, project_id, list_title, content
         )
         if found is None:
@@ -71,12 +71,12 @@ async def create_item(
 
 async def update_item(
     session: AsyncSession,
-    item: ProjectItem,
+    item: LearningItem,
     *,
     commit: bool = True,
     skip_miss: bool = False,
     **fields: Any,
-) -> ProjectItem:
+) -> LearningItem:
     """Apply field updates; schedule SM-2 when status changes.
 
     ``skip_miss`` suppresses the QuizMissEvent / last_incorrect_at side effects
@@ -121,7 +121,7 @@ async def update_item(
             fields.pop("was_correct", None)
     else:
         fields.pop("was_correct", None)
-    return await project_items_repo.update(session, item, commit=commit, **fields)
+    return await learning_items_repo.update(session, item, commit=commit, **fields)
 
 
 async def list_by_activity_date(
@@ -133,9 +133,9 @@ async def list_by_activity_date(
     timezone_name: str = "UTC",
     limit: int = 50,
     offset: int = 0,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     start, end = day_bounds_utc(activity_date, timezone_name)
-    return await project_items_repo.list_by_activity_date(
+    return await learning_items_repo.list_by_activity_date(
         session,
         user_id,
         project_id,
@@ -155,9 +155,9 @@ async def list_missed_by_activity_date(
     timezone_name: str = "UTC",
     limit: int = 50,
     offset: int = 0,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     start, end = day_bounds_utc(activity_date, timezone_name)
-    return await project_items_repo.list_missed_by_activity_date(
+    return await learning_items_repo.list_missed_by_activity_date(
         session,
         user_id,
         project_id,

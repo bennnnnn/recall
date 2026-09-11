@@ -1,4 +1,4 @@
-"""Projects router tests."""
+"""Learning router tests (HTTP `/projects`)."""
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -90,11 +90,11 @@ def test_list_projects():
 
     with (
         patch(
-            "app.repositories.projects.list_for_user",
+            "app.repositories.learning.list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(return_value={project.id: {"mastered_count": 3, "mastered_today": 1}}),
         ),
     ):
@@ -113,14 +113,14 @@ def test_create_project_maps_vocabulary_to_language():
 
     with (
         patch(
-            "app.repositories.projects.create",
+            "app.repositories.learning.create",
             AsyncMock(return_value=project),
         ) as create_mock,
         patch(
-            "app.repositories.projects.find_language_by_target",
+            "app.repositories.learning.find_language_by_target",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.projects.crud.enqueue_language_path_job", AsyncMock()),
+        patch("app.services.learning.crud.enqueue_language_path_job", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(
@@ -140,11 +140,11 @@ def test_create_language_project_rejects_duplicate():
 
     with (
         patch(
-            "app.repositories.projects.find_language_by_target",
+            "app.repositories.learning.find_language_by_target",
             AsyncMock(return_value=existing),
         ),
         patch(
-            "app.repositories.projects.create",
+            "app.repositories.learning.create",
             AsyncMock(),
         ) as create_mock,
     ):
@@ -167,14 +167,14 @@ def test_create_second_language_project_allowed():
 
     with (
         patch(
-            "app.repositories.projects.create",
+            "app.repositories.learning.create",
             AsyncMock(return_value=project),
         ) as create_mock,
         patch(
-            "app.repositories.projects.find_language_by_target",
+            "app.repositories.learning.find_language_by_target",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.projects.crud.enqueue_language_path_job", AsyncMock()),
+        patch("app.services.learning.crud.enqueue_language_path_job", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(
@@ -193,7 +193,7 @@ def test_create_unknown_target_language_rejected():
     app = _app_with_user(user)
 
     with patch(
-        "app.repositories.projects.create",
+        "app.repositories.learning.create",
         AsyncMock(),
     ) as create_mock:
         client = TestClient(app)
@@ -232,7 +232,7 @@ def test_patch_unsupported_kind_rejected():
     project = _project(kind="language", title="Spanish")
 
     with patch(
-        "app.routers.projects.projects_repo.get_by_id",
+        "app.routers.learning.learning_repo.get_by_id",
         AsyncMock(return_value=project),
     ):
         client = TestClient(app)
@@ -252,7 +252,7 @@ def test_get_unsupported_legacy_project_not_found():
     project_id = project.id
 
     with patch(
-        "app.repositories.projects.get_by_id",
+        "app.repositories.learning.get_by_id",
         AsyncMock(return_value=project),
     ):
         client = TestClient(app)
@@ -266,7 +266,7 @@ def test_get_project_not_found():
     app = _app_with_user(user)
 
     with patch(
-        "app.repositories.projects.get_by_id",
+        "app.repositories.learning.get_by_id",
         AsyncMock(return_value=None),
     ):
         client = TestClient(app)
@@ -290,19 +290,19 @@ def test_get_language_project_detail():
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.list_for_user",
+            "app.repositories.learning_items.list_for_user",
             AsyncMock(return_value=[noun, verb]),
         ),
         patch(
-            "app.repositories.project_items.list_miss_events_for_items",
+            "app.repositories.learning_items.list_miss_events_for_items",
             AsyncMock(return_value={}),
         ),
         patch(
-            "app.services.projects.stats.stats_from_items",
+            "app.services.learning.stats.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -346,19 +346,19 @@ def test_get_project_include_lists():
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.list_for_user",
+            "app.repositories.learning_items.list_for_user",
             AsyncMock(return_value=[noun, verb]),
         ),
         patch(
-            "app.repositories.project_items.list_miss_events_for_items",
+            "app.repositories.learning_items.list_miss_events_for_items",
             AsyncMock(return_value={}),
         ),
         patch(
-            "app.services.projects.stats.stats_from_items",
+            "app.services.learning.stats.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -393,11 +393,11 @@ def test_list_daily_items():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.routers.learning.learning_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_service.list_by_activity_date",
+            "app.routers.learning.learning_items_service.list_by_activity_date",
             AsyncMock(return_value=[item]),
         ),
     ):
@@ -423,11 +423,11 @@ def test_list_daily_items_missed_bucket():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.routers.learning.learning_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_service.list_missed_by_activity_date",
+            "app.routers.learning.learning_items_service.list_missed_by_activity_date",
             AsyncMock(return_value=[item]),
         ) as missed_mock,
     ):
@@ -455,16 +455,16 @@ def test_update_project_daily_goal():
 
     with (
         patch(
-            "app.services.projects.crud.projects_repo.get_by_id",
+            "app.services.learning.crud.learning_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.crud.projects_repo.update",
+            "app.services.learning.crud.learning_repo.update",
             AsyncMock(return_value=updated),
         ) as update_mock,
-        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.learning.crud.home_service.invalidate_home_cache", AsyncMock()),
         patch(
-            "app.services.projects.crud.datetime",
+            "app.services.learning.crud.datetime",
         ) as dt_mock,
     ):
         dt_mock.now.return_value = datetime(2026, 7, 8, 12, tzinfo=UTC)
@@ -491,14 +491,14 @@ def test_update_project_maps_vocabulary_kind():
 
     with (
         patch(
-            "app.services.projects.crud.projects_repo.get_by_id",
+            "app.services.learning.crud.learning_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.crud.projects_repo.update",
+            "app.services.learning.crud.learning_repo.update",
             AsyncMock(return_value=updated),
         ) as update_mock,
-        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.learning.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -516,7 +516,7 @@ def test_delete_project_not_found():
     app = _app_with_user(user)
 
     with patch(
-        "app.services.projects.crud.projects_repo.get_by_id",
+        "app.services.learning.crud.learning_repo.get_by_id",
         AsyncMock(return_value=None),
     ):
         client = TestClient(app)
@@ -532,14 +532,14 @@ def test_delete_project_success():
 
     with (
         patch(
-            "app.services.projects.crud.projects_repo.get_by_id",
+            "app.services.learning.crud.learning_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.crud.projects_repo.delete_by_id",
+            "app.services.learning.crud.learning_repo.delete_by_id",
             AsyncMock(return_value=True),
         ),
-        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.learning.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.delete(f"/projects/{project.id}", headers={"Authorization": "Bearer tok"})

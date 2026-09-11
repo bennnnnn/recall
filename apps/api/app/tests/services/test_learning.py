@@ -6,12 +6,12 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import ProjectActionItem
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
-from app.services import projects as projects_service
-from app.services.projects import prompt_context as projects_prompt_context
-from app.services.projects import sync as projects_sync
+from app.models.schemas import LearningActionItem
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
+from app.services import learning as learning_service
+from app.services.learning import prompt_context as learning_prompt_context
+from app.services.learning import sync as learning_sync
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +22,7 @@ def _utc_user_for_project_actions():
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])),
         patch(
-            "app.repositories.project_items.list_miss_events_for_items", AsyncMock(return_value={})
+            "app.repositories.learning_items.list_miss_events_for_items", AsyncMock(return_value={})
         ),
     ):
         yield
@@ -55,17 +55,19 @@ def _session_with_savepoint() -> AsyncMock:
     return session
 
 
-def test_transcript_implies_project_sync():
+def test_transcript_implies_learning_sync():
     pid = uuid4()
-    assert projects_service.transcript_implies_project_sync(
+    assert learning_service.transcript_implies_learning_sync(
         "User: hello\nAssistant: Hi!",
         chat_project_id=pid,
     )
-    assert projects_service.transcript_implies_project_sync(
+    assert learning_service.transcript_implies_learning_sync(
         "User: add apple\nAssistant: Added apple to your vocabulary list."
     )
-    assert not projects_service.transcript_implies_project_sync("User: hello\nAssistant: Hi there!")
-    assert projects_service.transcript_implies_project_sync("User: cuales son mis proyectos")
+    assert not learning_service.transcript_implies_learning_sync(
+        "User: hello\nAssistant: Hi there!"
+    )
+    assert learning_service.transcript_implies_learning_sync("User: cuales son mis proyectos")
 
 
 def _project(title: str, kind: str = "language"):
@@ -127,21 +129,21 @@ def _catalog_item(project_id, *, language="en", chapter=0, index=0, mastered=Fal
     return item
 
 
-def _patch_count_stats_by_project(stats: dict):
+def _patch_count_stats_by_learning(stats: dict):
     async def _mock(_session, project_ids, *, timezone_by_project=None):
         return {pid: stats for pid in project_ids}
 
     return patch(
-        "app.services.projects.stats.count_stats_by_project",
+        "app.services.learning.stats.count_stats_by_learning",
         AsyncMock(side_effect=_mock),
     )
 
 
-def test_format_projects_block_groups_lists():
+def test_format_learning_block_groups_lists():
     project = _project("Learning English")
     item_a = _item("hello", project.id)
     item_b = _item("goodbye", project.id, mastered=True)
-    block = projects_service.format_projects_block([project], [item_a, item_b])
+    block = learning_service.format_learning_block([project], [item_a, item_b])
     assert f"### Learning English (id={project.id}, language)" in block
     assert "1/2 mastered" in block
     assert "#### Travel" in block
@@ -150,32 +152,32 @@ def test_format_projects_block_groups_lists():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_skips_duplicate_language_project():
+async def test_apply_learning_actions_skips_duplicate_language_project():
     session = AsyncMock()
     user_id = uuid4()
     existing = _project("English")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="create_project",
                     project_title="English · Elementary",
                     kind="language",
@@ -188,7 +190,7 @@ async def test_apply_project_actions_skips_duplicate_language_project():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_creates_second_target_language():
+async def test_apply_learning_actions_creates_second_target_language():
     session = _session_with_savepoint()
     user_id = uuid4()
     existing = _project("English")
@@ -197,26 +199,26 @@ async def test_apply_project_actions_creates_second_target_language():
     created.target_language = "es"
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(side_effect=[[existing], [existing, created]]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "create",
             AsyncMock(return_value=created),
         ) as create_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="create_project",
                     project_title="Spanish",
                     kind="language",
@@ -238,12 +240,12 @@ async def test_create_learning_project_allows_second_language():
     created = _project("Español · Beginner")
     created.target_language = "es"
     with (
-        patch.object(projects_repo, "find_language_by_target", AsyncMock(return_value=None)),
-        patch.object(projects_repo, "create", AsyncMock(return_value=created)) as create_mock,
+        patch.object(learning_repo, "find_language_by_target", AsyncMock(return_value=None)),
+        patch.object(learning_repo, "create", AsyncMock(return_value=created)) as create_mock,
         patch("app.services.home.invalidate_home_cache", AsyncMock()),
-        patch("app.services.projects.crud.enqueue_language_path_job", AsyncMock()) as enqueue_path,
+        patch("app.services.learning.crud.enqueue_language_path_job", AsyncMock()) as enqueue_path,
     ):
-        result = await projects_service.create_learning_project(
+        result = await learning_service.create_learning_project(
             session,
             user,
             title="Español · Beginner",
@@ -264,7 +266,7 @@ async def test_create_learning_project_rejects_unknown_target():
     user.id = uuid4()
     user.locale = "en"
     with pytest.raises(ValueError, match="unsupported_target_language"):
-        await projects_service.create_learning_project(
+        await learning_service.create_learning_project(
             session,
             user,
             title="Japanese",
@@ -275,21 +277,21 @@ async def test_create_learning_project_rejects_unknown_target():
 
 
 def test_normalize_and_infer_target_language():
-    assert projects_service.normalize_target_language("ES") == "es"
-    assert projects_service.normalize_target_language("ja") is None
-    assert projects_service.language_display_name("fr") == "French"
-    from app.services.projects.common import infer_target_language
+    assert learning_service.normalize_target_language("ES") == "es"
+    assert learning_service.normalize_target_language("ja") is None
+    assert learning_service.language_display_name("fr") == "French"
+    from app.services.learning.common import infer_target_language
 
     assert infer_target_language("Spanish vocabulary") == "es"
     assert infer_target_language("Words", "es") == "es"
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_handles_create_project_race():
+async def test_apply_learning_actions_handles_create_project_race():
     """Simulates two near-concurrent project-sync jobs both passing the
     in-memory "no existing language project" check before either commits —
     the DB partial unique index (migration 0055) rejects the second INSERT
-    with IntegrityError. apply_project_actions must roll back the SAVEPOINT
+    with IntegrityError. apply_learning_actions must roll back the SAVEPOINT
     and no-op rather than raising into the background job or discarding
     earlier uncommitted writes in the same batch."""
     from sqlalchemy.exc import IntegrityError
@@ -298,26 +300,26 @@ async def test_apply_project_actions_handles_create_project_race():
     user_id = uuid4()
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "create",
             AsyncMock(side_effect=IntegrityError("insert", {}, Exception("dup key"))),
         ) as create_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="create_project",
                     project_title="English",
                     kind="language",
@@ -332,42 +334,42 @@ async def test_apply_project_actions_handles_create_project_race():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_create_and_add():
+async def test_apply_learning_actions_create_and_add():
     session = _session_with_savepoint()
     user_id = uuid4()
     project = _project("Spanish")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(side_effect=[[], [project]]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "create",
             AsyncMock(return_value=project),
         ) as create_mock,
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "get_by_list_content",
             AsyncMock(return_value=None),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "create",
             AsyncMock(return_value=_item("hola", project.id)),
         ) as add_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="create_project",
                     project_title="Spanish",
                     kind="vocabulary",
@@ -387,36 +389,36 @@ async def test_apply_project_actions_create_and_add():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_rolls_back_whole_batch_on_late_failure():
+async def test_apply_learning_actions_rolls_back_whole_batch_on_late_failure():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
     update = AsyncMock(side_effect=[project, RuntimeError("second write failed")])
 
     with (
-        patch.object(projects_repo, "list_for_user", AsyncMock(return_value=[project])),
+        patch.object(learning_repo, "list_for_user", AsyncMock(return_value=[project])),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
-        patch.object(projects_repo, "update", update),
+        patch.object(learning_repo, "update", update),
         patch(
-            "app.services.projects.common._invalidate_home_for_user",
+            "app.services.learning.common._invalidate_home_for_user",
             AsyncMock(),
         ) as invalidate,
     ):
         with pytest.raises(RuntimeError, match="second write failed"):
-            await projects_service.apply_project_actions(
+            await learning_service.apply_learning_actions(
                 session,
                 user_id=user_id,
                 actions=[
-                    ProjectActionItem(
+                    LearningActionItem(
                         action="set_description",
                         project_title="English",
                         description="First",
                     ),
-                    ProjectActionItem(
+                    LearningActionItem(
                         action="set_description",
                         project_title="English",
                         description="Second",
@@ -432,36 +434,36 @@ async def test_apply_project_actions_rolls_back_whole_batch_on_late_failure():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_invalidates_home_cache():
+async def test_apply_learning_actions_invalidates_home_cache():
     session = _session_with_savepoint()
     user_id = uuid4()
     project = _project("Spanish")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(side_effect=[[], [project]]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "create",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.common._invalidate_home_for_user",
+            "app.services.learning.common._invalidate_home_for_user",
             AsyncMock(),
         ) as invalidate_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="create_project",
                     project_title="Spanish",
                     kind="vocabulary",
@@ -473,33 +475,33 @@ async def test_apply_project_actions_invalidates_home_cache():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_master():
+async def test_apply_learning_actions_master():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
     existing = _item("apple", project.id)
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="master",
                     project_title="English",
                     list_title="Travel",
@@ -512,10 +514,10 @@ async def test_apply_project_actions_master():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_loads_items_scoped_per_project():
+async def test_apply_learning_actions_loads_items_scoped_per_project():
     """Dedup window must be per-project — a busy deck must not push another
     project's items out of the snapshot. The batched loader
-    (list_recent_for_projects) is called once with every project id; the
+    (list_recent_for_learning) is called once with every project id; the
     per-project row cap is the repo's responsibility (window function), so
     the dedup snapshot here must still contain the quiet deck's item alongside
     the busy deck's flood."""
@@ -531,27 +533,27 @@ async def test_apply_project_actions_loads_items_scoped_per_project():
     )
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project_a, project_b]),
         ),
-        patch.object(project_items_repo, "list_recent_for_projects", list_recent),
+        patch.object(learning_items_repo, "list_recent_for_learning", list_recent),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "count_for_project",
             AsyncMock(return_value=0),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "create",
             AsyncMock(return_value=_item("keep-me", project_b.id)),
         ) as create_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="add",
                     project_title="Quiet deck",
                     list_title="Travel",
@@ -570,7 +572,7 @@ async def test_apply_project_actions_loads_items_scoped_per_project():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_delete_project():
+async def test_apply_learning_actions_delete_project():
     """from_transcript=False simulates an explicit user-initiated caller
     (e.g. DELETE /projects/{id}) — destructive actions must still go through
     for that caller; only the default (transcript-extracted) path is blocked."""
@@ -579,26 +581,26 @@ async def test_apply_project_actions_delete_project():
     project = _project("Old project")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "delete_by_id",
             AsyncMock(return_value=True),
         ) as delete_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(action="delete_project", project_title="Old project"),
+                LearningActionItem(action="delete_project", project_title="Old project"),
             ],
             from_transcript=False,
         )
@@ -607,9 +609,9 @@ async def test_apply_project_actions_delete_project():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_blocks_delete_project_by_default():
+async def test_apply_learning_actions_blocks_delete_project_by_default():
     """BUG FIX (was silent): the destructive-action guard used to live only
-    in _apply_project_extraction_result — apply_project_actions itself had
+    in _apply_project_extraction_result — apply_learning_actions itself had
     no internal guard, so a future caller invoking it directly could bypass
     the block entirely. from_transcript now defaults to True (safe)."""
     session = AsyncMock()
@@ -617,26 +619,26 @@ async def test_apply_project_actions_blocks_delete_project_by_default():
     project = _project("Old project")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "delete_by_id",
             AsyncMock(return_value=True),
         ) as delete_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(action="delete_project", project_title="Old project"),
+                LearningActionItem(action="delete_project", project_title="Old project"),
             ],
         )
     assert applied == 0
@@ -644,22 +646,24 @@ async def test_apply_project_actions_blocks_delete_project_by_default():
 
 
 @pytest.mark.asyncio
-async def test_load_projects_for_prompt():
+async def test_load_learning_classes_for_prompt():
     session = AsyncMock()
     project = _project("English")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[_item("run", project.id)]),
         ),
     ):
-        block = await projects_service.load_projects_for_prompt(session, uuid4(), Settings())
+        block = await learning_service.load_learning_classes_for_prompt(
+            session, uuid4(), Settings()
+        )
     assert "English" in block
     assert "○ run" not in block
     assert str(project.id) in block
@@ -674,7 +678,7 @@ def test_format_learning_overview_block_omits_lemmas():
     project.learning_path = ["Hello and goodbye", "Immediate family"]
     hello = _item("hello", project.id, list_title="Hello and goodbye")
     parent = _item("parent", project.id, list_title="Immediate family")
-    block = projects_service.format_learning_overview_block([project], [hello, parent])
+    block = learning_service.format_learning_overview_block([project], [hello, parent])
     assert "Current chapter: Hello and goodbye" in block
     assert "○ hello" not in block
     assert "○ parent" not in block
@@ -687,16 +691,16 @@ def test_format_current_chapter_block_scopes_words():
     project.learning_path = ["Hello and goodbye", "Immediate family"]
     hello = _item("hello", project.id, list_title="Hello and goodbye")
     parent = _item("parent", project.id, list_title="Immediate family")
-    block = projects_service.format_current_chapter_block(project, [hello, parent])
+    block = learning_service.format_current_chapter_block(project, [hello, parent])
     assert "Now: Hello and goodbye" in block
     assert "hello" in block
     assert "parent" not in block
 
 
 @pytest.mark.asyncio
-async def test_sync_projects_from_transcript_does_not_add_language_words():
+async def test_sync_learning_from_transcript_does_not_add_language_words():
     from app.gateways import mock_llm
-    from app.services.projects import sync_projects_from_transcript
+    from app.services.learning import sync_learning_from_transcript
 
     session = AsyncMock()
     user_id = uuid4()
@@ -716,37 +720,37 @@ async def test_sync_projects_from_transcript_does_not_add_language_words():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        # _load_project_sync_snapshot (LLM-facing snapshot) still uses
-        # list_for_user; apply_project_actions' own dedup/match snapshot
+        # _load_learning_sync_snapshot (LLM-facing snapshot) still uses
+        # list_for_user; apply_learning_actions' own dedup/match snapshot
         # uses list_recent_for_user (fix for the >500-item recency bug) —
         # both need mocking on this end-to-end path.
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "create",
             AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
         ) as create_mock,
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "count_for_project",
             AsyncMock(return_value=0),
         ),
         patch.object(mock_llm, "should_mock_llm", return_value=True),
     ):
-        result = await sync_projects_from_transcript(
+        result = await sync_learning_from_transcript(
             settings,
             user_id=user_id,
             chat_id=chat_id,
@@ -782,11 +786,11 @@ async def test_load_daily_learning_summary_for_prompt():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        _patch_count_stats_by_project(
+        _patch_count_stats_by_learning(
             {
                 "total": 20,
                 "mastered_today": 2,
@@ -794,7 +798,7 @@ async def test_load_daily_learning_summary_for_prompt():
             }
         ),
     ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
+        block = await learning_service.load_daily_learning_summary_for_prompt(
             session, user, Settings()
         )
 
@@ -816,11 +820,11 @@ async def test_load_daily_learning_summary_not_started_today():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        _patch_count_stats_by_project(
+        _patch_count_stats_by_learning(
             {
                 "total": 12,
                 "mastered_today": 0,
@@ -828,7 +832,7 @@ async def test_load_daily_learning_summary_not_started_today():
             }
         ),
     ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
+        block = await learning_service.load_daily_learning_summary_for_prompt(
             session, user, Settings(), client_timezone="America/Los_Angeles"
         )
 
@@ -848,11 +852,11 @@ async def test_load_daily_learning_summary_skips_completed_goal():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        _patch_count_stats_by_project(
+        _patch_count_stats_by_learning(
             {
                 "total": 20,
                 "mastered_today": 5,
@@ -860,7 +864,7 @@ async def test_load_daily_learning_summary_skips_completed_goal():
             }
         ),
     ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
+        block = await learning_service.load_daily_learning_summary_for_prompt(
             session, user, Settings()
         )
 
@@ -881,11 +885,11 @@ async def test_load_daily_learning_summary_no_active_class():
     user.timezone = "America/Los_Angeles"
 
     with patch.object(
-        projects_repo,
+        learning_repo,
         "list_for_user",
         AsyncMock(return_value=[]),
     ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
+        block = await learning_service.load_daily_learning_summary_for_prompt(
             session, user, Settings()
         )
 
@@ -915,16 +919,16 @@ async def test_load_daily_learning_summary_batches_stats():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[english, spanish, general]),
         ),
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(side_effect=_mock),
         ) as stats_mock,
     ):
-        block = await projects_service.load_daily_learning_summary_for_prompt(
+        block = await learning_service.load_daily_learning_summary_for_prompt(
             session, user, Settings()
         )
 
@@ -946,22 +950,22 @@ async def test_load_today_learning_words_for_prompt():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_by_activity_date",
             AsyncMock(return_value=[mastered]),
         ) as mastered_mock,
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_missed_by_activity_date",
             AsyncMock(return_value=[missed]),
         ) as missed_mock,
     ):
-        block = await projects_service.load_today_learning_words_for_prompt(
+        block = await learning_service.load_today_learning_words_for_prompt(
             session, user, Settings(), client_timezone="America/Los_Angeles"
         )
 
@@ -984,22 +988,22 @@ async def test_load_today_learning_words_no_practice_yet():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_by_activity_date",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_missed_by_activity_date",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_today_learning_words_for_prompt(
+        block = await learning_service.load_today_learning_words_for_prompt(
             session, user, Settings()
         )
 
@@ -1015,11 +1019,11 @@ async def test_load_today_learning_words_no_active_class():
     user.timezone = "UTC"
 
     with patch.object(
-        projects_repo,
+        learning_repo,
         "list_for_user",
         AsyncMock(return_value=[]),
     ):
-        block = await projects_service.load_today_learning_words_for_prompt(
+        block = await learning_service.load_today_learning_words_for_prompt(
             session, user, Settings()
         )
 
@@ -1028,7 +1032,7 @@ async def test_load_today_learning_words_no_active_class():
 
 
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_scoped():
+async def test_load_learning_for_prompt_scoped():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -1039,22 +1043,22 @@ async def test_load_project_for_prompt_scoped():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ) as list_items,
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_for_prompt(
+        block = await learning_service.load_learning_for_prompt(
             session, user_id, project_id, Settings()
         )
 
@@ -1065,7 +1069,7 @@ async def test_load_project_for_prompt_scoped():
 
 
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_current_chapter_only():
+async def test_load_learning_for_prompt_current_chapter_only():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -1077,17 +1081,17 @@ async def test_load_project_for_prompt_current_chapter_only():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[hello, parent]),
         ),
     ):
-        block = await projects_service.load_project_for_prompt(
+        block = await learning_service.load_learning_for_prompt(
             session, user_id, project_id, Settings()
         )
 
@@ -1097,7 +1101,7 @@ async def test_load_project_for_prompt_current_chapter_only():
 
 
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_chat_mode():
+async def test_load_learning_for_prompt_chat_mode():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -1106,22 +1110,22 @@ async def test_load_project_for_prompt_chat_mode():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_for_prompt(
+        block = await learning_service.load_learning_for_prompt(
             session, user_id, project_id, Settings(), quiz_mode="chat"
         )
 
@@ -1133,7 +1137,7 @@ async def test_load_project_for_prompt_chat_mode():
 
 @pytest.mark.asyncio
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested():
+async def test_load_learning_for_prompt_uses_chat_mode_even_when_exam_requested():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -1142,22 +1146,22 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_for_prompt(
+        block = await learning_service.load_learning_for_prompt(
             session, user_id, project_id, Settings(), quiz_mode="exam"
         )
 
@@ -1168,12 +1172,12 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
 
 def test_looks_like_vocab_question():
     teach = "**Ephemeral**\nlasting for a very short time.\nWhat does **ephemeral** mean?"
-    assert projects_service.looks_like_vocab_question(teach) is True
-    assert projects_service.looks_like_vocab_question("Hello! How can I help?") is False
+    assert learning_service.looks_like_vocab_question(teach) is True
+    assert learning_service.looks_like_vocab_question("Hello! How can I help?") is False
     card = '```vocab_card\n{"word":"hope","definition":"wanting something"}\n```\nWrite a sentence.'
-    assert projects_service.looks_like_vocab_question(card) is True
+    assert learning_service.looks_like_vocab_question(card) is True
     sentence = "Write your own sentence with **serendipity**."
-    assert projects_service.looks_like_vocab_question(sentence) is True
+    assert learning_service.looks_like_vocab_question(sentence) is True
 
 
 def test_looks_like_vocab_question_false_positive_bold_label():
@@ -1186,17 +1190,17 @@ def test_looks_like_vocab_question_false_positive_bold_label():
         "and I want to provide a thorough answer. Let me continue with "
         "more details. Did you understand?"
     )
-    assert projects_service.looks_like_vocab_question(prose) is False
+    assert learning_service.looks_like_vocab_question(prose) is False
 
 
 def test_looks_like_vocab_question_bold_word_near_question():
     """Bold vocab word followed closely by a question mark should match."""
     content = "**serendipity**\nWhat does this word mean?"
-    assert projects_service.looks_like_vocab_question(content) is True
+    assert learning_service.looks_like_vocab_question(content) is True
 
 
 @pytest.mark.asyncio
-async def test_load_project_quiz_context():
+async def test_load_learning_quiz_context():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -1206,22 +1210,22 @@ async def test_load_project_quiz_context():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_quiz_context(
+        block = await learning_service.load_learning_quiz_context(
             session, user_id, project_id, Settings()
         )
 
@@ -1232,7 +1236,7 @@ async def test_load_project_quiz_context():
 
 
 @pytest.mark.asyncio
-async def test_load_project_quiz_context_scopes_to_current_chapter():
+async def test_load_learning_quiz_context_scopes_to_current_chapter():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -1244,17 +1248,17 @@ async def test_load_project_quiz_context_scopes_to_current_chapter():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[current, later]),
         ),
     ):
-        block = await projects_service.load_project_quiz_context(
+        block = await learning_service.load_learning_quiz_context(
             session, user_id, project_id, Settings()
         )
 
@@ -1264,7 +1268,7 @@ async def test_load_project_quiz_context_scopes_to_current_chapter():
 
 
 @pytest.mark.asyncio
-async def test_load_project_quiz_context_includes_native_and_target_language():
+async def test_load_learning_quiz_context_includes_native_and_target_language():
     """LANG-TEACH-007/008: tutor prompt must tell the model which language to
     teach and which language the user speaks natively so explanations use
     the right contrast language."""
@@ -1279,22 +1283,22 @@ async def test_load_project_quiz_context_includes_native_and_target_language():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_quiz_context(
+        block = await learning_service.load_learning_quiz_context(
             session, user_id, project_id, Settings()
         )
 
@@ -1304,7 +1308,7 @@ async def test_load_project_quiz_context_includes_native_and_target_language():
 
 
 @pytest.mark.asyncio
-async def test_load_project_quiz_context_retries_same_word_on_wrong():
+async def test_load_learning_quiz_context_retries_same_word_on_wrong():
     from app.services.vocab_quiz import QuizAnswerGrade
 
     session = AsyncMock()
@@ -1316,22 +1320,22 @@ async def test_load_project_quiz_context_retries_same_word_on_wrong():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_quiz_context(
+        block = await learning_service.load_learning_quiz_context(
             session,
             user_id,
             project_id,
@@ -1352,7 +1356,7 @@ async def test_load_project_quiz_context_retries_same_word_on_wrong():
 
 
 @pytest.mark.asyncio
-async def test_load_project_quiz_context_includes_failed_review_nudges():
+async def test_load_learning_quiz_context_includes_failed_review_nudges():
     """LANG-FLOW-004: answer turns must inject failed-review nudges, not just
     session start. After the first correct answer, due failed items from prior
     days should still be nudged so the model doesn't skip them for new words."""
@@ -1378,22 +1382,22 @@ async def test_load_project_quiz_context_includes_failed_review_nudges():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[failed_item, new_item]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
-        block = await projects_service.load_project_quiz_context(
+        block = await learning_service.load_learning_quiz_context(
             session,
             user_id,
             project_id,
@@ -1434,20 +1438,20 @@ def test_group_items_and_build_stats():
         _item("alpha", project_id, list_title="Basics"),
         _item("beta", project_id, list_title="Basics", mastered=True),
     ]
-    groups = projects_service.group_items(items)
+    groups = learning_service.group_items(items)
     assert len(groups) == 1
     assert groups[0].list_title == "Basics"
     assert len(groups[0].items) == 2
 
-    stats = projects_service.build_stats(items)
+    stats = learning_service.build_stats(items)
     assert stats.total == 2
     assert stats.mastered_count == 1
     assert stats.new_count == 1
 
 
-def test_format_projects_block_empty_items():
+def test_format_learning_block_empty_items():
     project = _project("Empty")
-    block = projects_service.format_projects_block([project], [])
+    block = learning_service.format_learning_block([project], [])
     assert "(no words yet)" in block
 
 
@@ -1459,7 +1463,7 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     instead of due_at), so the prompt claimed a different review queue."""
     from datetime import UTC, datetime, timedelta
 
-    from app.services.projects.stats import stats_from_items
+    from app.services.learning.stats import stats_from_items
 
     now = datetime.now(UTC)
     project = _project("English")
@@ -1505,7 +1509,7 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     mastered.last_incorrect_at = None
 
     items = [new_item, learning_due, learning_recent, mastered]
-    prompt_stats = projects_prompt_context._stats_for_items(items)
+    prompt_stats = learning_prompt_context._stats_for_items(items)
     repo_stats = stats_from_items(items)
 
     assert prompt_stats["due_for_review"] == repo_stats["due_for_review"]
@@ -1514,7 +1518,7 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_skips_master_after_recent_miss():
+async def test_apply_learning_actions_skips_master_after_recent_miss():
     from datetime import UTC, datetime
 
     session = AsyncMock()
@@ -1526,26 +1530,26 @@ async def test_apply_project_actions_skips_master_after_recent_miss():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="master",
                     project_title=project.title,
                     list_title="General",
@@ -1559,7 +1563,7 @@ async def test_apply_project_actions_skips_master_after_recent_miss():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_start_learning_and_unmaster():
+async def test_apply_learning_actions_start_learning_and_unmaster():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
@@ -1568,26 +1572,26 @@ async def test_apply_project_actions_start_learning_and_unmaster():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="unmaster",
                     project_title="English",
                     list_title="nouns",
@@ -1600,7 +1604,7 @@ async def test_apply_project_actions_start_learning_and_unmaster():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_start_learning_records_failed_quiz():
+async def test_apply_learning_actions_start_learning_records_failed_quiz():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
@@ -1610,25 +1614,25 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
 
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             AsyncMock(return_value=existing),
         ) as apply_result,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="start_learning",
                     project_title="English",
                     content="serendipity",
@@ -1642,34 +1646,34 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_delete_list():
+async def test_apply_learning_actions_delete_list():
     """from_transcript=False simulates an explicit user-initiated caller —
-    see test_apply_project_actions_delete_project."""
+    see test_apply_learning_actions_delete_project."""
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="delete_list",
                     project_title="English",
                     list_title="Travel",
@@ -1682,32 +1686,32 @@ async def test_apply_project_actions_delete_list():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_blocks_delete_list_by_default():
+async def test_apply_learning_actions_blocks_delete_list_by_default():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="delete_list",
                     project_title="English",
                     list_title="Travel",
@@ -1719,32 +1723,32 @@ async def test_apply_project_actions_blocks_delete_list_by_default():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_set_description():
+async def test_apply_learning_actions_set_description():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "update",
             AsyncMock(return_value=project),
         ) as update_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="set_description",
                     project_title="English",
                     description="Travel vocab",
@@ -1756,33 +1760,33 @@ async def test_apply_project_actions_set_description():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_skips_duplicate_add():
+async def test_apply_learning_actions_skips_duplicate_add():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
     existing = _item("apple", project.id)
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="add",
                     project_title="English",
                     list_title="nouns",
@@ -1795,7 +1799,7 @@ async def test_apply_project_actions_skips_duplicate_add():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
+async def test_apply_learning_actions_delete_does_not_fuzzy_match_substring():
     """BUG FIX regression: deck has "category" but not "cat" — a delete for
     "cat" must no-op, not fall back to substring-matching "category"."""
     session = AsyncMock()
@@ -1804,26 +1808,26 @@ async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
     existing = _item("category", project.id)
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "delete_by_id",
             AsyncMock(),
         ) as delete_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="delete",
                     project_title="English",
                     list_title="Travel",
@@ -1836,7 +1840,7 @@ async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
+async def test_apply_learning_actions_master_does_not_fuzzy_match_substring():
     """Same false-positive-match bug for `master` — "cat" must not resolve
     to an existing "category" item."""
     session = AsyncMock()
@@ -1845,26 +1849,26 @@ async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
     existing = _item("category", project.id)
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "update",
             AsyncMock(),
         ) as update_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="master",
                     project_title="English",
                     list_title="Travel",
@@ -1877,7 +1881,7 @@ async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_master_not_skipped_as_fuzzy_duplicate():
+async def test_apply_learning_actions_master_not_skipped_as_fuzzy_duplicate():
     """Deck has "category" and "cat" — mastering "cat" must not hit "category"."""
     session = AsyncMock()
     user_id = uuid4()
@@ -1886,25 +1890,25 @@ async def test_apply_project_actions_master_not_skipped_as_fuzzy_duplicate():
     cat = _item("cat", project.id, list_title="nouns")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[category, cat]),
         ),
         patch(
-            "app.services.projects.items.update_item",
+            "app.services.learning.items.update_item",
             AsyncMock(return_value=cat),
         ) as update_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="master",
                     project_title="English",
                     list_title="nouns",
@@ -1918,32 +1922,32 @@ async def test_apply_project_actions_master_not_skipped_as_fuzzy_duplicate():
 
 
 @pytest.mark.asyncio
-async def test_apply_project_actions_add_skipped_for_language_catalog():
+async def test_apply_learning_actions_add_skipped_for_language_catalog():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("Spanish")
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
     ):
-        applied = await projects_service.apply_project_actions(
+        applied = await learning_service.apply_learning_actions(
             session,
             user_id=user_id,
             actions=[
-                ProjectActionItem(
+                LearningActionItem(
                     action="add",
                     project_title="Spanish",
                     list_title="Greetings",
@@ -1957,55 +1961,55 @@ async def test_apply_project_actions_add_skipped_for_language_catalog():
 
 @pytest.mark.asyncio
 async def test_apply_project_extraction_result_blocks_destructive_actions():
-    """PROJECT_BLOCKED_FROM_TRANSCRIPT is what stops the LLM from deleting a
+    """LEARNING_BLOCKED_FROM_TRANSCRIPT is what stops the LLM from deleting a
     whole project/list via chat. Nothing previously exercised
     _apply_project_extraction_result itself or asserted a delete_project /
     delete_list action from LLM extraction never reaches the repo layer —
     this asserts the repo deletes are never called, while a legitimate
     non-destructive action in the same extraction result still applies."""
-    from app.models.schemas import ProjectExtractionResult
+    from app.models.schemas import LearningExtractionResult
 
     session = AsyncMock()
     user_id = uuid4()
     chat_id = uuid4()
     project = _project("English")
     apple = _item("apple", project.id, list_title="nouns")
-    result = ProjectExtractionResult(
+    result = LearningExtractionResult(
         actions=[
-            ProjectActionItem(action="delete_project", project_title="English"),
-            ProjectActionItem(
+            LearningActionItem(action="delete_project", project_title="English"),
+            LearningActionItem(
                 action="master", project_title="English", list_title="nouns", content="apple"
             ),
-            ProjectActionItem(action="delete_list", project_title="English", list_title="Travel"),
+            LearningActionItem(action="delete_list", project_title="English", list_title="Travel"),
         ]
     )
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=[apple]),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "delete_by_id",
             AsyncMock(return_value=True),
         ) as delete_project_mock,
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_list_mock,
         patch(
-            "app.services.projects.items.update_item",
+            "app.services.learning.items.update_item",
             AsyncMock(return_value=apple),
         ) as update_mock,
     ):
-        applied = await projects_sync._apply_project_extraction_result(
+        applied = await learning_sync._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
         )
 
@@ -2017,19 +2021,19 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
 
 @pytest.mark.asyncio
 async def test_apply_project_extraction_result_caps_actions_per_turn():
-    """More than MAX_PROJECT_ACTIONS_PER_TURN actions in one extraction
+    """More than MAX_LEARNING_ACTIONS_PER_TURN actions in one extraction
     result must only have the cap's worth applied."""
-    from app.models.schemas import ProjectExtractionResult
+    from app.models.schemas import LearningExtractionResult
 
     session = AsyncMock()
     user_id = uuid4()
     chat_id = uuid4()
     project = _project("English")
-    over_cap = projects_service.MAX_PROJECT_ACTIONS_PER_TURN + 2
+    over_cap = learning_service.MAX_LEARNING_ACTIONS_PER_TURN + 2
     items = [_item(f"word{i}", project.id, list_title="nouns") for i in range(over_cap)]
-    result = ProjectExtractionResult(
+    result = LearningExtractionResult(
         actions=[
-            ProjectActionItem(
+            LearningActionItem(
                 action="master", project_title="English", list_title="nouns", content=f"word{i}"
             )
             for i in range(over_cap)
@@ -2037,31 +2041,31 @@ async def test_apply_project_extraction_result_caps_actions_per_turn():
     )
     with (
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            project_items_repo,
-            "list_recent_for_projects",
+            learning_items_repo,
+            "list_recent_for_learning",
             AsyncMock(return_value=items),
         ),
         patch(
-            "app.services.projects.items.update_item",
+            "app.services.learning.items.update_item",
             AsyncMock(side_effect=lambda *a, **kw: a[1] if a else None),
         ) as update_mock,
     ):
-        applied = await projects_sync._apply_project_extraction_result(
+        applied = await learning_sync._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
         )
 
-    assert applied == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
-    assert update_mock.await_count == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
+    assert applied == learning_service.MAX_LEARNING_ACTIONS_PER_TURN
+    assert update_mock.await_count == learning_service.MAX_LEARNING_ACTIONS_PER_TURN
 
 
 @pytest.mark.asyncio
-async def test_sync_projects_from_transcript_applies_litellm_actions():
-    from app.models.schemas import ProjectExtractionResult
+async def test_sync_learning_from_transcript_applies_litellm_actions():
+    from app.models.schemas import LearningExtractionResult
 
     session = AsyncMock()
     user_id = uuid4()
@@ -2069,9 +2073,9 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
     project = _project("English")
     settings = Settings()
 
-    extraction = ProjectExtractionResult(
+    extraction = LearningExtractionResult(
         actions=[
-            ProjectActionItem(
+            LearningActionItem(
                 action="add",
                 project_title="English",
                 list_title="nouns",
@@ -2086,28 +2090,28 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        # apply_project_actions is mocked below, so only
-        # _load_project_sync_snapshot's list_for_user call is exercised here.
+        # apply_learning_actions is mocked below, so only
+        # _load_learning_sync_snapshot's list_for_user call is exercised here.
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.extract.extract_project_actions",
+            "app.services.learning.extract.extract_learning_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(
-            projects_service,
-            "apply_project_actions",
+            learning_service,
+            "apply_learning_actions",
             AsyncMock(return_value=1),
         ) as apply_mock,
     ):
-        result = await projects_service.sync_projects_from_transcript(
+        result = await learning_service.sync_learning_from_transcript(
             settings,
             user_id=user_id,
             chat_id=chat_id,
@@ -2119,7 +2123,7 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
 
 
 @pytest.mark.asyncio
-async def test_sync_projects_from_transcript_releases_db_before_llm():
+async def test_sync_learning_from_transcript_releases_db_before_llm():
     session = AsyncMock()
     session.commit = AsyncMock()
     db_open_during_extract: list[bool] = []
@@ -2146,21 +2150,21 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
 
     with (
         patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
-        patch.object(projects_repo, "list_for_user", AsyncMock(return_value=[])),
-        # fake_extract always returns None, so apply_project_actions is never
-        # reached — only _load_project_sync_snapshot's list_for_user call is
+        patch.object(learning_repo, "list_for_user", AsyncMock(return_value=[])),
+        # fake_extract always returns None, so apply_learning_actions is never
+        # reached — only _load_learning_sync_snapshot's list_for_user call is
         # exercised here.
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.extract.extract_project_actions",
+            "app.services.learning.extract.extract_learning_actions",
             AsyncMock(side_effect=fake_extract),
         ),
     ):
-        await projects_service.sync_projects_from_transcript(
+        await learning_service.sync_learning_from_transcript(
             Settings(),
             user_id=uuid4(),
             chat_id=uuid4(),
@@ -2172,7 +2176,7 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
 
 
 @pytest.mark.asyncio
-async def test_sync_projects_from_transcript_returns_none_on_error():
+async def test_sync_learning_from_transcript_returns_none_on_error():
     session = AsyncMock()
     settings = Settings()
 
@@ -2182,29 +2186,29 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            projects_repo,
+            learning_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
-        # extract_project_actions raises below, so apply_project_actions is
-        # never reached — only _load_project_sync_snapshot's list_for_user
+        # extract_learning_actions raises below, so apply_learning_actions is
+        # never reached — only _load_learning_sync_snapshot's list_for_user
         # call is exercised here.
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            project_items_repo,
+            learning_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.extract.extract_project_actions",
+            "app.services.learning.extract.extract_learning_actions",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
     ):
-        result = await projects_service.sync_projects_from_transcript(
+        result = await learning_service.sync_learning_from_transcript(
             settings,
             user_id=uuid4(),
             chat_id=uuid4(),
@@ -2215,7 +2219,7 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
 
 
 def test_language_tutor_hint_uses_target_language():
-    from app.services.projects import language_tutor_hint
+    from app.services.learning import language_tutor_hint
 
     hint = language_tutor_hint("es")
     assert "Spanish vocabulary" in hint
@@ -2225,7 +2229,7 @@ def test_language_tutor_hint_uses_target_language():
 
 
 def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
-    from app.services.projects import CHAT_LEARNING_HANDOFF_HINT
+    from app.services.learning import CHAT_LEARNING_HANDOFF_HINT
 
     assert "learning_launch" in CHAT_LEARNING_HANDOFF_HINT
     assert "Do NOT run a quiz in this chat" in CHAT_LEARNING_HANDOFF_HINT
@@ -2236,7 +2240,7 @@ def test_chat_learning_handoff_hint_forbids_in_chat_quiz():
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():
     """When the daily goal is already met, chat must not quiz — congratulate
     and hand off to the lesson if they want more practice."""
-    from app.services.projects import DAILY_GOAL_COMPLETE_BEHAVIOR, language_tutor_hint
+    from app.services.learning import DAILY_GOAL_COMPLETE_BEHAVIOR, language_tutor_hint
 
     assert DAILY_GOAL_COMPLETE_BEHAVIOR in language_tutor_hint("en")
     # The behaviour must explicitly handle the "let's continue" case.

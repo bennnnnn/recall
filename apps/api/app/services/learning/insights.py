@@ -7,7 +7,7 @@ from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from app.models.orm import Project
+from app.models.orm import Learning
 from app.services.learning.daily import completed_today_count
 
 LEARNING_PROJECT_KINDS = ("language", "vocabulary")
@@ -63,7 +63,7 @@ def quiz_accuracy_pct(items: list[Any], *, min_attempts: int = 8) -> int | None:
 def enrich_learning_stats(
     stats: dict[str, Any],
     *,
-    project: Project,
+    project: Learning,
     items: list[Any],
     timezone_name: str,
     daily_history: list[dict[str, Any]] | None = None,
@@ -86,7 +86,7 @@ def enrich_learning_stats(
 
 
 def pick_learning_nudge(
-    project: Project,
+    project: Learning,
     stats: dict[str, Any],
     *,
     daily_goal: int,
@@ -154,12 +154,12 @@ def pick_learning_nudge(
 
 
 def best_learning_nudge_for_user(
-    projects: list[Project],
+    projects: list[Learning],
     stats_by_project: dict[UUID, dict[str, Any]],
     *,
     daily_goal_for: Any,
-) -> tuple[Project, str, float, NudgeType, dict[str, str]] | None:
-    best: tuple[Project, str, float, NudgeType, dict[str, str]] | None = None
+) -> tuple[Learning, str, float, NudgeType, dict[str, str]] | None:
+    best: tuple[Learning, str, float, NudgeType, dict[str, str]] | None = None
     for project in projects:
         if not is_learning_project_kind(project.kind):
             continue

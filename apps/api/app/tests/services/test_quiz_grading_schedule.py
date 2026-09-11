@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.projects import quiz_grading
+from app.services.learning import quiz_grading
 
 
 def _item(*, status: str = "new", created_at: datetime | None = None):
@@ -47,7 +47,7 @@ async def test_apply_quiz_result_mcq_correct_does_not_master_new_item(monkeypatc
     fake_session = AsyncMock()
 
     async def _persist(session, item, **kwargs):
-        from app.repositories.project_items import _sync_mastered_fields
+        from app.repositories.learning_items import _sync_mastered_fields
 
         _sync_mastered_fields(
             item,
@@ -62,7 +62,7 @@ async def test_apply_quiz_result_mcq_correct_does_not_master_new_item(monkeypatc
         item.due_at = kwargs["due_at"]
         return item
 
-    monkeypatch.setattr(quiz_grading.project_items_repo, "apply_quiz_result", _persist)
+    monkeypatch.setattr(quiz_grading.learning_items_repo, "apply_quiz_result", _persist)
     monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day1))
 
     # MCQ correct on a new item → learning, not mastered
@@ -97,7 +97,7 @@ async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
     fake_session = AsyncMock()
 
     async def _persist(session, item, **kwargs):
-        from app.repositories.project_items import _sync_mastered_fields
+        from app.repositories.learning_items import _sync_mastered_fields
 
         _sync_mastered_fields(
             item,
@@ -114,11 +114,11 @@ async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
             item.last_incorrect_at = kwargs["now"]
         return item
 
-    monkeypatch.setattr(quiz_grading.project_items_repo, "apply_quiz_result", _persist)
+    monkeypatch.setattr(quiz_grading.learning_items_repo, "apply_quiz_result", _persist)
 
     # Simulate initial mastery via background `master` action (open-ended success)
     monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day1))
-    from app.repositories.project_items import _sync_mastered_fields
+    from app.repositories.learning_items import _sync_mastered_fields
 
     _sync_mastered_fields(item, "mastered", prior_status="new", now=day1)
     item.status = "mastered"

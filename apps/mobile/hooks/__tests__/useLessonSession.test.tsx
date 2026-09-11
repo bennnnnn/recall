@@ -1,9 +1,9 @@
 import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
-import { api, type ProjectDetail, type ProjectItem } from "@/lib/api";
+import { api, type LearningDetail, type LearningItem } from "@/lib/api";
 import { useLessonSession } from "@/hooks/useLessonSession";
-import { updateProjectDetailCache } from "@/lib/cache/projectDetailCache";
+import { updateLearningDetailCache } from "@/lib/cache/projectDetailCache";
 let mockSession = 1;
 let mockToken = "token";
 let mockFocused = true;
@@ -18,8 +18,8 @@ jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/ProjectsContext", () => ({ useProjects: () => ({ refresh: mockRefresh }) }));
-jest.mock("@/hooks/useProjectDetail", () => ({
-  useProjectDetail: () => ({
+jest.mock("@/hooks/useLearningDetail", () => ({
+  useLearningDetail: () => ({
     project: mockProject,
     loading: false,
     loadError: false,
@@ -29,10 +29,10 @@ jest.mock("@/hooks/useProjectDetail", () => ({
 }));
 jest.mock("@/lib/api", () => ({ api: { recordProjectPractice: jest.fn() } }));
 jest.mock("@/lib/cache/projectDetailCache", () => ({
-  updateProjectDetailCache: jest.fn(),
-  fetchProjectDetail: jest.fn(),
+  updateLearningDetailCache: jest.fn(),
+  fetchLearningDetail: jest.fn(),
 }));
-const word = (id: string, content: string): ProjectItem => ({
+const word = (id: string, content: string): LearningItem => ({
   id,
   content,
   definition: `Meaning of ${content}`,
@@ -46,7 +46,7 @@ const word = (id: string, content: string): ProjectItem => ({
   review_count: 0,
   created_at: "2026-09-04",
 });
-let mockProject: ProjectDetail;
+let mockProject: LearningDetail;
 let current: ReturnType<typeof useLessonSession>;
 function Probe() {
   const value = useLessonSession("p", mockCurrent);
@@ -88,7 +88,7 @@ beforeEach(() => {
       { list_title: "Start", items: [word("one", "hello")] },
       { list_title: "Other", items: [word("two", "goodbye")] },
     ],
-  } as ProjectDetail;
+  } as LearningDetail;
   record.mockResolvedValue(response());
 });
 it("requires an assessment, ignores misses, and completes only the final correct question", async () => {
@@ -158,7 +158,7 @@ it("retains per-item exclusion across visits and publishes accepted same-account
   await act(() => current.submitLetter(correct()));
   expect(record).toHaveBeenCalledTimes(1);
   await act(async () => pending.resolve(response()));
-  expect(updateProjectDetailCache).toHaveBeenCalledTimes(1);
+  expect(updateLearningDetailCache).toHaveBeenCalledTimes(1);
   expect(current.saving).toBe(false);
   await act(() => current.submitLetter(correct()));
   expect(record).toHaveBeenCalledTimes(2);
@@ -179,7 +179,7 @@ it("rejects retained callbacks and late results from a previous account", async 
     pending.resolve(response());
   });
   expect(record).toHaveBeenCalledTimes(1);
-  expect(updateProjectDetailCache).not.toHaveBeenCalled();
+  expect(updateLearningDetailCache).not.toHaveBeenCalled();
   expect(current.step?.kind).toBe("teach");
   expect(current.learned).toBe(0);
 });

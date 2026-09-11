@@ -50,8 +50,8 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "token",
 }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
-jest.mock("@/hooks/useProjectDetail", () => ({
-  useProjectDetail: () => ({
+jest.mock("@/hooks/useLearningDetail", () => ({
+  useLearningDetail: () => ({
     project: mockProject,
     loading: false,
     loadError: false,

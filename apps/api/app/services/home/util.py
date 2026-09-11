@@ -43,7 +43,7 @@ T = TypeVar("T")
 CompletedDaily = tuple[str, Literal["language"]]
 
 
-class ProjectHomeContent(NamedTuple):
+class LearningHomeContent(NamedTuple):
     starters: list[HomeStarter]
     subtitle: str | None
     highlight: HomeProjectHighlight | None

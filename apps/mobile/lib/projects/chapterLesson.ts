@@ -1,23 +1,23 @@
-import type { PathChapterProgress, ProjectDetail, ProjectItem } from "@/lib/api";
+import type { PathChapterProgress, LearningDetail, LearningItem } from "@/lib/api";
 
 import { wholeWordIndex } from "@/lib/projects/wordBoundary";
 import { chapterKey } from "@/lib/projects/chapterAccess";
 
-export function chapterItems(project: ProjectDetail, title: string): ProjectItem[] {
+export function chapterItems(project: LearningDetail, title: string): LearningItem[] {
   const key = chapterKey(title);
   const group = project.lists.find((entry) => chapterKey(entry.list_title) === key);
   return group?.items ?? [];
 }
 
-export function isItemMastered(item: Pick<ProjectItem, "status" | "mastered">): boolean {
+export function isItemMastered(item: Pick<LearningItem, "status" | "mastered">): boolean {
   return item.status === "mastered" || item.mastered;
 }
 
-export function chapterIsComplete(items: Pick<ProjectItem, "status" | "mastered">[]): boolean {
+export function chapterIsComplete(items: Pick<LearningItem, "status" | "mastered">[]): boolean {
   return items.length > 0 && items.every(isItemMastered);
 }
 
-export function applyItemMastered(items: ProjectItem[], itemId: string): ProjectItem[] {
+export function applyItemMastered(items: LearningItem[], itemId: string): LearningItem[] {
   return items.map((item) =>
     item.id === itemId ? { ...item, status: "mastered", mastered: true } : item,
   );
@@ -25,9 +25,9 @@ export function applyItemMastered(items: ProjectItem[], itemId: string): Project
 
 /** Overlay in-session Next saves onto chapter items. */
 export function overlayMasteredItems(
-  items: ProjectItem[],
+  items: LearningItem[],
   masteredIds: Record<string, true>,
-): ProjectItem[] {
+): LearningItem[] {
   let next = items;
   for (const itemId of Object.keys(masteredIds)) {
     next = applyItemMastered(next, itemId);
@@ -39,7 +39,7 @@ export function overlayMasteredItems(
  *  Learning: `current` is the next slot (mastered + 1); the bar is mastered/total.
  *  Review of a finished group: `current` is this word's place in the group. */
 export function groupLessonProgress(
-  items: Pick<ProjectItem, "id" | "status" | "mastered">[],
+  items: Pick<LearningItem, "id" | "status" | "mastered">[],
   currentItemId: string | null,
 ): { current: number; total: number; fill: number } {
   const total = items.length;
@@ -62,7 +62,7 @@ export function groupLessonProgress(
 
 /** Pending words, capped to the daily goal so a sitting is today's batch.
  *  A finished chapter returns every word for review and ignores the daily cap. */
-export function chapterQueue(items: ProjectItem[], limit?: number): ProjectItem[] {
+export function chapterQueue(items: LearningItem[], limit?: number): LearningItem[] {
   const pending = items.filter((item) => !isItemMastered(item));
   if (pending.length === 0) return items;
   const learning = pending.filter((item) => item.status === "learning");
@@ -72,12 +72,12 @@ export function chapterQueue(items: ProjectItem[], limit?: number): ProjectItem[
   return queue;
 }
 
-export function isChapterReview(items: Pick<ProjectItem, "status" | "mastered">[]): boolean {
+export function isChapterReview(items: Pick<LearningItem, "status" | "mastered">[]): boolean {
   return chapterIsComplete(items);
 }
 
 export function resolveLessonChapter(
-  project: ProjectDetail,
+  project: LearningDetail,
   requested?: string | null,
 ): string | null {
   const wanted = requested?.trim();
@@ -86,7 +86,7 @@ export function resolveLessonChapter(
   return project.path_progress?.[0]?.title ?? project.lists[0]?.list_title ?? null;
 }
 
-export function chapterProgress(project: ProjectDetail, title: string): PathChapterProgress | null {
+export function chapterProgress(project: LearningDetail, title: string): PathChapterProgress | null {
   const key = chapterKey(title);
   return project.path_progress?.find((entry) => chapterKey(entry.title) === key) ?? null;
 }
@@ -100,12 +100,12 @@ export type LessonVocabCard = {
   simpleGloss?: string;
   examples?: string[];
   pronunciationUrl?: string | null;
-  vocabularyKind?: ProjectItem["vocabulary_kind"];
-  verbKind?: ProjectItem["verb_kind"];
-  nounKind?: ProjectItem["noun_kind"];
+  vocabularyKind?: LearningItem["vocabulary_kind"];
+  verbKind?: LearningItem["verb_kind"];
+  nounKind?: LearningItem["noun_kind"];
 };
 
-export function itemToCard(item: ProjectItem): LessonVocabCard {
+export function itemToCard(item: LearningItem): LessonVocabCard {
   const example = item.example_sentence?.trim() || item.note?.trim();
   const ipa = item.ipa?.trim();
   const partOfSpeech = item.part_of_speech?.trim();

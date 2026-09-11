@@ -81,7 +81,7 @@ def _home_patches(**overrides):
         # Unpatched calendar/gmail AsyncMocks look "connected" and emit chips,
         # which incorrectly marks a cold account as warm.
         "integration_starters": [],
-        "count_project_stats": {
+        "count_learning_stats": {
             "total": 0,
             "new_count": 0,
             "learning_count": 0,
@@ -95,9 +95,9 @@ def _home_patches(**overrides):
         },
     }
     defaults.update(overrides)
-    stats_payload = defaults["count_project_stats"]
+    stats_payload = defaults["count_learning_stats"]
 
-    async def _count_stats_by_project(_session, project_ids, *, timezone_by_project=None):
+    async def _count_stats_by_learning(_session, project_ids, *, timezone_by_project=None):
         return {pid: stats_payload for pid in project_ids}
 
     with (
@@ -123,21 +123,21 @@ def _home_patches(**overrides):
             AsyncMock(return_value=defaults["load_relevant_memories"]),
         ),
         patch.object(
-            home_service.projects_repo,
+            home_service.learning_repo,
             "list_for_user",
             AsyncMock(return_value=defaults["list_projects"]),
         ),
         patch.object(
-            home_service.project_items_repo,
-            "list_for_projects",
+            home_service.learning_items_repo,
+            "list_for_learning",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.stats.stats_from_items",
+            "app.services.learning.stats.stats_from_items",
             MagicMock(return_value=stats_payload),
         ),
         patch.object(
-            home_service.project_items_repo,
+            home_service.learning_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -175,7 +175,7 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
 
         return impl
 
-    empty_project_content = home_service.ProjectHomeContent([], None, None, [], False)
+    empty_project_content = home_service.LearningHomeContent([], None, None, [], False)
     memories_mock = AsyncMock(side_effect=tracked("memories", []))
     chats_mock = AsyncMock(side_effect=tracked("chats", []))
     with (
@@ -202,7 +202,7 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
         ),
         patch.object(
             home_service,
-            "load_project_home_content",
+            "load_learning_home_content",
             AsyncMock(side_effect=tracked("projects", empty_project_content)),
         ),
         patch.object(
@@ -230,7 +230,7 @@ async def test_build_home_skips_memories_when_highlight_present():
     with (
         _home_patches(
             list_projects=[project],
-            count_project_stats={
+            count_learning_stats={
                 "total": 5,
                 "new_count": 2,
                 "learning_count": 1,
@@ -341,7 +341,7 @@ async def test_build_home_language_project_starters():
 
     with _home_patches(
         list_projects=[project],
-        count_project_stats={
+        count_learning_stats={
             "total": 3,
             "new_count": 2,
             "learning_count": 1,
@@ -382,7 +382,7 @@ async def test_build_home_highlight_skips_duplicate_starters():
         list_projects=[project],
         list_for_user_chats=[chat],
         load_relevant_memories=[memory],
-        count_project_stats={
+        count_learning_stats={
             "total": 10,
             "new_count": 3,
             "learning_count": 4,
@@ -408,7 +408,7 @@ async def test_build_home_language_review_chip_when_due():
 
     with _home_patches(
         list_projects=[project],
-        count_project_stats={
+        count_learning_stats={
             "total": 10,
             "new_count": 2,
             "learning_count": 4,
@@ -444,7 +444,7 @@ async def test_build_home_hides_vocab_card_when_daily_goal_met():
     with _home_patches(
         list_projects=[project],
         load_relevant_memories=[memory],
-        count_project_stats={
+        count_learning_stats={
             "total": 12,
             "new_count": 2,
             "learning_count": 0,
@@ -467,7 +467,7 @@ async def test_build_home_hides_vocab_card_when_daily_goal_met():
 
 
 @pytest.mark.asyncio
-async def test_build_home_batches_daily_project_stats():
+async def test_build_home_batches_daily_learning_stats():
     session = AsyncMock()
     user = _user()
     language = _project()
@@ -497,17 +497,17 @@ async def test_build_home_batches_daily_project_stats():
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            home_service.projects_repo,
+            home_service.learning_repo,
             "list_for_user",
             AsyncMock(return_value=[spanish, language]),
         ),
         patch.object(
-            home_service.project_items_repo,
-            "list_for_projects",
+            home_service.learning_items_repo,
+            "list_for_learning",
             AsyncMock(return_value=[]),
         ) as items_mock,
         patch(
-            "app.services.projects.stats.stats_from_items",
+            "app.services.learning.stats.stats_from_items",
             MagicMock(
                 return_value={
                     "total": 3,
@@ -547,7 +547,7 @@ async def test_build_home_ignores_legacy_non_daily_projects():
         list_projects=[project],
         list_for_user_chats=[chat],
         load_relevant_memories=[memory],
-        count_project_stats={
+        count_learning_stats={
             "total": 0,
             "new_count": 0,
             "learning_count": 0,

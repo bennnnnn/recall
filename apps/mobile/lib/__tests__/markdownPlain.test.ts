@@ -6,7 +6,7 @@ import {
 } from "@/lib/markdownPlain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 import { projectLearningToPrintHtml } from "@/lib/exportProjectPdf";
-import type { ProjectDetail, ProjectItem } from "@/lib/api";
+import type { LearningDetail, LearningItem } from "@/lib/api";
 
 describe("markdownPlain", () => {
   it("strips fences and markdown emphasis for TTS", () => {
@@ -167,7 +167,7 @@ describe("markdownToStructuredPrintHtml", () => {
   });
 });
 
-function item(partial: Partial<ProjectItem> & Pick<ProjectItem, "id" | "content">): ProjectItem {
+function item(partial: Partial<LearningItem> & Pick<LearningItem, "id" | "content">): LearningItem {
   return {
     list_title: "General",
     note: null,
@@ -248,7 +248,7 @@ describe("projectLearningToPrintHtml", () => {
           ],
         },
       ],
-    } as ProjectDetail;
+    } as LearningDetail;
 
     const html = projectLearningToPrintHtml(project, labels);
     expect(html).toContain("English");
@@ -303,7 +303,7 @@ describe("projectLearningToPrintHtml", () => {
           ],
         },
       ],
-    } as ProjectDetail;
+    } as LearningDetail;
 
     const html = projectLearningToPrintHtml(project, labels);
     expect(html).toContain("Language");

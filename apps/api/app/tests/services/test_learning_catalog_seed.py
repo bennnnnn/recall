@@ -8,10 +8,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
-from app.models.orm import ProjectItem
+from app.models.orm import LearningItem
 from app.repositories import learning_catalog as catalog_repo
-from app.services.learning import catalog_sync
-from app.services.projects import path_seed
+from app.services.learning import catalog_sync, path_seed
 from app.tests.services.test_learning_catalog_reconciliation import (
     _deck,
     _saved_item,
@@ -36,7 +35,7 @@ def _seed_environment(monkeypatch, sync, session, decks):
     monkeypatch.setattr(path_seed, "path_decks_for_language", lambda lang: decks)
     monkeypatch.setattr(catalog_sync, "_sync_decks", lambda: decks)
     invalidate = AsyncMock(side_effect=lambda user_id: sync.expire_all())
-    monkeypatch.setattr("app.services.projects.common._invalidate_home_for_user", invalidate)
+    monkeypatch.setattr("app.services.learning.common._invalidate_home_for_user", invalidate)
     return invalidate
 
 
@@ -53,9 +52,9 @@ async def test_seed_refreshes_existing_adds_group_and_is_idempotent(catalog_sql,
     new = replace(deck, slug="appended-group", title="Appended group", sort_order=2)
     invalidate = _seed_environment(monkeypatch, sync, session, [deck, new])
     await path_seed.seed_language_path(None, user_id=user.id, project_id=project.id)
-    rows = sync.scalars(select(ProjectItem).order_by(ProjectItem.list_title)).all()
+    rows = sync.scalars(select(LearningItem).order_by(LearningItem.list_title)).all()
     assert len(rows) == 2
-    refreshed = sync.get(ProjectItem, item_id)
+    refreshed = sync.get(LearningItem, item_id)
     assert refreshed.definition == deck.words[0].definition
     assert refreshed.status == "learning" and refreshed.review_count == 7
     assert project.learning_path == [deck.title, new.title]
@@ -63,7 +62,7 @@ async def test_seed_refreshes_existing_adds_group_and_is_idempotent(catalog_sql,
     session.commit.assert_awaited_once()
     invalidate.assert_awaited_once_with(user.id)
     await path_seed.seed_language_path(None, user_id=user.id, project_id=project.id)
-    assert {row.id for row in sync.scalars(select(ProjectItem))} == ids
+    assert {row.id for row in sync.scalars(select(LearningItem))} == ids
     session.commit.assert_awaited_once()
     assert invalidate.await_count == 2
 
@@ -112,5 +111,5 @@ async def test_repeated_insert_ignores_collision_without_resetting_progress(cata
         rows=[word_values(_deck(), _deck().words[0])],
     )
     sync.refresh(item)
-    assert sync.query(ProjectItem).count() == 1
+    assert sync.query(LearningItem).count() == 1
     assert item.status == "mastered" and item.review_count == 3

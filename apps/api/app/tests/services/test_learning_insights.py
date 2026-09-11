@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.services import learning_insights
+from app.services.learning import insights as learning_insights
 
 
 def test_compute_streak_counts_recent_goal_met_days():

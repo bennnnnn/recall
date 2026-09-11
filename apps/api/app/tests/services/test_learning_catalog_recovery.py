@@ -11,10 +11,10 @@ from app.background import handlers
 from app.content.vocab_catalog import path_decks_for_language
 from app.core import jobs
 from app.core.config import Settings
-from app.models.orm import LearningPracticeEvent, ProjectItem, User
+from app.models.orm import LearningItem, LearningPracticeEvent, User
 from app.repositories import learning_catalog as catalog_repo
 from app.services.learning import path, path_seed
-from app.services.projects.crud import get_project_detail
+from app.services.learning.crud import get_learning_detail
 from app.tests.services.test_learning_catalog_reconciliation import _saved_item
 from app.tests.services.test_learning_catalog_reconciliation import (
     catalog_sql as _catalog_sql,
@@ -84,7 +84,7 @@ async def test_transient_seed_failure_retries_before_success_ack(catalog_sql, mo
     redis = await dispatch_seed(monkeypatch, user_id, project_id)
 
     assert attempts == 2
-    rows = sync.scalars(select(ProjectItem)).all()
+    rows = sync.scalars(select(LearningItem)).all()
     assert len(rows) == sum(len(deck.words) for deck in decks) == 40
     assert {row.user_id for row in rows} == {user_id}
     assert {row.project_id for row in rows} == {project_id}
@@ -95,7 +95,7 @@ async def test_transient_seed_failure_retries_before_success_ack(catalog_sql, mo
     )
     redis.xack.assert_awaited_once()
     redis.xadd.assert_not_awaited()
-    detail = await get_project_detail(
+    detail = await get_learning_detail(
         session, sync.get(User, user_id), project_id, include_lists=True
     )
     assert detail is not None
@@ -114,7 +114,7 @@ async def test_curated_english_seed_does_not_depend_on_ai_spending(catalog_sql, 
 
     await dispatch_seed(monkeypatch, user_id, project_id)
 
-    assert len(sync.scalars(select(ProjectItem)).all()) == sum(len(deck.words) for deck in decks)
+    assert len(sync.scalars(select(LearningItem)).all()) == sum(len(deck.words) for deck in decks)
     spending.assert_not_awaited()
 
 
@@ -128,14 +128,14 @@ async def test_cache_failure_retries_invalidation_without_replacing_seeded_rows(
 
     async def invalidate(owner):
         assert owner == user_id
-        ids = set(sync.scalars(select(ProjectItem.id)))
+        ids = set(sync.scalars(select(LearningItem.id)))
         if not saved_ids:
             saved_ids.update(ids)
             raise RuntimeError("Transient cache failure")
         assert ids == saved_ids
 
     invalidation = AsyncMock(side_effect=invalidate)
-    monkeypatch.setattr("app.services.projects.common._invalidate_home_for_user", invalidation)
+    monkeypatch.setattr("app.services.learning.common._invalidate_home_for_user", invalidation)
     redis = await dispatch_seed(monkeypatch, user_id, project_id)
 
     assert invalidation.await_count == 2
@@ -158,7 +158,7 @@ async def test_exhausted_seed_failure_releases_dedupe_and_goes_to_dlq(catalog_sq
     redis = await dispatch_seed(monkeypatch, user_id, project_id)
 
     assert failing.await_count == jobs._MAX_ATTEMPTS
-    assert sync.scalars(select(ProjectItem)).all() == []
+    assert sync.scalars(select(LearningItem)).all() == []
     redis.expire.assert_not_awaited()
     redis.delete.assert_awaited_once()
     assert redis.xadd.await_args.args[0] == jobs.JOBS_DLQ_STREAM

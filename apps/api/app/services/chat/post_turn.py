@@ -14,7 +14,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import attachment_lifecycle, model_catalog
-from app.services import projects as projects_service
+from app.services import learning as learning_service
 from app.services import quota as quota_service
 from app.services import todos as todos_service
 from app.services.chat.finalize_registry import clear_pending_finalize
@@ -370,7 +370,7 @@ async def enqueue_post_turn_jobs(
         not spend_capped
         and not ctx.skip_memory_jobs
         and not is_day_planning_question(ctx.user_message_content)
-        and projects_service.transcript_implies_project_sync(
+        and learning_service.transcript_implies_learning_sync(
             transcript,
             chat_project_id=ctx.chat_project_id,
         )

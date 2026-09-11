@@ -510,7 +510,7 @@ def test_list_projects_empty():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.projects.projects_repo.list_for_user", AsyncMock(return_value=[])):
+    with patch("app.routers.learning.learning_repo.list_for_user", AsyncMock(return_value=[])):
         client = TestClient(app)
         r = client.get("/projects", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -537,9 +537,9 @@ def test_create_project():
     fake.updated_at = now
 
     with (
-        patch("app.routers.projects.projects_repo.create", AsyncMock(return_value=fake)),
+        patch("app.routers.learning.learning_repo.create", AsyncMock(return_value=fake)),
         patch(
-            "app.routers.projects.projects_repo.find_language_by_target",
+            "app.routers.learning.learning_repo.find_language_by_target",
             AsyncMock(return_value=None),
         ),
     ):

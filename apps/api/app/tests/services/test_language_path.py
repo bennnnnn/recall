@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.projects.crud import group_items
-from app.services.projects.path import (
+from app.services.learning.crud import group_items
+from app.services.learning.path import (
     append_chapter,
     build_path_progress,
     chapter_is_complete,
@@ -17,8 +17,8 @@ from app.services.projects.path import (
     sort_list_titles,
     up_next_chapter,
 )
-from app.services.projects.path_seed import seed_language_path
-from app.services.projects.prompt_context import format_projects_block
+from app.services.learning.path_seed import seed_language_path
+from app.services.learning.prompt_context import format_learning_block
 
 
 def _project(**kw: object) -> MagicMock:
@@ -155,11 +155,11 @@ def test_group_items_omits_catalog_lists_not_on_the_requested_path():
     assert groups[0].items[0].content == shown.content
 
 
-def test_format_projects_block_includes_path():
+def test_format_learning_block_includes_path():
     project = _project()
     item = _item("hola", "Greetings")
     item.project_id = project.id
-    block = format_projects_block([project], [item])
+    block = format_learning_block([project], [item])
     assert "Learning path" in block
     assert "Teach only words listed under: Greetings" in block
 
@@ -199,7 +199,7 @@ async def test_seed_language_path_copies_catalog_words():
         patch("app.repositories.learning_catalog.insert_missing", created),
         patch("app.repositories.learning_catalog.update_contents", AsyncMock()),
         patch("app.services.learning.path_seed.ensure_catalog_rows", ensure),
-        patch("app.services.projects.common._invalidate_home_for_user", AsyncMock()),
+        patch("app.services.learning.common._invalidate_home_for_user", AsyncMock()),
     ):
         await seed_language_path(MagicMock(), user_id=user_id, project_id=project_id)
 
@@ -271,15 +271,15 @@ def test_needs_catalog_sync_when_path_was_level_gated():
 
 
 @pytest.mark.asyncio
-async def test_get_project_detail_enqueues_catalog_sync_without_blocking_get():
+async def test_get_learning_detail_enqueues_catalog_sync_without_blocking_get():
     """GET must not seed+expire_all; catalog sync is the language_path job."""
     from datetime import UTC, datetime
     from types import SimpleNamespace
     from uuid import uuid4
 
-    from app.repositories import project_items as project_items_repo
-    from app.repositories import projects as projects_repo
-    from app.services.projects.crud import get_project_detail
+    from app.repositories import learning as learning_repo
+    from app.repositories import learning_items as learning_items_repo
+    from app.services.learning.crud import get_learning_detail
 
     user_id = uuid4()
     project_id = uuid4()
@@ -307,15 +307,15 @@ async def test_get_project_detail_enqueues_catalog_sync_without_blocking_get():
     seed = AsyncMock()
 
     with (
-        patch.object(projects_repo, "get_by_id", AsyncMock(return_value=item)),
-        patch.object(project_items_repo, "list_for_user", AsyncMock(return_value=[])),
-        patch.object(project_items_repo, "list_miss_events_for_items", AsyncMock(return_value={})),
+        patch.object(learning_repo, "get_by_id", AsyncMock(return_value=item)),
+        patch.object(learning_items_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(learning_items_repo, "list_miss_events_for_items", AsyncMock(return_value={})),
         patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])),
-        patch("app.services.projects.crud.enqueue_language_path_job", enqueue),
+        patch("app.services.learning.crud.enqueue_language_path_job", enqueue),
         patch("app.services.learning.path_seed.seed_language_path", seed),
         patch("app.services.learning.path_seed.needs_catalog_sync", return_value=True),
     ):
-        detail = await get_project_detail(session, user, project_id)
+        detail = await get_learning_detail(session, user, project_id)
 
     assert detail is not None
     assert detail["id"] == project_id

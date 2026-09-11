@@ -1,7 +1,7 @@
 """SQLAlchemy mapped models. Prefer `from app.models.orm import User`.
 
-Learning retains the `Project` and `ProjectItem` aliases for existing call sites.
-Schedule exports `TodoItem`. Database table and column names are unchanged.
+Learning classes map to the `projects` / `project_items` tables. Schedule
+exports `TodoItem`. Database table and column names are unchanged.
 """
 
 from app.models.orm.attachments import Attachment, AttachmentChunk, MessageChunk
@@ -20,9 +20,6 @@ from app.models.orm.suggestions import Suggestion
 from app.models.orm.usage import ProductEvent, UsageDaily
 from app.models.orm.user import User
 
-Project = Learning
-ProjectItem = LearningItem
-
 __all__ = [
     "Attachment",
     "AttachmentChunk",
@@ -34,8 +31,6 @@ __all__ = [
     "Message",
     "MessageChunk",
     "ProductEvent",
-    "Project",
-    "ProjectItem",
     "PushToken",
     "QuizMissEvent",
     "SuggestedReminder",

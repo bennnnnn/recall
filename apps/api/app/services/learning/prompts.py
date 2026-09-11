@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.projects.common import language_display_name
+from app.services.learning.common import language_display_name
 
 CHAT_LEARNING_HANDOFF_HINT = (
     "The user has Learning classes listed above. You ARE connected to their Recall "
@@ -20,7 +20,7 @@ CHAT_LEARNING_HANDOFF_HINT = (
 )
 
 
-PROJECT_HINT = (
+LEARNING_HINT = (
     "The user keeps **Learning** workspaces — language vocabulary only:\n"
     "**Language** (`language`) — vocabulary path in a target language: ordered "
     "chapters (decks), words, definitions, daily quiz. One project per target language "

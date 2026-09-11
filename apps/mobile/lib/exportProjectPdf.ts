@@ -1,10 +1,10 @@
 /** Export a language learning project as a PDF. */
 
-import type { ProjectDetail, ProjectItem } from "@/lib/api";
+import type { LearningDetail, LearningItem } from "@/lib/api";
 import { escapeHtml, wrapPrintDocument } from "@/lib/printDocument";
 import { isLanguageProject } from "@/lib/languageLevels";
 
-const STATUS_ORDER: ProjectItem["status"][] = ["mastered", "learning", "new"];
+const STATUS_ORDER: LearningItem["status"][] = ["mastered", "learning", "new"];
 
 export type ProjectPdfLabels = {
   mastered: string;
@@ -22,9 +22,9 @@ export type ProjectPdfLabels = {
   }) => string;
 };
 
-function flattenItems(project: ProjectDetail): ProjectItem[] {
+function flattenItems(project: LearningDetail): LearningItem[] {
   const seen = new Set<string>();
-  const items: ProjectItem[] = [];
+  const items: LearningItem[] = [];
   for (const group of project.lists) {
     for (const item of group.items) {
       if (seen.has(item.id)) continue;
@@ -35,12 +35,12 @@ function flattenItems(project: ProjectDetail): ProjectItem[] {
   return items;
 }
 
-function statusOf(item: ProjectItem): ProjectItem["status"] {
+function statusOf(item: LearningItem): LearningItem["status"] {
   if (item.status) return item.status;
   return item.mastered ? "mastered" : "new";
 }
 
-function renderItemHtml(item: ProjectItem, labels: ProjectPdfLabels): string {
+function renderItemHtml(item: LearningItem, labels: ProjectPdfLabels): string {
   const title = escapeHtml(item.content.trim() || "—");
   const def = (item.definition || item.note || "").trim();
   const example = (item.example_sentence || "").trim();
@@ -66,11 +66,11 @@ function renderItemHtml(item: ProjectItem, labels: ProjectPdfLabels): string {
 }
 
 export function projectLearningToPrintHtml(
-  project: ProjectDetail,
+  project: LearningDetail,
   labels: ProjectPdfLabels,
 ): string {
   const items = flattenItems(project);
-  const grouped: Record<ProjectItem["status"], ProjectItem[]> = {
+  const grouped: Record<LearningItem["status"], LearningItem[]> = {
     mastered: [],
     learning: [],
     new: [],
@@ -79,7 +79,7 @@ export function projectLearningToPrintHtml(
     grouped[statusOf(item)].push(item);
   }
 
-  const sectionTitle = (status: ProjectItem["status"]) => {
+  const sectionTitle = (status: LearningItem["status"]) => {
     if (status === "mastered") return labels.mastered;
     if (status === "learning") return labels.learning;
     return labels.new;
@@ -111,7 +111,7 @@ export function projectLearningToPrintHtml(
 }
 
 export async function exportProjectAsPdf(
-  project: ProjectDetail,
+  project: LearningDetail,
   labels: ProjectPdfLabels,
   isCurrent: () => boolean = () => true,
 ): Promise<void> {
@@ -122,7 +122,7 @@ export async function exportProjectAsPdf(
   await printHtmlToSharedPdf(html, fileTitle, isCurrent);
 }
 
-export function projectHasExportableItems(project: ProjectDetail): boolean {
+export function projectHasExportableItems(project: LearningDetail): boolean {
   if (project.total_count > 0) return true;
   if ((project.stats?.total ?? 0) > 0) return true;
   return flattenItems(project).length > 0;

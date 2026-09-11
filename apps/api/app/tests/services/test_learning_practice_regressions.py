@@ -5,7 +5,7 @@ import pytest
 
 from app.services.chat.prompt_constants.routing import needs_rich_context
 from app.services.learning.insights import enrich_learning_stats
-from app.services.projects.stats import stats_from_items
+from app.services.learning.stats import stats_from_items
 
 
 @pytest.mark.parametrize(

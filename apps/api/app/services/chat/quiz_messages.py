@@ -24,7 +24,7 @@ async def get_last_quiz_assistant(
     still get the vocab answer grading path. After a wrong MCQ the model may
     reply hint-only; the previous fence remains the one to grade against.
     """
-    from app.services.projects import looks_like_vocab_question
+    from app.services.learning import looks_like_vocab_question
     from app.services.vocab_quiz import parse_vocab_quiz
 
     messages = await messages_repo.list_recent_assistants(session, chat_id, limit=max(1, lookback))

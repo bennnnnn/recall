@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { api } from "@/lib/api";
-import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
+import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
 let mockSession = 1;
 let mockToken = "token";
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
@@ -15,7 +15,7 @@ jest.mock("@/lib/auth", () => ({
 jest.mock("@/lib/api", () => ({
   api: { createProject: jest.fn(), updateProject: jest.fn(), getProject: jest.fn() },
 }));
-jest.mock("@/lib/cache/projectDetailCache", () => ({ invalidateProjectDetail: jest.fn() }));
+jest.mock("@/lib/cache/projectDetailCache", () => ({ invalidateLearningDetail: jest.fn() }));
 let actions: ReturnType<typeof useProjectActions>;
 function Probe() {
   const result = useProjectActions();
@@ -39,7 +39,7 @@ it("invalidates owned detail after updating a project", async () => {
   await render(<Probe />);
   (api.updateProject as jest.Mock).mockResolvedValue({ id: "p1", daily_goal: 10 });
   await actions.updateProject("p1", { daily_goal: 10 });
-  expect(invalidateProjectDetail).toHaveBeenCalledWith("p1", 1);
+  expect(invalidateLearningDetail).toHaveBeenCalledWith("p1", 1);
 });
 it("requests list-bearing detail for export", async () => {
   await render(<Probe />);
@@ -68,7 +68,7 @@ it("does not invalidate another account after a pending mutation", async () => {
     resolve({ id: "p1" });
     await task;
   });
-  expect(invalidateProjectDetail).not.toHaveBeenCalled();
+  expect(invalidateLearningDetail).not.toHaveBeenCalled();
 });
 it("accepts refresh-era callbacks for the same account", async () => {
   const ui = await render(<Probe />);

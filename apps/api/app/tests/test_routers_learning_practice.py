@@ -10,7 +10,7 @@ from app.core.deps import get_current_user
 from app.main import create_app
 from app.models.orm import User
 from app.models.schemas.learning import LearningItemOut
-from app.services.projects.crud import ProjectsError
+from app.services.learning.crud import LearningError
 
 
 def item_out():
@@ -88,7 +88,7 @@ def test_practice_route_preserves_ownership_and_retry_conflict_errors(route_clie
     client, _, _ = route_client
     with patch(
         "app.services.learning.practice.record_practice",
-        AsyncMock(side_effect=ProjectsError("unavailable", status_code=code)),
+        AsyncMock(side_effect=LearningError("unavailable", status_code=code)),
     ):
         result = client.post(
             f"/projects/{uuid4()}/items/{uuid4()}/practice",

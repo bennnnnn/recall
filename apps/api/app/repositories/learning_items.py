@@ -8,20 +8,20 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.learning_policy import start_of_today_utc
-from app.models.orm import LearningPracticeEvent, ProjectItem, QuizMissEvent
+from app.models.orm import LearningItem, LearningPracticeEvent, QuizMissEvent
 from app.repositories.learning_activity import activity_columns, activity_values
 
 DEFAULT_LIST = "General"
 
 
-def _item_status_label(item: ProjectItem) -> str:
+def _item_status_label(item: LearningItem) -> str:
     if item.status:
         return item.status
     return "mastered" if item.mastered else "new"
 
 
 def _sync_mastered_fields(
-    item: ProjectItem, status: str, *, prior_status: str, now: datetime | None = None
+    item: LearningItem, status: str, *, prior_status: str, now: datetime | None = None
 ) -> None:
     item.status = status
     item.mastered = status == "mastered"
@@ -40,16 +40,16 @@ async def list_for_user(
     project_id: UUID | None = None,
     project_ids: list[UUID] | None = None,
     limit: int = 500,
-) -> list[ProjectItem]:
-    stmt = select(ProjectItem).where(ProjectItem.user_id == user_id)
+) -> list[LearningItem]:
+    stmt = select(LearningItem).where(LearningItem.user_id == user_id)
     if project_id is not None:
-        stmt = stmt.where(ProjectItem.project_id == project_id)
+        stmt = stmt.where(LearningItem.project_id == project_id)
     elif project_ids:
-        stmt = stmt.where(ProjectItem.project_id.in_(project_ids))
+        stmt = stmt.where(LearningItem.project_id.in_(project_ids))
     stmt = stmt.order_by(
-        ProjectItem.list_title.asc(),
-        ProjectItem.status.asc(),
-        ProjectItem.created_at.desc(),
+        LearningItem.list_title.asc(),
+        LearningItem.status.asc(),
+        LearningItem.created_at.desc(),
     ).limit(limit)
     return list((await session.execute(stmt)).scalars().all())
 
@@ -61,36 +61,36 @@ async def list_recent_for_user(
     project_id: UUID | None = None,
     project_ids: list[UUID] | None = None,
     limit: int = 500,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     """Same filters as list_for_user, ordered by recency only.
 
     BUG FIX (was silent): list_for_user's (list_title, status, created_at
     desc) ordering means the LIMIT window for a user with more items than the
     limit is not guaranteed to include their most-recently-added items —
-    apply_project_actions uses a 500-item snapshot of this repo as its
+    apply_learning_actions uses a 500-item snapshot of this repo as its
     in-memory match/dedup window (_find_item/_find_project), so a stale
     window hurts dedup/match accuracy for large decks. Kept as a separate
     function rather than changing list_for_user's default order: other
-    callers (format_projects_block / group_items — the
+    callers (format_learning_block / group_items — the
     deck-browse UI and prompt injection) rely on the existing
     list_title/status grouping order.
     """
-    stmt = select(ProjectItem).where(ProjectItem.user_id == user_id)
+    stmt = select(LearningItem).where(LearningItem.user_id == user_id)
     if project_id is not None:
-        stmt = stmt.where(ProjectItem.project_id == project_id)
+        stmt = stmt.where(LearningItem.project_id == project_id)
     elif project_ids:
-        stmt = stmt.where(ProjectItem.project_id.in_(project_ids))
-    stmt = stmt.order_by(ProjectItem.created_at.desc()).limit(limit)
+        stmt = stmt.where(LearningItem.project_id.in_(project_ids))
+    stmt = stmt.order_by(LearningItem.created_at.desc()).limit(limit)
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def list_recent_for_projects(
+async def list_recent_for_learning(
     session: AsyncSession,
     user_id: UUID,
     project_ids: list[UUID],
     *,
     per_project_limit: int = 500,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     """One query returning up to `per_project_limit` most-recent items per project.
 
     Replaces the N+1 loop of calling ``list_recent_for_user(project_id=p)`` per
@@ -103,24 +103,24 @@ async def list_recent_for_projects(
     rn = (
         func.row_number()
         .over(
-            partition_by=ProjectItem.project_id,
-            order_by=ProjectItem.created_at.desc(),
+            partition_by=LearningItem.project_id,
+            order_by=LearningItem.created_at.desc(),
         )
         .label("rn")
     )
     subq = (
-        select(ProjectItem.id, rn)
+        select(LearningItem.id, rn)
         .where(
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id.in_(project_ids),
+            LearningItem.user_id == user_id,
+            LearningItem.project_id.in_(project_ids),
         )
         .subquery()
     )
     keep_ids = select(subq.c.id).where(subq.c.rn <= per_project_limit)
     stmt = (
-        select(ProjectItem)
-        .where(ProjectItem.id.in_(keep_ids))
-        .order_by(ProjectItem.created_at.desc())
+        select(LearningItem)
+        .where(LearningItem.id.in_(keep_ids))
+        .order_by(LearningItem.created_at.desc())
     )
     return list((await session.execute(stmt)).scalars().all())
 
@@ -136,7 +136,7 @@ async def find_quiz_candidates(
     content: str,
     *,
     limit: int = 32,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     """Small candidate set for quiz grading — avoids loading the whole deck.
 
     Exact case-insensitive matches plus a bounded ILIKE neighborhood so the
@@ -148,16 +148,16 @@ async def find_quiz_candidates(
         return []
     pattern = f"%{_like_escape(needle)}%"
     stmt = (
-        select(ProjectItem)
+        select(LearningItem)
         .where(
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id == project_id,
+            LearningItem.user_id == user_id,
+            LearningItem.project_id == project_id,
             or_(
-                func.lower(ProjectItem.content) == needle.lower(),
-                ProjectItem.content.ilike(pattern, escape="\\"),
+                func.lower(LearningItem.content) == needle.lower(),
+                LearningItem.content.ilike(pattern, escape="\\"),
             ),
         )
-        .order_by(ProjectItem.created_at.desc())
+        .order_by(LearningItem.created_at.desc())
         .limit(limit)
     )
     return list((await session.execute(stmt)).scalars().all())
@@ -180,27 +180,27 @@ async def list_quiz_exclusion_contents(
     if limit < 1:
         return []
     mastered_clause = or_(
-        ProjectItem.status == "mastered",
-        and_(ProjectItem.mastered.is_(True), ProjectItem.status.is_(None)),
+        LearningItem.status == "mastered",
+        and_(LearningItem.mastered.is_(True), LearningItem.status.is_(None)),
     )
     status_clause = (
-        or_(mastered_clause, ProjectItem.status == "learning")
+        or_(mastered_clause, LearningItem.status == "learning")
         if include_learning
         else mastered_clause
     )
     stmt = (
-        select(ProjectItem.content)
+        select(LearningItem.content)
         .where(
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id == project_id,
+            LearningItem.user_id == user_id,
+            LearningItem.project_id == project_id,
             status_clause,
-            ProjectItem.content.is_not(None),
-            ProjectItem.content != "",
+            LearningItem.content.is_not(None),
+            LearningItem.content != "",
         )
         .order_by(
-            ProjectItem.mastered_at.desc().nullslast(),
-            ProjectItem.last_incorrect_at.desc().nullslast(),
-            ProjectItem.created_at.desc(),
+            LearningItem.mastered_at.desc().nullslast(),
+            LearningItem.last_incorrect_at.desc().nullslast(),
+            LearningItem.created_at.desc(),
         )
         .limit(limit)
     )
@@ -222,17 +222,17 @@ async def get_by_list_content(
     project_id: UUID,
     list_title: str,
     content: str,
-) -> ProjectItem | None:
+) -> LearningItem | None:
     normalized_list = list_title.strip() or DEFAULT_LIST
     text = content.strip()
     if not text:
         return None
     return (
         await session.execute(
-            select(ProjectItem).where(
-                ProjectItem.project_id == project_id,
-                ProjectItem.list_title == normalized_list,
-                ProjectItem.content == text,
+            select(LearningItem).where(
+                LearningItem.project_id == project_id,
+                LearningItem.list_title == normalized_list,
+                LearningItem.content == text,
             )
         )
     ).scalar_one_or_none()
@@ -240,14 +240,14 @@ async def get_by_list_content(
 
 async def get_by_id(
     session: AsyncSession, item_id: UUID, user_id: UUID, project_id: UUID | None = None
-) -> ProjectItem | None:
-    stmt = select(ProjectItem).where(ProjectItem.id == item_id, ProjectItem.user_id == user_id)
+) -> LearningItem | None:
+    stmt = select(LearningItem).where(LearningItem.id == item_id, LearningItem.user_id == user_id)
     if project_id is not None:
-        stmt = stmt.where(ProjectItem.project_id == project_id)
+        stmt = stmt.where(LearningItem.project_id == project_id)
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def lock_for_update(session: AsyncSession, item_id: UUID) -> ProjectItem | None:
+async def lock_for_update(session: AsyncSession, item_id: UUID) -> LearningItem | None:
     """Lock an item row for the duration of this transaction.
 
     Prevents concurrent quiz submits from both reading the same SM-2 fields
@@ -255,7 +255,7 @@ async def lock_for_update(session: AsyncSession, item_id: UUID) -> ProjectItem |
     updates. Call before apply_quiz_result so the read-modify-write cycle is
     serialized (LANG-BE-011).
     """
-    stmt = select(ProjectItem).where(ProjectItem.id == item_id).with_for_update()
+    stmt = select(LearningItem).where(LearningItem.id == item_id).with_for_update()
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
@@ -264,24 +264,24 @@ async def count_for_project(session: AsyncSession, project_id: UUID, user_id: UU
     to size-check (unlike count_stats, which loads up to 5000 rows)."""
     stmt = (
         select(func.count())
-        .select_from(ProjectItem)
-        .where(ProjectItem.user_id == user_id, ProjectItem.project_id == project_id)
+        .select_from(LearningItem)
+        .where(LearningItem.user_id == user_id, LearningItem.project_id == project_id)
     )
     return int((await session.execute(stmt)).scalar_one())
 
 
-async def list_for_projects(
+async def list_for_learning(
     session: AsyncSession,
     project_ids: list[UUID],
     *,
     limit: int = 20_000,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     """Batched item fetch across many projects (each owned by exactly one
     user) in one query, for callers that need per-project stats for many
-    users at once — e.g. count_stats_by_project below."""
+    users at once — e.g. count_stats_by_learning below."""
     if not project_ids:
         return []
-    stmt = select(ProjectItem).where(ProjectItem.project_id.in_(project_ids)).limit(limit)
+    stmt = select(LearningItem).where(LearningItem.project_id.in_(project_ids)).limit(limit)
     return list((await session.execute(stmt)).scalars().all())
 
 
@@ -292,15 +292,15 @@ def _status_is(status_value: str) -> Any:
     """
     if status_value == "mastered":
         return or_(
-            ProjectItem.status == "mastered",
-            and_(ProjectItem.status.is_(None), ProjectItem.mastered.is_(True)),
+            LearningItem.status == "mastered",
+            and_(LearningItem.status.is_(None), LearningItem.mastered.is_(True)),
         )
     if status_value == "new":
         return or_(
-            ProjectItem.status == "new",
-            and_(ProjectItem.status.is_(None), ProjectItem.mastered.is_(False)),
+            LearningItem.status == "new",
+            and_(LearningItem.status.is_(None), LearningItem.mastered.is_(False)),
         )
-    return ProjectItem.status == status_value
+    return LearningItem.status == status_value
 
 
 async def count_stats_sql(
@@ -330,18 +330,18 @@ async def count_stats_sql(
         func.count().filter(_status_is("new")).label("new_count"),
         func.count().filter(_status_is("learning")).label("learning_count"),
         func.count().filter(mastered_cond).label("mastered_count"),
-        func.count().filter(ProjectItem.created_at >= week_ago).label("added_this_week"),
+        func.count().filter(LearningItem.created_at >= week_ago).label("added_this_week"),
         func.count()
         .filter(
             and_(
                 or_(_status_is("learning"), _status_is("mastered")),
                 or_(
                     and_(
-                        ProjectItem.due_at.is_(None),
-                        func.coalesce(ProjectItem.last_reviewed_at, ProjectItem.created_at)
+                        LearningItem.due_at.is_(None),
+                        func.coalesce(LearningItem.last_reviewed_at, LearningItem.created_at)
                         <= due_cutoff,
                     ),
-                    and_(ProjectItem.due_at.is_not(None), ProjectItem.due_at <= now),
+                    and_(LearningItem.due_at.is_not(None), LearningItem.due_at <= now),
                 ),
             )
         )
@@ -351,8 +351,8 @@ async def count_stats_sql(
             and_(
                 mastered_cond,
                 or_(
-                    and_(ProjectItem.mastered_at.is_not(None), ProjectItem.mastered_at >= start),
-                    and_(ProjectItem.mastered_at.is_(None), ProjectItem.created_at >= start),
+                    and_(LearningItem.mastered_at.is_not(None), LearningItem.mastered_at >= start),
+                    and_(LearningItem.mastered_at.is_(None), LearningItem.created_at >= start),
                 ),
             )
         )
@@ -361,8 +361,8 @@ async def count_stats_sql(
         .filter(
             and_(
                 non_mastered_cond,
-                ProjectItem.last_incorrect_at.is_not(None),
-                ProjectItem.last_incorrect_at >= start,
+                LearningItem.last_incorrect_at.is_not(None),
+                LearningItem.last_incorrect_at >= start,
             )
         )
         .label("missed_today"),
@@ -370,14 +370,17 @@ async def count_stats_sql(
         .filter(
             and_(
                 non_mastered_cond,
-                or_(ProjectItem.last_incorrect_at.is_(None), ProjectItem.last_incorrect_at < start),
-                ProjectItem.created_at >= start,
+                or_(
+                    LearningItem.last_incorrect_at.is_(None),
+                    LearningItem.last_incorrect_at < start,
+                ),
+                LearningItem.created_at >= start,
             )
         )
         .label("pending_today"),
-        func.max(ProjectItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
+        func.max(LearningItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
         *activity_columns(start, mastered_cond),
-    ).where(ProjectItem.user_id == user_id, ProjectItem.project_id == project_id)
+    ).where(LearningItem.user_id == user_id, LearningItem.project_id == project_id)
     row = (await session.execute(stmt)).one()
     return {
         "total": row.total or 0,
@@ -394,7 +397,7 @@ async def count_stats_sql(
     }
 
 
-async def count_stats_by_project_sql(
+async def count_stats_by_learning_sql(
     session: AsyncSession,
     project_ids: list[UUID],
     *,
@@ -438,18 +441,18 @@ async def count_stats_sql_for_project(
         func.count().filter(_status_is("new")).label("new_count"),
         func.count().filter(_status_is("learning")).label("learning_count"),
         func.count().filter(mastered_cond).label("mastered_count"),
-        func.count().filter(ProjectItem.created_at >= week_ago).label("added_this_week"),
+        func.count().filter(LearningItem.created_at >= week_ago).label("added_this_week"),
         func.count()
         .filter(
             and_(
                 or_(_status_is("learning"), _status_is("mastered")),
                 or_(
                     and_(
-                        ProjectItem.due_at.is_(None),
-                        func.coalesce(ProjectItem.last_reviewed_at, ProjectItem.created_at)
+                        LearningItem.due_at.is_(None),
+                        func.coalesce(LearningItem.last_reviewed_at, LearningItem.created_at)
                         <= due_cutoff,
                     ),
-                    and_(ProjectItem.due_at.is_not(None), ProjectItem.due_at <= now),
+                    and_(LearningItem.due_at.is_not(None), LearningItem.due_at <= now),
                 ),
             )
         )
@@ -459,8 +462,8 @@ async def count_stats_sql_for_project(
             and_(
                 mastered_cond,
                 or_(
-                    and_(ProjectItem.mastered_at.is_not(None), ProjectItem.mastered_at >= start),
-                    and_(ProjectItem.mastered_at.is_(None), ProjectItem.created_at >= start),
+                    and_(LearningItem.mastered_at.is_not(None), LearningItem.mastered_at >= start),
+                    and_(LearningItem.mastered_at.is_(None), LearningItem.created_at >= start),
                 ),
             )
         )
@@ -469,8 +472,8 @@ async def count_stats_sql_for_project(
         .filter(
             and_(
                 non_mastered_cond,
-                ProjectItem.last_incorrect_at.is_not(None),
-                ProjectItem.last_incorrect_at >= start,
+                LearningItem.last_incorrect_at.is_not(None),
+                LearningItem.last_incorrect_at >= start,
             )
         )
         .label("missed_today"),
@@ -478,14 +481,17 @@ async def count_stats_sql_for_project(
         .filter(
             and_(
                 non_mastered_cond,
-                or_(ProjectItem.last_incorrect_at.is_(None), ProjectItem.last_incorrect_at < start),
-                ProjectItem.created_at >= start,
+                or_(
+                    LearningItem.last_incorrect_at.is_(None),
+                    LearningItem.last_incorrect_at < start,
+                ),
+                LearningItem.created_at >= start,
             )
         )
         .label("pending_today"),
-        func.max(ProjectItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
+        func.max(LearningItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
         *activity_columns(start, mastered_cond),
-    ).where(ProjectItem.project_id == project_id)
+    ).where(LearningItem.project_id == project_id)
     row = (await session.execute(stmt)).one()
     return {
         "total": row.total or 0,
@@ -539,9 +545,9 @@ async def list_by_activity_date(
     limit: int = 50,
     offset: int = 0,
     include_partial: bool = False,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     activity = select(LearningPracticeEvent.id).where(
-        LearningPracticeEvent.item_id == ProjectItem.id,
+        LearningPracticeEvent.item_id == LearningItem.id,
         LearningPracticeEvent.user_id == user_id,
         LearningPracticeEvent.project_id == project_id,
         LearningPracticeEvent.occurred_at >= start,
@@ -550,23 +556,23 @@ async def list_by_activity_date(
     if not include_partial:
         activity = activity.where(LearningPracticeEvent.completes_word.is_(True))
     stmt = (
-        select(ProjectItem)
+        select(LearningItem)
         .where(
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id == project_id,
+            LearningItem.user_id == user_id,
+            LearningItem.project_id == project_id,
             or_(
                 activity.exists(),
                 and_(
-                    ProjectItem.mastered.is_(True),
-                    func.coalesce(ProjectItem.mastered_at, ProjectItem.created_at) >= start,
-                    func.coalesce(ProjectItem.mastered_at, ProjectItem.created_at) < end,
+                    LearningItem.mastered.is_(True),
+                    func.coalesce(LearningItem.mastered_at, LearningItem.created_at) >= start,
+                    func.coalesce(LearningItem.mastered_at, LearningItem.created_at) < end,
                 ),
             ),
         )
         .order_by(
-            ProjectItem.mastered_at.desc().nullslast(),
-            ProjectItem.created_at.desc(),
-            ProjectItem.id,
+            LearningItem.mastered_at.desc().nullslast(),
+            LearningItem.created_at.desc(),
+            LearningItem.id,
         )
         .offset(max(offset, 0))
         .limit(min(limit, 200))
@@ -583,7 +589,7 @@ async def list_missed_by_activity_date(
     end: datetime,
     limit: int = 50,
     offset: int = 0,
-) -> list[ProjectItem]:
+) -> list[LearningItem]:
     """Still-open misses (not mastered) with a QuizMissEvent in [start, end).
 
     BUG FIX (was silent): this used to filter on the single mutable
@@ -608,16 +614,16 @@ async def list_missed_by_activity_date(
         .subquery()
     )
     stmt = (
-        select(ProjectItem)
-        .join(day_misses, ProjectItem.id == day_misses.c.item_id)
+        select(LearningItem)
+        .join(day_misses, LearningItem.id == day_misses.c.item_id)
         .where(
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id == project_id,
+            LearningItem.user_id == user_id,
+            LearningItem.project_id == project_id,
             or_(
-                ProjectItem.mastered.is_(False),
+                LearningItem.mastered.is_(False),
                 select(LearningPracticeEvent.id)
                 .where(
-                    LearningPracticeEvent.item_id == ProjectItem.id,
+                    LearningPracticeEvent.item_id == LearningItem.id,
                     LearningPracticeEvent.user_id == user_id,
                     LearningPracticeEvent.was_correct.is_(False),
                     LearningPracticeEvent.occurred_at >= start,
@@ -628,8 +634,8 @@ async def list_missed_by_activity_date(
         )
         .order_by(
             day_misses.c.latest_occurred_at.desc(),
-            ProjectItem.created_at.desc(),
-            ProjectItem.id,
+            LearningItem.created_at.desc(),
+            LearningItem.id,
         )
         .offset(max(offset, 0))
         .limit(min(limit, 200))
@@ -655,10 +661,10 @@ async def create(
     pronunciation_url: str | None = None,
     catalog_entry_id: UUID | None = None,
     commit: bool = True,
-) -> ProjectItem:
+) -> LearningItem:
     normalized_list = list_title.strip() or DEFAULT_LIST
     example = (example_sentence or note or "").strip() or None
-    item = ProjectItem(
+    item = LearningItem(
         user_id=user_id,
         project_id=project_id,
         content=content.strip(),
@@ -686,7 +692,7 @@ async def create(
 
 async def apply_quiz_result(
     session: AsyncSession,
-    item: ProjectItem,
+    item: LearningItem,
     *,
     is_correct: bool,
     new_status: str,
@@ -697,15 +703,15 @@ async def apply_quiz_result(
     review_count: int,
     due_at: datetime,
     commit: bool = True,
-) -> ProjectItem:
+) -> LearningItem:
     """Persist a quiz attempt + scheduling fields already computed by the service."""
     # BUG FIX (was silent): quiz_attempts/quiz_correct were read in Python, incremented,
     # then written back — two overlapping requests on the same item (double-tap submit,
     # client retry) could both read the same count and one increment would be lost.
     # Increment atomically in SQL instead so concurrent updates can't clobber each other.
-    increments: dict[str, Any] = {"quiz_attempts": ProjectItem.quiz_attempts + 1}
+    increments: dict[str, Any] = {"quiz_attempts": LearningItem.quiz_attempts + 1}
     if is_correct:
-        increments["quiz_correct"] = ProjectItem.quiz_correct + 1
+        increments["quiz_correct"] = LearningItem.quiz_correct + 1
     else:
         item.last_incorrect_at = now
         # BUG FIX (was silent): last_incorrect_at is a single mutable column, so a later
@@ -714,7 +720,7 @@ async def apply_quiz_result(
         # event so day-attribution reads (count_missed_by_date) can't regress.
         session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
     await session.execute(
-        sql_update(ProjectItem).where(ProjectItem.id == item.id).values(**increments)
+        sql_update(LearningItem).where(LearningItem.id == item.id).values(**increments)
     )
 
     _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
@@ -736,7 +742,7 @@ async def apply_quiz_result(
 
 async def record_quiz_attempt(
     session: AsyncSession,
-    item: ProjectItem,
+    item: LearningItem,
     *,
     now: datetime | None = None,
     commit: bool = False,
@@ -753,9 +759,9 @@ async def record_quiz_attempt(
     item.last_incorrect_at = now
     session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
     await session.execute(
-        sql_update(ProjectItem)
-        .where(ProjectItem.id == item.id)
-        .values(quiz_attempts=ProjectItem.quiz_attempts + 1, last_incorrect_at=now)
+        sql_update(LearningItem)
+        .where(LearningItem.id == item.id)
+        .values(quiz_attempts=LearningItem.quiz_attempts + 1, last_incorrect_at=now)
     )
     if commit:
         await session.commit()
@@ -765,9 +771,9 @@ async def record_quiz_attempt(
 
 
 async def update(
-    session: AsyncSession, item: ProjectItem, *, commit: bool = True, **fields: Any
-) -> ProjectItem:
-    """Dumb field write. SM-2 scheduling belongs in services.projects.items.update_item."""
+    session: AsyncSession, item: LearningItem, *, commit: bool = True, **fields: Any
+) -> LearningItem:
+    """Dumb field write. SM-2 scheduling belongs in services.learning.items.update_item."""
     now = datetime.now(UTC)
     prior_status = _item_status_label(item)
     for key, value in fields.items():
@@ -791,7 +797,7 @@ async def delete_by_id(
     result = cast(
         CursorResult[Any],
         await session.execute(
-            delete(ProjectItem).where(ProjectItem.id == item_id, ProjectItem.user_id == user_id)
+            delete(LearningItem).where(LearningItem.id == item_id, LearningItem.user_id == user_id)
         ),
     )
     if commit:
@@ -815,10 +821,10 @@ async def delete_by_list(
     result = cast(
         CursorResult[Any],
         await session.execute(
-            delete(ProjectItem).where(
-                ProjectItem.user_id == user_id,
-                ProjectItem.project_id == project_id,
-                func.lower(ProjectItem.list_title) == normalized.lower(),
+            delete(LearningItem).where(
+                LearningItem.user_id == user_id,
+                LearningItem.project_id == project_id,
+                func.lower(LearningItem.list_title) == normalized.lower(),
             )
         ),
     )

@@ -1,4 +1,4 @@
-"""Tests for app.repositories.projects."""
+"""Tests for app.repositories.learning."""
 
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -13,7 +13,7 @@ def fake_session():
 
 @pytest.mark.asyncio
 async def test_projects_list_excludes_archived_by_default(fake_session):
-    from app.repositories.projects import list_for_user
+    from app.repositories.learning import list_for_user
 
     mock_project = MagicMock()
     fake_session.execute.return_value = MagicMock(
@@ -27,7 +27,7 @@ async def test_projects_list_excludes_archived_by_default(fake_session):
 
 @pytest.mark.asyncio
 async def test_list_for_users_returns_empty_without_querying(fake_session):
-    from app.repositories.projects import list_for_users
+    from app.repositories.learning import list_for_users
 
     result = await list_for_users(fake_session, [])
 
@@ -37,7 +37,7 @@ async def test_list_for_users_returns_empty_without_querying(fake_session):
 
 @pytest.mark.asyncio
 async def test_list_for_users_issues_a_single_batched_query(fake_session):
-    from app.repositories.projects import list_for_users
+    from app.repositories.learning import list_for_users
 
     projects = [MagicMock(), MagicMock()]
     fake_session.execute.return_value = MagicMock(
@@ -52,7 +52,7 @@ async def test_list_for_users_issues_a_single_batched_query(fake_session):
 
 @pytest.mark.asyncio
 async def test_find_language_by_target(fake_session):
-    from app.repositories.projects import find_language_by_target
+    from app.repositories.learning import find_language_by_target
 
     project = MagicMock()
     fake_session.execute.return_value = MagicMock(
@@ -66,7 +66,7 @@ async def test_find_language_by_target(fake_session):
 
 @pytest.mark.asyncio
 async def test_projects_create_normalizes_vocabulary_kind(fake_session):
-    from app.repositories.projects import create
+    from app.repositories.learning import create
 
     project = await create(
         fake_session,
@@ -81,7 +81,7 @@ async def test_projects_create_normalizes_vocabulary_kind(fake_session):
 
 @pytest.mark.asyncio
 async def test_projects_create_commit_false_flushes(fake_session):
-    from app.repositories.projects import create
+    from app.repositories.learning import create
 
     project = await create(
         fake_session,
@@ -98,7 +98,7 @@ async def test_projects_create_commit_false_flushes(fake_session):
 
 @pytest.mark.asyncio
 async def test_projects_delete_by_id_not_found(fake_session):
-    from app.repositories.projects import delete_by_id
+    from app.repositories.learning import delete_by_id
 
     fake_session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
 
@@ -109,7 +109,7 @@ async def test_projects_delete_by_id_not_found(fake_session):
 
 @pytest.mark.asyncio
 async def test_projects_delete_by_id_success(fake_session):
-    from app.repositories.projects import delete_by_id
+    from app.repositories.learning import delete_by_id
 
     project = MagicMock()
     fake_session.execute.return_value = MagicMock(
@@ -124,7 +124,7 @@ async def test_projects_delete_by_id_success(fake_session):
 
 @pytest.mark.asyncio
 async def test_projects_delete_by_id_commit_false_flushes(fake_session):
-    from app.repositories.projects import delete_by_id
+    from app.repositories.learning import delete_by_id
 
     project = MagicMock()
     fake_session.execute.return_value = MagicMock(

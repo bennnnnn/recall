@@ -11,12 +11,12 @@ from sqlalchemy import Table, bindparam, delete, exists, func, or_, select, upda
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Project, ProjectItem, User
+from app.models.orm import Learning, LearningItem, User
 
 _CHUNK = 500
 
 
-async def lock_project(session: AsyncSession, project_id: UUID, user_id: UUID) -> Project | None:
+async def lock_project(session: AsyncSession, project_id: UUID, user_id: UUID) -> Learning | None:
     # Account deletion takes the user lock before deleting children. Keep the
     # same order, then serialize duplicate seeds for this class on its row.
     user = (
@@ -26,11 +26,11 @@ async def lock_project(session: AsyncSession, project_id: UUID, user_id: UUID) -
         return None
     return (
         await session.execute(
-            select(Project)
+            select(Learning)
             .where(
-                Project.id == project_id,
-                Project.user_id == user_id,
-                Project.kind.in_(("language", "vocabulary")),
+                Learning.id == project_id,
+                Learning.user_id == user_id,
+                Learning.kind.in_(("language", "vocabulary")),
             )
             .with_for_update()
             .execution_options(populate_existing=True)
@@ -38,16 +38,16 @@ async def lock_project(session: AsyncSession, project_id: UUID, user_id: UUID) -
     ).scalar_one_or_none()
 
 
-async def list_items(session: AsyncSession, project_id: UUID, user_id: UUID) -> list[ProjectItem]:
+async def list_items(session: AsyncSession, project_id: UUID, user_id: UUID) -> list[LearningItem]:
     return list(
         (
             await session.execute(
-                select(ProjectItem)
+                select(LearningItem)
                 .where(
-                    ProjectItem.project_id == project_id,
-                    ProjectItem.user_id == user_id,
+                    LearningItem.project_id == project_id,
+                    LearningItem.user_id == user_id,
                 )
-                .order_by(ProjectItem.id)
+                .order_by(LearningItem.id)
                 .execution_options(populate_existing=True)
             )
         )
@@ -61,7 +61,7 @@ async def update_contents(
     *,
     user_id: UUID,
     project_id: UUID,
-    changes: list[tuple[ProjectItem, dict[str, Any]]],
+    changes: list[tuple[LearningItem, dict[str, Any]]],
 ) -> None:
     # Executemany batches by shape, avoiding a round trip per vocabulary item.
     groups: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
@@ -74,7 +74,7 @@ async def update_contents(
             **{"_value_" + name: value for name, value in values.items()},
         }
         groups[tuple(sorted(values))].append(parameters)
-    table = cast(Table, ProjectItem.__table__)
+    table = cast(Table, LearningItem.__table__)
     for fields, batch in groups.items():
         statement = update(table).where(
             table.c.id == bindparam("_item_id"),
@@ -96,20 +96,20 @@ async def delete_retired(
 ) -> None:
     """Remove retired language content inside the caller's locked transaction."""
     owner = exists().where(
-        Project.id == project_id,
-        Project.user_id == user_id,
-        Project.kind.in_(("language", "vocabulary")),
-        func.lower(func.trim(func.coalesce(Project.target_language, "en"))).in_(("en", "es")),
+        Learning.id == project_id,
+        Learning.user_id == user_id,
+        Learning.kind.in_(("language", "vocabulary")),
+        func.lower(func.trim(func.coalesce(Learning.target_language, "en"))).in_(("en", "es")),
     )
     await session.execute(
-        delete(ProjectItem)
+        delete(LearningItem)
         .where(
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id == project_id,
+            LearningItem.user_id == user_id,
+            LearningItem.project_id == project_id,
             owner,
             or_(
-                ProjectItem.catalog_entry_id.is_(None),
-                ProjectItem.catalog_entry_id.not_in(active_ids),
+                LearningItem.catalog_entry_id.is_(None),
+                LearningItem.catalog_entry_id.not_in(active_ids),
             ),
         )
         .execution_options(synchronize_session=False)
@@ -127,9 +127,9 @@ async def insert_missing(
         return
     owner = (
         await session.execute(
-            select(Project.id).where(
-                Project.id == project_id,
-                Project.user_id == user_id,
+            select(Learning.id).where(
+                Learning.id == project_id,
+                Learning.user_id == user_id,
             )
         )
     ).scalar_one_or_none()
@@ -137,7 +137,7 @@ async def insert_missing(
         return
     for offset in range(0, len(rows), _CHUNK):
         await session.execute(
-            pg_insert(ProjectItem)
+            pg_insert(LearningItem)
             .values(
                 [
                     {"user_id": user_id, "project_id": project_id, **values}

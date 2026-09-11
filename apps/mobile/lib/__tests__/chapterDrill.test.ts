@@ -1,4 +1,4 @@
-import type { ProjectItem } from "@/lib/api";
+import type { LearningItem } from "@/lib/api";
 import {
   blankTargetWord,
   buildChapterDrills,
@@ -7,7 +7,7 @@ import {
   pickTexts,
 } from "@/lib/projects/chapterDrill";
 
-function item(id: string, content: string, definition: string): ProjectItem {
+function item(id: string, content: string, definition: string): LearningItem {
   return {
     id,
     list_title: "Greetings",

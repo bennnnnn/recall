@@ -1,12 +1,12 @@
-import { api, type ProjectDetail } from "@/lib/api";
+import { api, type LearningDetail } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { isContextFresh } from "@/lib/cache/contextRefresh";
 
-type Update = (current: ProjectDetail) => ProjectDetail;
+type Update = (current: LearningDetail) => LearningDetail;
 type Entry = {
-  data?: ProjectDetail;
+  data?: LearningDetail;
   fetchedAt?: number;
-  pending?: { task: Promise<ProjectDetail | null>; updates: Update[] };
+  pending?: { task: Promise<LearningDetail | null>; updates: Update[] };
 };
 let session = -1;
 let entries = new Map<string, Entry>();
@@ -19,29 +19,29 @@ function currentEntries() {
   }
   return entries;
 }
-export function subscribeProjectDetailCache(listener: () => void) {
+export function subscribeLearningDetailCache(listener: () => void) {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
   };
 }
-export function getCachedProjectDetail(id: string) {
+export function getCachedLearningDetail(id: string) {
   return currentEntries().get(id)?.data;
 }
-export function isProjectDetailFresh(id: string) {
+export function isLearningDetailFresh(id: string) {
   const entry = currentEntries().get(id);
   return entry?.data != null && isContextFresh(entry.fetchedAt);
 }
-export function setProjectDetailCache(
+export function setLearningDetailCache(
   id: string,
-  data: ProjectDetail,
+  data: LearningDetail,
   expectedSession = getSessionGeneration(),
 ) {
   if (expectedSession !== getSessionGeneration()) return;
   currentEntries().set(id, { data, fetchedAt: Date.now() });
   notify();
 }
-export function updateProjectDetailCache(
+export function updateLearningDetailCache(
   id: string,
   update: Update,
   expectedSession = getSessionGeneration(),
@@ -53,17 +53,17 @@ export function updateProjectDetailCache(
   entry.pending?.updates.push(update);
   notify();
 }
-export function invalidateProjectDetail(id: string, expectedSession = getSessionGeneration()) {
+export function invalidateLearningDetail(id: string, expectedSession = getSessionGeneration()) {
   if (expectedSession !== getSessionGeneration()) return;
   const cache = currentEntries();
   cache.set(id, { data: cache.get(id)?.data });
   notify();
 }
-export async function fetchProjectDetail(
+export async function fetchLearningDetail(
   token: string,
   id: string,
   opts?: { force?: boolean; afterPending?: boolean },
-): Promise<ProjectDetail | null> {
+): Promise<LearningDetail | null> {
   try {
     requireTokenSession(token);
   } catch {
@@ -75,9 +75,9 @@ export async function fetchProjectDetail(
   if (opts?.afterPending && entry.pending) {
     await entry.pending.task;
     if (currentEntries() !== cache) return null;
-    return fetchProjectDetail(token, id, { force: true });
+    return fetchLearningDetail(token, id, { force: true });
   }
-  if (!opts?.force && !opts?.afterPending && isProjectDetailFresh(id)) return entry.data!;
+  if (!opts?.force && !opts?.afterPending && isLearningDetailFresh(id)) return entry.data!;
   if (entry.pending) return entry.pending.task;
   const updates: Update[] = [];
   const task = (async () => {
@@ -100,6 +100,6 @@ export async function fetchProjectDetail(
     if (entry.pending === pending) entry.pending = undefined;
   }
 }
-export function prefetchProjectDetail(token: string, id: string) {
-  void fetchProjectDetail(token, id);
+export function prefetchLearningDetail(token: string, id: string) {
+  void fetchLearningDetail(token, id);
 }

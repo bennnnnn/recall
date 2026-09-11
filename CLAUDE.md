@@ -36,7 +36,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
 - **suggestion** — a proactive follow-up prompt generated from the user's recent activity (best-effort background job).
 - **search** — full-text lookup across the user's chats and messages.
-- **project** — a utility workspace (Learning/vocabulary today) with `project_items` and quiz progress (`quiz_miss_events`, SM-2 scheduling).
+- **learning class** — a vocabulary class (`projects` table, HTTP `/projects`) with `project_items` and quiz progress (`quiz_miss_events`, SM-2 scheduling).
 - **attachment** — an uploaded image/file (R2 in production) with extracted text chunked into `attachment_chunks` for retrieval.
 - **integration** — a connected Google account: `user_calendar_connections` and `user_gmail_connections`, feeding calendar context and `suggested_reminders`.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
@@ -72,7 +72,7 @@ app/
   routers/             # HTTP + WebSocket ONLY (no business logic)
   services/            # business logic (~27k)
     chat/              # turn prep, stream, post_turn (~4.5k)
-    memory/ projects/ todos/ web_search/ home/
+    memory/ learning/ todos/ web_search/ home/
   gateways/            # external IO (LiteLLM, Google, storage, speech, search, …)
     mcp/               # tool adapters + registry (flag-gated at runtime)
   repositories/        # Neon access
@@ -116,7 +116,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
 | Search | `routers/search.py`, `services/search.py` | drawer search (`useDrawerSearch`) |
 | Todos / reminders | `routers/todos.py`, `services/todos/` | `app/todos.tsx`, `components/todos/` |
-| Learning projects | `routers/projects.py`, `services/projects/`, `vocab_quiz.py`, `daily_learning.py` | `app/projects/`, quiz chips |
+| Learning classes | `routers/learning.py` (HTTP `/projects`), `services/learning/`, `vocab_quiz.py`, `daily_learning.py` | `app/projects/`, quiz chips |
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
 | Attachments + RAG | `routers/attachments.py`, `attachment_*.py`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
@@ -132,9 +132,9 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**Routers registered in** `main.py`: health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, projects, search, suggestions, attachments, integrations, gmail_integrations, speech, images, ws.
+**Routers registered in** `main.py`: health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, images, ws.
 
-**Service packages:** `services/chat`, `memory`, `projects`, `todos`, `web_search`, `home`, plus top-level modules (math_*, speech, calendar, …). New chat-loop code belongs in `services/chat/`. New IO belongs in a gateway or repository, not a router.
+**Service packages:** `services/chat`, `memory`, `learning`, `todos`, `web_search`, `home`, plus top-level modules (math_*, speech, calendar, …). New chat-loop code belongs in `services/chat/`. New IO belongs in a gateway or repository, not a router.
 
 ## Seams (plug in / plug out)
 
@@ -180,7 +180,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,projects,integrations,attachments,images,account,discover,connectivity,types}.ts`
+- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,learning,integrations,attachments,images,account,discover,connectivity,types}.ts`
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`

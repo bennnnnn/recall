@@ -6,12 +6,12 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import LearningPracticeEvent, ProjectItem, QuizMissEvent
+from app.models.orm import LearningItem, LearningPracticeEvent, QuizMissEvent
 from app.models.schemas.learning import LearningPracticeIn
 from app.repositories import learning_practice as practice_repo
+from app.services.learning.common import _invalidate_home_for_user
+from app.services.learning.crud import LearningError
 from app.services.learning.spaced_repetition import apply_sm2
-from app.services.projects.common import _invalidate_home_for_user
-from app.services.projects.crud import ProjectsError
 
 
 def _check_replay(event: LearningPracticeEvent, item_id: UUID, body: LearningPracticeIn) -> None:
@@ -20,7 +20,7 @@ def _check_replay(event: LearningPracticeEvent, item_id: UUID, body: LearningPra
         body.was_correct,
         body.completes_word,
     ):
-        raise ProjectsError("attempt_id already used for a different outcome", status_code=409)
+        raise LearningError("attempt_id already used for a different outcome", status_code=409)
 
 
 async def record_practice(
@@ -31,11 +31,11 @@ async def record_practice(
     body: LearningPracticeIn,
     *,
     now: datetime | None = None,
-) -> tuple[ProjectItem, bool, bool]:
+) -> tuple[LearningItem, bool, bool]:
     try:
         item = await practice_repo.lock_owned_item(session, user_id, project_id, item_id)
         if item is None:
-            raise ProjectsError("Item not found", status_code=404)
+            raise LearningError("Item not found", status_code=404)
         when = now or datetime.now(UTC)
         previous = await practice_repo.get_attempt(session, user_id, body.attempt_id)
         if previous is not None:

@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import (
     Attachment,
     Chat,
+    Learning,
+    LearningItem,
     Memory,
     Message,
-    Project,
-    ProjectItem,
     PushToken,
     SuggestedReminder,
     Suggestion,
@@ -110,8 +110,8 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     await session.execute(delete(Message).where(Message.user_id == user_id))
     await session.execute(delete(Memory).where(Memory.user_id == user_id))
     await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))
-    await session.execute(delete(ProjectItem).where(ProjectItem.user_id == user_id))
-    await session.execute(delete(Project).where(Project.user_id == user_id))
+    await session.execute(delete(LearningItem).where(LearningItem.user_id == user_id))
+    await session.execute(delete(Learning).where(Learning.user_id == user_id))
     await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))
     await session.execute(delete(Suggestion).where(Suggestion.user_id == user_id))
     await session.execute(delete(SuggestedReminder).where(SuggestedReminder.user_id == user_id))

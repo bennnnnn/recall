@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validat
 # Product learning kinds: vocabulary (one class per target language).
 # `vocabulary` is accepted as a write alias and normalized to `language`.
 LearningKind = Literal["language"]
-ProjectKind = LearningKind
 
 VocabStatus = Literal["new", "learning", "mastered"]
 
@@ -278,16 +277,3 @@ class LearningExtractionResult(BaseModel):
     model_config = ConfigDict(title="LearningExtractionResult")
 
     actions: list[LearningActionItem] = Field(default_factory=list)
-
-
-ProjectOut = LearningOut
-ProjectCreate = LearningCreate
-ProjectUpdate = LearningUpdate
-ProjectItemOut = LearningItemOut
-ProjectStats = LearningStats
-ProjectListOut = LearningListOut
-ProjectDailyHistoryDay = LearningDailyHistoryDay
-ProjectListGroup = LearningListGroup
-ProjectDetailOut = LearningDetailOut
-ProjectActionItem = LearningActionItem
-ProjectExtractionResult = LearningExtractionResult

@@ -3,10 +3,10 @@ import { randomUUID } from "expo-crypto";
 import { useTranslation } from "react-i18next";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { useProjectDetail } from "@/hooks/useProjectDetail";
+import { useLearningDetail } from "@/hooks/useLearningDetail";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { fetchProjectDetail, updateProjectDetailCache } from "@/lib/cache/projectDetailCache";
+import { fetchLearningDetail, updateLearningDetailCache } from "@/lib/cache/projectDetailCache";
 import { peekQueuedLessonLaunch, takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
 import { buildChapterDrills, isLastStepForWord, type DrillStep } from "@/lib/projects/chapterDrill";
@@ -63,7 +63,7 @@ export function useLessonSession(projectId: string, isCurrentView: () => boolean
   const owner = useMemo(() => ({ session, projectId }), [session, projectId]);
   const ownerRef = useRef(owner);
   ownerRef.current = owner;
-  const { project, loading, loadError, load, isCurrentOwner } = useProjectDetail(projectId);
+  const { project, loading, loadError, load, isCurrentOwner } = useLearningDetail(projectId);
   const { refresh: refreshProjects } = useProjects();
   const { t } = useTranslation();
   const requested = useMemo(() => peekQueuedLessonLaunch(owner.projectId)?.chapter, [owner]);
@@ -164,7 +164,7 @@ export function useLessonSession(projectId: string, isCurrentView: () => boolean
             completes_word: answer.completesWord,
           });
           if (sameAccount()) {
-            updateProjectDetailCache(
+            updateLearningDetailCache(
               projectId,
               (detail) => ({
                 ...detail,
@@ -177,7 +177,7 @@ export function useLessonSession(projectId: string, isCurrentView: () => boolean
               }),
               owner.session,
             );
-            void fetchProjectDetail(savedToken, projectId, { force: true, afterPending: true });
+            void fetchLearningDetail(savedToken, projectId, { force: true, afterPending: true });
             void refreshProjects({ silent: true, force: true, afterPending: true });
           }
           if (!canAct() || (!quiet && latest.current.answer?.attemptId !== answer.attemptId)) return;

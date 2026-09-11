@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.learning_policy import resolve_daily_goal
-from app.models.orm import Project
+from app.models.orm import Learning
 
 
 def _initial_daily_goal_history(
@@ -33,11 +33,11 @@ async def list_for_user(
     *,
     include_archived: bool = False,
     limit: int = 200,
-) -> list[Project]:
-    stmt = select(Project).where(Project.user_id == user_id)
+) -> list[Learning]:
+    stmt = select(Learning).where(Learning.user_id == user_id)
     if not include_archived:
-        stmt = stmt.where(Project.archived.is_(False))
-    stmt = stmt.order_by(Project.updated_at.desc()).limit(limit)
+        stmt = stmt.where(Learning.archived.is_(False))
+    stmt = stmt.order_by(Learning.updated_at.desc()).limit(limit)
     return list((await session.execute(stmt)).scalars().all())
 
 
@@ -46,18 +46,18 @@ async def list_for_users(
     user_ids: list[UUID],
     *,
     include_archived: bool = False,
-) -> list[Project]:
+) -> list[Learning]:
     """Batched list_for_user — one query across many users instead of one per user."""
     if not user_ids:
         return []
-    stmt = select(Project).where(Project.user_id.in_(user_ids))
+    stmt = select(Learning).where(Learning.user_id.in_(user_ids))
     if not include_archived:
-        stmt = stmt.where(Project.archived.is_(False))
+        stmt = stmt.where(Learning.archived.is_(False))
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def get_by_id(session: AsyncSession, project_id: UUID, user_id: UUID) -> Project | None:
-    stmt = select(Project).where(Project.id == project_id, Project.user_id == user_id)
+async def get_by_id(session: AsyncSession, project_id: UUID, user_id: UUID) -> Learning | None:
+    stmt = select(Learning).where(Learning.id == project_id, Learning.user_id == user_id)
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
@@ -65,15 +65,15 @@ async def find_language_by_target(
     session: AsyncSession,
     user_id: UUID,
     target_language: str,
-) -> Project | None:
+) -> Learning | None:
     lang = (target_language or "en").strip().lower()
     stmt = (
-        select(Project)
+        select(Learning)
         .where(
-            Project.user_id == user_id,
-            Project.archived.is_(False),
-            Project.kind.in_(("language", "vocabulary")),
-            Project.target_language == lang,
+            Learning.user_id == user_id,
+            Learning.archived.is_(False),
+            Learning.kind.in_(("language", "vocabulary")),
+            Learning.target_language == lang,
         )
         .limit(1)
     )
@@ -93,9 +93,9 @@ async def create(
     daily_goal: int | None = None,
     timezone_name: str = "UTC",
     commit: bool = True,
-) -> Project:
+) -> Learning:
     normalized_kind = "language" if kind == "vocabulary" else kind
-    project = Project(
+    project = Learning(
         user_id=user_id,
         title=title,
         description=description,
@@ -122,11 +122,11 @@ async def create(
 
 async def update(
     session: AsyncSession,
-    project: Project,
+    project: Learning,
     *,
     commit: bool = True,
     **fields: object,
-) -> Project:
+) -> Learning:
     for key, value in fields.items():
         setattr(project, key, value)
     if commit:

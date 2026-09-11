@@ -7,9 +7,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
-from app.models.orm import LearningPracticeEvent, Project, ProjectItem, QuizMissEvent
-from app.services.learning import catalog_items
-from app.services.projects import path_seed
+from app.models.orm import Learning, LearningItem, LearningPracticeEvent, QuizMissEvent
+from app.services.learning import catalog_items, path_seed
 from app.tests.services.test_learning_catalog_reconciliation import _deck, _item, _saved_item
 from app.tests.services.test_learning_catalog_reconciliation import catalog_sql as _catalog_sql
 from app.tests.services.test_learning_catalog_seed import _seed_environment
@@ -20,7 +19,7 @@ catalog_sql = _catalog_sql
 def test_retired_rows_require_sync_even_when_all_active_words_are_present(monkeypatch):
     deck = _deck()
     monkeypatch.setattr(path_seed, "path_decks_for_language", lambda language: [deck])
-    project = type("Project", (), {"target_language": "es", "learning_path": [deck.title]})()
+    project = type("Learning", (), {"target_language": "es", "learning_path": [deck.title]})()
     current = _item(deck)
     retired = _item(deck, catalog_entry_id=None, content="old word", list_title="Old group")
     assert path_seed.needs_catalog_sync(project, [current, retired])
@@ -49,27 +48,27 @@ async def test_seed_deletes_retired_rows_and_keeps_current_progress_and_other_ow
     current.quiz_attempts = 12
     current.mastered_at = datetime.now(UTC)
     retired_deck = replace(deck, slug="retired", title="Old group")
-    retired = ProjectItem(
+    retired = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=project.id,
         **catalog_items.word_values(retired_deck, retired_deck.words[0]),
     )
-    unknown = ProjectItem(
+    unknown = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=project.id,
         list_title="Custom old group",
         content="old custom word",
     )
-    other_language = Project(
+    other_language = Learning(
         id=uuid4(),
         user_id=user.id,
         title="French",
         target_language="fr",
         learning_path=["Old"],
     )
-    unrelated = ProjectItem(
+    unrelated = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=other_language.id,
@@ -99,8 +98,8 @@ async def test_seed_deletes_retired_rows_and_keeps_current_progress_and_other_ow
 
     await path_seed.seed_language_path(None, user_id=user.id, project_id=project.id)
 
-    assert set(sync.scalars(select(ProjectItem.id))) == expected_ids
-    saved = sync.get(ProjectItem, expected_current_id)
+    assert set(sync.scalars(select(LearningItem.id))) == expected_ids
+    saved = sync.get(LearningItem, expected_current_id)
     assert saved.status == "mastered" and saved.review_count == 8 and saved.quiz_attempts == 12
     assert sync.get(QuizMissEvent, miss_id).item_id == expected_current_id
     assert sync.get(LearningPracticeEvent, practice_id).item_id == expected_current_id
@@ -142,7 +141,7 @@ async def test_retired_collision_is_replaced_without_adopting_its_history(catalo
 
     await path_seed.seed_language_path(None, user_id=user_id, project_id=project_id)
 
-    rows = sync.scalars(select(ProjectItem).where(ProjectItem.project_id == project_id)).all()
+    rows = sync.scalars(select(LearningItem).where(LearningItem.project_id == project_id)).all()
     assert len(rows) == 1 and rows[0].id != old_id
     assert (
         rows[0].catalog_entry_id
@@ -171,7 +170,7 @@ async def test_retirement_rolls_back_if_reseeding_fails(catalog_sql, monkeypatch
     with pytest.raises(RuntimeError, match="write failed"):
         await path_seed.seed_language_path(None, user_id=user_id, project_id=project_id)
 
-    assert sync.scalar(select(ProjectItem.id)) == old_id
+    assert sync.scalar(select(LearningItem.id)) == old_id
     invalidate.assert_not_awaited()
 
 
@@ -180,13 +179,13 @@ async def test_pending_cleanup_hides_retired_words_from_detail_and_recall(catalo
     from unittest.mock import AsyncMock
 
     from app.core.config import Settings
-    from app.services.projects import crud, prompt_context
+    from app.services.learning import crud, prompt_context
 
     sync, _ = catalog_sql
     LearningPracticeEvent.__table__.create(sync.get_bind())
     deck = _deck()
     user, project, current = _saved_item(sync, deck)
-    retired = ProjectItem(
+    retired = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=project.id,
@@ -213,15 +212,15 @@ async def test_pending_cleanup_hides_retired_words_from_detail_and_recall(catalo
     enqueue = AsyncMock()
     monkeypatch.setattr(crud, "enqueue_language_path_job", enqueue)
 
-    detail = await crud.get_project_detail(session, user, project.id, include_lists=True)
+    detail = await crud.get_learning_detail(session, user, project.id, include_lists=True)
     assert detail is not None
     assert [group.list_title for group in detail["lists"]] == [deck.title]
     assert [item.id for group in detail["lists"] for item in group.items] == [current.id]
     assert all(day.completed_count == 0 for day in detail["daily_history"])
     enqueue.assert_awaited_once()
-    block = await prompt_context.load_project_for_prompt(session, user.id, project.id, Settings())
+    block = await prompt_context.load_learning_for_prompt(session, user.id, project.id, Settings())
     assert "retired beginner" not in block.lower()
     assert deck.words[0].content in block
     assert "today 0/" in block
     # Reading hides content while preserving it until the cleanup transaction.
-    assert sync.get(ProjectItem, retired.id) is not None
+    assert sync.get(LearningItem, retired.id) is not None

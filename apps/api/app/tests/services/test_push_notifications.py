@@ -399,12 +399,12 @@ async def test_process_learning_nudges_stays_silent_once_goal_met_even_with_revi
 
     with (
         patch.object(
-            push_service.learning_nudges.projects_repo,
+            push_service.learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(
                 return_value={
                     project.id: {
@@ -476,12 +476,12 @@ async def test_process_learning_nudges_batches_across_users():
 
     with (
         patch.object(
-            push_service.learning_nudges.projects_repo,
+            push_service.learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=projects),
         ) as list_projects_mock,
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(return_value=stats_by_project),
         ) as count_stats_mock,
         patch.object(
@@ -557,12 +557,12 @@ async def test_process_learning_nudges_isolates_one_user_failure():
 
     with (
         patch.object(
-            push_service.learning_nudges.projects_repo,
+            push_service.learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=projects),
         ),
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(return_value=stats_by_project),
         ),
         patch.object(
@@ -613,12 +613,12 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
 
     with (
         patch.object(
-            push_service.learning_nudges.projects_repo,
+            push_service.learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(
                 return_value={
                     project.id: {
@@ -678,12 +678,12 @@ async def test_process_learning_nudges_skips_non_learning_projects():
 
     with (
         patch.object(
-            push_service.learning_nudges.projects_repo,
+            push_service.learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.projects.stats.count_stats_by_project",
+            "app.services.learning.stats.count_stats_by_learning",
             AsyncMock(return_value={}),
         ),
         patch.object(
