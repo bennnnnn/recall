@@ -21,7 +21,9 @@ SUMMARY_SYSTEM_PROMPT = (
     "Facts: durable preferences, names, numbers, decisions\n"
     "Topics: what was discussed and outcomes\n"
     "Open: unresolved questions or next steps\n\n"
-    "Keep durable facts and decisions; drop greetings and filler. Reply with the "
+    "Keep durable facts and decisions; drop greetings and filler. Preserve uncertainty: "
+    "if someone is considering an option or has not decided, do not upgrade that into a "
+    "decision (e.g. keep 'considering Postgres', never 'uses Postgres'). Reply with the "
     "summary only."
 )
 

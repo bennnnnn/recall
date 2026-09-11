@@ -11,8 +11,9 @@ const mockDeleteFact = jest.fn(async () => true);
 const mockUpdate = jest.fn(async () => true);
 const mockFeedback = { error: jest.fn() };
 const mockRouter = { replace: jest.fn() };
+const mockMute = jest.fn(async () => true);
 const mockT = (key: string) => key;
-const sample = { id: "m1", type: "profile", text: "First fact. Second fact. Third fact. Fourth fact.", confidence: 0.9, created_at: "2026-01-01", updated_at: "2026-01-01" };
+const sample = { id: "m1", type: "profile", text: "First fact.", confidence: 0.9, created_at: "2026-01-01", updated_at: "2026-01-01" };
 let mockMemories = [sample];
 let mockError = false;
 let mockPending = new Set<string>();
@@ -53,7 +54,7 @@ jest.mock("@/lib/cache/memoryListCache", () => ({ getCachedMemories: () => mockM
 jest.mock("@/hooks/useMemoryActions", () => ({ useMemoryActions: () => ({
   memories: mockMemories, loading: false, error: mockError, load: mockLoad,
   hasLoaded: mockHasLoaded, deleteSection: mockDeleteSection, deleteFact: mockDeleteFact,
-  updateMemoryText: mockUpdate, pendingTypes: mockPending, isCurrentOwner: () => true,
+  muteMemory: mockMute, updateMemoryText: mockUpdate, pendingTypes: mockPending, isCurrentOwner: () => true,
 }) }));
 const mockHasLoaded = () => true;
 
@@ -68,15 +69,13 @@ function confirmDelete(): () => Promise<void> {
   return (Alert.alert as jest.Mock).mock.calls.at(-1)[2][1].onPress;
 }
 async function beginEdit(ui: Awaited<ReturnType<typeof render>>) {
-  await fireEvent.press(ui.getByLabelText("memory.edit_section_a11y"));
+  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
   await fireEvent.changeText(ui.getByDisplayValue(sample.text), "Updated fact");
 }
 
-it("collapses a long fact list and expands it on request", async () => {
+it("shows each saved fact", async () => {
   const ui = await render(<MemoryScreen />);
-  expect(ui.queryByText("Fourth fact.")).toBeNull();
-  await fireEvent.press(ui.getByText("common.show_more"));
-  expect(ui.getByText("Fourth fact.")).toBeTruthy();
+  expect(ui.getByText("First fact.")).toBeTruthy();
 });
 
 it.each(["account", "blur", "blur-refocus", "unmount"])("ignores a retained delete confirmation after %s", async (change) => {
@@ -140,7 +139,7 @@ it("edits a maximum-length stamped section without sending the server stamp back
   const body = "x".repeat(4000);
   mockMemories = [{ ...sample, text: `As of 2026-09-04: ${body}` }];
   const ui = await render(<MemoryScreen />);
-  await fireEvent.press(ui.getByLabelText("memory.edit_section_a11y"));
+  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
   expect(ui.getByDisplayValue(body)).toBeTruthy();
   await act(() => { mockSheet.onSave(); });
   expect(mockUpdate).toHaveBeenCalledWith(sample.id, body);
@@ -157,7 +156,7 @@ it("shows Retry alongside cached memories when refresh fails", async () => {
 it("disables mutations for a section with a pending write", async () => {
   mockPending.add("profile");
   const ui = await render(<MemoryScreen />);
-  await fireEvent.press(ui.getByLabelText("memory.edit_section_a11y"));
+  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
   await fireEvent.press(ui.getByLabelText("memory.delete_section_a11y"));
   expect(ui.queryByDisplayValue(sample.text)).toBeNull();
   expect(Alert.alert).not.toHaveBeenCalled();

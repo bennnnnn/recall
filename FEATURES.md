@@ -273,24 +273,29 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   line only** (assistant restatements dropped), capped ~4k (head+tail); attachment OCR /
   untrusted blocks stripped before extract; memory wrapped as first-party notes (fence kept);
   account email injected only for email/draft/inbox intents.
-- ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (captures things
-  like interests, what they're working on, name, job, country when mentioned).
-- ✅ **Quality controls** — confidence threshold, de-duplication, priority ordering, capped count.
-- ✅ **Prompt injection** — profile/preference always; fact/focus/project only when
-  similarity clears `memory_min_similarity` (default 0.35), with a char budget.
-  Health / legal / finance memories stay **stripped on casual turns** and inject only when
-  the user's ask itself looks like those topics (`exclude_sensitive_for_query`).
+- ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (grouping
+  categories, not a 20-type taxonomy). Each row is one atomic fact (the old one-paragraph-per-type
+  unique constraint is gone). Cap **150 active** facts per user.
+- ✅ **Quality controls** — confidence threshold, de-duplication / pair-merge, score-and-pack
+  packing (never mid-fact prefix cut), identity core (a few profile + communication prefs).
+- ✅ **Prompt injection** — identity core always; remaining facts packed by cosine + importance +
+  recency until `memory_inject_max_chars` (1500). Similarity bar stays `memory_min_similarity`
+  (0.35). Health / legal / finance / relationship stay **stripped on casual turns** (stored
+  `sensitivity` first, regex defense-in-depth) and inject only when the ask is in-domain.
   Life-domain advice ("what should I eat", "I need dinner", "plan a workout")
   injects **memory only** — not Calendar/Gmail. Ordinary need/plan phrasing
   counts, not just "recommend" / "what should I".
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
-  falls back to priority ordering when embeddings are missing).
-- ✅ **Memory screen** — view memories grouped by type, with confidence, and **edit / delete**
-  them. Storage is one consolidated row per type (`profile` / `preference` / …); deleting a
-  single fact rewrites that section rather than removing a separate row per bullet.
-  `PATCH /memories/{id}` updates text, re-embeds, and invalidates caches.
-- ✅ **Memory toggle** — turn learning on/off in Settings.
+  falls back to scored packing when embeddings are missing).
+- ✅ **Memory screen** — facts grouped by type, each with a real id, **last confirmed** and
+  source chat title (not confidence %). Edit, delete, or mute (“Don’t mention this”).
+  `PATCH /memories/{id}` updates text or status; `DELETE /memories/{id}` deletes one fact;
+  `DELETE /memories` clears all. See [docs/MEMORY_V2.md](docs/MEMORY_V2.md).
+- ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
+  remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
+- 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
+  do not implement until this line is promoted.
 - ✅ **Memory management reliability review (2026-09-04)** — account and navigation
   changes invalidate old dialogs, reads, and feedback; independent section edits compose,
   and pending writes remain exclusive across screen visits. Failed refreshes retain saved
@@ -942,10 +947,9 @@ Still open (non-blocking):
 - ⚠️ **Android chat keyboard** — `softwareKeyboardLayoutMode: resize` is set for Reanimated's
   `useAnimatedKeyboard`; needs an **Android dev-client rebuild** and on-device composer smoke test
   (iOS confirmed smooth; Android unverified).
-- ✅ **Memory consolidation (merge-not-replace)** — extract prompt merges into the existing
-  section (does not rewrite from scratch); later per-section LLM merge via
-  `merge_memory_section`, with a deterministic exact-sentence dedupe pre-pass. Safety gates
-  still skip merges that shrink below 50% (LLM path) or drop **≥20% of salient anchors**.
+- ✅ **Memory consolidation (pair-merge)** — exact duplicate facts are deleted without an LLM
+  call; near-duplicate pairs (token Jaccard) merge with the same ≥20% anchor gate. Triggered
+  on GET /memories as before.
 
 ### Multimodal & attachments
 

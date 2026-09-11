@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.core.validation import normalize_avatar_url
 from app.models.schemas import UserUpdate
 from app.services.profile import (
     effective_location_label,
@@ -35,6 +36,29 @@ def test_user_update_normalizes_name():
 def test_user_update_rejects_blank_name():
     with pytest.raises(ValueError):
         UserUpdate(name="   ")
+
+
+def test_user_update_accepts_uploaded_avatar_path():
+    attachment_id = "11111111-1111-1111-1111-111111111111"
+    update = UserUpdate(avatar_url=f"/attachments/{attachment_id}/file")
+    assert update.avatar_url == f"/attachments/{attachment_id}/file"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "https://evil.example/pic.png",
+        "javascript:alert(1)",
+        "/attachments/not-a-uuid/file",
+        "/attachments/11111111-1111-1111-1111-111111111111/files",
+        " /attachments/11111111-1111-1111-1111-111111111111/file/../x",
+    ],
+)
+def test_user_update_rejects_non_upload_avatar(raw: str):
+    with pytest.raises(ValueError):
+        UserUpdate(avatar_url=raw)
+    with pytest.raises(ValueError):
+        normalize_avatar_url(raw)
 
 
 def test_user_update_accepts_iana_timezone():

@@ -6,6 +6,20 @@ MessageRole = Literal["user", "assistant", "system"]
 
 MemoryType = Literal["profile", "preference", "project", "fact", "focus"]
 
+MemoryStatus = Literal["active", "superseded", "muted"]
+
+MemorySensitivity = Literal[
+    "normal",
+    "health",
+    "finance",
+    "legal",
+    "relationship",
+    "identity",
+    "highly_sensitive",
+]
+
+MemoryOpKind = Literal["add", "update", "supersede", "delete"]
+
 ResponseStyle = Literal["short", "balanced", "detailed"]
 
 ResponseTone = Literal["funny", "professional", "casual", "soft"]

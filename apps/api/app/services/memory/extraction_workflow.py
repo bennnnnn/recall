@@ -1,4 +1,4 @@
-"""Extract and persist memory sections from a chat transcript."""
+"""Extract and persist atomic memory facts from a chat transcript."""
 
 import logging
 from dataclasses import dataclass
@@ -10,21 +10,22 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
+from app.repositories.memory_writes import MemoryFactWrite
 from app.services import memory_llm
 from app.services.memory import (
-    accept_memory_section_rewrite,
     acquire_memory_write_lock,
     is_explicit_forget_command,
     is_explicit_memory_command,
-    merge_explicit_remember_fact,
+    is_memory_candidate,
     release_memory_write_lock,
-    stamp_memory_as_of,
 )
-from app.services.memory.apply import apply_memory_section_rows
+from app.services.memory.apply import apply_memory_facts
 from app.services.memory.extract_backlog import (
     expand_memory_extract_transcript,
     stamp_extract_cursor,
 )
+from app.services.memory.facts import should_skip_sensitive_persist
+from app.services.memory.text import classify_memory_sensitivity, normalize_memory_text
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,9 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class _MemoryExtractionSnapshot:
     memory_enabled: bool
-    existing_sections: dict[str, str]
-    existing_rows: dict[str, tuple[UUID, str]]
+    include_sensitive: bool
+    existing_facts: dict[UUID, str]
+    prompt_facts: list[dict[str, str]]
 
 
 async def _load_memory_extraction_snapshot(
@@ -43,14 +45,70 @@ async def _load_memory_extraction_snapshot(
     user = await users_repo.get_by_id(session, user_id)
     if user is None or not getattr(user, "memory_enabled", True):
         return _MemoryExtractionSnapshot(
-            memory_enabled=False, existing_sections={}, existing_rows={}
+            memory_enabled=False,
+            include_sensitive=False,
+            existing_facts={},
+            prompt_facts=[],
         )
-    existing = await memories_repo.list_for_user(session, user_id)
+    existing = await memories_repo.list_for_user(
+        session, user_id, include_muted=False, include_superseded=False
+    )
     return _MemoryExtractionSnapshot(
         memory_enabled=True,
-        existing_sections={memory.type: memory.text for memory in existing},
-        existing_rows={memory.type: (memory.id, memory.text) for memory in existing},
+        include_sensitive=bool(getattr(user, "memory_include_sensitive", False)),
+        existing_facts={memory.id: memory.text for memory in existing},
+        prompt_facts=[
+            {"id": str(memory.id), "type": memory.type, "text": memory.text} for memory in existing
+        ],
     )
+
+
+def _writes_from_ops(
+    result_ops: list,
+    *,
+    chat_id: UUID,
+    explicit_remember: bool,
+    include_sensitive: bool,
+    min_confidence: float,
+) -> tuple[list[MemoryFactWrite], int]:
+    writes: list[MemoryFactWrite] = []
+    skipped = 0
+    for op in result_ops:
+        confidence = float(op.confidence)
+        if confidence < min_confidence:
+            skipped += 1
+            continue
+        text = normalize_memory_text(op.text or "")
+        sensitivity = op.sensitivity or classify_memory_sensitivity(text)
+        if should_skip_sensitive_persist(
+            sensitivity=sensitivity,
+            text=text or op.match_text or "",
+            explicit_remember=explicit_remember,
+            include_sensitive=include_sensitive,
+        ) and op.op in {"add", "update", "supersede"}:
+            logger.info(
+                "Skipping sensitive memory persist op=%s sensitivity=%s",
+                op.op,
+                sensitivity,
+            )
+            skipped += 1
+            continue
+        if op.op != "delete" and not text:
+            skipped += 1
+            continue
+        writes.append(
+            MemoryFactWrite(
+                op=op.op,
+                type=op.type,
+                text=text,
+                confidence=confidence,
+                sensitivity=sensitivity,
+                importance=float(op.importance),
+                match_text=op.match_text,
+                source_chat_id=chat_id,
+            )
+        )
+    return writes, skipped
 
 
 async def extract_and_store_memories(
@@ -83,76 +141,48 @@ async def extract_and_store_memories(
             if not expanded.strip():
                 return None
 
-            result = await memory_llm.revise_memory_sections(
-                settings,
-                expanded,
-                existing_sections=snapshot.existing_sections,
-            )
-            if not result or not result.sections:
-                if newest_cursor:
-                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
-                return None
-
             forget = is_explicit_forget_command(expanded)
             explicit_remember = is_explicit_memory_command(expanded) and not forget
-            rows: list[tuple[str, str, float, UUID | None]] = []
-            clear_types: list[str] = []
-            for section in result.sections:
-                prior = snapshot.existing_sections.get(section.type, "")
-                accepted = accept_memory_section_rewrite(
-                    section_type=section.type,
-                    prior=prior,
-                    summary=section.summary,
-                    confidence=section.confidence,
-                    min_confidence=settings.memory_min_confidence,
-                    allow_clear=forget,
+            if not explicit_remember and not forget and not is_memory_candidate(expanded):
+                logger.info(
+                    "memory_extract_yield user_id=%s applied=0 skipped=candidate",
+                    user_id,
                 )
-                if accepted is None and explicit_remember:
-                    merged = merge_explicit_remember_fact(prior, section.summary)
-                    if merged != prior:
-                        accepted = accept_memory_section_rewrite(
-                            section_type=section.type,
-                            prior=prior,
-                            summary=merged,
-                            confidence=section.confidence,
-                            min_confidence=settings.memory_min_confidence,
-                            enforce_length_floor=False,
-                        )
-                if accepted is None:
-                    continue
-                if forget and not accepted:
-                    if snapshot.existing_sections.get(section.type):
-                        clear_types.append(section.type)
-                    continue
-                rows.append(
-                    (
-                        section.type,
-                        stamp_memory_as_of(accepted),
-                        section.confidence,
-                        chat_id,
-                    )
-                )
-            if rows:
-                await apply_memory_section_rows(
+                return None
+
+            result = await memory_llm.revise_memory_facts(
+                settings,
+                expanded,
+                existing_facts=snapshot.prompt_facts,
+            )
+            if not result or not result.ops:
+                if newest_cursor:
+                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
+                logger.info("memory_extract_yield user_id=%s applied=0 skipped=empty", user_id)
+                return None
+
+            writes, skipped = _writes_from_ops(
+                result.ops,
+                chat_id=chat_id,
+                explicit_remember=explicit_remember,
+                include_sensitive=snapshot.include_sensitive,
+                min_confidence=settings.memory_min_confidence,
+            )
+            if writes:
+                await apply_memory_facts(
                     settings,
                     user_id=user_id,
-                    rows=rows,
+                    writes=writes,
                     session_factory=SessionLocal,
                     memories=memories_repo,
-                    expected_sections=snapshot.existing_rows,
+                    expected_facts=snapshot.existing_facts,
                 )
-            if clear_types:
-                async with SessionLocal() as session:
-                    for section_type in clear_types:
-                        await memories_repo.delete_by_type(
-                            session, user_id, section_type, commit=False
-                        )
-                    await session.commit()
-                from app.services import home as home_service
-                from app.services import memory as memory_service
-
-                await memory_service.invalidate_memory_block(user_id)
-                await home_service.invalidate_home_cache(user_id)
+            logger.info(
+                "memory_extract_yield user_id=%s applied=%s skipped=%s",
+                user_id,
+                len(writes),
+                skipped,
+            )
             if newest_cursor:
                 await stamp_extract_cursor(user_id, chat_id, newest_cursor)
         finally:

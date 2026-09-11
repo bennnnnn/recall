@@ -74,6 +74,10 @@ def _mem(type_: str, text: str, confidence: float | None = 0.9):
     m.type = type_
     m.text = text
     m.confidence = confidence
+    m.status = "active"
+    m.sensitivity = "normal"
+    m.importance = 0.5
+    m.last_confirmed_at = None
     m.updated_at = 0
     return m
 
@@ -195,7 +199,7 @@ async def test_revise_memory_sections_mock():
     result = await memory_llm.revise_memory_sections(
         settings, "User likes Python", existing_sections={}
     )
-    assert result is None or hasattr(result, "sections")
+    assert result is None or hasattr(result, "ops")
 
 
 @pytest.mark.asyncio
@@ -220,7 +224,7 @@ async def test_revise_memory_sections_prompt_user_stated_only():
     system = captured["messages"][0]["content"]  # type: ignore[index]
     assert "explicitly stated or confirmed by the User line" in system
     assert "never from assistant inferences" in system
-    assert "Merge new user-stated facts into the existing section" in system
+    assert "Each op is ONE fact" in system
     assert "explicitly asks to remember a fact" in system
     assert "explicitly asks to forget a fact" in system
     assert "Rewrite the full section when updating" not in system
@@ -271,7 +275,7 @@ async def test_extract_and_store_no_result():
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -288,17 +292,17 @@ async def test_extract_and_store_no_result():
 @pytest.mark.asyncio
 async def test_extract_and_store_filters_confidence():
     from app.background.memory_extraction import extract_and_store_memories
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.7)
-    extraction = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(type="fact", summary="Uses Vim daily.", confidence=0.9),
-            MemorySectionItem(type="fact", summary="Low conf fact.", confidence=0.3),
+    extraction = MemoryFactUpdateResult(
+        ops=[
+            MemoryFactOp(op="add", type="fact", text="Uses Vim daily.", confidence=0.9),
+            MemoryFactOp(op="add", type="fact", text="Low conf fact.", confidence=0.3),
         ]
     )
-    upsert = AsyncMock()
-    _, session_locals = _memory_extraction_sessions(count=2)
+    apply = AsyncMock()
+    _, session_locals = _memory_extraction_sessions()
     with (
         patch(
             "app.background.memory_extraction.SessionLocal",
@@ -313,20 +317,18 @@ async def test_extract_and_store_filters_confidence():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.background.memory_extraction.apply_memory_facts", apply),
     ):
         await extract_and_store_memories(
-            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like using Vim daily."
         )
-    upsert.assert_awaited_once()
-    items = upsert.call_args.kwargs["items"]
-    assert len(items) == 1
-    assert items[0][1].startswith("As of ")
-    assert items[0][1].endswith("Uses Vim daily")
+    apply.assert_awaited_once()
+    writes = apply.await_args.kwargs["writes"]
+    assert len(writes) == 1
+    assert writes[0].text == "Uses Vim daily"
 
 
 @pytest.mark.asyncio
@@ -345,7 +347,7 @@ async def test_extract_and_store_swallows_exception():
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
         patch(
@@ -353,11 +355,9 @@ async def test_extract_and_store_swallows_exception():
             AsyncMock(return_value=[]),
         ),
     ):
-        # H4: handlers re-raise transient errors so the worker retry loop
-        # can retry instead of swallowing them as silent success.
         with pytest.raises(RuntimeError, match="boom"):
             await extract_and_store_memories(
-                settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
+                settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like Python a lot."
             )
 
 
@@ -377,7 +377,7 @@ async def test_extract_and_store_skips_when_memory_disabled():
             AsyncMock(return_value=MagicMock(memory_enabled=False)),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=AssertionError("should not be called")),
         ),
     ):
@@ -409,8 +409,8 @@ async def test_extract_and_store_skips_when_write_lock_held():
             AsyncMock(return_value=False),
         ),
         patch("app.background.memory_extraction.users_repo.get_by_id", get_by_id),
-        patch("app.background.memory_extraction.memory_llm.revise_memory_sections", revise),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
+        patch("app.background.memory_extraction.apply_memory_facts", upsert),
     ):
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
@@ -421,31 +421,37 @@ async def test_extract_and_store_skips_when_write_lock_held():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
-    """Stale-embedding fix: a section whose text changed must be re-embedded,
-    even if it already had an embedding."""
     from app.background.memory_extraction import extract_and_store_memories
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
-    extraction = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="preference", summary="likes TypeScript", confidence=0.9)]
+    extraction = MemoryFactUpdateResult(
+        ops=[
+            MemoryFactOp(
+                op="update",
+                type="preference",
+                text="likes TypeScript",
+                confidence=0.9,
+                match_text="likes Python",
+            )
+        ]
     )
-
-    # Existing memory: has an embedding + old text. Text will change after upsert.
+    memory_id = uuid4()
     existing = MagicMock()
+    existing.id = memory_id
     existing.type = "preference"
     existing.text = "likes Python"
     existing.embedding_json = "[0.1,0.2]"
-
-    # After upsert, the "updated" row has new text and still the old embedding.
     updated = MagicMock()
+    updated.id = memory_id
     updated.type = "preference"
     updated.text = "likes TypeScript"
     updated.embedding_json = "[0.1,0.2]"
+    updated.embedding = [0.1, 0.2]
+    updated.embedding_text_hash = "stale"
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
-    session, session_locals = _memory_extraction_sessions(count=3)
-
+    _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
             "app.background.memory_extraction.SessionLocal",
@@ -460,15 +466,20 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch(
+            "app.background.memory_extraction.memories_repo.apply_writes",
+            AsyncMock(return_value=[memory_id]),
+        ),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
-        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like TypeScript now."
+        )
 
     embed_calls.assert_awaited_once()
     embedding_write.assert_awaited_once()
@@ -484,34 +495,29 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
 
 @pytest.mark.asyncio
 async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write):
-    """A row with embedding_json present but the pgvector `embedding` column
-    null must be re-embedded — the DB semantic search filters on `embedding`,
-    so a null pgvector makes the memory invisible to DB-side recall even when
-    the JSON fallback has a vector."""
     from app.background.memory_extraction import extract_and_store_memories
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
-    extraction = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="preference", summary="likes TypeScript", confidence=0.9)]
+    extraction = MemoryFactUpdateResult(
+        ops=[MemoryFactOp(op="add", type="preference", text="likes TypeScript", confidence=0.9)]
     )
-
+    memory_id = uuid4()
     existing = MagicMock()
+    existing.id = memory_id
     existing.type = "preference"
     existing.text = "likes TypeScript"
     existing.embedding_json = "[0.1,0.2]"
-
-    # After upsert: JSON present but pgvector column null — previously this
-    # skipped re-embed (needs_embed checked embedding_json only).
     updated = MagicMock()
+    updated.id = memory_id
     updated.type = "preference"
     updated.text = "likes TypeScript"
     updated.embedding_json = "[0.1,0.2]"
     updated.embedding = None
+    updated.embedding_text_hash = None
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
-    session, session_locals = _memory_extraction_sessions(count=3)
-
+    _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
             "app.background.memory_extraction.SessionLocal",
@@ -526,15 +532,20 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch(
+            "app.background.memory_extraction.memories_repo.apply_writes",
+            AsyncMock(return_value=[memory_id]),
+        ),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
-        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like TypeScript now."
+        )
 
     embed_calls.assert_awaited_once()
     embedding_write.assert_awaited_once()
@@ -552,28 +563,21 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
 async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass(
     embedding_write,
 ):
-    """BUG FIX regression: if a prior embed attempt failed right after a text
-    change, the embedding stays paired with the OLD text while the new text
-    is already persisted. A later pass — where the text doesn't change again
-    — must still detect and retry that mismatch via embedding_text_hash,
-    not just when comparing against the immediately-prior snapshot."""
     from app.background.memory_extraction import extract_and_store_memories
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 
     settings = Settings(memory_min_confidence=0.4)
-    extraction = MemorySectionUpdateResult(
-        sections=[MemorySectionItem(type="preference", summary="likes TypeScript", confidence=0.9)]
+    extraction = MemoryFactUpdateResult(
+        ops=[MemoryFactOp(op="add", type="preference", text="likes TypeScript", confidence=0.9)]
     )
-
-    # Existing + updated both already have the new text (unchanged by this
-    # pass) but the embedding hash was computed from stale text — as would
-    # happen after a previously failed embed_text call.
+    memory_id = uuid4()
     existing = MagicMock()
+    existing.id = memory_id
     existing.type = "preference"
     existing.text = "likes TypeScript"
     existing.embedding_json = "[0.1,0.2]"
-
     updated = MagicMock()
+    updated.id = memory_id
     updated.type = "preference"
     updated.text = "likes TypeScript"
     updated.embedding = [0.1, 0.2]
@@ -581,8 +585,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
     updated.embedding_text_hash = "stale-hash-from-a-failed-embed"
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
-    session, session_locals = _memory_extraction_sessions(count=3)
-
+    _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
             "app.background.memory_extraction.SessionLocal",
@@ -597,15 +600,20 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch(
+            "app.background.memory_extraction.memories_repo.apply_writes",
+            AsyncMock(return_value=[memory_id]),
+        ),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
-        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like TypeScript now."
+        )
 
     embed_calls.assert_awaited_once()
     embedding_write.assert_awaited_once()
@@ -656,7 +664,7 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=fake_revise),
         ),
     ):
@@ -664,7 +672,7 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
             Settings(),
             user_id=uuid4(),
             chat_id=uuid4(),
-            transcript="User: hi\nAssistant: hello",
+            transcript="I like short answers.",
         )
 
     assert db_open_during_extract == [False]

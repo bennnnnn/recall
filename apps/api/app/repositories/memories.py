@@ -1,22 +1,36 @@
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import delete, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.memory_ops import ACTIVE_STATUS, MUTED_STATUS, normalize_memory_text
 from app.models.orm import Memory
+from app.repositories.memory_writes import MemoryFactWrite as MemoryFactWrite
+from app.repositories.memory_writes import apply_fact_ops as apply_fact_ops
 from app.repositories.memory_writes import lock_memory_enabled as lock_memory_enabled
 from app.repositories.memory_writes import (
     update_embedding_if_current as update_embedding_if_current,
 )
-from app.repositories.memory_writes import write_rows_if_current
 
 
-async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Memory]:
+async def list_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    include_muted: bool = True,
+    include_superseded: bool = False,
+) -> list[Memory]:
+    statuses = [ACTIVE_STATUS]
+    if include_muted:
+        statuses.append(MUTED_STATUS)
+    filters = [Memory.user_id == user_id]
+    if not include_superseded:
+        filters.append(Memory.status.in_(statuses))
     result = await session.execute(
-        select(Memory).where(Memory.user_id == user_id).order_by(Memory.type.asc())
+        select(Memory).where(*filters).order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
     )
     return list(result.scalars().all())
 
@@ -40,8 +54,8 @@ async def list_range(
         return []
     result = await session.execute(
         select(Memory)
-        .where(Memory.user_id == user_id)
-        .order_by(Memory.type.asc())
+        .where(Memory.user_id == user_id, Memory.status.in_((ACTIVE_STATUS, MUTED_STATUS)))
+        .order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
         .offset(offset)
         .limit(limit)
     )
@@ -57,15 +71,9 @@ async def search_semantic(
     limit: int,
     max_distance: float | None = None,
 ) -> list[Memory]:
-    """DB-side cosine similarity search over the `embedding` vector column
-    (HNSW index). Returns up to `limit` memories ranked by cosine distance,
-    filtered by confidence. When ``max_distance`` is set, rows whose cosine
-    distance exceeds it are excluded — this mirrors the in-memory
-    ``memory_min_similarity`` cutoff so the two paths behave consistently.
-    Empty result means no row has a populated vector yet — callers fall back
-    to the in-memory JSON path."""
     filters = [
         Memory.user_id == user_id,
+        Memory.status == ACTIVE_STATUS,
         Memory.embedding.isnot(None),
         or_(Memory.confidence.is_(None), Memory.confidence >= min_confidence),
     ]
@@ -81,6 +89,29 @@ async def search_semantic(
     return list(result.scalars().all())
 
 
+async def apply_writes(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    writes: list[MemoryFactWrite],
+    expected_facts: dict[UUID, str] | None,
+    active_cap: int,
+    commit: bool = True,
+) -> list[UUID]:
+    touched = await apply_fact_ops(
+        session,
+        user_id,
+        writes,
+        expected_facts,
+        active_cap=active_cap,
+    )
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return touched
+
+
 async def upsert_sections(
     session: AsyncSession,
     *,
@@ -89,62 +120,37 @@ async def upsert_sections(
     commit: bool = True,
     expected_sections: dict[str, tuple[UUID, str]] | None = None,
 ) -> None:
-    """Upsert one summary paragraph per memory type (profile, preference, …).
-
-    Deduplicates by type first: the LLM occasionally returns two sections with
-    the same type, which would make Postgres raise
-    ``ON CONFLICT DO UPDATE cannot affect row a second time`` and silently drop
-    the whole extraction. When duplicates exist, the highest-confidence section
-    wins (ties broken by later item).
-    """
+    """Legacy adapter for tests: one write per (type, text) tuple."""
     if not items:
         return
-
-    best_by_type: dict[str, tuple[str, str, float, UUID | None]] = {}
+    writes: list[MemoryFactWrite] = []
+    expected_facts: dict[UUID, str] = {}
     for memory_type, text, confidence, source_chat_id in items:
         if not text.strip():
             continue
-        existing = best_by_type.get(memory_type)
-        if existing is None or confidence >= existing[2]:
-            best_by_type[memory_type] = (memory_type, text, confidence, source_chat_id)
-
-    rows = [
-        {
-            "user_id": user_id,
-            "type": memory_type,
-            "text": text.strip(),
-            "confidence": confidence,
-            "source_chat_id": source_chat_id,
-        }
-        for memory_type, text, confidence, source_chat_id in best_by_type.values()
-    ]
-    if not rows:
+        prior = None if expected_sections is None else expected_sections.get(memory_type)
+        writes.append(
+            MemoryFactWrite(
+                op="update" if prior is not None else "add",
+                type=memory_type,
+                text=text,
+                confidence=confidence,
+                match_text=prior[1] if prior is not None else text,
+                source_chat_id=source_chat_id,
+            )
+        )
+        if prior is not None:
+            expected_facts[prior[0]] = prior[1]
+    if not writes:
         return
-
-    if expected_sections is not None:
-        await write_rows_if_current(session, user_id, rows, expected_sections)
-        if commit:
-            await session.commit()
-        else:
-            await session.flush()
-        return
-
-    stmt = pg_insert(Memory).values(rows)
-    stmt = stmt.on_conflict_do_update(
-        constraint="uq_memories_user_type",
-        set_={
-            "text": stmt.excluded.text,
-            "confidence": stmt.excluded.confidence,
-            # Consolidation passes source_chat_id=None — keep prior provenance.
-            "source_chat_id": func.coalesce(stmt.excluded.source_chat_id, Memory.source_chat_id),
-            "updated_at": func.now(),
-        },
+    await apply_writes(
+        session,
+        user_id=user_id,
+        writes=writes,
+        expected_facts=None if expected_sections is None else expected_facts,
+        active_cap=150,
+        commit=commit,
     )
-    await session.execute(stmt)
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
 
 
 async def delete_by_type(
@@ -159,6 +165,23 @@ async def delete_by_type(
         await session.execute(
             delete(Memory).where(Memory.user_id == user_id, Memory.type == memory_type)
         ),
+    )
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return int(result.rowcount or 0)
+
+
+async def delete_all_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    commit: bool = True,
+) -> int:
+    result = cast(
+        CursorResult[Any],
+        await session.execute(delete(Memory).where(Memory.user_id == user_id)),
     )
     if commit:
         await session.commit()
@@ -205,16 +228,21 @@ async def update_text(
     memory = await get_by_id(session, user_id, memory_id)
     if memory is None:
         return None
-    memory.text = text.strip()
+    memory.text = normalize_memory_text(text)
     memory.embedding = None
     memory.embedding_json = None
     memory.embedding_text_hash = None
+    memory.last_confirmed_at = func_now()
     if commit:
         await session.commit()
     else:
         await session.flush()
     await session.refresh(memory)
     return memory
+
+
+def func_now() -> datetime:
+    return datetime.now(UTC)
 
 
 async def update_text_and_embedding(
@@ -233,11 +261,34 @@ async def update_text_and_embedding(
     memory = await get_by_id(session, user_id, memory_id)
     if memory is None:
         return None
-    memory.text = text.strip()
+    memory.text = normalize_memory_text(text)
     memory.embedding = embedding
     memory.embedding_json = embedding_json
+    memory.last_confirmed_at = func_now()
     if embedding_text_hash is not None:
         memory.embedding_text_hash = embedding_text_hash
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    await session.refresh(memory)
+    return memory
+
+
+async def update_status(
+    session: AsyncSession,
+    user_id: UUID,
+    memory_id: UUID,
+    status: str,
+    *,
+    commit: bool = True,
+) -> Memory | None:
+    memory = await get_by_id(session, user_id, memory_id)
+    if memory is None:
+        return None
+    if memory.status == "superseded" and status != "superseded":
+        return None
+    memory.status = status
     if commit:
         await session.commit()
     else:

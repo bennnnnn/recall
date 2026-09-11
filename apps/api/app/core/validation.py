@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from uuid import UUID
 
 # Keep in sync with app.models.model_catalog.CATALOG ids (asserted in tests).
 KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
@@ -66,6 +67,29 @@ def normalize_display_name(raw: str | None) -> str | None:
     if not name or len(name) > 80:
         return None
     return name
+
+
+_AVATAR_PATH_PREFIX = "/attachments/"
+_AVATAR_PATH_SUFFIX = "/file"
+
+
+def normalize_avatar_url(raw: str | None) -> str | None:
+    """Accept only our uploaded-photo path ``/attachments/<uuid>/file``."""
+    if raw is None:
+        return None
+    text = raw.strip()
+    if not text:
+        return None
+    if not text.startswith(_AVATAR_PATH_PREFIX) or not text.endswith(_AVATAR_PATH_SUFFIX):
+        raise ValueError("Avatar must be an uploaded photo.")
+    inner = text[len(_AVATAR_PATH_PREFIX) : -len(_AVATAR_PATH_SUFFIX)]
+    try:
+        attachment_id = UUID(inner)
+    except ValueError as exc:
+        raise ValueError("Avatar must be an uploaded photo.") from exc
+    if str(attachment_id) != inner.lower():
+        raise ValueError("Avatar must be an uploaded photo.")
+    return f"{_AVATAR_PATH_PREFIX}{attachment_id}{_AVATAR_PATH_SUFFIX}"
 
 
 def normalize_locale_code(locale: str | None) -> str:

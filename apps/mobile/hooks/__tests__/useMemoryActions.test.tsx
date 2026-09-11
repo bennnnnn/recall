@@ -12,7 +12,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("@/lib/api", () => ({
   api: {
     deleteMemorySection: jest.fn(),
-    deleteMemoryFact: jest.fn(),
+    deleteMemory: jest.fn(),
     updateMemory: jest.fn(),
   },
 }));
@@ -25,16 +25,22 @@ jest.mock("@/lib/cache/memoryListCache", () => ({
 
 const mockApi = api as unknown as {
   deleteMemorySection: jest.Mock;
-  deleteMemoryFact: jest.Mock;
+  deleteMemory: jest.Mock;
   updateMemory: jest.Mock;
 };
 const mockFetch = fetchMemories as unknown as jest.Mock;
 const mockCached = getCachedMemories as unknown as jest.Mock;
 
-const SECTION = {
+const TEA = {
   id: "m1",
   type: "fact",
-  text: "Likes tea. Likes coffee.",
+  text: "Likes tea.",
+  created_at: "2026-01-01T00:00:00Z",
+} as never;
+const COFFEE = {
+  id: "m2",
+  type: "fact",
+  text: "Likes coffee.",
   created_at: "2026-01-01T00:00:00Z",
 } as never;
 
@@ -61,7 +67,7 @@ async function mount(token: string | null = "tok") {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  let cached = [SECTION];
+  let cached = [TEA, COFFEE];
   mockCached.mockImplementation(() => cached);
   jest.mocked(updateMemoriesCache).mockImplementation((update) => {
     cached = update(cached) as typeof cached;
@@ -94,29 +100,27 @@ describe("useMemoryActions", () => {
     });
 
     expect(ok).toBe(false);
-    expect(current.memories).toEqual([SECTION]);
+    expect(current.memories).toEqual([TEA, COFFEE]);
   });
 
   it("drops one fact and leaves the rest on success", async () => {
-    mockApi.deleteMemoryFact.mockResolvedValue(undefined);
+    mockApi.deleteMemory.mockResolvedValue(undefined);
     await mount();
 
     await act(async () => {
-      await current.deleteFact(SECTION, 0, "Likes tea.");
+      await current.deleteFact(TEA);
     });
 
-    expect(current.memories[0].text).toBe("Likes coffee.");
+    expect(current.memories).toEqual([COFFEE]);
   });
 
   it("reloads from the server when a fact delete fails, instead of trusting the snapshot", async () => {
-    // A 404 can mean a background job already rewrote this section, so the
-    // local snapshot is stale — the hook must refetch rather than restore it.
-    mockApi.deleteMemoryFact.mockRejectedValue(new Error("404"));
+    mockApi.deleteMemory.mockRejectedValue(new Error("404"));
     await mount();
 
     let ok: boolean | undefined;
     await act(async () => {
-      ok = await current.deleteFact(SECTION, 0, "Likes tea.");
+      ok = await current.deleteFact(TEA);
     });
 
     expect(ok).toBe(false);
@@ -126,7 +130,7 @@ describe("useMemoryActions", () => {
   });
 
   it("prefers the server copy of an edited memory over the optimistic draft", async () => {
-    mockApi.updateMemory.mockResolvedValue({ ...SECTION, text: "stamped by server" });
+    mockApi.updateMemory.mockResolvedValue({ ...TEA, text: "stamped by server" });
     await mount();
 
     let ok: boolean | undefined;
@@ -148,7 +152,7 @@ describe("useMemoryActions", () => {
     });
 
     expect(ok).toBe(false);
-    expect(current.memories[0].text).toBe(SECTION.text);
+    expect(current.memories[0].text).toBe(TEA.text);
   });
 
   it("does nothing without a token", async () => {

@@ -10,6 +10,16 @@ from app.models.orm import Memory, User
 logger = logging.getLogger(__name__)
 
 
+def _log_inject(user_id: UUID, block: str) -> str:
+    logger.info(
+        "memory_inject user_id=%s facts=%s packed_chars=%s",
+        user_id,
+        block.count("\n- "),
+        len(block),
+    )
+    return block
+
+
 async def semantic_memories_from_vec(
     seams: Any,
     session: AsyncSession,
@@ -86,7 +96,10 @@ def filter_surface_memories(
     keep_diet = bool(query_text) and seams.is_food_or_diet_query(query_text)
     kept: list[Memory] = []
     for memory in memories:
-        if not seams.is_sensitive_memory_text(memory.text):
+        sensitivity = str(getattr(memory, "sensitivity", "") or "")
+        tagged = sensitivity not in ("", "normal")
+        sensitive = tagged or seams.is_sensitive_memory_text(memory.text)
+        if not sensitive:
             kept.append(memory)
             continue
         if keep_diet and seams.is_diet_health_memory_text(memory.text):
@@ -228,7 +241,7 @@ async def get_memory_block(
                 query_text=q,
             )
             await seams._write_query_block_cache(query_key, block, settings)
-            return block
+            return _log_inject(user.id, block)
 
         logger.warning(
             "Memory query embed unavailable; using type-priority fallback user_id=%s",
@@ -262,7 +275,7 @@ async def get_memory_block(
             if not task.cancelled() and task.exception()
             else None
         )
-        return block
+        return _log_inject(user.id, block)
 
     redis = seams.get_redis_client()
     parts = [key]
@@ -290,4 +303,4 @@ async def get_memory_block(
         await redis.set(cache_key, block, ex=settings.memory_cache_ttl)
     except Exception:
         logger.debug("Memory block cache write failed", exc_info=True)
-    return block
+    return _log_inject(user.id, block)

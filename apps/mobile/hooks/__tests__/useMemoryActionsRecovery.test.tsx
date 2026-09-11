@@ -16,7 +16,7 @@ jest.mock("@/lib/auth", () => ({
 jest.mock("@/lib/api", () => ({ api: {
   listMemories: jest.fn(),
   deleteMemorySection: jest.fn(),
-  deleteMemoryFact: jest.fn(),
+  deleteMemory: jest.fn(),
   updateMemory: jest.fn(),
 } }));
 

@@ -15,6 +15,9 @@ let mockLink: { onPress: () => void; value?: string };
 let mockRetry: () => void;
 let mockCached: unknown[] | undefined;
 const mockCacheListeners = new Set<() => void>();
+jest.mock("@/lib/api", () => ({
+  api: { clearMemories: jest.fn(), disableAndClearMemories: jest.fn() },
+}));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: mockToken, user: { memory_enabled: true }, updateUser: mockUpdate }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
@@ -24,8 +27,14 @@ jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/StateView", () => ({ StateView: ({ onRetry }: { onRetry: () => void }) => { mockRetry = onRetry; return null; } }));
 jest.mock("@/components/settings/settingsUi", () => ({
   makeSettingsStyles: () => ({}), SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
-  SettingsSwitchRow: (props: typeof mockSwitch) => { mockSwitch = props; return null; },
-  SettingsLinkRow: (props: typeof mockLink) => { mockLink = props; return null; },
+  SettingsSwitchRow: (props: typeof mockSwitch & { title: string }) => {
+    if (props.title === "settings.memory") mockSwitch = props;
+    return null;
+  },
+  SettingsLinkRow: (props: typeof mockLink & { title: string }) => {
+    if (props.title === "settings.memory_view") mockLink = props;
+    return null;
+  },
 }));
 jest.mock("@/lib/cache/memoryListCache", () => ({
   fetchMemories: (...args: unknown[]) => mockFetch(...args), prefetchMemories: (...args: unknown[]) => mockPrefetch(...args),

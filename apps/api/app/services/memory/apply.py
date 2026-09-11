@@ -1,4 +1,4 @@
-"""Persist memory section rows, then embed without holding a DB connection."""
+"""Persist atomic memory facts, then embed without holding a DB connection."""
 
 from __future__ import annotations
 
@@ -13,67 +13,60 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.repositories import memories as memories_repo
+from app.repositories.memory_writes import MemoryFactWrite
 from app.services.memory.text import embedding_text_hash
 
 MemorySessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
 
-async def apply_memory_section_rows(
+async def apply_memory_facts(
     settings: Settings,
     *,
     user_id: UUID,
-    rows: list[tuple[str, str, float, UUID | None]],
+    writes: list[MemoryFactWrite],
     session_factory: MemorySessionFactory = SessionLocal,
     memories: Any = memories_repo,
-    expected_sections: dict[str, tuple[UUID, str]] | None = None,
+    expected_facts: dict[UUID, str] | None = None,
 ) -> None:
-    """Upsert section text, (re)embed stale rows, then invalidate caches.
-
-    ``session_factory`` / ``memories`` default to the production seams; callers
-    in the background jobs pass their module-level bindings so existing tests
-    that patch those names still cover this write path.
-    """
-    if not rows:
+    """Persist fact ops, (re)embed stale rows, then invalidate caches."""
+    if not writes:
         return
 
     from app.gateways import embedding_gateway
 
-    # Phase 1 — persist the text upsert and collect what needs (re)embedding,
-    # then release the DB connection before the slow embedding HTTP calls.
-    #
-    # Re-embed any section whose embedding is missing, or whose embedding no
-    # longer matches its current text.
-    #
-    # Compare against the persisted embedding_text_hash rather than "was this
-    # type touched by this call" so a prior embed failure is retried on every
-    # later pass, not just the one where the text changed.
     embed_needed: list[tuple[UUID, str]] = []
     async with session_factory() as session:
         try:
-            if expected_sections is not None and not await memories.lock_memory_enabled(
+            if expected_facts is not None and not await memories.lock_memory_enabled(
                 session, user_id
             ):
                 return
-            await memories.upsert_sections(
+            touched = await memories.apply_writes(
                 session,
                 user_id=user_id,
-                items=rows,
+                writes=writes,
+                expected_facts=expected_facts,
+                active_cap=settings.memory_active_fact_cap,
                 commit=False,
-                expected_sections=expected_sections,
             )
-            updated = await memories.list_for_user(session, user_id)
+            updated = await memories.list_for_user(
+                session, user_id, include_muted=False, include_superseded=False
+            )
+            touched_set = set(touched)
+            backfill_left = max(0, settings.memory_embed_backfill_per_pass)
             for memory in updated:
-                # Re-embed if EITHER vector representation is missing — the DB
-                # semantic search filters on the `embedding` (pgvector) column,
-                # while the in-memory fallback reads `embedding_json`, so both
-                # must be populated.
                 needs_embed = (
                     memory.embedding is None
                     or memory.embedding_json is None
                     or memory.embedding_text_hash != embedding_text_hash(memory.text)
                 )
-                if needs_embed:
-                    embed_needed.append((memory.id, memory.text))
+                if not needs_embed:
+                    continue
+                if memory.id not in touched_set:
+                    if backfill_left <= 0:
+                        continue
+                    backfill_left -= 1
+                embed_needed.append((memory.id, memory.text))
             await session.commit()
         except Exception:
             await session.rollback()
@@ -83,12 +76,13 @@ async def apply_memory_section_rows(
         await _invalidate_memory_caches(user_id)
         return
 
-    # Phase 2 — embed with no DB connection held (slow provider HTTP). A
-    # failure here leaves the text persisted with no vector; the next pass
-    # detects that via `embedding is None` and re-embeds.
-    vectors = await asyncio.gather(
-        *(embedding_gateway.embed_text(settings, text) for _, text in embed_needed)
-    )
+    semaphore = asyncio.Semaphore(max(1, settings.memory_embed_concurrency))
+
+    async def _embed(text: str) -> list[float] | None:
+        async with semaphore:
+            return await embedding_gateway.embed_text(settings, text)
+
+    vectors = await asyncio.gather(*(_embed(text) for _, text in embed_needed))
     to_write: list[tuple[UUID, str, list[float], str, str]] = []
     for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
         if vec:
@@ -102,7 +96,6 @@ async def apply_memory_section_rows(
                 )
             )
 
-    # Phase 3 — write vectors in a fresh short-lived session.
     if to_write:
         async with session_factory() as session:
             try:
@@ -116,6 +109,44 @@ async def apply_memory_section_rows(
                 raise
 
     await _invalidate_memory_caches(user_id)
+
+
+async def apply_memory_section_rows(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    rows: list[tuple[str, str, float, UUID | None]],
+    session_factory: MemorySessionFactory = SessionLocal,
+    memories: Any = memories_repo,
+    expected_sections: dict[str, tuple[UUID, str]] | None = None,
+) -> None:
+    """Legacy wrapper: one add/update per type-keyed section tuple."""
+    writes: list[MemoryFactWrite] = []
+    expected_facts: dict[UUID, str] | None = None
+    if expected_sections is not None:
+        expected_facts = {memory_id: text for memory_id, text in expected_sections.values()}
+    for memory_type, text, confidence, source_chat_id in rows:
+        if not text.strip():
+            continue
+        prior = None if expected_sections is None else expected_sections.get(memory_type)
+        writes.append(
+            MemoryFactWrite(
+                op="update" if prior is not None else "add",
+                type=memory_type,
+                text=text,
+                confidence=confidence,
+                match_text=prior[1] if prior is not None else None,
+                source_chat_id=source_chat_id,
+            )
+        )
+    await apply_memory_facts(
+        settings,
+        user_id=user_id,
+        writes=writes,
+        session_factory=session_factory,
+        memories=memories,
+        expected_facts=expected_facts,
+    )
 
 
 async def _invalidate_memory_caches(user_id: UUID) -> None:

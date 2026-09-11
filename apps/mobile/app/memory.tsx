@@ -30,6 +30,7 @@ import { Type } from "@/lib/type";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
+
 export default function MemoryScreen() {
   const view = useAccountViewOwner();
   return <MemoryContent key={view.key} isCurrentView={view.isCurrent} />;
@@ -51,25 +52,16 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     hasLoaded,
     deleteSection,
     deleteFact,
+    muteMemory,
     updateMemoryText,
     pendingTypes,
   } = useMemoryActions(token);
   const [refreshing, setRefreshing] = useState(false);
-  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Memory | null>(null);
   const [draftText, setDraftText] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const savingRef = useRef(false);
   const refreshingRef = useRef(false);
-
-  const toggleSection = useCallback((type: string) => {
-    setExpandedTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     if (!isCurrentView()) return;
@@ -80,11 +72,15 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }, [isCurrentView, load, hasLoaded]);
 
   const sections = useMemo(() => {
-    const byType = new Map<string, Memory>();
+    const byType = new Map<string, Memory[]>();
     for (const memory of memories) {
-      if (!byType.has(memory.type)) byType.set(memory.type, memory);
+      const list = byType.get(memory.type) ?? [];
+      list.push(memory);
+      byType.set(memory.type, list);
     }
-    return TYPE_ORDER.map((type) => byType.get(type)).filter(Boolean) as Memory[];
+    return TYPE_ORDER
+      .map((type) => ({ type, facts: byType.get(type) ?? [] }))
+      .filter((section) => section.facts.length > 0);
   }, [memories]);
 
   const closeEdit = useCallback(() => {
@@ -179,14 +175,13 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         {sections.map((section) => (
           <MemorySectionCard
             key={section.type}
-            section={section}
+            type={section.type}
+            facts={section.facts}
             pending={pendingTypes.has(section.type)}
-            expanded={expandedTypes.has(section.type)}
-            onToggle={() => toggleSection(section.type)}
-            onEditSection={() => {
+            onEditFact={(fact) => {
               if (!isCurrentView() || pendingTypes.has(section.type)) return;
-              setEditing(section);
-              setDraftText(stripMemoryAsOf(section.text));
+              setEditing(fact);
+              setDraftText(stripMemoryAsOf(fact.text));
             }}
             onDeleteSection={() => {
               if (!token || !isCurrentView()) return;
@@ -200,11 +195,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
                     style: "destructive",
                     onPress: async () => {
                       if (!isCurrentView()) return;
-                      setExpandedTypes((prev) => {
-                        const next = new Set(prev);
-                        next.delete(section.type);
-                        return next;
-                      });
                       const ok = await deleteSection(section.type);
                       if (isCurrentView() && !ok) {
                         reportRecoverableError(feedback, t("memory.delete_failed"));
@@ -214,7 +204,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
                 ],
               );
             }}
-            onDeleteFact={(factIndex, factText) => {
+            onDeleteFact={(fact) => {
               if (!token || !isCurrentView()) return;
               Alert.alert(
                 t("memory.delete_fact_title"),
@@ -226,7 +216,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
                     style: "destructive",
                     onPress: async () => {
                       if (!isCurrentView()) return;
-                      const ok = await deleteFact(section, factIndex, factText);
+                      const ok = await deleteFact(fact);
                       if (isCurrentView() && !ok) {
                         reportRecoverableError(feedback, t("memory.delete_failed"));
                       }
@@ -234,6 +224,10 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
                   },
                 ],
               );
+            }}
+            onMuteFact={(fact) => {
+              if (!token || !isCurrentView() || pendingTypes.has(section.type)) return;
+              void muteMemory(fact.id, fact.status !== "muted");
             }}
           />
         ))}

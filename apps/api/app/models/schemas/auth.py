@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.validation import (
     LOCALE_NAMES,
+    normalize_avatar_url,
     normalize_display_name,
     normalize_locale_code,
     validate_user_alias,
@@ -26,6 +27,7 @@ class UserOut(BaseModel):
     response_style: str
     response_tone: str = "casual"
     memory_enabled: bool
+    memory_include_sensitive: bool = False
     push_notifications_enabled: bool = True
     email_reminders_enabled: bool = False
     reminder_lead_minutes: int = 10
@@ -42,11 +44,13 @@ class UserOut(BaseModel):
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
+    avatar_url: str | None = Field(default=None, max_length=64)
     default_model: str | None = None
     enabled_models: list[str] | None = None
     response_style: ResponseStyle | None = None
     response_tone: ResponseTone | None = None
     memory_enabled: bool | None = None
+    memory_include_sensitive: bool | None = None
     push_notifications_enabled: bool | None = None
     email_reminders_enabled: bool | None = None
     reminder_lead_minutes: int | None = Field(default=None, ge=5, le=60)
@@ -68,6 +72,13 @@ class UserUpdate(BaseModel):
         if not normalized:
             raise ValueError("Name must be 1\u201380 characters.")
         return normalized
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_avatar_url(value)
 
     @field_validator("default_model")
     @classmethod

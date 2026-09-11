@@ -28,6 +28,9 @@ from app.services.memory.consolidation import (
     extract_consolidation_anchors as extract_consolidation_anchors,
 )
 from app.services.memory.consolidation import (
+    facts_need_consolidation as facts_need_consolidation,
+)
+from app.services.memory.consolidation import (
     section_needs_consolidation as section_needs_consolidation,
 )
 from app.services.memory.consolidation import (
@@ -64,6 +67,9 @@ from app.services.memory.text import (
     _split_sentences as _split_sentences,
 )
 from app.services.memory.text import (
+    classify_memory_sensitivity as classify_memory_sensitivity,
+)
+from app.services.memory.text import (
     embedding_text_hash as embedding_text_hash,
 )
 from app.services.memory.text import (
@@ -83,6 +89,12 @@ from app.services.memory.text import (
 )
 from app.services.memory.text import (
     is_food_or_diet_query as is_food_or_diet_query,
+)
+from app.services.memory.text import (
+    is_highly_sensitive_text as is_highly_sensitive_text,
+)
+from app.services.memory.text import (
+    is_memory_candidate as is_memory_candidate,
 )
 from app.services.memory.text import (
     is_sensitive_memory_text as is_sensitive_memory_text,
@@ -292,9 +304,13 @@ async def update_memory(
     settings: Settings,
     user_id: UUID,
     memory_id: UUID,
-    text: str,
+    text: str | None,
+    *,
+    status: str | None = None,
 ) -> Memory | None:
-    return await _crud.update_memory(_seams(), session, settings, user_id, memory_id, text)
+    return await _crud.update_memory(
+        _seams(), session, settings, user_id, memory_id, text, status=status
+    )
 
 
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
@@ -303,3 +319,11 @@ async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -
 
 async def delete_memory_section(session: AsyncSession, user_id: UUID, memory_type: str) -> bool:
     return await _crud.delete_memory_section(_seams(), session, user_id, memory_type)
+
+
+async def delete_all_memories(session: AsyncSession, user_id: UUID) -> int:
+    return await _crud.delete_all_memories(_seams(), session, user_id)
+
+
+async def disable_and_clear_memories(session: AsyncSession, user_id: UUID) -> int:
+    return await _crud.disable_and_clear_memories(_seams(), session, user_id)

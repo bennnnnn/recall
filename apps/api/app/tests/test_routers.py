@@ -24,6 +24,7 @@ def _fake_user(**kw) -> User:
     u.response_style = "balanced"
     u.response_tone = kw.get("response_tone", "funny")
     u.memory_enabled = True
+    u.memory_include_sensitive = False
     u.locale = kw.get("locale", "en")
     u.timezone = kw.get("timezone", "UTC")
     u.location = kw.get("location", None)
@@ -868,6 +869,13 @@ def test_list_memories_skips_consolidation_scan_when_already_locked():
         m.type = "profile"
         m.text = "User's name is Bini. User's name is Binalfew. User is a developer."
         m.confidence = 0.9
+        m.status = "active"
+        m.sensitivity = "normal"
+        m.importance = None
+        m.last_confirmed_at = datetime(2024, 1, 1)
+        m.source_chat_id = None
+        m.source_chat_title = None
+        m.source_message_id = None
         m.created_at = datetime(2024, 1, 1)
         m.updated_at = datetime(2024, 1, 1)
         return m
@@ -880,8 +888,8 @@ def test_list_memories_skips_consolidation_scan_when_already_locked():
         ),
         patch("app.services.memory.enqueue_policy.jobs.enqueue", AsyncMock()) as enqueue_job,
         patch(
-            "app.services.memory.enqueue_policy.memory_service.sections_need_consolidation",
-            wraps=lambda sections: True,
+            "app.services.memory.enqueue_policy.memory_service.facts_need_consolidation",
+            wraps=lambda memories: True,
         ) as scan_mock,
     ):
         client = TestClient(app)
@@ -913,6 +921,13 @@ def test_update_memory_ok():
     updated.type = "fact"
     updated.text = "As of 2026-07-20: Likes hiking"
     updated.confidence = 0.9
+    updated.status = "active"
+    updated.sensitivity = "normal"
+    updated.importance = None
+    updated.last_confirmed_at = datetime(2026, 7, 20)
+    updated.source_chat_id = None
+    updated.source_chat_title = None
+    updated.source_message_id = None
     updated.created_at = datetime(2026, 1, 1)
     updated.updated_at = datetime(2026, 7, 20)
     with patch(
@@ -950,6 +965,19 @@ def test_delete_memory_ok():
         client = TestClient(app)
         r = client.delete(f"/memories/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
+
+
+def test_disable_and_clear_memories_ok():
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch(
+        "app.routers.memories.memory_service.disable_and_clear_memories",
+        AsyncMock(return_value=3),
+    ) as disable:
+        client = TestClient(app)
+        r = client.post("/memories/disable-and-clear", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 204
+    disable.assert_awaited_once()
 
 
 def test_delete_memory_write_lock_busy_returns_409_not_404():

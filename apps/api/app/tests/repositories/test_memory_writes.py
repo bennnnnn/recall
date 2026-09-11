@@ -21,6 +21,8 @@ def memory_sql():
         session.execute.side_effect = sync_session.execute
         session.commit.side_effect = sync_session.commit
         session.flush.side_effect = sync_session.flush
+        session.add.side_effect = sync_session.add
+        session.delete.side_effect = sync_session.delete
         yield sync_session, session
     engine.dispose()
 
@@ -76,4 +78,4 @@ async def test_new_section_conflict_preserves_existing_memory(memory_sql):
         expected_sections={},
     )
     rows = sync_session.query(Memory).filter_by(user_id=owner_id).all()
-    assert [row.text for row in rows] == ["First fact"]
+    assert {row.text for row in rows} == {"First fact", "Stale generated fact"}

@@ -210,20 +210,33 @@ async def mock_title(user_message: str) -> str | None:
     return normalize_chat_title(" ".join(words))
 
 
-async def mock_memory_sections(user_message: str, existing_sections: dict[str, str]):
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+async def mock_memory_facts(user_message: str, existing_facts: list[dict[str, str]]):
+    from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 
+    del existing_facts
     if len(user_message.strip()) < 10:
         return None
-    return MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
+    return MemoryFactUpdateResult(
+        ops=[
+            MemoryFactOp(
+                op="add",
                 type="focus",
-                summary=f"Recently discussed: {user_message[:400]}",
+                text=f"Recently discussed: {user_message[:200]}",
                 confidence=0.6,
+                sensitivity="normal",
+                importance=0.4,
             )
         ]
     )
+
+
+async def mock_memory_sections(user_message: str, existing_sections: dict[str, str]):
+    existing_facts = [
+        {"type": memory_type, "text": text}
+        for memory_type, text in existing_sections.items()
+        if text.strip()
+    ]
+    return await mock_memory_facts(user_message, existing_facts)
 
 
 async def mock_merge_memory_section(section_type: str, prior_text: str):

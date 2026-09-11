@@ -1,24 +1,28 @@
 import { request } from "@/lib/api/client";
 import type { Memory } from "@/lib/api/types";
 
-// Saved text can contain 4000 code points plus an "As of YYYY-MM-DD: " stamp.
 export const MAX_MEMORY_FACT_TEXT_LENGTH = 4018;
+
+export type MemoryPatch = {
+  text?: string;
+  status?: "active" | "muted" | "superseded";
+};
 
 export const memoriesApi = {
   listMemories: (token: string) => request<Memory[]>("/memories", token),
-  updateMemory: (token: string, memoryId: string, text: string) =>
+  updateMemory: (token: string, memoryId: string, patch: string | MemoryPatch) =>
     request<Memory>(`/memories/${memoryId}`, token, {
       method: "PATCH",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(typeof patch === "string" ? { text: patch } : patch),
     }),
+  deleteMemory: (token: string, memoryId: string) =>
+    request<void>(`/memories/${memoryId}`, token, { method: "DELETE" }),
   deleteMemorySection: (token: string, type: string) =>
     request<void>(`/memories/type/${type}`, token, { method: "DELETE" }),
-  // BUG FIX (was silent): factIndex alone can go stale — a background
-  // extraction/consolidation job may rewrite this section between when this
-  // screen loaded it and when the user taps delete, shifting which fact sits
-  // at that index. Sending factText (what the user actually saw and tapped)
-  // lets the server locate the fact by content instead of trusting a
-  // possibly-stale position.
+  clearMemories: (token: string) =>
+    request<void>("/memories", token, { method: "DELETE" }),
+  disableAndClearMemories: (token: string) =>
+    request<void>("/memories/disable-and-clear", token, { method: "POST" }),
   deleteMemoryFact: async (token: string, memoryId: string, factIndex: number, factText: string) => {
     if ([...factText].length > MAX_MEMORY_FACT_TEXT_LENGTH) {
       throw new RangeError("Memory fact text exceeds the deletion selector limit");

@@ -13,6 +13,7 @@ export type User = {
   response_style: string;
   response_tone: string;
   memory_enabled: boolean;
+  memory_include_sensitive?: boolean;
   push_notifications_enabled: boolean;
   email_reminders_enabled?: boolean;
   reminder_lead_minutes: number;
@@ -72,6 +73,11 @@ export type Memory = {
   type: string;
   text: string;
   confidence: number | null;
+  status?: "active" | "muted" | "superseded";
+  sensitivity?: string | null;
+  last_confirmed_at?: string | null;
+  source_chat_id?: string | null;
+  source_chat_title?: string | null;
   created_at: string;
   updated_at: string;
 };

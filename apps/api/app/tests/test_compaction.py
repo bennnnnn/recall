@@ -170,3 +170,43 @@ async def test_compress_skips_when_another_worker_holds_the_lock():
     count.assert_not_awaited()
     session.get.assert_not_called()
     redis.eval.assert_not_awaited()  # never acquired, nothing to release
+
+
+def test_summary_system_prompt_preserves_uncertainty():
+    from app.services.context_window import SUMMARY_SYSTEM_PROMPT
+
+    assert "considering" in SUMMARY_SYSTEM_PROMPT
+    assert "uses Postgres" in SUMMARY_SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_summary_generations_keep_undecided_redis():
+    from app.services.chat.summarize import summarize_conversation
+
+    generations = [
+        "Facts: considering Redis\nOpen: cache choice",
+        "Facts: considering Redis\nTopics: API\nOpen: cache choice",
+        "Facts: considering Redis\nTopics: API, deploy\nOpen: cache choice",
+    ]
+
+    async def fake_complete(**kwargs):
+        system = kwargs["messages"][0]["content"]
+        assert "considering" in system
+        return generations.pop(0)
+
+    prior = None
+    with patch("app.services.chat.summarize.litellm_gateway.complete_text", fake_complete):
+        for round_messages in (
+            [{"role": "user", "content": "Maybe Redis?"}],
+            [{"role": "user", "content": "Still thinking about Redis."}],
+            [{"role": "user", "content": "We talked about deploy too."}],
+        ):
+            prior = await summarize_conversation(
+                Settings(mock_llm_enabled=False, openrouter_api_key="test-key"),
+                prior,
+                round_messages,
+            )
+            assert prior is not None
+            assert "considering Redis" in prior
+            assert "uses Redis" not in prior
+    assert generations == []

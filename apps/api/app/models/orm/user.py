@@ -54,6 +54,9 @@ class User(Base):
     response_style: Mapped[str] = mapped_column(String, default="balanced")
     response_tone: Mapped[str] = mapped_column(String, default="casual", server_default="casual")
     memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    memory_include_sensitive: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
