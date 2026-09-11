@@ -1,3 +1,8 @@
+"""HTTP and LLM-extract schemas for Learning classes.
+
+Quiz fence parse lives in ``learning_quiz`` (not re-exported from the barrel).
+"""
+
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
