@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Keyboard } from "react-native";
+import { Keyboard, Linking } from "react-native";
 import { useRouter } from "expo-router";
 
 import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
@@ -34,6 +34,9 @@ import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 import {
   pickDocument,
   HeicUnsupportedError,
+  NativePickerBusyError,
+  NativePickerTimeoutError,
+  PhotoLibraryPermissionError,
   pickFromCamera,
   pickFromPhotoLibrary,
   uploadChatAttachment,
@@ -598,6 +601,14 @@ export function useChatSend({
         if (!current()) return;
         if (error instanceof HeicUnsupportedError) {
           reportRecoverableWarning(feedback, t("chat.heic_unsupported_body"));
+        } else if (error instanceof PhotoLibraryPermissionError) {
+          if (error.needsSettings) void Linking.openSettings();
+          feedback?.error(t("chat.photos_permission"));
+        } else if (
+          error instanceof NativePickerBusyError ||
+          error instanceof NativePickerTimeoutError
+        ) {
+          feedback?.error(t("chat.picker_busy"));
         } else {
           feedback?.error(
             error instanceof Error ? error.message : t("chat.attach_failed"),

@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Math scanner close froze; Photos then died for the whole session.**
+  `if (!visible) return null` above `<Modal>` skips RN’s iOS dismiss path and
+  can tear down the picker presenter so `nativePickerActive` never clears.
+  Keep `<Modal visible={…}>` mounted until `onDismiss`; throw on overlapping
+  pick instead of returning `null`; watchdog the hung native promise.
 - **Solve-with-camera generated an image instead of solving.** The caption
   “Solve the math problem in this image…” is ≤80 chars and matches the short
   image-noun heuristic; a short “I read this as: x=2” line often stays under

@@ -757,7 +757,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/Gemini still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -825,8 +825,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   response caching, full duplex live voice (later).
 - 🔜 **Math scanner capture-quality** — on-device blur/glare/perspective correction and a
   real homework-photo OCR benchmark (handwritten/printed, lighting, tilt). Torch, zoom,
-  OCR read-back, and Mathpix routing are shipped; do not market “industry-leading OCR”
+  and Mathpix routing on the chat turn are shipped; do not market “industry-leading OCR”
   until that corpus exists.
+- 🔜 **Multi-subject homework scanner** — physics/chemistry captions would currently
+  still hit the math-only vision extractor (`has_math_keyword` includes `"solve"`).
+  Needs a subject registry + backend branch; not a scanner UX bug.
 - 🔜 **Production R2 + store polish** — attachment *code* is done; prod R2 secrets and App Store /
   Play billing polish are **future owner ops**, not a product coding task.
 - ✅ **Mobile UI systems (audit 2026-08)** — P0 contrast tokens, switch/chip labels, 44pt
