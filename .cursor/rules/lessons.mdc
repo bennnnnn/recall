@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Leftover SSE reported the next chat's TTFT.** Leave must not abort SSE, and
+  `parseChatWsPayload` used to record first token before the active-view filter.
+  Key the sample by optimistic turn id; mark transport/token only for that id
+  after the payload is accepted; drop leftover samples on fail/stop/regenerate.
 - **`8-8*2` got the right answer plus Couldn't verify.** `first_dim_pair`
   treats `8*2` as a rectangle size so the gate fired, then extract returned
   None (no shape word) and stamped the disclaimer — plus a ~6s tool-loop.

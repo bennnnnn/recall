@@ -11,6 +11,7 @@ import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { Message } from "@/lib/api";
+import { clearPendingChatTtft } from "@/lib/chatLatency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import {
@@ -384,6 +385,7 @@ export function useChatSend({
       newMessageCountRef.current += 1;
 
       const restoreDraft = () => {
+        clearPendingChatTtft(optimisticId);
         if (!isCurrentSession()) return;
         if (!isCurrentView()) {
           stashFailedDraftForThread(sendThreadKey, text);

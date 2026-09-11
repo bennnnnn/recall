@@ -1,5 +1,6 @@
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
+import { markChatTtftTransport } from "@/lib/chatLatency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/lib/chatSocketReduce";
@@ -27,6 +28,8 @@ type StreamChatSseClient = {
   model?: string | null;
   clientGeo?: ClientGeo | null;
   signal?: AbortSignal;
+  /** Optimistic user-message id for the send that opened this stream. */
+  ttftTurnId?: string | null;
   onEvent: (payload: ChatSsePayload) => void;
 };
 
@@ -40,6 +43,9 @@ async function streamChatSseRequest(
   options: StreamChatSseClient,
   extraBody: Record<string, unknown> = {},
 ): Promise<void> {
+  // If WS failed over, attribute this send's sample to SSE. A leftover stream
+  // from another chat must not stamp the active send; regenerate has no id.
+  markChatTtftTransport(options.ttftTurnId, "sse");
   // Route through lib/api's requestSse so this stream shares the REST path's
   // 401→refresh→retry behaviour and the lib/api boundary stays the single
   // network egress point (no bare fetch(getApiUrl()...) here).

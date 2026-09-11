@@ -40,15 +40,29 @@ class TurnTimingTracker:
         lightweight: bool = False,
         content_chars: int = 0,
     ) -> None:
+        prompt_ready = (
+            round(self._prompt_ready_ms, 1) if self._prompt_ready_ms is not None else None
+        )
+        first_token = round(self._first_token_ms, 1) if self._first_token_ms is not None else None
+        # This includes any tool-loop work between prompt assembly and the
+        # visible stream, so do not label it "provider latency". For non-tool
+        # turns it is the closest existing server-side measure of provider TTFT.
+        post_prompt_first_token = (
+            round(max(0.0, self._first_token_ms - self._prompt_ready_ms), 1)
+            if self._first_token_ms is not None and self._prompt_ready_ms is not None
+            else None
+        )
         logger.info(
             "chat_stream_timing user_id=%s chat_id=%s model=%s lightweight=%s "
-            "content_chars=%s prompt_ready_ms=%s first_token_ms=%s phases_ms=%s",
+            "content_chars=%s prompt_ready_ms=%s first_token_ms=%s "
+            "post_prompt_first_token_ms=%s phases_ms=%s",
             user_id,
             chat_id,
             model,
             lightweight,
             content_chars,
-            round(self._prompt_ready_ms, 1) if self._prompt_ready_ms is not None else None,
-            round(self._first_token_ms, 1) if self._first_token_ms is not None else None,
+            prompt_ready,
+            first_token,
+            post_prompt_first_token,
             {phase: round(ms, 1) for phase, ms in self._phases_ms.items()},
         )

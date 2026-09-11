@@ -7,6 +7,11 @@ jest.mock("@/lib/attachments", () => ({
   },
 }));
 
+jest.mock("@/lib/chatLatency", () => ({
+  markChatTtftStart: jest.fn(),
+}));
+
+import { markChatTtftStart } from "@/lib/chatLatency";
 import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
@@ -14,6 +19,10 @@ import {
 } from "@/lib/chat/chatSendLogic";
 
 describe("chatSendLogic", () => {
+  beforeEach(() => {
+    jest.mocked(markChatTtftStart).mockClear();
+  });
+
   it("shouldBlockSend rejects empty sends and busy states", () => {
     expect(
       shouldBlockSend({
@@ -123,6 +132,11 @@ describe("chatSendLogic", () => {
     expect(msg.content).toBe("notes.pdf");
     expect(msg.role).toBe("user");
     expect(msg.local_image_uri).toBeNull();
+    expect(markChatTtftStart).toHaveBeenCalledWith(
+      "local-1",
+      "2026-01-01T00:00:00.000Z",
+      true,
+    );
   });
 
   it("buildPendingSendAfterCreate marks skipUserBubble and image uri", () => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { chatWebSocketUrl, Message } from "@/lib/api";
 import { streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chatSse";
+import { clearPendingChatTtft, markChatFirstToken } from "@/lib/chatLatency";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { getSessionGeneration } from "@/lib/auth";
@@ -117,6 +118,8 @@ export function useChat(
    * appending a duplicate. Cleared on done/error/chat-switch.
    */
   const stoppedStreamedIdRef = useRef<string | null>(null);
+  /** Optimistic user-message id for the in-flight send's TTFT sample (WS). */
+  const ttftTurnIdRef = useRef<string | null>(null);
 
   const flushStreamingDraft = useCallback(() => {
     draftRafRef.current = null;
@@ -278,6 +281,8 @@ export function useChat(
     regenerateBackupRef.current = null;
     stoppedStreamedIdRef.current = null;
     regenerateUiActiveRef.current = false;
+    ttftTurnIdRef.current = null;
+    clearPendingChatTtft();
     clearTodoSyncTimers();
     updateStreamingDraft(null);
     setStreaming(false);
@@ -288,7 +293,7 @@ export function useChat(
   }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers]);
 
   const handleChatPayload = useCallback(
-    (payload: ChatSsePayload) => {
+    (payload: ChatSsePayload, ttftTurnId?: string | null) => {
       if (shouldIgnoreStoppedStreamEvent(payload.type, streamingRef.current)) {
         return;
       }
@@ -326,6 +331,7 @@ export function useChat(
 
       if (payload.type === "token") {
         pendingSendRef.current = null;
+        markChatFirstToken(ttftTurnId, payload.type);
         assistantBuffer.current += payload.content ?? "";
         updateStreamingDraft({
           content: assistantBuffer.current,
@@ -349,6 +355,7 @@ export function useChat(
         wsAuthFallbackRef.current = null;
         wsTurnRef.current = null;
         regenerateBackupRef.current = null;
+        ttftTurnIdRef.current = null;
         setSendingMessageId(null);
         const stoppedId = stoppedStreamedIdRef.current;
         stoppedStreamedIdRef.current = null;
@@ -385,6 +392,8 @@ export function useChat(
         // A start/status event alone is not acceptance; answer events are.
         const pending = pendingSendRef.current;
         pendingSendRef.current = null;
+        clearPendingChatTtft(ttftTurnId ?? pending?.messageId);
+        ttftTurnIdRef.current = null;
         const reason = payload.code === "busy" ? "send_rejected"
           : payload.code === "attachment_rejected" ? "attachment_rejected" : null;
         const queuedUnsaved = Boolean(pending && reason);
@@ -448,9 +457,9 @@ export function useChat(
   );
 
   const handleChatPayloadForChat = useCallback(
-    (boundChatId: string | null, payload: ChatSsePayload) => {
+    (boundChatId: string | null, payload: ChatSsePayload, ttftTurnId?: string | null) => {
       if (!isCurrentView() || viewingChatIdRef.current !== boundChatId) return;
-      handleChatPayload(payload);
+      handleChatPayload(payload, ttftTurnId);
     },
     [handleChatPayload, isCurrentView],
   );
@@ -536,6 +545,10 @@ export function useChat(
           assistantBuffer.current = "";
           updateStreamingDraft(null);
           setSendingMessageId(null);
+          if (!hadContent) {
+            clearPendingChatTtft(ttftTurnIdRef.current ?? pending?.messageId);
+            ttftTurnIdRef.current = null;
+          }
           setMessages((prev) => {
             const streamingMsg = prev.find((m) => m.id === "streaming");
             if (!streamingMsg) return prev;
@@ -586,7 +599,7 @@ export function useChat(
         if (payload.type === "error" && payload.message === "Unauthorized") {
           const fallback = wsAuthFallbackRef.current;
           if (!fallback && wsTurnRef.current === ws) {
-            handleChatPayloadForChat(chatId, payload);
+            handleChatPayloadForChat(chatId, payload, ttftTurnIdRef.current);
             return;
           }
           wsAuthFallbackRef.current = null;
@@ -597,7 +610,7 @@ export function useChat(
           if (fallback?.socket === ws) void fallback.retry();
           return;
         }
-        handleChatPayloadForChat(chatId, payload);
+        handleChatPayloadForChat(chatId, payload, ttftTurnIdRef.current);
       };
     });
 
@@ -642,10 +655,12 @@ export function useChat(
         attachmentIds?: string[];
         model?: string | null;
         clientGeo?: ClientGeo | null;
+        ttftTurnId?: string | null;
       },
     ) => {
       if (!token || !chatId) return;
       const signal = beginSseStream();
+      const ttftTurnId = options?.ttftTurnId ?? null;
       try {
         await streamChatMessageSse({
           token,
@@ -654,10 +669,11 @@ export function useChat(
           attachmentIds: options?.attachmentIds,
           model: options?.model,
           clientGeo: options?.clientGeo,
+          ttftTurnId,
           signal,
           onEvent: (payload) => {
             if (!signal.aborted && sseAbortRef.current?.signal === signal) {
-              handleChatPayloadForChat(chatId, payload);
+              handleChatPayloadForChat(chatId, payload, ttftTurnId);
             }
           },
         });
@@ -665,6 +681,8 @@ export function useChat(
         if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal || isSseAbortError(err)) return;
         const pending = pendingSendRef.current;
         pendingSendRef.current = null;
+        clearPendingChatTtft(ttftTurnId ?? pending?.messageId);
+        ttftTurnIdRef.current = null;
         setSendingMessageId(null);
         setStreaming(false);
         setFinalizing(false);
@@ -800,6 +818,7 @@ export function useChat(
           clientGeo: options?.clientGeo ? { ...options.clientGeo } : options?.clientGeo,
         },
       };
+      ttftTurnIdRef.current = trackedId;
       assistantBuffer.current = "";
       // Typing dots immediately — don't wait for the socket or server `start`,
       // and don't leave "Sending" on the user bubble while we connect.
@@ -834,6 +853,7 @@ export function useChat(
           attachmentIds: options?.attachmentIds,
           model: options?.model,
           clientGeo: options?.clientGeo,
+          ttftTurnId: trackedId,
         });
         return;
       }
@@ -845,6 +865,7 @@ export function useChat(
           attachmentIds: options?.attachmentIds,
           model: options?.model,
           clientGeo: options?.clientGeo,
+          ttftTurnId: trackedId,
         }),
       };
       wsRef.current.send(
@@ -894,6 +915,8 @@ export function useChat(
     if (!isCurrentView()) return;
     const attempt = ++sendAttemptRef.current;
     pendingSendRef.current = null;
+    ttftTurnIdRef.current = null;
+    clearPendingChatTtft();
     regenerateUiActiveRef.current = true;
     const popped = popLastAssistantMessage(messagesRef.current);
     regenerateBackupRef.current = popped.backup;
@@ -964,6 +987,8 @@ export function useChat(
     setRejectedSend(null);
     wsAuthFallbackRef.current = null;
     regenerateUiActiveRef.current = false;
+    clearPendingChatTtft(ttftTurnIdRef.current);
+    ttftTurnIdRef.current = null;
     sseAbortRef.current?.abort();
     sseAbortRef.current = null;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
